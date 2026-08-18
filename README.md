@@ -2,7 +2,7 @@
 
 Bottie is a local-first desktop chatbot built with Tauri 2, Rust, Svelte, and TypeScript. It is designed to connect to oMLX, Ollama, Anthropic-compatible, and OpenAI-compatible inference providers while keeping application secrets, files, tools, and persistent memory behind the Rust boundary.
 
-The current developer preview pairs the interactive product shell with real, text-only local inference through oMLX. The Rust core discovers models from `127.0.0.1:8000`, streams normalized response events over a typed Tauri IPC channel, and owns end-to-end cancellation. Persistence, attachments, memory retrieval, tools, and remote providers are intentionally not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
+The current developer preview pairs the interactive product shell with real, text-only local inference through oMLX and Ollama. The Rust core discovers models from fixed loopback endpoints, streams normalized response events over a typed Tauri IPC channel, and owns end-to-end cancellation. Persistence, attachments, memory retrieval, tools, and remote providers are intentionally not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
 
 ## Development
 
@@ -28,7 +28,7 @@ Run the native desktop application:
 npm run tauri dev
 ```
 
-With oMLX running on its default loopback port, the native app discovers available models automatically. The endpoint is fixed inside Rust for this slice and is never supplied by the WebView.
+With oMLX or Ollama running on its default loopback port, the native app discovers available models automatically. The endpoints (`127.0.0.1:8000` and `127.0.0.1:11434`) are fixed inside Rust and are never supplied by the WebView. Ollama discovery also normalizes model capabilities, context size, and loaded/on-demand state.
 
 Run the layout-only browser preview:
 
@@ -38,10 +38,11 @@ npm run dev
 
 The browser preview deliberately disables sending and reports that native inference is unavailable.
 
-Two ignored tests exercise the adapter against a live local oMLX instance:
+Four ignored tests exercise streaming and cancellation against live local providers:
 
 ```sh
 cargo test --manifest-path src-tauri/Cargo.toml live_omlx_stream -- --ignored --test-threads=1
+cargo test --manifest-path src-tauri/Cargo.toml live_ollama_stream -- --ignored --test-threads=1
 ```
 
 ## Planned architecture
@@ -56,3 +57,5 @@ The WebView owns presentation state. The Rust application core will own:
 - privacy policy enforcement and audit data.
 
 The provider layer will normalize OpenAI, Anthropic, Ollama, and oMLX responses into a capability-aware internal event stream rather than assuming every compatible endpoint behaves identically.
+
+For the planned memory subsystem, bottie will use FastEmbed inside Rust with the quantized EmbeddingGemma 300M model as its single built-in embedding default. The application will own model download/cache UX and embedding-version metadata; users will not need to configure a second inference provider merely to enable local memory search.

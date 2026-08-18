@@ -44,10 +44,12 @@ See `HANDOVER.md` for verification evidence.
 
 ### 1.2 Ollama
 
-- native Ollama discovery and chat adapter;
-- capability mapping for tools, vision, embeddings, and context size;
-- explicit model loading/unloading state where available;
-- parity tests against the normalized stream contract.
+Status: complete
+
+- [x] native Ollama discovery and chat adapter;
+- [x] capability mapping for tools, vision, embeddings, and context size;
+- [x] explicit loaded/on-demand model state from the running-model API;
+- [x] fixture and opt-in live parity tests against the normalized stream contract.
 
 ### 1.3 Provider configuration
 
@@ -119,8 +121,9 @@ Outcome: models can retrieve relevant past conversations with visible provenance
 
 - SQLite FTS5 index and BM25 lexical search;
 - statically linked `sqlite-vec` semantic index;
+- Rust-owned FastEmbed runtime using quantized EmbeddingGemma 300M as the single built-in embedding model;
+- application-owned model download/cache progress and versioned embedding metadata, without a user-facing embedding-provider picker;
 - chunking for messages and extracted documents;
-- embedding provider abstraction;
 - embedding model, dimensions, chunking version, and index-generation metadata;
 - resumable background indexing and complete reindex support;
 - reciprocal-rank fusion of lexical and vector results;

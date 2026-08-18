@@ -4,7 +4,7 @@ Last verified: 2026-08-18
 
 ## Start here
 
-Bottie is a greenfield Tauri 2 desktop chatbot. The product shell and the first inference implementation are complete: the native app discovers local oMLX models and streams text through Rust-owned networking and cancellation. The next session should take the bounded Ollama adapter slice from Roadmap 1.2; do not reopen broad product or visual-design planning.
+Bottie is a greenfield Tauri 2 desktop chatbot. The product shell and both local inference adapters are complete: the native app discovers oMLX and Ollama models and streams text through Rust-owned networking and cancellation. The next session should take the bounded provider-configuration slice from Roadmap 1.3; do not reopen broad product or visual-design planning.
 
 Read these files first:
 
@@ -32,7 +32,7 @@ There is currently no remote repository. Work begins on local branch `main`.
 `src/routes/+page.svelte` currently provides:
 
 - desktop conversation navigation and responsive mobile navigation;
-- a live oMLX model picker, connection/offline state, retry action, and local-only privacy indicator;
+- a combined oMLX/Ollama model picker, connection/offline state, retry action, loaded/on-demand state, and local-only privacy indicator;
 - user and assistant message presentation;
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
 - attachment selection and removal in presentation state;
@@ -46,7 +46,7 @@ There is currently no remote repository. Work begins on local branch `main`.
 
 ### Native boundary
 
-`src-tauri/src/lib.rs` exposes typed `app_info`, `discover_models`, `start_chat`, and `cancel_chat` commands. Each generation receives an opaque Rust-owned run ID and one typed IPC channel. `src-tauri/src/inference/` contains the provider-neutral types/trait plus the oMLX adapter; provider JSON and SSE parsing do not reach Svelte.
+`src-tauri/src/lib.rs` exposes typed `app_info`, `discover_models`, `start_chat`, and `cancel_chat` commands. Each generation receives an opaque Rust-owned run ID and one typed IPC channel. `src-tauri/src/inference/` contains the provider-neutral types/trait plus the oMLX and Ollama adapters; provider JSON, SSE, and NDJSON parsing do not reach Svelte.
 
 The oMLX adapter:
 
@@ -56,6 +56,16 @@ The oMLX adapter:
 - normalizes started, text delta, usage, completed, cancelled, and failed events;
 - maps connection, timeout, HTTP, and malformed-response failures to structured user-readable errors;
 - aborts the active HTTP stream when the UI cancels a run.
+
+The Ollama adapter:
+
+- owns and validates the fixed `http://127.0.0.1:11434/` loopback endpoint;
+- discovers installed models with `GET /api/tags`, capabilities/context with `POST /api/show`, and loaded state with `GET /api/ps`;
+- streams native `POST /api/chat` NDJSON responses;
+- normalizes text, prompt/output usage, completion, provider errors, and malformed streams;
+- shares the same Rust abort-handle and typed-channel cancellation path as oMLX.
+
+Requests now include a provider ID because model names can collide across local providers. Discovery tolerates either provider being offline and reports a combined retryable error only when neither provides a streaming text model.
 
 The native configuration currently has:
 
@@ -69,7 +79,7 @@ The native configuration currently has:
 Do not mistake visual fixtures for implemented backend behavior:
 
 - memory cards and relevance scores are fixtures;
-- context usage and tool sources are fixtures; response elapsed time is real, while token usage appears only when oMLX reports it;
+- context usage and tool sources are fixtures; response elapsed time is real, while token usage appears when the selected provider reports it;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
 - conversations disappear at restart;
@@ -90,14 +100,15 @@ The browser preview intentionally reports `Browser preview`; only the native Tau
 6. Represent future messages as content blocks rather than assuming all content is one text string. Planned blocks include text, image, document, audio, tool calls, tool results, citations, and reasoning summaries.
 7. Bottie should own its tool loop so memory and web tools behave consistently across providers.
 8. Preserve cancellation throughout the stack: UI control, Tauri command, Rust task, and HTTP stream.
+9. The memory milestone has settled on Rust-owned FastEmbed with quantized EmbeddingGemma 300M as one built-in default. Do not add a user-facing embedding-provider picker. Model download/cache UX and versioned index metadata must land with the first real embedding consumer, not as a dormant dependency in inference-provider work.
 
-## Current bounded slice: real oMLX streaming
+## Current bounded slice: Ollama parity
 
 ### Goal
 
-Replace the simulated response path with one real text-only oMLX conversation streamed through the Rust core, while keeping the existing UI behavior and privacy boundary intact.
+Add native Ollama discovery and text streaming behind the existing provider-neutral contract while preserving oMLX behavior, cancellation, and the Rust/WebView privacy boundary.
 
-This slice should introduce only enough provider abstraction to make the next Ollama adapter straightforward. Do not add SQLite, attachments, memory retrieval, remote-provider credentials, web search, or a general MCP runtime in the same change.
+Do not add SQLite, attachments, memory retrieval, remote-provider credentials, web search, or a general MCP runtime in the same change.
 
 ### Implemented shape
 
@@ -108,13 +119,15 @@ This slice should introduce only enough provider abstraction to make the next Ol
    ├── mod.rs
    ├── types.rs
    ├── provider.rs
+   ├── ollama.rs
    └── omlx.rs
    ```
 
 2. Serializable internal types cover:
 
    - provider/model identity;
-   - provider capabilities;
+   - provider capabilities including embeddings;
+   - loaded, unloaded, or unknown model state;
    - text content blocks and chat turns;
    - chat request settings;
    - normalized stream events;
@@ -133,9 +146,9 @@ This slice should introduce only enough provider abstraction to make the next Ol
 
    Tool, reasoning, citation, image, and audio events belong in later slices unless required to keep the type extensible.
 
-4. Rust-owned provider state uses a validated loopback-only oMLX base URL. No generic URL-fetching command exists.
+4. Rust-owned provider state uses validated, fixed loopback-only oMLX and Ollama base URLs. No generic URL-fetching command exists.
 
-5. Model discovery and text streaming use the oMLX endpoints above.
+5. Ollama discovery combines `/api/tags`, `/api/show`, and `/api/ps`; chat uses native `/api/chat` NDJSON rather than Ollama's OpenAI compatibility layer.
 
 6. Normalized events use `tauri::ipc::Channel` rather than global events.
 
@@ -143,20 +156,20 @@ This slice should introduce only enough provider abstraction to make the next Ol
 
 8. `src/lib/inference.ts` is the typed frontend client; Svelte consumes only normalized events.
 
-9. The model picker uses discovery results and the UI has checking, available, offline/retry, and browser-preview states.
+9. The model picker uses provider-qualified keys, shows the provider and Ollama loaded/on-demand state, and retains checking, available, offline/retry, and browser-preview states.
 
-10. Simulated response generation was removed. The opening conversation remains explicitly labelled `Product shell fixture`.
+10. Discovery runs both providers concurrently, keeps either provider usable when the other is offline, and returns one combined error only when no streaming text model is available.
 
 ### Acceptance criteria
 
-- With oMLX running on loopback, bottie discovers at least one model and streams a real text reply.
+- With Ollama running on loopback, bottie discovers at least one chat model and streams a real text reply.
 - The UI remains responsive while streaming.
 - Stop generation interrupts the Rust task promptly and leaves a valid partial assistant message.
 - Network, malformed-event, server, and unavailable-provider failures become user-readable errors rather than panics.
 - Provider-specific response data does not leak into UI state outside an optional diagnostic representation.
 - No API key or unrestricted HTTP capability reaches the WebView.
 - The browser preview presents a clear disconnected or fixture state and does not pretend native inference is available.
-- Unit tests cover model-list decoding, SSE event decoding, completion, provider errors, and cancellation behavior where practical.
+- Unit tests cover model/capability/context/load-state decoding, fragmented NDJSON, completion usage, provider errors, loopback enforcement, and cancellation behavior.
 - `npm run check`, `npm run build`, `cargo fmt --check`, and `cargo test` pass.
 - The native application is manually checked for send, streaming, cancel, offline recovery, and restart.
 
@@ -166,39 +179,25 @@ This slice should introduce only enough provider abstraction to make the next Ol
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-18 before the inference change:
+The following passed on 2026-08-18:
 
 ```sh
 npm run check
 npm run build
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo check --manifest-path src-tauri/Cargo.toml
-npm run tauri dev
-```
-
-Manual interaction checks covered:
-
-- desktop rendering;
-- 760 px responsive rendering without horizontal overflow;
-- context-panel close and reopen;
-- simulated activity stages;
-- streamed text rendering;
-- stop-generation cancellation;
-- browser console errors, with none observed.
-
-The native development process was stopped after verification.
-
-For the oMLX slice, the following have passed:
-
-```sh
-npm run check
 cargo test --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml live_ollama_stream -- --ignored --test-threads=1
 cargo test --manifest-path src-tauri/Cargo.toml live_omlx_stream -- --ignored --test-threads=1
 ```
 
-The standard Rust suite currently has eleven tests: nine run by default and two opt-in live oMLX tests. The live tests used `mlx-community--LFM2-1.2B-8bit` from the running local catalogue and verified both complete streaming and abort-after-first-delta. The browser preview was checked for a visible disconnected message, disabled composer/send controls, and no console errors. The native app was launched twice and visually confirmed to rediscover the real oMLX model catalogue and connected loopback route after restart. The user manually confirmed model selection, incremental response streaming, and Stop preserving a valid partial assistant response. Unavailable-provider mapping and retry presentation are covered by automated tests and browser-state inspection; physically stopping and restarting oMLX remains an optional smoke check.
+The standard Rust suite has twenty-one tests: seventeen run by default and four are opt-in live-provider tests. Both live Ollama tests passed against the user's running local catalogue, verifying complete streaming and abort-after-first-delta. The earlier live oMLX completion/cancellation checks also passed.
 
-The next bounded implementation slice is Roadmap 1.2: an Ollama adapter with parity against the same normalized stream contract. Do not combine Ollama with persistence or provider-settings work.
+The browser preview was checked at the desktop default and 760 px. It shows the provider-neutral disconnected message, disables composer/send controls, has no horizontal overflow, and produced no console warnings or errors.
+
+The native Tauri app was then launched against the running Ollama catalogue. The user reviewed the resulting provider/model experience and confirmed that it works, completing the native acceptance check for Roadmap 1.2.
+
+The next bounded implementation slice is Roadmap 1.3: provider configuration. Keep FastEmbed/EmbeddingGemma implementation with the first memory-search storage slice, where download progress, cache location, dimensions, and reindex metadata can be implemented coherently.
 
 ## Development commands
 

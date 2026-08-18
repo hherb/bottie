@@ -62,11 +62,6 @@
     },
   ];
 
-  const inferenceStages = [
-    { icon: "shield" as const, label: "Connected locally", detail: "Rust → oMLX" },
-    { icon: "sparkles" as const, label: "Streaming response", detail: "Text only" },
-  ];
-
   const initialMessages: Message[] = [
     {
       id: 1,
@@ -102,14 +97,29 @@
   let attachmentInput: HTMLInputElement;
   let runtime = $state<RuntimeInfo>({ name: "bottie", version: "preview", storage: "local" });
   let models = $state<ModelInfo[]>([]);
-  let selectedModelId = $state("");
+  let selectedModelKey = $state("");
   let providerStatus = $state<"checking" | "available" | "offline" | "browser">(
     isTauri() ? "checking" : "browser",
   );
   let providerError = $state<ProviderError | null>(null);
   let currentUsage = $state<Usage | null>(null);
-  const selectedModel = $derived(models.find((model) => model.modelId === selectedModelId));
-  const canSend = $derived(providerStatus === "available" && Boolean(selectedModelId));
+  const selectedModel = $derived(models.find((model) => modelKey(model) === selectedModelKey));
+  const canSend = $derived(providerStatus === "available" && Boolean(selectedModel));
+  const selectedProviderEndpoint = $derived(
+    selectedModel?.providerId === "ollama" ? "127.0.0.1:11434" : "127.0.0.1:8000",
+  );
+  const inferenceStages = $derived([
+    {
+      icon: "shield" as const,
+      label: "Connected locally",
+      detail: `Rust → ${selectedModel?.providerName ?? "provider"}`,
+    },
+    { icon: "sparkles" as const, label: "Streaming response", detail: "Text only" },
+  ]);
+
+  function modelKey(model: Pick<ModelInfo, "providerId" | "modelId">) {
+    return `${model.providerId}:${model.modelId}`;
+  }
 
   onMount(async () => {
     if (isTauri()) {
@@ -122,7 +132,7 @@
     } else {
       providerError = {
         code: "unavailable",
-        message: "Browser preview is disconnected. Open the native Tauri app to use local oMLX inference.",
+        message: "Browser preview is disconnected. Open the native Tauri app to use local inference.",
         retryable: false,
       };
     }
@@ -135,20 +145,20 @@
     try {
       const discovered = await discoverModels();
       models = discovered.filter((model) => model.capabilities.text && model.capabilities.streaming);
-      if (!models.some((model) => model.modelId === selectedModelId)) {
-        selectedModelId = models[0]?.modelId ?? "";
+      if (!models.some((model) => modelKey(model) === selectedModelKey)) {
+        selectedModelKey = models[0] ? modelKey(models[0]) : "";
       }
       providerStatus = models.length > 0 ? "available" : "offline";
       if (models.length === 0) {
         providerError = {
           code: "unavailable",
-          message: "oMLX is running but did not report a streaming text model.",
+          message: "The local providers did not report a streaming text model.",
           retryable: true,
         };
       }
     } catch (error) {
       models = [];
-      selectedModelId = "";
+      selectedModelKey = "";
       providerStatus = "offline";
       providerError = providerErrorFromUnknown(error);
     }
@@ -198,7 +208,7 @@
       id: assistantId,
       role: "assistant",
       content: "",
-      model: model?.displayName ?? selectedModelId,
+      model: model ? `${model.displayName} · ${model.providerName}` : "Local model",
     });
     const startedAt = performance.now();
     await scrollToBottom();
@@ -239,7 +249,7 @@
 
     try {
       const chatRun = await startChat(
-        { modelId: selectedModelId, messages: requestMessages },
+        { providerId: model!.providerId, modelId: model!.modelId, messages: requestMessages },
         handleEvent,
       );
       if (run === generationRun) {
@@ -431,22 +441,22 @@
         <span class="model-copy">
           <strong>
             {providerStatus === "checking"
-              ? "Checking oMLX…"
-              : selectedModel?.displayName ?? (providerStatus === "browser" ? "Browser preview" : "oMLX offline")}
+              ? "Checking local providers…"
+              : selectedModel?.displayName ?? (providerStatus === "browser" ? "Browser preview" : "Providers offline")}
           </strong>
           <small>
             {providerStatus === "available"
-              ? `${selectedModel?.providerName ?? "oMLX"} · local`
+              ? `${selectedModel?.providerName ?? "Local"} · ${selectedModel?.loadState === "loaded" ? "loaded" : selectedModel?.loadState === "unloaded" ? "loads on demand" : "local"}`
               : providerStatus === "browser"
                 ? "Native inference unavailable"
-                : "localhost:8000"}
+                : "localhost:8000 / 11434"}
           </small>
         </span>
         {#if providerStatus === "available"}
           <Icon name="chevron-down" size={15} />
-          <select bind:value={selectedModelId} aria-label="Choose local oMLX model">
-            {#each models as model (model.modelId)}
-              <option value={model.modelId}>{model.displayName}</option>
+          <select bind:value={selectedModelKey} aria-label="Choose local model and provider">
+            {#each models as model (modelKey(model))}
+              <option value={modelKey(model)}>{model.providerName} · {model.displayName}{model.loadState === "loaded" ? " · loaded" : ""}</option>
             {/each}
           </select>
         {/if}
@@ -477,7 +487,7 @@
         <div class:offline={providerStatus === "offline"} class="provider-banner" role="status">
           <Icon name="shield" size={16} />
           <span>
-            <strong>{providerStatus === "checking" ? "Connecting to local oMLX…" : providerError?.message}</strong>
+            <strong>{providerStatus === "checking" ? "Connecting to local providers…" : providerError?.message}</strong>
             {#if providerError?.diagnostic}<small>{providerError.diagnostic}</small>{/if}
           </span>
           {#if providerStatus === "offline"}
@@ -555,7 +565,7 @@
           <div class="activity-card" aria-live="polite">
             <div class="activity-heading">
               <span class="activity-orbit"><span></span></span>
-              <strong>{activeStage === 0 ? "Starting local inference" : "oMLX is responding"}</strong>
+              <strong>{activeStage === 0 ? "Starting local inference" : `${selectedModel?.providerName ?? "Provider"} is responding`}</strong>
             </div>
             <div class="activity-stages">
               {#each inferenceStages as stage, index}
@@ -602,7 +612,7 @@
           onkeydown={handleComposerKeydown}
           rows="1"
           disabled={!canSend && !isGenerating}
-          placeholder={providerStatus === "available" ? "Message the local model…" : "Connect to oMLX to send a message"}
+          placeholder={providerStatus === "available" ? "Message the local model…" : "Connect a local provider to send a message"}
           aria-label="Message bottie"
         ></textarea>
 
@@ -716,7 +726,7 @@
         </div>
         <div class="route-labels">
           <span><strong>This Mac</strong><small>Conversation + files</small></span>
-          <span><strong>oMLX</strong><small>127.0.0.1:8000</small></span>
+          <span><strong>{selectedModel?.providerName ?? "Local provider"}</strong><small>{selectedProviderEndpoint}</small></span>
         </div>
         <div class:offline={providerStatus !== "available"} class="route-status">
           <span></span>

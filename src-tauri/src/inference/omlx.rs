@@ -9,8 +9,8 @@ use super::{
     InferenceProvider,
     provider::StreamSink,
     types::{
-        ChatRequest, ChatRole, ContentBlock, ModelInfo, ProviderCapabilities, ProviderError,
-        ProviderErrorCode, Usage,
+        ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
+        ProviderError, ProviderErrorCode, Usage,
     },
 };
 
@@ -252,6 +252,7 @@ fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
             display_name: model.id.replace("--", "/"),
             model_id: model.id,
             max_context_tokens: model.max_model_len,
+            load_state: ModelLoadState::Unknown,
             capabilities: ProviderCapabilities {
                 text: true,
                 streaming: true,
@@ -486,6 +487,7 @@ mod tests {
 
     fn live_request(model_id: String, prompt: &str) -> ChatRequest {
         ChatRequest {
+            provider_id: PROVIDER_ID.into(),
             model_id,
             messages: vec![ChatTurn {
                 role: ChatRole::User,

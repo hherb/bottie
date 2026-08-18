@@ -6,11 +6,13 @@ export type ModelInfo = {
   modelId: string;
   displayName: string;
   maxContextTokens: number | null;
+  loadState: "loaded" | "unloaded" | "unknown";
   capabilities: {
     text: boolean;
     streaming: boolean;
     tools: boolean;
     vision: boolean;
+    embeddings: boolean;
   };
 };
 
@@ -20,6 +22,7 @@ export type ChatTurn = {
 };
 
 export type ChatRequest = {
+  providerId: string;
   modelId: string;
   messages: ChatTurn[];
   settings?: {
@@ -53,7 +56,7 @@ export type ChatRun = { runId: string };
 function unavailableInBrowser(): ProviderError {
   return {
     code: "unavailable",
-    message: "Native inference is unavailable in the browser preview. Open the Tauri app to use oMLX.",
+    message: "Native inference is unavailable in the browser preview. Open the Tauri app to use a local provider.",
     retryable: false,
   };
 }

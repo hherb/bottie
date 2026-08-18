@@ -9,7 +9,18 @@ pub struct ModelInfo {
     pub model_id: String,
     pub display_name: String,
     pub max_context_tokens: Option<u64>,
+    pub load_state: ModelLoadState,
     pub capabilities: ProviderCapabilities,
+}
+
+/// Whether a locally installed model is currently resident in memory.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelLoadState {
+    Loaded,
+    Unloaded,
+    #[default]
+    Unknown,
 }
 
 /// Capabilities known to be supported by a provider/model pair.
@@ -20,12 +31,14 @@ pub struct ProviderCapabilities {
     pub streaming: bool,
     pub tools: bool,
     pub vision: bool,
+    pub embeddings: bool,
 }
 
 /// One conversation request accepted by the provider-neutral command.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatRequest {
+    pub provider_id: String,
     pub model_id: String,
     pub messages: Vec<ChatTurn>,
     #[serde(default)]
