@@ -53,6 +53,31 @@ export type StreamEvent =
 
 export type ChatRun = { runId: string };
 
+export type LocalProviderId = "omlx" | "ollama";
+
+export type ProviderSettings = {
+  omlxBaseUrl: string;
+  ollamaBaseUrl: string;
+  lastProviderId: LocalProviderId | null;
+  lastModelId: string | null;
+};
+
+export type ProviderConnectionTest = {
+  providerId: string;
+  baseUrl: string;
+  modelCount: number;
+  elapsedMs: number;
+  message: string;
+};
+
+export type DiagnosticEntry = {
+  timestampMs: number;
+  level: "info" | "warn" | "error";
+  event: string;
+  providerId: string | null;
+  detail: string | null;
+};
+
 function unavailableInBrowser(): ProviderError {
   return {
     code: "unavailable",
@@ -61,9 +86,46 @@ function unavailableInBrowser(): ProviderError {
   };
 }
 
-export async function discoverModels(): Promise<ModelInfo[]> {
+export async function discoverModels(providerId?: LocalProviderId): Promise<ModelInfo[]> {
   if (!isTauri()) throw unavailableInBrowser();
-  return invoke<ModelInfo[]>("discover_models");
+  return invoke<ModelInfo[]>("discover_models", { providerId: providerId ?? null });
+}
+
+export async function getProviderSettings(): Promise<ProviderSettings> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ProviderSettings>("get_provider_settings");
+}
+
+export async function updateProviderSettings(
+  settings: ProviderSettings,
+): Promise<ProviderSettings> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ProviderSettings>("update_provider_settings", { settings });
+}
+
+export async function rememberProviderSelection(
+  providerId: LocalProviderId,
+  modelId: string,
+): Promise<ProviderSettings> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ProviderSettings>("remember_provider_selection", {
+    selection: { providerId, modelId },
+  });
+}
+
+export async function testProviderConnection(
+  providerId: LocalProviderId,
+  baseUrl: string,
+): Promise<ProviderConnectionTest> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ProviderConnectionTest>("test_provider_connection", {
+    draft: { providerId, baseUrl },
+  });
+}
+
+export async function getDiagnostics(): Promise<DiagnosticEntry[]> {
+  if (!isTauri()) return [];
+  return invoke<DiagnosticEntry[]>("get_diagnostics");
 }
 
 export async function startChat(

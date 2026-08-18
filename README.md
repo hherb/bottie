@@ -2,7 +2,7 @@
 
 Bottie is a local-first desktop chatbot built with Tauri 2, Rust, Svelte, and TypeScript. It is designed to connect to oMLX, Ollama, Anthropic-compatible, and OpenAI-compatible inference providers while keeping application secrets, files, tools, and persistent memory behind the Rust boundary.
 
-The current developer preview pairs the interactive product shell with real, text-only local inference through oMLX and Ollama. The Rust core discovers models from fixed loopback endpoints, streams normalized response events over a typed Tauri IPC channel, and owns end-to-end cancellation. Persistence, attachments, memory retrieval, tools, and remote providers are intentionally not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
+The current developer preview pairs the interactive product shell with real, text-only local inference through oMLX and Ollama. The Rust core validates and stores loopback-only provider endpoints, discovers models, tests connections, streams normalized response events over a typed Tauri IPC channel, and owns end-to-end cancellation. Conversation persistence, attachments, memory retrieval, tools, remote providers, and API credentials are intentionally not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
 
 ## Development
 
@@ -28,7 +28,7 @@ Run the native desktop application:
 npm run tauri dev
 ```
 
-With oMLX or Ollama running on its default loopback port, the native app discovers available models automatically. The endpoints (`127.0.0.1:8000` and `127.0.0.1:11434`) are fixed inside Rust and are never supplied by the WebView. Ollama discovery also normalizes model capabilities, context size, and loaded/on-demand state.
+With oMLX or Ollama running on its default loopback port, the native app discovers available models automatically. Provider and model use separate selectors; changing providers refreshes that provider's models, and the last successful pair is restored after restart. Settings can change either endpoint and test it before saving. Rust rejects non-loopback hosts, embedded credentials, paths, query strings, and fragments; redirects are disabled, and no HTTP capability is exposed to the WebView. Ollama discovery also normalizes model capabilities, context size, and loaded/on-demand state.
 
 Run the layout-only browser preview:
 

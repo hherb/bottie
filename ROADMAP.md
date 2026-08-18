@@ -53,12 +53,19 @@ Status: complete
 
 ### 1.3 Provider configuration
 
-- provider settings UI;
-- endpoint validation and connection testing;
-- model picker populated from actual discovery;
-- per-conversation provider/model choice;
-- sensible timeouts and reconnect behavior;
-- diagnostic logging with secret redaction.
+Status: complete
+
+- [x] provider settings UI;
+- [x] persisted Rust-owned local endpoint settings;
+- [x] loopback-only endpoint validation and connection testing;
+- [x] model picker populated from actual discovery;
+- [x] separate provider/model selectors with provider-specific model refresh;
+- [x] last successful provider/model selection remembered across restart;
+- [x] provider-qualified model choice applied to the active conversation and recorded on responses;
+- [x] sensible connect, discovery, stream-idle, and reconnect behavior;
+- [x] structured in-memory diagnostic logging with secret redaction.
+
+The native provider/model selection, provider-specific refresh, and remembered-selection experience were manually reviewed and confirmed on 2026-08-18; see `HANDOVER.md`.
 
 ### 1.4 Remote OpenAI and Anthropic APIs
 

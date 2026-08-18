@@ -5,11 +5,19 @@
   import {
     cancelChat,
     discoverModels,
+    getDiagnostics,
+    getProviderSettings,
     providerErrorFromUnknown,
+    rememberProviderSelection,
     startChat,
+    testProviderConnection,
+    updateProviderSettings,
     type ChatTurn,
+    type DiagnosticEntry,
+    type LocalProviderId,
     type ModelInfo,
     type ProviderError,
+    type ProviderSettings,
     type StreamEvent,
     type Usage,
   } from "$lib/inference";
@@ -35,6 +43,11 @@
     name: string;
     version: string;
     storage: string;
+  };
+
+  type ConnectionTestState = {
+    status: "idle" | "testing" | "success" | "error";
+    message: string;
   };
 
   const conversationGroups = [
@@ -78,6 +91,11 @@
     },
   ];
 
+  const providerOptions: Array<{ id: LocalProviderId; name: string }> = [
+    { id: "ollama", name: "Ollama" },
+    { id: "omlx", name: "oMLX" },
+  ];
+
   let messages = $state<Message[]>(initialMessages.map((message) => ({ ...message })));
   let attachments = $state<Attachment[]>([
     { id: 1, name: "bottie-notes.md", size: "18 KB", kind: "file" },
@@ -92,21 +110,46 @@
   let messageSequence = Date.now();
   let showContext = $state(true);
   let showSidebar = $state(false);
+  let showSettings = $state(false);
   let messageScroll: HTMLDivElement;
   let composer: HTMLTextAreaElement;
   let attachmentInput: HTMLInputElement;
   let runtime = $state<RuntimeInfo>({ name: "bottie", version: "preview", storage: "local" });
   let models = $state<ModelInfo[]>([]);
+  let selectedProviderId = $state<LocalProviderId | "">("");
   let selectedModelKey = $state("");
   let providerStatus = $state<"checking" | "available" | "offline" | "browser">(
     isTauri() ? "checking" : "browser",
   );
   let providerError = $state<ProviderError | null>(null);
   let currentUsage = $state<Usage | null>(null);
+  let providerSettings = $state<ProviderSettings>({
+    omlxBaseUrl: "http://127.0.0.1:8000/",
+    ollamaBaseUrl: "http://127.0.0.1:11434/",
+    lastProviderId: null,
+    lastModelId: null,
+  });
+  let settingsDraft = $state<ProviderSettings>({
+    omlxBaseUrl: "http://127.0.0.1:8000/",
+    ollamaBaseUrl: "http://127.0.0.1:11434/",
+    lastProviderId: null,
+    lastModelId: null,
+  });
+  let settingsError = $state("");
+  let settingsSaving = $state(false);
+  let diagnostics = $state<DiagnosticEntry[]>([]);
+  let connectionTests = $state<Record<"omlx" | "ollama", ConnectionTestState>>({
+    omlx: { status: "idle", message: "" },
+    ollama: { status: "idle", message: "" },
+  });
   const selectedModel = $derived(models.find((model) => modelKey(model) === selectedModelKey));
   const canSend = $derived(providerStatus === "available" && Boolean(selectedModel));
   const selectedProviderEndpoint = $derived(
-    selectedModel?.providerId === "ollama" ? "127.0.0.1:11434" : "127.0.0.1:8000",
+    displayEndpoint(
+      selectedProviderId === "ollama"
+        ? providerSettings.ollamaBaseUrl
+        : providerSettings.omlxBaseUrl,
+    ),
   );
   const inferenceStages = $derived([
     {
@@ -121,12 +164,27 @@
     return `${model.providerId}:${model.modelId}`;
   }
 
+  function displayEndpoint(baseUrl: string) {
+    return baseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  }
+
+  function diagnosticTime(timestampMs: number) {
+    return new Date(timestampMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
   onMount(async () => {
     if (isTauri()) {
       try {
         runtime = await invoke<RuntimeInfo>("app_info");
       } catch (error) {
         console.warn("Could not read the native runtime information", error);
+      }
+      try {
+        providerSettings = await getProviderSettings();
+        settingsDraft = { ...providerSettings };
+        selectedProviderId = providerSettings.lastProviderId ?? "";
+      } catch (error) {
+        console.warn("Could not read local provider settings", error);
       }
       await refreshModels();
     } else {
@@ -138,15 +196,35 @@
     }
   });
 
-  async function refreshModels() {
+  async function refreshModels(providerId: LocalProviderId | "" = selectedProviderId) {
     if (!isTauri()) return;
     providerStatus = "checking";
     providerError = null;
     try {
-      const discovered = await discoverModels();
-      models = discovered.filter((model) => model.capabilities.text && model.capabilities.streaming);
+      const discovered = await discoverModels(providerId || undefined);
+      const usable = discovered.filter(
+        (model) => model.capabilities.text && model.capabilities.streaming,
+      );
+      const resolvedProvider =
+        providerId ||
+        (providerSettings.lastProviderId &&
+        usable.some((model) => model.providerId === providerSettings.lastProviderId)
+          ? providerSettings.lastProviderId
+          : (usable[0]?.providerId as LocalProviderId | undefined)) ||
+        "";
+      selectedProviderId = resolvedProvider;
+      models = usable.filter((model) => model.providerId === resolvedProvider);
       if (!models.some((model) => modelKey(model) === selectedModelKey)) {
-        selectedModelKey = models[0] ? modelKey(models[0]) : "";
+        const remembered = models.find(
+          (model) =>
+            providerSettings.lastProviderId === resolvedProvider &&
+            model.modelId === providerSettings.lastModelId,
+        );
+        selectedModelKey = remembered
+          ? modelKey(remembered)
+          : models[0]
+            ? modelKey(models[0])
+            : "";
       }
       providerStatus = models.length > 0 ? "available" : "offline";
       if (models.length === 0) {
@@ -155,6 +233,8 @@
           message: "The local providers did not report a streaming text model.",
           retryable: true,
         };
+      } else {
+        await rememberCurrentSelection();
       }
     } catch (error) {
       models = [];
@@ -162,6 +242,90 @@
       providerStatus = "offline";
       providerError = providerErrorFromUnknown(error);
     }
+  }
+
+  async function handleProviderChange() {
+    models = [];
+    selectedModelKey = "";
+    await refreshModels(selectedProviderId);
+  }
+
+  async function handleModelChange() {
+    await rememberCurrentSelection();
+  }
+
+  async function rememberCurrentSelection() {
+    const model = selectedModel;
+    if (!model || !selectedProviderId) return;
+    if (
+      providerSettings.lastProviderId === selectedProviderId &&
+      providerSettings.lastModelId === model.modelId
+    ) {
+      return;
+    }
+    try {
+      providerSettings = await rememberProviderSelection(selectedProviderId, model.modelId);
+    } catch (error) {
+      console.warn("Could not remember the provider and model selection", error);
+    }
+  }
+
+  async function openProviderSettings() {
+    settingsDraft = { ...providerSettings };
+    settingsError = "";
+    connectionTests = {
+      omlx: { status: "idle", message: "" },
+      ollama: { status: "idle", message: "" },
+    };
+    showSettings = true;
+    showSidebar = false;
+    diagnostics = await getDiagnostics().catch(() => []);
+  }
+
+  function closeProviderSettings() {
+    if (settingsSaving) return;
+    showSettings = false;
+  }
+
+  async function testConnection(providerId: LocalProviderId) {
+    const baseUrl =
+      providerId === "omlx" ? settingsDraft.omlxBaseUrl : settingsDraft.ollamaBaseUrl;
+    connectionTests[providerId] = { status: "testing", message: "Testing connection…" };
+    settingsError = "";
+    try {
+      const result = await testProviderConnection(providerId, baseUrl);
+      connectionTests[providerId] = {
+        status: "success",
+        message: `${result.message} ${result.elapsedMs} ms.`,
+      };
+      if (providerId === "omlx") settingsDraft.omlxBaseUrl = result.baseUrl;
+      else settingsDraft.ollamaBaseUrl = result.baseUrl;
+    } catch (error) {
+      const normalized = providerErrorFromUnknown(error);
+      connectionTests[providerId] = { status: "error", message: normalized.message };
+    }
+    diagnostics = await getDiagnostics().catch(() => diagnostics);
+  }
+
+  async function saveProviderSettings(event: SubmitEvent) {
+    event.preventDefault();
+    if (!isTauri() || isGenerating || settingsSaving) return;
+    settingsSaving = true;
+    settingsError = "";
+    try {
+      providerSettings = await updateProviderSettings({ ...settingsDraft });
+      settingsDraft = { ...providerSettings };
+      await refreshModels();
+      showSettings = false;
+    } catch (error) {
+      settingsError = providerErrorFromUnknown(error).message;
+    } finally {
+      settingsSaving = false;
+    }
+  }
+
+  function handleWindowKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape" && showSettings) closeProviderSettings();
   }
 
   async function scrollToBottom(behavior: ScrollBehavior = "smooth") {
@@ -361,6 +525,8 @@
   />
 </svelte:head>
 
+<svelte:window onkeydown={handleWindowKeydown} />
+
 <div class="app-shell">
   <div class="ambient ambient-one"></div>
   <div class="ambient ambient-two"></div>
@@ -407,7 +573,7 @@
     </nav>
 
     <div class="sidebar-footer">
-      <button class="settings-button">
+      <button class="settings-button" onclick={openProviderSettings}>
         <Icon name="settings" size={18} />
         <span>Settings</span>
       </button>
@@ -432,34 +598,48 @@
         <Icon name="menu" size={19} />
       </button>
 
-      <div class:offline={providerStatus !== "available"} class="model-picker">
+      <div class="provider-selectors">
         <span
           class:checking={providerStatus === "checking"}
           class:offline={providerStatus === "offline" || providerStatus === "browser"}
           class="provider-pip"
         ></span>
-        <span class="model-copy">
-          <strong>
-            {providerStatus === "checking"
-              ? "Checking local providers…"
-              : selectedModel?.displayName ?? (providerStatus === "browser" ? "Browser preview" : "Providers offline")}
-          </strong>
-          <small>
-            {providerStatus === "available"
-              ? `${selectedModel?.providerName ?? "Local"} · ${selectedModel?.loadState === "loaded" ? "loaded" : selectedModel?.loadState === "unloaded" ? "loads on demand" : "local"}`
-              : providerStatus === "browser"
-                ? "Native inference unavailable"
-                : "localhost:8000 / 11434"}
-          </small>
-        </span>
-        {#if providerStatus === "available"}
-          <Icon name="chevron-down" size={15} />
-          <select bind:value={selectedModelKey} aria-label="Choose local model and provider">
-            {#each models as model (modelKey(model))}
-              <option value={modelKey(model)}>{model.providerName} · {model.displayName}{model.loadState === "loaded" ? " · loaded" : ""}</option>
+        <label class="provider-pulldown">
+          <span>Provider</span>
+          <select
+            bind:value={selectedProviderId}
+            disabled={providerStatus === "browser" || isGenerating}
+            aria-label="Choose local provider"
+            onchange={handleProviderChange}
+          >
+            <option value="" disabled>{providerStatus === "browser" ? "Native only" : "Choose provider"}</option>
+            {#each providerOptions as provider}
+              <option value={provider.id}>{provider.name}</option>
             {/each}
           </select>
-        {/if}
+        </label>
+        <label class="model-pulldown">
+          <span>Model</span>
+          <select
+            bind:value={selectedModelKey}
+            disabled={providerStatus !== "available" || isGenerating}
+            aria-label="Choose model"
+            onchange={handleModelChange}
+          >
+            {#if models.length === 0}
+              <option value="">
+                {providerStatus === "checking"
+                  ? "Refreshing…"
+                  : providerStatus === "browser"
+                    ? "Native unavailable"
+                    : "No models available"}
+              </option>
+            {/if}
+            {#each models as model (modelKey(model))}
+              <option value={modelKey(model)}>{model.displayName}{model.loadState === "loaded" ? " · loaded" : model.loadState === "unloaded" ? " · on demand" : ""}</option>
+            {/each}
+          </select>
+        </label>
       </div>
 
       <div class="topbar-actions">
@@ -491,7 +671,7 @@
             {#if providerError?.diagnostic}<small>{providerError.diagnostic}</small>{/if}
           </span>
           {#if providerStatus === "offline"}
-            <button onclick={refreshModels}>Retry</button>
+            <button onclick={() => refreshModels()}>Retry</button>
           {/if}
         </div>
       {/if}
@@ -741,6 +921,123 @@
       <div class="context-meter"><span></span></div>
     </div>
   </aside>
+
+  {#if showSettings}
+    <div class="settings-layer">
+      <button class="settings-scrim" aria-label="Close provider settings" onclick={closeProviderSettings}></button>
+      <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="provider-settings-title">
+        <header class="settings-header">
+          <div>
+            <span class="eyebrow">Rust-owned configuration</span>
+            <h2 id="provider-settings-title">Local providers</h2>
+          </div>
+          <button class="icon-button" aria-label="Close provider settings" onclick={closeProviderSettings}>
+            <Icon name="x" size={18} />
+          </button>
+        </header>
+
+        <form class="settings-content" onsubmit={saveProviderSettings}>
+          <p class="settings-intro">
+            Bottie accepts loopback endpoints only. Provider traffic and configuration stay behind the native boundary.
+          </p>
+
+          <div class="provider-setting">
+            <div class="provider-setting-heading">
+              <span><strong>oMLX</strong><small>OpenAI-compatible local runtime</small></span>
+              <span class="local-badge"><Icon name="shield" size={12} /> Local</span>
+            </div>
+            <label for="omlx-endpoint">Endpoint</label>
+            <div class="endpoint-row">
+              <input
+                id="omlx-endpoint"
+                bind:value={settingsDraft.omlxBaseUrl}
+                disabled={!isTauri() || settingsSaving}
+                spellcheck="false"
+                autocomplete="off"
+              />
+              <button
+                type="button"
+                disabled={!isTauri() || settingsSaving || connectionTests.omlx.status === "testing"}
+                onclick={() => testConnection("omlx")}
+              >Test</button>
+            </div>
+            {#if connectionTests.omlx.message}
+              <p class:error={connectionTests.omlx.status === "error"} class:success={connectionTests.omlx.status === "success"} class="test-result" aria-live="polite">
+                {connectionTests.omlx.message}
+              </p>
+            {/if}
+          </div>
+
+          <div class="provider-setting">
+            <div class="provider-setting-heading">
+              <span><strong>Ollama</strong><small>Native local API</small></span>
+              <span class="local-badge"><Icon name="shield" size={12} /> Local</span>
+            </div>
+            <label for="ollama-endpoint">Endpoint</label>
+            <div class="endpoint-row">
+              <input
+                id="ollama-endpoint"
+                bind:value={settingsDraft.ollamaBaseUrl}
+                disabled={!isTauri() || settingsSaving}
+                spellcheck="false"
+                autocomplete="off"
+              />
+              <button
+                type="button"
+                disabled={!isTauri() || settingsSaving || connectionTests.ollama.status === "testing"}
+                onclick={() => testConnection("ollama")}
+              >Test</button>
+            </div>
+            {#if connectionTests.ollama.message}
+              <p class:error={connectionTests.ollama.status === "error"} class:success={connectionTests.ollama.status === "success"} class="test-result" aria-live="polite">
+                {connectionTests.ollama.message}
+              </p>
+            {/if}
+          </div>
+
+          <div class="settings-policy">
+            <Icon name="shield" size={15} />
+            <span><strong>Connection policy</strong><small>3 s connect · 5 s discovery · 120 s stream idle timeout</small></span>
+          </div>
+
+          <section class="diagnostics" aria-label="Recent provider diagnostics">
+            <div class="diagnostics-heading">
+              <span><strong>Recent diagnostics</strong><small>Structured and secret-redacted</small></span>
+              <button type="button" onclick={async () => (diagnostics = await getDiagnostics())}>Refresh</button>
+            </div>
+            {#if diagnostics.length === 0}
+              <p class="diagnostics-empty">No provider activity has been recorded this session.</p>
+            {:else}
+              <div class="diagnostic-list">
+                {#each diagnostics.slice(-6).reverse() as entry}
+                  <div class:error={entry.level === "error"} class="diagnostic-row">
+                    <span>{diagnosticTime(entry.timestampMs)}</span>
+                    <strong>{entry.event}</strong>
+                    <small>{entry.providerId ?? "native"}{entry.detail ? ` · ${entry.detail}` : ""}</small>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </section>
+
+          {#if !isTauri()}
+            <p class="settings-error">Provider settings are read-only in the browser preview.</p>
+          {:else if isGenerating}
+            <p class="settings-error">Stop the active generation before changing provider settings.</p>
+          {:else if settingsError}
+            <p class="settings-error" role="alert">{settingsError}</p>
+          {/if}
+
+          <footer class="settings-actions">
+            <button type="button" class="secondary" onclick={closeProviderSettings}>Cancel</button>
+            <button type="submit" class="primary" disabled={!isTauri() || isGenerating || settingsSaving}>
+              {settingsSaving ? "Saving…" : "Save and reconnect"}
+            </button>
+          </footer>
+        </form>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -816,16 +1113,17 @@
 
   .workspace { position: relative; z-index: 1; display: grid; grid-template-rows: 62px minmax(0, 1fr) auto; min-width: 0; height: 100vh; overflow: hidden; }
   .topbar { display: flex; align-items: center; justify-content: space-between; min-width: 0; padding: 0 22px; border-bottom: 1px solid var(--line); }
-  .model-picker { position: relative; display: flex; align-items: center; gap: 9px; min-width: 0; padding: 6px 9px 6px 8px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; }
-  .model-picker:hover { background: rgba(255, 255, 255, 0.04); }
-  .model-picker.offline { cursor: default; }
-  .model-picker select { position: absolute; width: 100%; height: 100%; inset: 0; cursor: pointer; opacity: 0; }
+  .provider-selectors { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .provider-pip { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px rgba(91, 216, 200, 0.7); }
   .provider-pip.checking { background: var(--amber); box-shadow: 0 0 10px rgba(233, 169, 104, 0.6); animation: blink 1.2s ease-in-out infinite; }
   .provider-pip.offline { background: #6e6c77; box-shadow: none; }
-  .model-copy { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
-  .model-copy strong { max-width: min(36vw, 360px); overflow: hidden; font-size: 12px; font-weight: 610; text-overflow: ellipsis; white-space: nowrap; }
-  .model-copy small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+  .provider-pulldown, .model-pulldown { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: #66646f; font-size: 7px; font-weight: 650; letter-spacing: 0.055em; text-transform: uppercase; }
+  .provider-pulldown { width: 104px; }
+  .model-pulldown { width: min(280px, 28vw); }
+  .provider-pulldown select, .model-pulldown select { width: 100%; min-width: 0; height: 27px; padding: 0 25px 0 8px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; outline: 0; background: #121219; color: #d3d0d8; font-size: 10px; font-weight: 540; letter-spacing: normal; text-overflow: ellipsis; text-transform: none; cursor: pointer; }
+  .provider-pulldown select:hover, .model-pulldown select:hover { border-color: var(--line-strong); background: #17171f; }
+  .provider-pulldown select:focus-visible, .model-pulldown select:focus-visible { border-color: rgba(143, 125, 247, 0.55); box-shadow: 0 0 0 2px rgba(143, 125, 247, 0.08); }
+  .provider-pulldown select:disabled, .model-pulldown select:disabled { cursor: not-allowed; opacity: 0.62; }
   .topbar-actions, .composer-tools, .source-row, .message-actions { display: flex; align-items: center; }
   .topbar-actions { gap: 6px; }
   .privacy-pill { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; margin-right: 5px; border: 1px solid rgba(91, 216, 200, 0.15); border-radius: 20px; background: rgba(91, 216, 200, 0.055); color: #8fded3; font-size: 9.5px; font-weight: 600; }
@@ -975,6 +1273,50 @@
   .context-meter span { display: block; width: 13%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--violet), var(--cyan)); }
 
   .mobile-scrim { display: none; }
+  .settings-layer { position: absolute; z-index: 20; display: grid; place-items: center; inset: 0; padding: 24px; }
+  .settings-scrim { position: absolute; inset: 0; border: 0; background: rgba(3, 3, 7, 0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .settings-dialog { position: relative; display: flex; flex-direction: column; width: min(620px, 100%); max-height: min(760px, calc(100vh - 48px)); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 18px; background: #13131a; box-shadow: 0 28px 90px rgba(0, 0, 0, 0.58); }
+  .settings-header { display: flex; align-items: center; justify-content: space-between; min-height: 72px; padding: 15px 18px 13px 22px; border-bottom: 1px solid var(--line); }
+  .settings-header h2 { margin: 0; font-size: 17px; font-weight: 630; letter-spacing: -0.025em; }
+  .settings-content { padding: 19px 22px 20px; overflow-y: auto; }
+  .settings-intro { margin: 0 0 16px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+  .provider-setting { padding: 14px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255, 255, 255, 0.018); }
+  .provider-setting-heading, .diagnostics-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .provider-setting-heading > span:first-child, .diagnostics-heading > span { display: flex; flex-direction: column; }
+  .provider-setting-heading strong, .diagnostics-heading strong { color: #dbd8e0; font-size: 11px; font-weight: 620; }
+  .provider-setting-heading small, .diagnostics-heading small { margin-top: 3px; color: #696772; font-size: 8px; }
+  .local-badge { display: flex; align-items: center; gap: 4px; color: #79cabe; font-size: 8px; font-weight: 620; }
+  .provider-setting label { display: block; margin: 13px 0 6px; color: #8d8a96; font-size: 8px; font-weight: 620; text-transform: uppercase; letter-spacing: 0.06em; }
+  .endpoint-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .endpoint-row input { min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; outline: 0; background: #0d0d12; color: #d9d6dd; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+  .endpoint-row input:focus { border-color: rgba(143, 125, 247, 0.5); box-shadow: 0 0 0 3px rgba(143, 125, 247, 0.07); }
+  .endpoint-row button, .diagnostics-heading button { border: 1px solid var(--line-strong); border-radius: 8px; background: rgba(255, 255, 255, 0.035); color: #b6b2bd; cursor: pointer; font-size: 9px; }
+  .endpoint-row button { min-width: 62px; padding: 0 11px; }
+  .endpoint-row button:hover, .diagnostics-heading button:hover { background: rgba(255, 255, 255, 0.065); color: var(--text); }
+  .endpoint-row button:disabled { cursor: not-allowed; opacity: 0.48; }
+  .test-result { margin: 8px 0 0; color: #8b8994; font-size: 8.5px; }
+  .test-result.success { color: #77c7bb; }
+  .test-result.error, .settings-error { color: #d89a91; }
+  .settings-policy { display: flex; align-items: center; gap: 9px; padding: 10px 12px; margin: 13px 0; border: 1px solid rgba(91, 216, 200, 0.11); border-radius: 10px; background: rgba(91, 216, 200, 0.035); color: #78cabe; }
+  .settings-policy span { display: flex; flex-direction: column; }
+  .settings-policy strong { font-size: 8.5px; font-weight: 610; }
+  .settings-policy small { margin-top: 2px; color: #617d7a; font-size: 7.5px; }
+  .diagnostics { padding-top: 13px; border-top: 1px solid var(--line); }
+  .diagnostics-heading button { padding: 5px 8px; }
+  .diagnostics-empty { margin: 12px 0 2px; color: #65636e; font-size: 8.5px; }
+  .diagnostic-list { margin-top: 10px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .diagnostic-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 8px; padding: 7px 9px; border-bottom: 1px solid var(--line); font-size: 7.5px; }
+  .diagnostic-row:last-child { border-bottom: 0; }
+  .diagnostic-row > span { color: #66646f; }
+  .diagnostic-row strong { overflow: hidden; color: #aaa7b0; font-weight: 540; text-overflow: ellipsis; white-space: nowrap; }
+  .diagnostic-row small { color: #686672; }
+  .diagnostic-row.error strong { color: #d0948c; }
+  .settings-error { margin: 12px 0 0; font-size: 9px; }
+  .settings-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 17px; margin-top: 16px; border-top: 1px solid var(--line); }
+  .settings-actions button { height: 34px; padding: 0 13px; border-radius: 8px; cursor: pointer; font-size: 9px; font-weight: 610; }
+  .settings-actions .secondary { border: 1px solid var(--line-strong); background: transparent; color: #9b98a3; }
+  .settings-actions .primary { border: 1px solid rgba(143, 125, 247, 0.35); background: linear-gradient(145deg, #8070dc, #6555c6); color: white; }
+  .settings-actions button:disabled { cursor: not-allowed; opacity: 0.5; }
   .visually-hidden { position: fixed; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes blink { 50% { opacity: 0; } }
@@ -998,7 +1340,7 @@
     .mobile-scrim { position: absolute; z-index: 2; display: block; inset: 0; border: 0; background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(3px); }
     .mobile-menu { display: grid; }
     .topbar { gap: 8px; padding: 0 14px; }
-    .model-picker { margin-right: auto; }
+    .provider-selectors { margin-right: auto; }
   }
   @media (max-width: 600px) {
     .privacy-pill, .tool-toggle span { display: none; }
@@ -1006,6 +1348,11 @@
     .composer-zone { padding: 0 12px 9px; }
     .activity-stages { grid-template-columns: 1fr; }
     .context-panel { width: min(320px, 92vw); }
+    .provider-pulldown { width: 88px; }
+    .model-pulldown { width: min(180px, 38vw); }
+    .settings-layer { padding: 10px; }
+    .settings-dialog { max-height: calc(100vh - 20px); }
+    .settings-content { padding: 16px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

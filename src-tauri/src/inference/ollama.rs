@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::IpAddr, time::Duration};
+use std::collections::HashMap;
 
 use futures_util::{StreamExt, stream};
 use reqwest::{Client, StatusCode};
@@ -9,6 +9,7 @@ use url::Url;
 use super::{
     InferenceProvider,
     provider::StreamSink,
+    settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_local_base_url},
     types::{
         ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
         ProviderError, ProviderErrorCode, Usage,
@@ -17,8 +18,7 @@ use super::{
 
 const PROVIDER_ID: &str = "ollama";
 const PROVIDER_NAME: &str = "Ollama";
-const DEFAULT_BASE_URL: &str = "http://127.0.0.1:11434/";
-const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(5);
+use super::settings::DEFAULT_OLLAMA_BASE_URL;
 const DETAIL_CONCURRENCY: usize = 4;
 
 /// A Rust-owned adapter for Ollama's native loopback API.
@@ -30,19 +30,15 @@ pub struct OllamaProvider {
 
 impl OllamaProvider {
     pub fn new() -> Result<Self, ProviderError> {
-        Self::with_base_url(DEFAULT_BASE_URL)
+        Self::with_base_url(DEFAULT_OLLAMA_BASE_URL)
     }
 
-    fn with_base_url(base_url: &str) -> Result<Self, ProviderError> {
-        let base_url = Url::parse(base_url).map_err(|error| {
-            ProviderError::internal(
-                "The built-in Ollama endpoint is invalid.",
-                Some(error.to_string()),
-            )
-        })?;
-        validate_loopback_base_url(&base_url)?;
+    pub(crate) fn with_base_url(base_url: &str) -> Result<Self, ProviderError> {
+        let base_url = validate_local_base_url(PROVIDER_NAME, base_url)?;
         let client = Client::builder()
-            .connect_timeout(Duration::from_secs(3))
+            .connect_timeout(CONNECT_TIMEOUT)
+            .read_timeout(STREAM_IDLE_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|error| {
                 ProviderError::internal(
@@ -51,6 +47,10 @@ impl OllamaProvider {
                 )
             })?;
         Ok(Self { client, base_url })
+    }
+
+    pub(crate) fn base_url(&self) -> &str {
+        self.base_url.as_str()
     }
 
     fn endpoint(&self, path: &str) -> Result<Url, ProviderError> {
@@ -220,20 +220,6 @@ fn process_stream_line(
     Ok(Some(usage))
 }
 
-fn validate_loopback_base_url(url: &Url) -> Result<(), ProviderError> {
-    let is_http = matches!(url.scheme(), "http" | "https");
-    let is_loopback = match url.host_str().and_then(|host| host.parse::<IpAddr>().ok()) {
-        Some(address) => address.is_loopback(),
-        None => url.host_str() == Some("localhost"),
-    };
-    if !is_http || !is_loopback || url.username() != "" || url.password().is_some() {
-        return Err(ProviderError::invalid_request(
-            "Ollama must use an HTTP loopback endpoint without embedded credentials.",
-        ));
-    }
-    Ok(())
-}
-
 fn validate_request(request: &ChatRequest) -> Result<(), ProviderError> {
     if request.model_id.trim().is_empty() {
         return Err(ProviderError::invalid_request(
@@ -263,7 +249,7 @@ fn map_request_error(error: reqwest::Error) -> ProviderError {
         }
     } else if error.is_connect() {
         ProviderError::unavailable(
-            "Ollama is offline. Start it on localhost:11434 and try again.",
+            "Ollama is offline. Check its configured loopback endpoint and try again.",
             Some(error.to_string()),
         )
     } else {

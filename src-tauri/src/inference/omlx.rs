@@ -1,5 +1,3 @@
-use std::{net::IpAddr, time::Duration};
-
 use futures_util::StreamExt;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -8,6 +6,7 @@ use url::Url;
 use super::{
     InferenceProvider,
     provider::StreamSink,
+    settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_local_base_url},
     types::{
         ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
         ProviderError, ProviderErrorCode, Usage,
@@ -16,8 +15,7 @@ use super::{
 
 const PROVIDER_ID: &str = "omlx";
 const PROVIDER_NAME: &str = "oMLX";
-const DEFAULT_BASE_URL: &str = "http://127.0.0.1:8000/";
-const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(5);
+use super::settings::DEFAULT_OMLX_BASE_URL;
 
 /// A Rust-owned adapter for the fixed, loopback oMLX endpoint.
 #[derive(Clone)]
@@ -28,20 +26,16 @@ pub struct OmlxProvider {
 
 impl OmlxProvider {
     pub fn new() -> Result<Self, ProviderError> {
-        Self::with_base_url(DEFAULT_BASE_URL)
+        Self::with_base_url(DEFAULT_OMLX_BASE_URL)
     }
 
-    fn with_base_url(base_url: &str) -> Result<Self, ProviderError> {
-        let base_url = Url::parse(base_url).map_err(|error| {
-            ProviderError::internal(
-                "The built-in oMLX endpoint is invalid.",
-                Some(error.to_string()),
-            )
-        })?;
-        validate_loopback_base_url(&base_url)?;
+    pub(crate) fn with_base_url(base_url: &str) -> Result<Self, ProviderError> {
+        let base_url = validate_local_base_url(PROVIDER_NAME, base_url)?;
 
         let client = Client::builder()
-            .connect_timeout(Duration::from_secs(3))
+            .connect_timeout(CONNECT_TIMEOUT)
+            .read_timeout(STREAM_IDLE_TIMEOUT)
+            .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|error| {
                 ProviderError::internal(
@@ -51,6 +45,10 @@ impl OmlxProvider {
             })?;
 
         Ok(Self { client, base_url })
+    }
+
+    pub(crate) fn base_url(&self) -> &str {
+        self.base_url.as_str()
     }
 
     fn endpoint(&self, path: &str) -> Result<Url, ProviderError> {
@@ -143,20 +141,6 @@ impl InferenceProvider for OmlxProvider {
     }
 }
 
-fn validate_loopback_base_url(url: &Url) -> Result<(), ProviderError> {
-    let is_http = matches!(url.scheme(), "http" | "https");
-    let is_loopback = match url.host_str().and_then(|host| host.parse::<IpAddr>().ok()) {
-        Some(address) => address.is_loopback(),
-        None => url.host_str() == Some("localhost"),
-    };
-    if !is_http || !is_loopback || url.username() != "" || url.password().is_some() {
-        return Err(ProviderError::invalid_request(
-            "oMLX must use an HTTP loopback endpoint without embedded credentials.",
-        ));
-    }
-    Ok(())
-}
-
 fn validate_request(request: &ChatRequest) -> Result<(), ProviderError> {
     if request.model_id.trim().is_empty() {
         return Err(ProviderError::invalid_request(
@@ -186,7 +170,7 @@ fn map_request_error(error: reqwest::Error) -> ProviderError {
         }
     } else if error.is_connect() {
         ProviderError::unavailable(
-            "oMLX is offline. Start it on localhost:8000 and try again.",
+            "oMLX is offline. Check its configured loopback endpoint and try again.",
             Some(error.to_string()),
         )
     } else {
