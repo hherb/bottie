@@ -31,14 +31,16 @@ Outcome: bottie can conduct reliable text conversations through real local and r
 
 ### 1.1 Provider-neutral stream and oMLX
 
-- normalized provider capabilities, content blocks, requests, events, usage, and errors;
-- Rust-owned oMLX model discovery;
-- streaming chat completions through a typed Tauri IPC channel;
-- end-to-end cancellation;
-- offline, malformed-response, timeout, and retry UX;
-- fixture-driven protocol tests.
+Status: complete
 
-This is the immediate next slice. See `HANDOVER.md`.
+- [x] normalized provider capabilities, content blocks, requests, events, usage, and errors;
+- [x] Rust-owned oMLX model discovery;
+- [x] streaming chat completions through a typed Tauri IPC channel;
+- [x] end-to-end cancellation;
+- [x] offline, malformed-response, timeout, and retry UX;
+- [x] fixture-driven protocol tests and opt-in live oMLX tests.
+
+See `HANDOVER.md` for verification evidence.
 
 ### 1.2 Ollama
 

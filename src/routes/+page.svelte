@@ -2,12 +2,26 @@
   import { onMount, tick } from "svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import Icon from "$lib/Icon.svelte";
+  import {
+    cancelChat,
+    discoverModels,
+    providerErrorFromUnknown,
+    startChat,
+    type ChatTurn,
+    type ModelInfo,
+    type ProviderError,
+    type StreamEvent,
+    type Usage,
+  } from "$lib/inference";
 
   type Message = {
     id: number;
     role: "user" | "assistant";
     content: string;
     featured?: boolean;
+    model?: string;
+    meta?: string;
+    error?: boolean;
   };
 
   type Attachment = {
@@ -48,10 +62,9 @@
     },
   ];
 
-  const toolStages = [
-    { icon: "brain" as const, label: "Searched memory", detail: "3 relevant conversations" },
-    { icon: "file" as const, label: "Read attachments", detail: "2 context files" },
-    { icon: "sparkles" as const, label: "Composed response", detail: "Local model" },
+  const inferenceStages = [
+    { icon: "shield" as const, label: "Connected locally", detail: "Rust → oMLX" },
+    { icon: "sparkles" as const, label: "Streaming response", detail: "Text only" },
   ];
 
   const initialMessages: Message[] = [
@@ -64,6 +77,7 @@
       id: 2,
       role: "assistant",
       featured: true,
+      model: "Product shell fixture",
       content:
         "Absolutely. I’d build bottie as a sequence of small, complete slices—starting with the conversation experience, then connecting inference, persistence, and tools behind it.\n\nThe important boundary is simple: the WebView presents state; the Rust core owns secrets, files, storage, provider calls, and tool execution.",
     },
@@ -78,14 +92,24 @@
   let isGenerating = $state(false);
   let activeStage = $state(-1);
   let generationRun = 0;
+  let activeRunId = $state<string | null>(null);
+  let activeAssistantId = $state<number | null>(null);
+  let messageSequence = Date.now();
   let showContext = $state(true);
   let showSidebar = $state(false);
   let messageScroll: HTMLDivElement;
   let composer: HTMLTextAreaElement;
   let attachmentInput: HTMLInputElement;
   let runtime = $state<RuntimeInfo>({ name: "bottie", version: "preview", storage: "local" });
-
-  const delay = (duration: number) => new Promise((resolve) => setTimeout(resolve, duration));
+  let models = $state<ModelInfo[]>([]);
+  let selectedModelId = $state("");
+  let providerStatus = $state<"checking" | "available" | "offline" | "browser">(
+    isTauri() ? "checking" : "browser",
+  );
+  let providerError = $state<ProviderError | null>(null);
+  let currentUsage = $state<Usage | null>(null);
+  const selectedModel = $derived(models.find((model) => model.modelId === selectedModelId));
+  const canSend = $derived(providerStatus === "available" && Boolean(selectedModelId));
 
   onMount(async () => {
     if (isTauri()) {
@@ -94,8 +118,41 @@
       } catch (error) {
         console.warn("Could not read the native runtime information", error);
       }
+      await refreshModels();
+    } else {
+      providerError = {
+        code: "unavailable",
+        message: "Browser preview is disconnected. Open the native Tauri app to use local oMLX inference.",
+        retryable: false,
+      };
     }
   });
+
+  async function refreshModels() {
+    if (!isTauri()) return;
+    providerStatus = "checking";
+    providerError = null;
+    try {
+      const discovered = await discoverModels();
+      models = discovered.filter((model) => model.capabilities.text && model.capabilities.streaming);
+      if (!models.some((model) => model.modelId === selectedModelId)) {
+        selectedModelId = models[0]?.modelId ?? "";
+      }
+      providerStatus = models.length > 0 ? "available" : "offline";
+      if (models.length === 0) {
+        providerError = {
+          code: "unavailable",
+          message: "oMLX is running but did not report a streaming text model.",
+          retryable: true,
+        };
+      }
+    } catch (error) {
+      models = [];
+      selectedModelId = "";
+      providerStatus = "offline";
+      providerError = providerErrorFromUnknown(error);
+    }
+  }
 
   async function scrollToBottom(behavior: ScrollBehavior = "smooth") {
     await tick();
@@ -117,46 +174,120 @@
 
   async function sendMessage() {
     const submittedPrompt = prompt.trim();
-    if (!submittedPrompt || isGenerating) return;
+    if (!submittedPrompt || isGenerating || !canSend) return;
 
-    messages.push({ id: Date.now(), role: "user", content: submittedPrompt });
+    messages.push({ id: ++messageSequence, role: "user", content: submittedPrompt });
     prompt = "";
     resizeComposer();
     isGenerating = true;
     const run = ++generationRun;
     activeStage = 0;
+    activeRunId = null;
+    currentUsage = null;
+    providerError = null;
+    const model = selectedModel;
+    const requestMessages: ChatTurn[] = messages
+      .filter((message) => message.content.trim() !== "" && !message.error)
+      .map((message) => ({
+        role: message.role,
+        content: [{ type: "text", text: message.content }],
+      }));
+    const assistantId = ++messageSequence;
+    activeAssistantId = assistantId;
+    messages.push({
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      model: model?.displayName ?? selectedModelId,
+    });
+    const startedAt = performance.now();
     await scrollToBottom();
 
-    for (let index = 0; index < toolStages.length; index += 1) {
-      activeStage = index;
-      await delay(index === 0 ? 520 : 440);
+    function handleEvent(event: StreamEvent) {
       if (run !== generationRun) return;
+      activeRunId = event.runId;
+      const reply = messages.find((message) => message.id === assistantId);
+      if (!reply) return;
+
+      if (event.type === "started") {
+        activeStage = 1;
+      } else if (event.type === "text_delta") {
+        reply.content += event.delta;
+        void tick().then(() =>
+          messageScroll?.scrollTo({ top: messageScroll.scrollHeight, behavior: "auto" }),
+        );
+      } else if (event.type === "usage_updated") {
+        currentUsage = event.usage;
+      } else if (event.type === "completed") {
+        currentUsage = event.usage ?? currentUsage;
+        reply.meta = completionMeta(startedAt, currentUsage);
+        finishGeneration(run);
+      } else if (event.type === "cancelled") {
+        if (reply.content === "") reply.content = "Generation stopped.";
+        reply.meta = "Stopped · partial response";
+        finishGeneration(run);
+      } else if (event.type === "failed") {
+        reply.error = true;
+        reply.content = reply.content
+          ? `${reply.content}\n\nGeneration stopped: ${event.error.message}`
+          : event.error.message;
+        providerError = event.error;
+        if (event.error.code === "unavailable") providerStatus = "offline";
+        finishGeneration(run);
+      }
     }
-    activeStage = toolStages.length;
 
-    const response =
-      "That fits the foundation we’re building. I’ve kept this first slice deliberately local and inspectable: the interface owns presentation state, while a typed Tauri command confirms the native Rust boundary.\n\nNext, I’d replace this simulated stream with a provider-neutral event stream, then connect oMLX as the first real adapter without changing the UI contract.";
-    messages.push({ id: Date.now() + 1, role: "assistant", content: "" });
-    const replyIndex = messages.length - 1;
-    await scrollToBottom();
-
-    const pieces = response.match(/\S+\s*/g) ?? [response];
-    for (const piece of pieces) {
+    try {
+      const chatRun = await startChat(
+        { modelId: selectedModelId, messages: requestMessages },
+        handleEvent,
+      );
+      if (run === generationRun) {
+        activeRunId = chatRun.runId;
+      } else {
+        await cancelChat(chatRun.runId);
+      }
+    } catch (error) {
       if (run !== generationRun) return;
-      messages[replyIndex].content += piece;
-      await tick();
-      messageScroll?.scrollTo({ top: messageScroll.scrollHeight, behavior: "auto" });
-      await delay(22);
+      const normalized = providerErrorFromUnknown(error);
+      const reply = messages.find((message) => message.id === assistantId);
+      if (reply) {
+        reply.content = normalized.message;
+        reply.error = true;
+      }
+      providerError = normalized;
+      if (normalized.code === "unavailable") providerStatus = "offline";
+      finishGeneration(run);
     }
+  }
 
+  function completionMeta(startedAt: number, usage: Usage | null) {
+    const seconds = ((performance.now() - startedAt) / 1000).toFixed(1);
+    const output = usage?.outputTokens;
+    return output == null ? `${seconds}s · local` : `${seconds}s · ${output} tokens`;
+  }
+
+  function finishGeneration(run: number) {
+    if (run !== generationRun) return;
     isGenerating = false;
     activeStage = -1;
+    activeRunId = null;
+    activeAssistantId = null;
   }
 
   function stopGenerating() {
+    const runId = activeRunId;
+    const reply = messages.find((message) => message.id === activeAssistantId);
     generationRun += 1;
     isGenerating = false;
     activeStage = -1;
+    activeRunId = null;
+    activeAssistantId = null;
+    if (reply) {
+      if (reply.content === "") reply.content = "Generation stopped.";
+      reply.meta = "Stopped · partial response";
+    }
+    if (runId) void cancelChat(runId);
   }
 
   function handleSendButton() {
@@ -168,16 +299,20 @@
   }
 
   function startNewChat() {
+    if (activeRunId) void cancelChat(activeRunId);
     messages = [
       {
-        id: Date.now(),
+        id: ++messageSequence,
         role: "assistant",
-        content: "Fresh thread, same memory. What would you like to explore?",
+        model: "bottie",
+        content: "Fresh local thread. What would you like to explore?",
       },
     ];
     activeStage = -1;
     generationRun += 1;
     isGenerating = false;
+    activeRunId = null;
+    activeAssistantId = null;
     prompt = "";
     showSidebar = false;
     setTimeout(() => composer?.focus(), 0);
@@ -287,14 +422,35 @@
         <Icon name="menu" size={19} />
       </button>
 
-      <button class="model-picker" aria-label="Choose model">
-        <span class="provider-pip"></span>
+      <div class:offline={providerStatus !== "available"} class="model-picker">
+        <span
+          class:checking={providerStatus === "checking"}
+          class:offline={providerStatus === "offline" || providerStatus === "browser"}
+          class="provider-pip"
+        ></span>
         <span class="model-copy">
-          <strong>Qwen 3.5 35B</strong>
-          <small>oMLX · local</small>
+          <strong>
+            {providerStatus === "checking"
+              ? "Checking oMLX…"
+              : selectedModel?.displayName ?? (providerStatus === "browser" ? "Browser preview" : "oMLX offline")}
+          </strong>
+          <small>
+            {providerStatus === "available"
+              ? `${selectedModel?.providerName ?? "oMLX"} · local`
+              : providerStatus === "browser"
+                ? "Native inference unavailable"
+                : "localhost:8000"}
+          </small>
         </span>
-        <Icon name="chevron-down" size={15} />
-      </button>
+        {#if providerStatus === "available"}
+          <Icon name="chevron-down" size={15} />
+          <select bind:value={selectedModelId} aria-label="Choose local oMLX model">
+            {#each models as model (model.modelId)}
+              <option value={model.modelId}>{model.displayName}</option>
+            {/each}
+          </select>
+        {/if}
+      </div>
 
       <div class="topbar-actions">
         <div class="privacy-pill" title="Messages stay on this device">
@@ -317,11 +473,23 @@
     </header>
 
     <div class="message-scroll" bind:this={messageScroll}>
+      {#if providerStatus !== "available"}
+        <div class:offline={providerStatus === "offline"} class="provider-banner" role="status">
+          <Icon name="shield" size={16} />
+          <span>
+            <strong>{providerStatus === "checking" ? "Connecting to local oMLX…" : providerError?.message}</strong>
+            {#if providerError?.diagnostic}<small>{providerError.diagnostic}</small>{/if}
+          </span>
+          {#if providerStatus === "offline"}
+            <button onclick={refreshModels}>Retry</button>
+          {/if}
+        </div>
+      {/if}
       <div class="conversation-canvas">
         <div class="date-divider"><span>Today · 19:42</span></div>
 
         {#each messages as message (message.id)}
-          <article class:assistant={message.role === "assistant"} class="message">
+          <article class:assistant={message.role === "assistant"} class:error={message.error} class="message">
             <div class="message-avatar" class:user-avatar={message.role === "user"}>
               {#if message.role === "assistant"}
                 <span class="mini-core"></span>
@@ -333,7 +501,7 @@
               <div class="message-author">
                 <strong>{message.role === "assistant" ? "bottie" : "You"}</strong>
                 {#if message.role === "assistant"}
-                  <span>Qwen 3.5 35B</span>
+                  <span>{message.model ?? selectedModel?.displayName ?? "Local model"}</span>
                 {/if}
               </div>
 
@@ -376,7 +544,7 @@
                   <button aria-label="Good response"><Icon name="thumbs-up" size={15} /></button>
                   <button aria-label="Poor response"><Icon name="thumbs-down" size={15} /></button>
                   <button aria-label="Regenerate response"><Icon name="refresh" size={15} /></button>
-                  <span class="response-meta">1.4s · 284 tokens</span>
+                  {#if message.meta}<span class="response-meta">{message.meta}</span>{/if}
                 </div>
               {/if}
             </div>
@@ -387,10 +555,10 @@
           <div class="activity-card" aria-live="polite">
             <div class="activity-heading">
               <span class="activity-orbit"><span></span></span>
-              <strong>{activeStage >= toolStages.length ? "Context ready" : "Working with context"}</strong>
+              <strong>{activeStage === 0 ? "Starting local inference" : "oMLX is responding"}</strong>
             </div>
             <div class="activity-stages">
-              {#each toolStages as stage, index}
+              {#each inferenceStages as stage, index}
                 <div class:current={index === activeStage} class:complete={index < activeStage} class="activity-stage">
                   <span class="stage-icon">
                     {#if index < activeStage}
@@ -433,7 +601,8 @@
           oninput={resizeComposer}
           onkeydown={handleComposerKeydown}
           rows="1"
-          placeholder="Ask anything, or drop a file…"
+          disabled={!canSend && !isGenerating}
+          placeholder={providerStatus === "available" ? "Message the local model…" : "Connect to oMLX to send a message"}
           aria-label="Message bottie"
         ></textarea>
 
@@ -450,11 +619,11 @@
             <button aria-label="Attach files" onclick={() => attachmentInput?.click()}>
               <Icon name="paperclip" size={18} />
             </button>
-            <button class="tool-toggle active" aria-label="Memory search enabled" aria-pressed="true">
+            <button class="tool-toggle" aria-label="Memory search is not available yet" disabled>
               <Icon name="brain" size={17} />
               <span>Memory</span>
             </button>
-            <button class="tool-toggle" aria-label="Web search disabled" aria-pressed="false">
+            <button class="tool-toggle" aria-label="Web search is not available yet" disabled>
               <Icon name="globe" size={17} />
               <span>Web</span>
             </button>
@@ -462,8 +631,8 @@
 
           <button
             class="send-button"
-            class:enabled={prompt.trim().length > 0 || isGenerating}
-            disabled={!prompt.trim() && !isGenerating}
+            class:enabled={(prompt.trim().length > 0 && canSend) || isGenerating}
+            disabled={(!prompt.trim() || !canSend) && !isGenerating}
             aria-label={isGenerating ? "Stop generating" : "Send message"}
             onclick={handleSendButton}
           >
@@ -499,7 +668,7 @@
             </span>
             <span class="attachment-copy">
               <strong>{attachment.name}</strong>
-              <small>{attachment.size} · Indexed</small>
+              <small>{attachment.size} · Preview only</small>
             </span>
             <button aria-label={`Remove ${attachment.name}`} onclick={() => removeAttachment(attachment.id)}>
               <Icon name="x" size={15} />
@@ -517,8 +686,8 @@
 
     <section class="context-section memory-section">
       <div class="section-heading">
-        <h3>Active memories <span>3</span></h3>
-        <button>Manage</button>
+        <h3>Preview memories <span>3 fixtures</span></h3>
+        <button disabled>Not active</button>
       </div>
       <div class="memory-card cyan">
         <div class="memory-meta"><Icon name="brain" size={14} /> Architecture discussion <span>92%</span></div>
@@ -547,9 +716,12 @@
         </div>
         <div class="route-labels">
           <span><strong>This Mac</strong><small>Conversation + files</small></span>
-          <span><strong>oMLX</strong><small>localhost:8000</small></span>
+          <span><strong>oMLX</strong><small>127.0.0.1:8000</small></span>
         </div>
-        <div class="route-status"><span></span> Nothing leaves this device</div>
+        <div class:offline={providerStatus !== "available"} class="route-status">
+          <span></span>
+          {providerStatus === "available" ? "Connected over loopback" : "Local provider disconnected"}
+        </div>
       </div>
     </section>
 
@@ -634,11 +806,15 @@
 
   .workspace { position: relative; z-index: 1; display: grid; grid-template-rows: 62px minmax(0, 1fr) auto; min-width: 0; height: 100vh; overflow: hidden; }
   .topbar { display: flex; align-items: center; justify-content: space-between; min-width: 0; padding: 0 22px; border-bottom: 1px solid var(--line); }
-  .model-picker { display: flex; align-items: center; gap: 9px; padding: 6px 9px 6px 8px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; }
+  .model-picker { position: relative; display: flex; align-items: center; gap: 9px; min-width: 0; padding: 6px 9px 6px 8px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; }
   .model-picker:hover { background: rgba(255, 255, 255, 0.04); }
+  .model-picker.offline { cursor: default; }
+  .model-picker select { position: absolute; width: 100%; height: 100%; inset: 0; cursor: pointer; opacity: 0; }
   .provider-pip { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px rgba(91, 216, 200, 0.7); }
+  .provider-pip.checking { background: var(--amber); box-shadow: 0 0 10px rgba(233, 169, 104, 0.6); animation: blink 1.2s ease-in-out infinite; }
+  .provider-pip.offline { background: #6e6c77; box-shadow: none; }
   .model-copy { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
-  .model-copy strong { font-size: 12px; font-weight: 610; }
+  .model-copy strong { max-width: min(36vw, 360px); overflow: hidden; font-size: 12px; font-weight: 610; text-overflow: ellipsis; white-space: nowrap; }
   .model-copy small { margin-top: 3px; color: var(--muted); font-size: 9px; }
   .topbar-actions, .composer-tools, .source-row, .message-actions { display: flex; align-items: center; }
   .topbar-actions { gap: 6px; }
@@ -648,6 +824,12 @@
   .mobile-menu { display: none; }
 
   .message-scroll { min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-color: #2b2a34 transparent; scrollbar-width: thin; }
+  .provider-banner { display: flex; align-items: center; gap: 10px; width: min(760px, calc(100% - 64px)); padding: 10px 12px; margin: 18px auto -11px; border: 1px solid rgba(233, 169, 104, 0.16); border-radius: 11px; background: rgba(233, 169, 104, 0.045); color: #c9a57d; }
+  .provider-banner.offline { border-color: rgba(233, 118, 104, 0.18); background: rgba(233, 118, 104, 0.045); color: #d49a91; }
+  .provider-banner > span { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+  .provider-banner strong { font-size: 9px; font-weight: 590; }
+  .provider-banner small { margin-top: 3px; overflow: hidden; color: #706d76; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+  .provider-banner button { padding: 5px 8px; border: 1px solid currentColor; border-radius: 7px; background: transparent; color: inherit; font-size: 8px; cursor: pointer; }
   .conversation-canvas { width: min(760px, calc(100% - 64px)); margin: 0 auto; padding: 31px 0 54px; }
   .date-divider { display: flex; align-items: center; gap: 12px; margin: 0 0 30px; color: #5e5d67; font-size: 8.5px; font-weight: 650; letter-spacing: 0.09em; text-transform: uppercase; }
   .date-divider::before, .date-divider::after { height: 1px; background: var(--line); content: ""; }
@@ -662,6 +844,7 @@
   .message-author span { color: #686671; font-size: 8.5px; }
   .message-text { color: #dedbe2; font-size: 13px; line-height: 1.68; }
   .message:not(.assistant) .message-text { color: #f2eff3; font-size: 13.5px; }
+  .message.error .message-text { color: #dca39b; }
   .message-text p { margin: 0 0 10px; }
   .typing-caret { display: inline-block; width: 6px; height: 15px; border-radius: 2px; background: var(--violet); animation: blink 900ms steps(2, start) infinite; }
 
@@ -686,7 +869,7 @@
   .activity-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; color: #ccc5ef; font-size: 10px; }
   .activity-orbit { display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid rgba(143, 125, 247, 0.35); border-top-color: var(--cyan); border-radius: 50%; animation: spin 1.2s linear infinite; }
   .activity-orbit span { width: 5px; height: 5px; border-radius: 50%; background: var(--violet); }
-  .activity-stages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .activity-stages { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
   .activity-stage { display: flex; align-items: center; gap: 7px; min-width: 0; opacity: 0.4; }
   .activity-stage.current, .activity-stage.complete { opacity: 1; }
   .stage-icon { display: grid; flex: 0 0 auto; place-items: center; width: 23px; height: 23px; border-radius: 7px; background: rgba(255, 255, 255, 0.045); color: var(--muted); }
@@ -711,12 +894,13 @@
   .more-files { align-self: center; color: #777581; font-size: 9px; }
   textarea { display: block; width: 100%; min-height: 48px; max-height: 160px; padding: 15px 15px 7px; resize: none; overflow-y: auto; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 12.5px; line-height: 1.5; }
   textarea::placeholder { color: #6e6c77; }
+  textarea:disabled { cursor: not-allowed; opacity: 0.7; }
   .composer-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 8px; }
   .composer-tools { gap: 3px; }
   .composer-tools button { height: 29px; border-radius: 8px; }
+  .composer-tools button:disabled { cursor: not-allowed; opacity: 0.48; }
   .composer-tools button:not(.tool-toggle) { width: 30px; }
   .tool-toggle { display: flex !important; grid: none !important; gap: 5px; padding: 0 8px !important; font-size: 9px; }
-  .tool-toggle.active { background: rgba(143, 125, 247, 0.08); color: #9f92e7; }
   .send-button { display: grid; place-items: center; width: 31px; height: 31px; padding: 0; border: 0; border-radius: 9px; background: #292832; color: #6c6a75; cursor: default; transition: 150ms ease; }
   .send-button.enabled, .composer-shell.busy .send-button { background: linear-gradient(145deg, #8b78f0, #6d5dd4); color: white; cursor: pointer; box-shadow: 0 4px 16px rgba(109, 93, 212, 0.28); }
   .send-button.enabled:hover { transform: translateY(-1px); filter: brightness(1.08); }
@@ -734,6 +918,7 @@
   .section-heading h3 span { margin-left: 4px; color: #62606b; font-size: 8px; }
   .section-heading button { padding: 0; border: 0; background: transparent; color: #8378c5; font-size: 8.5px; cursor: pointer; }
   .section-heading button:hover { color: #a99af2; }
+  .section-heading button:disabled { color: #62606b; cursor: default; }
   .attachment-list { display: flex; flex-direction: column; gap: 7px; }
   .attachment-row { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.018); }
   .attachment-icon { display: grid; flex: 0 0 auto; place-items: center; width: 31px; height: 31px; border-radius: 8px; background: rgba(143, 125, 247, 0.09); color: #9c8ee9; }
@@ -771,6 +956,8 @@
   .route-labels small { margin-top: 2px; color: #5f5d67; font-size: 6.5px; }
   .route-status { display: flex; align-items: center; justify-content: center; gap: 6px; padding-top: 9px; margin-top: 9px; border-top: 1px solid var(--line); color: #78c9bd; font-size: 7px; }
   .route-status span { width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 6px rgba(91, 216, 200, 0.6); }
+  .route-status.offline { color: #777581; }
+  .route-status.offline span { background: #64626c; box-shadow: none; }
   .context-footer { margin-top: auto; padding: 13px 18px 16px; background: rgba(0, 0, 0, 0.08); color: #6e6c76; font-size: 7.5px; }
   .context-footer strong { float: right; color: #a9a6ae; font-size: 8px; font-weight: 570; }
   .context-footer strong small { color: #5d5b65; font-size: 7px; font-weight: 450; }
