@@ -17,4 +17,6 @@ pub use provider::{InferenceProvider, StreamSink};
 pub use settings::{
     ProviderSettings, load_provider_settings, redact_diagnostic, save_provider_settings,
 };
-pub use types::{ChatRequest, ChatRun, ModelInfo, ProviderError, StreamEvent, Usage};
+pub use types::{
+    ChatRequest, ChatRun, ModelInfo, ProviderError, ReasoningEffort, StreamEvent, Usage,
+};

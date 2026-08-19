@@ -6,15 +6,17 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 mod lifecycle;
 mod migrations;
+mod runs;
 mod types;
 
-use migrations::{MIGRATION_1, MIGRATION_2};
+use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3};
 pub(crate) use types::{
-    ConversationLifecycle, ConversationSummary, MessageState, NewStoredMessage, StorageError,
-    StoredConversation, StoredMessage, StoredRole,
+    ConversationLifecycle, ConversationSummary, MessageState, NewProviderRun, NewStoredMessage,
+    ProviderRunContext, ProviderRunState, StorageError, StoredConversation, StoredMessage,
+    StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 2;
+const CURRENT_SCHEMA_VERSION: i64 = 3;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -132,13 +134,29 @@ impl ConversationStore {
             state: message.state,
             provider_id: message.provider_id,
             model_id: message.model_id,
+            provider_run: None,
             created_at_ms: now_ms()?,
         };
+        if let Some(run_id) = message.provider_run_id.as_deref() {
+            if stored.role != StoredRole::Assistant {
+                return Err(StorageError::invalid(
+                    "Only assistant responses can link to provider runs.",
+                ));
+            }
+            runs::validate_provider_run_link(
+                &transaction,
+                run_id,
+                &message.conversation_id,
+                &branch_id,
+                stored.provider_id.as_deref(),
+                stored.model_id.as_deref(),
+            )?;
+        }
         transaction.execute(
             "INSERT INTO messages
              (id, conversation_id, branch_id, parent_message_id, role, state, provider_id, model_id,
-              created_at_ms, sequence)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+              created_at_ms, sequence, provider_run_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 stored.id,
                 message.conversation_id,
@@ -149,7 +167,8 @@ impl ConversationStore {
                 stored.provider_id,
                 stored.model_id,
                 stored.created_at_ms,
-                sequence
+                sequence,
+                message.provider_run_id
             ],
         )?;
         insert_blocks(&transaction, &stored)?;
@@ -181,7 +200,7 @@ impl ConversationStore {
             |row| row.get(0),
         )?;
         let mut statement = connection.prepare(
-            "SELECT id, role, state, provider_id, model_id, created_at_ms
+            "SELECT id, role, state, provider_id, model_id, provider_run_id, created_at_ms
              FROM messages WHERE branch_id = ?1 ORDER BY sequence",
         )?;
         let rows = statement.query_map([branch_id], |row| {
@@ -191,13 +210,18 @@ impl ConversationStore {
                 row.get::<_, String>(2)?,
                 row.get::<_, Option<String>>(3)?,
                 row.get::<_, Option<String>>(4)?,
-                row.get::<_, i64>(5)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, i64>(6)?,
             ))
         })?;
         let mut messages = Vec::new();
         for row in rows {
-            let (id, role, state, provider_id, model_id, created_at_ms) = row?;
+            let (id, role, state, provider_id, model_id, provider_run_id, created_at_ms) = row?;
             let (text, reasoning) = load_blocks(&connection, &id)?;
+            let provider_run = provider_run_id
+                .as_deref()
+                .map(|run_id| runs::load_provider_run(&connection, run_id))
+                .transpose()?;
             messages.push(StoredMessage {
                 id,
                 role: StoredRole::from_database(&role)?,
@@ -206,6 +230,7 @@ impl ConversationStore {
                 state: MessageState::from_database(&state)?,
                 provider_id,
                 model_id,
+                provider_run,
                 created_at_ms,
             });
         }
@@ -258,6 +283,18 @@ impl ConversationStore {
                 [now_ms()?],
             )?;
             transaction.pragma_update(None, "user_version", 2)?;
+            transaction.commit()?;
+        }
+        if version < 3 {
+            let transaction =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            transaction.execute_batch(MIGRATION_3)?;
+            transaction.execute(
+                "INSERT INTO schema_migrations (version, name, applied_at_ms)
+                 VALUES (3, 'provider runs and usage', ?1)",
+                [now_ms()?],
+            )?;
+            transaction.pragma_update(None, "user_version", 3)?;
             transaction.commit()?;
         }
         Ok(())

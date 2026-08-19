@@ -63,3 +63,46 @@ UPDATE messages SET sequence = (SELECT value FROM ordered WHERE ordered.id = mes
 DROP INDEX messages_branch_created_idx;
 CREATE UNIQUE INDEX messages_branch_sequence_idx ON messages(branch_id, sequence);
 "#;
+
+/// Adds provider-run provenance, terminal state, and append-only usage snapshots.
+pub(super) const MIGRATION_3: &str = r#"
+CREATE TABLE provider_runs (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    branch_id TEXT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    request_message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    provider_id TEXT NOT NULL CHECK (length(trim(provider_id)) > 0),
+    model_id TEXT NOT NULL CHECK (length(trim(model_id)) > 0),
+    state TEXT NOT NULL CHECK (state IN ('running', 'completed', 'cancelled', 'failed')),
+    reasoning_effort TEXT NOT NULL CHECK (reasoning_effort IN ('off', 'low')),
+    temperature REAL,
+    max_output_tokens INTEGER CHECK (max_output_tokens > 0),
+    error_code TEXT,
+    started_at_ms INTEGER NOT NULL,
+    completed_at_ms INTEGER,
+    CHECK (
+        (state = 'running' AND completed_at_ms IS NULL)
+        OR (state != 'running' AND completed_at_ms IS NOT NULL)
+    ),
+    CHECK (
+        (state = 'failed' AND error_code IS NOT NULL)
+        OR (state != 'failed' AND error_code IS NULL)
+    )
+) STRICT;
+CREATE TABLE usage_records (
+    id TEXT PRIMARY KEY,
+    provider_run_id TEXT NOT NULL REFERENCES provider_runs(id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    input_tokens INTEGER CHECK (input_tokens >= 0),
+    output_tokens INTEGER CHECK (output_tokens >= 0),
+    cost_usd REAL CHECK (cost_usd >= 0),
+    recorded_at_ms INTEGER NOT NULL,
+    CHECK (input_tokens IS NOT NULL OR output_tokens IS NOT NULL OR cost_usd IS NOT NULL),
+    UNIQUE (provider_run_id, ordinal)
+) STRICT;
+ALTER TABLE messages ADD COLUMN provider_run_id TEXT REFERENCES provider_runs(id);
+CREATE INDEX provider_runs_conversation_started_idx
+    ON provider_runs(conversation_id, started_at_ms, id);
+CREATE UNIQUE INDEX messages_provider_run_idx
+    ON messages(provider_run_id) WHERE provider_run_id IS NOT NULL;
+"#;

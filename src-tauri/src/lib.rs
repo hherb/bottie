@@ -4,6 +4,7 @@
 mod command_types;
 mod credentials;
 mod diagnostics;
+mod generation;
 mod inference;
 mod provider_registry;
 mod storage;
@@ -18,11 +19,11 @@ use command_types::{
 };
 use credentials::{CredentialStore, REMOTE_PROVIDER_IDS, SystemCredentialStore};
 use diagnostics::{DiagnosticEntry, Diagnostics, record_diagnostic, sanitized};
-use futures_util::future::{AbortHandle, Abortable};
+use futures_util::future::AbortHandle;
+use generation::{cancel_chat, start_chat};
 use inference::{
-    AnthropicProvider, ChatRequest, ChatRun, InferenceProvider, ModelInfo, OllamaProvider,
-    OmlxProvider, OpenAiProvider, ProviderError, ProviderSettings, StreamEvent,
-    load_provider_settings, save_provider_settings,
+    AnthropicProvider, InferenceProvider, ModelInfo, OllamaProvider, OmlxProvider, OpenAiProvider,
+    ProviderError, ProviderSettings, load_provider_settings, save_provider_settings,
 };
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use storage::ConversationStore;
@@ -30,8 +31,7 @@ use storage_commands::{
     append_conversation_message, create_conversation, delete_conversation, list_conversations,
     load_conversation, rename_conversation, restore_conversation, set_conversation_archived,
 };
-use stream_channel::ChannelSink;
-use tauri::{Manager, State, ipc::Channel};
+use tauri::{Manager, State};
 
 type ActiveRuns = Arc<tauri::async_runtime::Mutex<HashMap<String, AbortHandle>>>;
 struct AppState {
@@ -338,101 +338,6 @@ async fn discover_models(
         )
         .await;
         Ok(models)
-    }
-}
-
-#[tauri::command]
-/// Starts one cancellable provider-qualified chat generation.
-async fn start_chat(
-    state: State<'_, AppState>,
-    request: ChatRequest,
-    on_event: Channel<StreamEvent>,
-) -> Result<ChatRun, ProviderError> {
-    let providers = state.providers.read().await.clone();
-    let provider = routed_provider(&request.provider_id, &providers, state.credentials.as_ref())?;
-    let run_id = uuid::Uuid::new_v4().to_string();
-    let (abort_handle, abort_registration) = AbortHandle::new_pair();
-    state.runs.lock().await.insert(run_id.clone(), abort_handle);
-
-    let runs = state.runs.clone();
-    let diagnostics = state.diagnostics.clone();
-    let task_run_id = run_id.clone();
-    tauri::async_runtime::spawn(async move {
-        record_diagnostic(
-            &diagnostics,
-            "info",
-            "Generation started",
-            Some(provider.provider_id()),
-            Some(&format!("run {task_run_id}")),
-        )
-        .await;
-        let _ = on_event.send(StreamEvent::Started {
-            run_id: task_run_id.clone(),
-            provider_id: provider.provider_id().into(),
-            model_id: request.model_id.clone(),
-        });
-        let sink = ChannelSink {
-            run_id: task_run_id.clone(),
-            channel: on_event.clone(),
-        };
-        match Abortable::new(provider.stream_chat(request, sink), abort_registration).await {
-            Ok(Ok(usage)) => {
-                let _ = on_event.send(StreamEvent::Completed {
-                    run_id: task_run_id.clone(),
-                    usage,
-                });
-                record_diagnostic(
-                    &diagnostics,
-                    "info",
-                    "Generation completed",
-                    Some(provider.provider_id()),
-                    Some(&format!("run {task_run_id}")),
-                )
-                .await;
-            }
-            Ok(Err(error)) => {
-                let error = sanitized(error);
-                let _ = on_event.send(StreamEvent::Failed {
-                    run_id: task_run_id.clone(),
-                    error: error.clone(),
-                });
-                record_diagnostic(
-                    &diagnostics,
-                    "error",
-                    "Generation failed",
-                    Some(provider.provider_id()),
-                    error.diagnostic.as_deref().or(Some(&error.message)),
-                )
-                .await;
-            }
-            Err(_) => {
-                let _ = on_event.send(StreamEvent::Cancelled {
-                    run_id: task_run_id.clone(),
-                });
-                record_diagnostic(
-                    &diagnostics,
-                    "info",
-                    "Generation cancelled",
-                    Some(provider.provider_id()),
-                    Some(&format!("run {task_run_id}")),
-                )
-                .await;
-            }
-        }
-        runs.lock().await.remove(&task_run_id);
-    });
-
-    Ok(ChatRun { run_id })
-}
-
-#[tauri::command]
-/// Cancels an active generation by its opaque run identity.
-async fn cancel_chat(run_id: String, state: State<'_, AppState>) -> Result<bool, ProviderError> {
-    if let Some(handle) = state.runs.lock().await.remove(&run_id) {
-        handle.abort();
-        Ok(true)
-    } else {
-        Ok(false)
     }
 }
 

@@ -51,7 +51,22 @@ export function formatBytes(bytes: number): string {
 
 /** Builds the completion metadata shown under an assistant response. */
 export function completionMeta(startedAt: number, finishedAt: number, usage: Usage | null): string {
-  const seconds = ((finishedAt - startedAt) / MILLISECONDS_PER_SECOND).toFixed(1);
+  return completionMetaForDuration(finishedAt - startedAt, usage);
+}
+
+/** Reconstructs completion metadata from a terminal durable provider run. */
+export function persistedCompletionMeta(
+  startedAtMs: number,
+  completedAtMs: number | null,
+  usage: Usage | null,
+): string | undefined {
+  if (completedAtMs === null) return undefined;
+  return completionMetaForDuration(Math.max(0, completedAtMs - startedAtMs), usage);
+}
+
+/** Formats measured duration and provider-reported usage without estimating missing values. */
+function completionMetaForDuration(durationMs: number, usage: Usage | null): string {
+  const seconds = (durationMs / MILLISECONDS_PER_SECOND).toFixed(1);
   const outputTokens = usage?.outputTokens;
   const cost = usage?.costUsd;
   const usageLabel = outputTokens == null ? "usage unavailable" : `${outputTokens} tokens`;

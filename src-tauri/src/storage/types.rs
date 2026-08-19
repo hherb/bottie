@@ -2,6 +2,16 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Durable message identity supplied when starting one native provider run.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProviderRunContext {
+    /// Conversation that owns the request.
+    pub(crate) conversation_id: String,
+    /// Persisted user message that caused the generation.
+    pub(crate) request_message_id: String,
+}
+
 /// Stable storage failure returned across the native command boundary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -116,6 +126,141 @@ impl MessageState {
     }
 }
 
+/// Durable lifecycle state for one accepted provider generation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ProviderRunState {
+    /// Provider work has been accepted and has not reached a terminal outcome.
+    Running,
+    /// The provider completed normally.
+    Completed,
+    /// The user or application cancelled the provider work.
+    Cancelled,
+    /// Provider or orchestration work failed.
+    Failed,
+}
+
+impl ProviderRunState {
+    /// Returns the stable SQLite representation.
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Cancelled => "cancelled",
+            Self::Failed => "failed",
+        }
+    }
+
+    /// Parses a trusted state constrained by the schema.
+    pub(super) fn from_database(value: &str) -> Result<Self, StorageError> {
+        match value {
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "cancelled" => Ok(Self::Cancelled),
+            "failed" => Ok(Self::Failed),
+            _ => Err(StorageError::internal()),
+        }
+    }
+
+    /// Returns whether the state can close a running provider record.
+    pub(super) fn is_terminal(self) -> bool {
+        self != Self::Running
+    }
+}
+
+/// Reasoning setting retained with provider-run provenance.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum StoredReasoningEffort {
+    /// Provider reasoning was disabled.
+    Off,
+    /// The lowest enabled reasoning effort was requested.
+    Low,
+}
+
+impl StoredReasoningEffort {
+    /// Returns the stable SQLite representation.
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Low => "low",
+        }
+    }
+
+    /// Parses a trusted value constrained by the schema.
+    pub(super) fn from_database(value: &str) -> Result<Self, StorageError> {
+        match value {
+            "off" => Ok(Self::Off),
+            "low" => Ok(Self::Low),
+            _ => Err(StorageError::internal()),
+        }
+    }
+}
+
+/// Provider-reported token and cost totals retained without estimation.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StoredUsage {
+    /// Provider-reported prompt token count.
+    pub(crate) input_tokens: Option<u64>,
+    /// Provider-reported generated token count.
+    pub(crate) output_tokens: Option<u64>,
+    /// Provider-reported request cost in US dollars.
+    pub(crate) cost_usd: Option<f64>,
+}
+
+impl StoredUsage {
+    /// Returns whether the provider supplied at least one usable total.
+    pub(super) fn has_value(&self) -> bool {
+        self.input_tokens.is_some() || self.output_tokens.is_some() || self.cost_usd.is_some()
+    }
+
+    /// Validates numeric values before they reach SQLite constraints.
+    pub(super) fn is_valid(&self) -> bool {
+        self.cost_usd
+            .is_none_or(|cost| cost.is_finite() && cost >= 0.0)
+    }
+}
+
+/// Persisted provenance reconstructed for one assistant response.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StoredProviderRun {
+    /// Opaque identity created by the native inference boundary.
+    pub(crate) id: String,
+    /// Current provider-run state.
+    pub(crate) state: ProviderRunState,
+    /// Reasoning setting applied to the generation.
+    pub(crate) reasoning_effort: StoredReasoningEffort,
+    /// Native wall-clock time when provider work was accepted.
+    pub(crate) started_at_ms: i64,
+    /// Native wall-clock time when provider work ended, absent while still running.
+    pub(crate) completed_at_ms: Option<i64>,
+    /// Latest provider-reported cumulative usage totals, when supplied.
+    pub(crate) usage: Option<StoredUsage>,
+}
+
+/// Inputs captured when native provider work is accepted.
+#[derive(Clone, Debug)]
+pub(crate) struct NewProviderRun {
+    /// Opaque native run identity.
+    pub(crate) id: String,
+    /// Owning conversation identity.
+    pub(crate) conversation_id: String,
+    /// User message that caused the generation.
+    pub(crate) request_message_id: String,
+    /// Stable routed provider identity.
+    pub(crate) provider_id: String,
+    /// Provider-owned model identity.
+    pub(crate) model_id: String,
+    /// Applied reasoning setting.
+    pub(crate) reasoning_effort: StoredReasoningEffort,
+    /// Applied sampling temperature, when supplied.
+    pub(crate) temperature: Option<f32>,
+    /// Applied output ceiling, when supplied.
+    pub(crate) max_output_tokens: Option<u32>,
+}
+
 /// Summary used by conversation navigation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -155,7 +300,7 @@ impl ConversationLifecycle {
 }
 
 /// One reconstructed text message returned to the WebView.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct StoredMessage {
     /// Stable message identity.
@@ -172,12 +317,14 @@ pub(crate) struct StoredMessage {
     pub(crate) provider_id: Option<String>,
     /// Provider-owned model identity used for an assistant response.
     pub(crate) model_id: Option<String>,
+    /// Provider-run provenance and usage linked to an assistant response.
+    pub(crate) provider_run: Option<StoredProviderRun>,
     /// Persisted creation time.
     pub(crate) created_at_ms: i64,
 }
 
 /// Complete durable conversation returned for reopening.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct StoredConversation {
     /// Stable conversation identity.
@@ -206,4 +353,7 @@ pub(crate) struct NewStoredMessage {
     pub(crate) provider_id: Option<String>,
     /// Model used for assistant generation.
     pub(crate) model_id: Option<String>,
+    #[serde(default)]
+    /// Opaque native provider run linked to this assistant response.
+    pub(crate) provider_run_id: Option<String>,
 }

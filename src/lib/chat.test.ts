@@ -8,6 +8,7 @@ import {
   formatBytes,
   isCloudProvider,
   modelKey,
+  persistedCompletionMeta,
   resolveModelSelection,
   toggleReasoningEffort,
 } from "./chat";
@@ -65,6 +66,12 @@ describe("chat presentation helpers", () => {
     const usage: Usage = { inputTokens: 12, outputTokens: 7, costUsd: null };
     expect(completionMeta(1_000, 2_250, usage)).toBe("1.3s · 7 tokens");
     expect(completionMeta(1_000, 2_250, null)).toBe("1.3s · usage unavailable");
+  });
+
+  it("reconstructs completion metadata from durable provider-run timestamps", () => {
+    const usage: Usage = { inputTokens: 18, outputTokens: 9, costUsd: 0.0025 };
+    expect(persistedCompletionMeta(10_000, 11_250, usage)).toBe("1.3s · 9 tokens · $0.0025");
+    expect(persistedCompletionMeta(10_000, null, usage)).toBeUndefined();
   });
 
   it("keeps only streaming text models", () => {

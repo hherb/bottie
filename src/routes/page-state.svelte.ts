@@ -275,8 +275,9 @@ export class PageState {
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
     if (!submittedPrompt || this.isGenerating || !this.canSend) return;
-    const conversationId = await this.history.persistUserMessage(submittedPrompt);
-    if (!conversationId) return;
+    const runContext = await this.history.persistUserMessage(submittedPrompt);
+    if (!runContext) return;
+    const conversationId = runContext.conversationId;
     this.messages.push({ id: nextMessageId(), role: "user", content: submittedPrompt });
     this.prompt = "";
     this.resizeComposer();
@@ -312,6 +313,7 @@ export class PageState {
           messages: requestMessages,
           settings: { reasoningEffort: this.reasoningEffort },
         },
+        runContext,
         (event) => this.handleStreamEvent(event, run, assistantId, startedAt, conversationId, model!),
       );
       if (run === this.generationRun) this.activeRunId = chatRun.runId;
@@ -326,7 +328,7 @@ export class PageState {
       }
       this.providerError = normalized;
       if (normalized.code === "unavailable") this.providerStatus = "offline";
-      await this.persistTerminalMessage(conversationId, reply, "failed", model!, run);
+      await this.persistTerminalMessage(conversationId, reply, "failed", model!, run, null);
     }
   }
 
@@ -356,11 +358,11 @@ export class PageState {
     } else if (event.type === "completed") {
       this.currentUsage = event.usage ?? this.currentUsage;
       reply.meta = completionMeta(startedAt, performance.now(), this.currentUsage);
-      void this.persistTerminalMessage(conversationId, reply, "final", model, run);
+      void this.persistTerminalMessage(conversationId, reply, "final", model, run, event.runId);
     } else if (event.type === "cancelled") {
       if (reply.content === "") reply.content = "Generation stopped.";
       reply.meta = "Stopped · partial response";
-      void this.persistTerminalMessage(conversationId, reply, "cancelled", model, run);
+      void this.persistTerminalMessage(conversationId, reply, "cancelled", model, run, event.runId);
     } else if (event.type === "failed") {
       reply.error = true;
       reply.content = reply.content
@@ -368,7 +370,7 @@ export class PageState {
         : event.error.message;
       this.providerError = event.error;
       if (event.error.code === "unavailable") this.providerStatus = "offline";
-      void this.persistTerminalMessage(conversationId, reply, "failed", model, run);
+      void this.persistTerminalMessage(conversationId, reply, "failed", model, run, event.runId);
     }
   }
 
@@ -379,9 +381,10 @@ export class PageState {
     state: "final" | "cancelled" | "failed",
     model: ModelInfo,
     run: number,
+    providerRunId: string | null,
   ): Promise<void> {
     this.isPersistingMessage = true;
-    await this.history.persistAssistantMessage(conversationId, message, state, model);
+    await this.history.persistAssistantMessage(conversationId, message, state, model, providerRunId);
     this.isPersistingMessage = false;
     this.finishGeneration(run);
   }
@@ -416,7 +419,7 @@ export class PageState {
       reply.meta = "Stopped · partial response";
     }
     if (reply && conversationId && model) {
-      void this.persistTerminalMessage(conversationId, reply, "cancelled", model, this.generationRun);
+      void this.persistTerminalMessage(conversationId, reply, "cancelled", model, this.generationRun, runId);
     }
     if (runId) void cancelChat(runId);
   }

@@ -1,5 +1,7 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 
+import type { ProviderRunContext } from "./storage";
+
 /** Provider-qualified model metadata returned by native discovery. */
 export type ModelInfo = {
   providerId: string;
@@ -177,11 +179,15 @@ export async function getDiagnostics(): Promise<DiagnosticEntry[]> {
 }
 
 /** Starts a provider-qualified native chat stream. */
-export async function startChat(request: ChatRequest, onEvent: (event: StreamEvent) => void): Promise<ChatRun> {
+export async function startChat(
+  request: ChatRequest,
+  context: ProviderRunContext,
+  onEvent: (event: StreamEvent) => void,
+): Promise<ChatRun> {
   if (!isTauri()) throw unavailableInBrowser();
   const channel = new Channel<StreamEvent>();
   channel.onmessage = onEvent;
-  return invoke<ChatRun>("start_chat", { request, onEvent: channel });
+  return invoke<ChatRun>("start_chat", { request, context, onEvent: channel });
 }
 
 /** Requests cancellation of one native generation by opaque run identity. */

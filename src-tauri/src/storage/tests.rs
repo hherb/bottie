@@ -18,11 +18,165 @@ fn initializes_ordered_migrations_and_default_local_profile() {
 
     let status = store.status().expect("storage status should load");
 
-    assert_eq!(status.schema_version, 2);
+    assert_eq!(status.schema_version, 3);
     assert_eq!(status.profile_name, "Local profile");
     assert_eq!(status.integrity_check, "ok");
     assert!(status.foreign_keys_enabled);
     assert_eq!(status.journal_mode, "wal");
+}
+
+#[test]
+fn upgrades_a_version_two_store_without_rewriting_existing_messages() {
+    let path = test_database_path();
+    let connection = Connection::open(&path).expect("version two database should open");
+    connection
+        .execute_batch(MIGRATION_1)
+        .expect("foundation migration should apply");
+    connection
+        .execute(
+            "INSERT INTO schema_migrations (version, name, applied_at_ms)
+             VALUES (1, 'storage foundation', 1)",
+            [],
+        )
+        .expect("first migration should be recorded");
+    connection
+        .execute(
+            "INSERT INTO profiles (id, name, created_at_ms) VALUES (?1, ?2, 1)",
+            params![DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME],
+        )
+        .expect("default profile should be inserted");
+    connection
+        .execute_batch(MIGRATION_2)
+        .expect("message-order migration should apply");
+    connection
+        .execute(
+            "INSERT INTO schema_migrations (version, name, applied_at_ms)
+             VALUES (2, 'branch-local message order', 2)",
+            [],
+        )
+        .expect("second migration should be recorded");
+    connection
+        .pragma_update(None, "user_version", 2)
+        .expect("version should be set");
+    drop(connection);
+
+    let store = ConversationStore::initialize(path).expect("version two store should upgrade");
+    let status = store.status().expect("upgraded status should load");
+    let connection = store.open().expect("upgraded database should open");
+    let provider_run_table: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE type = 'table' AND name = 'provider_runs'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("provider run table should be queryable");
+
+    assert_eq!(status.schema_version, 3);
+    assert_eq!(provider_run_table, 1);
+}
+
+#[test]
+fn persists_provider_run_provenance_and_terminal_usage() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let conversation = store
+        .create_conversation("Measured generation")
+        .expect("conversation should be created");
+    let request = store
+        .append_message(NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::User,
+            text: "Count this request".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+            provider_run_id: None,
+        })
+        .expect("request should be stored");
+    let run_id = uuid::Uuid::new_v4().to_string();
+
+    store
+        .start_provider_run(NewProviderRun {
+            id: run_id.clone(),
+            conversation_id: conversation.id.clone(),
+            request_message_id: request.id,
+            provider_id: "ollama".into(),
+            model_id: "qwen3:latest".into(),
+            reasoning_effort: StoredReasoningEffort::Low,
+            temperature: Some(0.25),
+            max_output_tokens: Some(1_024),
+        })
+        .expect("provider run should start");
+    store
+        .finish_provider_run(
+            &run_id,
+            ProviderRunState::Completed,
+            None,
+            Some(StoredUsage {
+                input_tokens: Some(23),
+                output_tokens: Some(41),
+                cost_usd: Some(0.0012),
+            }),
+        )
+        .expect("provider run should complete");
+    let mismatched = store.append_message(NewStoredMessage {
+        conversation_id: conversation.id.clone(),
+        role: StoredRole::Assistant,
+        text: "Do not attach this response.".into(),
+        reasoning: None,
+        state: MessageState::Final,
+        provider_id: Some("ollama".into()),
+        model_id: Some("a-different-model".into()),
+        provider_run_id: Some(run_id.clone()),
+    });
+
+    assert_eq!(
+        mismatched
+            .expect_err("mismatched response should fail")
+            .code,
+        "invalid_request"
+    );
+
+    store
+        .append_message(NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::Assistant,
+            text: "Usage is durable.".into(),
+            reasoning: Some("Counted provider tokens.".into()),
+            state: MessageState::Final,
+            provider_id: Some("ollama".into()),
+            model_id: Some("qwen3:latest".into()),
+            provider_run_id: Some(run_id.clone()),
+        })
+        .expect("response should link to its run");
+    drop(store);
+
+    let reopened = ConversationStore::initialize(path)
+        .expect("storage should reopen")
+        .load_conversation(&conversation.id)
+        .expect("conversation should load");
+    let stored_run = reopened.messages[1]
+        .provider_run
+        .as_ref()
+        .expect("assistant response should include run provenance");
+
+    assert_eq!(stored_run.id, run_id);
+    assert_eq!(stored_run.state, ProviderRunState::Completed);
+    assert_eq!(stored_run.reasoning_effort, StoredReasoningEffort::Low);
+    assert!(
+        stored_run
+            .completed_at_ms
+            .is_some_and(|completed_at_ms| completed_at_ms >= stored_run.started_at_ms)
+    );
+    assert_eq!(
+        stored_run.usage,
+        Some(StoredUsage {
+            input_tokens: Some(23),
+            output_tokens: Some(41),
+            cost_usd: Some(0.0012),
+        })
+    );
 }
 
 #[test]
@@ -42,6 +196,7 @@ fn creates_lists_and_reopens_an_ordered_conversation() {
             state: MessageState::Final,
             provider_id: None,
             model_id: None,
+            provider_run_id: None,
         })
         .expect("user message should be stored");
     store
@@ -53,6 +208,7 @@ fn creates_lists_and_reopens_an_ordered_conversation() {
             state: MessageState::Final,
             provider_id: Some("ollama".into()),
             model_id: Some("qwen3:latest".into()),
+            provider_run_id: None,
         })
         .expect("assistant message should be stored");
     let connection = store.open().expect("test connection should open");
@@ -97,6 +253,7 @@ fn rejects_empty_messages_and_unknown_conversations() {
         state: MessageState::Final,
         provider_id: None,
         model_id: None,
+        provider_run_id: None,
     });
     let missing = store.load_conversation("missing");
 
@@ -141,6 +298,7 @@ fn renames_archives_and_reactivates_conversations_on_append() {
             state: MessageState::Final,
             provider_id: None,
             model_id: None,
+            provider_run_id: None,
         })
         .expect("appending should reactivate the conversation");
 
@@ -169,6 +327,7 @@ fn moves_conversations_to_trash_and_restores_without_data_loss() {
             state: MessageState::Final,
             provider_id: None,
             model_id: None,
+            provider_run_id: None,
         })
         .expect("message should be stored");
 
@@ -190,6 +349,7 @@ fn moves_conversations_to_trash_and_restores_without_data_loss() {
                 state: MessageState::Final,
                 provider_id: None,
                 model_id: None,
+                provider_run_id: None,
             })
             .is_err()
     );
