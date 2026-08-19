@@ -1,0 +1,85 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  completionMeta,
+  displayEndpoint,
+  filterUsableModels,
+  formatBytes,
+  modelKey,
+  resolveModelSelection,
+  toggleReasoningEffort,
+} from "./chat";
+import type { ModelInfo, Usage } from "./inference";
+
+const ollamaModel: ModelInfo = {
+  providerId: "ollama",
+  providerName: "Ollama",
+  modelId: "gemma3:4b",
+  displayName: "gemma3:4b",
+  maxContextTokens: 131_072,
+  loadState: "loaded",
+  capabilities: {
+    text: true,
+    streaming: true,
+    tools: false,
+    vision: true,
+    embeddings: false,
+  },
+};
+
+const omlxModel: ModelInfo = {
+  ...ollamaModel,
+  providerId: "omlx",
+  providerName: "oMLX",
+  modelId: "Qwen3.6-35B-A3B-8bit",
+  displayName: "Qwen3.6-35B-A3B-8bit",
+};
+
+describe("chat presentation helpers", () => {
+  it("builds collision-safe provider-qualified model keys", () => {
+    expect(modelKey(ollamaModel)).toBe("ollama:gemma3:4b");
+  });
+
+  it("formats loopback endpoints and binary file sizes", () => {
+    expect(displayEndpoint("http://127.0.0.1:11434/")).toBe("127.0.0.1:11434");
+    expect(formatBytes(1_023)).toBe("1023 B");
+    expect(formatBytes(1_024)).toBe("1 KB");
+    expect(formatBytes(1_572_864)).toBe("1.5 MB");
+  });
+
+  it("reports elapsed time and optional output usage", () => {
+    const usage: Usage = { inputTokens: 12, outputTokens: 7 };
+    expect(completionMeta(1_000, 2_250, usage)).toBe("1.3s · 7 tokens");
+    expect(completionMeta(1_000, 2_250, null)).toBe("1.3s · local");
+  });
+
+  it("keeps only streaming text models", () => {
+    const embeddingModel: ModelInfo = {
+      ...ollamaModel,
+      modelId: "nomic-embed-text",
+      capabilities: { ...ollamaModel.capabilities, text: false, streaming: false, embeddings: true },
+    };
+    expect(filterUsableModels([ollamaModel, embeddingModel])).toEqual([ollamaModel]);
+  });
+
+  it("prefers a remembered provider and model when both remain available", () => {
+    expect(resolveModelSelection([ollamaModel, omlxModel], "", "omlx", omlxModel.modelId)).toEqual({
+      providerId: "omlx",
+      models: [omlxModel],
+      selectedModelKey: modelKey(omlxModel),
+    });
+  });
+
+  it("falls back deterministically when remembered selection is unavailable", () => {
+    expect(resolveModelSelection([ollamaModel, omlxModel], "ollama", "omlx", "missing")).toEqual({
+      providerId: "ollama",
+      models: [ollamaModel],
+      selectedModelKey: modelKey(ollamaModel),
+    });
+  });
+
+  it("toggles reasoning between the safe off and low-effort states", () => {
+    expect(toggleReasoningEffort("off")).toBe("low");
+    expect(toggleReasoningEffort("low")).toBe("off");
+  });
+});
