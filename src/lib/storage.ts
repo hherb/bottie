@@ -96,6 +96,18 @@ export async function loadConversation(conversationId: string): Promise<StoredCo
   return invoke<StoredConversation>("load_conversation", { conversationId });
 }
 
+/** Loads the exact conversation selected by the local profile, when present. */
+export async function loadLastOpenConversation(): Promise<StoredConversation | null> {
+  if (!isTauri()) return null;
+  return invoke<StoredConversation | null>("load_last_open_conversation");
+}
+
+/** Records an intentional blank new-chat view for the local profile. */
+export async function clearLastOpenConversation(): Promise<void> {
+  if (!isTauri()) return;
+  return invoke<void>("clear_last_open_conversation");
+}
+
 /** Appends one final user message through the narrow native storage command. */
 export async function appendConversationMessage(conversationId: string, text: string): Promise<StoredMessage> {
   if (!isTauri()) throw unavailableInBrowser();

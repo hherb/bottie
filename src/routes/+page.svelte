@@ -38,17 +38,17 @@
     storageError={state.history.storageError?.message ?? null}
     isGenerating={state.isGenerating || state.history.isManaging}
     onclose={() => (state.showSidebar = false)}
-    onnewchat={() => state.startNewChat()}
+    onnewchat={() => void state.startNewChat()}
     onselectconversation={(conversationId) => void state.openConversation(conversationId)}
     onrenameconversation={(conversationId, title) => void state.history.rename(conversationId, title)}
     onarchiveconversation={(conversationId, archived) => {
       void state.history.setArchived(conversationId, archived).then((closed) => {
-        if (closed) state.startNewChat();
+        if (closed) void state.startNewChat();
       });
     }}
     ondeleteconversation={(conversationId) => {
       void state.history.delete(conversationId).then((closed) => {
-        if (closed) state.startNewChat();
+        if (closed) void state.startNewChat();
       });
     }}
     onrestoreconversation={(conversationId) => void state.history.restore(conversationId)}

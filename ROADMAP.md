@@ -117,7 +117,7 @@ ownership rewrite.
 - [x] create conversations on first send, list recent conversations, and reopen stored messages after restart;
 - [x] rename, archive, delete, and restore conversations;
 - edit-and-regenerate branches using parent message IDs;
-- reopen the exact conversation after restart;
+- [x] reopen the exact conversation after restart;
 - [x] date grouping based on real conversation activity;
 - conversation search;
 - Markdown rendering with sanitization;

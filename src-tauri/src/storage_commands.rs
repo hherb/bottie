@@ -33,7 +33,21 @@ pub(crate) fn load_conversation(
     conversation_id: String,
     state: State<'_, AppState>,
 ) -> Result<StoredConversation, StorageError> {
-    state.conversations.load_conversation(&conversation_id)
+    state.conversations.open_conversation(&conversation_id)
+}
+
+#[tauri::command]
+/// Loads the exact conversation selected by the built-in local profile, when present.
+pub(crate) fn load_last_open_conversation(
+    state: State<'_, AppState>,
+) -> Result<Option<StoredConversation>, StorageError> {
+    state.conversations.load_last_open_conversation()
+}
+
+#[tauri::command]
+/// Records an intentional blank new-chat view for the built-in local profile.
+pub(crate) fn clear_last_open_conversation(state: State<'_, AppState>) -> Result<(), StorageError> {
+    state.conversations.clear_last_open_conversation()
 }
 
 #[tauri::command]

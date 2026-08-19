@@ -5,7 +5,7 @@ use std::fs;
 use super::*;
 
 /// Creates an isolated database path for one storage test.
-fn test_database_path() -> std::path::PathBuf {
+pub(super) fn test_database_path() -> std::path::PathBuf {
     let directory = std::env::temp_dir().join(format!("bottie-storage-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&directory).expect("test directory should be created");
     directory.join("bottie.sqlite3")
@@ -18,7 +18,7 @@ fn initializes_ordered_migrations_and_default_local_profile() {
 
     let status = store.status().expect("storage status should load");
 
-    assert_eq!(status.schema_version, 3);
+    assert_eq!(status.schema_version, 4);
     assert_eq!(status.profile_name, "Local profile");
     assert_eq!(status.integrity_check, "ok");
     assert!(status.foreign_keys_enabled);
@@ -71,7 +71,7 @@ fn upgrades_a_version_two_store_without_rewriting_existing_messages() {
         )
         .expect("provider run table should be queryable");
 
-    assert_eq!(status.schema_version, 3);
+    assert_eq!(status.schema_version, 4);
     assert_eq!(provider_run_table, 1);
 }
 

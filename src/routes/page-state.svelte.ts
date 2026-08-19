@@ -410,10 +410,10 @@ export class PageState {
   }
 
   /** Clears the active thread; its first submitted prompt creates durable storage. */
-  startNewChat(): void {
+  async startNewChat(): Promise<void> {
     if (this.activeRunId) void cancelChat(this.activeRunId);
     this.messages = [];
-    this.history.startNew();
+    await this.history.startNew();
     this.activeStage = IDLE_STAGE;
     this.generationRun += 1;
     this.isGenerating = false;

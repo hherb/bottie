@@ -4,10 +4,12 @@ import { conversationTitle, persistedCompletionMeta, persistedMessagePresentatio
 import { nextMessageId, type Message } from "$lib/presentation";
 import {
   appendConversationMessage,
+  clearLastOpenConversation,
   createConversation,
   deleteConversation,
   listConversations,
   loadConversation,
+  loadLastOpenConversation,
   renameConversation,
   restoreConversation,
   setConversationArchived,
@@ -25,13 +27,14 @@ export class ConversationState {
   storageError = $state<StorageError | null>(null);
   isManaging = $state(false);
 
-  /** Loads recent conversations and returns the newest thread's messages. */
+  /** Loads navigation and returns the exact durable profile selection. */
   async initialize(): Promise<Message[]> {
     try {
-      this.conversations = await listConversations();
-      const newest = this.conversations.find((conversation) => conversation.lifecycle === "active");
-      if (!newest) return [];
-      return (await this.open(newest.id)) ?? [];
+      const [conversations, selected] = await Promise.all([listConversations(), loadLastOpenConversation()]);
+      this.conversations = conversations;
+      if (!selected) return [];
+      this.activeConversationId = selected.id;
+      return selected.messages.map((message) => this.presentationMessage(message));
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
       return [];
@@ -75,9 +78,15 @@ export class ConversationState {
     await this.refresh();
   }
 
-  /** Clears the active identity so the next prompt starts a new durable thread. */
-  startNew(): void {
+  /** Clears the active identity and persists the intentional blank new-chat view. */
+  async startNew(): Promise<void> {
     this.activeConversationId = null;
+    try {
+      await clearLastOpenConversation();
+      this.storageError = null;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+    }
   }
 
   /** Renames one active or archived conversation and refreshes navigation. */
