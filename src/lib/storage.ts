@@ -2,8 +2,26 @@
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
+import type { Usage } from "./inference";
+
 /** Durable message states supported by the initial SQLite schema. */
 export type StoredMessageState = "partial" | "final" | "cancelled" | "failed";
+
+/** Durable identity linking a native generation to its persisted user request. */
+export type ProviderRunContext = {
+  conversationId: string;
+  requestMessageId: string;
+};
+
+/** Persisted native generation provenance linked to one assistant response. */
+export type StoredProviderRun = {
+  id: string;
+  state: "running" | "completed" | "cancelled" | "failed";
+  reasoningEffort: "off" | "low";
+  startedAtMs: number;
+  completedAtMs: number | null;
+  usage: Usage | null;
+};
 
 /** Stable storage failure returned by native commands. */
 export type StorageError = {
@@ -40,6 +58,7 @@ export type StoredMessage = {
   state: StoredMessageState;
   providerId: string | null;
   modelId: string | null;
+  providerRun: StoredProviderRun | null;
   createdAtMs: number;
 };
 
@@ -59,6 +78,7 @@ export type NewStoredMessage = {
   state: StoredMessageState;
   providerId: string | null;
   modelId: string | null;
+  providerRunId: string | null;
 };
 
 /** Produces the stable browser-preview storage failure. */

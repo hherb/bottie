@@ -6,10 +6,11 @@ The current developer preview pairs the interactive product shell with real, tex
 Ollama, OpenAI-compatible, and Anthropic-compatible providers. The Rust core validates provider endpoints, discovers
 models, tests connections, streams normalized answer and reasoning events over a typed Tauri IPC channel, and owns
 end-to-end cancellation. Conversations and their ordered text/reasoning messages persist in a Rust-owned bundled
-SQLite database and reopen after restart. Remote API keys stay in the operating-system credential vault and are never
-returned to the WebView. On macOS, Touch ID gates the first read of each saved cloud credential per Bottie session;
-successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are not implemented
-yet; those UI surfaces are disabled or labelled as preview-only fixtures.
+SQLite database and reopen after restart. Accepted provider runs retain their model, generation settings, terminal
+state, elapsed time, and provider-reported token/cost usage. Remote API keys stay in the operating-system credential
+vault and are never returned to the WebView. On macOS, Touch ID gates the first read of each saved cloud credential
+per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
+not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
 
 ## Development
 
@@ -54,8 +55,9 @@ The first submitted prompt creates a durable conversation for the built-in local
 provider inference begins, terminal assistant responses commit before the next prompt can be sent, and the sidebar
 groups real conversation activity by local calendar date. Conversations can be renamed inline, archived, moved to
 recoverable trash, and restored without losing messages. The initial SQLite schema models conversations, main branches,
-ordered messages, and separate text/reasoning blocks. Branching, search, export, backup/restore, and crash recovery
-remain planned Milestone 2 work.
+ordered messages, separate text/reasoning blocks, provider runs, and append-only usage snapshots. Reopened assistant
+responses recover provider-reported token/cost metadata without estimating missing values. Branching, search, export,
+backup/restore, and crash-safe interrupted-run recovery remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

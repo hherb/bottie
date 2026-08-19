@@ -1,6 +1,6 @@
 /** Reactive durable-conversation state kept separate from provider orchestration. */
 
-import { conversationTitle } from "$lib/chat";
+import { conversationTitle, persistedCompletionMeta } from "$lib/chat";
 import type { ModelInfo } from "$lib/inference";
 import { nextMessageId, type Message } from "$lib/presentation";
 import {
@@ -14,6 +14,7 @@ import {
   setConversationArchived,
   storageErrorFromUnknown,
   type ConversationSummary,
+  type ProviderRunContext,
   type StorageError,
   type StoredMessage,
   type StoredMessageState,
@@ -53,13 +54,13 @@ export class ConversationState {
   }
 
   /** Creates a conversation when needed and durably appends the submitted prompt. */
-  async persistUserMessage(prompt: string): Promise<string | null> {
+  async persistUserMessage(prompt: string): Promise<ProviderRunContext | null> {
     try {
       if (!this.activeConversationId) {
         const conversation = await createConversation(conversationTitle(prompt));
         this.activeConversationId = conversation.id;
       }
-      await appendConversationMessage({
+      const stored = await appendConversationMessage({
         conversationId: this.activeConversationId,
         role: "user",
         text: prompt,
@@ -67,9 +68,13 @@ export class ConversationState {
         state: "final",
         providerId: null,
         modelId: null,
+        providerRunId: null,
       });
       await this.refresh();
-      return this.activeConversationId;
+      return {
+        conversationId: this.activeConversationId,
+        requestMessageId: stored.id,
+      };
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
       return null;
@@ -82,6 +87,7 @@ export class ConversationState {
     message: Message | undefined,
     state: StoredMessageState,
     model: ModelInfo,
+    providerRunId: string | null,
   ): Promise<void> {
     if (!message) return;
     try {
@@ -93,6 +99,7 @@ export class ConversationState {
         state,
         providerId: model.providerId,
         modelId: model.modelId,
+        providerRunId,
       });
       await this.refresh();
     } catch (error) {
@@ -160,13 +167,20 @@ export class ConversationState {
   /** Maps one durable record into the richer ephemeral presentation shape. */
   private presentationMessage(message: StoredMessage): Message {
     const model = message.modelId && message.providerId ? `${message.modelId} · ${message.providerId}` : undefined;
+    const completedMeta = message.providerRun
+      ? persistedCompletionMeta(
+          message.providerRun.startedAtMs,
+          message.providerRun.completedAtMs,
+          message.providerRun.usage,
+        )
+      : undefined;
     return {
       id: nextMessageId(),
       role: message.role,
       content: message.text,
       reasoning: message.reasoning ?? undefined,
       model,
-      meta: message.state === "cancelled" ? "Stopped · saved partial response" : undefined,
+      meta: message.state === "cancelled" ? "Stopped · saved partial response" : completedMeta,
       error: message.state === "failed",
     };
   }

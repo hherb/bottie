@@ -7,10 +7,12 @@ Last verified: 2026-08-19
 Bottie is a greenfield Tauri 2 desktop chatbot. Milestone 1 is complete: the native app supports oMLX, Ollama,
 OpenAI-compatible, and Anthropic-compatible text inference through Rust-owned networking, credentials, streaming, and
 cancellation. Milestone 2 is in progress: a Rust-owned bundled SQLite store now persists local-profile conversations
-and ordered text/reasoning messages across restart. Users can rename, archive, soft-delete, restore, and browse real
-conversations in calendar-date groups. Provider selection remains explicit, cloud routes are visible before sending,
-and credential-vault values are never returned to the WebView. The next bounded implementation slice is
-append-oriented provider-run and usage persistence; do not reopen broad product or visual-design planning.
+and ordered text/reasoning messages across restart. Accepted provider runs now persist their request link, provider,
+model, generation settings, terminal outcome, timing, and provider-reported usage. Users can rename, archive,
+soft-delete, restore, and browse real conversations in calendar-date groups. Provider selection remains explicit,
+cloud routes are visible before sending, and credential-vault values are never returned to the WebView. The next
+bounded implementation slice is crash-safe partial-message persistence and interrupted-run recovery; do not reopen
+broad product or visual-design planning.
 
 Read these files first:
 
@@ -72,13 +74,15 @@ the dependency-free local icon set used by the shell.
 credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach Svelte.
 
 `src-tauri/src/storage.rs` owns short-lived configured SQLite connections, migrations, integrity policy, and
-transactional conversation/message operations. `src-tauri/src/storage_commands.rs` exposes only list, create, load,
-append, and explicit lifecycle commands. The database lives in the OS application-data directory; the WebView never
-receives a path, SQL, or generic database capability. One built-in `local` profile represents the current OS account.
-Every conversation has
+transactional conversation/message operations. `src-tauri/src/storage/runs.rs` owns provider-run and usage records,
+while `src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
+`src-tauri/src/storage_commands.rs` exposes only list, create, load, append, and explicit lifecycle commands. The
+database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
+capability. One built-in `local` profile represents the current OS account. Every conversation has
 a main branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
 blocks. User prompts commit before inference starts, and terminal assistant responses commit before another prompt can
-append.
+append. Assistant responses reference opaque native provider runs, and reopened conversations reconstruct real elapsed
+time plus provider-reported token/cost usage without estimating missing values.
 
 The oMLX adapter:
 
@@ -139,11 +143,12 @@ The native application configuration has:
 Do not mistake visual fixtures for implemented backend behavior:
 
 - memory cards and relevance scores are fixtures;
-- context usage and tool sources are fixtures; response elapsed time is real, while token usage and cost appear when
-  the selected provider reports them;
+- context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
+  real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
 - branching, search, export, backup/restore, and interrupted-run recovery are not yet implemented;
+- tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
 - no web search or fetch tool exists;
@@ -182,7 +187,36 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Conversation lifecycle management
+## Most recently completed product slice: Provider-run provenance and usage persistence
+
+### Goal
+
+Retain auditable generation provenance and provider-reported usage across restart without allowing the WebView to
+invent usage records or exposing generic database access.
+
+### Implemented shape
+
+1. Schema version 3 adds profile-owned provider runs linked to their conversation, main branch, and persisted user
+   request, plus append-only cumulative usage snapshots and an optional response-message link.
+2. Native generation records the provider, model, reasoning effort, temperature, output ceiling, and start time before
+   network work begins.
+3. Rust closes completed, cancelled, and failed runs before sending their terminal stream event. Stable provider error
+   categories are retained without storing raw provider responses or credential-shaped diagnostics.
+4. Provider-reported input tokens, output tokens, and compatible-endpoint USD cost are written only by native
+   orchestration. Missing values remain absent rather than estimated.
+5. Terminal assistant messages reference the opaque native run, and reopening a conversation reconstructs elapsed
+   time and usage/cost metadata below the response.
+
+### Acceptance criteria
+
+- A version 2 database migrates transactionally to version 3 without rewriting existing messages.
+- A provider run can start only from a persisted user request in the same non-deleted local-profile conversation.
+- Terminal state and final cumulative usage survive database reopen and remain linked to the assistant response.
+- Response links must match the run's conversation, branch, provider, and model.
+- Provider-run persistence completes before the matching terminal stream event reaches the WebView.
+- Interrupted-run detection and partial-response checkpointing remain explicitly deferred to the next slice.
+
+## Prior completed product slice: Conversation lifecycle management
 
 ### Goal
 
@@ -334,7 +368,7 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-19 for conversation lifecycle management:
+The following passed on 2026-08-19 for provider-run provenance and usage persistence:
 
 ```sh
 npm run check
@@ -346,25 +380,26 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The standard Rust suite now has fifty tests: forty-six run by default and four are opt-in live-provider tests. Six
-storage tests cover migration and profile policy, WAL/foreign-key/integrity state, transactional conversation/message
-round trips, branch-local ordering under equal timestamps, provider/model/reasoning retention, lifecycle transitions,
-recoverable deletion, and invalid input. The frontend suite has eleven pure-helper tests, including local-calendar date
-grouping.
+The standard Rust suite now has fifty-two tests: forty-eight run by default and four are opt-in live-provider tests.
+Eight storage tests cover migration and profile policy, version 2-to-3 upgrade, WAL/foreign-key/integrity state,
+transactional conversation/message round trips, branch-local ordering under equal timestamps,
+provider/model/reasoning retention, provider-run/usage reconstruction, lifecycle transitions, recoverable deletion,
+and invalid input. The frontend suite has twelve pure-helper tests, including durable completion-metadata
+reconstruction and local-calendar date grouping.
 
 The browser preview was checked at 1320 x 820 and 760 x 820. The pass covered the date-group-compatible empty state,
 responsive mobile sidebar, existing context overlay, and horizontal/vertical overflow with no console warnings or
-errors. Native lifecycle interaction still needs a final real-app smoke check with durable conversation data.
+errors. This slice did not change layout or interaction structure.
 
-The native application compiled and launched. Its real application-data database migrated to schema version 2,
-`PRAGMA quick_check` returned `ok`, and the `local` / `Local profile` record plus both migration records were verified.
-The user then confirmed an end-to-end provider-backed send/restart/reopen interaction restored the saved conversation
-successfully from the recent-conversation sidebar.
+The prior native application check compiled and launched schema version 2, returned `ok` from `PRAGMA quick_check`, and
+confirmed an end-to-end provider-backed send/restart/reopen interaction. A real native provider-run smoke check for
+schema version 3 remains pending after this automated slice verification: direct oMLX and Ollama probes found neither
+local daemon listening on its configured default port.
 
-The next bounded implementation slice is append-oriented provider-run and usage persistence. Keep edit/regenerate
-branching, crash-safe partial recovery, export, and backups as later reviewable slices. Keep FastEmbed/EmbeddingGemma
-implementation with the first memory-search consumer, where download progress, cache location, dimensions, and
-reindex metadata can be implemented coherently.
+The next bounded implementation slice is crash-safe partial-message persistence and interrupted-run recovery. Keep
+edit/regenerate branching, tool-invocation persistence, export, and backups as later reviewable slices. Keep
+FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache
+location, dimensions, and reindex metadata can be implemented coherently.
 
 ## Development commands
 

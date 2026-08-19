@@ -106,7 +106,8 @@ ownership rewrite.
 - [x] ordered, transactional migrations with schema-version history;
 - [x] WAL mode, foreign keys, busy handling, and startup integrity checks;
 - [x] built-in local profile, conversations, main branches, ordered messages, and text/reasoning blocks;
-- [ ] append-oriented provider runs, tool invocations, and usage records;
+- [x] append-oriented provider runs and provider-reported usage records;
+- [ ] append-oriented tool invocations and results;
 - [ ] crash-safe draft/partial message persistence and interrupted-run recovery;
 - [ ] automatic backup, restore, and corruption-recovery strategy;
 - [x] soft deletion and retention metadata.

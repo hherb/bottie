@@ -227,6 +227,20 @@ pub enum ProviderErrorCode {
     Internal,
 }
 
+impl ProviderErrorCode {
+    /// Returns the stable storage representation used by provider-run provenance.
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Unavailable => "unavailable",
+            Self::Timeout => "timeout",
+            Self::InvalidRequest => "invalid_request",
+            Self::Server => "server",
+            Self::MalformedResponse => "malformed_response",
+            Self::Internal => "internal",
+        }
+    }
+}
+
 /// A normalized, user-readable provider failure.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
