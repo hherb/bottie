@@ -52,15 +52,22 @@ impl ConversationStore {
         conversation_id: &str,
         archived: bool,
     ) -> Result<ConversationSummary, StorageError> {
-        let connection = self.open()?;
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let archived_at_ms = archived.then(now_ms).transpose()?;
-        let changed = connection.execute(
+        let changed = transaction.execute(
             "UPDATE conversations SET archived_at_ms = ?1
              WHERE id = ?2 AND profile_id = ?3 AND deleted_at_ms IS NULL",
             params![archived_at_ms, conversation_id, DEFAULT_PROFILE_ID],
         )?;
         require_change(changed)?;
-        load_summary(&connection, conversation_id)
+        if archived {
+            clear_selected_conversation(&transaction, conversation_id)?;
+        }
+        let summary = load_summary(&transaction, conversation_id)?;
+        transaction.commit()?;
+        Ok(summary)
     }
 
     /// Soft-deletes one conversation while preserving all of its durable content.
@@ -68,14 +75,19 @@ impl ConversationStore {
         &self,
         conversation_id: &str,
     ) -> Result<ConversationSummary, StorageError> {
-        let connection = self.open()?;
-        let changed = connection.execute(
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let changed = transaction.execute(
             "UPDATE conversations SET deleted_at_ms = ?1
              WHERE id = ?2 AND profile_id = ?3 AND deleted_at_ms IS NULL",
             params![now_ms()?, conversation_id, DEFAULT_PROFILE_ID],
         )?;
         require_change(changed)?;
-        load_summary(&connection, conversation_id)
+        clear_selected_conversation(&transaction, conversation_id)?;
+        let summary = load_summary(&transaction, conversation_id)?;
+        transaction.commit()?;
+        Ok(summary)
     }
 
     /// Restores one soft-deleted conversation to the active recent list.
@@ -145,4 +157,17 @@ fn require_change(changed: usize) -> Result<(), StorageError> {
 /// Creates the shared lifecycle missing-record error.
 fn missing_conversation() -> StorageError {
     StorageError::not_found("That conversation is unavailable for this action.")
+}
+
+/// Clears the profile selection only when it points at the lifecycle target.
+fn clear_selected_conversation(
+    connection: &Connection,
+    conversation_id: &str,
+) -> Result<(), StorageError> {
+    connection.execute(
+        "UPDATE profiles SET last_open_conversation_id = NULL
+         WHERE id = ?1 AND last_open_conversation_id = ?2",
+        params![DEFAULT_PROFILE_ID, conversation_id],
+    )?;
+    Ok(())
 }

@@ -106,3 +106,17 @@ CREATE INDEX provider_runs_conversation_started_idx
 CREATE UNIQUE INDEX messages_provider_run_idx
     ON messages(provider_run_id) WHERE provider_run_id IS NOT NULL;
 "#;
+
+/// Adds profile-owned navigation state for exact conversation restoration.
+pub(super) const MIGRATION_4: &str = r#"
+ALTER TABLE profiles ADD COLUMN last_open_conversation_id TEXT REFERENCES conversations(id);
+UPDATE profiles
+SET last_open_conversation_id = (
+    SELECT id FROM conversations
+    WHERE conversations.profile_id = profiles.id
+      AND archived_at_ms IS NULL
+      AND deleted_at_ms IS NULL
+    ORDER BY updated_at_ms DESC, id DESC
+    LIMIT 1
+);
+"#;

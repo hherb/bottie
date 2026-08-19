@@ -9,7 +9,8 @@ end-to-end cancellation. Conversations and their ordered text/reasoning messages
 SQLite database and reopen after restart. Accepted provider runs retain their model, generation settings, terminal
 state, elapsed time, provider-reported token/cost usage, and checkpointed partial output. If Bottie exits during a
 generation, its next launch marks that run interrupted and reopens the response with the text and reasoning already
-saved. Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
+saved. Bottie also restores the exact last-open conversation after restart and preserves an intentional blank new-chat
+view. Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
 not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
@@ -60,8 +61,9 @@ prompt can be sent. On startup, any run left active by a prior process becomes a
 sidebar groups real conversation activity by local calendar date. Conversations can be renamed inline, archived, moved
 to recoverable trash, and restored without losing messages. The initial SQLite schema models conversations, main
 branches, ordered messages, separate text/reasoning blocks, provider runs, and append-only usage snapshots. Reopened
-assistant responses recover provider-reported token/cost metadata without estimating missing values. Branching, exact
-last-open-conversation restoration, search, export, and backup/restore remain planned Milestone 2 work.
+assistant responses recover provider-reported token/cost metadata without estimating missing values. The native store
+owns the local profile's last-open selection; opening or creating a conversation records it, while New chat clears it.
+Branching, search, export, and backup/restore remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

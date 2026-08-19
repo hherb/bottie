@@ -7,16 +7,17 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 mod lifecycle;
 mod migrations;
 mod runs;
+mod selection;
 mod types;
 
-use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3};
+use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use types::{
     ConversationLifecycle, ConversationSummary, MessageState, NewProviderRun, NewStoredMessage,
     ProviderRunContext, ProviderRunState, RunBlockKind, StorageError, StoredConversation,
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 3;
+const CURRENT_SCHEMA_VERSION: i64 = 4;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -77,6 +78,10 @@ impl ConversationStore {
         transaction.execute(
             "INSERT INTO branches (id, conversation_id, name, created_at_ms) VALUES (?1, ?2, ?3, ?4)",
             params![branch_id, conversation_id, DEFAULT_BRANCH_NAME, now],
+        )?;
+        transaction.execute(
+            "UPDATE profiles SET last_open_conversation_id = ?1 WHERE id = ?2",
+            params![conversation_id, DEFAULT_PROFILE_ID],
         )?;
         transaction.commit()?;
         Ok(StoredConversation {
@@ -181,64 +186,13 @@ impl ConversationStore {
     }
 
     /// Reconstructs one non-deleted conversation and its current main branch.
+    #[cfg(test)]
     pub(crate) fn load_conversation(
         &self,
         conversation_id: &str,
     ) -> Result<StoredConversation, StorageError> {
         let connection = self.open()?;
-        let title: String = connection
-            .query_row(
-                "SELECT title FROM conversations WHERE id = ?1 AND profile_id = ?2 AND deleted_at_ms IS NULL",
-                params![conversation_id, DEFAULT_PROFILE_ID],
-                |row| row.get(0),
-            )
-            .optional()?
-            .ok_or_else(|| StorageError::not_found("That conversation no longer exists."))?;
-        let branch_id: String = connection.query_row(
-            "SELECT id FROM branches WHERE conversation_id = ?1 ORDER BY created_at_ms, id LIMIT 1",
-            [conversation_id],
-            |row| row.get(0),
-        )?;
-        let mut statement = connection.prepare(
-            "SELECT id, role, state, provider_id, model_id, provider_run_id, created_at_ms
-             FROM messages WHERE branch_id = ?1 ORDER BY sequence",
-        )?;
-        let rows = statement.query_map([branch_id], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, Option<String>>(3)?,
-                row.get::<_, Option<String>>(4)?,
-                row.get::<_, Option<String>>(5)?,
-                row.get::<_, i64>(6)?,
-            ))
-        })?;
-        let mut messages = Vec::new();
-        for row in rows {
-            let (id, role, state, provider_id, model_id, provider_run_id, created_at_ms) = row?;
-            let (text, reasoning) = load_blocks(&connection, &id)?;
-            let provider_run = provider_run_id
-                .as_deref()
-                .map(|run_id| runs::load_provider_run(&connection, run_id))
-                .transpose()?;
-            messages.push(StoredMessage {
-                id,
-                role: StoredRole::from_database(&role)?,
-                text,
-                reasoning,
-                state: MessageState::from_database(&state)?,
-                provider_id,
-                model_id,
-                provider_run,
-                created_at_ms,
-            });
-        }
-        Ok(StoredConversation {
-            id: conversation_id.into(),
-            title,
-            messages,
-        })
+        load_conversation_from_connection(&connection, conversation_id)
     }
 
     /// Opens one connection with Bottie's durability and integrity policy enabled.
@@ -297,6 +251,18 @@ impl ConversationStore {
             transaction.pragma_update(None, "user_version", 3)?;
             transaction.commit()?;
         }
+        if version < 4 {
+            let transaction =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            transaction.execute_batch(MIGRATION_4)?;
+            transaction.execute(
+                "INSERT INTO schema_migrations (version, name, applied_at_ms)
+                 VALUES (4, 'last open conversation', ?1)",
+                [now_ms()?],
+            )?;
+            transaction.pragma_update(None, "user_version", 4)?;
+            transaction.commit()?;
+        }
         Ok(())
     }
 
@@ -325,6 +291,66 @@ impl ConversationStore {
             .pragma_query_value(None, "quick_check", |row| row.get(0))
             .map_err(Into::into)
     }
+}
+
+/// Reconstructs one non-deleted conversation through an existing connection or transaction.
+fn load_conversation_from_connection(
+    connection: &Connection,
+    conversation_id: &str,
+) -> Result<StoredConversation, StorageError> {
+    let title: String = connection
+        .query_row(
+            "SELECT title FROM conversations WHERE id = ?1 AND profile_id = ?2 AND deleted_at_ms IS NULL",
+            params![conversation_id, DEFAULT_PROFILE_ID],
+            |row| row.get(0),
+        )
+        .optional()?
+        .ok_or_else(|| StorageError::not_found("That conversation no longer exists."))?;
+    let branch_id: String = connection.query_row(
+        "SELECT id FROM branches WHERE conversation_id = ?1 ORDER BY created_at_ms, id LIMIT 1",
+        [conversation_id],
+        |row| row.get(0),
+    )?;
+    let mut statement = connection.prepare(
+        "SELECT id, role, state, provider_id, model_id, provider_run_id, created_at_ms
+         FROM messages WHERE branch_id = ?1 ORDER BY sequence",
+    )?;
+    let rows = statement.query_map([branch_id], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, Option<String>>(3)?,
+            row.get::<_, Option<String>>(4)?,
+            row.get::<_, Option<String>>(5)?,
+            row.get::<_, i64>(6)?,
+        ))
+    })?;
+    let mut messages = Vec::new();
+    for row in rows {
+        let (id, role, state, provider_id, model_id, provider_run_id, created_at_ms) = row?;
+        let (text, reasoning) = load_blocks(connection, &id)?;
+        let provider_run = provider_run_id
+            .as_deref()
+            .map(|run_id| runs::load_provider_run(connection, run_id))
+            .transpose()?;
+        messages.push(StoredMessage {
+            id,
+            role: StoredRole::from_database(&role)?,
+            text,
+            reasoning,
+            state: MessageState::from_database(&state)?,
+            provider_id,
+            model_id,
+            provider_run,
+            created_at_ms,
+        });
+    }
+    Ok(StoredConversation {
+        id: conversation_id.into(),
+        title,
+        messages,
+    })
 }
 
 /// Inserts non-empty text and reasoning as independently ordered content blocks.
@@ -408,3 +434,7 @@ mod tests;
 #[cfg(test)]
 #[path = "storage/run_tests.rs"]
 mod run_tests;
+
+#[cfg(test)]
+#[path = "storage/selection_tests.rs"]
+mod selection_tests;

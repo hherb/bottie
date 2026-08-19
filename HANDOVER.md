@@ -1,6 +1,6 @@
 # bottie handover
 
-Last verified: 2026-08-19
+Last verified: 2026-08-20
 
 ## Start here
 
@@ -10,10 +10,11 @@ cancellation. Milestone 2 is in progress: a Rust-owned bundled SQLite store now 
 and ordered text/reasoning messages across restart. Accepted provider runs now persist their request link, provider,
 model, generation settings, terminal outcome, timing, provider-reported usage, and crash-safe partial text/reasoning
 checkpoints. Runs left active by an earlier process reopen as visibly interrupted partial responses. Users can rename,
-archive, soft-delete, restore, and browse real conversations in calendar-date groups. Provider selection remains
-explicit, cloud routes are visible before sending, and credential-vault values are never returned to the WebView. The
-next bounded implementation slice is restoring the exact last-open built-in local-profile conversation after restart; do
-not reopen broad product or visual-design planning.
+archive, soft-delete, restore, and browse real conversations in calendar-date groups. The exact last-open conversation,
+including an intentional blank new-chat view, now survives restart. Provider selection remains explicit, cloud routes
+are visible before sending, and credential-vault values are never returned to the WebView. The next bounded
+implementation slice is edit-and-regenerate branching using the existing parent-message and branch identities; do not
+reopen broad product or visual-design planning.
 
 Read these files first:
 
@@ -54,7 +55,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - an off-by-default reasoning toggle with low effort when enabled;
 - collapsed reasoning sections that can be expanded independently of answer text;
 - working stop-generation cancellation backed by a Rust abort handle;
-- durable conversation creation on first send, recent-conversation navigation, and restart-safe reopening;
+- durable conversation creation on first send, recent-conversation navigation, and exact last-open restoration;
 - crash-safe partial answer/reasoning checkpoints and visibly interrupted-run recovery;
 - real Today, Yesterday, Previous 7 days, Archived, and Trash navigation groups;
 - inline conversation rename plus archive, unarchive, recoverable trash, and restore actions;
@@ -77,9 +78,9 @@ credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach S
 
 `src-tauri/src/storage.rs` owns short-lived configured SQLite connections, migrations, integrity policy, and
 transactional conversation/message operations. `src-tauri/src/storage/runs.rs` owns provider-run and usage records,
-partial-response checkpoints, and interrupted-run recovery, while `src-tauri/src/generation.rs` closes each native run
-before its terminal stream event reaches the WebView. `src-tauri/src/storage_commands.rs` exposes only list, create,
-load, user-message append, and explicit lifecycle commands. The
+`src-tauri/src/storage/selection.rs` owns profile-scoped last-open state, and `src-tauri/src/generation.rs` closes each
+native run before its terminal stream event reaches the WebView. `src-tauri/src/storage_commands.rs` exposes only
+list, create, selected-load/clear, user-message append, and explicit lifecycle commands. The
 database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a main branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
@@ -87,7 +88,9 @@ blocks. User prompts commit before inference starts, and terminal assistant resp
 append. Rust creates each assistant response with its run, checkpoints every provider text/reasoning delta before IPC,
 and marks leftover running records interrupted during the next startup. Assistant responses reference opaque native
 provider runs, and reopened conversations reconstruct real elapsed time plus provider-reported token/cost usage without
-estimating missing values.
+estimating missing values. Creating or opening a conversation records it as the local profile's exact selection;
+starting a blank chat clears that selection, and archiving or deleting the selected conversation clears it in the same
+transaction as the lifecycle change.
 
 The oMLX adapter:
 
@@ -152,7 +155,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- branching, exact last-open-conversation restoration, search, export, and backup/restore are not yet implemented;
+- branching, search, export, and backup/restore are not yet implemented;
 - tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
@@ -192,7 +195,34 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Crash-safe partial responses and interrupted-run recovery
+## Most recently completed product slice: Exact last-open conversation restoration
+
+### Goal
+
+Restore the built-in local profile's actual selected conversation after restart without making the WebView own durable
+navigation preferences or silently reopening an older thread after the user chose a blank new chat.
+
+### Implemented shape
+
+1. Schema version 4 adds one nullable profile-owned last-open conversation reference. Existing version-three stores
+   seed it once from their newest active conversation to preserve prior startup behavior during upgrade.
+2. Creating a conversation records it in the same transaction, while opening an existing non-deleted conversation
+   atomically records and returns it through the narrow native command.
+3. Startup loads the exact stored selection instead of inferring it from recent-conversation ordering.
+4. New chat clears the durable selection, so an intentional blank composer remains blank after restart.
+5. Archiving or deleting the selected conversation clears the reference in the same lifecycle transaction; changing
+   another conversation does not disturb the current selection.
+
+### Acceptance criteria
+
+- Opening an older conversation and restarting restores that exact thread even when a newer thread exists.
+- Creating a first-send conversation immediately makes it the durable profile selection.
+- A blank new-chat view survives restart without deleting or altering prior conversations.
+- Selected archived/deleted conversations do not become stale startup targets.
+- Version-three databases migrate transactionally and receive a deterministic initial selection.
+- The WebView receives neither profile-table access nor a generic preference or database capability.
+
+## Prior completed product slice: Crash-safe partial responses and interrupted-run recovery
 
 ### Goal
 
@@ -402,7 +432,7 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-19 for crash-safe partial-response persistence and interrupted-run recovery:
+The following passed on 2026-08-20 for exact last-open conversation restoration:
 
 ```sh
 npm run check
@@ -414,24 +444,26 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The standard Rust suite now has fifty-seven tests: fifty-three run by default and four are opt-in live-provider tests.
-All four live oMLX/Ollama streaming and cancellation tests passed when run separately with unrestricted loopback access.
-Thirteen storage tests cover migration and profile policy, version 2-to-3 upgrade, WAL/foreign-key/integrity state,
-transactional conversation/message round trips, branch-local ordering under equal timestamps, provider/model/reasoning
-retention, provider-run/usage reconstruction, native partial checkpoints, legacy running-record recovery, lifecycle
-transitions, recoverable deletion, and invalid input. The frontend suite has thirteen pure-helper tests, including
-durable completion metadata, recovered-message labels, and local-calendar date grouping.
+The standard Rust suite now has sixty-one tests: fifty-seven run by default and four are opt-in live-provider tests.
+Seventeen storage tests cover migration and profile policy, version 2-to-4 and 3-to-4 upgrades,
+WAL/foreign-key/integrity state, transactional conversation/message round trips, branch-local ordering under equal
+timestamps, exact/blank last-open restoration, provider/model/reasoning retention, provider-run/usage reconstruction,
+native partial checkpoints, legacy running-record recovery, lifecycle transitions, recoverable deletion, and invalid
+input. The frontend suite has thirteen pure-helper tests, including durable completion metadata, recovered-message
+labels, and local-calendar date grouping. Live-provider tests were not required because this slice does not change
+provider networking or streaming.
 
 This slice did not change layout or interaction structure, so the prior browser-preview layout checks remain applicable.
 
-The native application compiled and launched cleanly with the current schema version 3 store. Unrestricted direct
-probes confirmed both oMLX and Ollama online on their configured default loopback ports. The storage suite exercises
-process-reopen recovery against a real path-backed SQLite database without modifying the user's application data.
+The storage suite exercises schema version 4 process-reopen restoration against real path-backed SQLite databases. The
+native app also compiled, launched against the existing local store, completed schema version 4 startup, and reopened
+the current selected conversation without a visible error. The exact older-thread selection and intentional blank
+new-chat restart flows were manually confirmed on 2026-08-20.
 
-The next bounded implementation slice is restoring the exact last-open built-in local-profile conversation after
-restart. Keep edit/regenerate branching, tool-invocation persistence, export, and backups as later reviewable slices.
-Keep FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache
-location, dimensions, and reindex metadata can be implemented coherently.
+The next bounded implementation slice is edit-and-regenerate branching using the existing parent-message and branch
+identities. Keep tool-invocation persistence, search, export, and backups as later reviewable slices. Keep
+FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
+dimensions, and reindex metadata can be implemented coherently.
 
 ## Development commands
 
