@@ -1,24 +1,23 @@
+#![deny(missing_docs)]
+//! Native application commands and lifecycle for Bottie's Tauri desktop shell.
+
+mod command_types;
+mod diagnostics;
 mod inference;
 
-use std::{
-    collections::{HashMap, VecDeque},
-    path::PathBuf,
-    sync::Arc,
-    time::{Instant, SystemTime, UNIX_EPOCH},
-};
+use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
 
+use command_types::{AppInfo, ProviderConnectionDraft, ProviderConnectionTest, ProviderSelection};
+use diagnostics::{DiagnosticEntry, Diagnostics, record_diagnostic, sanitized};
 use futures_util::future::{AbortHandle, Abortable};
 use inference::{
     ChatRequest, ChatRun, InferenceProvider, ModelInfo, OllamaProvider, OmlxProvider,
-    ProviderError, ProviderSettings, StreamEvent, Usage, load_provider_settings, redact_diagnostic,
+    ProviderError, ProviderSettings, StreamEvent, Usage, load_provider_settings,
     save_provider_settings,
 };
-use serde::{Deserialize, Serialize};
 use tauri::{Manager, State, ipc::Channel};
 
 type ActiveRuns = Arc<tauri::async_runtime::Mutex<HashMap<String, AbortHandle>>>;
-type Diagnostics = Arc<tauri::async_runtime::Mutex<VecDeque<DiagnosticEntry>>>;
-
 struct AppState {
     providers: tauri::async_runtime::RwLock<ProviderSet>,
     settings_path: PathBuf,
@@ -34,6 +33,7 @@ struct ProviderSet {
 }
 
 impl ProviderSet {
+    /// Builds a complete local-provider set from validated settings.
     fn from_settings(settings: &ProviderSettings) -> Result<Self, ProviderError> {
         Ok(Self {
             omlx: OmlxProvider::with_base_url(&settings.omlx_base_url)?,
@@ -42,10 +42,12 @@ impl ProviderSet {
         })
     }
 
+    /// Returns a snapshot of the active provider settings.
     fn settings(&self) -> ProviderSettings {
         self.settings.clone()
     }
 
+    /// Resolves one supported local provider by stable identity.
     fn provider(&self, provider_id: &str) -> Result<LocalProvider, ProviderError> {
         match provider_id {
             "omlx" => Ok(LocalProvider::Omlx(self.omlx.clone())),
@@ -64,6 +66,7 @@ enum LocalProvider {
 }
 
 impl LocalProvider {
+    /// Returns the provider's stable routing identity.
     fn provider_id(&self) -> &'static str {
         match self {
             Self::Omlx(_) => "omlx",
@@ -71,6 +74,7 @@ impl LocalProvider {
         }
     }
 
+    /// Streams a chat through the concrete local provider.
     async fn stream_chat(
         &self,
         request: ChatRequest,
@@ -82,6 +86,7 @@ impl LocalProvider {
         }
     }
 
+    /// Discovers models through the concrete local provider.
     async fn discover_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
         match self {
             Self::Omlx(provider) => provider.discover_models().await,
@@ -90,48 +95,8 @@ impl LocalProvider {
     }
 }
 
-#[derive(Serialize)]
-struct AppInfo {
-    name: &'static str,
-    version: &'static str,
-    storage: &'static str,
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct DiagnosticEntry {
-    timestamp_ms: u64,
-    level: &'static str,
-    event: String,
-    provider_id: Option<String>,
-    detail: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ProviderConnectionDraft {
-    provider_id: String,
-    base_url: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ProviderSelection {
-    provider_id: String,
-    model_id: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ProviderConnectionTest {
-    provider_id: String,
-    base_url: String,
-    model_count: usize,
-    elapsed_ms: u64,
-    message: String,
-}
-
 #[tauri::command]
+/// Returns static identity information for the running native application.
 fn app_info() -> AppInfo {
     AppInfo {
         name: "bottie",
@@ -140,35 +105,8 @@ fn app_info() -> AppInfo {
     }
 }
 
-async fn record_diagnostic(
-    diagnostics: &Diagnostics,
-    level: &'static str,
-    event: impl Into<String>,
-    provider_id: Option<&str>,
-    detail: Option<&str>,
-) {
-    let mut entries = diagnostics.lock().await;
-    if entries.len() == 100 {
-        entries.pop_front();
-    }
-    entries.push_back(DiagnosticEntry {
-        timestamp_ms: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64,
-        level,
-        event: event.into(),
-        provider_id: provider_id.map(str::to_owned),
-        detail: detail.map(redact_diagnostic),
-    });
-}
-
-fn sanitized(mut error: ProviderError) -> ProviderError {
-    error.diagnostic = error.diagnostic.as_deref().map(redact_diagnostic);
-    error
-}
-
 #[tauri::command]
+/// Returns the active non-secret local-provider settings.
 async fn get_provider_settings(
     state: State<'_, AppState>,
 ) -> Result<ProviderSettings, ProviderError> {
@@ -176,6 +114,7 @@ async fn get_provider_settings(
 }
 
 #[tauri::command]
+/// Validates, persists, and activates new local-provider settings.
 async fn update_provider_settings(
     settings: ProviderSettings,
     state: State<'_, AppState>,
@@ -196,6 +135,7 @@ async fn update_provider_settings(
 }
 
 #[tauri::command]
+/// Persists the last successfully selected provider and model pair.
 async fn remember_provider_selection(
     selection: ProviderSelection,
     state: State<'_, AppState>,
@@ -218,6 +158,7 @@ async fn remember_provider_selection(
 }
 
 #[tauri::command]
+/// Tests a draft provider endpoint without changing active settings.
 async fn test_provider_connection(
     draft: ProviderConnectionDraft,
     state: State<'_, AppState>,
@@ -279,6 +220,7 @@ async fn test_provider_connection(
 }
 
 #[tauri::command]
+/// Returns the bounded session diagnostic history.
 async fn get_diagnostics(
     state: State<'_, AppState>,
 ) -> Result<Vec<DiagnosticEntry>, ProviderError> {
@@ -286,6 +228,7 @@ async fn get_diagnostics(
 }
 
 #[tauri::command]
+/// Discovers models for one provider or all configured local providers.
 async fn discover_models(
     provider_id: Option<String>,
     state: State<'_, AppState>,
@@ -373,6 +316,7 @@ struct ChannelSink {
 }
 
 impl inference::StreamSink for ChannelSink {
+    /// Forwards one normalized text fragment to the WebView channel.
     fn text_delta(&self, delta: String) -> Result<(), ProviderError> {
         self.channel
             .send(StreamEvent::TextDelta {
@@ -387,6 +331,22 @@ impl inference::StreamSink for ChannelSink {
             })
     }
 
+    /// Forwards one normalized reasoning fragment to the WebView channel.
+    fn reasoning_delta(&self, delta: String) -> Result<(), ProviderError> {
+        self.channel
+            .send(StreamEvent::ReasoningDelta {
+                run_id: self.run_id.clone(),
+                delta,
+            })
+            .map_err(|error| {
+                ProviderError::internal(
+                    "The reasoning stream could not reach the interface.",
+                    Some(error.to_string()),
+                )
+            })
+    }
+
+    /// Forwards normalized usage totals to the WebView channel.
     fn usage_updated(&self, usage: Usage) -> Result<(), ProviderError> {
         self.channel
             .send(StreamEvent::UsageUpdated {
@@ -403,6 +363,7 @@ impl inference::StreamSink for ChannelSink {
 }
 
 #[tauri::command]
+/// Starts one cancellable provider-qualified chat generation.
 async fn start_chat(
     state: State<'_, AppState>,
     request: ChatRequest,
@@ -494,6 +455,7 @@ async fn start_chat(
 }
 
 #[tauri::command]
+/// Cancels an active generation by its opaque run identity.
 async fn cancel_chat(run_id: String, state: State<'_, AppState>) -> Result<bool, ProviderError> {
     if let Some(handle) = state.runs.lock().await.remove(&run_id) {
         handle.abort();
@@ -504,6 +466,7 @@ async fn cancel_chat(run_id: String, state: State<'_, AppState>) -> Result<bool,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Builds and runs the native Bottie application.
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
@@ -519,7 +482,7 @@ pub fn run() {
                 providers: tauri::async_runtime::RwLock::new(providers),
                 settings_path,
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
-                diagnostics: Arc::new(tauri::async_runtime::Mutex::new(VecDeque::new())),
+                diagnostics: Diagnostics::default(),
             });
             Ok(())
         })

@@ -67,6 +67,17 @@ Status: complete
 
 The native provider/model selection, provider-specific refresh, and remembered-selection experience were manually reviewed and confirmed on 2026-08-18; see `HANDOVER.md`.
 
+### 1.3a Bounded reasoning controls
+
+Status: complete
+
+- [x] explicit per-request reasoning control with off as the safe default and low as the enabled level;
+- [x] native oMLX and Ollama request mapping instead of model-name heuristics in the WebView;
+- [x] separate normalized reasoning deltas across the Rust/Tauri boundary;
+- [x] collapsed, user-expandable reasoning presentation kept separate from answer text;
+- [x] a 4,096-token default completion ceiling to prevent unbounded provider defaults;
+- [x] fixture coverage for request mapping and stream decoding plus a bounded live oMLX check.
+
 ### 1.4 Remote OpenAI and Anthropic APIs
 
 - native adapters instead of forcing both APIs through one request shape;

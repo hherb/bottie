@@ -1,19 +1,25 @@
 # bottie handover
 
-Last verified: 2026-08-18
+Last verified: 2026-08-19
 
 ## Start here
 
-Bottie is a greenfield Tauri 2 desktop chatbot. The product shell, both local inference adapters, and provider configuration are complete: the native app validates and persists loopback endpoints, tests connections, discovers oMLX and Ollama models, remembers the last provider/model pair, and streams text through Rust-owned networking and cancellation. The next bounded implementation slice is Roadmap 1.4; do not reopen broad product or visual-design planning.
+Bottie is a greenfield Tauri 2 desktop chatbot. The product shell, both local inference adapters, provider
+configuration, and bounded reasoning controls are complete: the native app validates and persists loopback endpoints,
+connections, discovers oMLX and Ollama models, remembers the last provider/model pair, and streams answer and reasoning
+content through Rust-owned networking and cancellation. The next bounded implementation slice is Roadmap 1.4; do not
+reopen broad product or visual-design planning.
 
 Read these files first:
 
 1. `HANDOVER.md`
 2. `ROADMAP.md`
 3. `README.md`
-4. `src/routes/+page.svelte`
-5. `src-tauri/src/lib.rs`
-6. `src-tauri/tauri.conf.json`
+4. `CONTRIBUTING.md`
+5. `src/routes/+page.svelte`
+6. `src/routes/page-state.svelte.ts`
+7. `src-tauri/src/lib.rs`
+8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Work currently begins on local branch `main`.
 
@@ -29,7 +35,8 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 
 ### Working UI
 
-`src/routes/+page.svelte` currently provides:
+`src/routes/+page.svelte` composes focused presentation components under `src/lib/`, while
+`src/routes/page-state.svelte.ts` owns the shared reactive conversation state and actions. Together they provide:
 
 - desktop conversation navigation and responsive mobile navigation;
 - separate provider and model selectors, provider-specific refresh, connection/offline state, retry action, loaded/on-demand state, and a local-only privacy indicator;
@@ -38,23 +45,31 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - attachment selection and removal in presentation state;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
+- an off-by-default reasoning toggle with low effort when enabled;
+- collapsed reasoning sections that can be expanded independently of answer text;
 - working stop-generation cancellation backed by a Rust abort handle;
 - a local-provider settings dialog with endpoint editing, connection tests, timeout policy, and redacted session diagnostics;
 - context-panel open/close behavior;
 - reduced-motion and keyboard-focus support.
 
-`src/lib/Icon.svelte` is the dependency-free local icon set used by the shell.
+`src/lib/chat.ts` contains tested pure presentation helpers, `src/lib/presentation.ts` owns typed fixtures and named UI
+constants, and `src/lib/styles/` keeps cohesive stylesheets below the project file-size limit. `src/lib/Icon.svelte` is
+the dependency-free local icon set used by the shell.
 
 ### Native boundary
 
-`src-tauri/src/lib.rs` exposes typed `app_info`, provider-settings/test/diagnostic commands, `discover_models`, `start_chat`, and `cancel_chat`. Each generation receives an opaque Rust-owned run ID and one typed IPC channel. `src-tauri/src/inference/` contains the provider-neutral types/trait, local settings policy, and the oMLX and Ollama adapters; provider JSON, SSE, and NDJSON parsing do not reach Svelte.
+`src-tauri/src/lib.rs` exposes typed `app_info`, provider-settings/test/diagnostic commands, `discover_models`,
+`start_chat`, and `cancel_chat`. Each generation receives an opaque Rust-owned run ID and one typed IPC channel.
+`src-tauri/src/inference/` contains the provider-neutral types/trait, local settings policy, and the oMLX and Ollama
+adapters. Pure Ollama protocol normalization is isolated in `src-tauri/src/inference/ollama/protocol.rs`, adapter tests
+live beside their implementations, and provider JSON, SSE, and NDJSON parsing do not reach Svelte.
 
 The oMLX adapter:
 
 - owns and validates a configurable loopback endpoint, defaulting to `http://127.0.0.1:8000/`;
 - discovers models with `GET /v1/models`;
 - streams `POST /v1/chat/completions` SSE responses;
-- normalizes started, text delta, usage, completed, cancelled, and failed events;
+- normalizes started, text delta, reasoning delta, usage, completed, cancelled, and failed events;
 - maps connection, timeout, HTTP, and malformed-response failures to structured user-readable errors;
 - aborts the active HTTP stream when the UI cancels a run.
 
@@ -63,7 +78,8 @@ The Ollama adapter:
 - owns and validates a configurable loopback endpoint, defaulting to `http://127.0.0.1:11434/`;
 - discovers installed models with `GET /api/tags`, capabilities/context with `POST /api/show`, and loaded state with `GET /api/ps`;
 - streams native `POST /api/chat` NDJSON responses;
-- normalizes text, prompt/output usage, completion, provider errors, and malformed streams;
+- normalizes answer text, separate thinking text, prompt/output usage, completion, provider errors, and malformed
+  streams;
 - shares the same Rust abort-handle and typed-channel cancellation path as oMLX.
 
 Requests now include a provider ID because model names can collide across local providers. Discovery tolerates either provider being offline and reports a combined retryable error only when neither provides a streaming text model.
@@ -76,6 +92,11 @@ Local provider configuration now:
 - disables redirects so a loopback service cannot redirect native traffic to a remote host;
 - uses 3-second connect, 5-second discovery, and 120-second stream-idle timeouts;
 - keeps the most recent 100 structured diagnostic events in memory and redacts credential-shaped values before returning them to Svelte.
+
+Generation settings now default to reasoning off and a 4,096-token completion ceiling. The toolbar can enable low-effort
+reasoning for the next request. Rust maps that provider-neutral setting to oMLX `enable_thinking`/`reasoning_effort` and
+Ollama `think`, while normalized reasoning deltas remain separate from assistant answer text throughout IPC and UI
+state.
 
 The native application configuration has:
 
@@ -93,10 +114,11 @@ Do not mistake visual fixtures for implemented backend behavior:
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
 - conversations disappear at restart;
+- reasoning-toggle state is session-only and resets to off when the app restarts;
 - no SQLite database, migrations, FTS5, or vector extension exists yet;
 - no API credentials or remote-provider profiles are stored; only local loopback endpoint settings persist;
 - no web search or fetch tool exists;
-- there are no automated UI tests yet.
+- there are no automated component or end-to-end UI tests yet; pure presentation helpers have frontend unit coverage.
 
 The browser preview intentionally reports `Browser preview`; only the native Tauri runtime can invoke `app_info`.
 
@@ -112,7 +134,51 @@ The browser preview intentionally reports `Browser preview`; only the native Tau
 8. Preserve cancellation throughout the stack: UI control, Tauri command, Rust task, and HTTP stream.
 9. The memory milestone has settled on Rust-owned FastEmbed with quantized EmbeddingGemma 300M as one built-in default. Do not add a user-facing embedding-provider picker. Model download/cache UX and versioned index metadata must land with the first real embedding consumer, not as a dormant dependency in inference-provider work.
 
-## Current bounded slice: Provider configuration
+## Engineering rules and housekeeping
+
+`CONTRIBUTING.md` is the canonical repository guidance. Docstrings are mandatory; files should remain under 500 lines
+and lines at or below 120 characters where practical; pure reusable functions and named constants are preferred; TDD
+is required for testable functionality; and each completed slice must update relevant documentation.
+
+The 2026-08-18 housekeeping slice applied those rules to the existing code without changing product scope:
+
+- the 1,360-line page prototype was split into a 101-line composition root, a reactive state module, focused Svelte
+  components, tested pure helpers, and cohesive stylesheets;
+- the Ollama adapter was split into provider I/O, pure protocol normalization, and colocated tests;
+- oMLX tests, command transfer types, and bounded diagnostics were separated from their orchestration files;
+- the diagnostic history capacity and frontend conversion/layout limits now use named constants;
+- Rust crate documentation is enforced with `#![deny(missing_docs)]`, and TypeScript exports and functions carry JSDoc;
+- Vitest and Prettier checks are part of the standard frontend workflow.
+
+All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
+are four indivisible SVG path values in `src/lib/Icon.svelte`.
+
+## Most recently completed product slice: Bounded reasoning controls
+
+### Goal
+
+Prevent reasoning-capable models from appearing stalled while retaining explicit user control and keeping answer text
+separate from optional model reasoning.
+
+### Implemented shape
+
+1. `ChatSettings` has a provider-neutral `off`/`low` reasoning effort, defaults to off, and applies a named 4,096-token
+   completion ceiling when callers omit a limit.
+2. oMLX receives explicit chat-template thinking control and low reasoning effort; Ollama receives `think: false` or
+   `think: "low"`.
+3. Both adapters decode provider-specific reasoning fields into a dedicated normalized stream event.
+4. Assistant state retains reasoning separately and renders it in a collapsed, keyboard-operable disclosure section.
+5. The toolbar switch is disabled during generation so each request snapshots one stable reasoning level.
+
+### Acceptance criteria
+
+- Reasoning is off on launch and ordinary requests do not inherit a model's potentially expensive thinking default.
+- Enabling reasoning requests the provider's low effort level.
+- Reasoning activity becomes visible without exposing it in the answer body by default.
+- Answer and reasoning deltas are never conflated in the normalized stream.
+- Requests cannot silently inherit oMLX's 32,768-token default completion allowance.
+
+## Prior completed product slice: Provider configuration
 
 ### Goal
 
@@ -147,25 +213,36 @@ Do not add SQLite, attachments, memory retrieval, remote-provider credentials, w
 
 ### Keep the change reviewable
 
-`src/routes/+page.svelte` is intentionally still a large prototype component. Extract only the state or components required to connect real streaming cleanly; avoid a broad visual rewrite during the provider slice. Preserve the current layout and motion unless a functional state requires a small adjustment.
+The original page prototype is now split by responsibility. Continue extracting only cohesive behavior or presentation
+units required by a slice, and preserve the current layout and motion unless functional state requires an adjustment.
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-18 for the provider-configuration implementation:
+The following passed on 2026-08-19 for the bounded-reasoning implementation:
 
 ```sh
 npm run check
+npm run format:check
+npm test
 npm run build
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The standard Rust suite now has twenty-seven tests: twenty-three run by default and four are opt-in live-provider tests. The opt-in Ollama tests were attempted during implementation but Ollama was not running on `127.0.0.1:11434`; Roadmap 1.2 retains its earlier completed live streaming and cancellation evidence.
+The standard Rust suite now has thirty-four tests: thirty run by default and four are opt-in live-provider tests.
+The frontend suite has seven pure-helper unit tests. A bounded live oMLX adapter test passed, and a direct 160-token
+Qwen3.8 low-reasoning probe returned separate `reasoning_content` and `content` deltas with 22 completion tokens. Ollama
+request mapping and thinking-field normalization have fixture coverage; no Ollama model was loaded for a live check.
 
-The browser preview was checked at the desktop default and 760 px. It shows the provider-neutral disconnected message, disables composer/send controls, has no horizontal overflow, and produced no console warnings or errors.
+The refactored browser preview was checked at 1320 x 820 and 760 x 820. It preserves the desktop layout, provider-neutral
+disconnected message, disabled composer/send controls, settings open/close flow, responsive mobile navigation, and
+context overlay. The responsive check caught and corrected stylesheet import order; the final pass produced no console
+warnings or errors.
 
-The native provider/model experience was manually reviewed after implementation. The user confirmed that the separate selectors, provider-specific model refresh, and remembered selection work as intended, completing Roadmap 1.3 acceptance.
+The native provider/model experience was manually reviewed after implementation. The user confirmed that the separate
+selectors, provider-specific model refresh, and remembered selection work as intended, completing Roadmap 1.3
+acceptance. The reasoning-control build is running for native visual and interaction review.
 
 The next bounded implementation slice is Roadmap 1.4: native remote OpenAI and Anthropic adapters, compatible endpoint profiles, operating-system credential-vault storage, and an explicit local/cloud routing indicator. Keep FastEmbed/EmbeddingGemma implementation with the first memory-search storage slice, where download progress, cache location, dimensions, and reindex metadata can be implemented coherently.
 
@@ -173,7 +250,9 @@ The next bounded implementation slice is Roadmap 1.4: native remote OpenAI and A
 
 ```sh
 npm install
+npm run format:check
 npm run check
+npm test
 npm run build
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo check --manifest-path src-tauri/Cargo.toml

@@ -1,15 +1,25 @@
 use serde::{Deserialize, Serialize};
 
+/// Default completion ceiling used when the interface does not supply one.
+const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 4_096;
+
 /// A provider and model pair exposed to the presentation layer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
+    /// Stable provider identity used for routing.
     pub provider_id: String,
+    /// Provider display name shown to the user.
     pub provider_name: String,
+    /// Provider-owned model identity.
     pub model_id: String,
+    /// Human-readable model name.
     pub display_name: String,
+    /// Advertised context limit when the provider reports one.
     pub max_context_tokens: Option<u64>,
+    /// Whether a local model is currently resident in memory.
     pub load_state: ModelLoadState,
+    /// Features advertised for this provider/model pair.
     pub capabilities: ProviderCapabilities,
 }
 
@@ -17,9 +27,12 @@ pub struct ModelInfo {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelLoadState {
+    /// The provider reports the model as resident in memory.
     Loaded,
+    /// The provider reports the model as installed but not resident.
     Unloaded,
     #[default]
+    /// The provider does not expose model residency.
     Unknown,
 }
 
@@ -27,10 +40,15 @@ pub enum ModelLoadState {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderCapabilities {
+    /// Whether the model accepts and produces text.
     pub text: bool,
+    /// Whether responses can be streamed incrementally.
     pub streaming: bool,
+    /// Whether the model supports tool calls.
     pub tools: bool,
+    /// Whether the model accepts image content.
     pub vision: bool,
+    /// Whether the model can create embeddings.
     pub embeddings: bool,
 }
 
@@ -38,10 +56,14 @@ pub struct ProviderCapabilities {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatRequest {
+    /// Stable provider identity used to route the request.
     pub provider_id: String,
+    /// Provider-owned model identity.
     pub model_id: String,
+    /// Ordered conversation turns supplied to the model.
     pub messages: Vec<ChatTurn>,
     #[serde(default)]
+    /// Optional provider-neutral generation settings.
     pub settings: ChatSettings,
 }
 
@@ -49,7 +71,9 @@ pub struct ChatRequest {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatTurn {
+    /// Participant role for this turn.
     pub role: ChatRole,
+    /// Ordered content blocks in this turn.
     pub content: Vec<ContentBlock>,
 }
 
@@ -57,8 +81,11 @@ pub struct ChatTurn {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ChatRole {
+    /// Instruction supplied by the application.
     System,
+    /// Input supplied by the user.
     User,
+    /// Output supplied by the assistant.
     Assistant,
 }
 
@@ -66,22 +93,39 @@ pub enum ChatRole {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentBlock {
+    /// Plain text message content.
     Text { text: String },
 }
 
 /// Generation settings shared by compatible text providers.
 #[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct ChatSettings {
+    /// Optional provider sampling temperature.
     pub temperature: Option<f32>,
+    /// Optional maximum number of generated tokens.
     pub max_output_tokens: Option<u32>,
+    /// Requested thinking depth, kept deliberately narrow for the first reasoning slice.
+    pub reasoning_effort: ReasoningEffort,
+}
+
+/// Provider-neutral reasoning levels exposed by the current interface.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReasoningEffort {
+    /// Ask the provider to suppress model reasoning.
+    #[default]
+    Off,
+    /// Enable the provider's lowest supported reasoning effort.
+    Low,
 }
 
 impl Default for ChatSettings {
     fn default() -> Self {
         Self {
             temperature: Some(0.7),
-            max_output_tokens: None,
+            max_output_tokens: Some(DEFAULT_MAX_OUTPUT_TOKENS),
+            reasoning_effort: ReasoningEffort::Off,
         }
     }
 }
@@ -90,6 +134,7 @@ impl Default for ChatSettings {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatRun {
+    /// Opaque unique identity for the accepted run.
     pub run_id: String,
 }
 
@@ -97,7 +142,9 @@ pub struct ChatRun {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
+    /// Provider-reported prompt token count.
     pub input_tokens: Option<u64>,
+    /// Provider-reported generated token count.
     pub output_tokens: Option<u64>,
 }
 
@@ -109,28 +156,53 @@ pub struct Usage {
     rename_all_fields = "camelCase"
 )]
 pub enum StreamEvent {
+    /// The native task accepted the generation and started provider work.
     Started {
+        /// Opaque identity of the generation.
         run_id: String,
+        /// Stable provider identity used by the generation.
         provider_id: String,
+        /// Provider-owned model identity used by the generation.
         model_id: String,
     },
+    /// The provider produced one text fragment.
     TextDelta {
+        /// Opaque identity of the generation.
         run_id: String,
+        /// Newly produced text.
         delta: String,
     },
-    UsageUpdated {
+    /// The provider produced one reasoning fragment kept separate from answer text.
+    ReasoningDelta {
+        /// Opaque identity of the generation.
         run_id: String,
+        /// Newly produced reasoning text.
+        delta: String,
+    },
+    /// The provider supplied updated usage totals.
+    UsageUpdated {
+        /// Opaque identity of the generation.
+        run_id: String,
+        /// Latest normalized usage values.
         usage: Usage,
     },
+    /// The provider completed the generation successfully.
     Completed {
+        /// Opaque identity of the generation.
         run_id: String,
+        /// Final usage values when supplied by the provider.
         usage: Option<Usage>,
     },
+    /// The user or application cancelled the generation.
     Cancelled {
+        /// Opaque identity of the generation.
         run_id: String,
     },
+    /// The generation ended with a normalized provider failure.
     Failed {
+        /// Opaque identity of the generation.
         run_id: String,
+        /// User-readable normalized failure.
         error: ProviderError,
     },
 }
@@ -139,11 +211,17 @@ pub enum StreamEvent {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderErrorCode {
+    /// The provider cannot currently be reached or used.
     Unavailable,
+    /// The provider exceeded an enforced timeout.
     Timeout,
+    /// The request or selected resource was invalid.
     InvalidRequest,
+    /// The provider reported a retryable server failure.
     Server,
+    /// The provider response did not match its protocol.
     MalformedResponse,
+    /// Bottie's native orchestration failed internally.
     Internal,
 }
 
@@ -151,14 +229,19 @@ pub enum ProviderErrorCode {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderError {
+    /// Stable category used by presentation logic.
     pub code: ProviderErrorCode,
+    /// User-readable failure description.
     pub message: String,
+    /// Whether retrying the same operation may succeed.
     pub retryable: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Secret-redacted technical context for diagnostics.
     pub diagnostic: Option<String>,
 }
 
 impl ProviderError {
+    /// Builds a non-retryable invalid-request failure.
     pub fn invalid_request(message: impl Into<String>) -> Self {
         Self {
             code: ProviderErrorCode::InvalidRequest,
@@ -168,6 +251,7 @@ impl ProviderError {
         }
     }
 
+    /// Builds a retryable unavailable-provider failure.
     pub fn unavailable(message: impl Into<String>, diagnostic: Option<String>) -> Self {
         Self {
             code: ProviderErrorCode::Unavailable,
@@ -177,6 +261,7 @@ impl ProviderError {
         }
     }
 
+    /// Builds a retryable malformed-response failure.
     pub fn malformed(message: impl Into<String>, diagnostic: Option<String>) -> Self {
         Self {
             code: ProviderErrorCode::MalformedResponse,
@@ -186,6 +271,7 @@ impl ProviderError {
         }
     }
 
+    /// Builds a retryable provider-server failure.
     pub fn server(message: impl Into<String>, diagnostic: Option<String>) -> Self {
         Self {
             code: ProviderErrorCode::Server,
@@ -195,6 +281,7 @@ impl ProviderError {
         }
     }
 
+    /// Builds a non-retryable native orchestration failure.
     pub fn internal(message: impl Into<String>, diagnostic: Option<String>) -> Self {
         Self {
             code: ProviderErrorCode::Internal,

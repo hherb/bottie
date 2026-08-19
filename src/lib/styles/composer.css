@@ -1,0 +1,168 @@
+.composer-zone {
+  position: relative;
+  z-index: 2;
+  padding: 0 30px 12px;
+  background: linear-gradient(180deg, transparent, var(--bg) 25%);
+}
+.composer-shell {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: rgba(23, 23, 31, 0.92);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.32),
+    inset 0 1px rgba(255, 255, 255, 0.025);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.composer-shell:focus-within {
+  border-color: rgba(143, 125, 247, 0.34);
+  box-shadow:
+    0 18px 60px rgba(0, 0, 0, 0.36),
+    0 0 0 3px rgba(143, 125, 247, 0.04);
+}
+.composer-shell.busy {
+  border-color: rgba(91, 216, 200, 0.2);
+}
+.composer-attachments {
+  display: flex;
+  gap: 6px;
+  padding: 10px 11px 0;
+  overflow: hidden;
+}
+.attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 180px;
+  height: 29px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #aaa7b0;
+  font-size: 8.5px;
+}
+.attachment-chip > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 5px;
+  background: rgba(143, 125, 247, 0.1);
+  color: #9f91ee;
+}
+.chip-icon.image {
+  background: rgba(91, 216, 200, 0.09);
+  color: #75cfc3;
+}
+.attachment-chip button {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  border-radius: 5px;
+}
+.attachment-chip button:hover,
+.attachment-row button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #d5d2d9;
+}
+.more-files {
+  align-self: center;
+  color: #777581;
+  font-size: 9px;
+}
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  max-height: 160px;
+  padding: 15px 15px 7px;
+  resize: none;
+  overflow-y: auto;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+textarea::placeholder {
+  color: #6e6c77;
+}
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 8px;
+}
+.composer-tools {
+  gap: 3px;
+}
+.composer-tools button {
+  height: 29px;
+  border-radius: 8px;
+}
+.composer-tools button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+.composer-tools button:not(.tool-toggle) {
+  width: 30px;
+}
+.tool-toggle {
+  display: flex !important;
+  grid: none !important;
+  gap: 5px;
+  padding: 0 8px !important;
+  font-size: 9px;
+}
+.send-button {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: #292832;
+  color: #6c6a75;
+  cursor: default;
+  transition: 150ms ease;
+}
+.send-button.enabled,
+.composer-shell.busy .send-button {
+  background: linear-gradient(145deg, #8b78f0, #6d5dd4);
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(109, 93, 212, 0.28);
+}
+.send-button.enabled:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+.stop-square {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: currentColor;
+}
+.composer-note {
+  margin: 7px auto 0;
+  color: #55535d;
+  font-size: 8px;
+  text-align: center;
+}

@@ -2,7 +2,12 @@
 
 Bottie is a local-first desktop chatbot built with Tauri 2, Rust, Svelte, and TypeScript. It is designed to connect to oMLX, Ollama, Anthropic-compatible, and OpenAI-compatible inference providers while keeping application secrets, files, tools, and persistent memory behind the Rust boundary.
 
-The current developer preview pairs the interactive product shell with real, text-only local inference through oMLX and Ollama. The Rust core validates and stores loopback-only provider endpoints, discovers models, tests connections, streams normalized response events over a typed Tauri IPC channel, and owns end-to-end cancellation. Conversation persistence, attachments, memory retrieval, tools, remote providers, and API credentials are intentionally not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
+The current developer preview pairs the interactive product shell with real, text-only local inference through oMLX
+and Ollama. The Rust core validates and stores loopback-only provider endpoints, discovers models, tests connections,
+streams normalized answer and reasoning events over a typed Tauri IPC channel, and owns end-to-end cancellation.
+Conversation
+persistence, attachments, memory retrieval, tools, remote providers, and API credentials are intentionally not
+implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
 
 ## Development
 
@@ -16,11 +21,16 @@ Install and verify:
 
 ```sh
 npm install
+npm run format:check
 npm run check
+npm test
 npm run build
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
+See `CONTRIBUTING.md` for the mandatory documentation, file-size, line-length, pure-function, named-constant, TDD, and
+slice-documentation rules.
 
 Run the native desktop application:
 
@@ -29,6 +39,10 @@ npm run tauri dev
 ```
 
 With oMLX or Ollama running on its default loopback port, the native app discovers available models automatically. Provider and model use separate selectors; changing providers refreshes that provider's models, and the last successful pair is restored after restart. Settings can change either endpoint and test it before saving. Rust rejects non-loopback hosts, embedded credentials, paths, query strings, and fragments; redirects are disabled, and no HTTP capability is exposed to the WebView. Ollama discovery also normalizes model capabilities, context size, and loaded/on-demand state.
+
+Thinking/reasoning defaults to off and can be toggled to low effort for each request. Reasoning-capable providers stream
+that material into a collapsed, user-expandable section rather than mixing it into the answer. Native generation also
+applies a 4,096-token default ceiling when the interface does not provide a tighter limit.
 
 Run the layout-only browser preview:
 

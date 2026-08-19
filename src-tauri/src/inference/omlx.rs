@@ -9,7 +9,7 @@ use super::{
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_local_base_url},
     types::{
         ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
-        ProviderError, ProviderErrorCode, Usage,
+        ProviderError, ProviderErrorCode, ReasoningEffort, Usage,
     },
 };
 
@@ -25,10 +25,12 @@ pub struct OmlxProvider {
 }
 
 impl OmlxProvider {
+    /// Builds an oMLX adapter using the built-in loopback endpoint.
     pub fn new() -> Result<Self, ProviderError> {
         Self::with_base_url(DEFAULT_OMLX_BASE_URL)
     }
 
+    /// Builds an oMLX adapter after validating a configurable loopback root.
     pub(crate) fn with_base_url(base_url: &str) -> Result<Self, ProviderError> {
         let base_url = validate_local_base_url(PROVIDER_NAME, base_url)?;
 
@@ -47,10 +49,12 @@ impl OmlxProvider {
         Ok(Self { client, base_url })
     }
 
+    /// Returns the normalized loopback root owned by this adapter.
     pub(crate) fn base_url(&self) -> &str {
         self.base_url.as_str()
     }
 
+    /// Resolves one API path against the validated provider root.
     fn endpoint(&self, path: &str) -> Result<Url, ProviderError> {
         self.base_url.join(path).map_err(|error| {
             ProviderError::internal(
@@ -62,6 +66,7 @@ impl OmlxProvider {
 }
 
 impl InferenceProvider for OmlxProvider {
+    /// Discovers streaming text models through the oMLX model endpoint.
     async fn discover_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
         let response = self
             .client
@@ -79,6 +84,7 @@ impl InferenceProvider for OmlxProvider {
         decode_model_list(&bytes)
     }
 
+    /// Streams one oMLX SSE chat response into the normalized sink.
     async fn stream_chat(
         &self,
         request: ChatRequest,
@@ -107,26 +113,34 @@ impl InferenceProvider for OmlxProvider {
             let chunk = chunk.map_err(map_request_error)?;
             for payload in decoder.push(&chunk)? {
                 match decode_stream_payload(&payload)? {
-                    DecodedEvent::Delta(delta) if !delta.is_empty() => sink.text_delta(delta)?,
+                    DecodedEvent::TextDelta(delta) if !delta.is_empty() => {
+                        sink.text_delta(delta)?
+                    }
+                    DecodedEvent::ReasoningDelta(delta) if !delta.is_empty() => {
+                        sink.reasoning_delta(delta)?
+                    }
                     DecodedEvent::Usage(updated) => {
                         sink.usage_updated(updated.clone())?;
                         usage = Some(updated);
                     }
                     DecodedEvent::Done => completed = true,
-                    DecodedEvent::Delta(_) => {}
+                    DecodedEvent::TextDelta(_) | DecodedEvent::ReasoningDelta(_) => {}
                 }
             }
         }
 
         for payload in decoder.finish()? {
             match decode_stream_payload(&payload)? {
-                DecodedEvent::Delta(delta) if !delta.is_empty() => sink.text_delta(delta)?,
+                DecodedEvent::TextDelta(delta) if !delta.is_empty() => sink.text_delta(delta)?,
+                DecodedEvent::ReasoningDelta(delta) if !delta.is_empty() => {
+                    sink.reasoning_delta(delta)?
+                }
                 DecodedEvent::Usage(updated) => {
                     sink.usage_updated(updated.clone())?;
                     usage = Some(updated);
                 }
                 DecodedEvent::Done => completed = true,
-                DecodedEvent::Delta(_) => {}
+                DecodedEvent::TextDelta(_) | DecodedEvent::ReasoningDelta(_) => {}
             }
         }
 
@@ -141,6 +155,7 @@ impl InferenceProvider for OmlxProvider {
     }
 }
 
+/// Validates the provider-neutral request invariants required by oMLX.
 fn validate_request(request: &ChatRequest) -> Result<(), ProviderError> {
     if request.model_id.trim().is_empty() {
         return Err(ProviderError::invalid_request(
@@ -160,6 +175,7 @@ fn validate_request(request: &ChatRequest) -> Result<(), ProviderError> {
     Ok(())
 }
 
+/// Maps a native HTTP client failure into the provider-neutral error shape.
 fn map_request_error(error: reqwest::Error) -> ProviderError {
     if error.is_timeout() {
         ProviderError {
@@ -181,12 +197,14 @@ fn map_request_error(error: reqwest::Error) -> ProviderError {
     }
 }
 
+/// Reads and normalizes a non-success oMLX HTTP response.
 async fn response_error(response: reqwest::Response) -> ProviderError {
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
     normalize_response_error(status, &body)
 }
 
+/// Normalizes an oMLX HTTP status and optional provider error body.
 fn normalize_response_error(status: StatusCode, body: &str) -> ProviderError {
     let provider_message = serde_json::from_str::<OmlxErrorResponse>(&body)
         .ok()
@@ -219,6 +237,7 @@ struct OmlxModel {
     max_model_len: Option<u64>,
 }
 
+/// Decodes and normalizes the oMLX model-list response.
 fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
     let response: OmlxModelList = serde_json::from_slice(bytes).map_err(|error| {
         ProviderError::malformed(
@@ -262,7 +281,16 @@ struct OmlxChatRequest {
     temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
+    chat_template_kwargs: OmlxChatTemplateSettings,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<&'static str>,
     stream_options: OmlxStreamOptions,
+}
+
+#[derive(Serialize)]
+/// Template controls used to turn model thinking on or off explicitly.
+struct OmlxChatTemplateSettings {
+    enable_thinking: bool,
 }
 
 #[derive(Serialize)]
@@ -277,8 +305,10 @@ struct OmlxChatTurn {
 }
 
 impl From<ChatRequest> for OmlxChatRequest {
+    /// Converts a provider-neutral request into the oMLX wire shape.
     fn from(request: ChatRequest) -> Self {
         let settings = request.settings;
+        let reasoning_enabled = settings.reasoning_effort == ReasoningEffort::Low;
         Self {
             model: request.model_id,
             messages: request
@@ -303,6 +333,10 @@ impl From<ChatRequest> for OmlxChatRequest {
             stream: true,
             temperature: settings.temperature,
             max_tokens: settings.max_output_tokens,
+            chat_template_kwargs: OmlxChatTemplateSettings {
+                enable_thinking: reasoning_enabled,
+            },
+            reasoning_effort: reasoning_enabled.then_some("low"),
             stream_options: OmlxStreamOptions {
                 include_usage: true,
             },
@@ -325,6 +359,7 @@ struct OmlxChoice {
 #[derive(Default, Deserialize)]
 struct OmlxDelta {
     content: Option<String>,
+    reasoning_content: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -345,11 +380,13 @@ struct OmlxErrorBody {
 
 #[derive(Debug)]
 enum DecodedEvent {
-    Delta(String),
+    TextDelta(String),
+    ReasoningDelta(String),
     Usage(Usage),
     Done,
 }
 
+/// Decodes one oMLX SSE data payload into a normalized event.
 fn decode_stream_payload(payload: &str) -> Result<DecodedEvent, ProviderError> {
     if payload.trim() == "[DONE]" {
         return Ok(DecodedEvent::Done);
@@ -366,14 +403,16 @@ fn decode_stream_payload(payload: &str) -> Result<DecodedEvent, ProviderError> {
             output_tokens: usage.completion_tokens,
         }));
     }
-    Ok(DecodedEvent::Delta(
-        chunk
-            .choices
-            .into_iter()
-            .next()
-            .and_then(|choice| choice.delta.content)
-            .unwrap_or_default(),
-    ))
+    let delta = chunk
+        .choices
+        .into_iter()
+        .next()
+        .map(|choice| choice.delta)
+        .unwrap_or_default();
+    if let Some(reasoning) = delta.reasoning_content {
+        return Ok(DecodedEvent::ReasoningDelta(reasoning));
+    }
+    Ok(DecodedEvent::TextDelta(delta.content.unwrap_or_default()))
 }
 
 #[derive(Default)]
@@ -382,15 +421,18 @@ struct SseDecoder {
 }
 
 impl SseDecoder {
+    /// Appends bytes and returns every newly completed SSE data payload.
     fn push(&mut self, bytes: &[u8]) -> Result<Vec<String>, ProviderError> {
         self.buffer.extend_from_slice(bytes);
         self.drain(false)
     }
 
+    /// Flushes a final unterminated SSE frame when the stream closes.
     fn finish(&mut self) -> Result<Vec<String>, ProviderError> {
         self.drain(true)
     }
 
+    /// Drains complete SSE frames from the internal byte buffer.
     fn drain(&mut self, finish: bool) -> Result<Vec<String>, ProviderError> {
         let mut payloads = Vec::new();
         while let Some((index, separator_len)) = find_event_boundary(&self.buffer) {
@@ -410,6 +452,7 @@ impl SseDecoder {
     }
 }
 
+/// Finds the earliest LF or CRLF SSE event boundary.
 fn find_event_boundary(bytes: &[u8]) -> Option<(usize, usize)> {
     let lf = bytes
         .windows(2)
@@ -426,6 +469,7 @@ fn find_event_boundary(bytes: &[u8]) -> Option<(usize, usize)> {
     }
 }
 
+/// Extracts and joins the data fields from one UTF-8 SSE frame.
 fn decode_sse_frame(frame: &[u8]) -> Result<Option<String>, ProviderError> {
     let text = std::str::from_utf8(frame).map_err(|error| {
         ProviderError::malformed(
@@ -441,214 +485,4 @@ fn decode_sse_frame(frame: &[u8]) -> Result<Option<String>, ProviderError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::sync::{Arc, Mutex};
-
-    use super::*;
-    use futures_util::{FutureExt, future::Abortable};
-
-    use crate::inference::types::{ChatSettings, ChatTurn, ContentBlock};
-
-    #[derive(Clone, Default)]
-    struct RecordingSink {
-        text: Arc<Mutex<String>>,
-        abort_after_delta: Option<futures_util::future::AbortHandle>,
-    }
-
-    impl StreamSink for RecordingSink {
-        fn text_delta(&self, delta: String) -> Result<(), ProviderError> {
-            self.text.lock().unwrap().push_str(&delta);
-            if let Some(handle) = &self.abort_after_delta {
-                handle.abort();
-            }
-            Ok(())
-        }
-
-        fn usage_updated(&self, _usage: Usage) -> Result<(), ProviderError> {
-            Ok(())
-        }
-    }
-
-    fn live_request(model_id: String, prompt: &str) -> ChatRequest {
-        ChatRequest {
-            provider_id: PROVIDER_ID.into(),
-            model_id,
-            messages: vec![ChatTurn {
-                role: ChatRole::User,
-                content: vec![ContentBlock::Text {
-                    text: prompt.into(),
-                }],
-            }],
-            settings: ChatSettings {
-                temperature: Some(0.0),
-                max_output_tokens: Some(80),
-            },
-        }
-    }
-
-    async fn smallest_live_model(provider: &OmlxProvider) -> String {
-        let models = provider
-            .discover_models()
-            .await
-            .expect("local oMLX must be running for this ignored test");
-        models
-            .iter()
-            .find(|model| model.model_id.contains("1.2B"))
-            .unwrap_or(&models[0])
-            .model_id
-            .clone()
-    }
-
-    #[test]
-    fn accepts_only_loopback_endpoints() {
-        assert!(OmlxProvider::with_base_url("http://127.0.0.1:8000/").is_ok());
-        assert!(OmlxProvider::with_base_url("http://localhost:8000/").is_ok());
-        assert!(OmlxProvider::with_base_url("https://example.com/").is_err());
-        assert!(OmlxProvider::with_base_url("file:///tmp/models").is_err());
-    }
-
-    #[test]
-    fn decodes_live_model_list_shape() {
-        let models = decode_model_list(
-            br#"{"object":"list","data":[{"id":"Qwen3.6-35B-A3B-8bit","object":"model","max_model_len":262144}]}"#,
-        )
-        .expect("model list should decode");
-        assert_eq!(models.len(), 1);
-        assert_eq!(models[0].model_id, "Qwen3.6-35B-A3B-8bit");
-        assert_eq!(models[0].max_context_tokens, Some(262_144));
-        assert!(models[0].capabilities.streaming);
-    }
-
-    #[test]
-    fn decodes_fragmented_sse_and_completion() {
-        let mut decoder = SseDecoder::default();
-        assert!(
-            decoder
-                .push(b"data: {\"choices\":[{\"delta\":{\"con")
-                .unwrap()
-                .is_empty()
-        );
-        let payloads = decoder
-            .push(b"tent\":\"hello\"}}]}\r\n\r\ndata: [DONE]\n\n")
-            .unwrap();
-        assert_eq!(payloads.len(), 2);
-        assert!(matches!(
-            decode_stream_payload(&payloads[0]).unwrap(),
-            DecodedEvent::Delta(ref delta) if delta == "hello"
-        ));
-        assert!(matches!(
-            decode_stream_payload(&payloads[1]).unwrap(),
-            DecodedEvent::Done
-        ));
-    }
-
-    #[test]
-    fn decodes_usage_update() {
-        let event = decode_stream_payload(
-            r#"{"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":7}}"#,
-        )
-        .unwrap();
-        assert!(matches!(
-            event,
-            DecodedEvent::Usage(Usage {
-                input_tokens: Some(12),
-                output_tokens: Some(7)
-            })
-        ));
-    }
-
-    #[test]
-    fn rejects_malformed_event() {
-        let error = decode_stream_payload("not json").unwrap_err();
-        assert_eq!(error.code, ProviderErrorCode::MalformedResponse);
-    }
-
-    #[test]
-    fn decodes_provider_error_body() {
-        let body: OmlxErrorResponse = serde_json::from_str(
-            r#"{"error":{"message":"Model was not found","type":"not_found"}}"#,
-        )
-        .unwrap();
-        assert_eq!(body.error.message, "Model was not found");
-    }
-
-    #[test]
-    fn normalizes_provider_http_errors() {
-        let invalid = normalize_response_error(
-            StatusCode::BAD_REQUEST,
-            r#"{"error":{"message":"Model was not found"}}"#,
-        );
-        assert_eq!(invalid.code, ProviderErrorCode::InvalidRequest);
-        assert_eq!(invalid.message, "Model was not found");
-        assert!(!invalid.retryable);
-
-        let server = normalize_response_error(StatusCode::SERVICE_UNAVAILABLE, "");
-        assert_eq!(server.code, ProviderErrorCode::Server);
-        assert!(server.retryable);
-    }
-
-    #[test]
-    fn maps_an_unavailable_loopback_provider() {
-        tauri::async_runtime::block_on(async {
-            let provider = OmlxProvider::with_base_url("http://127.0.0.1:9/").unwrap();
-            let error = provider.discover_models().await.unwrap_err();
-            assert_eq!(error.code, ProviderErrorCode::Unavailable);
-            assert!(error.retryable);
-        });
-    }
-
-    #[test]
-    fn abort_handle_cancels_an_in_flight_stream_future() {
-        let (handle, registration) = futures_util::future::AbortHandle::new_pair();
-        let future = Abortable::new(futures_util::future::pending::<()>(), registration);
-        handle.abort();
-        assert!(matches!(future.now_or_never(), Some(Err(_))));
-    }
-
-    #[test]
-    #[ignore = "requires a running oMLX server on 127.0.0.1:8000"]
-    fn live_omlx_stream_completes() {
-        tauri::async_runtime::block_on(async {
-            let provider = OmlxProvider::new().unwrap();
-            let model = smallest_live_model(&provider).await;
-            let sink = RecordingSink::default();
-            let recorded = sink.text.clone();
-            provider
-                .stream_chat(
-                    live_request(model, "Reply with exactly: bottie live stream ready"),
-                    sink,
-                )
-                .await
-                .expect("live stream should complete");
-            assert!(!recorded.lock().unwrap().trim().is_empty());
-        });
-    }
-
-    #[test]
-    #[ignore = "requires a running oMLX server on 127.0.0.1:8000"]
-    fn live_omlx_stream_can_be_aborted_after_a_delta() {
-        tauri::async_runtime::block_on(async {
-            let provider = OmlxProvider::new().unwrap();
-            let model = smallest_live_model(&provider).await;
-            let (handle, registration) = futures_util::future::AbortHandle::new_pair();
-            let sink = RecordingSink {
-                text: Arc::new(Mutex::new(String::new())),
-                abort_after_delta: Some(handle),
-            };
-            let recorded = sink.text.clone();
-            let result = Abortable::new(
-                provider.stream_chat(
-                    live_request(
-                        model,
-                        "Write a detailed paragraph about why cancellation matters in streaming UI.",
-                    ),
-                    sink,
-                ),
-                registration,
-            )
-            .await;
-            assert!(result.is_err(), "the stream future should be aborted");
-            assert!(!recorded.lock().unwrap().is_empty());
-        });
-    }
-}
+mod tests;

@@ -1,0 +1,118 @@
+<script lang="ts">
+  import Icon from "$lib/Icon.svelte";
+  import { MAX_COMPOSER_ATTACHMENTS, type Attachment, type ProviderStatus } from "$lib/presentation";
+
+  type Props = {
+    attachments: Attachment[];
+    prompt: string;
+    isGenerating: boolean;
+    canSend: boolean;
+    providerStatus: ProviderStatus;
+    onprompt: (prompt: string) => void;
+    oninput: () => void;
+    onkeydown: (event: KeyboardEvent) => void;
+    onsend: () => void;
+    onfiles: (event: Event) => void;
+    onremove: (id: number) => void;
+    oncomposerready: (element: HTMLTextAreaElement) => void;
+    onattachmentinputready: (element: HTMLInputElement) => void;
+  };
+
+  let {
+    attachments,
+    prompt,
+    isGenerating,
+    canSend,
+    providerStatus,
+    onprompt,
+    oninput,
+    onkeydown,
+    onsend,
+    onfiles,
+    onremove,
+    oncomposerready,
+    onattachmentinputready,
+  }: Props = $props();
+  let composer: HTMLTextAreaElement;
+  let attachmentInput: HTMLInputElement;
+
+  $effect(() => {
+    if (composer) oncomposerready(composer);
+    if (attachmentInput) onattachmentinputready(attachmentInput);
+  });
+</script>
+
+<footer class="composer-zone">
+  <div class="composer-shell" class:busy={isGenerating}>
+    {#if attachments.length > 0}
+      <div class="composer-attachments">
+        {#each attachments.slice(0, MAX_COMPOSER_ATTACHMENTS) as attachment (attachment.id)}
+          <div class="attachment-chip">
+            <span class:image={attachment.kind === "image"} class="chip-icon">
+              <Icon name={attachment.kind} size={14} />
+            </span>
+            <span>{attachment.name}</span>
+            <button aria-label={`Remove ${attachment.name}`} onclick={() => onremove(attachment.id)}>
+              <Icon name="x" size={13} />
+            </button>
+          </div>
+        {/each}
+        {#if attachments.length > MAX_COMPOSER_ATTACHMENTS}
+          <span class="more-files">+{attachments.length - MAX_COMPOSER_ATTACHMENTS}</span>
+        {/if}
+      </div>
+    {/if}
+
+    <textarea
+      bind:this={composer}
+      value={prompt}
+      oninput={(event) => {
+        onprompt(event.currentTarget.value);
+        oninput();
+      }}
+      {onkeydown}
+      rows="1"
+      disabled={!canSend && !isGenerating}
+      placeholder={providerStatus === "available"
+        ? "Message the local model…"
+        : "Connect a local provider to send a message"}
+      aria-label="Message bottie"></textarea>
+
+    <div class="composer-toolbar">
+      <div class="composer-tools">
+        <input
+          class="visually-hidden"
+          bind:this={attachmentInput}
+          onchange={onfiles}
+          type="file"
+          multiple
+          tabindex="-1"
+        />
+        <button aria-label="Attach files" onclick={() => attachmentInput?.click()}>
+          <Icon name="paperclip" size={18} />
+        </button>
+        <button class="tool-toggle" aria-label="Memory search is not available yet" disabled>
+          <Icon name="brain" size={17} /><span>Memory</span>
+        </button>
+        <button class="tool-toggle" aria-label="Web search is not available yet" disabled>
+          <Icon name="globe" size={17} /><span>Web</span>
+        </button>
+      </div>
+
+      <button
+        class="send-button"
+        class:enabled={(prompt.trim().length > 0 && canSend) || isGenerating}
+        disabled={(!prompt.trim() || !canSend) && !isGenerating}
+        aria-label={isGenerating ? "Stop generating" : "Send message"}
+        onclick={onsend}
+      >
+        {#if isGenerating}
+          <span class="stop-square"></span>
+        {:else}
+          <Icon name="arrow-up" size={19} strokeWidth={2.2} />
+        {/if}
+      </button>
+    </div>
+  </div>
+  <p class="composer-note">Bottie can make mistakes. Check important information.</p>
+</footer>
