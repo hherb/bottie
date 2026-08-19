@@ -10,6 +10,7 @@ import {
   modelKey,
   persistedCompletionMeta,
   persistedMessagePresentation,
+  requestMessageForResponse,
   resolveModelSelection,
   toggleReasoningEffort,
 } from "./chat";
@@ -88,6 +89,17 @@ describe("chat presentation helpers", () => {
     expect(persistedMessagePresentation("failed", "timeout", false).meta).toBe(
       "Generation failed · saved partial response",
     );
+  });
+
+  it("finds the persisted user request immediately preceding a response", () => {
+    const messages = [
+      { id: 1, storageId: "request", role: "user" as const, content: "Question" },
+      { id: 2, storageId: "response", role: "assistant" as const, content: "Answer" },
+    ];
+
+    expect(requestMessageForResponse(messages, 2)).toEqual(messages[0]);
+    expect(requestMessageForResponse(messages, 1)).toBeUndefined();
+    expect(requestMessageForResponse(messages, 99)).toBeUndefined();
   });
 
   it("keeps only streaming text models", () => {

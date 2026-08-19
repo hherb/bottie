@@ -63,11 +63,25 @@ export type StoredMessage = {
   createdAtMs: number;
 };
 
+/** One selectable durable conversation branch. */
+export type ConversationBranch = {
+  id: string;
+  name: string;
+};
+
 /** One reconstructed durable conversation. */
 export type StoredConversation = {
   id: string;
   title: string;
+  currentBranchId: string;
+  branches: ConversationBranch[];
   messages: StoredMessage[];
+};
+
+/** Native result for one atomic edit-and-regenerate branch creation. */
+export type ForkedConversation = {
+  conversation: StoredConversation;
+  requestMessageId: string;
 };
 
 /** Produces the stable browser-preview storage failure. */
@@ -112,6 +126,22 @@ export async function clearLastOpenConversation(): Promise<void> {
 export async function appendConversationMessage(conversationId: string, text: string): Promise<StoredMessage> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<StoredMessage>("append_conversation_message", { conversationId, text });
+}
+
+/** Forks one visible user message onto a newly selected durable branch. */
+export async function branchConversationMessage(
+  conversationId: string,
+  messageId: string,
+  text: string,
+): Promise<ForkedConversation> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ForkedConversation>("branch_conversation_message", { conversationId, messageId, text });
+}
+
+/** Selects one durable branch and reconstructs its visible message lineage. */
+export async function selectConversationBranch(conversationId: string, branchId: string): Promise<StoredConversation> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<StoredConversation>("select_conversation_branch", { conversationId, branchId });
 }
 
 /** Renames one active or archived conversation. */

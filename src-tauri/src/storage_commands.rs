@@ -5,8 +5,8 @@ use tauri::State;
 use crate::{
     AppState,
     storage::{
-        ConversationSummary, MessageState, NewStoredMessage, StorageError, StoredConversation,
-        StoredMessage, StoredRole,
+        ConversationSummary, ForkedConversation, MessageState, NewStoredMessage, StorageError,
+        StoredConversation, StoredMessage, StoredRole,
     },
 };
 
@@ -66,6 +66,31 @@ pub(crate) fn append_conversation_message(
         provider_id: None,
         model_id: None,
     })
+}
+
+#[tauri::command]
+/// Forks a visible user request onto a newly selected branch for editing or regeneration.
+pub(crate) fn branch_conversation_message(
+    conversation_id: String,
+    message_id: String,
+    text: String,
+    state: State<'_, AppState>,
+) -> Result<ForkedConversation, StorageError> {
+    state
+        .conversations
+        .fork_from_user_message(&conversation_id, &message_id, &text)
+}
+
+#[tauri::command]
+/// Selects one durable branch and returns its reconstructed message lineage.
+pub(crate) fn select_conversation_branch(
+    conversation_id: String,
+    branch_id: String,
+    state: State<'_, AppState>,
+) -> Result<StoredConversation, StorageError> {
+    state
+        .conversations
+        .select_branch(&conversation_id, &branch_id)
 }
 
 #[tauri::command]

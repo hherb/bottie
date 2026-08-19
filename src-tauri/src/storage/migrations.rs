@@ -120,3 +120,15 @@ SET last_open_conversation_id = (
     LIMIT 1
 );
 "#;
+
+/// Adds the selected branch used to reconstruct one visible conversation lineage.
+pub(super) const MIGRATION_5: &str = r#"
+ALTER TABLE conversations ADD COLUMN current_branch_id TEXT REFERENCES branches(id);
+UPDATE conversations
+SET current_branch_id = (
+    SELECT id FROM branches
+    WHERE branches.conversation_id = conversations.id
+    ORDER BY created_at_ms, id
+    LIMIT 1
+);
+"#;

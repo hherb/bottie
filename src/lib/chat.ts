@@ -1,4 +1,5 @@
 import type { ModelInfo, ProviderId, ReasoningEffort, Usage } from "./inference";
+import type { Message } from "./presentation";
 
 /** Number of bytes in one kibibyte, displayed with the familiar KB label. */
 const BYTES_PER_KIBIBYTE = 1_024;
@@ -102,6 +103,14 @@ export function persistedMessagePresentation(
     };
   }
   return { fallbackText: undefined, meta: undefined, error: false };
+}
+
+/** Finds the durable user request immediately preceding one rendered assistant response. */
+export function requestMessageForResponse(messages: Message[], responseId: number): Message | undefined {
+  const responseIndex = messages.findIndex((message) => message.id === responseId && message.role === "assistant");
+  if (responseIndex <= 0) return undefined;
+  const request = messages[responseIndex - 1];
+  return request.role === "user" && request.storageId ? request : undefined;
 }
 
 /** Formats measured duration and provider-reported usage without estimating missing values. */

@@ -10,6 +10,7 @@ export function nextMessageId(): number {
 /** One message rendered in the prototype conversation. */
 export type Message = {
   id: number;
+  storageId?: string;
   role: "user" | "assistant";
   content: string;
   reasoning?: string;

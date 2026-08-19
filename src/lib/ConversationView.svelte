@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
+  import type { ConversationBranch } from "$lib/storage";
   import type { ModelInfo, ProviderError } from "$lib/inference";
   import type { InferenceStage, Message, ProviderStatus } from "$lib/presentation";
 
@@ -11,7 +12,12 @@
     activeStage: number;
     inferenceStages: InferenceStage[];
     isGenerating: boolean;
+    branches: ConversationBranch[];
+    currentBranchId: string | null;
     onretry: () => void;
+    onselectbranch: (branchId: string) => void;
+    oneditmessage: (message: Message, text: string) => void;
+    onregenerate: (responseId: number) => void;
     onscrollready: (element: HTMLDivElement) => void;
   };
 
@@ -23,10 +29,17 @@
     activeStage,
     inferenceStages,
     isGenerating,
+    branches,
+    currentBranchId,
     onretry,
+    onselectbranch,
+    oneditmessage,
+    onregenerate,
     onscrollready,
   }: Props = $props();
   let messageScroll: HTMLDivElement;
+  let editingMessageId = $state<number | null>(null);
+  let editedText = $state("");
 
   $effect(() => {
     if (messageScroll) onscrollready(messageScroll);
@@ -47,6 +60,21 @@
   <div class="conversation-canvas">
     <div class="date-divider"><span>Current conversation</span></div>
 
+    {#if branches.length > 1}
+      <label class="branch-picker">
+        <span>Conversation branch</span>
+        <select
+          value={currentBranchId ?? ""}
+          disabled={isGenerating}
+          onchange={(event) => onselectbranch(event.currentTarget.value)}
+        >
+          {#each branches as branch, index (branch.id)}
+            <option value={branch.id}>{branch.name} · {index + 1} of {branches.length}</option>
+          {/each}
+        </select>
+      </label>
+    {/if}
+
     {#each messages as message (message.id)}
       <article class:assistant={message.role === "assistant"} class:error={message.error} class="message">
         <div class="message-avatar" class:user-avatar={message.role === "user"}>
@@ -60,10 +88,33 @@
             {/if}
           </div>
 
-          <div class="message-text">
-            {#each message.content.split("\n\n") as paragraph}<p>{paragraph}</p>{/each}
-            {#if message.content === "" && isGenerating}<span class="typing-caret"></span>{/if}
-          </div>
+          {#if editingMessageId === message.id}
+            <div class="message-editor">
+              <textarea bind:value={editedText} rows="3" aria-label="Edit message"></textarea>
+              <div>
+                <button
+                  onclick={() => {
+                    editingMessageId = null;
+                    editedText = "";
+                  }}>Cancel</button
+                >
+                <button
+                  class="primary"
+                  disabled={!editedText.trim()}
+                  onclick={() => {
+                    oneditmessage(message, editedText);
+                    editingMessageId = null;
+                    editedText = "";
+                  }}>Save & regenerate</button
+                >
+              </div>
+            </div>
+          {:else}
+            <div class="message-text">
+              {#each message.content.split("\n\n") as paragraph}<p>{paragraph}</p>{/each}
+              {#if message.content === "" && isGenerating}<span class="typing-caret"></span>{/if}
+            </div>
+          {/if}
 
           {#if message.reasoning}
             <details class="reasoning-block">
@@ -101,12 +152,25 @@
             </div>
           {/if}
 
-          {#if message.role === "assistant" && message.content !== ""}
+          {#if message.role === "user" && message.storageId && editingMessageId !== message.id}
+            <div class="message-actions user-message-actions">
+              <button
+                aria-label="Edit message"
+                disabled={isGenerating}
+                onclick={() => {
+                  editingMessageId = message.id;
+                  editedText = message.content;
+                }}><Icon name="edit" size={14} /></button
+              >
+            </div>
+          {:else if message.role === "assistant" && message.content !== ""}
             <div class="message-actions">
               <button aria-label="Copy response"><Icon name="copy" size={15} /></button>
               <button aria-label="Good response"><Icon name="thumbs-up" size={15} /></button>
               <button aria-label="Poor response"><Icon name="thumbs-down" size={15} /></button>
-              <button aria-label="Regenerate response"><Icon name="refresh" size={15} /></button>
+              <button aria-label="Regenerate response" disabled={isGenerating} onclick={() => onregenerate(message.id)}
+                ><Icon name="refresh" size={15} /></button
+              >
               {#if message.meta}<span class="response-meta">{message.meta}</span>{/if}
             </div>
           {/if}
