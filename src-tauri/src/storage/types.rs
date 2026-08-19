@@ -352,8 +352,32 @@ pub(crate) struct StoredConversation {
     pub(crate) id: String,
     /// Human-readable title.
     pub(crate) title: String,
-    /// Ordered messages on the current main branch.
+    /// Selected durable branch identity.
+    pub(crate) current_branch_id: String,
+    /// Available branches ordered by creation.
+    pub(crate) branches: Vec<ConversationBranch>,
+    /// Ordered messages on the selected branch lineage.
     pub(crate) messages: Vec<StoredMessage>,
+}
+
+/// One selectable conversation branch exposed without its storage internals.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ConversationBranch {
+    /// Stable opaque branch identity.
+    pub(crate) id: String,
+    /// Human-readable branch label.
+    pub(crate) name: String,
+}
+
+/// Result of atomically forking one user request onto a new selected branch.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ForkedConversation {
+    /// Reconstructed conversation on the newly selected branch.
+    pub(crate) conversation: StoredConversation,
+    /// New durable user request that should start provider generation.
+    pub(crate) request_message_id: String,
 }
 
 /// One message submitted for durable append.

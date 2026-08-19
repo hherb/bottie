@@ -11,10 +11,11 @@ and ordered text/reasoning messages across restart. Accepted provider runs now p
 model, generation settings, terminal outcome, timing, provider-reported usage, and crash-safe partial text/reasoning
 checkpoints. Runs left active by an earlier process reopen as visibly interrupted partial responses. Users can rename,
 archive, soft-delete, restore, and browse real conversations in calendar-date groups. The exact last-open conversation,
-including an intentional blank new-chat view, now survives restart. Provider selection remains explicit, cloud routes
-are visible before sending, and credential-vault values are never returned to the WebView. The next bounded
-implementation slice is edit-and-regenerate branching using the existing parent-message and branch identities; do not
-reopen broad product or visual-design planning.
+including an intentional blank new-chat view, now survives restart. Editing a user prompt or regenerating an assistant
+response creates a selected alternative branch while preserving every prior lineage for switching. Provider selection
+remains explicit, cloud routes are visible before sending, and credential-vault values are never returned to the
+WebView. The next bounded implementation slice is conversation search; do not reopen broad product or visual-design
+planning.
 
 Read these files first:
 
@@ -59,6 +60,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - crash-safe partial answer/reasoning checkpoints and visibly interrupted-run recovery;
 - real Today, Yesterday, Previous 7 days, Archived, and Trash navigation groups;
 - inline conversation rename plus archive, unarchive, recoverable trash, and restore actions;
+- inline user-message editing, assistant-response regeneration, and preserved branch switching;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -78,19 +80,22 @@ credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach S
 
 `src-tauri/src/storage.rs` owns short-lived configured SQLite connections, migrations, integrity policy, and
 transactional conversation/message operations. `src-tauri/src/storage/runs.rs` owns provider-run and usage records,
-`src-tauri/src/storage/selection.rs` owns profile-scoped last-open state, and `src-tauri/src/generation.rs` closes each
-native run before its terminal stream event reaches the WebView. `src-tauri/src/storage_commands.rs` exposes only
-list, create, selected-load/clear, user-message append, and explicit lifecycle commands. The
+`src-tauri/src/storage/selection.rs` owns profile-scoped last-open state, `src-tauri/src/storage/branching.rs` owns
+branch creation and selection, and `src-tauri/src/generation.rs` closes each native run before its terminal stream
+event reaches the WebView. `src-tauri/src/storage_commands.rs` exposes only list, create, selected-load/clear,
+user-message append, explicit branch, and lifecycle commands. The
 database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
-a main branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
+a selected branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
 blocks. User prompts commit before inference starts, and terminal assistant responses commit before another prompt can
 append. Rust creates each assistant response with its run, checkpoints every provider text/reasoning delta before IPC,
 and marks leftover running records interrupted during the next startup. Assistant responses reference opaque native
 provider runs, and reopened conversations reconstruct real elapsed time plus provider-reported token/cost usage without
 estimating missing values. Creating or opening a conversation records it as the local profile's exact selection;
 starting a blank chat clears that selection, and archiving or deleting the selected conversation clears it in the same
-transaction as the lifecycle change.
+transaction as the lifecycle change. Editing or regenerating creates one new branch whose first request points to the
+visible predecessor from the selected lineage; switching branches reconstructs ancestry through native-owned parent
+message links without copying or deleting the original history.
 
 The oMLX adapter:
 
@@ -155,7 +160,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- branching, search, export, and backup/restore are not yet implemented;
+- search, export, and backup/restore are not yet implemented;
 - tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
@@ -195,7 +200,37 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Exact last-open conversation restoration
+## Most recently completed product slice: Edit-and-regenerate branches
+
+### Goal
+
+Let users revise an earlier prompt or request another answer without overwriting durable history, copying ancestor
+messages, or allowing the WebView to choose arbitrary storage relationships.
+
+### Implemented shape
+
+1. Schema version 5 adds one selected branch reference to each conversation and deterministically selects the existing
+   main branch during migration.
+2. Editing a visible final user message creates a new native-owned branch and user request whose parent is the edited
+   message's predecessor; regenerating uses the same operation with unchanged request text.
+3. Provider generation starts only from the new request on the selected branch. Checkpoints, terminal state,
+   provenance, reasoning, and usage retain the existing native persistence guarantees.
+4. Conversation loading follows parent-message ancestry across branch boundaries, so shared history is not duplicated.
+5. A compact branch selector reopens every preserved lineage; branch changes and edits are rejected while generation
+   is active.
+
+### Acceptance criteria
+
+- Editing any visible user prompt preserves the original lineage and excludes its superseded descendants from the new
+  provider request.
+- Regenerating an assistant response creates a sibling branch from its preceding durable user request.
+- Switching branches restores the matching messages, response metadata, and provider-run content after restart.
+- Hidden sibling messages, assistant messages, deleted conversations, and active-run conversations cannot become fork
+  targets through the native command boundary.
+- Version-four stores migrate transactionally to a selected main branch without rewriting messages or provider runs.
+- The WebView receives opaque message/branch identities and narrow edit/select commands, never raw parent links or SQL.
+
+## Prior completed product slice: Exact last-open conversation restoration
 
 ### Goal
 
@@ -432,7 +467,7 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-20 for exact last-open conversation restoration:
+The following passed on 2026-08-20 for edit-and-regenerate branching:
 
 ```sh
 npm run check
@@ -444,24 +479,25 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The standard Rust suite now has sixty-one tests: fifty-seven run by default and four are opt-in live-provider tests.
-Seventeen storage tests cover migration and profile policy, version 2-to-4 and 3-to-4 upgrades,
-WAL/foreign-key/integrity state, transactional conversation/message round trips, branch-local ordering under equal
-timestamps, exact/blank last-open restoration, provider/model/reasoning retention, provider-run/usage reconstruction,
-native partial checkpoints, legacy running-record recovery, lifecycle transitions, recoverable deletion, and invalid
-input. The frontend suite has thirteen pure-helper tests, including durable completion metadata, recovered-message
-labels, and local-calendar date grouping. Live-provider tests were not required because this slice does not change
+The standard Rust suite now has sixty-four tests: sixty run by default and four are opt-in live-provider tests. Twenty
+storage tests cover migration and profile policy, version 2-to-5, 3-to-5, and 4-to-5 upgrades,
+WAL/foreign-key/integrity state, transactional conversation/message round trips, parent-linked branch ancestry and
+selection, branch-local ordering under equal timestamps, exact/blank last-open restoration,
+provider/model/reasoning retention, provider-run/usage reconstruction, native partial checkpoints, legacy
+running-record recovery, lifecycle transitions, recoverable deletion, and invalid input. The frontend suite has
+fourteen pure-helper tests, including durable completion metadata, recovered-message labels, response-to-request
+resolution, and local-calendar date grouping. Live-provider tests were not required because this slice does not change
 provider networking or streaming.
 
-This slice did not change layout or interaction structure, so the prior browser-preview layout checks remain applicable.
+The storage suite exercises schema version 5 branch creation, provider response persistence, selection, and process
+reopen migration against real path-backed SQLite databases. The native app also compiled and launched against the
+existing local store without console errors; a read-only host query confirmed schema version 5 and selected branches
+for all three existing conversations. The desktop WebView was visually checked at its default size with the new edit
+affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
+macOS denied assistive access for automated clicking in the native window during this run.
 
-The storage suite exercises schema version 4 process-reopen restoration against real path-backed SQLite databases. The
-native app also compiled, launched against the existing local store, completed schema version 4 startup, and reopened
-the current selected conversation without a visible error. The exact older-thread selection and intentional blank
-new-chat restart flows were manually confirmed on 2026-08-20.
-
-The next bounded implementation slice is edit-and-regenerate branching using the existing parent-message and branch
-identities. Keep tool-invocation persistence, search, export, and backups as later reviewable slices. Keep
+The next bounded implementation slice is conversation search. Keep tool-invocation persistence, Markdown rendering,
+copy/rating actions, export, and backups as later reviewable slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

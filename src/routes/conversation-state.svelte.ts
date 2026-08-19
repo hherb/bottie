@@ -4,6 +4,7 @@ import { conversationTitle, persistedCompletionMeta, persistedMessagePresentatio
 import { nextMessageId, type Message } from "$lib/presentation";
 import {
   appendConversationMessage,
+  branchConversationMessage,
   clearLastOpenConversation,
   createConversation,
   deleteConversation,
@@ -12,18 +13,29 @@ import {
   loadLastOpenConversation,
   renameConversation,
   restoreConversation,
+  selectConversationBranch,
   setConversationArchived,
   storageErrorFromUnknown,
+  type ConversationBranch,
   type ConversationSummary,
   type ProviderRunContext,
   type StorageError,
   type StoredMessage,
+  type StoredConversation,
 } from "$lib/storage";
+
+/** Presentation and native request identity produced by one branch fork. */
+export type BranchedGeneration = {
+  messages: Message[];
+  context: ProviderRunContext;
+};
 
 /** Owns native conversation navigation, persistence, and presentation reconstruction. */
 export class ConversationState {
   conversations = $state<ConversationSummary[]>([]);
   activeConversationId = $state<string | null>(null);
+  branches = $state<ConversationBranch[]>([]);
+  currentBranchId = $state<string | null>(null);
   storageError = $state<StorageError | null>(null);
   isManaging = $state(false);
 
@@ -33,8 +45,7 @@ export class ConversationState {
       const [conversations, selected] = await Promise.all([listConversations(), loadLastOpenConversation()]);
       this.conversations = conversations;
       if (!selected) return [];
-      this.activeConversationId = selected.id;
-      return selected.messages.map((message) => this.presentationMessage(message));
+      return this.applyConversation(selected);
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
       return [];
@@ -45,26 +56,66 @@ export class ConversationState {
   async open(conversationId: string): Promise<Message[] | null> {
     try {
       const conversation = await loadConversation(conversationId);
-      this.activeConversationId = conversation.id;
       this.storageError = null;
-      return conversation.messages.map((message) => this.presentationMessage(message));
+      return this.applyConversation(conversation);
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
       return null;
     }
   }
 
+  /** Forks a visible user request and returns the new selected lineage plus generation context. */
+  async branchFromUserMessage(messageId: string, text: string): Promise<BranchedGeneration | null> {
+    if (!this.activeConversationId || this.isManaging) return null;
+    this.isManaging = true;
+    try {
+      const result = await branchConversationMessage(this.activeConversationId, messageId, text);
+      this.storageError = null;
+      await this.refresh();
+      return {
+        messages: this.applyConversation(result.conversation),
+        context: {
+          conversationId: result.conversation.id,
+          requestMessageId: result.requestMessageId,
+        },
+      };
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      return null;
+    } finally {
+      this.isManaging = false;
+    }
+  }
+
+  /** Selects one existing branch and returns its reconstructed presentation lineage. */
+  async selectBranch(branchId: string): Promise<Message[] | null> {
+    if (!this.activeConversationId || this.isManaging) return null;
+    this.isManaging = true;
+    try {
+      const conversation = await selectConversationBranch(this.activeConversationId, branchId);
+      this.storageError = null;
+      return this.applyConversation(conversation);
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      return null;
+    } finally {
+      this.isManaging = false;
+    }
+  }
+
   /** Creates a conversation when needed and durably appends the submitted prompt. */
   async persistUserMessage(prompt: string): Promise<ProviderRunContext | null> {
     try {
-      if (!this.activeConversationId) {
+      let conversationId = this.activeConversationId;
+      if (!conversationId) {
         const conversation = await createConversation(conversationTitle(prompt));
-        this.activeConversationId = conversation.id;
+        this.applyConversation(conversation);
+        conversationId = conversation.id;
       }
-      const stored = await appendConversationMessage(this.activeConversationId, prompt);
+      const stored = await appendConversationMessage(conversationId, prompt);
       await this.refresh();
       return {
-        conversationId: this.activeConversationId,
+        conversationId,
         requestMessageId: stored.id,
       };
     } catch (error) {
@@ -81,12 +132,22 @@ export class ConversationState {
   /** Clears the active identity and persists the intentional blank new-chat view. */
   async startNew(): Promise<void> {
     this.activeConversationId = null;
+    this.branches = [];
+    this.currentBranchId = null;
     try {
       await clearLastOpenConversation();
       this.storageError = null;
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
     }
+  }
+
+  /** Applies one reconstructed native conversation to durable navigation state. */
+  private applyConversation(conversation: StoredConversation): Message[] {
+    this.activeConversationId = conversation.id;
+    this.branches = conversation.branches;
+    this.currentBranchId = conversation.currentBranchId;
+    return conversation.messages.map((message) => this.presentationMessage(message));
   }
 
   /** Renames one active or archived conversation and refreshes navigation. */
@@ -159,6 +220,7 @@ export class ConversationState {
     );
     return {
       id: nextMessageId(),
+      storageId: message.id,
       role: message.role,
       content: message.text || presentation.fallbackText || "",
       reasoning: message.reasoning ?? undefined,

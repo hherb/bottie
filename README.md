@@ -9,8 +9,9 @@ end-to-end cancellation. Conversations and their ordered text/reasoning messages
 SQLite database and reopen after restart. Accepted provider runs retain their model, generation settings, terminal
 state, elapsed time, provider-reported token/cost usage, and checkpointed partial output. If Bottie exits during a
 generation, its next launch marks that run interrupted and reopens the response with the text and reasoning already
-saved. Bottie also restores the exact last-open conversation after restart and preserves an intentional blank new-chat
-view. Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
+saved. Users can edit earlier prompts or regenerate responses into preserved, switchable conversation branches. Bottie
+also restores the exact last-open conversation after restart and preserves an intentional blank new-chat view. Remote
+API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
 not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.

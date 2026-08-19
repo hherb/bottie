@@ -4,20 +4,22 @@ use std::{fs, path::PathBuf, time::Duration};
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
+mod branching;
 mod lifecycle;
 mod migrations;
 mod runs;
 mod selection;
 mod types;
 
-use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
+use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5};
 pub(crate) use types::{
-    ConversationLifecycle, ConversationSummary, MessageState, NewProviderRun, NewStoredMessage,
-    ProviderRunContext, ProviderRunState, RunBlockKind, StorageError, StoredConversation,
-    StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
+    ConversationBranch, ConversationLifecycle, ConversationSummary, ForkedConversation,
+    MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext, ProviderRunState,
+    RunBlockKind, StorageError, StoredConversation, StoredMessage, StoredProviderRun,
+    StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 4;
+const CURRENT_SCHEMA_VERSION: i64 = 5;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -77,7 +79,11 @@ impl ConversationStore {
         )?;
         transaction.execute(
             "INSERT INTO branches (id, conversation_id, name, created_at_ms) VALUES (?1, ?2, ?3, ?4)",
-            params![branch_id, conversation_id, DEFAULT_BRANCH_NAME, now],
+            params![&branch_id, &conversation_id, DEFAULT_BRANCH_NAME, now],
+        )?;
+        transaction.execute(
+            "UPDATE conversations SET current_branch_id = ?1 WHERE id = ?2",
+            params![&branch_id, &conversation_id],
         )?;
         transaction.execute(
             "UPDATE profiles SET last_open_conversation_id = ?1 WHERE id = ?2",
@@ -87,6 +93,11 @@ impl ConversationStore {
         Ok(StoredConversation {
             id: conversation_id,
             title,
+            current_branch_id: branch_id.clone(),
+            branches: vec![ConversationBranch {
+                id: branch_id,
+                name: DEFAULT_BRANCH_NAME.into(),
+            }],
             messages: Vec::new(),
         })
     }
@@ -111,11 +122,9 @@ impl ConversationStore {
             connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let branch_id: String = transaction
             .query_row(
-                "SELECT branches.id FROM branches
-                 JOIN conversations ON conversations.id = branches.conversation_id
-                 WHERE branches.conversation_id = ?1 AND conversations.profile_id = ?2
-                   AND conversations.deleted_at_ms IS NULL
-                 ORDER BY branches.created_at_ms, branches.id LIMIT 1",
+                "SELECT conversations.current_branch_id FROM conversations
+                 WHERE conversations.id = ?1 AND conversations.profile_id = ?2
+                   AND conversations.deleted_at_ms IS NULL",
                 params![message.conversation_id, DEFAULT_PROFILE_ID],
                 |row| row.get(0),
             )
@@ -263,6 +272,18 @@ impl ConversationStore {
             transaction.pragma_update(None, "user_version", 4)?;
             transaction.commit()?;
         }
+        if version < 5 {
+            let transaction =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            transaction.execute_batch(MIGRATION_5)?;
+            transaction.execute(
+                "INSERT INTO schema_migrations (version, name, applied_at_ms)
+                 VALUES (5, 'selected conversation branch', ?1)",
+                [now_ms()?],
+            )?;
+            transaction.pragma_update(None, "user_version", 5)?;
+            transaction.commit()?;
+        }
         Ok(())
     }
 
@@ -298,24 +319,30 @@ fn load_conversation_from_connection(
     connection: &Connection,
     conversation_id: &str,
 ) -> Result<StoredConversation, StorageError> {
-    let title: String = connection
+    let (title, branch_id): (String, String) = connection
         .query_row(
-            "SELECT title FROM conversations WHERE id = ?1 AND profile_id = ?2 AND deleted_at_ms IS NULL",
+            "SELECT title, current_branch_id FROM conversations
+             WHERE id = ?1 AND profile_id = ?2 AND deleted_at_ms IS NULL",
             params![conversation_id, DEFAULT_PROFILE_ID],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()?
         .ok_or_else(|| StorageError::not_found("That conversation no longer exists."))?;
-    let branch_id: String = connection.query_row(
-        "SELECT id FROM branches WHERE conversation_id = ?1 ORDER BY created_at_ms, id LIMIT 1",
-        [conversation_id],
-        |row| row.get(0),
-    )?;
     let mut statement = connection.prepare(
-        "SELECT id, role, state, provider_id, model_id, provider_run_id, created_at_ms
-         FROM messages WHERE branch_id = ?1 ORDER BY sequence",
+        "WITH RECURSIVE lineage(id, parent_message_id, depth) AS (
+             SELECT id, parent_message_id, 0 FROM messages
+             WHERE id = (
+                 SELECT id FROM messages WHERE branch_id = ?1 ORDER BY sequence DESC LIMIT 1
+             )
+             UNION ALL
+             SELECT messages.id, messages.parent_message_id, lineage.depth + 1
+             FROM messages JOIN lineage ON messages.id = lineage.parent_message_id
+         )
+         SELECT messages.id, messages.role, messages.state, messages.provider_id, messages.model_id,
+                messages.provider_run_id, messages.created_at_ms
+         FROM lineage JOIN messages ON messages.id = lineage.id ORDER BY lineage.depth DESC",
     )?;
-    let rows = statement.query_map([branch_id], |row| {
+    let rows = statement.query_map([&branch_id], |row| {
         Ok((
             row.get::<_, String>(0)?,
             row.get::<_, String>(1)?,
@@ -346,9 +373,22 @@ fn load_conversation_from_connection(
             created_at_ms,
         });
     }
+    let mut branch_statement = connection.prepare(
+        "SELECT id, name FROM branches WHERE conversation_id = ?1 ORDER BY created_at_ms, id",
+    )?;
+    let branches = branch_statement
+        .query_map([conversation_id], |row| {
+            Ok(ConversationBranch {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(StoredConversation {
         id: conversation_id.into(),
         title,
+        current_branch_id: branch_id,
+        branches,
         messages,
     })
 }
@@ -438,3 +478,7 @@ mod run_tests;
 #[cfg(test)]
 #[path = "storage/selection_tests.rs"]
 mod selection_tests;
+
+#[cfg(test)]
+#[path = "storage/branch_tests.rs"]
+mod branch_tests;

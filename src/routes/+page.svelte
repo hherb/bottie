@@ -36,7 +36,7 @@
     conversations={state.history.conversations}
     activeConversationId={state.history.activeConversationId}
     storageError={state.history.storageError?.message ?? null}
-    isGenerating={state.isGenerating || state.history.isManaging}
+    isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
     onclose={() => (state.showSidebar = false)}
     onnewchat={() => void state.startNewChat()}
     onselectconversation={(conversationId) => void state.openConversation(conversationId)}
@@ -64,7 +64,7 @@
       selectedModelKey={state.selectedModelKey}
       models={state.models}
       providerStatus={state.providerStatus}
-      isGenerating={state.isGenerating}
+      isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
       reasoningEffort={state.reasoningEffort}
       showContext={state.showContext}
       isLocalRoute={state.isLocalRoute}
@@ -82,8 +82,13 @@
       selectedModel={state.selectedModel}
       activeStage={state.activeStage}
       inferenceStages={state.inferenceStages}
-      isGenerating={state.isGenerating}
+      isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
+      branches={state.history.branches}
+      currentBranchId={state.history.currentBranchId}
       onretry={() => void state.refreshModels()}
+      onselectbranch={(branchId) => void state.selectConversationBranch(branchId)}
+      oneditmessage={(message, text) => void state.editAndRegenerate(message, text)}
+      onregenerate={(responseId) => void state.regenerateResponse(responseId)}
       onscrollready={(element) => state.setMessageScroll(element)}
     />
 
@@ -119,7 +124,7 @@
   {#if state.showSettings}
     <ProviderSettingsDialog
       settings={state.providerSettings}
-      isGenerating={state.isGenerating}
+      isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
       onclose={() => (state.showSettings = false)}
       onsaved={(settings) => state.applyProviderSettings(settings)}
     />

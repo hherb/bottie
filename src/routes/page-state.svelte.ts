@@ -10,6 +10,7 @@ import {
   formatBytes,
   isCloudProvider,
   modelKey,
+  requestMessageForResponse,
   resolveModelSelection,
   toggleReasoningEffort,
 } from "$lib/chat";
@@ -276,11 +277,38 @@ export class PageState {
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
     if (!submittedPrompt || this.isGenerating || !this.canSend) return;
+    this.isPersistingMessage = true;
     const runContext = await this.history.persistUserMessage(submittedPrompt);
+    this.isPersistingMessage = false;
     if (!runContext) return;
-    this.messages.push({ id: nextMessageId(), role: "user", content: submittedPrompt });
+    this.messages.push({
+      id: nextMessageId(),
+      storageId: runContext.requestMessageId,
+      role: "user",
+      content: submittedPrompt,
+    });
     this.prompt = "";
     this.resizeComposer();
+    await this.startGeneration(runContext);
+  }
+
+  /** Forks one durable user request and generates a response on the new selected branch. */
+  async editAndRegenerate(message: Message, text: string): Promise<void> {
+    if (!message.storageId || this.isGenerating || !this.canSend) return;
+    const branched = await this.history.branchFromUserMessage(message.storageId, text);
+    if (!branched) return;
+    this.messages = branched.messages;
+    await this.startGeneration(branched.context);
+  }
+
+  /** Regenerates one response by forking its unchanged durable user request. */
+  async regenerateResponse(responseId: number): Promise<void> {
+    const request = requestMessageForResponse(this.messages, responseId);
+    if (request) await this.editAndRegenerate(request, request.content);
+  }
+
+  /** Starts provider generation from one already-persisted request on the selected branch. */
+  private async startGeneration(runContext: import("$lib/storage").ProviderRunContext): Promise<void> {
     this.isGenerating = true;
     const run = ++this.generationRun;
     this.activeStage = STARTING_STAGE;
@@ -332,6 +360,16 @@ export class PageState {
       this.providerError = normalized;
       if (normalized.code === "unavailable") this.providerStatus = "offline";
       await this.finalizeNativeGeneration(run);
+    }
+  }
+
+  /** Selects one preserved branch when generation is idle. */
+  async selectConversationBranch(branchId: string): Promise<void> {
+    if (this.isGenerating || this.isPersistingMessage || branchId === this.history.currentBranchId) return;
+    const messages = await this.history.selectBranch(branchId);
+    if (messages) {
+      this.messages = messages;
+      await this.scrollToBottom("auto");
     }
   }
 

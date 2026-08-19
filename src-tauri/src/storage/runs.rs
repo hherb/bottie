@@ -22,7 +22,8 @@ impl ConversationStore {
                  JOIN conversations ON conversations.id = messages.conversation_id
                  WHERE messages.id = ?1 AND messages.conversation_id = ?2
                    AND messages.role = 'user' AND conversations.profile_id = ?3
-                   AND conversations.deleted_at_ms IS NULL",
+                   AND conversations.deleted_at_ms IS NULL
+                   AND conversations.current_branch_id = messages.branch_id",
                 params![
                     run.request_message_id,
                     run.conversation_id,

@@ -5,6 +5,7 @@
     | "check"
     | "chevron-down"
     | "copy"
+    | "edit"
     | "file"
     | "globe"
     | "image"
@@ -66,6 +67,9 @@
   {:else if name === "copy"}
     <rect x="9" y="9" width="10" height="10" rx="2" />
     <path d="M15 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+  {:else if name === "edit"}
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
   {:else if name === "file"}
     <path d="M6 3h8l4 4v14H6z" />
     <path d="M14 3v5h5M9 13h6M9 17h4" />
