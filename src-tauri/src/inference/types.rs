@@ -139,13 +139,15 @@ pub struct ChatRun {
 }
 
 /// Usage values normalized across provider responses.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
     /// Provider-reported prompt token count.
     pub input_tokens: Option<u64>,
     /// Provider-reported generated token count.
     pub output_tokens: Option<u64>,
+    /// Provider-reported request cost in US dollars, when a compatible endpoint supplies it.
+    pub cost_usd: Option<f64>,
 }
 
 /// Events delivered over one typed Tauri IPC channel per generation.

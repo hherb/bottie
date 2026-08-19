@@ -300,6 +300,13 @@
   background: var(--cyan);
   box-shadow: 0 0 6px rgba(91, 216, 200, 0.6);
 }
+.route-status.cloud {
+  color: #e7b47f;
+}
+.route-status.cloud span {
+  background: var(--amber);
+  box-shadow: 0 0 6px rgba(233, 169, 104, 0.55);
+}
 .route-status.offline {
   color: #777581;
 }

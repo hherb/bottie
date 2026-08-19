@@ -2,17 +2,18 @@
   import Icon from "$lib/Icon.svelte";
   import { modelKey } from "$lib/chat";
   import { PROVIDER_OPTIONS, type ProviderStatus } from "$lib/presentation";
-  import type { LocalProviderId, ModelInfo, ReasoningEffort } from "$lib/inference";
+  import type { ModelInfo, ProviderId, ReasoningEffort } from "$lib/inference";
 
   type Props = {
-    providerId: LocalProviderId | "";
+    providerId: ProviderId | "";
     selectedModelKey: string;
     models: ModelInfo[];
     providerStatus: ProviderStatus;
     isGenerating: boolean;
     reasoningEffort: ReasoningEffort;
     showContext: boolean;
-    onproviderchange: (providerId: LocalProviderId) => void;
+    isLocalRoute: boolean;
+    onproviderchange: (providerId: ProviderId) => void;
     onmodelchange: (modelKey: string) => void;
     ontogglereasoning: () => void;
     onopensidebar: () => void;
@@ -27,6 +28,7 @@
     isGenerating,
     reasoningEffort,
     showContext,
+    isLocalRoute,
     onproviderchange,
     onmodelchange,
     ontogglereasoning,
@@ -51,12 +53,12 @@
       <select
         value={providerId}
         disabled={providerStatus === "browser" || isGenerating}
-        aria-label="Choose local provider"
-        onchange={(event) => onproviderchange(event.currentTarget.value as LocalProviderId)}
+        aria-label="Choose inference provider"
+        onchange={(event) => onproviderchange(event.currentTarget.value as ProviderId)}
       >
         <option value="" disabled>{providerStatus === "browser" ? "Native only" : "Choose provider"}</option>
         {#each PROVIDER_OPTIONS as provider}
-          <option value={provider.id}>{provider.name}</option>
+          <option value={provider.id}>{provider.name}{provider.route === "cloud" ? " · cloud" : " · local"}</option>
         {/each}
       </select>
     </label>
@@ -105,9 +107,13 @@
   </div>
 
   <div class="topbar-actions">
-    <div class="privacy-pill" title="Messages stay on this device">
+    <div
+      class:cloud={!isLocalRoute}
+      class="privacy-pill"
+      title={isLocalRoute ? "Messages stay on this device" : "Messages are sent to the selected cloud endpoint"}
+    >
       <Icon name="shield" size={14} />
-      <span>Local only</span>
+      <span>{isLocalRoute ? "Local only" : "Cloud route"}</span>
     </div>
     <button
       class:active={showContext}

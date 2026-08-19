@@ -114,7 +114,8 @@ fn decodes_usage_update() {
         event,
         DecodedEvent::Usage(Usage {
             input_tokens: Some(12),
-            output_tokens: Some(7)
+            output_tokens: Some(7),
+            cost_usd: None
         })
     ));
 }

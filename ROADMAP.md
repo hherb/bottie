@@ -80,11 +80,13 @@ Status: complete
 
 ### 1.4 Remote OpenAI and Anthropic APIs
 
-- native adapters instead of forcing both APIs through one request shape;
-- generic OpenAI-compatible and Anthropic-compatible endpoint profiles;
-- API keys stored in the operating system credential vault;
-- explicit local/cloud routing indicator before sending;
-- usage and cost metadata where providers return it.
+Status: complete
+
+- [x] native adapters instead of forcing both APIs through one request shape;
+- [x] generic OpenAI-compatible and Anthropic-compatible endpoint profiles;
+- [x] API keys stored in the operating system credential vault, with Touch ID session unlock on macOS;
+- [x] explicit local/cloud routing indicator before sending;
+- [x] usage and cost metadata where providers return it.
 
 ## Milestone 2 — Durable conversations
 

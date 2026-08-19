@@ -49,6 +49,7 @@
       isGenerating={state.isGenerating}
       reasoningEffort={state.reasoningEffort}
       showContext={state.showContext}
+      isLocalRoute={state.isLocalRoute}
       onproviderchange={(providerId) => void state.changeProvider(providerId)}
       onmodelchange={(modelKey) => void state.changeModel(modelKey)}
       ontogglereasoning={() => state.toggleReasoning()}
@@ -91,6 +92,7 @@
     selectedModel={state.selectedModel}
     selectedProviderEndpoint={state.selectedProviderEndpoint}
     providerStatus={state.providerStatus}
+    isLocalRoute={state.isLocalRoute}
     onclose={() => (state.showContext = false)}
     onadd={() => state.openAttachmentPicker()}
     onremove={(id) => state.removeAttachment(id)}

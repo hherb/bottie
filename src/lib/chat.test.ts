@@ -5,6 +5,7 @@ import {
   displayEndpoint,
   filterUsableModels,
   formatBytes,
+  isCloudProvider,
   modelKey,
   resolveModelSelection,
   toggleReasoningEffort,
@@ -47,10 +48,17 @@ describe("chat presentation helpers", () => {
     expect(formatBytes(1_572_864)).toBe("1.5 MB");
   });
 
+  it("does not mislabel an empty native-preview selection as a cloud route", () => {
+    expect(isCloudProvider("")).toBe(false);
+    expect(isCloudProvider("ollama")).toBe(false);
+    expect(isCloudProvider("openai")).toBe(true);
+    expect(isCloudProvider("anthropic")).toBe(true);
+  });
+
   it("reports elapsed time and optional output usage", () => {
-    const usage: Usage = { inputTokens: 12, outputTokens: 7 };
+    const usage: Usage = { inputTokens: 12, outputTokens: 7, costUsd: null };
     expect(completionMeta(1_000, 2_250, usage)).toBe("1.3s · 7 tokens");
-    expect(completionMeta(1_000, 2_250, null)).toBe("1.3s · local");
+    expect(completionMeta(1_000, 2_250, null)).toBe("1.3s · usage unavailable");
   });
 
   it("keeps only streaming text models", () => {

@@ -1,4 +1,4 @@
-import type { LocalProviderId, ModelInfo, ReasoningEffort, Usage } from "./inference";
+import type { ModelInfo, ProviderId, ReasoningEffort, Usage } from "./inference";
 
 /** Number of bytes in one kibibyte, displayed with the familiar KB label. */
 const BYTES_PER_KIBIBYTE = 1_024;
@@ -11,7 +11,7 @@ const MILLISECONDS_PER_SECOND = 1_000;
 
 /** The provider-scoped result of resolving a model selection. */
 export type ModelSelection = {
-  providerId: LocalProviderId | "";
+  providerId: ProviderId | "";
   models: ModelInfo[];
   selectedModelKey: string;
 };
@@ -24,6 +24,11 @@ export function modelKey(model: Pick<ModelInfo, "providerId" | "modelId">): stri
 /** Formats a provider root URL for compact display in the interface. */
 export function displayEndpoint(baseUrl: string): string {
   return baseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+}
+
+/** Returns whether selecting a provider will transmit prompt content off-device. */
+export function isCloudProvider(providerId: ProviderId | ""): boolean {
+  return providerId === "openai" || providerId === "anthropic";
 }
 
 /** Formats a byte count using the binary thresholds used by the attachment preview. */
@@ -40,7 +45,10 @@ export function formatBytes(bytes: number): string {
 export function completionMeta(startedAt: number, finishedAt: number, usage: Usage | null): string {
   const seconds = ((finishedAt - startedAt) / MILLISECONDS_PER_SECOND).toFixed(1);
   const outputTokens = usage?.outputTokens;
-  return outputTokens == null ? `${seconds}s · local` : `${seconds}s · ${outputTokens} tokens`;
+  const cost = usage?.costUsd;
+  const usageLabel = outputTokens == null ? "usage unavailable" : `${outputTokens} tokens`;
+  const costLabel = cost == null ? "" : ` · $${cost.toFixed(4)}`;
+  return `${seconds}s · ${usageLabel}${costLabel}`;
 }
 
 /** Retains models that can participate in the current streaming text interface. */
@@ -56,8 +64,8 @@ export function toggleReasoningEffort(current: ReasoningEffort): ReasoningEffort
 /** Resolves a provider-scoped model list and selection from discovery results and remembered state. */
 export function resolveModelSelection(
   usableModels: ModelInfo[],
-  requestedProviderId: LocalProviderId | "",
-  rememberedProviderId: LocalProviderId | null,
+  requestedProviderId: ProviderId | "",
+  rememberedProviderId: ProviderId | null,
   rememberedModelId: string | null,
 ): ModelSelection {
   const rememberedProviderAvailable =
@@ -65,7 +73,7 @@ export function resolveModelSelection(
   const providerId =
     requestedProviderId ||
     (rememberedProviderAvailable ? rememberedProviderId : undefined) ||
-    (usableModels[0]?.providerId as LocalProviderId | undefined) ||
+    (usableModels[0]?.providerId as ProviderId | undefined) ||
     "";
   const models = usableModels.filter((model) => model.providerId === providerId);
   const rememberedModel = models.find(

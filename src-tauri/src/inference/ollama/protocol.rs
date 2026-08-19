@@ -315,6 +315,7 @@ pub(super) fn normalize_usage(
     (input_tokens.is_some() || output_tokens.is_some()).then_some(Usage {
         input_tokens,
         output_tokens,
+        cost_usd: None,
     })
 }
 
