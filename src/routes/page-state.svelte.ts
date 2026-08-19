@@ -33,12 +33,15 @@ import {
   DEFAULT_PROVIDER_SETTINGS,
   INITIAL_MESSAGES,
   MAX_COMPOSER_HEIGHT_PX,
+  nextMessageId,
   type Attachment,
   type InferenceStage,
   type Message,
   type ProviderStatus,
   type RuntimeInfo,
 } from "$lib/presentation";
+
+import { ConversationState } from "./conversation-state.svelte";
 
 const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
@@ -47,13 +50,14 @@ const NEXT_EVENT_LOOP_TICK_MS = 0;
 
 /** Owns the reactive state and imperative actions shared by the page's presentation components. */
 export class PageState {
-  messages = $state<Message[]>(INITIAL_MESSAGES.map((message) => ({ ...message })));
+  messages = $state<Message[]>(isTauri() ? [] : INITIAL_MESSAGES.map((message) => ({ ...message })));
   attachments = $state<Attachment[]>([
     { id: 1, name: "bottie-notes.md", size: "18 KB", kind: "file" },
     { id: 2, name: "architecture.png", size: "1.2 MB", kind: "image" },
   ]);
   prompt = $state("");
   isGenerating = $state(false);
+  isPersistingMessage = $state(false);
   activeStage = $state(IDLE_STAGE);
   activeRunId = $state<string | null>(null);
   activeAssistantId = $state<number | null>(null);
@@ -69,9 +73,9 @@ export class PageState {
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
   providerSettings = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
+  history = new ConversationState();
 
   private generationRun = 0;
-  private messageSequence = Date.now();
   private messageScroll?: HTMLDivElement;
   private composer?: HTMLTextAreaElement;
   private attachmentInput?: HTMLInputElement;
@@ -83,7 +87,7 @@ export class PageState {
 
   /** Whether the current provider and model selection can accept a message. */
   get canSend(): boolean {
-    return this.providerStatus === "available" && Boolean(this.selectedModel);
+    return this.providerStatus === "available" && Boolean(this.selectedModel) && !this.isPersistingMessage;
   }
 
   /** Whether the selected route keeps prompt traffic on this device. */
@@ -139,7 +143,19 @@ export class PageState {
     } catch (error) {
       console.warn("Could not read provider settings", error);
     }
-    await this.refreshModels();
+    const [messages] = await Promise.all([this.history.initialize(), this.refreshModels()]);
+    this.messages = messages;
+  }
+
+  /** Opens one persisted conversation from the sidebar. */
+  async openConversation(conversationId: string): Promise<void> {
+    if (this.isGenerating) return;
+    const messages = await this.history.open(conversationId);
+    if (messages) {
+      this.messages = messages;
+      this.showSidebar = false;
+      await this.scrollToBottom("auto");
+    }
   }
 
   /** Discovers streaming text models for one provider and resolves a stable selection. */
@@ -259,7 +275,9 @@ export class PageState {
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
     if (!submittedPrompt || this.isGenerating || !this.canSend) return;
-    this.messages.push({ id: ++this.messageSequence, role: "user", content: submittedPrompt });
+    const conversationId = await this.history.persistUserMessage(submittedPrompt);
+    if (!conversationId) return;
+    this.messages.push({ id: nextMessageId(), role: "user", content: submittedPrompt });
     this.prompt = "";
     this.resizeComposer();
     this.isGenerating = true;
@@ -275,7 +293,7 @@ export class PageState {
         role: message.role,
         content: [{ type: "text", text: message.content }],
       }));
-    const assistantId = ++this.messageSequence;
+    const assistantId = nextMessageId();
     this.activeAssistantId = assistantId;
     this.messages.push({
       id: assistantId,
@@ -294,7 +312,7 @@ export class PageState {
           messages: requestMessages,
           settings: { reasoningEffort: this.reasoningEffort },
         },
-        (event) => this.handleStreamEvent(event, run, assistantId, startedAt),
+        (event) => this.handleStreamEvent(event, run, assistantId, startedAt, conversationId, model!),
       );
       if (run === this.generationRun) this.activeRunId = chatRun.runId;
       else await cancelChat(chatRun.runId);
@@ -308,12 +326,19 @@ export class PageState {
       }
       this.providerError = normalized;
       if (normalized.code === "unavailable") this.providerStatus = "offline";
-      this.finishGeneration(run);
+      await this.persistTerminalMessage(conversationId, reply, "failed", model!, run);
     }
   }
 
   /** Applies one normalized provider event to the active assistant response. */
-  private handleStreamEvent(event: StreamEvent, run: number, assistantId: number, startedAt: number): void {
+  private handleStreamEvent(
+    event: StreamEvent,
+    run: number,
+    assistantId: number,
+    startedAt: number,
+    conversationId: string,
+    model: ModelInfo,
+  ): void {
     if (run !== this.generationRun) return;
     this.activeRunId = event.runId;
     const reply = this.messages.find((message) => message.id === assistantId);
@@ -331,11 +356,11 @@ export class PageState {
     } else if (event.type === "completed") {
       this.currentUsage = event.usage ?? this.currentUsage;
       reply.meta = completionMeta(startedAt, performance.now(), this.currentUsage);
-      this.finishGeneration(run);
+      void this.persistTerminalMessage(conversationId, reply, "final", model, run);
     } else if (event.type === "cancelled") {
       if (reply.content === "") reply.content = "Generation stopped.";
       reply.meta = "Stopped · partial response";
-      this.finishGeneration(run);
+      void this.persistTerminalMessage(conversationId, reply, "cancelled", model, run);
     } else if (event.type === "failed") {
       reply.error = true;
       reply.content = reply.content
@@ -343,8 +368,22 @@ export class PageState {
         : event.error.message;
       this.providerError = event.error;
       if (event.error.code === "unavailable") this.providerStatus = "offline";
-      this.finishGeneration(run);
+      void this.persistTerminalMessage(conversationId, reply, "failed", model, run);
     }
+  }
+
+  /** Saves a terminal response before allowing the next prompt to append. */
+  private async persistTerminalMessage(
+    conversationId: string,
+    message: Message | undefined,
+    state: "final" | "cancelled" | "failed",
+    model: ModelInfo,
+    run: number,
+  ): Promise<void> {
+    this.isPersistingMessage = true;
+    await this.history.persistAssistantMessage(conversationId, message, state, model);
+    this.isPersistingMessage = false;
+    this.finishGeneration(run);
   }
 
   /** Toggles the next request between no reasoning and low reasoning. */
@@ -365,6 +404,8 @@ export class PageState {
   stopGenerating(): void {
     const runId = this.activeRunId;
     const reply = this.messages.find((message) => message.id === this.activeAssistantId);
+    const conversationId = this.history.activeConversationId;
+    const model = this.selectedModel;
     this.generationRun += 1;
     this.isGenerating = false;
     this.activeStage = IDLE_STAGE;
@@ -373,6 +414,9 @@ export class PageState {
     if (reply) {
       if (reply.content === "") reply.content = "Generation stopped.";
       reply.meta = "Stopped · partial response";
+    }
+    if (reply && conversationId && model) {
+      void this.persistTerminalMessage(conversationId, reply, "cancelled", model, this.generationRun);
     }
     if (runId) void cancelChat(runId);
   }
@@ -383,17 +427,11 @@ export class PageState {
     else void this.sendMessage();
   }
 
-  /** Resets the ephemeral conversation fixture and cancels any active stream. */
+  /** Clears the active thread; its first submitted prompt creates durable storage. */
   startNewChat(): void {
     if (this.activeRunId) void cancelChat(this.activeRunId);
-    this.messages = [
-      {
-        id: ++this.messageSequence,
-        role: "assistant",
-        model: "bottie",
-        content: "Fresh thread. What would you like to explore?",
-      },
-    ];
+    this.messages = [];
+    this.history.startNew();
     this.activeStage = IDLE_STAGE;
     this.generationRun += 1;
     this.isGenerating = false;

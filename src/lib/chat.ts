@@ -9,6 +9,9 @@ const KIBIBYTES_PER_MEBIBYTE = 1_024;
 /** Number of milliseconds in one second. */
 const MILLISECONDS_PER_SECOND = 1_000;
 
+/** Maximum number of Unicode characters used for a generated conversation title. */
+const MAX_CONVERSATION_TITLE_CHARACTERS = 80;
+
 /** The provider-scoped result of resolving a model selection. */
 export type ModelSelection = {
   providerId: ProviderId | "";
@@ -19,6 +22,11 @@ export type ModelSelection = {
 /** Creates a collision-safe key for a provider and model pair. */
 export function modelKey(model: Pick<ModelInfo, "providerId" | "modelId">): string {
   return `${model.providerId}:${model.modelId}`;
+}
+
+/** Derives a compact single-line title from the first user prompt. */
+export function conversationTitle(prompt: string): string {
+  return Array.from(prompt.trim().replace(/\s+/g, " ")).slice(0, MAX_CONVERSATION_TITLE_CHARACTERS).join("");
 }
 
 /** Formats a provider root URL for compact display in the interface. */

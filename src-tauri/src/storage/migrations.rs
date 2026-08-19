@@ -1,0 +1,65 @@
+//! Ordered SQLite migrations for durable conversation storage.
+
+/// Initial local-profile, conversation, branch, message, and content-block schema.
+pub(super) const MIGRATION_1: &str = r#"
+CREATE TABLE schema_migrations (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE profiles (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE conversations (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL REFERENCES profiles(id),
+    title TEXT NOT NULL,
+    created_at_ms INTEGER NOT NULL,
+    updated_at_ms INTEGER NOT NULL,
+    archived_at_ms INTEGER,
+    deleted_at_ms INTEGER
+) STRICT;
+CREATE TABLE branches (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    branch_id TEXT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    parent_message_id TEXT REFERENCES messages(id),
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    state TEXT NOT NULL CHECK (state IN ('partial', 'final', 'cancelled', 'failed')),
+    provider_id TEXT,
+    model_id TEXT,
+    created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE TABLE message_blocks (
+    id TEXT PRIMARY KEY,
+    message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    block_type TEXT NOT NULL CHECK (block_type IN ('text', 'reasoning')),
+    text_content TEXT NOT NULL,
+    UNIQUE (message_id, ordinal)
+) STRICT;
+CREATE INDEX conversations_profile_updated_idx
+    ON conversations(profile_id, updated_at_ms DESC)
+    WHERE deleted_at_ms IS NULL;
+CREATE INDEX messages_branch_created_idx ON messages(branch_id, created_at_ms, id);
+"#;
+
+/// Adds a branch-local append order independent of wall-clock resolution.
+pub(super) const MIGRATION_2: &str = r#"
+ALTER TABLE messages ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0;
+WITH ordered AS (
+    SELECT id, ROW_NUMBER() OVER (PARTITION BY branch_id ORDER BY created_at_ms, id) - 1 AS value
+    FROM messages
+)
+UPDATE messages SET sequence = (SELECT value FROM ordered WHERE ordered.id = messages.id);
+DROP INDEX messages_branch_created_idx;
+CREATE UNIQUE INDEX messages_branch_sequence_idx ON messages(branch_id, sequence);
+"#;

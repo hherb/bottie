@@ -1,16 +1,32 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
-  import { CONVERSATION_GROUPS } from "$lib/presentation";
+  import type { ConversationSummary } from "$lib/storage";
 
   type Props = {
     mobileOpen: boolean;
     runtimeVersion: string;
+    conversations: ConversationSummary[];
+    activeConversationId: string | null;
+    storageError: string | null;
+    isGenerating: boolean;
     onclose: () => void;
     onnewchat: () => void;
+    onselectconversation: (conversationId: string) => void;
     onopensettings: () => void;
   };
 
-  let { mobileOpen, runtimeVersion, onclose, onnewchat, onopensettings }: Props = $props();
+  let {
+    mobileOpen,
+    runtimeVersion,
+    conversations,
+    activeConversationId,
+    storageError,
+    isGenerating,
+    onclose,
+    onnewchat,
+    onselectconversation,
+    onopensettings,
+  }: Props = $props();
 </script>
 
 {#if mobileOpen}
@@ -37,17 +53,24 @@
   </button>
 
   <nav class="conversation-list" aria-label="Past conversations">
-    {#each CONVERSATION_GROUPS as group}
-      <section class="conversation-group">
-        <h2>{group.label}</h2>
-        {#each group.items as conversation}
-          <button class:active={conversation.active} class="conversation-item">
-            <span>{conversation.title}</span>
-            {#if conversation.active}<Icon name="more" size={16} />{/if}
-          </button>
-        {/each}
-      </section>
-    {/each}
+    <section class="conversation-group">
+      <h2>Recent</h2>
+      {#each conversations as conversation (conversation.id)}
+        <button
+          class:active={conversation.id === activeConversationId}
+          class="conversation-item"
+          disabled={isGenerating}
+          onclick={() => onselectconversation(conversation.id)}
+        >
+          <span>{conversation.title}</span>
+          {#if conversation.id === activeConversationId}<Icon name="more" size={16} />{/if}
+        </button>
+      {:else}
+        <p class:error={storageError !== null} class="conversation-empty">
+          {storageError ?? "Your saved conversations will appear here."}
+        </p>
+      {/each}
+    </section>
   </nav>
 
   <div class="sidebar-footer">

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   completionMeta,
+  conversationTitle,
   displayEndpoint,
   filterUsableModels,
   formatBytes,
@@ -39,6 +40,11 @@ const omlxModel: ModelInfo = {
 describe("chat presentation helpers", () => {
   it("builds collision-safe provider-qualified model keys", () => {
     expect(modelKey(ollamaModel)).toBe("ollama:gemma3:4b");
+  });
+
+  it("derives a bounded single-line title from the first prompt", () => {
+    expect(conversationTitle("  A durable\n\nconversation   title  ")).toBe("A durable conversation title");
+    expect(conversationTitle("x".repeat(100))).toHaveLength(80);
   });
 
   it("formats loopback endpoints and binary file sizes", () => {
