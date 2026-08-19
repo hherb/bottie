@@ -236,8 +236,29 @@ pub(crate) struct StoredProviderRun {
     pub(crate) started_at_ms: i64,
     /// Native wall-clock time when provider work ended, absent while still running.
     pub(crate) completed_at_ms: Option<i64>,
+    /// Stable terminal failure category, absent for successful and cancelled runs.
+    pub(crate) error_code: Option<String>,
     /// Latest provider-reported cumulative usage totals, when supplied.
     pub(crate) usage: Option<StoredUsage>,
+}
+
+/// Content-block category accepted from one native provider stream.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum RunBlockKind {
+    /// User-visible assistant answer text.
+    Text,
+    /// Separate provider reasoning content.
+    Reasoning,
+}
+
+impl RunBlockKind {
+    /// Returns the stable SQLite block type.
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Reasoning => "reasoning",
+        }
+    }
 }
 
 /// Inputs captured when native provider work is accepted.
@@ -353,7 +374,4 @@ pub(crate) struct NewStoredMessage {
     pub(crate) provider_id: Option<String>,
     /// Model used for assistant generation.
     pub(crate) model_id: Option<String>,
-    #[serde(default)]
-    /// Opaque native provider run linked to this assistant response.
-    pub(crate) provider_run_id: Option<String>,
 }

@@ -1,7 +1,6 @@
 /** Reactive durable-conversation state kept separate from provider orchestration. */
 
-import { conversationTitle, persistedCompletionMeta } from "$lib/chat";
-import type { ModelInfo } from "$lib/inference";
+import { conversationTitle, persistedCompletionMeta, persistedMessagePresentation } from "$lib/chat";
 import { nextMessageId, type Message } from "$lib/presentation";
 import {
   appendConversationMessage,
@@ -17,7 +16,6 @@ import {
   type ProviderRunContext,
   type StorageError,
   type StoredMessage,
-  type StoredMessageState,
 } from "$lib/storage";
 
 /** Owns native conversation navigation, persistence, and presentation reconstruction. */
@@ -60,16 +58,7 @@ export class ConversationState {
         const conversation = await createConversation(conversationTitle(prompt));
         this.activeConversationId = conversation.id;
       }
-      const stored = await appendConversationMessage({
-        conversationId: this.activeConversationId,
-        role: "user",
-        text: prompt,
-        reasoning: null,
-        state: "final",
-        providerId: null,
-        modelId: null,
-        providerRunId: null,
-      });
+      const stored = await appendConversationMessage(this.activeConversationId, prompt);
       await this.refresh();
       return {
         conversationId: this.activeConversationId,
@@ -81,30 +70,9 @@ export class ConversationState {
     }
   }
 
-  /** Persists one terminal assistant response and refreshes conversation ordering. */
-  async persistAssistantMessage(
-    conversationId: string,
-    message: Message | undefined,
-    state: StoredMessageState,
-    model: ModelInfo,
-    providerRunId: string | null,
-  ): Promise<void> {
-    if (!message) return;
-    try {
-      await appendConversationMessage({
-        conversationId,
-        role: "assistant",
-        text: message.content,
-        reasoning: message.reasoning ?? null,
-        state,
-        providerId: model.providerId,
-        modelId: model.modelId,
-        providerRunId,
-      });
-      await this.refresh();
-    } catch (error) {
-      this.storageError = storageErrorFromUnknown(error);
-    }
+  /** Refreshes durable navigation after native generation reaches a terminal state. */
+  async refreshAfterGeneration(): Promise<void> {
+    await this.refresh();
   }
 
   /** Clears the active identity so the next prompt starts a new durable thread. */
@@ -174,14 +142,20 @@ export class ConversationState {
           message.providerRun.usage,
         )
       : undefined;
+    const hasContent = message.text.length > 0 || Boolean(message.reasoning);
+    const presentation = persistedMessagePresentation(
+      message.state,
+      message.providerRun?.errorCode ?? null,
+      hasContent,
+    );
     return {
       id: nextMessageId(),
       role: message.role,
-      content: message.text,
+      content: message.text || presentation.fallbackText || "",
       reasoning: message.reasoning ?? undefined,
       model,
-      meta: message.state === "cancelled" ? "Stopped · saved partial response" : completedMeta,
-      error: message.state === "failed",
+      meta: presentation.meta ?? completedMeta,
+      error: presentation.error,
     };
   }
 }

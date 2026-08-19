@@ -24,7 +24,6 @@ pub(crate) async fn start_chat(
     on_event: Channel<StreamEvent>,
 ) -> Result<ChatRun, ProviderError> {
     let providers = state.providers.read().await.clone();
-    let provider = routed_provider(&request.provider_id, &providers, state.credentials.as_ref())?;
     let run_id = uuid::Uuid::new_v4().to_string();
     state
         .conversations
@@ -39,6 +38,21 @@ pub(crate) async fn start_chat(
             max_output_tokens: request.settings.max_output_tokens,
         })
         .map_err(provider_run_storage_error)?;
+    let provider =
+        match routed_provider(&request.provider_id, &providers, state.credentials.as_ref()) {
+            Ok(provider) => provider,
+            Err(error) => {
+                let error = sanitized(error);
+                finish_provider_run(
+                    &state.conversations,
+                    &run_id,
+                    ProviderRunState::Failed,
+                    Some(error.code.as_str()),
+                    None,
+                )?;
+                return Err(error);
+            }
+        };
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
     state.runs.lock().await.insert(run_id.clone(), abort_handle);
 
@@ -63,6 +77,7 @@ pub(crate) async fn start_chat(
         let sink = ChannelSink {
             run_id: task_run_id.clone(),
             channel: on_event.clone(),
+            conversations: conversations.clone(),
         };
         match Abortable::new(provider.stream_chat(request, sink), abort_registration).await {
             Ok(Ok(usage)) => {

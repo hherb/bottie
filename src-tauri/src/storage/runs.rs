@@ -1,14 +1,16 @@
-//! Provider-run provenance and append-only usage persistence.
+//! Provider-run provenance, response checkpoints, usage, and interruption recovery.
 
 use rusqlite::{OptionalExtension, Transaction, params};
 
 use super::{
-    ConversationStore, DEFAULT_PROFILE_ID, NewProviderRun, ProviderRunState, StorageError,
-    StoredProviderRun, StoredReasoningEffort, StoredUsage, now_ms,
+    ConversationStore, DEFAULT_PROFILE_ID, MessageState, NewProviderRun, ProviderRunState,
+    RunBlockKind, StorageError, StoredProviderRun, StoredReasoningEffort, StoredUsage, now_ms,
 };
 
+const INTERRUPTED_ERROR_CODE: &str = "interrupted";
+
 impl ConversationStore {
-    /// Records one accepted native provider run before network work begins.
+    /// Records one accepted native provider run and its empty response checkpoint atomically.
     pub(crate) fn start_provider_run(&self, run: NewProviderRun) -> Result<(), StorageError> {
         validate_new_run(&run)?;
         let mut connection = self.open()?;
@@ -34,6 +36,17 @@ impl ConversationStore {
                     "The request message for that provider run no longer exists.",
                 )
             })?;
+        let latest_message_id: String = transaction.query_row(
+            "SELECT id FROM messages WHERE branch_id = ?1 ORDER BY sequence DESC LIMIT 1",
+            [&branch_id],
+            |row| row.get(0),
+        )?;
+        if latest_message_id != run.request_message_id {
+            return Err(StorageError::invalid(
+                "A provider run must start from the latest user request.",
+            ));
+        }
+        let started_at_ms = now_ms()?;
         transaction.execute(
             "INSERT INTO provider_runs
              (id, conversation_id, branch_id, request_message_id, provider_id, model_id, state,
@@ -49,9 +62,85 @@ impl ConversationStore {
                 run.reasoning_effort.as_str(),
                 run.temperature,
                 run.max_output_tokens,
-                now_ms()?
+                started_at_ms
             ],
         )?;
+        transaction.execute(
+            "INSERT INTO messages
+             (id, conversation_id, branch_id, parent_message_id, role, state, provider_id, model_id,
+              created_at_ms, sequence, provider_run_id)
+             VALUES (?1, ?2, ?3, ?4, 'assistant', 'partial', ?5, ?6, ?7, ?8, ?9)",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                run.conversation_id,
+                branch_id,
+                run.request_message_id,
+                run.provider_id,
+                run.model_id,
+                started_at_ms,
+                next_message_sequence(&transaction, &branch_id)?,
+                run.id
+            ],
+        )?;
+        transaction.execute(
+            "UPDATE conversations SET updated_at_ms = ?1, archived_at_ms = NULL WHERE id = ?2",
+            params![started_at_ms, run.conversation_id],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    /// Appends one provider delta to the native-owned partial response before IPC delivery.
+    pub(crate) fn checkpoint_provider_delta(
+        &self,
+        run_id: &str,
+        kind: RunBlockKind,
+        delta: &str,
+    ) -> Result<(), StorageError> {
+        if delta.is_empty() {
+            return Ok(());
+        }
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let message_id = active_response_message_id(&transaction, run_id)?;
+        let ordinal: i64 = transaction.query_row(
+            "SELECT COALESCE(MAX(ordinal), -1) + 1 FROM message_blocks WHERE message_id = ?1",
+            [&message_id],
+            |row| row.get(0),
+        )?;
+        transaction.execute(
+            "INSERT INTO message_blocks (id, message_id, ordinal, block_type, text_content)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                message_id,
+                ordinal,
+                kind.as_str(),
+                delta
+            ],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    /// Appends one provider-reported cumulative usage checkpoint while a run is active.
+    pub(crate) fn checkpoint_provider_usage(
+        &self,
+        run_id: &str,
+        usage: StoredUsage,
+    ) -> Result<(), StorageError> {
+        if !usage.is_valid() {
+            return Err(StorageError::invalid("Provider usage values are invalid."));
+        }
+        if !usage.has_value() {
+            return Ok(());
+        }
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        active_response_message_id(&transaction, run_id)?;
+        append_usage_if_changed(&transaction, run_id, now_ms()?, usage)?;
         transaction.commit()?;
         Ok(())
     }
@@ -78,11 +167,43 @@ impl ConversationStore {
         if updated != 1 {
             return Err(StorageError::not_found("That provider run is not active."));
         }
+        let message_state = match state {
+            ProviderRunState::Completed => MessageState::Final,
+            ProviderRunState::Cancelled => MessageState::Cancelled,
+            ProviderRunState::Failed => MessageState::Failed,
+            ProviderRunState::Running => unreachable!("validated terminal state"),
+        };
+        transaction.execute(
+            "UPDATE messages SET state = ?1 WHERE provider_run_id = ?2 AND state = 'partial'",
+            params![message_state.as_str(), run_id],
+        )?;
         if let Some(usage) = usage {
-            append_usage(&transaction, run_id, completed_at_ms, usage)?;
+            append_usage_if_changed(&transaction, run_id, completed_at_ms, usage)?;
         }
+        transaction.execute(
+            "UPDATE conversations SET updated_at_ms = ?1
+             WHERE id = (SELECT conversation_id FROM provider_runs WHERE id = ?2)",
+            params![completed_at_ms, run_id],
+        )?;
         transaction.commit()?;
         Ok(())
+    }
+
+    /// Converts provider work left running by an earlier process into retained partial responses.
+    pub(crate) fn recover_interrupted_runs(&self) -> Result<usize, StorageError> {
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        create_missing_partial_responses(&transaction)?;
+        let completed_at_ms = now_ms()?;
+        let recovered = transaction.execute(
+            "UPDATE provider_runs
+             SET state = 'failed', error_code = ?1, completed_at_ms = ?2
+             WHERE state = 'running'",
+            params![INTERRUPTED_ERROR_CODE, completed_at_ms],
+        )?;
+        transaction.commit()?;
+        Ok(recovered)
     }
 }
 
@@ -93,7 +214,7 @@ pub(super) fn load_provider_run(
 ) -> Result<StoredProviderRun, StorageError> {
     let values = transaction.query_row(
         "SELECT provider_runs.state, provider_runs.reasoning_effort,
-                provider_runs.started_at_ms, provider_runs.completed_at_ms,
+                provider_runs.started_at_ms, provider_runs.completed_at_ms, provider_runs.error_code,
                 usage_records.input_tokens, usage_records.output_tokens, usage_records.cost_usd
          FROM provider_runs
          LEFT JOIN usage_records ON usage_records.provider_run_id = provider_runs.id
@@ -109,50 +230,101 @@ pub(super) fn load_provider_run(
                 row.get::<_, String>(1)?,
                 row.get::<_, i64>(2)?,
                 row.get::<_, Option<i64>>(3)?,
-                row.get::<_, Option<i64>>(4)?,
+                row.get::<_, Option<String>>(4)?,
                 row.get::<_, Option<i64>>(5)?,
-                row.get::<_, Option<f64>>(6)?,
+                row.get::<_, Option<i64>>(6)?,
+                row.get::<_, Option<f64>>(7)?,
             ))
         },
     )?;
-    let usage = usage_from_database(values.4, values.5, values.6)?;
+    let usage = usage_from_database(values.5, values.6, values.7)?;
     Ok(StoredProviderRun {
         id: run_id.into(),
         state: ProviderRunState::from_database(&values.0)?,
         reasoning_effort: StoredReasoningEffort::from_database(&values.1)?,
         started_at_ms: values.2,
         completed_at_ms: values.3,
+        error_code: values.4,
         usage,
     })
 }
 
-/// Ensures an assistant response links only to its matching native provider run.
-pub(super) fn validate_provider_run_link(
+/// Returns the partial assistant message associated with one active run.
+fn active_response_message_id(
     transaction: &Transaction<'_>,
     run_id: &str,
-    conversation_id: &str,
+) -> Result<String, StorageError> {
+    transaction
+        .query_row(
+            "SELECT messages.id FROM messages
+             JOIN provider_runs ON provider_runs.id = messages.provider_run_id
+             WHERE provider_runs.id = ?1 AND provider_runs.state = 'running'
+               AND messages.role = 'assistant' AND messages.state = 'partial'",
+            [run_id],
+            |row| row.get(0),
+        )
+        .optional()?
+        .ok_or_else(|| StorageError::not_found("That provider run is not active."))
+}
+
+/// Returns the next append sequence for one branch inside the caller's transaction.
+fn next_message_sequence(
+    transaction: &Transaction<'_>,
     branch_id: &str,
-    provider_id: Option<&str>,
-    model_id: Option<&str>,
-) -> Result<(), StorageError> {
-    let Some((provider_id, model_id)) = provider_id.zip(model_id) else {
-        return Err(StorageError::invalid(
-            "A provider-linked response requires its provider and model.",
-        ));
-    };
-    let exists = transaction.query_row(
-        "SELECT EXISTS (
-             SELECT 1 FROM provider_runs
-             WHERE id = ?1 AND conversation_id = ?2 AND branch_id = ?3
-               AND provider_id = ?4 AND model_id = ?5
-         )",
-        params![run_id, conversation_id, branch_id, provider_id, model_id],
-        |row| row.get::<_, bool>(0),
+) -> Result<i64, StorageError> {
+    transaction
+        .query_row(
+            "SELECT COALESCE(MAX(sequence), -1) + 1 FROM messages WHERE branch_id = ?1",
+            [branch_id],
+            |row| row.get(0),
+        )
+        .map_err(Into::into)
+}
+
+/// Creates empty checkpoints for running version-three records produced before native checkpointing.
+fn create_missing_partial_responses(transaction: &Transaction<'_>) -> Result<(), StorageError> {
+    let mut statement = transaction.prepare(
+        "SELECT provider_runs.id, provider_runs.conversation_id, provider_runs.branch_id,
+                provider_runs.request_message_id, provider_runs.provider_id, provider_runs.model_id,
+                provider_runs.started_at_ms
+         FROM provider_runs
+         WHERE provider_runs.state = 'running'
+           AND NOT EXISTS (SELECT 1 FROM messages WHERE messages.provider_run_id = provider_runs.id)
+         ORDER BY provider_runs.started_at_ms, provider_runs.id",
     )?;
-    if !exists {
-        return Err(StorageError::invalid(
-            "That provider run does not match the assistant response.",
-        ));
+    let rows = statement.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, String>(4)?,
+            row.get::<_, String>(5)?,
+            row.get::<_, i64>(6)?,
+        ))
+    })?;
+    let runs = rows.collect::<Result<Vec<_>, _>>()?;
+    drop(statement);
+    for (run_id, conversation_id, branch_id, request_id, provider_id, model_id, started_at_ms) in
+        runs
+    {
+        transaction.execute(
+            "INSERT INTO messages
+             (id, conversation_id, branch_id, parent_message_id, role, state, provider_id, model_id,
+              created_at_ms, sequence, provider_run_id)
+             VALUES (?1, ?2, ?3, ?4, 'assistant', 'partial', ?5, ?6, ?7, ?8, ?9)",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                conversation_id,
+                branch_id,
+                request_id,
+                provider_id,
+                model_id,
+                started_at_ms,
+                next_message_sequence(transaction, &branch_id)?,
+                run_id
+            ],
+        )?;
     }
     Ok(())
 }
@@ -198,18 +370,27 @@ fn validate_run_completion<'a>(
     Ok(error_code)
 }
 
-/// Appends one cumulative usage snapshot in provider-run order.
-fn append_usage(
+/// Appends one cumulative usage snapshot only when it differs from the latest retained total.
+fn append_usage_if_changed(
     transaction: &Transaction<'_>,
     run_id: &str,
     recorded_at_ms: i64,
     usage: StoredUsage,
 ) -> Result<(), StorageError> {
-    let ordinal: i64 = transaction.query_row(
-        "SELECT COALESCE(MAX(ordinal), -1) + 1 FROM usage_records WHERE provider_run_id = ?1",
-        [run_id],
-        |row| row.get(0),
-    )?;
+    let latest = transaction
+        .query_row(
+            "SELECT input_tokens, output_tokens, cost_usd FROM usage_records
+             WHERE provider_run_id = ?1 ORDER BY ordinal DESC LIMIT 1",
+            [run_id],
+            |row| {
+                Ok((
+                    row.get::<_, Option<i64>>(0)?,
+                    row.get::<_, Option<i64>>(1)?,
+                    row.get::<_, Option<f64>>(2)?,
+                ))
+            },
+        )
+        .optional()?;
     let input_tokens = usage
         .input_tokens
         .map(i64::try_from)
@@ -220,6 +401,14 @@ fn append_usage(
         .map(i64::try_from)
         .transpose()
         .map_err(|_| StorageError::invalid("Provider usage exceeds the supported token range."))?;
+    if latest == Some((input_tokens, output_tokens, usage.cost_usd)) {
+        return Ok(());
+    }
+    let ordinal: i64 = transaction.query_row(
+        "SELECT COALESCE(MAX(ordinal), -1) + 1 FROM usage_records WHERE provider_run_id = ?1",
+        [run_id],
+        |row| row.get(0),
+    )?;
     transaction.execute(
         "INSERT INTO usage_records
          (id, provider_run_id, ordinal, input_tokens, output_tokens, cost_usd, recorded_at_ms)

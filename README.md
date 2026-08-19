@@ -7,8 +7,10 @@ Ollama, OpenAI-compatible, and Anthropic-compatible providers. The Rust core val
 models, tests connections, streams normalized answer and reasoning events over a typed Tauri IPC channel, and owns
 end-to-end cancellation. Conversations and their ordered text/reasoning messages persist in a Rust-owned bundled
 SQLite database and reopen after restart. Accepted provider runs retain their model, generation settings, terminal
-state, elapsed time, and provider-reported token/cost usage. Remote API keys stay in the operating-system credential
-vault and are never returned to the WebView. On macOS, Touch ID gates the first read of each saved cloud credential
+state, elapsed time, provider-reported token/cost usage, and checkpointed partial output. If Bottie exits during a
+generation, its next launch marks that run interrupted and reopens the response with the text and reasoning already
+saved. Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
+Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
 not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
 
@@ -52,12 +54,14 @@ that material into a collapsed, user-expandable section rather than mixing it in
 applies a 4,096-token default ceiling when the interface does not provide a tighter limit.
 
 The first submitted prompt creates a durable conversation for the built-in local profile. User messages commit before
-provider inference begins, terminal assistant responses commit before the next prompt can be sent, and the sidebar
-groups real conversation activity by local calendar date. Conversations can be renamed inline, archived, moved to
-recoverable trash, and restored without losing messages. The initial SQLite schema models conversations, main branches,
-ordered messages, separate text/reasoning blocks, provider runs, and append-only usage snapshots. Reopened assistant
-responses recover provider-reported token/cost metadata without estimating missing values. Branching, search, export,
-backup/restore, and crash-safe interrupted-run recovery remain planned Milestone 2 work.
+provider inference begins. Rust creates an empty assistant checkpoint with each accepted run, appends streamed text,
+reasoning, and usage before forwarding those events to the interface, and commits terminal state before the next
+prompt can be sent. On startup, any run left active by a prior process becomes an interrupted partial response. The
+sidebar groups real conversation activity by local calendar date. Conversations can be renamed inline, archived, moved
+to recoverable trash, and restored without losing messages. The initial SQLite schema models conversations, main
+branches, ordered messages, separate text/reasoning blocks, provider runs, and append-only usage snapshots. Reopened
+assistant responses recover provider-reported token/cost metadata without estimating missing values. Branching, exact
+last-open-conversation restoration, search, export, and backup/restore remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

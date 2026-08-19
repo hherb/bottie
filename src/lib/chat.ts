@@ -19,6 +19,16 @@ export type ModelSelection = {
   selectedModelKey: string;
 };
 
+/** Durable message states that affect reopened assistant presentation. */
+export type PersistedMessageState = "partial" | "final" | "cancelled" | "failed";
+
+/** Presentation details derived from a durable assistant terminal state. */
+export type PersistedMessagePresentation = {
+  fallbackText: string | undefined;
+  meta: string | undefined;
+  error: boolean;
+};
+
 /** Creates a collision-safe key for a provider and model pair. */
 export function modelKey(model: Pick<ModelInfo, "providerId" | "modelId">): string {
   return `${model.providerId}:${model.modelId}`;
@@ -62,6 +72,36 @@ export function persistedCompletionMeta(
 ): string | undefined {
   if (completedAtMs === null) return undefined;
   return completionMetaForDuration(Math.max(0, completedAtMs - startedAtMs), usage);
+}
+
+/** Derives stable reopened-response labels without exposing provider diagnostics. */
+export function persistedMessagePresentation(
+  state: PersistedMessageState,
+  errorCode: string | null,
+  hasContent: boolean,
+): PersistedMessagePresentation {
+  if (state === "partial" && errorCode === "interrupted") {
+    return {
+      fallbackText: hasContent ? undefined : "Generation interrupted before any response was saved.",
+      meta: "Interrupted · saved partial response",
+      error: true,
+    };
+  }
+  if (state === "cancelled") {
+    return {
+      fallbackText: hasContent ? undefined : "Generation stopped.",
+      meta: "Stopped · saved partial response",
+      error: false,
+    };
+  }
+  if (state === "failed") {
+    return {
+      fallbackText: hasContent ? undefined : "Generation failed before any response was saved.",
+      meta: "Generation failed · saved partial response",
+      error: true,
+    };
+  }
+  return { fallbackText: undefined, meta: undefined, error: false };
 }
 
 /** Formats measured duration and provider-reported usage without estimating missing values. */

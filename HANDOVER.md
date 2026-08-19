@@ -8,11 +8,12 @@ Bottie is a greenfield Tauri 2 desktop chatbot. Milestone 1 is complete: the nat
 OpenAI-compatible, and Anthropic-compatible text inference through Rust-owned networking, credentials, streaming, and
 cancellation. Milestone 2 is in progress: a Rust-owned bundled SQLite store now persists local-profile conversations
 and ordered text/reasoning messages across restart. Accepted provider runs now persist their request link, provider,
-model, generation settings, terminal outcome, timing, and provider-reported usage. Users can rename, archive,
-soft-delete, restore, and browse real conversations in calendar-date groups. Provider selection remains explicit,
-cloud routes are visible before sending, and credential-vault values are never returned to the WebView. The next
-bounded implementation slice is crash-safe partial-message persistence and interrupted-run recovery; do not reopen
-broad product or visual-design planning.
+model, generation settings, terminal outcome, timing, provider-reported usage, and crash-safe partial text/reasoning
+checkpoints. Runs left active by an earlier process reopen as visibly interrupted partial responses. Users can rename,
+archive, soft-delete, restore, and browse real conversations in calendar-date groups. Provider selection remains
+explicit, cloud routes are visible before sending, and credential-vault values are never returned to the WebView. The
+next bounded implementation slice is restoring the exact last-open built-in local-profile conversation after restart; do
+not reopen broad product or visual-design planning.
 
 Read these files first:
 
@@ -54,6 +55,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - collapsed reasoning sections that can be expanded independently of answer text;
 - working stop-generation cancellation backed by a Rust abort handle;
 - durable conversation creation on first send, recent-conversation navigation, and restart-safe reopening;
+- crash-safe partial answer/reasoning checkpoints and visibly interrupted-run recovery;
 - real Today, Yesterday, Previous 7 days, Archived, and Trash navigation groups;
 - inline conversation rename plus archive, unarchive, recoverable trash, and restore actions;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
@@ -75,14 +77,17 @@ credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach S
 
 `src-tauri/src/storage.rs` owns short-lived configured SQLite connections, migrations, integrity policy, and
 transactional conversation/message operations. `src-tauri/src/storage/runs.rs` owns provider-run and usage records,
-while `src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
-`src-tauri/src/storage_commands.rs` exposes only list, create, load, append, and explicit lifecycle commands. The
+partial-response checkpoints, and interrupted-run recovery, while `src-tauri/src/generation.rs` closes each native run
+before its terminal stream event reaches the WebView. `src-tauri/src/storage_commands.rs` exposes only list, create,
+load, user-message append, and explicit lifecycle commands. The
 database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a main branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
 blocks. User prompts commit before inference starts, and terminal assistant responses commit before another prompt can
-append. Assistant responses reference opaque native provider runs, and reopened conversations reconstruct real elapsed
-time plus provider-reported token/cost usage without estimating missing values.
+append. Rust creates each assistant response with its run, checkpoints every provider text/reasoning delta before IPC,
+and marks leftover running records interrupted during the next startup. Assistant responses reference opaque native
+provider runs, and reopened conversations reconstruct real elapsed time plus provider-reported token/cost usage without
+estimating missing values.
 
 The oMLX adapter:
 
@@ -147,7 +152,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- branching, search, export, backup/restore, and interrupted-run recovery are not yet implemented;
+- branching, exact last-open-conversation restoration, search, export, and backup/restore are not yet implemented;
 - tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
@@ -187,7 +192,37 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Provider-run provenance and usage persistence
+## Most recently completed product slice: Crash-safe partial responses and interrupted-run recovery
+
+### Goal
+
+Retain the latest provider output across an application or process interruption without allowing the WebView to author
+assistant history or reconstruct provider-run state.
+
+### Implemented shape
+
+1. Starting a native provider run atomically creates its empty, provider-linked assistant checkpoint immediately after
+   the persisted user request.
+2. Rust appends every non-empty text/reasoning delta and cumulative usage update transactionally before forwarding the
+   matching normalized event to Svelte.
+3. Completed, cancelled, and failed outcomes update the native-owned assistant state and provider run before their
+   terminal stream event reaches the WebView.
+4. Startup converts leftover `running` records into failed runs with the stable `interrupted` category while retaining
+   their assistant message as a visible partial response. Older version-three running records without a response gain
+   an empty recovery checkpoint.
+5. The WebView storage command can append only final user messages. Reopened interrupted, cancelled, and failed
+   responses use tested stable labels and safe empty-response fallbacks.
+
+### Acceptance criteria
+
+- A provider run can start only from the latest persisted user request on a non-deleted local-profile branch.
+- Text/reasoning content visible through IPC has already committed to SQLite with exact fragment whitespace.
+- Terminal provider-run, message, and final usage state commit before the terminal IPC event.
+- Restart recovery preserves partial blocks, marks the run interrupted, and allows another user prompt to append.
+- Cancellation keeps the composer blocked until native orchestration has saved the terminal checkpoint.
+- Existing version-three stores require no schema rewrite and recover pre-checkpoint running records safely.
+
+## Prior completed product slice: Provider-run provenance and usage persistence
 
 ### Goal
 
@@ -204,8 +239,8 @@ invent usage records or exposing generic database access.
    categories are retained without storing raw provider responses or credential-shaped diagnostics.
 4. Provider-reported input tokens, output tokens, and compatible-endpoint USD cost are written only by native
    orchestration. Missing values remain absent rather than estimated.
-5. Terminal assistant messages reference the opaque native run, and reopening a conversation reconstructs elapsed
-   time and usage/cost metadata below the response.
+5. Assistant messages reference the opaque native run, and reopening a conversation reconstructs elapsed time and
+   usage/cost metadata below the response.
 
 ### Acceptance criteria
 
@@ -214,7 +249,6 @@ invent usage records or exposing generic database access.
 - Terminal state and final cumulative usage survive database reopen and remain linked to the assistant response.
 - Response links must match the run's conversation, branch, provider, and model.
 - Provider-run persistence completes before the matching terminal stream event reaches the WebView.
-- Interrupted-run detection and partial-response checkpointing remain explicitly deferred to the next slice.
 
 ## Prior completed product slice: Conversation lifecycle management
 
@@ -368,7 +402,7 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-19 for provider-run provenance and usage persistence:
+The following passed on 2026-08-19 for crash-safe partial-response persistence and interrupted-run recovery:
 
 ```sh
 npm run check
@@ -380,25 +414,23 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The standard Rust suite now has fifty-two tests: forty-eight run by default and four are opt-in live-provider tests.
-Eight storage tests cover migration and profile policy, version 2-to-3 upgrade, WAL/foreign-key/integrity state,
-transactional conversation/message round trips, branch-local ordering under equal timestamps,
-provider/model/reasoning retention, provider-run/usage reconstruction, lifecycle transitions, recoverable deletion,
-and invalid input. The frontend suite has twelve pure-helper tests, including durable completion-metadata
-reconstruction and local-calendar date grouping.
+The standard Rust suite now has fifty-seven tests: fifty-three run by default and four are opt-in live-provider tests.
+All four live oMLX/Ollama streaming and cancellation tests passed when run separately with unrestricted loopback access.
+Thirteen storage tests cover migration and profile policy, version 2-to-3 upgrade, WAL/foreign-key/integrity state,
+transactional conversation/message round trips, branch-local ordering under equal timestamps, provider/model/reasoning
+retention, provider-run/usage reconstruction, native partial checkpoints, legacy running-record recovery, lifecycle
+transitions, recoverable deletion, and invalid input. The frontend suite has thirteen pure-helper tests, including
+durable completion metadata, recovered-message labels, and local-calendar date grouping.
 
-The browser preview was checked at 1320 x 820 and 760 x 820. The pass covered the date-group-compatible empty state,
-responsive mobile sidebar, existing context overlay, and horizontal/vertical overflow with no console warnings or
-errors. This slice did not change layout or interaction structure.
+This slice did not change layout or interaction structure, so the prior browser-preview layout checks remain applicable.
 
-The prior native application check compiled and launched schema version 2, returned `ok` from `PRAGMA quick_check`, and
-confirmed an end-to-end provider-backed send/restart/reopen interaction. A real native provider-run smoke check for
-schema version 3 remains pending after this automated slice verification: direct oMLX and Ollama probes found neither
-local daemon listening on its configured default port.
+The native application compiled and launched cleanly with the current schema version 3 store. Unrestricted direct
+probes confirmed both oMLX and Ollama online on their configured default loopback ports. The storage suite exercises
+process-reopen recovery against a real path-backed SQLite database without modifying the user's application data.
 
-The next bounded implementation slice is crash-safe partial-message persistence and interrupted-run recovery. Keep
-edit/regenerate branching, tool-invocation persistence, export, and backups as later reviewable slices. Keep
-FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache
+The next bounded implementation slice is restoring the exact last-open built-in local-profile conversation after
+restart. Keep edit/regenerate branching, tool-invocation persistence, export, and backups as later reviewable slices.
+Keep FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache
 location, dimensions, and reindex metadata can be implemented coherently.
 
 ## Development commands
