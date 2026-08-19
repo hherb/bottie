@@ -6,6 +6,8 @@ mod credentials;
 mod diagnostics;
 mod inference;
 mod provider_registry;
+mod storage;
+mod storage_commands;
 mod stream_channel;
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
@@ -23,6 +25,10 @@ use inference::{
     load_provider_settings, save_provider_settings,
 };
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
+use storage::ConversationStore;
+use storage_commands::{
+    append_conversation_message, create_conversation, list_conversations, load_conversation,
+};
 use stream_channel::ChannelSink;
 use tauri::{Manager, State, ipc::Channel};
 
@@ -33,6 +39,7 @@ struct AppState {
     runs: ActiveRuns,
     diagnostics: Diagnostics,
     credentials: Arc<dyn CredentialStore>,
+    conversations: ConversationStore,
 }
 
 #[tauri::command]
@@ -434,6 +441,9 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("providers.json");
+            let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
+            let conversations = ConversationStore::initialize(database_path)
+                .map_err(|error| std::io::Error::other(error.message))?;
             let settings = load_provider_settings(&settings_path).unwrap_or_default();
             let providers = ProviderSet::from_settings(&settings).unwrap_or_else(|_| ProviderSet {
                 omlx: OmlxProvider::new().expect("the built-in oMLX configuration must be valid"),
@@ -447,6 +457,7 @@ pub fn run() {
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 diagnostics: Diagnostics::default(),
                 credentials: Arc::new(SystemCredentialStore::default()),
+                conversations,
             });
             Ok(())
         })
@@ -459,6 +470,10 @@ pub fn run() {
             remember_provider_selection,
             test_provider_connection,
             get_diagnostics,
+            list_conversations,
+            create_conversation,
+            load_conversation,
+            append_conversation_message,
             discover_models,
             start_chat,
             cancel_chat

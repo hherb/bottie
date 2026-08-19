@@ -32,8 +32,13 @@
   <Sidebar
     mobileOpen={state.showSidebar}
     runtimeVersion={state.runtime.version}
+    conversations={state.history.conversations}
+    activeConversationId={state.history.activeConversationId}
+    storageError={state.history.storageError?.message ?? null}
+    isGenerating={state.isGenerating}
     onclose={() => (state.showSidebar = false)}
     onnewchat={() => state.startNewChat()}
+    onselectconversation={(conversationId) => void state.openConversation(conversationId)}
     onopensettings={() => {
       state.showSettings = true;
       state.showSidebar = false;

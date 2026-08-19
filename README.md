@@ -5,10 +5,11 @@ Bottie is a local-first desktop chatbot built with Tauri 2, Rust, Svelte, and Ty
 The current developer preview pairs the interactive product shell with real, text-only inference through oMLX,
 Ollama, OpenAI-compatible, and Anthropic-compatible providers. The Rust core validates provider endpoints, discovers
 models, tests connections, streams normalized answer and reasoning events over a typed Tauri IPC channel, and owns
-end-to-end cancellation. Remote API keys stay in the operating-system credential vault and are never returned to the
-WebView. On macOS, Touch ID gates the first read of each saved cloud credential per Bottie session; successful unlocks
-are cached only in process memory. Conversation persistence, attachments, memory retrieval, and tools are not implemented yet; those UI
-surfaces are disabled or labelled as preview-only fixtures.
+end-to-end cancellation. Conversations and their ordered text/reasoning messages persist in a Rust-owned bundled
+SQLite database and reopen after restart. Remote API keys stay in the operating-system credential vault and are never
+returned to the WebView. On macOS, Touch ID gates the first read of each saved cloud credential per Bottie session;
+successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are not implemented
+yet; those UI surfaces are disabled or labelled as preview-only fixtures.
 
 ## Development
 
@@ -48,6 +49,12 @@ redirects stay disabled, and remote response usage and provider-reported cost me
 Thinking/reasoning defaults to off and can be toggled to low effort for each request. Reasoning-capable providers stream
 that material into a collapsed, user-expandable section rather than mixing it into the answer. Native generation also
 applies a 4,096-token default ceiling when the interface does not provide a tighter limit.
+
+The first submitted prompt creates a durable conversation for the built-in local profile. User messages commit before
+provider inference begins, terminal assistant responses commit before the next prompt can be sent, and the recent
+conversation sidebar can reopen stored threads. The initial SQLite schema models conversations, main branches, ordered
+messages, and separate text/reasoning blocks. Rename, archive, delete/restore, branching, search, export,
+backup/restore, and crash recovery remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

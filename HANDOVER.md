@@ -6,9 +6,10 @@ Last verified: 2026-08-19
 
 Bottie is a greenfield Tauri 2 desktop chatbot. Milestone 1 is complete: the native app supports oMLX, Ollama,
 OpenAI-compatible, and Anthropic-compatible text inference through Rust-owned networking, credentials, streaming, and
-cancellation. Provider selection remains explicit, cloud routes are visible before sending, and credential-vault
-values are never returned to the WebView. The next bounded implementation slice is the Milestone 2 storage design gate
-and foundation; do not reopen broad product or visual-design planning.
+cancellation. Milestone 2 is in progress: a Rust-owned bundled SQLite store now persists local-profile conversations
+and ordered text/reasoning messages across restart. Provider selection remains explicit, cloud routes are visible
+before sending, and credential-vault values are never returned to the WebView. The next bounded implementation slice
+is conversation lifecycle management; do not reopen broad product or visual-design planning.
 
 Read these files first:
 
@@ -49,6 +50,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - an off-by-default reasoning toggle with low effort when enabled;
 - collapsed reasoning sections that can be expanded independently of answer text;
 - working stop-generation cancellation backed by a Rust abort handle;
+- durable conversation creation on first send, recent-conversation navigation, and restart-safe reopening;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -65,6 +67,14 @@ the dependency-free local icon set used by the shell.
 `src-tauri/src/inference/` contains the provider-neutral types/trait, endpoint policy, and four concrete adapters.
 `src-tauri/src/provider_registry.rs` resolves an explicit route, while `src-tauri/src/credentials.rs` is the only
 credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach Svelte.
+
+`src-tauri/src/storage.rs` owns short-lived configured SQLite connections, migrations, integrity policy, and
+transactional conversation/message operations. `src-tauri/src/storage_commands.rs` exposes only list, create, load,
+and append commands. The database lives in the OS application-data directory; the WebView never receives a path, SQL,
+or generic database capability. One built-in `local` profile represents the current OS account. Every conversation has
+a main branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
+blocks. User prompts commit before inference starts, and terminal assistant responses commit before another prompt can
+append.
 
 The oMLX adapter:
 
@@ -129,9 +139,9 @@ Do not mistake visual fixtures for implemented backend behavior:
   the selected provider reports them;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- conversations disappear at restart;
+- rename, archive, delete/restore, branching, search, export, backup/restore, and interrupted-run recovery are not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- no SQLite database, migrations, FTS5, or vector extension exists yet;
+- SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
 - no web search or fetch tool exists;
 - there are no automated component or end-to-end UI tests yet; pure presentation helpers have frontend unit coverage.
 
@@ -168,7 +178,37 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Remote OpenAI and Anthropic APIs
+## Most recently completed product slice: Durable conversation storage foundation
+
+### Goal
+
+Resolve Milestone 2's ownership design gate and make the existing text conversation flow survive application restart
+without exposing a generic database capability to the WebView.
+
+### Implemented shape
+
+1. Bottie uses one built-in local profile scoped to the current OS account; explicit profile ownership remains in the
+   schema for future optional local profiles.
+2. Bundled SQLite runs in WAL mode with foreign keys, a busy timeout, startup quick-check, and ordered transactional
+   migrations recorded both in `user_version` and `schema_migrations`.
+3. Conversations, main branches, messages, and text/reasoning blocks use UUID identities. Messages also use a unique
+   branch-local append sequence so ordering does not depend on wall-clock resolution.
+4. Narrow Tauri commands list, create, load, and append. SQL, database paths, migration details, and connections never
+   cross IPC.
+5. The first prompt creates a conversation and commits the user message before inference. Final, cancelled, and failed
+   assistant responses commit before the composer can send the next prompt.
+6. The sidebar lists real recent conversations, reopens them, and restores the most recent thread at native startup.
+
+### Acceptance criteria
+
+- A fresh native launch creates and migrates the application-data database without exposing its path to the WebView.
+- Reopening a store preserves conversation title, ordered roles, answer text, separate reasoning, provider, and model.
+- Equal message timestamps cannot reorder a branch.
+- Empty messages and unknown conversations fail through a stable secret-free storage error.
+- Browser preview retains fixtures and does not pretend to persist conversations.
+- Desktop and narrow sidebar states remain accessible and free of overflow or console errors.
+
+## Prior completed product slice: Remote OpenAI and Anthropic APIs
 
 ### Goal
 
@@ -262,7 +302,7 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-19 for the remote-provider implementation:
+The following passed on 2026-08-19 for the durable-conversation storage foundation:
 
 ```sh
 npm run check
@@ -274,25 +314,25 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The standard Rust suite now has forty-four tests: forty run by default and four are opt-in live-provider tests.
-The frontend suite has eight pure-helper unit tests. Remote fixture coverage includes native request mapping, fragmented
-SSE decoding, reasoning separation, token usage, optional cost, HTTPS endpoint policy, credential-gated routing, and
-backward-compatible settings. No live remote request was made because no user API credentials were supplied.
+The standard Rust suite now has forty-seven tests: forty-three run by default and four are opt-in live-provider tests.
+The three storage tests cover migration and profile policy, WAL/foreign-key/integrity state, transactional
+conversation/message round trips, branch-local ordering under equal timestamps, provider/model/reasoning retention,
+and invalid input. The frontend suite has nine pure-helper tests, including bounded title derivation.
 
-The browser preview was checked at 1320 x 820 and 760 x 820. The pass covered all four provider settings, cloud badges,
-privacy-route copy, settings scrolling, open/close behavior, responsive mobile navigation, and the context overlay with
-no console warnings or errors. It caught and corrected an empty-selection cloud label and an off-screen settings-dialog
-position before the final pass.
+The browser preview was checked at 1320 x 820 and 760 x 820. The pass covered the recent-conversation empty state,
+responsive mobile sidebar, existing context overlay, and horizontal/vertical overflow with no console warnings or
+errors.
 
-The native application compiled and launched with the remote-provider build. The user confirmed a live OpenAI
-conversation with a saved credential, then restarted Bottie and confirmed the Touch ID session unlock. Anthropic live
-inference and credential replacement/removal remain unverified. The executable target has its test harness disabled so
-`cargo test` verifies the library without launching a second GUI process.
+The native application compiled and launched. Its real application-data database migrated to schema version 2,
+`PRAGMA quick_check` returned `ok`, and the `local` / `Local profile` record plus both migration records were verified.
+The user then confirmed an end-to-end provider-backed send/restart/reopen interaction restored the saved conversation
+successfully from the recent-conversation sidebar.
 
-The next bounded implementation slice is Milestone 2's storage design gate and SQLite foundation. Decide whether local
-profiles are needed, then land Rust-owned migrations and the minimum conversation/message schema as one reviewable
-vertical slice. Keep FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download
-progress, cache location, dimensions, and reindex metadata can be implemented coherently.
+The next bounded implementation slice is conversation lifecycle management: rename, archive, soft-delete, restore,
+and date-group real conversations with narrow Rust commands and corresponding sidebar actions. Keep edit/regenerate
+branching, provider-run/usage records, export, backups, and interrupted-run recovery as later reviewable slices. Keep
+FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache
+location, dimensions, and reindex metadata can be implemented coherently.
 
 ## Development commands
 

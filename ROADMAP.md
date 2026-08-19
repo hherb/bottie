@@ -92,23 +92,29 @@ Status: complete
 
 Outcome: conversations survive restart and can be searched, branched, exported, and recovered.
 
+Status: in progress
+
 ### Design gate
 
-Decide whether “per user” means local profiles inside one OS account or authenticated multi-user access. For an ordinary desktop application, local profiles are the simpler default. Make this decision before finalizing ownership and key-management columns.
+Decision: Bottie starts with one built-in local profile scoped to the current OS account. The schema retains explicit
+profile ownership so optional local profiles can be added later without application authentication or a conversation
+ownership rewrite.
 
 ### Storage foundation
 
-- bundled SQLite owned exclusively by Rust;
-- ordered, transactional migrations;
-- WAL mode, foreign keys, integrity checks, and backup strategy;
-- profiles, conversations, branches, messages, and content blocks;
-- append-oriented provider runs, tool invocations, and usage records;
-- draft/partial/final/cancelled message states;
+- [x] bundled SQLite owned exclusively by Rust;
+- [x] ordered, transactional migrations with schema-version history;
+- [x] WAL mode, foreign keys, busy handling, and startup integrity checks;
+- [x] built-in local profile, conversations, main branches, ordered messages, and text/reasoning blocks;
+- [ ] append-oriented provider runs, tool invocations, and usage records;
+- [ ] crash-safe draft/partial message persistence and interrupted-run recovery;
+- [ ] automatic backup, restore, and corruption-recovery strategy;
 - soft deletion and retention metadata.
 
 ### Conversation experience
 
-- create, rename, archive, delete, and restore conversations;
+- [x] create conversations on first send, list recent conversations, and reopen stored messages after restart;
+- [ ] rename, archive, delete, and restore conversations;
 - edit-and-regenerate branches using parent message IDs;
 - reopen the exact conversation after restart;
 - conversation search and date grouping based on real data;

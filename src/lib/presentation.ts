@@ -1,5 +1,12 @@
 import type { ProviderId, ProviderSettings } from "./inference";
 
+let messageSequence = Date.now();
+
+/** Returns a process-unique numeric key for ephemeral message presentation. */
+export function nextMessageId(): number {
+  return ++messageSequence;
+}
+
 /** One message rendered in the prototype conversation. */
 export type Message = {
   id: number;

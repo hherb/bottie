@@ -45,7 +45,7 @@
     </div>
   {/if}
   <div class="conversation-canvas">
-    <div class="date-divider"><span>Today · 19:42</span></div>
+    <div class="date-divider"><span>Current conversation</span></div>
 
     {#each messages as message (message.id)}
       <article class:assistant={message.role === "assistant"} class:error={message.error} class="message">
