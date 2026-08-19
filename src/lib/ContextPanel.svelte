@@ -9,13 +9,23 @@
     selectedModel: ModelInfo | undefined;
     selectedProviderEndpoint: string;
     providerStatus: ProviderStatus;
+    isLocalRoute: boolean;
     onclose: () => void;
     onadd: () => void;
     onremove: (id: number) => void;
   };
 
-  let { open, attachments, selectedModel, selectedProviderEndpoint, providerStatus, onclose, onadd, onremove }: Props =
-    $props();
+  let {
+    open,
+    attachments,
+    selectedModel,
+    selectedProviderEndpoint,
+    providerStatus,
+    isLocalRoute,
+    onclose,
+    onadd,
+    onremove,
+  }: Props = $props();
 </script>
 
 <aside class:closed={!open} class="context-panel" aria-label="Conversation context">
@@ -88,15 +98,22 @@
         <span class="route-node model"><span class="tiny-core"></span></span>
       </div>
       <div class="route-labels">
-        <span><strong>This Mac</strong><small>Conversation + files</small></span>
+        <span
+          ><strong>This Mac</strong><small>{isLocalRoute ? "Conversation stays local" : "Prompt leaves device"}</small
+          ></span
+        >
         <span>
-          <strong>{selectedModel?.providerName ?? "Local provider"}</strong>
+          <strong>{selectedModel?.providerName ?? "Selected provider"}</strong>
           <small>{selectedProviderEndpoint}</small>
         </span>
       </div>
-      <div class:offline={providerStatus !== "available"} class="route-status">
+      <div class:cloud={!isLocalRoute} class:offline={providerStatus !== "available"} class="route-status">
         <span></span>
-        {providerStatus === "available" ? "Connected over loopback" : "Local provider disconnected"}
+        {providerStatus === "available"
+          ? isLocalRoute
+            ? "Connected over loopback"
+            : "Cloud transmission enabled"
+          : "Provider disconnected"}
       </div>
     </div>
   </section>

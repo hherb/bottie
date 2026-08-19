@@ -23,7 +23,7 @@ export type ChatTurn = {
   content: Array<{ type: "text"; text: string }>;
 };
 
-/** User-facing reasoning effort supported by the current local-provider slice. */
+/** User-facing reasoning effort supported across provider routes. */
 export type ReasoningEffort = "off" | "low";
 
 /** Provider-qualified chat request accepted by the native inference command. */
@@ -42,6 +42,7 @@ export type ChatRequest = {
 export type Usage = {
   inputTokens: number | null;
   outputTokens: number | null;
+  costUsd: number | null;
 };
 
 /** Stable provider failure exposed without raw provider response data. */
@@ -65,15 +66,25 @@ export type StreamEvent =
 /** Opaque identity returned when a native generation is accepted. */
 export type ChatRun = { runId: string };
 
-/** Local inference providers currently supported by the native shell. */
-export type LocalProviderId = "omlx" | "ollama";
+/** Inference providers currently supported by the native shell. */
+export type ProviderId = "omlx" | "ollama" | "openai" | "anthropic";
 
-/** Persisted non-secret local provider configuration. */
+/** Persisted non-secret provider configuration. */
 export type ProviderSettings = {
   omlxBaseUrl: string;
   ollamaBaseUrl: string;
-  lastProviderId: LocalProviderId | null;
+  openaiBaseUrl: string;
+  anthropicBaseUrl: string;
+  lastProviderId: ProviderId | null;
   lastModelId: string | null;
+};
+
+/** Secret-free availability for one remote provider credential. */
+export type ProviderCredentialStatus = {
+  providerId: "openai" | "anthropic";
+  configured: boolean;
+  unlocked: boolean;
+  biometricProtected: boolean;
 };
 
 /** Result of testing one draft provider endpoint. */
@@ -98,34 +109,31 @@ export type DiagnosticEntry = {
 function unavailableInBrowser(): ProviderError {
   return {
     code: "unavailable",
-    message: "Native inference is unavailable in the browser preview. Open the Tauri app to use a local provider.",
+    message: "Native inference is unavailable in the browser preview. Open the Tauri app to use a provider.",
     retryable: false,
   };
 }
 
 /** Discovers provider-qualified models through the native boundary. */
-export async function discoverModels(providerId?: LocalProviderId): Promise<ModelInfo[]> {
+export async function discoverModels(providerId?: ProviderId): Promise<ModelInfo[]> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ModelInfo[]>("discover_models", { providerId: providerId ?? null });
 }
 
-/** Reads persisted local provider settings from the native application. */
+/** Reads persisted provider settings from the native application. */
 export async function getProviderSettings(): Promise<ProviderSettings> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ProviderSettings>("get_provider_settings");
 }
 
-/** Validates and persists local provider settings through the native application. */
+/** Validates and persists provider settings through the native application. */
 export async function updateProviderSettings(settings: ProviderSettings): Promise<ProviderSettings> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ProviderSettings>("update_provider_settings", { settings });
 }
 
 /** Persists the last successfully selected provider and model pair. */
-export async function rememberProviderSelection(
-  providerId: LocalProviderId,
-  modelId: string,
-): Promise<ProviderSettings> {
+export async function rememberProviderSelection(providerId: ProviderId, modelId: string): Promise<ProviderSettings> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ProviderSettings>("remember_provider_selection", {
     selection: { providerId, modelId },
@@ -134,12 +142,31 @@ export async function rememberProviderSelection(
 
 /** Tests a draft provider endpoint without changing active settings. */
 export async function testProviderConnection(
-  providerId: LocalProviderId,
+  providerId: ProviderId,
   baseUrl: string,
+  apiKey?: string,
 ): Promise<ProviderConnectionTest> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ProviderConnectionTest>("test_provider_connection", {
-    draft: { providerId, baseUrl },
+    draft: { providerId, baseUrl, apiKey: apiKey || null },
+  });
+}
+
+/** Reads secret-free remote credential availability from the native vault. */
+export async function getProviderCredentialStatus(): Promise<ProviderCredentialStatus[]> {
+  if (!isTauri()) return [];
+  return invoke<ProviderCredentialStatus[]>("get_provider_credential_status");
+}
+
+/** Stores, retains, or removes one remote key without returning its value. */
+export async function updateProviderCredential(
+  providerId: "openai" | "anthropic",
+  apiKey: string | null,
+  remove = false,
+): Promise<ProviderCredentialStatus> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ProviderCredentialStatus>("update_provider_credential", {
+    update: { providerId, apiKey, remove },
   });
 }
 

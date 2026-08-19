@@ -38,7 +38,7 @@
     <div class:offline={providerStatus === "offline"} class="provider-banner" role="status">
       <Icon name="shield" size={16} />
       <span>
-        <strong>{providerStatus === "checking" ? "Connecting to local providers…" : providerError?.message}</strong>
+        <strong>{providerStatus === "checking" ? "Connecting to provider…" : providerError?.message}</strong>
         {#if providerError?.diagnostic}<small>{providerError.diagnostic}</small>{/if}
       </span>
       {#if providerStatus === "offline"}<button onclick={onretry}>Retry</button>{/if}
@@ -56,7 +56,7 @@
           <div class="message-author">
             <strong>{message.role === "assistant" ? "bottie" : "You"}</strong>
             {#if message.role === "assistant"}
-              <span>{message.model ?? selectedModel?.displayName ?? "Local model"}</span>
+              <span>{message.model ?? selectedModel?.displayName ?? "Selected model"}</span>
             {/if}
           </div>
 
@@ -119,9 +119,7 @@
         <div class="activity-heading">
           <span class="activity-orbit"><span></span></span>
           <strong>
-            {activeStage === 0
-              ? "Starting local inference"
-              : `${selectedModel?.providerName ?? "Provider"} is responding`}
+            {activeStage === 0 ? "Starting inference" : `${selectedModel?.providerName ?? "Provider"} is responding`}
           </strong>
         </div>
         <div class="activity-stages">

@@ -2,7 +2,7 @@
   display: none;
 }
 .settings-layer {
-  position: absolute;
+  position: fixed;
   z-index: 20;
   display: grid;
   place-items: center;
@@ -92,6 +92,9 @@
   font-size: 8px;
   font-weight: 620;
 }
+.local-badge.cloud {
+  color: #e7b47f;
+}
 .provider-setting label {
   display: block;
   margin: 13px 0 6px;
@@ -106,7 +109,8 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 }
-.endpoint-row input {
+.endpoint-row input,
+.credential-row input {
   min-width: 0;
   height: 36px;
   padding: 0 10px;
@@ -118,11 +122,13 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
 }
-.endpoint-row input:focus {
+.endpoint-row input:focus,
+.credential-row input:focus {
   border-color: rgba(143, 125, 247, 0.5);
   box-shadow: 0 0 0 3px rgba(143, 125, 247, 0.07);
 }
 .endpoint-row button,
+.credential-row button,
 .diagnostics-heading button {
   border: 1px solid var(--line-strong);
   border-radius: 8px;
@@ -135,12 +141,32 @@
   min-width: 62px;
   padding: 0 11px;
 }
+.credential-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.credential-row button {
+  min-width: 62px;
+  padding: 0 11px;
+}
+.credential-row button.pending {
+  border-color: rgba(233, 169, 104, 0.28);
+  color: #e7b47f;
+}
+.credential-status {
+  margin: 7px 0 0;
+  color: #777581;
+  font-size: 8px;
+}
 .endpoint-row button:hover,
+.credential-row button:hover,
 .diagnostics-heading button:hover {
   background: rgba(255, 255, 255, 0.065);
   color: var(--text);
 }
-.endpoint-row button:disabled {
+.endpoint-row button:disabled,
+.credential-row button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
 }

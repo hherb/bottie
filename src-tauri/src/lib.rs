@@ -2,19 +2,28 @@
 //! Native application commands and lifecycle for Bottie's Tauri desktop shell.
 
 mod command_types;
+mod credentials;
 mod diagnostics;
 mod inference;
+mod provider_registry;
+mod stream_channel;
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
 
-use command_types::{AppInfo, ProviderConnectionDraft, ProviderConnectionTest, ProviderSelection};
+use command_types::{
+    AppInfo, ProviderConnectionDraft, ProviderConnectionTest, ProviderCredentialStatus,
+    ProviderCredentialUpdate, ProviderSelection,
+};
+use credentials::{CredentialStore, REMOTE_PROVIDER_IDS, SystemCredentialStore};
 use diagnostics::{DiagnosticEntry, Diagnostics, record_diagnostic, sanitized};
 use futures_util::future::{AbortHandle, Abortable};
 use inference::{
-    ChatRequest, ChatRun, InferenceProvider, ModelInfo, OllamaProvider, OmlxProvider,
-    ProviderError, ProviderSettings, StreamEvent, Usage, load_provider_settings,
-    save_provider_settings,
+    AnthropicProvider, ChatRequest, ChatRun, InferenceProvider, ModelInfo, OllamaProvider,
+    OmlxProvider, OpenAiProvider, ProviderError, ProviderSettings, StreamEvent,
+    load_provider_settings, save_provider_settings,
 };
+use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
+use stream_channel::ChannelSink;
 use tauri::{Manager, State, ipc::Channel};
 
 type ActiveRuns = Arc<tauri::async_runtime::Mutex<HashMap<String, AbortHandle>>>;
@@ -23,76 +32,7 @@ struct AppState {
     settings_path: PathBuf,
     runs: ActiveRuns,
     diagnostics: Diagnostics,
-}
-
-#[derive(Clone)]
-struct ProviderSet {
-    omlx: OmlxProvider,
-    ollama: OllamaProvider,
-    settings: ProviderSettings,
-}
-
-impl ProviderSet {
-    /// Builds a complete local-provider set from validated settings.
-    fn from_settings(settings: &ProviderSettings) -> Result<Self, ProviderError> {
-        Ok(Self {
-            omlx: OmlxProvider::with_base_url(&settings.omlx_base_url)?,
-            ollama: OllamaProvider::with_base_url(&settings.ollama_base_url)?,
-            settings: settings.clone(),
-        })
-    }
-
-    /// Returns a snapshot of the active provider settings.
-    fn settings(&self) -> ProviderSettings {
-        self.settings.clone()
-    }
-
-    /// Resolves one supported local provider by stable identity.
-    fn provider(&self, provider_id: &str) -> Result<LocalProvider, ProviderError> {
-        match provider_id {
-            "omlx" => Ok(LocalProvider::Omlx(self.omlx.clone())),
-            "ollama" => Ok(LocalProvider::Ollama(self.ollama.clone())),
-            _ => Err(ProviderError::invalid_request(
-                "Choose a supported local provider.",
-            )),
-        }
-    }
-}
-
-#[derive(Clone)]
-enum LocalProvider {
-    Omlx(OmlxProvider),
-    Ollama(OllamaProvider),
-}
-
-impl LocalProvider {
-    /// Returns the provider's stable routing identity.
-    fn provider_id(&self) -> &'static str {
-        match self {
-            Self::Omlx(_) => "omlx",
-            Self::Ollama(_) => "ollama",
-        }
-    }
-
-    /// Streams a chat through the concrete local provider.
-    async fn stream_chat(
-        &self,
-        request: ChatRequest,
-        sink: impl inference::StreamSink + Send + Sync,
-    ) -> Result<Option<Usage>, ProviderError> {
-        match self {
-            Self::Omlx(provider) => provider.stream_chat(request, sink).await,
-            Self::Ollama(provider) => provider.stream_chat(request, sink).await,
-        }
-    }
-
-    /// Discovers models through the concrete local provider.
-    async fn discover_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
-        match self {
-            Self::Omlx(provider) => provider.discover_models().await,
-            Self::Ollama(provider) => provider.discover_models().await,
-        }
-    }
+    credentials: Arc<dyn CredentialStore>,
 }
 
 #[tauri::command]
@@ -106,7 +46,7 @@ fn app_info() -> AppInfo {
 }
 
 #[tauri::command]
-/// Returns the active non-secret local-provider settings.
+/// Returns the active non-secret provider settings.
 async fn get_provider_settings(
     state: State<'_, AppState>,
 ) -> Result<ProviderSettings, ProviderError> {
@@ -114,7 +54,58 @@ async fn get_provider_settings(
 }
 
 #[tauri::command]
-/// Validates, persists, and activates new local-provider settings.
+/// Returns secret-free availability for each remote provider credential.
+async fn get_provider_credential_status(
+    state: State<'_, AppState>,
+) -> Result<Vec<ProviderCredentialStatus>, ProviderError> {
+    REMOTE_PROVIDER_IDS
+        .into_iter()
+        .map(|provider_id| {
+            Ok(ProviderCredentialStatus {
+                provider_id: provider_id.into(),
+                configured: state.credentials.configured(provider_id)?,
+                unlocked: state.credentials.unlocked(provider_id)?,
+                biometric_protected: state.credentials.biometric_protected(),
+            })
+        })
+        .collect()
+}
+
+#[tauri::command]
+/// Stores or removes one remote API key in the operating-system credential vault.
+async fn update_provider_credential(
+    update: ProviderCredentialUpdate,
+    state: State<'_, AppState>,
+) -> Result<ProviderCredentialStatus, ProviderError> {
+    if update.remove {
+        state.credentials.delete(&update.provider_id)?;
+    } else if let Some(api_key) = update.api_key {
+        state.credentials.set(&update.provider_id, &api_key)?;
+    }
+    let configured = state.credentials.configured(&update.provider_id)?;
+    let unlocked = state.credentials.unlocked(&update.provider_id)?;
+    record_diagnostic(
+        &state.diagnostics,
+        "info",
+        if configured {
+            "Remote credential saved"
+        } else {
+            "Remote credential removed"
+        },
+        Some(&update.provider_id),
+        Some("Credential material remained in the operating-system vault"),
+    )
+    .await;
+    Ok(ProviderCredentialStatus {
+        provider_id: update.provider_id,
+        configured,
+        unlocked,
+        biometric_protected: state.credentials.biometric_protected(),
+    })
+}
+
+#[tauri::command]
+/// Validates, persists, and activates provider settings.
 async fn update_provider_settings(
     settings: ProviderSettings,
     state: State<'_, AppState>,
@@ -168,16 +159,48 @@ async fn test_provider_connection(
         "omlx" => {
             let provider = OmlxProvider::with_base_url(&draft.base_url)?;
             let base_url = provider.base_url().to_owned();
-            ("oMLX", base_url, LocalProvider::Omlx(provider))
+            ("oMLX", base_url, RoutedProvider::Omlx(provider))
         }
         "ollama" => {
             let provider = OllamaProvider::with_base_url(&draft.base_url)?;
             let base_url = provider.base_url().to_owned();
-            ("Ollama", base_url, LocalProvider::Ollama(provider))
+            ("Ollama", base_url, RoutedProvider::Ollama(provider))
+        }
+        "openai" => {
+            let key = draft
+                .api_key
+                .filter(|value| !value.trim().is_empty())
+                .or(state.credentials.get("openai")?)
+                .ok_or_else(|| {
+                    ProviderError::invalid_request("Enter an OpenAI-compatible API key to test.")
+                })?;
+            let provider = OpenAiProvider::new(&draft.base_url, key)?;
+            let base_url = provider.base_url().to_owned();
+            (
+                "OpenAI-compatible",
+                base_url,
+                RoutedProvider::OpenAi(provider),
+            )
+        }
+        "anthropic" => {
+            let key = draft
+                .api_key
+                .filter(|value| !value.trim().is_empty())
+                .or(state.credentials.get("anthropic")?)
+                .ok_or_else(|| {
+                    ProviderError::invalid_request("Enter an Anthropic-compatible API key to test.")
+                })?;
+            let provider = AnthropicProvider::new(&draft.base_url, key)?;
+            let base_url = provider.base_url().to_owned();
+            (
+                "Anthropic-compatible",
+                base_url,
+                RoutedProvider::Anthropic(provider),
+            )
         }
         _ => {
             return Err(ProviderError::invalid_request(
-                "Choose a supported local provider to test.",
+                "Choose a supported provider to test.",
             ));
         }
     };
@@ -228,14 +251,14 @@ async fn get_diagnostics(
 }
 
 #[tauri::command]
-/// Discovers models for one provider or all configured local providers.
+/// Discovers models for one provider, or both local providers when no identity is supplied.
 async fn discover_models(
     provider_id: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<Vec<ModelInfo>, ProviderError> {
     let providers = state.providers.read().await.clone();
     if let Some(provider_id) = provider_id {
-        let provider = providers.provider(&provider_id)?;
+        let provider = routed_provider(&provider_id, &providers, state.credentials.as_ref())?;
         let result = provider.discover_models().await.map_err(sanitized);
         match result {
             Ok(mut models) => {
@@ -310,58 +333,6 @@ async fn discover_models(
     }
 }
 
-struct ChannelSink {
-    run_id: String,
-    channel: Channel<StreamEvent>,
-}
-
-impl inference::StreamSink for ChannelSink {
-    /// Forwards one normalized text fragment to the WebView channel.
-    fn text_delta(&self, delta: String) -> Result<(), ProviderError> {
-        self.channel
-            .send(StreamEvent::TextDelta {
-                run_id: self.run_id.clone(),
-                delta,
-            })
-            .map_err(|error| {
-                ProviderError::internal(
-                    "The inference stream could not reach the interface.",
-                    Some(error.to_string()),
-                )
-            })
-    }
-
-    /// Forwards one normalized reasoning fragment to the WebView channel.
-    fn reasoning_delta(&self, delta: String) -> Result<(), ProviderError> {
-        self.channel
-            .send(StreamEvent::ReasoningDelta {
-                run_id: self.run_id.clone(),
-                delta,
-            })
-            .map_err(|error| {
-                ProviderError::internal(
-                    "The reasoning stream could not reach the interface.",
-                    Some(error.to_string()),
-                )
-            })
-    }
-
-    /// Forwards normalized usage totals to the WebView channel.
-    fn usage_updated(&self, usage: Usage) -> Result<(), ProviderError> {
-        self.channel
-            .send(StreamEvent::UsageUpdated {
-                run_id: self.run_id.clone(),
-                usage,
-            })
-            .map_err(|error| {
-                ProviderError::internal(
-                    "Usage information could not reach the interface.",
-                    Some(error.to_string()),
-                )
-            })
-    }
-}
-
 #[tauri::command]
 /// Starts one cancellable provider-qualified chat generation.
 async fn start_chat(
@@ -370,15 +341,7 @@ async fn start_chat(
     on_event: Channel<StreamEvent>,
 ) -> Result<ChatRun, ProviderError> {
     let providers = state.providers.read().await.clone();
-    let provider = match request.provider_id.as_str() {
-        "omlx" => LocalProvider::Omlx(providers.omlx),
-        "ollama" => LocalProvider::Ollama(providers.ollama),
-        _ => {
-            return Err(ProviderError::invalid_request(
-                "Choose a supported local provider before sending.",
-            ));
-        }
-    };
+    let provider = routed_provider(&request.provider_id, &providers, state.credentials.as_ref())?;
     let run_id = uuid::Uuid::new_v4().to_string();
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
     state.runs.lock().await.insert(run_id.clone(), abort_handle);
@@ -483,12 +446,15 @@ pub fn run() {
                 settings_path,
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 diagnostics: Diagnostics::default(),
+                credentials: Arc::new(SystemCredentialStore::default()),
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             app_info,
             get_provider_settings,
+            get_provider_credential_status,
+            update_provider_credential,
             update_provider_settings,
             remember_provider_selection,
             test_provider_connection,

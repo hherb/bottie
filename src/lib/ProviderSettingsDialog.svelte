@@ -2,14 +2,17 @@
   import { isTauri } from "@tauri-apps/api/core";
 
   import Icon from "$lib/Icon.svelte";
-  import { DEFAULT_LOCAL_PROVIDER_SETTINGS } from "$lib/presentation";
+  import { DEFAULT_PROVIDER_SETTINGS } from "$lib/presentation";
   import {
     getDiagnostics,
+    getProviderCredentialStatus,
     providerErrorFromUnknown,
     testProviderConnection,
+    updateProviderCredential,
     updateProviderSettings,
     type DiagnosticEntry,
-    type LocalProviderId,
+    type ProviderCredentialStatus,
+    type ProviderId,
     type ProviderSettings,
   } from "$lib/inference";
 
@@ -25,26 +28,44 @@
     onsaved: (settings: ProviderSettings) => Promise<void>;
   };
 
-  /** Provider metadata rendered by the local-settings form. */
+  /** Provider metadata rendered by the settings form. */
   const PROVIDER_SETTINGS: Array<{
-    id: LocalProviderId;
+    id: ProviderId;
     name: string;
     description: string;
+    route: "local" | "cloud";
   }> = [
-    { id: "omlx", name: "oMLX", description: "OpenAI-compatible local runtime" },
-    { id: "ollama", name: "Ollama", description: "Native local API" },
+    { id: "omlx", name: "oMLX", description: "OpenAI-compatible local runtime", route: "local" },
+    { id: "ollama", name: "Ollama", description: "Native local API", route: "local" },
+    { id: "openai", name: "OpenAI compatible", description: "Chat Completions over HTTPS", route: "cloud" },
+    { id: "anthropic", name: "Anthropic compatible", description: "Messages API over HTTPS", route: "cloud" },
   ];
+  const CONNECTION_POLICY = [
+    "Local loopback or remote HTTPS",
+    "redirects disabled",
+    "3 s connect",
+    "5 s discovery",
+    "120 s stream idle",
+  ].join(" · ");
 
   let { settings, isGenerating, onclose, onsaved }: Props = $props();
-  let settingsDraft = $state<ProviderSettings>({ ...DEFAULT_LOCAL_PROVIDER_SETTINGS });
+  let settingsDraft = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
   let draftInitialized = false;
   let settingsError = $state("");
   let settingsSaving = $state(false);
   let diagnostics = $state<DiagnosticEntry[]>([]);
-  let connectionTests = $state<Record<LocalProviderId, ConnectionTestState>>({
+  let connectionTests = $state<Record<ProviderId, ConnectionTestState>>({
     omlx: { status: "idle", message: "" },
     ollama: { status: "idle", message: "" },
+    openai: { status: "idle", message: "" },
+    anthropic: { status: "idle", message: "" },
   });
+  let credentialStatus = $state<Record<"openai" | "anthropic", ProviderCredentialStatus>>({
+    openai: { providerId: "openai", configured: false, unlocked: false, biometricProtected: false },
+    anthropic: { providerId: "anthropic", configured: false, unlocked: false, biometricProtected: false },
+  });
+  let credentialDrafts = $state<Record<"openai" | "anthropic", string>>({ openai: "", anthropic: "" });
+  let removeCredentials = $state<Record<"openai" | "anthropic", boolean>>({ openai: false, anthropic: false });
 
   $effect(() => {
     if (!draftInitialized) {
@@ -52,6 +73,7 @@
       draftInitialized = true;
     }
     void refreshDiagnostics();
+    void refreshCredentialStatus();
   });
 
   /** Returns a compact local time for one diagnostic timestamp. */
@@ -67,15 +89,26 @@
     diagnostics = await getDiagnostics().catch(() => diagnostics);
   }
 
-  /** Returns the draft endpoint for one local provider. */
-  function endpoint(providerId: LocalProviderId): string {
-    return providerId === "omlx" ? settingsDraft.omlxBaseUrl : settingsDraft.ollamaBaseUrl;
+  /** Refreshes remote credential availability without reading secret values. */
+  async function refreshCredentialStatus(): Promise<void> {
+    const statuses = await getProviderCredentialStatus().catch(() => [] as ProviderCredentialStatus[]);
+    for (const status of statuses) credentialStatus[status.providerId] = status;
   }
 
-  /** Updates the draft endpoint for one local provider. */
-  function updateEndpoint(providerId: LocalProviderId, baseUrl: string): void {
+  /** Returns the draft endpoint for one provider. */
+  function endpoint(providerId: ProviderId): string {
+    if (providerId === "omlx") return settingsDraft.omlxBaseUrl;
+    if (providerId === "ollama") return settingsDraft.ollamaBaseUrl;
+    if (providerId === "openai") return settingsDraft.openaiBaseUrl;
+    return settingsDraft.anthropicBaseUrl;
+  }
+
+  /** Updates the draft endpoint for one provider. */
+  function updateEndpoint(providerId: ProviderId, baseUrl: string): void {
     if (providerId === "omlx") settingsDraft.omlxBaseUrl = baseUrl;
-    else settingsDraft.ollamaBaseUrl = baseUrl;
+    else if (providerId === "ollama") settingsDraft.ollamaBaseUrl = baseUrl;
+    else if (providerId === "openai") settingsDraft.openaiBaseUrl = baseUrl;
+    else settingsDraft.anthropicBaseUrl = baseUrl;
   }
 
   /** Closes the dialog unless a settings write is active. */
@@ -84,18 +117,18 @@
   }
 
   /** Tests one draft endpoint without changing the active provider configuration. */
-  async function testConnection(providerId: LocalProviderId): Promise<void> {
-    const baseUrl = providerId === "omlx" ? settingsDraft.omlxBaseUrl : settingsDraft.ollamaBaseUrl;
+  async function testConnection(providerId: ProviderId): Promise<void> {
+    const baseUrl = endpoint(providerId);
     connectionTests[providerId] = { status: "testing", message: "Testing connection…" };
     settingsError = "";
     try {
-      const result = await testProviderConnection(providerId, baseUrl);
+      const apiKey = providerId === "openai" || providerId === "anthropic" ? credentialDrafts[providerId] : undefined;
+      const result = await testProviderConnection(providerId, baseUrl, apiKey);
       connectionTests[providerId] = {
         status: "success",
         message: `${result.message} ${result.elapsedMs} ms.`,
       };
-      if (providerId === "omlx") settingsDraft.omlxBaseUrl = result.baseUrl;
-      else settingsDraft.ollamaBaseUrl = result.baseUrl;
+      updateEndpoint(providerId, result.baseUrl);
     } catch (error) {
       const normalized = providerErrorFromUnknown(error);
       connectionTests[providerId] = { status: "error", message: normalized.message };
@@ -111,6 +144,13 @@
     settingsError = "";
     try {
       const saved = await updateProviderSettings({ ...settingsDraft });
+      for (const providerId of ["openai", "anthropic"] as const) {
+        const apiKey = credentialDrafts[providerId].trim();
+        if (apiKey || removeCredentials[providerId]) {
+          const status = await updateProviderCredential(providerId, apiKey || null, removeCredentials[providerId]);
+          credentialStatus[providerId] = status;
+        }
+      }
       await onsaved(saved);
       onclose();
     } catch (error) {
@@ -129,7 +169,7 @@
     <header class="settings-header">
       <div>
         <span class="eyebrow">Rust-owned configuration</span>
-        <h2 id="provider-settings-title">Local providers</h2>
+        <h2 id="provider-settings-title">Inference providers</h2>
       </div>
       <button class="icon-button" aria-label="Close provider settings" onclick={close}>
         <Icon name="x" size={18} />
@@ -138,16 +178,60 @@
 
     <form class="settings-content" onsubmit={save}>
       <p class="settings-intro">
-        Bottie accepts loopback endpoints only. Provider traffic and configuration stay behind the native boundary.
+        Local routes require loopback endpoints. Cloud routes require HTTPS and keep API keys in the operating-system
+        credential vault; keys are never returned to the interface.
       </p>
 
       {#each PROVIDER_SETTINGS as provider}
         {@const test = connectionTests[provider.id]}
+        {@const remoteProviderId = provider.id === "openai" || provider.id === "anthropic" ? provider.id : null}
+        {@const credential = remoteProviderId ? credentialStatus[remoteProviderId] : null}
         <div class="provider-setting">
           <div class="provider-setting-heading">
             <span><strong>{provider.name}</strong><small>{provider.description}</small></span>
-            <span class="local-badge"><Icon name="shield" size={12} /> Local</span>
+            <span class:cloud={provider.route === "cloud"} class="local-badge">
+              <Icon name="shield" size={12} />
+              {provider.route === "local" ? "Local" : "Cloud"}
+            </span>
           </div>
+          {#if remoteProviderId}
+            <label for={`${provider.id}-api-key`}>API key</label>
+            <div class="credential-row">
+              <input
+                id={`${provider.id}-api-key`}
+                type="password"
+                value={credentialDrafts[remoteProviderId]}
+                placeholder={credential?.configured ? "Stored in OS credential vault" : "Enter API key"}
+                oninput={(event) => {
+                  credentialDrafts[remoteProviderId] = event.currentTarget.value;
+                  removeCredentials[remoteProviderId] = false;
+                }}
+                disabled={!isTauri() || settingsSaving}
+                autocomplete="new-password"
+                spellcheck="false"
+              />
+              <button
+                type="button"
+                class:pending={removeCredentials[remoteProviderId]}
+                disabled={!credential?.configured || settingsSaving}
+                onclick={() => (removeCredentials[remoteProviderId] = !removeCredentials[remoteProviderId])}
+                >{removeCredentials[remoteProviderId] ? "Keep" : "Remove"}</button
+              >
+            </div>
+            <p class="credential-status">
+              {removeCredentials[remoteProviderId]
+                ? "Credential will be removed when saved."
+                : credentialDrafts[remoteProviderId]
+                  ? "Replacement key will be stored securely when saved."
+                  : credential?.configured && credential.biometricProtected && credential.unlocked
+                    ? "Touch ID verified; credential unlocked for this Bottie session."
+                    : credential?.configured && credential.biometricProtected
+                      ? "Protected by Touch ID; unlocks on first use this session."
+                      : credential?.configured
+                        ? "Credential configured in the OS vault."
+                        : "No credential configured."}
+            </p>
+          {/if}
           <label for={`${provider.id}-endpoint`}>Endpoint</label>
           <div class="endpoint-row">
             <input
@@ -174,10 +258,7 @@
 
       <div class="settings-policy">
         <Icon name="shield" size={15} />
-        <span
-          ><strong>Connection policy</strong><small>3 s connect · 5 s discovery · 120 s stream idle timeout</small
-          ></span
-        >
+        <span><strong>Connection policy</strong><small>{CONNECTION_POLICY}</small></span>
       </div>
 
       <section class="diagnostics" aria-label="Recent provider diagnostics">

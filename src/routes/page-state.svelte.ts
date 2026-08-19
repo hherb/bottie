@@ -8,6 +8,7 @@ import {
   displayEndpoint,
   filterUsableModels,
   formatBytes,
+  isCloudProvider,
   modelKey,
   resolveModelSelection,
   toggleReasoningEffort,
@@ -20,8 +21,8 @@ import {
   rememberProviderSelection,
   startChat,
   type ChatTurn,
-  type LocalProviderId,
   type ModelInfo,
+  type ProviderId,
   type ProviderError,
   type ProviderSettings,
   type ReasoningEffort,
@@ -29,7 +30,7 @@ import {
   type Usage,
 } from "$lib/inference";
 import {
-  DEFAULT_LOCAL_PROVIDER_SETTINGS,
+  DEFAULT_PROVIDER_SETTINGS,
   INITIAL_MESSAGES,
   MAX_COMPOSER_HEIGHT_PX,
   type Attachment,
@@ -61,13 +62,13 @@ export class PageState {
   showSettings = $state(false);
   runtime = $state<RuntimeInfo>({ name: "bottie", version: "preview", storage: "local" });
   models = $state<ModelInfo[]>([]);
-  selectedProviderId = $state<LocalProviderId | "">("");
+  selectedProviderId = $state<ProviderId | "">("");
   selectedModelKey = $state("");
   providerStatus = $state<ProviderStatus>(isTauri() ? "checking" : "browser");
   providerError = $state<ProviderError | null>(null);
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
-  providerSettings = $state<ProviderSettings>({ ...DEFAULT_LOCAL_PROVIDER_SETTINGS });
+  providerSettings = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
 
   private generationRun = 0;
   private messageSequence = Date.now();
@@ -85,10 +86,19 @@ export class PageState {
     return this.providerStatus === "available" && Boolean(this.selectedModel);
   }
 
+  /** Whether the selected route keeps prompt traffic on this device. */
+  get isLocalRoute(): boolean {
+    return !isCloudProvider(this.selectedProviderId);
+  }
+
   /** Compact active-provider endpoint used by the privacy-route presentation. */
   get selectedProviderEndpoint(): string {
-    const baseUrl =
-      this.selectedProviderId === "ollama" ? this.providerSettings.ollamaBaseUrl : this.providerSettings.omlxBaseUrl;
+    const baseUrl = {
+      ollama: this.providerSettings.ollamaBaseUrl,
+      omlx: this.providerSettings.omlxBaseUrl,
+      openai: this.providerSettings.openaiBaseUrl,
+      anthropic: this.providerSettings.anthropicBaseUrl,
+    }[this.selectedProviderId || "ollama"];
     return displayEndpoint(baseUrl);
   }
 
@@ -97,7 +107,7 @@ export class PageState {
     return [
       {
         icon: "shield",
-        label: "Connected locally",
+        label: this.isLocalRoute ? "Connected locally" : "Cloud route confirmed",
         detail: `Rust → ${this.selectedModel?.providerName ?? "provider"}`,
       },
       {
@@ -108,12 +118,12 @@ export class PageState {
     ];
   }
 
-  /** Loads native runtime information, persisted settings, and available local models. */
+  /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {
     if (!isTauri()) {
       this.providerError = {
         code: "unavailable",
-        message: "Browser preview is disconnected. Open the native Tauri app to use local inference.",
+        message: "Browser preview is disconnected. Open the native Tauri app to use inference providers.",
         retryable: false,
       };
       return;
@@ -127,13 +137,13 @@ export class PageState {
       this.providerSettings = await getProviderSettings();
       this.selectedProviderId = this.providerSettings.lastProviderId ?? "";
     } catch (error) {
-      console.warn("Could not read local provider settings", error);
+      console.warn("Could not read provider settings", error);
     }
     await this.refreshModels();
   }
 
   /** Discovers streaming text models for one provider and resolves a stable selection. */
-  async refreshModels(providerId: LocalProviderId | "" = this.selectedProviderId): Promise<void> {
+  async refreshModels(providerId: ProviderId | "" = this.selectedProviderId): Promise<void> {
     if (!isTauri()) return;
     this.providerStatus = "checking";
     this.providerError = null;
@@ -153,7 +163,7 @@ export class PageState {
       if (this.models.length === 0) {
         this.providerError = {
           code: "unavailable",
-          message: "The local providers did not report a streaming text model.",
+          message: "The selected provider did not report a streaming text model.",
           retryable: true,
         };
       } else {
@@ -168,7 +178,7 @@ export class PageState {
   }
 
   /** Switches provider and refreshes only that provider's model list. */
-  async changeProvider(providerId: LocalProviderId): Promise<void> {
+  async changeProvider(providerId: ProviderId): Promise<void> {
     this.selectedProviderId = providerId;
     this.models = [];
     this.selectedModelKey = "";
@@ -271,7 +281,7 @@ export class PageState {
       id: assistantId,
       role: "assistant",
       content: "",
-      model: model ? `${model.displayName} · ${model.providerName}` : "Local model",
+      model: model ? `${model.displayName} · ${model.providerName}` : "Selected model",
     });
     const startedAt = performance.now();
     await this.scrollToBottom();
@@ -381,7 +391,7 @@ export class PageState {
         id: ++this.messageSequence,
         role: "assistant",
         model: "bottie",
-        content: "Fresh local thread. What would you like to explore?",
+        content: "Fresh thread. What would you like to explore?",
       },
     ];
     this.activeStage = IDLE_STAGE;

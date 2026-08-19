@@ -74,8 +74,8 @@
       rows="1"
       disabled={!canSend && !isGenerating}
       placeholder={providerStatus === "available"
-        ? "Message the local model…"
-        : "Connect a local provider to send a message"}
+        ? "Message the selected model…"
+        : "Connect a provider to send a message"}
       aria-label="Message bottie"></textarea>
 
     <div class="composer-toolbar">

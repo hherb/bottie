@@ -4,11 +4,11 @@ Last verified: 2026-08-19
 
 ## Start here
 
-Bottie is a greenfield Tauri 2 desktop chatbot. The product shell, both local inference adapters, provider
-configuration, and bounded reasoning controls are complete: the native app validates and persists loopback endpoints,
-connections, discovers oMLX and Ollama models, remembers the last provider/model pair, and streams answer and reasoning
-content through Rust-owned networking and cancellation. The next bounded implementation slice is Roadmap 1.4; do not
-reopen broad product or visual-design planning.
+Bottie is a greenfield Tauri 2 desktop chatbot. Milestone 1 is complete: the native app supports oMLX, Ollama,
+OpenAI-compatible, and Anthropic-compatible text inference through Rust-owned networking, credentials, streaming, and
+cancellation. Provider selection remains explicit, cloud routes are visible before sending, and credential-vault
+values are never returned to the WebView. The next bounded implementation slice is the Milestone 2 storage design gate
+and foundation; do not reopen broad product or visual-design planning.
 
 Read these files first:
 
@@ -39,7 +39,8 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 `src/routes/page-state.svelte.ts` owns the shared reactive conversation state and actions. Together they provide:
 
 - desktop conversation navigation and responsive mobile navigation;
-- separate provider and model selectors, provider-specific refresh, connection/offline state, retry action, loaded/on-demand state, and a local-only privacy indicator;
+- separate provider and model selectors, provider-specific refresh, connection/offline state, retry action,
+  loaded/on-demand state, and an explicit local/cloud privacy indicator;
 - user and assistant message presentation;
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
 - attachment selection and removal in presentation state;
@@ -48,7 +49,8 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - an off-by-default reasoning toggle with low effort when enabled;
 - collapsed reasoning sections that can be expanded independently of answer text;
 - working stop-generation cancellation backed by a Rust abort handle;
-- a local-provider settings dialog with endpoint editing, connection tests, timeout policy, and redacted session diagnostics;
+- a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
+  and redacted session diagnostics;
 - context-panel open/close behavior;
 - reduced-motion and keyboard-focus support.
 
@@ -60,9 +62,9 @@ the dependency-free local icon set used by the shell.
 
 `src-tauri/src/lib.rs` exposes typed `app_info`, provider-settings/test/diagnostic commands, `discover_models`,
 `start_chat`, and `cancel_chat`. Each generation receives an opaque Rust-owned run ID and one typed IPC channel.
-`src-tauri/src/inference/` contains the provider-neutral types/trait, local settings policy, and the oMLX and Ollama
-adapters. Pure Ollama protocol normalization is isolated in `src-tauri/src/inference/ollama/protocol.rs`, adapter tests
-live beside their implementations, and provider JSON, SSE, and NDJSON parsing do not reach Svelte.
+`src-tauri/src/inference/` contains the provider-neutral types/trait, endpoint policy, and four concrete adapters.
+`src-tauri/src/provider_registry.rs` resolves an explicit route, while `src-tauri/src/credentials.rs` is the only
+credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach Svelte.
 
 The oMLX adapter:
 
@@ -82,14 +84,27 @@ The Ollama adapter:
   streams;
 - shares the same Rust abort-handle and typed-channel cancellation path as oMLX.
 
-Requests now include a provider ID because model names can collide across local providers. Discovery tolerates either provider being offline and reports a combined retryable error only when neither provides a streaming text model.
+The remote adapters:
 
-Local provider configuration now:
+- use separate native OpenAI Chat Completions and Anthropic Messages request and stream shapes;
+- validate configurable HTTPS roots, reject embedded credentials/query/fragment values, and disable redirects;
+- retrieve API keys just in time from the operating-system credential vault without returning them to Svelte;
+- require Touch ID for the first read of each saved credential per macOS app session, then retain the unlocked value only
+  in process memory;
+- discover remote models and normalize answer, reasoning, usage, cancellation, and provider errors;
+- preserve provider-reported USD cost metadata when compatible endpoints include it.
 
-- persists only normalized oMLX and Ollama base URLs in the OS application-config directory;
+Requests include a provider ID because model names can collide across providers. Initial discovery tolerates either
+local provider being offline and reports a combined retryable error only when neither reports a streaming text model.
+
+Provider configuration now:
+
+- persists normalized endpoint roots and the remembered provider/model pair in the OS application-config directory;
+- keeps API keys out of that file and stores only remote credential availability in UI state;
 - remembers the last successfully selected provider/model pair in the same Rust-owned settings file;
-- accepts HTTP(S) loopback roots only, with no credentials, subpaths, queries, or fragments;
-- disables redirects so a loopback service cannot redirect native traffic to a remote host;
+- accepts HTTP(S) loopback roots for local providers and HTTPS roots for remote profiles, with no embedded credentials,
+  queries, or fragments;
+- disables redirects for every provider client;
 - uses 3-second connect, 5-second discovery, and 120-second stream-idle timeouts;
 - keeps the most recent 100 structured diagnostic events in memory and redacts credential-shaped values before returning them to Svelte.
 
@@ -110,13 +125,13 @@ The native application configuration has:
 Do not mistake visual fixtures for implemented backend behavior:
 
 - memory cards and relevance scores are fixtures;
-- context usage and tool sources are fixtures; response elapsed time is real, while token usage appears when the selected provider reports it;
+- context usage and tool sources are fixtures; response elapsed time is real, while token usage and cost appear when
+  the selected provider reports them;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
 - conversations disappear at restart;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - no SQLite database, migrations, FTS5, or vector extension exists yet;
-- no API credentials or remote-provider profiles are stored; only local loopback endpoint settings persist;
 - no web search or fetch tool exists;
 - there are no automated component or end-to-end UI tests yet; pure presentation helpers have frontend unit coverage.
 
@@ -153,7 +168,36 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Bounded reasoning controls
+## Most recently completed product slice: Remote OpenAI and Anthropic APIs
+
+### Goal
+
+Complete real text inference for explicit cloud routes without exposing credentials or provider traffic to the
+WebView.
+
+### Implemented shape
+
+1. Dedicated OpenAI-compatible Chat Completions and Anthropic-compatible Messages adapters preserve their distinct
+   authentication, request, reasoning, streaming, and usage shapes.
+2. Remote endpoint profiles require HTTPS and share the existing redirect-disabled timeout and diagnostic policy.
+3. Narrow native commands write or remove fixed-provider API-key entries in the OS credential vault; the WebView can
+   query only whether a credential exists.
+4. Provider and model selectors include the remote profiles, while the toolbar and context inspector identify cloud
+   routing before a prompt can be sent.
+5. Normalized usage carries provider-reported prompt/output token counts and optional USD cost without estimating a
+   price in the interface.
+
+### Acceptance criteria
+
+- OpenAI-compatible and Anthropic-compatible profiles discover models and stream through their native protocol shapes.
+- API keys are absent from application settings, IPC responses, diagnostics, and frontend state after saving.
+- Saved macOS credentials require Touch ID before their first use in a new Bottie process.
+- Remote profiles reject non-HTTPS and credential-bearing endpoints; all provider clients reject redirects.
+- The selected route is visibly local or cloud before generation, including responsive layouts.
+- Reasoning remains explicit and bounded, and answer/reasoning deltas stay separate.
+- Usage and cost render only when returned by the provider.
+
+## Prior completed product slice: Bounded reasoning controls
 
 ### Goal
 
@@ -178,7 +222,7 @@ separate from optional model reasoning.
 - Answer and reasoning deltas are never conflated in the normalized stream.
 - Requests cannot silently inherit oMLX's 32,768-token default completion allowance.
 
-## Prior completed product slice: Provider configuration
+## Earlier completed product slice: Provider configuration
 
 ### Goal
 
@@ -218,7 +262,7 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-19 for the bounded-reasoning implementation:
+The following passed on 2026-08-19 for the remote-provider implementation:
 
 ```sh
 npm run check
@@ -230,21 +274,25 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The standard Rust suite now has thirty-four tests: thirty run by default and four are opt-in live-provider tests.
-The frontend suite has seven pure-helper unit tests. A bounded live oMLX adapter test passed, and a direct 160-token
-Qwen3.8 low-reasoning probe returned separate `reasoning_content` and `content` deltas with 22 completion tokens. Ollama
-request mapping and thinking-field normalization have fixture coverage; no Ollama model was loaded for a live check.
+The standard Rust suite now has forty-four tests: forty run by default and four are opt-in live-provider tests.
+The frontend suite has eight pure-helper unit tests. Remote fixture coverage includes native request mapping, fragmented
+SSE decoding, reasoning separation, token usage, optional cost, HTTPS endpoint policy, credential-gated routing, and
+backward-compatible settings. No live remote request was made because no user API credentials were supplied.
 
-The refactored browser preview was checked at 1320 x 820 and 760 x 820. It preserves the desktop layout, provider-neutral
-disconnected message, disabled composer/send controls, settings open/close flow, responsive mobile navigation, and
-context overlay. The responsive check caught and corrected stylesheet import order; the final pass produced no console
-warnings or errors.
+The browser preview was checked at 1320 x 820 and 760 x 820. The pass covered all four provider settings, cloud badges,
+privacy-route copy, settings scrolling, open/close behavior, responsive mobile navigation, and the context overlay with
+no console warnings or errors. It caught and corrected an empty-selection cloud label and an off-screen settings-dialog
+position before the final pass.
 
-The native provider/model experience was manually reviewed after implementation. The user confirmed that the separate
-selectors, provider-specific model refresh, and remembered selection work as intended, completing Roadmap 1.3
-acceptance. The reasoning-control build is running for native visual and interaction review.
+The native application compiled and launched with the remote-provider build. The user confirmed a live OpenAI
+conversation with a saved credential, then restarted Bottie and confirmed the Touch ID session unlock. Anthropic live
+inference and credential replacement/removal remain unverified. The executable target has its test harness disabled so
+`cargo test` verifies the library without launching a second GUI process.
 
-The next bounded implementation slice is Roadmap 1.4: native remote OpenAI and Anthropic adapters, compatible endpoint profiles, operating-system credential-vault storage, and an explicit local/cloud routing indicator. Keep FastEmbed/EmbeddingGemma implementation with the first memory-search storage slice, where download progress, cache location, dimensions, and reindex metadata can be implemented coherently.
+The next bounded implementation slice is Milestone 2's storage design gate and SQLite foundation. Decide whether local
+profiles are needed, then land Rust-owned migrations and the minimum conversation/message schema as one reviewable
+vertical slice. Keep FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download
+progress, cache location, dimensions, and reindex metadata can be implemented coherently.
 
 ## Development commands
 

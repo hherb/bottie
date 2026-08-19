@@ -1,4 +1,4 @@
-import type { LocalProviderId, ProviderSettings } from "./inference";
+import type { ProviderId, ProviderSettings } from "./inference";
 
 /** One message rendered in the prototype conversation. */
 export type Message = {
@@ -27,7 +27,7 @@ export type RuntimeInfo = {
   storage: string;
 };
 
-/** Local-provider connection state displayed throughout the shell. */
+/** Provider connection state displayed throughout the shell. */
 export type ProviderStatus = "checking" | "available" | "offline" | "browser";
 
 /** One normalized stage in the live inference activity presentation. */
@@ -37,10 +37,12 @@ export type InferenceStage = {
   detail: string;
 };
 
-/** Local-provider choices displayed in the provider selector. */
-export const PROVIDER_OPTIONS: Array<{ id: LocalProviderId; name: string }> = [
-  { id: "ollama", name: "Ollama" },
-  { id: "omlx", name: "oMLX" },
+/** Provider choices displayed in the provider selector. */
+export const PROVIDER_OPTIONS: Array<{ id: ProviderId; name: string; route: "local" | "cloud" }> = [
+  { id: "ollama", name: "Ollama", route: "local" },
+  { id: "omlx", name: "oMLX", route: "local" },
+  { id: "openai", name: "OpenAI compatible", route: "cloud" },
+  { id: "anthropic", name: "Anthropic compatible", route: "cloud" },
 ];
 
 /** Maximum number of attachment chips shown above the composer. */
@@ -49,10 +51,12 @@ export const MAX_COMPOSER_ATTACHMENTS = 3;
 /** Maximum automatic composer height before internal scrolling begins. */
 export const MAX_COMPOSER_HEIGHT_PX = 160;
 
-/** Browser-preview defaults mirrored from the native local-provider configuration. */
-export const DEFAULT_LOCAL_PROVIDER_SETTINGS: ProviderSettings = {
+/** Browser-preview defaults mirrored from the native provider configuration. */
+export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {
   omlxBaseUrl: "http://127.0.0.1:8000/",
   ollamaBaseUrl: "http://127.0.0.1:11434/",
+  openaiBaseUrl: "https://api.openai.com/v1/",
+  anthropicBaseUrl: "https://api.anthropic.com/v1/",
   lastProviderId: null,
   lastModelId: null,
 };
