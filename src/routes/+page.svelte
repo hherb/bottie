@@ -8,6 +8,7 @@
   import ProviderToolbar from "$lib/ProviderToolbar.svelte";
   import Sidebar from "$lib/Sidebar.svelte";
   import "$lib/styles/shell.css";
+  import "$lib/styles/conversation-nav.css";
   import "$lib/styles/conversation.css";
   import "$lib/styles/composer.css";
   import "$lib/styles/context.css";
@@ -35,10 +36,22 @@
     conversations={state.history.conversations}
     activeConversationId={state.history.activeConversationId}
     storageError={state.history.storageError?.message ?? null}
-    isGenerating={state.isGenerating}
+    isGenerating={state.isGenerating || state.history.isManaging}
     onclose={() => (state.showSidebar = false)}
     onnewchat={() => state.startNewChat()}
     onselectconversation={(conversationId) => void state.openConversation(conversationId)}
+    onrenameconversation={(conversationId, title) => void state.history.rename(conversationId, title)}
+    onarchiveconversation={(conversationId, archived) => {
+      void state.history.setArchived(conversationId, archived).then((closed) => {
+        if (closed) state.startNewChat();
+      });
+    }}
+    ondeleteconversation={(conversationId) => {
+      void state.history.delete(conversationId).then((closed) => {
+        if (closed) state.startNewChat();
+      });
+    }}
+    onrestoreconversation={(conversationId) => void state.history.restore(conversationId)}
     onopensettings={() => {
       state.showSettings = true;
       state.showSidebar = false;

@@ -27,7 +27,8 @@ use inference::{
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use storage::ConversationStore;
 use storage_commands::{
-    append_conversation_message, create_conversation, list_conversations, load_conversation,
+    append_conversation_message, create_conversation, delete_conversation, list_conversations,
+    load_conversation, rename_conversation, restore_conversation, set_conversation_archived,
 };
 use stream_channel::ChannelSink;
 use tauri::{Manager, State, ipc::Channel};
@@ -474,6 +475,10 @@ pub fn run() {
             create_conversation,
             load_conversation,
             append_conversation_message,
+            rename_conversation,
+            set_conversation_archived,
+            delete_conversation,
+            restore_conversation,
             discover_models,
             start_chat,
             cancel_chat

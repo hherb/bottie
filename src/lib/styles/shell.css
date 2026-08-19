@@ -215,9 +215,11 @@ kbd {
   text-transform: uppercase;
 }
 .conversation-item {
+  flex: 1;
   justify-content: space-between;
+  min-width: 0;
   min-height: 35px;
-  padding: 0 10px 0 11px;
+  padding: 0 34px 0 11px;
   border-radius: 8px;
   background: transparent;
   color: #a9a7b2;

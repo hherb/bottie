@@ -103,3 +103,136 @@ fn rejects_empty_messages_and_unknown_conversations() {
     assert!(empty.is_err());
     assert!(missing.is_err());
 }
+
+#[test]
+fn renames_archives_and_reactivates_conversations_on_append() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let conversation = store
+        .create_conversation("Lifecycle draft")
+        .expect("conversation should be created");
+
+    let renamed = store
+        .rename_conversation(&conversation.id, "  Renamed   conversation  ")
+        .expect("conversation should be renamed");
+    let archived = store
+        .set_conversation_archived(&conversation.id, true)
+        .expect("conversation should be archived");
+    drop(store);
+    let store = ConversationStore::initialize(path).expect("storage should reopen");
+
+    assert_eq!(renamed.title, "Renamed conversation");
+    assert_eq!(renamed.lifecycle, ConversationLifecycle::Active);
+    assert_eq!(archived.lifecycle, ConversationLifecycle::Archived);
+    assert_eq!(
+        store
+            .load_conversation(&conversation.id)
+            .expect("archived conversation should remain readable")
+            .title,
+        "Renamed conversation"
+    );
+
+    store
+        .append_message(NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::User,
+            text: "Bring this conversation back".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        })
+        .expect("appending should reactivate the conversation");
+
+    assert_eq!(
+        store
+            .list_conversations()
+            .expect("conversations should list")[0]
+            .lifecycle,
+        ConversationLifecycle::Active
+    );
+}
+
+#[test]
+fn moves_conversations_to_trash_and_restores_without_data_loss() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let conversation = store
+        .create_conversation("Recoverable conversation")
+        .expect("conversation should be created");
+    store
+        .append_message(NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::User,
+            text: "Keep this message".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        })
+        .expect("message should be stored");
+
+    let deleted = store
+        .delete_conversation(&conversation.id)
+        .expect("conversation should move to trash");
+    drop(store);
+    let store = ConversationStore::initialize(path).expect("storage should reopen");
+
+    assert_eq!(deleted.lifecycle, ConversationLifecycle::Deleted);
+    assert!(store.load_conversation(&conversation.id).is_err());
+    assert!(
+        store
+            .append_message(NewStoredMessage {
+                conversation_id: conversation.id.clone(),
+                role: StoredRole::User,
+                text: "Do not append while deleted".into(),
+                reasoning: None,
+                state: MessageState::Final,
+                provider_id: None,
+                model_id: None,
+            })
+            .is_err()
+    );
+
+    let restored = store
+        .restore_conversation(&conversation.id)
+        .expect("conversation should restore");
+    let reopened = store
+        .load_conversation(&conversation.id)
+        .expect("restored conversation should load");
+
+    assert_eq!(restored.lifecycle, ConversationLifecycle::Active);
+    assert_eq!(reopened.messages.len(), 1);
+    assert_eq!(reopened.messages[0].text, "Keep this message");
+}
+
+#[test]
+fn lists_active_archived_and_deleted_lifecycle_states() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let active = store
+        .create_conversation("Active")
+        .expect("active conversation should be created");
+    let archived = store
+        .create_conversation("Archived")
+        .expect("archived conversation should be created");
+    let deleted = store
+        .create_conversation("Deleted")
+        .expect("deleted conversation should be created");
+    store
+        .set_conversation_archived(&archived.id, true)
+        .expect("conversation should archive");
+    store
+        .delete_conversation(&deleted.id)
+        .expect("conversation should move to trash");
+
+    let listed = store
+        .list_conversations()
+        .expect("all conversation states should list");
+
+    assert_eq!(listed.len(), 3);
+    assert_eq!(listed[0].id, active.id);
+    assert_eq!(listed[0].lifecycle, ConversationLifecycle::Active);
+    assert_eq!(listed[1].lifecycle, ConversationLifecycle::Archived);
+    assert_eq!(listed[2].lifecycle, ConversationLifecycle::Deleted);
+}

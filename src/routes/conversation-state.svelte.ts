@@ -6,8 +6,12 @@ import { nextMessageId, type Message } from "$lib/presentation";
 import {
   appendConversationMessage,
   createConversation,
+  deleteConversation,
   listConversations,
   loadConversation,
+  renameConversation,
+  restoreConversation,
+  setConversationArchived,
   storageErrorFromUnknown,
   type ConversationSummary,
   type StorageError,
@@ -20,12 +24,13 @@ export class ConversationState {
   conversations = $state<ConversationSummary[]>([]);
   activeConversationId = $state<string | null>(null);
   storageError = $state<StorageError | null>(null);
+  isManaging = $state(false);
 
   /** Loads recent conversations and returns the newest thread's messages. */
   async initialize(): Promise<Message[]> {
     try {
       this.conversations = await listConversations();
-      const newest = this.conversations[0];
+      const newest = this.conversations.find((conversation) => conversation.lifecycle === "active");
       if (!newest) return [];
       return (await this.open(newest.id)) ?? [];
     } catch (error) {
@@ -100,6 +105,32 @@ export class ConversationState {
     this.activeConversationId = null;
   }
 
+  /** Renames one active or archived conversation and refreshes navigation. */
+  async rename(conversationId: string, title: string): Promise<boolean> {
+    return this.performLifecycleAction(() => renameConversation(conversationId, title));
+  }
+
+  /** Moves one conversation into or out of the archive and reports whether the open thread closed. */
+  async setArchived(conversationId: string, archived: boolean): Promise<boolean> {
+    const wasActive = archived && this.activeConversationId === conversationId;
+    const succeeded = await this.performLifecycleAction(() => setConversationArchived(conversationId, archived));
+    if (succeeded && wasActive) this.activeConversationId = null;
+    return succeeded && wasActive;
+  }
+
+  /** Moves one conversation to recoverable trash and reports whether the open thread closed. */
+  async delete(conversationId: string): Promise<boolean> {
+    const wasActive = this.activeConversationId === conversationId;
+    const succeeded = await this.performLifecycleAction(() => deleteConversation(conversationId));
+    if (succeeded && wasActive) this.activeConversationId = null;
+    return succeeded && wasActive;
+  }
+
+  /** Restores one trashed conversation to the recent list. */
+  async restore(conversationId: string): Promise<boolean> {
+    return this.performLifecycleAction(() => restoreConversation(conversationId));
+  }
+
   /** Refreshes durable navigation without changing the open conversation. */
   private async refresh(): Promise<void> {
     try {
@@ -107,6 +138,22 @@ export class ConversationState {
       this.storageError = null;
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
+    }
+  }
+
+  /** Runs one narrow lifecycle command and keeps failures in the existing storage-error surface. */
+  private async performLifecycleAction(action: () => Promise<ConversationSummary>): Promise<boolean> {
+    if (this.isManaging) return false;
+    this.isManaging = true;
+    try {
+      await action();
+      await this.refresh();
+      return true;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      return false;
+    } finally {
+      this.isManaging = false;
     }
   }
 

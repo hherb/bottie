@@ -7,9 +7,10 @@ Last verified: 2026-08-19
 Bottie is a greenfield Tauri 2 desktop chatbot. Milestone 1 is complete: the native app supports oMLX, Ollama,
 OpenAI-compatible, and Anthropic-compatible text inference through Rust-owned networking, credentials, streaming, and
 cancellation. Milestone 2 is in progress: a Rust-owned bundled SQLite store now persists local-profile conversations
-and ordered text/reasoning messages across restart. Provider selection remains explicit, cloud routes are visible
-before sending, and credential-vault values are never returned to the WebView. The next bounded implementation slice
-is conversation lifecycle management; do not reopen broad product or visual-design planning.
+and ordered text/reasoning messages across restart. Users can rename, archive, soft-delete, restore, and browse real
+conversations in calendar-date groups. Provider selection remains explicit, cloud routes are visible before sending,
+and credential-vault values are never returned to the WebView. The next bounded implementation slice is
+append-oriented provider-run and usage persistence; do not reopen broad product or visual-design planning.
 
 Read these files first:
 
@@ -51,6 +52,8 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - collapsed reasoning sections that can be expanded independently of answer text;
 - working stop-generation cancellation backed by a Rust abort handle;
 - durable conversation creation on first send, recent-conversation navigation, and restart-safe reopening;
+- real Today, Yesterday, Previous 7 days, Archived, and Trash navigation groups;
+- inline conversation rename plus archive, unarchive, recoverable trash, and restore actions;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -70,8 +73,9 @@ credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach S
 
 `src-tauri/src/storage.rs` owns short-lived configured SQLite connections, migrations, integrity policy, and
 transactional conversation/message operations. `src-tauri/src/storage_commands.rs` exposes only list, create, load,
-and append commands. The database lives in the OS application-data directory; the WebView never receives a path, SQL,
-or generic database capability. One built-in `local` profile represents the current OS account. Every conversation has
+append, and explicit lifecycle commands. The database lives in the OS application-data directory; the WebView never
+receives a path, SQL, or generic database capability. One built-in `local` profile represents the current OS account.
+Every conversation has
 a main branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
 blocks. User prompts commit before inference starts, and terminal assistant responses commit before another prompt can
 append.
@@ -139,7 +143,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   the selected provider reports them;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- rename, archive, delete/restore, branching, search, export, backup/restore, and interrupted-run recovery are not yet implemented;
+- branching, search, export, backup/restore, and interrupted-run recovery are not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
 - no web search or fetch tool exists;
@@ -178,7 +182,35 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Durable conversation storage foundation
+## Most recently completed product slice: Conversation lifecycle management
+
+### Goal
+
+Make durable conversations manageable without permanently deleting user content or broadening the native storage
+boundary.
+
+### Implemented shape
+
+1. Conversation summaries expose one Rust-derived `active`, `archived`, or `deleted` lifecycle state without exposing
+   raw archive/delete timestamps or SQL to the WebView.
+2. Narrow native commands rename, archive/unarchive, move to recoverable trash, and restore profile-owned
+   conversations. Empty titles and invalid lifecycle transitions return stable secret-free errors.
+3. Archived conversations remain readable; appending to one reactivates it. Trashed conversations cannot load or
+   append until restored, and restore preserves every message and content block.
+4. The sidebar groups active conversations by local calendar date and provides separate Archived and Trash groups.
+5. Each conversation has a keyboard-focusable action menu and inline bounded rename editor. Lifecycle actions are
+   disabled during generation, and archiving or deleting the open thread starts a clean conversation view.
+
+### Acceptance criteria
+
+- Rename collapses whitespace and applies the same 80-character native title bound used at creation.
+- Archive/unarchive and trash/restore survive database reopen without losing messages.
+- Deleted conversations reject load and append through the narrow storage API.
+- Active conversations appear under Today, Yesterday, Previous 7 days, or Older based on real update timestamps.
+- Archived and trashed conversations remain visibly recoverable in dedicated sidebar groups.
+- Desktop and narrow navigation remain accessible and free of console errors.
+
+## Prior completed product slice: Durable conversation storage foundation
 
 ### Goal
 
@@ -302,7 +334,7 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-19 for the durable-conversation storage foundation:
+The following passed on 2026-08-19 for conversation lifecycle management:
 
 ```sh
 npm run check
@@ -314,25 +346,25 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The standard Rust suite now has forty-seven tests: forty-three run by default and four are opt-in live-provider tests.
-The three storage tests cover migration and profile policy, WAL/foreign-key/integrity state, transactional
-conversation/message round trips, branch-local ordering under equal timestamps, provider/model/reasoning retention,
-and invalid input. The frontend suite has nine pure-helper tests, including bounded title derivation.
+The standard Rust suite now has fifty tests: forty-six run by default and four are opt-in live-provider tests. Six
+storage tests cover migration and profile policy, WAL/foreign-key/integrity state, transactional conversation/message
+round trips, branch-local ordering under equal timestamps, provider/model/reasoning retention, lifecycle transitions,
+recoverable deletion, and invalid input. The frontend suite has eleven pure-helper tests, including local-calendar date
+grouping.
 
-The browser preview was checked at 1320 x 820 and 760 x 820. The pass covered the recent-conversation empty state,
+The browser preview was checked at 1320 x 820 and 760 x 820. The pass covered the date-group-compatible empty state,
 responsive mobile sidebar, existing context overlay, and horizontal/vertical overflow with no console warnings or
-errors.
+errors. Native lifecycle interaction still needs a final real-app smoke check with durable conversation data.
 
 The native application compiled and launched. Its real application-data database migrated to schema version 2,
 `PRAGMA quick_check` returned `ok`, and the `local` / `Local profile` record plus both migration records were verified.
 The user then confirmed an end-to-end provider-backed send/restart/reopen interaction restored the saved conversation
 successfully from the recent-conversation sidebar.
 
-The next bounded implementation slice is conversation lifecycle management: rename, archive, soft-delete, restore,
-and date-group real conversations with narrow Rust commands and corresponding sidebar actions. Keep edit/regenerate
-branching, provider-run/usage records, export, backups, and interrupted-run recovery as later reviewable slices. Keep
-FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache
-location, dimensions, and reindex metadata can be implemented coherently.
+The next bounded implementation slice is append-oriented provider-run and usage persistence. Keep edit/regenerate
+branching, crash-safe partial recovery, export, and backups as later reviewable slices. Keep FastEmbed/EmbeddingGemma
+implementation with the first memory-search consumer, where download progress, cache location, dimensions, and
+reindex metadata can be implemented coherently.
 
 ## Development commands
 

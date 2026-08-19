@@ -109,15 +109,16 @@ ownership rewrite.
 - [ ] append-oriented provider runs, tool invocations, and usage records;
 - [ ] crash-safe draft/partial message persistence and interrupted-run recovery;
 - [ ] automatic backup, restore, and corruption-recovery strategy;
-- soft deletion and retention metadata.
+- [x] soft deletion and retention metadata.
 
 ### Conversation experience
 
 - [x] create conversations on first send, list recent conversations, and reopen stored messages after restart;
-- [ ] rename, archive, delete, and restore conversations;
+- [x] rename, archive, delete, and restore conversations;
 - edit-and-regenerate branches using parent message IDs;
 - reopen the exact conversation after restart;
-- conversation search and date grouping based on real data;
+- [x] date grouping based on real conversation activity;
+- conversation search;
 - Markdown rendering with sanitization;
 - copy, retry, rating, and export actions;
 - JSON or Markdown export and backup restore.

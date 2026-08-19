@@ -126,6 +126,32 @@ pub(crate) struct ConversationSummary {
     pub(crate) title: String,
     /// Last persisted activity time.
     pub(crate) updated_at_ms: i64,
+    /// Current soft lifecycle state.
+    pub(crate) lifecycle: ConversationLifecycle,
+}
+
+/// Soft lifecycle state used to organize recoverable conversations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ConversationLifecycle {
+    /// Visible in the recent conversation list.
+    Active,
+    /// Retained outside the recent list until unarchived or reactivated by append.
+    Archived,
+    /// Hidden from normal navigation but available for restore.
+    Deleted,
+}
+
+impl ConversationLifecycle {
+    /// Parses the lifecycle derived by trusted storage queries.
+    pub(super) fn from_database(value: &str) -> Result<Self, StorageError> {
+        match value {
+            "active" => Ok(Self::Active),
+            "archived" => Ok(Self::Archived),
+            "deleted" => Ok(Self::Deleted),
+            _ => Err(StorageError::internal()),
+        }
+    }
 }
 
 /// One reconstructed text message returned to the WebView.
