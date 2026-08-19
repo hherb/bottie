@@ -20,6 +20,7 @@ export type StoredProviderRun = {
   reasoningEffort: "off" | "low";
   startedAtMs: number;
   completedAtMs: number | null;
+  errorCode: string | null;
   usage: Usage | null;
 };
 
@@ -69,18 +70,6 @@ export type StoredConversation = {
   messages: StoredMessage[];
 };
 
-/** Input accepted when appending one immutable message. */
-export type NewStoredMessage = {
-  conversationId: string;
-  role: "user" | "assistant";
-  text: string;
-  reasoning: string | null;
-  state: StoredMessageState;
-  providerId: string | null;
-  modelId: string | null;
-  providerRunId: string | null;
-};
-
 /** Produces the stable browser-preview storage failure. */
 function unavailableInBrowser(): StorageError {
   return {
@@ -107,10 +96,10 @@ export async function loadConversation(conversationId: string): Promise<StoredCo
   return invoke<StoredConversation>("load_conversation", { conversationId });
 }
 
-/** Appends one immutable text/reasoning message. */
-export async function appendConversationMessage(message: NewStoredMessage): Promise<StoredMessage> {
+/** Appends one final user message through the narrow native storage command. */
+export async function appendConversationMessage(conversationId: string, text: string): Promise<StoredMessage> {
   if (!isTauri()) throw unavailableInBrowser();
-  return invoke<StoredMessage>("append_conversation_message", { message });
+  return invoke<StoredMessage>("append_conversation_message", { conversationId, text });
 }
 
 /** Renames one active or archived conversation. */

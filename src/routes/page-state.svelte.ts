@@ -76,6 +76,7 @@ export class PageState {
   history = new ConversationState();
 
   private generationRun = 0;
+  private cancellationRequested = false;
   private messageScroll?: HTMLDivElement;
   private composer?: HTMLTextAreaElement;
   private attachmentInput?: HTMLInputElement;
@@ -277,7 +278,6 @@ export class PageState {
     if (!submittedPrompt || this.isGenerating || !this.canSend) return;
     const runContext = await this.history.persistUserMessage(submittedPrompt);
     if (!runContext) return;
-    const conversationId = runContext.conversationId;
     this.messages.push({ id: nextMessageId(), role: "user", content: submittedPrompt });
     this.prompt = "";
     this.resizeComposer();
@@ -285,6 +285,7 @@ export class PageState {
     const run = ++this.generationRun;
     this.activeStage = STARTING_STAGE;
     this.activeRunId = null;
+    this.cancellationRequested = false;
     this.currentUsage = null;
     this.providerError = null;
     const model = this.selectedModel;
@@ -314,10 +315,12 @@ export class PageState {
           settings: { reasoningEffort: this.reasoningEffort },
         },
         runContext,
-        (event) => this.handleStreamEvent(event, run, assistantId, startedAt, conversationId, model!),
+        (event) => this.handleStreamEvent(event, run, assistantId, startedAt),
       );
-      if (run === this.generationRun) this.activeRunId = chatRun.runId;
-      else await cancelChat(chatRun.runId);
+      if (run === this.generationRun) {
+        this.activeRunId = chatRun.runId;
+        if (this.cancellationRequested) await cancelChat(chatRun.runId);
+      } else await cancelChat(chatRun.runId);
     } catch (error) {
       if (run !== this.generationRun) return;
       const normalized = providerErrorFromUnknown(error);
@@ -328,19 +331,12 @@ export class PageState {
       }
       this.providerError = normalized;
       if (normalized.code === "unavailable") this.providerStatus = "offline";
-      await this.persistTerminalMessage(conversationId, reply, "failed", model!, run, null);
+      await this.finalizeNativeGeneration(run);
     }
   }
 
   /** Applies one normalized provider event to the active assistant response. */
-  private handleStreamEvent(
-    event: StreamEvent,
-    run: number,
-    assistantId: number,
-    startedAt: number,
-    conversationId: string,
-    model: ModelInfo,
-  ): void {
+  private handleStreamEvent(event: StreamEvent, run: number, assistantId: number, startedAt: number): void {
     if (run !== this.generationRun) return;
     this.activeRunId = event.runId;
     const reply = this.messages.find((message) => message.id === assistantId);
@@ -358,11 +354,11 @@ export class PageState {
     } else if (event.type === "completed") {
       this.currentUsage = event.usage ?? this.currentUsage;
       reply.meta = completionMeta(startedAt, performance.now(), this.currentUsage);
-      void this.persistTerminalMessage(conversationId, reply, "final", model, run, event.runId);
+      void this.finalizeNativeGeneration(run);
     } else if (event.type === "cancelled") {
       if (reply.content === "") reply.content = "Generation stopped.";
       reply.meta = "Stopped · partial response";
-      void this.persistTerminalMessage(conversationId, reply, "cancelled", model, run, event.runId);
+      void this.finalizeNativeGeneration(run);
     } else if (event.type === "failed") {
       reply.error = true;
       reply.content = reply.content
@@ -370,21 +366,14 @@ export class PageState {
         : event.error.message;
       this.providerError = event.error;
       if (event.error.code === "unavailable") this.providerStatus = "offline";
-      void this.persistTerminalMessage(conversationId, reply, "failed", model, run, event.runId);
+      void this.finalizeNativeGeneration(run);
     }
   }
 
-  /** Saves a terminal response before allowing the next prompt to append. */
-  private async persistTerminalMessage(
-    conversationId: string,
-    message: Message | undefined,
-    state: "final" | "cancelled" | "failed",
-    model: ModelInfo,
-    run: number,
-    providerRunId: string | null,
-  ): Promise<void> {
+  /** Refreshes navigation after Rust has durably closed the response and provider run. */
+  private async finalizeNativeGeneration(run: number): Promise<void> {
     this.isPersistingMessage = true;
-    await this.history.persistAssistantMessage(conversationId, message, state, model, providerRunId);
+    await this.history.refreshAfterGeneration();
     this.isPersistingMessage = false;
     this.finishGeneration(run);
   }
@@ -401,26 +390,16 @@ export class PageState {
     this.activeStage = IDLE_STAGE;
     this.activeRunId = null;
     this.activeAssistantId = null;
+    this.cancellationRequested = false;
   }
 
-  /** Cancels the active native stream and retains any partial response. */
+  /** Requests cancellation while native orchestration retains the latest durable checkpoint. */
   stopGenerating(): void {
+    if (this.cancellationRequested) return;
+    this.cancellationRequested = true;
     const runId = this.activeRunId;
     const reply = this.messages.find((message) => message.id === this.activeAssistantId);
-    const conversationId = this.history.activeConversationId;
-    const model = this.selectedModel;
-    this.generationRun += 1;
-    this.isGenerating = false;
-    this.activeStage = IDLE_STAGE;
-    this.activeRunId = null;
-    this.activeAssistantId = null;
-    if (reply) {
-      if (reply.content === "") reply.content = "Generation stopped.";
-      reply.meta = "Stopped · partial response";
-    }
-    if (reply && conversationId && model) {
-      void this.persistTerminalMessage(conversationId, reply, "cancelled", model, this.generationRun, runId);
-    }
+    if (reply) reply.meta = "Stopping · saving partial response";
     if (runId) void cancelChat(runId);
   }
 
@@ -440,6 +419,7 @@ export class PageState {
     this.isGenerating = false;
     this.activeRunId = null;
     this.activeAssistantId = null;
+    this.cancellationRequested = false;
     this.prompt = "";
     this.showSidebar = false;
     setTimeout(() => this.composer?.focus(), NEXT_EVENT_LOOP_TICK_MS);

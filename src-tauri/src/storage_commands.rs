@@ -5,7 +5,8 @@ use tauri::State;
 use crate::{
     AppState,
     storage::{
-        ConversationSummary, NewStoredMessage, StorageError, StoredConversation, StoredMessage,
+        ConversationSummary, MessageState, NewStoredMessage, StorageError, StoredConversation,
+        StoredMessage, StoredRole,
     },
 };
 
@@ -36,12 +37,21 @@ pub(crate) fn load_conversation(
 }
 
 #[tauri::command]
-/// Appends one immutable message and its content blocks to a conversation.
+/// Appends one final user-authored message through the narrow WebView storage boundary.
 pub(crate) fn append_conversation_message(
-    message: NewStoredMessage,
+    conversation_id: String,
+    text: String,
     state: State<'_, AppState>,
 ) -> Result<StoredMessage, StorageError> {
-    state.conversations.append_message(message)
+    state.conversations.append_message(NewStoredMessage {
+        conversation_id,
+        role: StoredRole::User,
+        text,
+        reasoning: None,
+        state: MessageState::Final,
+        provider_id: None,
+        model_id: None,
+    })
 }
 
 #[tauri::command]

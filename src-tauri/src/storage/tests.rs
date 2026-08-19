@@ -91,7 +91,6 @@ fn persists_provider_run_provenance_and_terminal_usage() {
             state: MessageState::Final,
             provider_id: None,
             model_id: None,
-            provider_run_id: None,
         })
         .expect("request should be stored");
     let run_id = uuid::Uuid::new_v4().to_string();
@@ -120,36 +119,6 @@ fn persists_provider_run_provenance_and_terminal_usage() {
             }),
         )
         .expect("provider run should complete");
-    let mismatched = store.append_message(NewStoredMessage {
-        conversation_id: conversation.id.clone(),
-        role: StoredRole::Assistant,
-        text: "Do not attach this response.".into(),
-        reasoning: None,
-        state: MessageState::Final,
-        provider_id: Some("ollama".into()),
-        model_id: Some("a-different-model".into()),
-        provider_run_id: Some(run_id.clone()),
-    });
-
-    assert_eq!(
-        mismatched
-            .expect_err("mismatched response should fail")
-            .code,
-        "invalid_request"
-    );
-
-    store
-        .append_message(NewStoredMessage {
-            conversation_id: conversation.id.clone(),
-            role: StoredRole::Assistant,
-            text: "Usage is durable.".into(),
-            reasoning: Some("Counted provider tokens.".into()),
-            state: MessageState::Final,
-            provider_id: Some("ollama".into()),
-            model_id: Some("qwen3:latest".into()),
-            provider_run_id: Some(run_id.clone()),
-        })
-        .expect("response should link to its run");
     drop(store);
 
     let reopened = ConversationStore::initialize(path)
@@ -196,7 +165,6 @@ fn creates_lists_and_reopens_an_ordered_conversation() {
             state: MessageState::Final,
             provider_id: None,
             model_id: None,
-            provider_run_id: None,
         })
         .expect("user message should be stored");
     store
@@ -208,7 +176,6 @@ fn creates_lists_and_reopens_an_ordered_conversation() {
             state: MessageState::Final,
             provider_id: Some("ollama".into()),
             model_id: Some("qwen3:latest".into()),
-            provider_run_id: None,
         })
         .expect("assistant message should be stored");
     let connection = store.open().expect("test connection should open");
@@ -253,7 +220,6 @@ fn rejects_empty_messages_and_unknown_conversations() {
         state: MessageState::Final,
         provider_id: None,
         model_id: None,
-        provider_run_id: None,
     });
     let missing = store.load_conversation("missing");
 
@@ -298,7 +264,6 @@ fn renames_archives_and_reactivates_conversations_on_append() {
             state: MessageState::Final,
             provider_id: None,
             model_id: None,
-            provider_run_id: None,
         })
         .expect("appending should reactivate the conversation");
 
@@ -327,7 +292,6 @@ fn moves_conversations_to_trash_and_restores_without_data_loss() {
             state: MessageState::Final,
             provider_id: None,
             model_id: None,
-            provider_run_id: None,
         })
         .expect("message should be stored");
 
@@ -349,7 +313,6 @@ fn moves_conversations_to_trash_and_restores_without_data_loss() {
                 state: MessageState::Final,
                 provider_id: None,
                 model_id: None,
-                provider_run_id: None,
             })
             .is_err()
     );

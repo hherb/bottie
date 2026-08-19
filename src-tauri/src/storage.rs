@@ -12,8 +12,8 @@ mod types;
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3};
 pub(crate) use types::{
     ConversationLifecycle, ConversationSummary, MessageState, NewProviderRun, NewStoredMessage,
-    ProviderRunContext, ProviderRunState, StorageError, StoredConversation, StoredMessage,
-    StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
+    ProviderRunContext, ProviderRunState, RunBlockKind, StorageError, StoredConversation,
+    StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
 const CURRENT_SCHEMA_VERSION: i64 = 3;
@@ -52,6 +52,8 @@ impl ConversationStore {
         if store.integrity_check(&connection)? != "ok" {
             return Err(StorageError::internal());
         }
+        drop(connection);
+        store.recover_interrupted_runs()?;
         Ok(store)
     }
 
@@ -114,6 +116,20 @@ impl ConversationStore {
             )
             .optional()?
             .ok_or_else(|| StorageError::not_found("That conversation no longer exists."))?;
+        if message.role == StoredRole::User {
+            let has_active_run: bool = transaction.query_row(
+                "SELECT EXISTS (
+                     SELECT 1 FROM provider_runs WHERE conversation_id = ?1 AND state = 'running'
+                 )",
+                [&message.conversation_id],
+                |row| row.get(0),
+            )?;
+            if has_active_run {
+                return Err(StorageError::invalid(
+                    "Wait for the active response to finish before sending another message.",
+                ));
+            }
+        }
         let parent_message_id: Option<String> = transaction
             .query_row(
                 "SELECT id FROM messages WHERE branch_id = ?1 ORDER BY sequence DESC LIMIT 1",
@@ -137,26 +153,11 @@ impl ConversationStore {
             provider_run: None,
             created_at_ms: now_ms()?,
         };
-        if let Some(run_id) = message.provider_run_id.as_deref() {
-            if stored.role != StoredRole::Assistant {
-                return Err(StorageError::invalid(
-                    "Only assistant responses can link to provider runs.",
-                ));
-            }
-            runs::validate_provider_run_link(
-                &transaction,
-                run_id,
-                &message.conversation_id,
-                &branch_id,
-                stored.provider_id.as_deref(),
-                stored.model_id.as_deref(),
-            )?;
-        }
         transaction.execute(
             "INSERT INTO messages
              (id, conversation_id, branch_id, parent_message_id, role, state, provider_id, model_id,
               created_at_ms, sequence, provider_run_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL)",
             params![
                 stored.id,
                 message.conversation_id,
@@ -167,8 +168,7 @@ impl ConversationStore {
                 stored.provider_id,
                 stored.model_id,
                 stored.created_at_ms,
-                sequence,
-                message.provider_run_id
+                sequence
             ],
         )?;
         insert_blocks(&transaction, &stored)?;
@@ -404,3 +404,7 @@ fn now_ms() -> Result<i64, StorageError> {
 #[cfg(test)]
 #[path = "storage/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "storage/run_tests.rs"]
+mod run_tests;

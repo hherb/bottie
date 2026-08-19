@@ -9,6 +9,7 @@ import {
   isCloudProvider,
   modelKey,
   persistedCompletionMeta,
+  persistedMessagePresentation,
   resolveModelSelection,
   toggleReasoningEffort,
 } from "./chat";
@@ -72,6 +73,21 @@ describe("chat presentation helpers", () => {
     const usage: Usage = { inputTokens: 18, outputTokens: 9, costUsd: 0.0025 };
     expect(persistedCompletionMeta(10_000, 11_250, usage)).toBe("1.3s · 9 tokens · $0.0025");
     expect(persistedCompletionMeta(10_000, null, usage)).toBeUndefined();
+  });
+
+  it("labels recovered interruption and terminal partial-response states", () => {
+    expect(persistedMessagePresentation("partial", "interrupted", true)).toEqual({
+      fallbackText: undefined,
+      meta: "Interrupted · saved partial response",
+      error: true,
+    });
+    expect(persistedMessagePresentation("partial", "interrupted", false).fallbackText).toBe(
+      "Generation interrupted before any response was saved.",
+    );
+    expect(persistedMessagePresentation("cancelled", null, false).fallbackText).toBe("Generation stopped.");
+    expect(persistedMessagePresentation("failed", "timeout", false).meta).toBe(
+      "Generation failed · saved partial response",
+    );
   });
 
   it("keeps only streaming text models", () => {
