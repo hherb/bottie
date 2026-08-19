@@ -51,10 +51,11 @@ that material into a collapsed, user-expandable section rather than mixing it in
 applies a 4,096-token default ceiling when the interface does not provide a tighter limit.
 
 The first submitted prompt creates a durable conversation for the built-in local profile. User messages commit before
-provider inference begins, terminal assistant responses commit before the next prompt can be sent, and the recent
-conversation sidebar can reopen stored threads. The initial SQLite schema models conversations, main branches, ordered
-messages, and separate text/reasoning blocks. Rename, archive, delete/restore, branching, search, export,
-backup/restore, and crash recovery remain planned Milestone 2 work.
+provider inference begins, terminal assistant responses commit before the next prompt can be sent, and the sidebar
+groups real conversation activity by local calendar date. Conversations can be renamed inline, archived, moved to
+recoverable trash, and restored without losing messages. The initial SQLite schema models conversations, main branches,
+ordered messages, and separate text/reasoning blocks. Branching, search, export, backup/restore, and crash recovery
+remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

@@ -16,7 +16,20 @@ export type ConversationSummary = {
   id: string;
   title: string;
   updatedAtMs: number;
+  lifecycle: ConversationLifecycle;
 };
+
+/** Recoverable lifecycle state used by conversation navigation. */
+export type ConversationLifecycle = "active" | "archived" | "deleted";
+
+/** One non-empty date bucket used by active conversation navigation. */
+export type ConversationDateGroup = {
+  label: "Today" | "Yesterday" | "Previous 7 days" | "Older";
+  conversations: ConversationSummary[];
+};
+
+const MILLISECONDS_PER_DAY = 86_400_000;
+const PREVIOUS_DAYS_LIMIT = 7;
 
 /** One persisted text/reasoning message. */
 export type StoredMessage = {
@@ -78,6 +91,71 @@ export async function loadConversation(conversationId: string): Promise<StoredCo
 export async function appendConversationMessage(message: NewStoredMessage): Promise<StoredMessage> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<StoredMessage>("append_conversation_message", { message });
+}
+
+/** Renames one active or archived conversation. */
+export async function renameConversation(conversationId: string, title: string): Promise<ConversationSummary> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ConversationSummary>("rename_conversation", { conversationId, title });
+}
+
+/** Moves one conversation into or out of the archive. */
+export async function setConversationArchived(conversationId: string, archived: boolean): Promise<ConversationSummary> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ConversationSummary>("set_conversation_archived", { conversationId, archived });
+}
+
+/** Moves one conversation to recoverable trash. */
+export async function deleteConversation(conversationId: string): Promise<ConversationSummary> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ConversationSummary>("delete_conversation", { conversationId });
+}
+
+/** Restores one trashed conversation to the active recent list. */
+export async function restoreConversation(conversationId: string): Promise<ConversationSummary> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ConversationSummary>("restore_conversation", { conversationId });
+}
+
+/** Selects one lifecycle group while preserving the native store's ordering. */
+export function conversationsForLifecycle(
+  conversations: ConversationSummary[],
+  lifecycle: ConversationLifecycle,
+): ConversationSummary[] {
+  return conversations.filter((conversation) => conversation.lifecycle === lifecycle);
+}
+
+/** Groups active conversations by local calendar recency while preserving native ordering. */
+export function activeConversationDateGroups(
+  conversations: ConversationSummary[],
+  nowMs = Date.now(),
+): ConversationDateGroup[] {
+  const groups = new Map<ConversationDateGroup["label"], ConversationSummary[]>();
+  const today = localCalendarDay(nowMs);
+  for (const conversation of conversationsForLifecycle(conversations, "active")) {
+    const ageDays = today - localCalendarDay(conversation.updatedAtMs);
+    const label = dateGroupLabel(ageDays);
+    const group = groups.get(label);
+    if (group) group.push(conversation);
+    else groups.set(label, [conversation]);
+  }
+  return (["Today", "Yesterday", "Previous 7 days", "Older"] as const)
+    .map((label) => ({ label, conversations: groups.get(label) ?? [] }))
+    .filter((group) => group.conversations.length > 0);
+}
+
+/** Converts a timestamp's local calendar date into a timezone-independent day number. */
+function localCalendarDay(timestampMs: number): number {
+  const date = new Date(timestampMs);
+  return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MILLISECONDS_PER_DAY);
+}
+
+/** Selects the stable navigation label for a calendar-day age. */
+function dateGroupLabel(ageDays: number): ConversationDateGroup["label"] {
+  if (ageDays <= 0) return "Today";
+  if (ageDays === 1) return "Yesterday";
+  if (ageDays <= PREVIOUS_DAYS_LIMIT) return "Previous 7 days";
+  return "Older";
 }
 
 /** Converts an unknown native error into Bottie's stable storage error shape. */

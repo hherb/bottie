@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
-  import type { ConversationSummary } from "$lib/storage";
+  import ConversationGroup from "$lib/ConversationGroup.svelte";
+  import { activeConversationDateGroups, conversationsForLifecycle, type ConversationSummary } from "$lib/storage";
 
   type Props = {
     mobileOpen: boolean;
@@ -12,6 +13,10 @@
     onclose: () => void;
     onnewchat: () => void;
     onselectconversation: (conversationId: string) => void;
+    onrenameconversation: (conversationId: string, title: string) => void;
+    onarchiveconversation: (conversationId: string, archived: boolean) => void;
+    ondeleteconversation: (conversationId: string) => void;
+    onrestoreconversation: (conversationId: string) => void;
     onopensettings: () => void;
   };
 
@@ -25,8 +30,16 @@
     onclose,
     onnewchat,
     onselectconversation,
+    onrenameconversation,
+    onarchiveconversation,
+    ondeleteconversation,
+    onrestoreconversation,
     onopensettings,
   }: Props = $props();
+
+  let activeGroups = $derived(activeConversationDateGroups(conversations));
+  let archivedConversations = $derived(conversationsForLifecycle(conversations, "archived"));
+  let deletedConversations = $derived(conversationsForLifecycle(conversations, "deleted"));
 </script>
 
 {#if mobileOpen}
@@ -53,24 +66,61 @@
   </button>
 
   <nav class="conversation-list" aria-label="Past conversations">
-    <section class="conversation-group">
-      <h2>Recent</h2>
-      {#each conversations as conversation (conversation.id)}
-        <button
-          class:active={conversation.id === activeConversationId}
-          class="conversation-item"
-          disabled={isGenerating}
-          onclick={() => onselectconversation(conversation.id)}
-        >
-          <span>{conversation.title}</span>
-          {#if conversation.id === activeConversationId}<Icon name="more" size={16} />{/if}
-        </button>
-      {:else}
-        <p class:error={storageError !== null} class="conversation-empty">
-          {storageError ?? "Your saved conversations will appear here."}
-        </p>
-      {/each}
-    </section>
+    {#if storageError}
+      <p class="conversation-empty error" role="status">{storageError}</p>
+    {/if}
+    {#each activeGroups as group (group.label)}
+      <ConversationGroup
+        label={group.label}
+        conversations={group.conversations}
+        {activeConversationId}
+        disabled={isGenerating}
+        onselect={onselectconversation}
+        onrename={onrenameconversation}
+        onarchive={onarchiveconversation}
+        ondelete={ondeleteconversation}
+        onrestore={onrestoreconversation}
+      />
+    {:else}
+      <ConversationGroup
+        label="Recent"
+        conversations={[]}
+        {activeConversationId}
+        emptyMessage="Your saved conversations will appear here."
+        disabled={isGenerating}
+        onselect={onselectconversation}
+        onrename={onrenameconversation}
+        onarchive={onarchiveconversation}
+        ondelete={ondeleteconversation}
+        onrestore={onrestoreconversation}
+      />
+    {/each}
+    {#if archivedConversations.length > 0}
+      <ConversationGroup
+        label="Archived"
+        conversations={archivedConversations}
+        {activeConversationId}
+        disabled={isGenerating}
+        onselect={onselectconversation}
+        onrename={onrenameconversation}
+        onarchive={onarchiveconversation}
+        ondelete={ondeleteconversation}
+        onrestore={onrestoreconversation}
+      />
+    {/if}
+    {#if deletedConversations.length > 0}
+      <ConversationGroup
+        label="Trash"
+        conversations={deletedConversations}
+        {activeConversationId}
+        disabled={isGenerating}
+        onselect={onselectconversation}
+        onrename={onrenameconversation}
+        onarchive={onarchiveconversation}
+        ondelete={ondeleteconversation}
+        onrestore={onrestoreconversation}
+      />
+    {/if}
   </nav>
 
   <div class="sidebar-footer">

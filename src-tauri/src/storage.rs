@@ -4,13 +4,14 @@ use std::{fs, path::PathBuf, time::Duration};
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
+mod lifecycle;
 mod migrations;
 mod types;
 
 use migrations::{MIGRATION_1, MIGRATION_2};
 pub(crate) use types::{
-    ConversationSummary, MessageState, NewStoredMessage, StorageError, StoredConversation,
-    StoredMessage, StoredRole,
+    ConversationLifecycle, ConversationSummary, MessageState, NewStoredMessage, StorageError,
+    StoredConversation, StoredMessage, StoredRole,
 };
 
 const CURRENT_SCHEMA_VERSION: i64 = 2;
@@ -50,24 +51,6 @@ impl ConversationStore {
             return Err(StorageError::internal());
         }
         Ok(store)
-    }
-
-    /// Returns recent, non-deleted conversations for the default local profile.
-    pub(crate) fn list_conversations(&self) -> Result<Vec<ConversationSummary>, StorageError> {
-        let connection = self.open()?;
-        let mut statement = connection.prepare(
-            "SELECT id, title, updated_at_ms FROM conversations
-             WHERE profile_id = ?1 AND deleted_at_ms IS NULL
-             ORDER BY updated_at_ms DESC, id DESC",
-        )?;
-        let rows = statement.query_map([DEFAULT_PROFILE_ID], |row| {
-            Ok(ConversationSummary {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                updated_at_ms: row.get(2)?,
-            })
-        })?;
-        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
 
     /// Creates a conversation and its main branch in one immediate transaction.
@@ -119,8 +102,12 @@ impl ConversationStore {
             connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let branch_id: String = transaction
             .query_row(
-                "SELECT id FROM branches WHERE conversation_id = ?1 ORDER BY created_at_ms, id LIMIT 1",
-                [&message.conversation_id],
+                "SELECT branches.id FROM branches
+                 JOIN conversations ON conversations.id = branches.conversation_id
+                 WHERE branches.conversation_id = ?1 AND conversations.profile_id = ?2
+                   AND conversations.deleted_at_ms IS NULL
+                 ORDER BY branches.created_at_ms, branches.id LIMIT 1",
+                params![message.conversation_id, DEFAULT_PROFILE_ID],
                 |row| row.get(0),
             )
             .optional()?
@@ -167,7 +154,7 @@ impl ConversationStore {
         )?;
         insert_blocks(&transaction, &stored)?;
         transaction.execute(
-            "UPDATE conversations SET updated_at_ms = ?1 WHERE id = ?2",
+            "UPDATE conversations SET updated_at_ms = ?1, archived_at_ms = NULL WHERE id = ?2",
             params![stored.created_at_ms, message.conversation_id],
         )?;
         transaction.commit()?;

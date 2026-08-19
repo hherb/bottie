@@ -43,3 +43,45 @@ pub(crate) fn append_conversation_message(
 ) -> Result<StoredMessage, StorageError> {
     state.conversations.append_message(message)
 }
+
+#[tauri::command]
+/// Renames one active or archived conversation.
+pub(crate) fn rename_conversation(
+    conversation_id: String,
+    title: String,
+    state: State<'_, AppState>,
+) -> Result<ConversationSummary, StorageError> {
+    state
+        .conversations
+        .rename_conversation(&conversation_id, &title)
+}
+
+#[tauri::command]
+/// Moves one conversation into or out of the archive.
+pub(crate) fn set_conversation_archived(
+    conversation_id: String,
+    archived: bool,
+    state: State<'_, AppState>,
+) -> Result<ConversationSummary, StorageError> {
+    state
+        .conversations
+        .set_conversation_archived(&conversation_id, archived)
+}
+
+#[tauri::command]
+/// Moves one conversation to recoverable trash.
+pub(crate) fn delete_conversation(
+    conversation_id: String,
+    state: State<'_, AppState>,
+) -> Result<ConversationSummary, StorageError> {
+    state.conversations.delete_conversation(&conversation_id)
+}
+
+#[tauri::command]
+/// Restores one trashed conversation to the active recent list.
+pub(crate) fn restore_conversation(
+    conversation_id: String,
+    state: State<'_, AppState>,
+) -> Result<ConversationSummary, StorageError> {
+    state.conversations.restore_conversation(&conversation_id)
+}
