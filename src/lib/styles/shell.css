@@ -147,7 +147,6 @@ textarea:focus-visible {
 }
 
 .new-chat,
-.search-memory,
 .settings-button,
 .profile-button,
 .conversation-item {
@@ -180,7 +179,6 @@ kbd {
   font-family: inherit;
   font-size: 10px;
 }
-.search-memory,
 .settings-button {
   gap: 10px;
   min-height: 38px;
@@ -190,7 +188,6 @@ kbd {
   color: var(--muted-strong);
   font-size: 13px;
 }
-.search-memory:hover,
 .settings-button:hover,
 .conversation-item:hover {
   background: rgba(255, 255, 255, 0.04);

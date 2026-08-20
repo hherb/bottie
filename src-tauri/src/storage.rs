@@ -8,15 +8,16 @@ mod branching;
 mod lifecycle;
 mod migrations;
 mod runs;
+mod search;
 mod selection;
 mod types;
 
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5};
 pub(crate) use types::{
-    ConversationBranch, ConversationLifecycle, ConversationSummary, ForkedConversation,
-    MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext, ProviderRunState,
-    RunBlockKind, StorageError, StoredConversation, StoredMessage, StoredProviderRun,
-    StoredReasoningEffort, StoredRole, StoredUsage,
+    ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
+    ForkedConversation, MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext,
+    ProviderRunState, RunBlockKind, StorageError, StoredConversation, StoredMessage,
+    StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
 const CURRENT_SCHEMA_VERSION: i64 = 5;
@@ -482,3 +483,7 @@ mod selection_tests;
 #[cfg(test)]
 #[path = "storage/branch_tests.rs"]
 mod branch_tests;
+
+#[cfg(test)]
+#[path = "storage/search_tests.rs"]
+mod search_tests;

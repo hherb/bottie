@@ -38,6 +38,16 @@ export type ConversationSummary = {
   lifecycle: ConversationLifecycle;
 };
 
+/** One native-ranked conversation search result that opens the branch containing its match. */
+export type ConversationSearchResult = {
+  conversationId: string;
+  title: string;
+  snippet: string;
+  branchId: string;
+  updatedAtMs: number;
+  lifecycle: Exclude<ConversationLifecycle, "deleted">;
+};
+
 /** Recoverable lifecycle state used by conversation navigation. */
 export type ConversationLifecycle = "active" | "archived" | "deleted";
 
@@ -96,6 +106,12 @@ function unavailableInBrowser(): StorageError {
 export async function listConversations(): Promise<ConversationSummary[]> {
   if (!isTauri()) return [];
   return invoke<ConversationSummary[]>("list_conversations");
+}
+
+/** Searches active and archived conversation titles and user-visible message text. */
+export async function searchConversations(query: string): Promise<ConversationSearchResult[]> {
+  if (!isTauri()) return [];
+  return invoke<ConversationSearchResult[]>("search_conversations", { query });
 }
 
 /** Creates one empty durable conversation. */

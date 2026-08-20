@@ -9,8 +9,10 @@ end-to-end cancellation. Conversations and their ordered text/reasoning messages
 SQLite database and reopen after restart. Accepted provider runs retain their model, generation settings, terminal
 state, elapsed time, provider-reported token/cost usage, and checkpointed partial output. If Bottie exits during a
 generation, its next launch marks that run interrupted and reopens the response with the text and reasoning already
-saved. Users can edit earlier prompts or regenerate responses into preserved, switchable conversation branches. Bottie
-also restores the exact last-open conversation after restart and preserves an intentional blank new-chat view. Remote
+saved. Users can edit earlier prompts or regenerate responses into preserved, switchable conversation branches, and
+search active or archived histories by title or visible message text. Search results open the preserved branch that
+contains the match. Bottie also restores the exact last-open conversation after restart and preserves an intentional
+blank new-chat view. Remote
 API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
@@ -64,7 +66,10 @@ to recoverable trash, and restored without losing messages. The initial SQLite s
 branches, ordered messages, separate text/reasoning blocks, provider runs, and append-only usage snapshots. Reopened
 assistant responses recover provider-reported token/cost metadata without estimating missing values. The native store
 owns the local profile's last-open selection; opening or creating a conversation records it, while New chat clears it.
-Branching, search, export, and backup/restore remain planned Milestone 2 work.
+Conversation search runs through a narrow Rust command, treats query characters literally, excludes Trash and separate
+reasoning blocks, and returns at most 50 activity-ordered results with bounded snippets. It intentionally uses the
+existing store rather than adding FTS5 before the later memory-search milestone. Markdown rendering, export, and
+backup/restore remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

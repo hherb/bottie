@@ -160,6 +160,17 @@ export class PageState {
     }
   }
 
+  /** Opens the preserved branch selected from native conversation-search results. */
+  async openSearchResult(result: import("$lib/storage").ConversationSearchResult): Promise<void> {
+    if (this.isGenerating) return;
+    const messages = await this.history.openSearchResult(result);
+    if (messages) {
+      this.messages = messages;
+      this.showSidebar = false;
+      await this.scrollToBottom("auto");
+    }
+  }
+
   /** Discovers streaming text models for one provider and resolves a stable selection. */
   async refreshModels(providerId: ProviderId | "" = this.selectedProviderId): Promise<void> {
     if (!isTauri()) return;

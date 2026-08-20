@@ -5,8 +5,8 @@ use tauri::State;
 use crate::{
     AppState,
     storage::{
-        ConversationSummary, ForkedConversation, MessageState, NewStoredMessage, StorageError,
-        StoredConversation, StoredMessage, StoredRole,
+        ConversationSearchResult, ConversationSummary, ForkedConversation, MessageState,
+        NewStoredMessage, StorageError, StoredConversation, StoredMessage, StoredRole,
     },
 };
 
@@ -16,6 +16,15 @@ pub(crate) fn list_conversations(
     state: State<'_, AppState>,
 ) -> Result<Vec<ConversationSummary>, StorageError> {
     state.conversations.list_conversations()
+}
+
+#[tauri::command]
+/// Searches active and archived conversation titles and user-visible message text.
+pub(crate) fn search_conversations(
+    query: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<ConversationSearchResult>, StorageError> {
+    state.conversations.search_conversations(&query)
 }
 
 #[tauri::command]

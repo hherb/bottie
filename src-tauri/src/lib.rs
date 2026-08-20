@@ -30,7 +30,7 @@ use storage::ConversationStore;
 use storage_commands::{
     append_conversation_message, branch_conversation_message, clear_last_open_conversation,
     create_conversation, delete_conversation, list_conversations, load_conversation,
-    load_last_open_conversation, rename_conversation, restore_conversation,
+    load_last_open_conversation, rename_conversation, restore_conversation, search_conversations,
     select_conversation_branch, set_conversation_archived,
 };
 use tauri::{Manager, State};
@@ -379,6 +379,7 @@ pub fn run() {
             test_provider_connection,
             get_diagnostics,
             list_conversations,
+            search_conversations,
             create_conversation,
             load_conversation,
             load_last_open_conversation,

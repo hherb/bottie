@@ -36,10 +36,15 @@
     conversations={state.history.conversations}
     activeConversationId={state.history.activeConversationId}
     storageError={state.history.storageError?.message ?? null}
+    searchQuery={state.history.searchQuery}
+    searchResults={state.history.searchResults}
+    isSearching={state.history.isSearching}
     isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
     onclose={() => (state.showSidebar = false)}
     onnewchat={() => void state.startNewChat()}
     onselectconversation={(conversationId) => void state.openConversation(conversationId)}
+    onsearch={(query) => void state.history.search(query)}
+    onselectsearchresult={(result) => void state.openSearchResult(result)}
     onrenameconversation={(conversationId, title) => void state.history.rename(conversationId, title)}
     onarchiveconversation={(conversationId, archived) => {
       void state.history.setArchived(conversationId, archived).then((closed) => {

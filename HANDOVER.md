@@ -14,8 +14,9 @@ archive, soft-delete, restore, and browse real conversations in calendar-date gr
 including an intentional blank new-chat view, now survives restart. Editing a user prompt or regenerating an assistant
 response creates a selected alternative branch while preserving every prior lineage for switching. Provider selection
 remains explicit, cloud routes are visible before sending, and credential-vault values are never returned to the
-WebView. The next bounded implementation slice is conversation search; do not reopen broad product or visual-design
-planning.
+WebView. Native conversation search now finds titles and visible message text across active and archived histories and
+opens the preserved branch containing each result. The next bounded implementation slice is sanitized Markdown
+rendering; do not reopen broad product or visual-design planning.
 
 Read these files first:
 
@@ -61,6 +62,8 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - real Today, Yesterday, Previous 7 days, Archived, and Trash navigation groups;
 - inline conversation rename plus archive, unarchive, recoverable trash, and restore actions;
 - inline user-message editing, assistant-response regeneration, and preserved branch switching;
+- native conversation search with snippets, archived-result labels, matching-branch selection, and keyboard focus and
+  clear behavior;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -81,9 +84,10 @@ credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach S
 `src-tauri/src/storage.rs` owns short-lived configured SQLite connections, migrations, integrity policy, and
 transactional conversation/message operations. `src-tauri/src/storage/runs.rs` owns provider-run and usage records,
 `src-tauri/src/storage/selection.rs` owns profile-scoped last-open state, `src-tauri/src/storage/branching.rs` owns
-branch creation and selection, and `src-tauri/src/generation.rs` closes each native run before its terminal stream
-event reaches the WebView. `src-tauri/src/storage_commands.rs` exposes only list, create, selected-load/clear,
-user-message append, explicit branch, and lifecycle commands. The
+branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search, and
+`src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
+`src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, user-message append,
+explicit branch, and lifecycle commands. The
 database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a selected branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
@@ -160,7 +164,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- search, export, and backup/restore are not yet implemented;
+- export and backup/restore are not yet implemented;
 - tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
@@ -200,7 +204,37 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Edit-and-regenerate branches
+## Most recently completed product slice: Conversation search
+
+### Goal
+
+Find a durable conversation from its title or visible message text without exposing SQL, generic database access, or
+hidden reasoning content to the WebView, and reveal the exact preserved branch containing the match.
+
+### Implemented shape
+
+1. A narrow native command normalizes literal case-insensitive queries, rejects input over 200 characters, searches
+   active and archived conversation titles plus text blocks, and returns at most 50 results in activity order.
+2. Deleted conversations and separate reasoning blocks remain outside normal search. No schema migration, FTS5 index,
+   or embedding dependency was added ahead of the later memory-search milestone.
+3. Each result includes a bounded Unicode-safe excerpt and the opaque branch identity needed to reveal the matched
+   lineage. Matches already visible on the selected lineage keep that branch selected.
+4. Opening a result first records the conversation as the local profile's last-open thread, then selects the matching
+   branch when needed.
+5. The responsive sidebar provides a persistent search field, `Command/Ctrl+K` focus, Escape clearing, loading and
+   empty states, archived labels, and disabled navigation while generation owns the conversation.
+
+### Acceptance criteria
+
+- Search is case-insensitive and treats `%`, `_`, and other query characters literally rather than as SQL patterns.
+- Title and visible text matches include active and archived conversations but exclude recoverable Trash.
+- Provider reasoning content is not returned as an ordinary conversation-search hit.
+- A match on a preserved alternative opens the matching branch and survives restart as the exact last-open selection.
+- Results are bounded to 50 and queries to 200 characters without adding an index or broad memory-retrieval contract.
+- The WebView receives only typed result metadata and opaque conversation/branch identities, never SQL or database
+  paths.
+
+## Prior completed product slice: Edit-and-regenerate branches
 
 ### Goal
 
@@ -467,6 +501,32 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
+The following passed on 2026-08-20 for conversation search:
+
+```sh
+npm run format:check
+npm run check
+npm test
+npm run build
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+npm run tauri dev
+```
+
+The standard Rust suite now has sixty-seven tests: sixty-three pass by default and four remain opt-in live-provider
+tests. Twenty-three storage tests now include literal/case-insensitive title and message search, Trash/reasoning
+exclusion, archived results, exact preserved-branch recovery, Unicode-safe snippets, and native query/result bounds.
+The frontend suite remains fourteen pure-helper tests; `svelte-check` reports no errors or warnings.
+
+The path-backed native search tests exercise the real SQLite schema without a new migration or index. The Tauri app
+compiled and launched against the existing application store without console errors. The sidebar search field, empty
+state, focus treatment, and navigation layout were visually checked in the browser preview at the desktop default and
+an 800 x 700 responsive viewport; the browser preview intentionally cannot invoke the native search command. Live
+provider tests were not required because this slice does not change provider networking, streaming, or cancellation.
+
+## Verification completed for the previous slice
+
 The following passed on 2026-08-20 for edit-and-regenerate branching:
 
 ```sh
@@ -496,8 +556,8 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is conversation search. Keep tool-invocation persistence, Markdown rendering,
-copy/rating actions, export, and backups as later reviewable slices. Keep
+The next bounded implementation slice is sanitized Markdown rendering. Keep tool-invocation persistence, copy/rating
+actions, export, and backups as later reviewable slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

@@ -13,10 +13,12 @@ import {
   loadLastOpenConversation,
   renameConversation,
   restoreConversation,
+  searchConversations,
   selectConversationBranch,
   setConversationArchived,
   storageErrorFromUnknown,
   type ConversationBranch,
+  type ConversationSearchResult,
   type ConversationSummary,
   type ProviderRunContext,
   type StorageError,
@@ -38,6 +40,11 @@ export class ConversationState {
   currentBranchId = $state<string | null>(null);
   storageError = $state<StorageError | null>(null);
   isManaging = $state(false);
+  searchQuery = $state("");
+  searchResults = $state<ConversationSearchResult[]>([]);
+  isSearching = $state(false);
+
+  private searchSequence = 0;
 
   /** Loads navigation and returns the exact durable profile selection. */
   async initialize(): Promise<Message[]> {
@@ -61,6 +68,49 @@ export class ConversationState {
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
       return null;
+    }
+  }
+
+  /** Opens the exact preserved branch returned by native conversation search. */
+  async openSearchResult(result: ConversationSearchResult): Promise<Message[] | null> {
+    if (this.isManaging) return null;
+    this.isManaging = true;
+    try {
+      let conversation = await loadConversation(result.conversationId);
+      if (conversation.currentBranchId !== result.branchId) {
+        conversation = await selectConversationBranch(result.conversationId, result.branchId);
+      }
+      this.storageError = null;
+      return this.applyConversation(conversation);
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      return null;
+    } finally {
+      this.isManaging = false;
+    }
+  }
+
+  /** Runs one bounded native search while discarding results from superseded queries. */
+  async search(query: string): Promise<void> {
+    this.searchQuery = query;
+    const sequence = ++this.searchSequence;
+    if (!query.trim()) {
+      this.searchResults = [];
+      this.isSearching = false;
+      return;
+    }
+    this.isSearching = true;
+    try {
+      const results = await searchConversations(query);
+      if (sequence !== this.searchSequence) return;
+      this.searchResults = results;
+      this.storageError = null;
+    } catch (error) {
+      if (sequence !== this.searchSequence) return;
+      this.searchResults = [];
+      this.storageError = storageErrorFromUnknown(error);
+    } finally {
+      if (sequence === this.searchSequence) this.isSearching = false;
     }
   }
 
@@ -181,6 +231,7 @@ export class ConversationState {
     try {
       this.conversations = await listConversations();
       this.storageError = null;
+      if (this.searchQuery.trim()) await this.search(this.searchQuery);
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
     }
