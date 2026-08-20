@@ -96,12 +96,6 @@ export class AttachmentState {
     this.feedback = null;
     this.failed = false;
   }
-
-  /** Explains the intentionally absent provider-delivery step. */
-  explainUnavailableDelivery(): void {
-    this.feedback = "Remove attachments before sending; provider delivery is not available yet.";
-    this.failed = false;
-  }
 }
 
 /** Summarizes accepted, reused, already-selected, and rejected native results. */

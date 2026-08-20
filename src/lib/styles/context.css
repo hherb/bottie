@@ -131,6 +131,14 @@
   height: 23px;
   border-radius: 6px;
 }
+.attachment-row button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.retained-association {
+  border-color: rgba(105, 207, 222, 0.12);
+  background: rgba(105, 207, 222, 0.025);
+}
 .attachment-feedback {
   margin: 9px 0 0;
   color: #777581;

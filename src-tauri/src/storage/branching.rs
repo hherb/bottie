@@ -78,6 +78,11 @@ impl ConversationStore {
             params![uuid::Uuid::new_v4().to_string(), &request_message_id, text],
         )?;
         transaction.execute(
+            "INSERT INTO message_attachments (message_id, attachment_id, ordinal, attached_at_ms)
+             SELECT ?1, attachment_id, ordinal, ?2 FROM message_attachments WHERE message_id = ?3",
+            params![&request_message_id, created_at_ms, message_id],
+        )?;
+        transaction.execute(
             "UPDATE conversations
              SET current_branch_id = ?1, updated_at_ms = ?2, archived_at_ms = NULL
              WHERE id = ?3",

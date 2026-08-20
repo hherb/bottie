@@ -300,17 +300,34 @@ pub(crate) fn clear_last_open_conversation(state: State<'_, AppState>) -> Result
 pub(crate) fn append_conversation_message(
     conversation_id: String,
     text: String,
+    attachment_ids: Vec<String>,
     state: State<'_, AppState>,
 ) -> Result<StoredMessage, StorageError> {
-    state.conversations.append_message(NewStoredMessage {
-        conversation_id,
-        role: StoredRole::User,
-        text,
-        reasoning: None,
-        state: MessageState::Final,
-        provider_id: None,
-        model_id: None,
-    })
+    state.conversations.append_message_with_attachments(
+        NewStoredMessage {
+            conversation_id,
+            role: StoredRole::User,
+            text,
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        },
+        &attachment_ids,
+    )
+}
+
+#[tauri::command]
+/// Detaches one retained file from a visible user message without deleting its content.
+pub(crate) fn remove_conversation_message_attachment(
+    conversation_id: String,
+    message_id: String,
+    attachment_id: String,
+    state: State<'_, AppState>,
+) -> Result<StoredMessage, StorageError> {
+    state
+        .conversations
+        .remove_message_attachment(&conversation_id, &message_id, &attachment_id)
 }
 
 #[tauri::command]

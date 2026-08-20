@@ -22,6 +22,7 @@ export type Message = {
   retryable?: boolean;
   rating?: ResponseRating;
   toolInvocations?: StoredToolInvocation[];
+  attachments?: Attachment[];
 };
 
 /** Browser-side attachment metadata used by the presentation-only attachment preview. */
@@ -32,6 +33,12 @@ export type Attachment = {
   kind: "image" | "file";
   mimeType: string;
   sha256: string;
+};
+
+/** One visible selected-lineage attachment linked to its durable user message. */
+export type MessageAttachment = {
+  messageId: string;
+  attachment: Attachment;
 };
 
 /** Native application identity displayed in the sidebar. */

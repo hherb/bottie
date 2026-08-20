@@ -36,6 +36,7 @@ import {
   nextMessageId,
   type InferenceStage,
   type Message,
+  type MessageAttachment,
   type ProviderStatus,
   type RuntimeInfo,
 } from "$lib/presentation";
@@ -86,6 +87,14 @@ export class PageState {
   /** Whether the current provider and model selection can accept a message. */
   get canSend(): boolean {
     return this.providerStatus === "available" && Boolean(this.selectedModel) && !this.isPersistingMessage;
+  }
+  /** Attachment associations visible on the currently selected durable lineage. */
+  get conversationAttachments(): MessageAttachment[] {
+    return this.messages.flatMap((message) =>
+      message.storageId
+        ? (message.attachments ?? []).map((attachment) => ({ messageId: message.storageId!, attachment }))
+        : [],
+    );
   }
   /** Whether the selected route keeps prompt traffic on this device. */
   get isLocalRoute(): boolean {
@@ -274,12 +283,12 @@ export class PageState {
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
     if (!submittedPrompt || this.isGenerating || !this.canSend) return;
-    if (this.attachment.items.length > 0) {
-      this.attachment.explainUnavailableDelivery();
-      return;
-    }
+    const submittedAttachments = this.attachment.items.map((attachment) => ({ ...attachment }));
     this.isPersistingMessage = true;
-    const runContext = await this.history.persistUserMessage(submittedPrompt);
+    const runContext = await this.history.persistUserMessage(
+      submittedPrompt,
+      submittedAttachments.map((attachment) => attachment.id),
+    );
     this.isPersistingMessage = false;
     if (!runContext) return;
     this.messages.push({
@@ -287,11 +296,18 @@ export class PageState {
       storageId: runContext.requestMessageId,
       role: "user",
       content: submittedPrompt,
+      attachments: submittedAttachments,
     });
     this.prompt = "";
     this.attachment.clear();
     this.resizeComposer();
     await this.startGeneration(runContext);
+  }
+
+  /** Removes one durable selected-lineage association while preserving retained bytes. */
+  async removeMessageAttachment(messageId: string, attachmentId: string): Promise<void> {
+    if (this.isGenerating || this.isPersistingMessage) return;
+    await this.history.removeMessageAttachment(this.messages, messageId, attachmentId);
   }
 
   /** Forks one durable user request and generates a response on the new selected branch. */

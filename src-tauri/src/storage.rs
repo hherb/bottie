@@ -37,11 +37,11 @@ pub(crate) use recovery::StorageRecoveryStatus;
 pub(crate) use types::{
     ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
     ForkedConversation, MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext,
-    ProviderRunState, ResponseRating, RunBlockKind, StoredConversation, StoredMessage,
-    StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
+    ProviderRunState, ResponseRating, RunBlockKind, StoredAttachment, StoredConversation,
+    StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 8;
+const CURRENT_SCHEMA_VERSION: i64 = 9;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -128,10 +128,11 @@ impl ConversationStore {
         })
     }
 
-    /// Appends one immutable message and its ordered content blocks transactionally.
-    pub(crate) fn append_message(
+    /// Appends one message and its ordered retained attachment associations atomically.
+    pub(crate) fn append_message_with_attachments(
         &self,
         message: NewStoredMessage,
+        attachment_ids: &[String],
     ) -> Result<StoredMessage, StorageError> {
         let text = message.text.trim().to_owned();
         let reasoning = message
@@ -182,7 +183,7 @@ impl ConversationStore {
             [&branch_id],
             |row| row.get(0),
         )?;
-        let stored = StoredMessage {
+        let mut stored = StoredMessage {
             id: uuid::Uuid::new_v4().to_string(),
             role: message.role,
             text,
@@ -192,6 +193,7 @@ impl ConversationStore {
             model_id: message.model_id,
             provider_run: None,
             rating: None,
+            attachments: Vec::new(),
             created_at_ms: now_ms()?,
         };
         transaction.execute(
@@ -213,6 +215,12 @@ impl ConversationStore {
             ],
         )?;
         insert_blocks(&transaction, &stored)?;
+        stored.attachments = attachments::associate_message_attachments(
+            &transaction,
+            &stored.id,
+            stored.role,
+            attachment_ids,
+        )?;
         transaction.execute(
             "UPDATE conversations SET updated_at_ms = ?1, archived_at_ms = NULL WHERE id = ?2",
             params![stored.created_at_ms, message.conversation_id],
@@ -326,6 +334,7 @@ fn load_conversation_from_connection(
             .as_deref()
             .map(|run_id| runs::load_provider_run(connection, run_id))
             .transpose()?;
+        let attachments = attachments::load_message_attachments(connection, &id)?;
         messages.push(StoredMessage {
             id,
             role: StoredRole::from_database(&role)?,
@@ -339,6 +348,7 @@ fn load_conversation_from_connection(
                 .as_deref()
                 .map(ResponseRating::from_database)
                 .transpose()?,
+            attachments,
             created_at_ms,
         });
     }

@@ -26,6 +26,7 @@
     onregenerate: (responseId: number) => void;
     onretryresponse: (responseId: number) => void;
     onrateresponse: (responseId: number, rating: ResponseRating) => void;
+    onremoveattachment: (messageId: string, attachmentId: string) => void;
     onscrollready: (element: HTMLDivElement) => void;
   };
 
@@ -46,6 +47,7 @@
     onregenerate,
     onretryresponse,
     onrateresponse,
+    onremoveattachment,
     onscrollready,
   }: Props = $props();
   let messageScroll: HTMLDivElement;
@@ -149,6 +151,29 @@
                 {#each message.content.split("\n\n") as paragraph}<p>{paragraph}</p>{/each}
               {/if}
               {#if message.content === "" && isGenerating}<span class="typing-caret"></span>{/if}
+            </div>
+          {/if}
+
+          {#if message.role === "user" && message.storageId && message.attachments?.length}
+            <div class="message-attachment-list" aria-label="Message attachments">
+              {#each message.attachments as attachment (attachment.id)}
+                <div class="message-attachment">
+                  <span class:image={attachment.kind === "image"} class="message-attachment-icon">
+                    <Icon name={attachment.kind} size={14} />
+                  </span>
+                  <span>
+                    <strong>{attachment.name}</strong>
+                    <small>{attachment.size} · {attachment.mimeType} · Stored locally, not sent</small>
+                  </span>
+                  <button
+                    aria-label={`Remove ${attachment.name} from message`}
+                    disabled={isGenerating}
+                    onclick={() => onremoveattachment(message.storageId!, attachment.id)}
+                  >
+                    <Icon name="x" size={13} />
+                  </button>
+                </div>
+              {/each}
             </div>
           {/if}
 

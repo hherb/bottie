@@ -345,8 +345,26 @@ pub(crate) struct StoredMessage {
     pub(crate) provider_run: Option<StoredProviderRun>,
     /// Current local quality rating for an assistant response.
     pub(crate) rating: Option<ResponseRating>,
+    /// Ordered retained files associated with this user message.
+    pub(crate) attachments: Vec<StoredAttachment>,
     /// Persisted creation time.
     pub(crate) created_at_ms: i64,
+}
+
+/// Path-free retained attachment metadata reconstructed with a durable message.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StoredAttachment {
+    /// Opaque native attachment identity used by narrow association commands.
+    pub(crate) id: String,
+    /// Sanitized leaf name safe for inert presentation.
+    pub(crate) display_name: String,
+    /// MIME type inferred from retained content.
+    pub(crate) mime_type: String,
+    /// Exact retained byte count.
+    pub(crate) byte_size: u64,
+    /// Lowercase SHA-256 content identity.
+    pub(crate) sha256: String,
 }
 
 /// Complete durable conversation returned for reopening.
