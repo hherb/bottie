@@ -5,6 +5,7 @@ use std::{fs, path::PathBuf, time::Duration};
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 mod branching;
+mod export;
 mod lifecycle;
 mod migrate;
 mod migrations;
@@ -429,3 +430,7 @@ mod search_tests;
 #[cfg(test)]
 #[path = "storage/rating_tests.rs"]
 mod rating_tests;
+
+#[cfg(test)]
+#[path = "storage/export_tests.rs"]
+mod export_tests;

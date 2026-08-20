@@ -46,6 +46,14 @@ impl StorageError {
             message: "Bottie could not access its local conversation store.".into(),
         }
     }
+
+    /// Creates a path-redacted file-export failure.
+    pub(crate) fn export() -> Self {
+        Self {
+            code: "internal",
+            message: "Bottie could not save the conversation export.".into(),
+        }
+    }
 }
 
 impl From<rusqlite::Error> for StorageError {

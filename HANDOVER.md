@@ -21,9 +21,11 @@ Markdown source when reasoning is absent. When separate reasoning exists, the co
 Reasoning and Response sections without parser-generated HTML or response metadata. Interrupted, cancelled, and
 transiently failed responses now expose a labelled retry action that forks the unchanged request while preserving the
 original attempt. Assistant responses can now retain a local Good or Poor rating across restart and branch switching;
-selecting the active choice clears it without changing response content. The next bounded implementation slice is
-single-conversation Markdown export; do not bundle backup/restore, tool persistence, or broad product and visual-design
-planning with it.
+selecting the active choice clears it without changing response content. The selected visible conversation lineage can
+now be exported as a human-readable Markdown file through a Rust-owned native Save dialog without revealing the chosen
+path to the WebView. The next bounded implementation slice is manual SQLite backup creation; do not bundle restore,
+corruption recovery, scheduled rotation, batch export, tool persistence, or broad product and visual-design planning
+with it.
 
 Read these files first:
 
@@ -75,6 +77,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - assistant-response and reasoning copying as labelled Markdown with visible and screen-reader-readable feedback;
 - response retry for interrupted, cancelled, and retryable failed attempts, preserving the original branch;
 - durable Good/Poor response ratings with accessible pressed state, replacement, and clearing;
+- selected-lineage Markdown export through a native Save dialog with compact saved/error feedback;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -96,10 +99,11 @@ credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach S
 transactional conversation/message operations. `src-tauri/src/storage/runs.rs` owns provider-run and usage records,
 `src-tauri/src/storage/selection.rs` owns profile-scoped last-open state, `src-tauri/src/storage/branching.rs` owns
 branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search,
-`src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, and
+`src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, `src-tauri/src/storage/export.rs` owns
+deterministic Markdown rendering and safe suggested filenames, and
 `src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
 `src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, user-message append,
-explicit branch, response-rating, and lifecycle commands. The
+explicit branch, response-rating, selected-lineage export, and lifecycle commands. The
 database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a selected branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
@@ -176,7 +180,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- export and backup/restore are not yet implemented;
+- JSON/batch export and backup/restore are not yet implemented;
 - tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
@@ -217,7 +221,36 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Response rating
+## Most recently completed product slice: Conversation Markdown export
+
+### Goal
+
+Let users save the selected visible conversation lineage as portable Markdown without granting the WebView filesystem
+access, exporting hidden branch siblings, or turning conversation export into database backup/restore.
+
+### Implemented shape
+
+1. A pure Rust renderer produces a deterministic UTF-8 Markdown document with the conversation title, user and
+   assistant turns, separate reasoning/response sections, provider/model provenance, local rating, and explicit labels
+   for interrupted, cancelled, or failed assistant output.
+2. Export reconstructs only the selected branch lineage through the existing profile-scoped storage policy. It does
+   not change the selected conversation, activity timestamps, schema, messages, branch history, or ratings.
+3. One async native command opens a Markdown-filtered Save dialog and writes the prepared document in Rust. The
+   WebView receives only `saved` or `cancelled` plus the chosen leaf filename; local directories never cross IPC.
+4. The toolbar exposes a labelled file action only when a durable conversation is open, disables it during generation
+   or storage work, treats cancellation as neutral, and shows compact saved/error feedback.
+
+### Acceptance criteria
+
+- Export contains only the current selected lineage and retains exact user/assistant Markdown plus separate reasoning.
+- Provider, model, rating, and non-final response status remain human-readable without database or run identifiers.
+- User-controlled titles yield bounded cross-platform `bottie-*.md` suggestions.
+- The native command owns dialog and file writing; no dialog/filesystem capability or chosen directory is exposed to
+  JavaScript.
+- Cancelling does not create an error, while file failures return a path-redacted message.
+- No migration, backup/restore, batch/JSON export, provider, credential, attachment, or tool behavior is added.
+
+## Prior completed product slice: Response rating
 
 ### Goal
 
@@ -630,6 +663,33 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
+The following passed on 2026-08-20 for conversation Markdown export:
+
+```sh
+npm run format:check
+npm run check
+npm test
+npm run build
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+The frontend suite remains at twenty-seven passing tests and `svelte-check` reports no errors or warnings. The Rust
+suite has seventy-four tests: seventy pass by default and four remain opt-in live-provider checks. Four focused export
+tests cover deterministic Markdown and metadata, bounded filename normalization, selected-lineage-only reconstruction
+without last-open mutation, and exact path-backed UTF-8 file output.
+
+The browser preview was visually checked at 1320 x 820 and the 720 x 620 native minimum. The disabled export action is
+visible, labelled, and contained in both desktop and compact toolbars, with no console warnings or errors. The native
+app compiled and launched against the existing store after the dialog-plugin integration. macOS denied assistive access
+for automated native clicking, but the real Save-panel flow was manually confirmed on 2026-08-20: the exported file
+opened in a Markdown viewer and retained the expected conversation content, including the separate reasoning trace.
+Live-provider tests were not required because this slice does not change provider networking, streaming, cancellation,
+or credentials.
+
+## Verification completed for the previous response-rating slice
+
 The following passed on 2026-08-20 for response rating:
 
 ```sh
@@ -730,8 +790,9 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is single-conversation Markdown export. Keep tool-invocation persistence,
-backup/restore, and batch export as later reviewable slices. Keep
+The next bounded implementation slice is manual SQLite backup creation through a Rust-owned native Save dialog and
+SQLite's online backup API. Keep restore, corruption recovery, scheduled rotation, tool-invocation persistence, and
+batch/JSON export as later reviewable slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

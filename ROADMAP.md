@@ -124,8 +124,8 @@ ownership rewrite.
 - [x] assistant-response and reasoning copying as labelled Markdown with accessible outcome feedback;
 - [x] response retry for interrupted, cancelled, and transiently failed attempts on preserved branches;
 - [x] durable Good/Poor response rating with replacement, clearing, and preserved-branch restoration;
-- conversation export actions;
-- JSON or Markdown export and backup restore.
+- [x] single-conversation Markdown export through a Rust-owned native Save dialog;
+- JSON/batch export and backup restore.
 
 ## Milestone 3 — Attachments and multimodal context
 
