@@ -30,8 +30,8 @@ use storage::ConversationStore;
 use storage_commands::{
     append_conversation_message, backup_conversation_store, branch_conversation_message,
     clear_last_open_conversation, create_conversation, delete_conversation,
-    export_conversation_markdown, get_storage_recovery_status, list_conversations,
-    load_conversation, load_last_open_conversation, rate_conversation_response,
+    export_conversation_json, export_conversation_markdown, get_storage_recovery_status,
+    list_conversations, load_conversation, load_last_open_conversation, rate_conversation_response,
     rename_conversation, restore_conversation, restore_conversation_store,
     restore_latest_automatic_backup, search_conversations, select_conversation_branch,
     set_conversation_archived,
@@ -441,6 +441,7 @@ pub fn run() {
             create_conversation,
             load_conversation,
             export_conversation_markdown,
+            export_conversation_json,
             backup_conversation_store,
             restore_conversation_store,
             restore_latest_automatic_backup,

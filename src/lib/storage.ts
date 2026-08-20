@@ -111,6 +111,15 @@ export type ConversationExportOutcome = {
   fileName: string | null;
 };
 
+/** Portable selected-conversation formats supported by the native Save flow. */
+export type ConversationExportFormat = "markdown" | "json";
+
+/** Builds compact success feedback from a path-redacted native export outcome. */
+export function conversationExportFeedback(format: ConversationExportFormat, fileName: string | null): string {
+  const fallback = format === "markdown" ? "Markdown export" : "JSON export";
+  return `Saved ${fileName ?? fallback}`;
+}
+
 /** Native backup result that deliberately omits the selected filesystem path. */
 export type BackupOutcome = {
   status: "saved" | "cancelled";
@@ -160,6 +169,12 @@ export async function loadConversation(conversationId: string): Promise<StoredCo
 export async function exportConversationMarkdown(conversationId: string): Promise<ConversationExportOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ConversationExportOutcome>("export_conversation_markdown", { conversationId });
+}
+
+/** Saves the selected visible lineage as versioned JSON without exposing its destination path. */
+export async function exportConversationJson(conversationId: string): Promise<ConversationExportOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ConversationExportOutcome>("export_conversation_json", { conversationId });
 }
 
 /** Saves a complete SQLite snapshot without exposing its destination path. */

@@ -29,6 +29,7 @@
     onopensidebar: () => void;
     ontogglecontext: () => void;
     onexport: () => void;
+    onexportjson: () => void;
     onbackup: () => void;
     onrestore: () => void;
   };
@@ -58,6 +59,7 @@
     onopensidebar,
     ontogglecontext,
     onexport,
+    onexportjson,
     onbackup,
     onrestore,
   }: Props = $props();
@@ -181,6 +183,15 @@
       onclick={onexport}
     >
       <Icon name="file" size={18} />
+    </button>
+    <button
+      class="icon-button"
+      aria-label={isExporting ? "Exporting conversation" : "Export conversation as JSON"}
+      title="Export conversation as JSON"
+      disabled={!canExport || isGenerating}
+      onclick={onexportjson}
+    >
+      <Icon name="braces" size={18} />
     </button>
   </div>
 </header>

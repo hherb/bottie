@@ -2,6 +2,7 @@
   type IconName =
     | "arrow-up"
     | "brain"
+    | "braces"
     | "check"
     | "chevron-down"
     | "copy"
@@ -62,6 +63,9 @@
     <path
       d="M7 7.2c.6 0 1.2.2 1.6.6M17 7.2c-.6 0-1.2.2-1.6.6M6.2 12.4c.7-.4 1.5-.5 2.2-.2M17.8 12.4c-.7-.4-1.5-.5-2.2-.2"
     />
+  {:else if name === "braces"}
+    <path d="M8 3H6a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h2" />
+    <path d="M16 3h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-2" />
   {:else if name === "check"}
     <path d="m5 12 4 4L19 6" />
   {:else if name === "chevron-down"}

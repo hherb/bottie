@@ -22,19 +22,19 @@ Reasoning and Response sections without parser-generated HTML or response metada
 transiently failed responses now expose a labelled retry action that forks the unchanged request while preserving the
 original attempt. Assistant responses can now retain a local Good or Poor rating across restart and branch switching;
 selecting the active choice clears it without changing response content. The selected visible conversation lineage can
-now be exported as a human-readable Markdown file through a Rust-owned native Save dialog without revealing the chosen
-path to the WebView. Users can also create a complete verified SQLite snapshot through a separate Rust-owned Save
-dialog; SQLite's online backup API includes committed WAL content without pausing the live store, and the destination
-path remains native-only. A separate native Open-and-confirm flow now restores validated Bottie backups only after
+now be exported as either human-readable Markdown or versioned, machine-readable JSON through Rust-owned native Save
+dialogs without revealing the chosen path to the WebView. Users can also create a complete verified SQLite snapshot
+through a separate Rust-owned Save dialog; SQLite's online backup API includes committed WAL content without pausing
+the live store, and the destination path remains native-only. A separate native Open-and-confirm flow now restores
+validated Bottie backups only after
 creating an application-private snapshot of the current store; selected directories and database paths never reach the
 WebView. After a successful startup, Bottie now creates a verified application-private snapshot when no automatic
 backup is newer than 24 hours and retains the seven newest automatic snapshots. Rotation runs in the background, never
 prunes manual backups or pre-restore safety copies, and reports a path-redacted outcome in session diagnostics. If
 SQLite reports corruption at startup, Bottie now opens in a restricted recovery state instead of aborting launch. The
 guided screen can restore the newest verified automatic snapshot or a manually selected Bottie backup after preserving
-the damaged database bundle in app-private storage. The next bounded implementation slice is selected-conversation JSON
-export; do not bundle batch export, tool persistence, migration-rollback planning, or broad product and visual-design
-work with it.
+the damaged database bundle in app-private storage. The next bounded implementation slice is batch conversation export;
+do not bundle tool persistence, migration-rollback planning, import, or broad product and visual-design work with it.
 
 Read these files first:
 
@@ -86,7 +86,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - assistant-response and reasoning copying as labelled Markdown with visible and screen-reader-readable feedback;
 - response retry for interrupted, cancelled, and retryable failed attempts, preserving the original branch;
 - durable Good/Poor response ratings with accessible pressed state, replacement, and clearing;
-- selected-lineage Markdown export through a native Save dialog with compact saved/error feedback;
+- selected-lineage Markdown and versioned JSON export through native Save dialogs with compact saved/error feedback;
 - complete manual SQLite backup creation through a native Save dialog with compact saved/error feedback;
 - confirmed manual restore from validated Bottie backups with a named pre-restore safety copy;
 - verified daily automatic SQLite snapshots with a seven-snapshot app-private retention policy;
@@ -113,16 +113,17 @@ transactional conversation/message operations. `src-tauri/src/storage/runs.rs` o
 `src-tauri/src/storage/selection.rs` owns profile-scoped last-open state, `src-tauri/src/storage/branching.rs` owns
 branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search,
 `src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, `src-tauri/src/storage/export.rs` owns
-deterministic Markdown rendering and safe suggested filenames, `src-tauri/src/storage/backup.rs` owns consistent online
-SQLite snapshots, strict automatic-backup discovery and rotation, restore validation, isolated migration, pre-restore
+deterministic Markdown and JSON rendering plus safe suggested filenames, and `src-tauri/src/storage/backup.rs` owns
+consistent online SQLite snapshots, strict automatic-backup discovery and rotation, restore validation, isolated
+migration, pre-restore
 safety copies, and post-copy integrity checks, `src-tauri/src/storage/recovery.rs` owns read-only startup corruption
 classification, verified automatic recovery-point discovery, restricted store state, damaged-bundle preservation, and
 staged replacement, and
 `src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
 `src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, user-message append,
-explicit branch, response-rating, selected-lineage export, whole-store backup/restore, recovery-status/latest-snapshot
-restore, and lifecycle commands. The
-database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
+explicit branch, response-rating, selected-lineage Markdown/JSON export, whole-store backup/restore,
+recovery-status/latest-snapshot restore, and lifecycle commands. The database lives in the OS application-data
+directory; the WebView never receives a path, SQL, or generic database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a selected branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
 blocks. User prompts commit before inference starts, and terminal assistant responses commit before another prompt can
@@ -198,7 +199,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- JSON/batch export is not yet implemented;
+- batch export is not yet implemented;
 - tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
@@ -239,7 +240,49 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Corruption detection and guided recovery
+## Most recently completed product slice: Selected-conversation JSON export
+
+### Goal
+
+Let users save the selected visible conversation lineage as a portable, machine-readable document without exposing
+filesystem paths, leaking opaque storage identifiers, or expanding into multi-conversation export or import.
+
+### Implemented shape
+
+1. A pure Rust renderer emits deterministic pretty UTF-8 JSON with the stable `bottie-conversation` discriminator and
+   an export-contract version independent from SQLite schema versions.
+2. Ordered selected-lineage messages retain exact text and separate reasoning, durable state, provider/model
+   provenance, local rating, creation time, and provider-run outcome, reasoning setting, timing, error category, and
+   provider-reported usage when available. Conversation, branch, message, and provider-run IDs are omitted.
+3. JSON export uses the same reconstructed selected-branch policy and bounded cross-platform filename logic as
+   Markdown export. It does not change selection, activity timestamps, branches, messages, ratings, or schema state.
+4. A narrow native command owns the JSON-filtered Save dialog and UTF-8 write. The WebView receives only `saved` or
+   `cancelled` plus a leaf filename, while a distinct labelled toolbar action shares the existing compact feedback.
+
+### Acceptance criteria
+
+- The exported JSON parses as version 1 of the Bottie conversation contract and contains only the selected lineage.
+- Text, separate reasoning, incomplete state, provenance, rating, timestamps, and provider-reported metadata remain
+  machine-readable without opaque database or run identifiers.
+- User-controlled titles yield bounded `bottie-*.json` suggestions and cancelling the dialog remains neutral.
+- Filesystem and serialization failures use the existing path-redacted export error; no directory reaches JavaScript.
+- No migration, batch export, import, provider, credential, backup, attachment, or tool behavior is added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-20. The frontend suite has twenty-eight passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has eighty-five tests:
+eighty-one pass by default and four live-provider tests remain opt-in. Six focused export tests cover deterministic
+Markdown compatibility, the versioned JSON contract and metadata, opaque-ID omission, selected-lineage isolation,
+safe filenames, selection stability, and native UTF-8 writing.
+
+A fresh native process compiled and remained open against the existing healthy store. The browser preview was visually
+checked at 1320 x 820 and 420 x 780; the separate Markdown and JSON actions stayed labelled and contained in both
+toolbars. macOS did not expose the debug window to System Events in this launch context, so the native Save dialog was
+not synthetically clicked. The real selected-lineage preparation and native-path UTF-8 write remain covered by the
+path-backed Rust tests.
+
+## Prior completed product slice: Corruption detection and guided recovery
 
 ### Goal
 
@@ -969,9 +1012,9 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is selected-conversation JSON export using the existing native Save-dialog and
-selected-lineage policy. Keep batch export, migration-rollback planning, and tool-invocation persistence as later
-reviewable slices. Keep
+The next bounded implementation slice is batch conversation export using the established native Save-dialog and
+path-redaction policies. Keep import, migration-rollback planning, and tool-invocation persistence as later reviewable
+slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 
