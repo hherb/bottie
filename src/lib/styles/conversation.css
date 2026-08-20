@@ -362,6 +362,15 @@
   background: rgba(255, 255, 255, 0.05);
   color: #d8d5dc;
 }
+.copy-status {
+  align-self: center;
+  margin: 0 4px 0 2px;
+  color: var(--cyan);
+  font-size: 8px;
+}
+.copy-status.error {
+  color: #dca39b;
+}
 .response-meta {
   margin-left: 6px;
   color: #5f5d67;
