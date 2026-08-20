@@ -21,6 +21,8 @@ The selected visible branch can be saved as a human-readable Markdown document c
 response status, provider/model provenance, and local ratings. Bottie also restores the exact last-open conversation
 after restart and preserves an intentional blank new-chat view. Native backup controls can create a verified SQLite
 snapshot or restore a validated Bottie backup after explicit confirmation and an automatic pre-restore safety copy.
+After a successful native startup, an app-private background rotation also creates at most one verified snapshot every
+24 hours and retains the seven newest automatic snapshots without pruning manual or pre-restore backups.
 Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
@@ -92,8 +94,10 @@ the WebView receives only a saved/cancelled outcome and leaf filename, never the
 backup action asks Rust to create and verify a complete SQLite snapshot with SQLite's online backup API, including
 committed WAL content, while likewise returning no local path. Restore opens and validates the selected database in
 Rust, migrates an isolated staging copy when supported, creates an application-private snapshot of the current store,
-and only then replaces the live database. The WebView receives leaf filenames rather than database paths. Automatic
-rotation, corruption recovery, and JSON/batch export remain planned Milestone 2 work.
+and only then replaces the live database. The WebView receives leaf filenames rather than database paths. Native
+startup rotation creates and verifies a new app-private snapshot when the newest is at least 24 hours old, retains the
+seven newest managed snapshots, and reports its path-redacted result in Recent diagnostics. Corruption recovery and
+JSON/batch export remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

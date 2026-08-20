@@ -47,6 +47,40 @@ struct AppState {
     conversations: ConversationStore,
 }
 
+/// Starts the non-blocking startup rotation and records only path-redacted session diagnostics.
+fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diagnostics) {
+    tauri::async_runtime::spawn(async move {
+        let rotation =
+            tauri::async_runtime::spawn_blocking(move || conversations.rotate_automatic_backups())
+                .await;
+        let (level, event, detail) = match rotation {
+            Ok(Ok(outcome)) if outcome.created => (
+                "info",
+                "Automatic backup created",
+                format!(
+                    "{} verified snapshot(s) retained; {} expired snapshot(s) removed",
+                    outcome.retained, outcome.pruned
+                ),
+            ),
+            Ok(Ok(outcome)) => (
+                "info",
+                "Automatic backups current",
+                format!(
+                    "{} verified snapshot(s) retained; snapshots run at most once every 24 hours",
+                    outcome.retained
+                ),
+            ),
+            Ok(Err(error)) => ("error", "Automatic backup failed", error.message),
+            Err(_) => (
+                "error",
+                "Automatic backup failed",
+                "The background backup worker stopped unexpectedly.".into(),
+            ),
+        };
+        record_diagnostic(&diagnostics, level, event, None, Some(&detail)).await;
+    });
+}
+
 #[tauri::command]
 /// Returns static identity information for the running native application.
 fn app_info() -> AppInfo {
@@ -355,6 +389,8 @@ pub fn run() {
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
             let conversations = ConversationStore::initialize(database_path)
                 .map_err(|error| std::io::Error::other(error.message))?;
+            let diagnostics = Diagnostics::default();
+            schedule_automatic_backup(conversations.clone(), diagnostics.clone());
             let settings = load_provider_settings(&settings_path).unwrap_or_default();
             let providers = ProviderSet::from_settings(&settings).unwrap_or_else(|_| ProviderSet {
                 omlx: OmlxProvider::new().expect("the built-in oMLX configuration must be valid"),
@@ -366,7 +402,7 @@ pub fn run() {
                 providers: tauri::async_runtime::RwLock::new(providers),
                 settings_path,
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
-                diagnostics: Diagnostics::default(),
+                diagnostics,
                 credentials: Arc::new(SystemCredentialStore::default()),
                 conversations,
             });
