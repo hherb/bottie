@@ -119,7 +119,7 @@ ownership rewrite.
 - [x] edit-and-regenerate branches using parent message IDs;
 - [x] reopen the exact conversation after restart;
 - [x] date grouping based on real conversation activity;
-- conversation search;
+- [x] bounded native conversation search across titles and visible message text;
 - Markdown rendering with sanitization;
 - copy, retry, rating, and export actions;
 - JSON or Markdown export and backup restore.

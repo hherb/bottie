@@ -296,6 +296,24 @@ pub(crate) struct ConversationSummary {
     pub(crate) lifecycle: ConversationLifecycle,
 }
 
+/// One native-ranked conversation search result with enough context to reveal its match.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ConversationSearchResult {
+    /// Stable conversation identity.
+    pub(crate) conversation_id: String,
+    /// Human-readable conversation title.
+    pub(crate) title: String,
+    /// Short title or message excerpt containing the match.
+    pub(crate) snippet: String,
+    /// Branch that reveals the matching message, or the current branch for title matches.
+    pub(crate) branch_id: String,
+    /// Last persisted conversation activity time.
+    pub(crate) updated_at_ms: i64,
+    /// Current soft lifecycle state.
+    pub(crate) lifecycle: ConversationLifecycle,
+}
+
 /// Soft lifecycle state used to organize recoverable conversations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]

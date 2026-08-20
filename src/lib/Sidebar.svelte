@@ -1,7 +1,12 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
   import ConversationGroup from "$lib/ConversationGroup.svelte";
-  import { activeConversationDateGroups, conversationsForLifecycle, type ConversationSummary } from "$lib/storage";
+  import {
+    activeConversationDateGroups,
+    conversationsForLifecycle,
+    type ConversationSearchResult,
+    type ConversationSummary,
+  } from "$lib/storage";
 
   type Props = {
     mobileOpen: boolean;
@@ -9,10 +14,15 @@
     conversations: ConversationSummary[];
     activeConversationId: string | null;
     storageError: string | null;
+    searchQuery: string;
+    searchResults: ConversationSearchResult[];
+    isSearching: boolean;
     isGenerating: boolean;
     onclose: () => void;
     onnewchat: () => void;
     onselectconversation: (conversationId: string) => void;
+    onsearch: (query: string) => void;
+    onselectsearchresult: (result: ConversationSearchResult) => void;
     onrenameconversation: (conversationId: string, title: string) => void;
     onarchiveconversation: (conversationId: string, archived: boolean) => void;
     ondeleteconversation: (conversationId: string) => void;
@@ -26,10 +36,15 @@
     conversations,
     activeConversationId,
     storageError,
+    searchQuery,
+    searchResults,
+    isSearching,
     isGenerating,
     onclose,
     onnewchat,
     onselectconversation,
+    onsearch,
+    onselectsearchresult,
     onrenameconversation,
     onarchiveconversation,
     ondeleteconversation,
@@ -40,7 +55,26 @@
   let activeGroups = $derived(activeConversationDateGroups(conversations));
   let archivedConversations = $derived(conversationsForLifecycle(conversations, "archived"));
   let deletedConversations = $derived(conversationsForLifecycle(conversations, "deleted"));
+  let searchInput = $state<HTMLInputElement>();
+
+  /** Focuses conversation search from the standard desktop shortcut. */
+  function handleWindowKeydown(event: KeyboardEvent): void {
+    if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      searchInput?.focus();
+      searchInput?.select();
+    }
+  }
+
+  /** Clears an active query, or releases focus when the field is already empty. */
+  function handleSearchKeydown(event: KeyboardEvent): void {
+    if (event.key !== "Escape") return;
+    if (searchQuery) onsearch("");
+    else searchInput?.blur();
+  }
 </script>
+
+<svelte:window onkeydown={handleWindowKeydown} />
 
 {#if mobileOpen}
   <button class="mobile-scrim" aria-label="Close conversations" onclick={onclose}></button>
@@ -59,67 +93,101 @@
     <kbd>⌘ N</kbd>
   </button>
 
-  <button class="search-memory">
+  <label class="conversation-search">
     <Icon name="search" size={17} />
-    <span>Search memory</span>
+    <input
+      aria-label="Search conversations"
+      bind:this={searchInput}
+      value={searchQuery}
+      maxlength="200"
+      placeholder="Search conversations"
+      oninput={(event) => onsearch(event.currentTarget.value)}
+      onkeydown={handleSearchKeydown}
+    />
     <kbd>⌘ K</kbd>
-  </button>
+  </label>
 
   <nav class="conversation-list" aria-label="Past conversations">
     {#if storageError}
       <p class="conversation-empty error" role="status">{storageError}</p>
     {/if}
-    {#each activeGroups as group (group.label)}
-      <ConversationGroup
-        label={group.label}
-        conversations={group.conversations}
-        {activeConversationId}
-        disabled={isGenerating}
-        onselect={onselectconversation}
-        onrename={onrenameconversation}
-        onarchive={onarchiveconversation}
-        ondelete={ondeleteconversation}
-        onrestore={onrestoreconversation}
-      />
+    {#if searchQuery.trim()}
+      <section class="conversation-group search-results" aria-live="polite">
+        <h2>Search results</h2>
+        {#if isSearching}
+          <p class="conversation-empty">Searching local conversations…</p>
+        {:else if searchResults.length === 0}
+          <p class="conversation-empty">No conversations match “{searchQuery.trim()}”.</p>
+        {:else}
+          {#each searchResults as result (`${result.conversationId}:${result.branchId}`)}
+            <button
+              class:active={result.conversationId === activeConversationId}
+              class="search-result"
+              disabled={isGenerating}
+              onclick={() => onselectsearchresult(result)}
+            >
+              <span class="search-result-title">
+                <strong>{result.title}</strong>
+                {#if result.lifecycle === "archived"}<small>Archived</small>{/if}
+              </span>
+              <span class="search-result-snippet">{result.snippet}</span>
+            </button>
+          {/each}
+        {/if}
+      </section>
     {:else}
-      <ConversationGroup
-        label="Recent"
-        conversations={[]}
-        {activeConversationId}
-        emptyMessage="Your saved conversations will appear here."
-        disabled={isGenerating}
-        onselect={onselectconversation}
-        onrename={onrenameconversation}
-        onarchive={onarchiveconversation}
-        ondelete={ondeleteconversation}
-        onrestore={onrestoreconversation}
-      />
-    {/each}
-    {#if archivedConversations.length > 0}
-      <ConversationGroup
-        label="Archived"
-        conversations={archivedConversations}
-        {activeConversationId}
-        disabled={isGenerating}
-        onselect={onselectconversation}
-        onrename={onrenameconversation}
-        onarchive={onarchiveconversation}
-        ondelete={ondeleteconversation}
-        onrestore={onrestoreconversation}
-      />
-    {/if}
-    {#if deletedConversations.length > 0}
-      <ConversationGroup
-        label="Trash"
-        conversations={deletedConversations}
-        {activeConversationId}
-        disabled={isGenerating}
-        onselect={onselectconversation}
-        onrename={onrenameconversation}
-        onarchive={onarchiveconversation}
-        ondelete={ondeleteconversation}
-        onrestore={onrestoreconversation}
-      />
+      {#each activeGroups as group (group.label)}
+        <ConversationGroup
+          label={group.label}
+          conversations={group.conversations}
+          {activeConversationId}
+          disabled={isGenerating}
+          onselect={onselectconversation}
+          onrename={onrenameconversation}
+          onarchive={onarchiveconversation}
+          ondelete={ondeleteconversation}
+          onrestore={onrestoreconversation}
+        />
+      {:else}
+        <ConversationGroup
+          label="Recent"
+          conversations={[]}
+          {activeConversationId}
+          emptyMessage="Your saved conversations will appear here."
+          disabled={isGenerating}
+          onselect={onselectconversation}
+          onrename={onrenameconversation}
+          onarchive={onarchiveconversation}
+          ondelete={ondeleteconversation}
+          onrestore={onrestoreconversation}
+        />
+      {/each}
+      {#if archivedConversations.length > 0}
+        <ConversationGroup
+          label="Archived"
+          conversations={archivedConversations}
+          {activeConversationId}
+          disabled={isGenerating}
+          onselect={onselectconversation}
+          onrename={onrenameconversation}
+          onarchive={onarchiveconversation}
+          ondelete={ondeleteconversation}
+          onrestore={onrestoreconversation}
+        />
+      {/if}
+      {#if deletedConversations.length > 0}
+        <ConversationGroup
+          label="Trash"
+          conversations={deletedConversations}
+          {activeConversationId}
+          disabled={isGenerating}
+          onselect={onselectconversation}
+          onrename={onrenameconversation}
+          onarchive={onarchiveconversation}
+          ondelete={ondeleteconversation}
+          onrestore={onrestoreconversation}
+        />
+      {/if}
     {/if}
   </nav>
 
