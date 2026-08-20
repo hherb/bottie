@@ -15,10 +15,12 @@
     isLocalRoute: boolean;
     canExport: boolean;
     canBackup: boolean;
+    canRestore: boolean;
     isExporting: boolean;
     exportFeedback: string | null;
     exportFailed: boolean;
     isBackingUp: boolean;
+    isRestoring: boolean;
     backupFeedback: string | null;
     backupFailed: boolean;
     onproviderchange: (providerId: ProviderId) => void;
@@ -28,6 +30,7 @@
     ontogglecontext: () => void;
     onexport: () => void;
     onbackup: () => void;
+    onrestore: () => void;
   };
 
   let {
@@ -41,10 +44,12 @@
     isLocalRoute,
     canExport,
     canBackup,
+    canRestore,
     isExporting,
     exportFeedback,
     exportFailed,
     isBackingUp,
+    isRestoring,
     backupFeedback,
     backupFailed,
     onproviderchange,
@@ -54,6 +59,7 @@
     ontogglecontext,
     onexport,
     onbackup,
+    onrestore,
   }: Props = $props();
 </script>
 
@@ -149,6 +155,15 @@
         {backupFeedback ?? exportFeedback}
       </span>
     {/if}
+    <button
+      class="icon-button"
+      aria-label={isRestoring ? "Restoring local data" : "Restore local data from backup"}
+      title="Restore local data from backup"
+      disabled={!canRestore || isGenerating}
+      onclick={onrestore}
+    >
+      <Icon name="restore" size={18} />
+    </button>
     <button
       class="icon-button"
       aria-label={isBackingUp ? "Backing up local data" : "Back up local data"}

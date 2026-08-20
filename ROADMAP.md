@@ -110,7 +110,8 @@ ownership rewrite.
 - [ ] append-oriented tool invocations and results;
 - [x] crash-safe draft/partial message persistence and interrupted-run recovery;
 - [x] manual SQLite backup creation through a Rust-owned Save dialog and SQLite's online backup API;
-- [ ] automatic backup, restore, and corruption-recovery strategy;
+- [x] confirmed manual restore from a validated Bottie backup with a pre-restore safety copy;
+- [ ] automatic backup rotation and corruption-recovery strategy;
 - [x] soft deletion and retention metadata.
 
 ### Conversation experience
@@ -126,7 +127,7 @@ ownership rewrite.
 - [x] response retry for interrupted, cancelled, and transiently failed attempts on preserved branches;
 - [x] durable Good/Poor response rating with replacement, clearing, and preserved-branch restoration;
 - [x] single-conversation Markdown export through a Rust-owned native Save dialog;
-- [ ] JSON/batch export and backup restore.
+- [ ] JSON/batch export.
 
 ## Milestone 3 — Attachments and multimodal context
 
@@ -203,7 +204,7 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 Outcome: bottie is safe and comfortable enough for sustained daily use.
 
 - first-run provider and privacy setup;
-- database backup, restore, migration rollback planning, and corruption recovery;
+- automatic backup rotation, migration rollback planning, and corruption recovery;
 - crash-safe partial messages and interrupted indexing recovery;
 - structured local diagnostics with redaction and opt-in export;
 - CSP and Tauri capability review;

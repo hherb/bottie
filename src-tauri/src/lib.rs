@@ -32,8 +32,8 @@ use storage_commands::{
     clear_last_open_conversation, create_conversation, delete_conversation,
     export_conversation_markdown, list_conversations, load_conversation,
     load_last_open_conversation, rate_conversation_response, rename_conversation,
-    restore_conversation, search_conversations, select_conversation_branch,
-    set_conversation_archived,
+    restore_conversation, restore_conversation_store, search_conversations,
+    select_conversation_branch, set_conversation_archived,
 };
 use tauri::{Manager, State};
 
@@ -387,6 +387,7 @@ pub fn run() {
             load_conversation,
             export_conversation_markdown,
             backup_conversation_store,
+            restore_conversation_store,
             load_last_open_conversation,
             clear_last_open_conversation,
             append_conversation_message,

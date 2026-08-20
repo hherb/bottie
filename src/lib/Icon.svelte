@@ -16,6 +16,7 @@
     | "paperclip"
     | "panel"
     | "refresh"
+    | "restore"
     | "search"
     | "settings"
     | "shield"
@@ -101,6 +102,9 @@
   {:else if name === "refresh"}
     <path d="M20 7v5h-5M4 17v-5h5" />
     <path d="M6.1 9A7 7 0 0 1 18 6l2 1M17.9 15A7 7 0 0 1 6 18l-2-1" />
+  {:else if name === "restore"}
+    <path d="M4 6c0 1.7 3.6 3 8 3s8-1.3 8-3-3.6-3-8-3-8 1.3-8 3Zm0 0v5c0 1.7 3.6 3 8 3" />
+    <path d="M20 6v5M15 17h5v-5M20 17l-6 4" />
   {:else if name === "search"}
     <circle cx="11" cy="11" r="7" />
     <path d="m20 20-4-4" />

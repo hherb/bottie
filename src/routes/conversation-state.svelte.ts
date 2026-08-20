@@ -21,6 +21,7 @@ import {
   rateConversationResponse,
   renameConversation,
   restoreConversation,
+  restoreConversationStore,
   searchConversations,
   selectConversationBranch,
   setConversationArchived,
@@ -54,6 +55,7 @@ export class ConversationState {
   isSearching = $state(false);
   isExporting = $state(false);
   isBackingUp = $state(false);
+  isRestoring = $state(false);
   exportFeedback = $state<string | null>(null);
   exportFailed = $state(false);
   backupFeedback = $state<string | null>(null);
@@ -66,7 +68,12 @@ export class ConversationState {
     try {
       const [conversations, selected] = await Promise.all([listConversations(), loadLastOpenConversation()]);
       this.conversations = conversations;
-      if (!selected) return [];
+      if (!selected) {
+        this.activeConversationId = null;
+        this.branches = [];
+        this.currentBranchId = null;
+        return [];
+      }
       return this.applyConversation(selected);
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
@@ -227,6 +234,40 @@ export class ConversationState {
       this.backupFailed = true;
     } finally {
       this.isBackingUp = false;
+      this.isManaging = false;
+    }
+  }
+
+  /** Restores one confirmed native backup, refreshes all durable state, and reports the safety-copy filename. */
+  async restoreBackup(): Promise<Message[] | null> {
+    if (this.isManaging) return null;
+    this.isManaging = true;
+    this.isRestoring = true;
+    this.backupFeedback = null;
+    this.backupFailed = false;
+    this.exportFeedback = null;
+    this.exportFailed = false;
+    try {
+      const outcome = await restoreConversationStore();
+      if (outcome.status !== "restored") return null;
+      this.searchSequence += 1;
+      this.searchQuery = "";
+      this.searchResults = [];
+      this.isSearching = false;
+      const messages = await this.initialize();
+      if (this.storageError) throw this.storageError;
+      const backupName = outcome.fileName ?? "local data";
+      const safetyName = outcome.safetyCopyFileName ?? "pre-restore safety copy";
+      this.backupFeedback = `Restored ${backupName} · safety copy ${safetyName}`;
+      this.storageError = null;
+      return messages;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      this.backupFeedback = this.storageError.message;
+      this.backupFailed = true;
+      return null;
+    } finally {
+      this.isRestoring = false;
       this.isManaging = false;
     }
   }

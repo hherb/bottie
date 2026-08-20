@@ -62,6 +62,38 @@ impl StorageError {
             message: "Bottie could not save the local data backup.".into(),
         }
     }
+
+    /// Creates a validation failure for a selected database that is not a supported Bottie backup.
+    pub(crate) fn invalid_backup() -> Self {
+        Self {
+            code: "invalid_request",
+            message: "Choose a valid Bottie backup.".into(),
+        }
+    }
+
+    /// Creates a restore failure when native provider work still owns the live store.
+    pub(crate) fn restore_while_active() -> Self {
+        Self {
+            code: "invalid_request",
+            message: "Wait for the active response to finish before restoring local data.".into(),
+        }
+    }
+
+    /// Creates a path-redacted SQLite-restore failure.
+    pub(crate) fn restore() -> Self {
+        Self {
+            code: "internal",
+            message: "Bottie could not restore the local data backup. The pre-restore safety copy was kept.".into(),
+        }
+    }
+
+    /// Creates a failure when Bottie cannot preserve live data before restore.
+    pub(crate) fn restore_safety_copy() -> Self {
+        Self {
+            code: "internal",
+            message: "Bottie could not create the pre-restore safety copy. Your current data was not changed.".into(),
+        }
+    }
 }
 
 impl From<rusqlite::Error> for StorageError {

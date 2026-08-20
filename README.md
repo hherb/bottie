@@ -19,7 +19,8 @@ can be retried on a preserved alternative branch without overwriting the origina
 ratings can be set, changed, or cleared on each preserved assistant response and survive restart and branch switching.
 The selected visible branch can be saved as a human-readable Markdown document containing separated reasoning,
 response status, provider/model provenance, and local ratings. Bottie also restores the exact last-open conversation
-after restart and preserves an intentional blank new-chat view.
+after restart and preserves an intentional blank new-chat view. Native backup controls can create a verified SQLite
+snapshot or restore a validated Bottie backup after explicit confirmation and an automatic pre-restore safety copy.
 Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
@@ -89,8 +90,10 @@ ratings stay local, survive restart, and remain attached to their preserved bran
 reconstructs only the selected lineage and asks Rust to show a native Markdown Save dialog. Rust writes the UTF-8 file;
 the WebView receives only a saved/cancelled outcome and leaf filename, never the chosen directory. A separate global
 backup action asks Rust to create and verify a complete SQLite snapshot with SQLite's online backup API, including
-committed WAL content, while likewise returning no local path. Restore, automatic rotation, and JSON/batch export remain
-planned Milestone 2 work.
+committed WAL content, while likewise returning no local path. Restore opens and validates the selected database in
+Rust, migrates an isolated staging copy when supported, creates an application-private snapshot of the current store,
+and only then replaces the live database. The WebView receives leaf filenames rather than database paths. Automatic
+rotation, corruption recovery, and JSON/batch export remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

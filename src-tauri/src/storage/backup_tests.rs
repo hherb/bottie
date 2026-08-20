@@ -69,3 +69,80 @@ fn rejects_the_live_database_as_its_own_backup_destination() {
         "Choose a different location for the Bottie backup."
     );
 }
+
+#[test]
+fn restores_a_valid_backup_after_preserving_the_live_store() {
+    let live_path = tests::test_database_path();
+    let backup_path = live_path.with_file_name("selected-backup.sqlite3");
+    let safety_path = live_path.with_file_name("bottie-pre-restore.sqlite3");
+    let live = ConversationStore::initialize(live_path).expect("live storage should initialize");
+    let original = live
+        .create_conversation("Current local conversation")
+        .expect("live conversation should be created");
+    let backup_source_path = live
+        .path
+        .with_file_name("backup-source")
+        .join("bottie.sqlite3");
+    let backup_source =
+        ConversationStore::initialize(backup_source_path).expect("backup source should initialize");
+    let restored = backup_source
+        .create_conversation("Conversation from backup")
+        .expect("backup conversation should be created");
+    backup_source
+        .backup_to(&backup_path)
+        .expect("selected backup should be created");
+
+    live.restore_from(&backup_path, &safety_path)
+        .expect("valid backup should restore");
+
+    let restored_conversations = live
+        .list_conversations()
+        .expect("restored conversations should list");
+    let safety = ConversationStore::initialize(safety_path).expect("safety copy should reopen");
+    let preserved_conversations = safety
+        .list_conversations()
+        .expect("preserved conversations should list");
+    let restored_selection = live
+        .load_last_open_conversation()
+        .expect("restored selection should load")
+        .expect("backup selection should be preserved");
+    let preserved_selection = safety
+        .load_last_open_conversation()
+        .expect("safety selection should load")
+        .expect("live selection should be preserved");
+    assert_eq!(restored_conversations.len(), 1);
+    assert_eq!(restored_conversations[0].id, restored.id);
+    assert_eq!(restored_selection.id, restored.id);
+    assert_eq!(preserved_conversations.len(), 1);
+    assert_eq!(preserved_conversations[0].id, original.id);
+    assert_eq!(preserved_selection.id, original.id);
+}
+
+#[test]
+fn rejects_a_non_bottie_database_without_changing_the_live_store() {
+    let live_path = tests::test_database_path();
+    let invalid_path = live_path.with_file_name("unrelated.sqlite3");
+    let safety_path = live_path.with_file_name("bottie-pre-restore.sqlite3");
+    let live = ConversationStore::initialize(live_path).expect("live storage should initialize");
+    let original = live
+        .create_conversation("Keep this conversation")
+        .expect("live conversation should be created");
+    let unrelated = Connection::open(&invalid_path).expect("unrelated SQLite database should open");
+    unrelated
+        .execute("CREATE TABLE unrelated (value TEXT NOT NULL)", [])
+        .expect("unrelated schema should be created");
+    drop(unrelated);
+
+    let error = live
+        .restore_from(&invalid_path, &safety_path)
+        .expect_err("an unrelated SQLite database must be rejected");
+
+    let conversations = live
+        .list_conversations()
+        .expect("live conversations should still list");
+    assert_eq!(error.code, "invalid_request");
+    assert_eq!(error.message, "Choose a valid Bottie backup.");
+    assert_eq!(conversations.len(), 1);
+    assert_eq!(conversations[0].id, original.id);
+    assert!(!safety_path.exists());
+}
