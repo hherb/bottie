@@ -310,8 +310,9 @@ the responsive drawer has equal client and scroll widths, and the browser consol
 native process opened the real application store on a live oMLX route and remained running without terminal errors;
 immutable inspection confirmed schema 9, the `durable message attachments` migration, an initially empty association
 table, and `quick_check = ok`. Automated path-backed tests exercise association, reopen, branch, removal, and byte-
-retention behavior. macOS denied assistive access to synthetic picker/send/remove clicks, so that native interaction
-remains a manual check.
+retention behavior. macOS denied assistive access to synthetic picker/send/remove clicks, but the native file picker and
+durable attachment persistence flow were manually confirmed on 2026-08-21. Association removal remains covered by the
+path-backed native tests rather than a separate manual interaction check.
 
 ## Prior completed product slice: Native content-addressed attachment ingestion
 
