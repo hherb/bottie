@@ -9,6 +9,7 @@
     | "database"
     | "edit"
     | "file"
+    | "files"
     | "globe"
     | "image"
     | "menu"
@@ -82,6 +83,9 @@
   {:else if name === "file"}
     <path d="M6 3h8l4 4v14H6z" />
     <path d="M14 3v5h5M9 13h6M9 17h4" />
+  {:else if name === "files"}
+    <path d="M8 3h7l4 4v13H8z" />
+    <path d="M15 3v5h5M5 7H4v14h11" />
   {:else if name === "globe"}
     <circle cx="12" cy="12" r="9" />
     <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />

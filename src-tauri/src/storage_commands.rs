@@ -13,33 +13,15 @@ use crate::{
     },
 };
 
-const MARKDOWN_FILTER_NAME: &str = "Markdown";
-const MARKDOWN_EXTENSION: &str = "md";
-const JSON_FILTER_NAME: &str = "JSON";
-const JSON_EXTENSION: &str = "json";
+mod export;
+
+pub(crate) use export::{
+    export_conversation_batch_json, export_conversation_json, export_conversation_markdown,
+};
+
 const SQLITE_FILTER_NAME: &str = "SQLite database";
 const SQLITE_EXTENSIONS: &[&str] = &["sqlite3", "db"];
 const BACKUP_FILE_NAME: &str = "bottie-backup.sqlite3";
-
-/// Result of one native Save-dialog interaction without exposing a filesystem path.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct ConversationExportOutcome {
-    /// Whether a file was written or the user cancelled the dialog.
-    status: ConversationExportStatus,
-    /// Saved leaf filename, absent when the dialog was cancelled.
-    file_name: Option<String>,
-}
-
-/// Stable native export outcomes returned to the presentation layer.
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-enum ConversationExportStatus {
-    /// The requested conversation document was written successfully.
-    Saved,
-    /// The user closed the native dialog without selecting a destination.
-    Cancelled,
-}
 
 /// Result of one native backup Save-dialog interaction without exposing a filesystem path.
 #[derive(Serialize)]
@@ -124,76 +106,6 @@ pub(crate) fn load_conversation(
     state: State<'_, AppState>,
 ) -> Result<StoredConversation, StorageError> {
     state.conversations.open_conversation(&conversation_id)
-}
-
-#[tauri::command]
-/// Saves the selected visible lineage as UTF-8 Markdown through a Rust-owned native dialog.
-pub(crate) async fn export_conversation_markdown(
-    conversation_id: String,
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<ConversationExportOutcome, StorageError> {
-    let export = state
-        .conversations
-        .prepare_markdown_export(&conversation_id)?;
-    let selected = app
-        .dialog()
-        .file()
-        .set_title("Export conversation as Markdown")
-        .set_file_name(&export.file_name)
-        .add_filter(MARKDOWN_FILTER_NAME, &[MARKDOWN_EXTENSION])
-        .blocking_save_file();
-    let Some(selected) = selected else {
-        return Ok(ConversationExportOutcome {
-            status: ConversationExportStatus::Cancelled,
-            file_name: None,
-        });
-    };
-    let path = selected.into_path().map_err(|_| StorageError::export())?;
-    export.write_to(&path)?;
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(&export.file_name)
-        .to_owned();
-    Ok(ConversationExportOutcome {
-        status: ConversationExportStatus::Saved,
-        file_name: Some(file_name),
-    })
-}
-
-#[tauri::command]
-/// Saves the selected visible lineage as versioned JSON through a Rust-owned native dialog.
-pub(crate) async fn export_conversation_json(
-    conversation_id: String,
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<ConversationExportOutcome, StorageError> {
-    let export = state.conversations.prepare_json_export(&conversation_id)?;
-    let selected = app
-        .dialog()
-        .file()
-        .set_title("Export conversation as JSON")
-        .set_file_name(&export.file_name)
-        .add_filter(JSON_FILTER_NAME, &[JSON_EXTENSION])
-        .blocking_save_file();
-    let Some(selected) = selected else {
-        return Ok(ConversationExportOutcome {
-            status: ConversationExportStatus::Cancelled,
-            file_name: None,
-        });
-    };
-    let path = selected.into_path().map_err(|_| StorageError::export())?;
-    export.write_to(&path)?;
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(&export.file_name)
-        .to_owned();
-    Ok(ConversationExportOutcome {
-        status: ConversationExportStatus::Saved,
-        file_name: Some(file_name),
-    })
 }
 
 #[tauri::command]

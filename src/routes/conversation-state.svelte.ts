@@ -15,6 +15,7 @@ import {
   conversationExportFeedback,
   createConversation,
   deleteConversation,
+  exportConversationBatchJson,
   exportConversationJson,
   exportConversationMarkdown,
   listConversations,
@@ -206,9 +207,14 @@ export class ConversationState {
     await this.exportConversation("json");
   }
 
+  /** Opens the native Save dialog for all active and archived selected lineages as JSON. */
+  async exportBatchJson(): Promise<void> {
+    await this.exportConversation("batch-json");
+  }
+
   /** Runs one path-redacted native export flow and owns its shared presentation feedback. */
   private async exportConversation(format: ConversationExportFormat): Promise<void> {
-    if (!this.activeConversationId || this.isManaging) return;
+    if ((format !== "batch-json" && !this.activeConversationId) || this.isManaging) return;
     this.isManaging = true;
     this.isExporting = true;
     this.exportFeedback = null;
@@ -216,8 +222,12 @@ export class ConversationState {
     this.backupFeedback = null;
     this.backupFailed = false;
     try {
-      const exportConversation = format === "markdown" ? exportConversationMarkdown : exportConversationJson;
-      const outcome = await exportConversation(this.activeConversationId);
+      const outcome =
+        format === "batch-json"
+          ? await exportConversationBatchJson()
+          : format === "markdown"
+            ? await exportConversationMarkdown(this.activeConversationId!)
+            : await exportConversationJson(this.activeConversationId!);
       if (outcome.status === "saved") {
         this.exportFeedback = conversationExportFeedback(format, outcome.fileName);
       }

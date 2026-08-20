@@ -1,13 +1,13 @@
-//! Deterministic Markdown and JSON rendering for one selected durable conversation lineage.
+//! Deterministic Markdown and JSON rendering for selected durable conversation lineages.
 
 use std::{fmt::Write, path::Path};
 
 use serde::Serialize;
 
 use super::{
-    ConversationStore, MessageState, ProviderRunState, ResponseRating, StorageError,
-    StoredConversation, StoredMessage, StoredReasoningEffort, StoredRole, StoredUsage,
-    load_conversation_from_connection,
+    ConversationLifecycle, ConversationStore, DEFAULT_PROFILE_ID, MessageState, ProviderRunState,
+    ResponseRating, StorageError, StoredConversation, StoredMessage, StoredReasoningEffort,
+    StoredRole, StoredUsage, load_conversation_from_connection,
 };
 
 const MAX_EXPORT_FILENAME_SLUG_CHARACTERS: usize = 64;
@@ -16,6 +16,9 @@ const MARKDOWN_FILENAME_EXTENSION: &str = ".md";
 const JSON_FILENAME_EXTENSION: &str = ".json";
 const JSON_EXPORT_FORMAT: &str = "bottie-conversation";
 const JSON_EXPORT_VERSION: u8 = 1;
+const BATCH_JSON_EXPORT_FILE_NAME: &str = "bottie-conversations.json";
+const BATCH_JSON_EXPORT_FORMAT: &str = "bottie-conversation-batch";
+const BATCH_JSON_EXPORT_VERSION: u8 = 1;
 
 /// Native-only file payload prepared before Bottie opens a save dialog.
 pub(crate) struct ConversationFileExport {
@@ -52,6 +55,49 @@ impl ConversationStore {
         let conversation = load_conversation_from_connection(&connection, conversation_id)?;
         json_export(&conversation)
     }
+
+    /// Prepares every non-deleted conversation's selected lineage as one portable JSON document.
+    pub(crate) fn prepare_batch_json_export(&self) -> Result<ConversationFileExport, StorageError> {
+        let mut connection = self.open()?;
+        let transaction = connection.transaction()?;
+        let rows = {
+            let mut statement = transaction.prepare(
+                "SELECT id, updated_at_ms,
+                        CASE WHEN archived_at_ms IS NULL THEN 'active' ELSE 'archived' END
+                 FROM conversations
+                 WHERE profile_id = ?1 AND deleted_at_ms IS NULL
+                 ORDER BY CASE WHEN archived_at_ms IS NULL THEN 0 ELSE 1 END,
+                          updated_at_ms DESC, id DESC",
+            )?;
+            statement
+                .query_map([DEFAULT_PROFILE_ID], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?
+        };
+        if rows.is_empty() {
+            return Err(StorageError::not_found(
+                "There are no active or archived conversations to export.",
+            ));
+        }
+        let conversations = rows
+            .into_iter()
+            .map(|(id, updated_at_ms, lifecycle)| {
+                Ok(BatchConversationExport {
+                    conversation: load_conversation_from_connection(&transaction, &id)?,
+                    lifecycle: ConversationLifecycle::from_database(&lifecycle)?,
+                    updated_at_ms,
+                })
+            })
+            .collect::<Result<Vec<_>, StorageError>>()?;
+        let export = batch_json_export(&conversations)?;
+        transaction.commit()?;
+        Ok(export)
+    }
 }
 
 /// Builds one native-only Markdown export payload from a reconstructed conversation.
@@ -72,6 +118,26 @@ pub(super) fn json_export(
     })
 }
 
+/// Builds one native-only JSON payload from ordered non-deleted selected lineages.
+fn batch_json_export(
+    conversations: &[BatchConversationExport],
+) -> Result<ConversationFileExport, StorageError> {
+    Ok(ConversationFileExport {
+        file_name: BATCH_JSON_EXPORT_FILE_NAME.into(),
+        contents: render_conversation_batch_json(conversations)?,
+    })
+}
+
+/// Native-only conversation metadata required by the batch export contract.
+struct BatchConversationExport {
+    /// Reconstructed selected lineage.
+    conversation: StoredConversation,
+    /// Active or archived lifecycle retained for portable organization.
+    lifecycle: ConversationLifecycle,
+    /// Last persisted conversation activity time.
+    updated_at_ms: i64,
+}
+
 /// Versioned portable JSON document that deliberately excludes opaque storage identifiers.
 #[derive(Serialize)]
 struct JsonConversationExport<'a> {
@@ -81,6 +147,31 @@ struct JsonConversationExport<'a> {
     version: u8,
     /// Human-readable conversation title.
     title: &'a str,
+    /// Ordered messages reconstructed from the selected visible lineage.
+    messages: Vec<JsonMessageExport<'a>>,
+}
+
+/// Versioned multi-conversation JSON document without database identities or trashed records.
+#[derive(Serialize)]
+struct JsonConversationBatchExport<'a> {
+    /// Stable format discriminator distinct from a single-conversation document.
+    format: &'static str,
+    /// Portable batch contract version, independent from SQLite schema versions.
+    version: u8,
+    /// Active then archived conversations in deterministic recent-first order.
+    conversations: Vec<JsonBatchConversationExport<'a>>,
+}
+
+/// One conversation inside the portable batch document.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonBatchConversationExport<'a> {
+    /// Human-readable conversation title.
+    title: &'a str,
+    /// Active or archived lifecycle at export time.
+    lifecycle: ConversationLifecycle,
+    /// Last persisted activity time as Unix milliseconds.
+    updated_at_ms: i64,
     /// Ordered messages reconstructed from the selected visible lineage.
     messages: Vec<JsonMessageExport<'a>>,
 }
@@ -139,6 +230,33 @@ pub(super) fn render_conversation_json(
             .messages
             .iter()
             .map(JsonMessageExport::from)
+            .collect(),
+    };
+    let mut json = serde_json::to_string_pretty(&export).map_err(|_| StorageError::export())?;
+    json.push('\n');
+    Ok(json)
+}
+
+/// Renders deterministic pretty JSON for all eligible conversations and appends one trailing newline.
+fn render_conversation_batch_json(
+    conversations: &[BatchConversationExport],
+) -> Result<String, StorageError> {
+    let export = JsonConversationBatchExport {
+        format: BATCH_JSON_EXPORT_FORMAT,
+        version: BATCH_JSON_EXPORT_VERSION,
+        conversations: conversations
+            .iter()
+            .map(|item| JsonBatchConversationExport {
+                title: &item.conversation.title,
+                lifecycle: item.lifecycle,
+                updated_at_ms: item.updated_at_ms,
+                messages: item
+                    .conversation
+                    .messages
+                    .iter()
+                    .map(JsonMessageExport::from)
+                    .collect(),
+            })
             .collect(),
     };
     let mut json = serde_json::to_string_pretty(&export).map_err(|_| StorageError::export())?;

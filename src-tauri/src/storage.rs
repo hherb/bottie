@@ -25,6 +25,7 @@ mod search;
 mod selection;
 mod types;
 
+pub(crate) use export::ConversationFileExport;
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use recovery::StorageRecoveryStatus;
