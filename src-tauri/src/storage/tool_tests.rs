@@ -228,8 +228,10 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("database should open");
     connection
-        .execute_batch("DROP TABLE tool_results; DROP TABLE tool_invocations;")
-        .expect("version seven tables should be removable in the fixture");
+        .execute_batch(
+            "DROP TABLE attachments; DROP TABLE tool_results; DROP TABLE tool_invocations;",
+        )
+        .expect("post-version-six tables should be removable in the fixture");
     connection
         .execute("DELETE FROM schema_migrations WHERE version > 6", [])
         .expect("newer migration records should be removable in the fixture");
@@ -255,7 +257,7 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
             .status()
             .expect("status should load")
             .schema_version,
-        7
+        8
     );
     assert_eq!(table_count, 2);
 }

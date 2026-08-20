@@ -346,6 +346,7 @@ version = "0.1.0"
 dependencies = [
  "block2",
  "futures-util",
+ "infer",
  "keyring",
  "objc2",
  "objc2-foundation",
@@ -354,6 +355,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

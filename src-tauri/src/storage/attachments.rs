@@ -1,0 +1,282 @@
+//! Content-addressed application-private attachment ingestion.
+
+use std::{
+    fs::{self, File, OpenOptions},
+    io::{Read, Write},
+    path::{Path, PathBuf},
+};
+
+use rusqlite::{OptionalExtension, params};
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+
+use super::{ConversationStore, StorageError, now_ms};
+
+const ATTACHMENT_DIRECTORY_NAME: &str = "attachments";
+const BLOB_DIRECTORY_NAME: &str = "blobs";
+const TEMPORARY_DIRECTORY_NAME: &str = "temporary";
+const COPY_BUFFER_BYTES: usize = 64 * 1024;
+const MIME_SNIFF_BYTES: usize = 8 * 1024;
+const MAX_DISPLAY_NAME_CHARACTERS: usize = 120;
+const BYTES_PER_MEBIBYTE: u64 = 1024 * 1024;
+const MAX_ATTACHMENT_MEBIBYTES: u64 = 25;
+
+/// Maximum bytes accepted for one selected attachment.
+pub(super) const MAX_ATTACHMENT_BYTES: u64 = MAX_ATTACHMENT_MEBIBYTES * BYTES_PER_MEBIBYTE;
+/// Maximum files accepted by one native picker interaction.
+pub(crate) const MAX_ATTACHMENT_SELECTION_COUNT: usize = 8;
+
+/// Safe attachment metadata returned without source or application-private paths.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct IngestedAttachment {
+    /// Opaque native identity for later attachment association.
+    pub(crate) id: String,
+    /// Sanitized leaf name safe for inert interface display.
+    pub(crate) display_name: String,
+    /// MIME type inferred from content rather than browser or extension claims.
+    pub(crate) mime_type: String,
+    /// Exact byte count retained in application-private storage.
+    pub(crate) byte_size: u64,
+    /// Lowercase SHA-256 content identity.
+    pub(crate) sha256: String,
+    /// Whether this selection reused an already retained content blob.
+    pub(crate) duplicate: bool,
+}
+
+impl ConversationStore {
+    /// Streams one local file into the content-addressed attachment store.
+    pub(crate) fn ingest_attachment(
+        &self,
+        source_path: &Path,
+    ) -> Result<IngestedAttachment, StorageError> {
+        validate_source(source_path)?;
+        let display_name = source_path
+            .file_name()
+            .map(|name| safe_display_name(&name.to_string_lossy()))
+            .unwrap_or_else(|| "attachment".into());
+        let temporary_directory = self.attachment_root().join(TEMPORARY_DIRECTORY_NAME);
+        fs::create_dir_all(&temporary_directory)?;
+        let temporary_path = temporary_directory.join(format!("{}.part", uuid::Uuid::new_v4()));
+        let prepared = prepare_blob(source_path, &temporary_path, &display_name);
+        if prepared.is_err() {
+            let _ = fs::remove_file(&temporary_path);
+        }
+        let prepared = prepared?;
+        let result = self.commit_blob(&temporary_path, prepared);
+        let _ = fs::remove_file(&temporary_path);
+        result
+    }
+
+    /// Commits prepared bytes and metadata while preventing duplicate content rows.
+    fn commit_blob(
+        &self,
+        temporary_path: &Path,
+        prepared: PreparedAttachment,
+    ) -> Result<IngestedAttachment, StorageError> {
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        if let Some(existing) = find_attachment(&transaction, &prepared.sha256)? {
+            return Ok(IngestedAttachment {
+                duplicate: true,
+                ..existing
+            });
+        }
+
+        let blob_path = self.attachment_blob_path(&prepared.sha256);
+        let blob_directory = blob_path.parent().ok_or_else(StorageError::internal)?;
+        fs::create_dir_all(blob_directory)?;
+        if blob_path.exists() {
+            fs::remove_file(&blob_path)?;
+        }
+        fs::rename(temporary_path, &blob_path)?;
+        let attachment = IngestedAttachment {
+            id: uuid::Uuid::new_v4().to_string(),
+            display_name: prepared.display_name,
+            mime_type: prepared.mime_type,
+            byte_size: prepared.byte_size,
+            sha256: prepared.sha256,
+            duplicate: false,
+        };
+        let inserted = transaction.execute(
+            "INSERT INTO attachments (id, sha256, display_name, mime_type, byte_size, created_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                attachment.id,
+                attachment.sha256,
+                attachment.display_name,
+                attachment.mime_type,
+                attachment.byte_size as i64,
+                now_ms()?
+            ],
+        );
+        if inserted.is_err() {
+            let _ = fs::remove_file(&blob_path);
+        }
+        inserted?;
+        if let Err(error) = transaction.commit() {
+            let _ = fs::remove_file(&blob_path);
+            return Err(error.into());
+        }
+        Ok(attachment)
+    }
+
+    /// Returns the application-private attachment directory beside the SQLite store.
+    fn attachment_root(&self) -> PathBuf {
+        self.path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(ATTACHMENT_DIRECTORY_NAME)
+    }
+
+    /// Resolves a content hash to its sharded application-private blob location.
+    pub(super) fn attachment_blob_path(&self, sha256: &str) -> PathBuf {
+        self.attachment_root()
+            .join(BLOB_DIRECTORY_NAME)
+            .join(&sha256[..2])
+            .join(sha256)
+    }
+
+    /// Counts retained attachment metadata for storage contract tests.
+    #[cfg(test)]
+    pub(super) fn attachment_count(&self) -> Result<i64, StorageError> {
+        self.open()?
+            .query_row("SELECT COUNT(*) FROM attachments", [], |row| row.get(0))
+            .map_err(Into::into)
+    }
+}
+
+/// Prepared content and safe metadata awaiting one database transaction.
+struct PreparedAttachment {
+    display_name: String,
+    mime_type: String,
+    byte_size: u64,
+    sha256: String,
+}
+
+/// Rejects non-files, empty files, and files over the native policy ceiling.
+fn validate_source(source_path: &Path) -> Result<(), StorageError> {
+    let metadata = fs::metadata(source_path).map_err(|_| StorageError::attachment_read())?;
+    if !metadata.is_file() {
+        return Err(StorageError::invalid("Choose a regular file to attach."));
+    }
+    if metadata.len() == 0 {
+        return Err(StorageError::invalid("Empty files cannot be attached."));
+    }
+    if metadata.len() > MAX_ATTACHMENT_BYTES {
+        return Err(attachment_too_large());
+    }
+    Ok(())
+}
+
+/// Copies and hashes one source through a bounded streaming buffer.
+fn prepare_blob(
+    source_path: &Path,
+    temporary_path: &Path,
+    display_name: &str,
+) -> Result<PreparedAttachment, StorageError> {
+    let mut source = File::open(source_path).map_err(|_| StorageError::attachment_read())?;
+    let mut destination = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(temporary_path)?;
+    let mut buffer = [0_u8; COPY_BUFFER_BYTES];
+    let mut sniffed = Vec::with_capacity(MIME_SNIFF_BYTES);
+    let mut hasher = Sha256::new();
+    let mut byte_size = 0_u64;
+    loop {
+        let read = source
+            .read(&mut buffer)
+            .map_err(|_| StorageError::attachment_read())?;
+        if read == 0 {
+            break;
+        }
+        byte_size = byte_size
+            .checked_add(read as u64)
+            .ok_or_else(attachment_too_large)?;
+        if byte_size > MAX_ATTACHMENT_BYTES {
+            return Err(attachment_too_large());
+        }
+        let sniff_remaining = MIME_SNIFF_BYTES.saturating_sub(sniffed.len());
+        sniffed.extend_from_slice(&buffer[..read.min(sniff_remaining)]);
+        hasher.update(&buffer[..read]);
+        destination.write_all(&buffer[..read])?;
+    }
+    destination.sync_all()?;
+    if byte_size == 0 {
+        return Err(StorageError::invalid("Empty files cannot be attached."));
+    }
+    Ok(PreparedAttachment {
+        display_name: display_name.into(),
+        mime_type: detect_mime_type(&sniffed, display_name).into(),
+        byte_size,
+        sha256: format!("{:x}", hasher.finalize()),
+    })
+}
+
+/// Loads retained metadata for one content hash.
+fn find_attachment(
+    connection: &rusqlite::Connection,
+    sha256: &str,
+) -> Result<Option<IngestedAttachment>, StorageError> {
+    connection
+        .query_row(
+            "SELECT id, display_name, mime_type, byte_size, sha256
+             FROM attachments WHERE sha256 = ?1",
+            [sha256],
+            |row| {
+                Ok(IngestedAttachment {
+                    id: row.get(0)?,
+                    display_name: row.get(1)?,
+                    mime_type: row.get(2)?,
+                    byte_size: row.get::<_, i64>(3)? as u64,
+                    sha256: row.get(4)?,
+                    duplicate: false,
+                })
+            },
+        )
+        .optional()
+        .map_err(Into::into)
+}
+
+/// Infers MIME from content signatures, then falls back to inert text or binary.
+pub(super) fn detect_mime_type(bytes: &[u8], _display_name: &str) -> &'static str {
+    if let Some(kind) = infer::get(bytes) {
+        return kind.mime_type();
+    }
+    if !bytes.contains(&0) && std::str::from_utf8(bytes).is_ok() {
+        return "text/plain";
+    }
+    "application/octet-stream"
+}
+
+/// Removes path separators, controls, bidi overrides, excess whitespace, and unsafe length.
+pub(crate) fn safe_display_name(value: &str) -> String {
+    let filtered: String = value
+        .chars()
+        .filter(|character| {
+            !character.is_control()
+                && !matches!(character, '/' | '\\')
+                && !matches!(*character, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+        })
+        .collect();
+    let normalized = filtered.split_whitespace().collect::<Vec<_>>().join(" ");
+    let bounded: String = normalized
+        .trim_matches(|character: char| character == '.' || character.is_whitespace())
+        .chars()
+        .take(MAX_DISPLAY_NAME_CHARACTERS)
+        .collect();
+    if bounded.is_empty() {
+        "attachment".into()
+    } else {
+        bounded
+    }
+}
+
+/// Creates the stable rejection used by both metadata and streaming size checks.
+fn attachment_too_large() -> StorageError {
+    StorageError::invalid(format!(
+        "Attachments must be {MAX_ATTACHMENT_MEBIBYTES} MiB or smaller."
+    ))
+}

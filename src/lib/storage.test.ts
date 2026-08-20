@@ -6,6 +6,8 @@ import {
   conversationExportFeedback,
   conversationsForLifecycle,
   formatToolPayload,
+  mergeIngestedAttachments,
+  type IngestedAttachment,
   type ConversationSummary,
 } from "./storage";
 
@@ -54,5 +56,29 @@ describe("conversation storage presentation helpers", () => {
   it("formats retained tool payloads as readable inert JSON", () => {
     expect(formatToolPayload({ query: "release", count: 2 })).toBe('{\n  "query": "release",\n  "count": 2\n}');
     expect(formatToolPayload("plain result")).toBe('"plain result"');
+  });
+
+  it("merges native attachment metadata without repeating the same content", () => {
+    const first: IngestedAttachment = {
+      id: "attachment-1",
+      displayName: "diagram.png",
+      mimeType: "image/png",
+      byteSize: 16,
+      sha256: "abc123",
+      duplicate: false,
+    };
+    const duplicate = { ...first, duplicate: true };
+
+    expect(mergeIngestedAttachments([], [first])).toEqual([
+      {
+        id: "attachment-1",
+        name: "diagram.png",
+        size: "16 B",
+        kind: "image",
+        mimeType: "image/png",
+        sha256: "abc123",
+      },
+    ]);
+    expect(mergeIngestedAttachments(mergeIngestedAttachments([], [first]), [duplicate])).toHaveLength(1);
   });
 });

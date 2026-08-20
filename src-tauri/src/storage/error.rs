@@ -14,7 +14,7 @@ pub(crate) struct StorageError {
 
 impl StorageError {
     /// Creates an invalid-input failure.
-    pub(super) fn invalid(message: impl Into<String>) -> Self {
+    pub(crate) fn invalid(message: impl Into<String>) -> Self {
         Self {
             code: "invalid_request",
             message: message.into(),
@@ -30,7 +30,7 @@ impl StorageError {
     }
 
     /// Creates an internal storage failure without exposing SQL or local paths.
-    pub(super) fn internal() -> Self {
+    pub(crate) fn internal() -> Self {
         Self {
             code: "internal",
             message: "Bottie could not access its local conversation store.".into(),
@@ -50,6 +50,14 @@ impl StorageError {
         Self {
             code: "internal",
             message: "Bottie could not save the conversation export.".into(),
+        }
+    }
+
+    /// Creates a source-path-redacted attachment read failure.
+    pub(crate) fn attachment_read() -> Self {
+        Self {
+            code: "invalid_request",
+            message: "Bottie could not read that attachment.".into(),
         }
     }
 

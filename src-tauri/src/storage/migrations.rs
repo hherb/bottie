@@ -165,3 +165,17 @@ CREATE TABLE tool_results (
 CREATE INDEX tool_invocations_run_created_idx
     ON tool_invocations(provider_run_id, ordinal);
 "#;
+
+/// Adds application-owned content-addressed attachment metadata.
+pub(super) const MIGRATION_8: &str = r#"
+CREATE TABLE attachments (
+    id TEXT PRIMARY KEY,
+    sha256 TEXT NOT NULL UNIQUE
+        CHECK (length(sha256) = 64 AND sha256 NOT GLOB '*[^0-9a-f]*'),
+    display_name TEXT NOT NULL CHECK (length(trim(display_name)) > 0),
+    mime_type TEXT NOT NULL CHECK (length(trim(mime_type)) > 0),
+    byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+    created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX attachments_created_idx ON attachments(created_at_ms, id);
+"#;

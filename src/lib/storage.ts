@@ -2,7 +2,9 @@
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
+import { formatBytes } from "./chat";
 import type { Usage } from "./inference";
+import type { Attachment } from "./presentation";
 
 /** Durable message states supported by the initial SQLite schema. */
 export type StoredMessageState = "partial" | "final" | "cancelled" | "failed";
@@ -55,6 +57,29 @@ export type StorageRecoveryStatus = {
   state: "ready" | "recovery_required";
   automaticBackupCount: number;
   latestAutomaticBackupAtMs: number | null;
+};
+
+/** Safe native attachment metadata that deliberately omits every filesystem path. */
+export type IngestedAttachment = {
+  id: string;
+  displayName: string;
+  mimeType: string;
+  byteSize: number;
+  sha256: string;
+  duplicate: boolean;
+};
+
+/** One path-redacted attachment rejection returned alongside successful selections. */
+export type AttachmentRejection = {
+  displayName: string;
+  message: string;
+};
+
+/** Native multi-file picker result with independently accepted and rejected files. */
+export type AttachmentIngestOutcome = {
+  status: "selected" | "cancelled";
+  attachments: IngestedAttachment[];
+  rejections: AttachmentRejection[];
 };
 
 /** One conversation row used by navigation. */
@@ -188,6 +213,12 @@ export async function loadConversation(conversationId: string): Promise<StoredCo
   return invoke<StoredConversation>("load_conversation", { conversationId });
 }
 
+/** Opens the native picker and ingests selected bytes without receiving local paths. */
+export async function ingestAttachments(): Promise<AttachmentIngestOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<AttachmentIngestOutcome>("ingest_attachments");
+}
+
 /** Saves the selected visible lineage as Markdown without exposing its destination path. */
 export async function exportConversationMarkdown(conversationId: string): Promise<ConversationExportOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
@@ -311,6 +342,25 @@ export function conversationsForLifecycle(
 /** Reports whether at least one non-trashed conversation is available for batch export. */
 export function canBatchExportConversations(conversations: ConversationSummary[]): boolean {
   return conversations.some((conversation) => conversation.lifecycle !== "deleted");
+}
+
+/** Merges native attachment metadata into the current draft without repeating content. */
+export function mergeIngestedAttachments(current: Attachment[], ingested: IngestedAttachment[]): Attachment[] {
+  const merged = [...current];
+  const retainedIds = new Set(current.map((attachment) => attachment.id));
+  for (const attachment of ingested) {
+    if (retainedIds.has(attachment.id)) continue;
+    retainedIds.add(attachment.id);
+    merged.push({
+      id: attachment.id,
+      name: attachment.displayName,
+      size: formatBytes(attachment.byteSize),
+      kind: attachment.mimeType.startsWith("image/") ? "image" : "file",
+      mimeType: attachment.mimeType,
+      sha256: attachment.sha256,
+    });
+  }
+  return merged;
 }
 
 /** Groups active conversations by local calendar recency while preserving native ordering. */

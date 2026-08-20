@@ -12,6 +12,7 @@ use std::{
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
+pub(crate) mod attachments;
 mod backup;
 mod branching;
 mod error;
@@ -27,6 +28,7 @@ mod selection;
 mod tools;
 mod types;
 
+pub(crate) use attachments::{IngestedAttachment, MAX_ATTACHMENT_SELECTION_COUNT};
 pub(crate) use error::StorageError;
 pub(crate) use export::ConversationFileExport;
 #[cfg(test)]
@@ -39,7 +41,7 @@ pub(crate) use types::{
     StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 7;
+const CURRENT_SCHEMA_VERSION: i64 = 8;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -465,6 +467,10 @@ mod export_tests;
 #[cfg(test)]
 #[path = "storage/tool_tests.rs"]
 mod tool_tests;
+
+#[cfg(test)]
+#[path = "storage/attachment_tests.rs"]
+mod attachment_tests;
 
 #[cfg(test)]
 #[path = "storage/backup_tests.rs"]

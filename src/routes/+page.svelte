@@ -147,7 +147,7 @@
       />
 
       <Composer
-        attachments={state.attachments}
+        attachments={state.attachment.items}
         prompt={state.prompt}
         isGenerating={state.isGenerating}
         canSend={state.canSend}
@@ -156,23 +156,27 @@
         oninput={() => state.resizeComposer()}
         onkeydown={(event) => state.handleComposerKeydown(event)}
         onsend={() => state.handleSendButton()}
-        onfiles={(event) => state.addAttachments(event)}
-        onremove={(id) => state.removeAttachment(id)}
+        onadd={() => void state.attachment.openPicker()}
+        onfiles={(event) => state.attachment.addBrowserFiles(event)}
+        onremove={(id) => state.attachment.remove(id)}
         oncomposerready={(element) => state.setComposer(element)}
-        onattachmentinputready={(element) => state.setAttachmentInput(element)}
+        onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />
     </main>
 
     <ContextPanel
       open={state.showContext}
-      attachments={state.attachments}
+      attachments={state.attachment.items}
       selectedModel={state.selectedModel}
       selectedProviderEndpoint={state.selectedProviderEndpoint}
       providerStatus={state.providerStatus}
       isLocalRoute={state.isLocalRoute}
+      isAddingAttachments={state.attachment.isIngesting}
+      attachmentFeedback={state.attachment.feedback}
+      attachmentFailed={state.attachment.failed}
       onclose={() => (state.showContext = false)}
-      onadd={() => state.openAttachmentPicker()}
-      onremove={(id) => state.removeAttachment(id)}
+      onadd={() => void state.attachment.openPicker()}
+      onremove={(id) => state.attachment.remove(id)}
     />
 
     {#if state.showSettings}

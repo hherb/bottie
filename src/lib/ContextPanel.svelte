@@ -10,9 +10,12 @@
     selectedProviderEndpoint: string;
     providerStatus: ProviderStatus;
     isLocalRoute: boolean;
+    isAddingAttachments: boolean;
+    attachmentFeedback: string | null;
+    attachmentFailed: boolean;
     onclose: () => void;
     onadd: () => void;
-    onremove: (id: number) => void;
+    onremove: (id: string) => void;
   };
 
   let {
@@ -22,6 +25,9 @@
     selectedProviderEndpoint,
     providerStatus,
     isLocalRoute,
+    isAddingAttachments,
+    attachmentFeedback,
+    attachmentFailed,
     onclose,
     onadd,
     onremove,
@@ -42,7 +48,7 @@
   <section class="context-section">
     <div class="section-heading">
       <h3>Attachments <span>{attachments.length}</span></h3>
-      <button onclick={onadd}>Add</button>
+      <button disabled={isAddingAttachments} onclick={onadd}>{isAddingAttachments ? "Adding…" : "Add"}</button>
     </div>
     <div class="attachment-list">
       {#each attachments as attachment (attachment.id)}
@@ -51,7 +57,7 @@
             <Icon name={attachment.kind} size={18} />
           </span>
           <span class="attachment-copy">
-            <strong>{attachment.name}</strong><small>{attachment.size} · Preview only</small>
+            <strong>{attachment.name}</strong><small>{attachment.size} · {attachment.mimeType} · Not sent</small>
           </span>
           <button aria-label={`Remove ${attachment.name}`} onclick={() => onremove(attachment.id)}>
             <Icon name="x" size={15} />
@@ -65,6 +71,9 @@
         </button>
       {/if}
     </div>
+    {#if attachmentFeedback}
+      <p class:error={attachmentFailed} class="attachment-feedback" role="status">{attachmentFeedback}</p>
+    {/if}
   </section>
 
   <section class="context-section memory-section">

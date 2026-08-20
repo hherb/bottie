@@ -26,10 +26,12 @@ export type Message = {
 
 /** Browser-side attachment metadata used by the presentation-only attachment preview. */
 export type Attachment = {
-  id: number;
+  id: string;
   name: string;
   size: string;
   kind: "image" | "file";
+  mimeType: string;
+  sha256: string;
 };
 
 /** Native application identity displayed in the sidebar. */

@@ -33,9 +33,13 @@ can restore the newest verified automatic snapshot or choose a manual backup; Ru
 bundle in app-private storage before replacement.
 Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
-per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, provider tool
-loops, approvals, and tool execution are not implemented yet; those UI surfaces are disabled or labelled as
-preview-only fixtures.
+per Bottie session; successful unlocks are cached only in process memory. The native attachment picker now streams up
+to eight selected files into application-private, SHA-256-addressed storage with a 25 MiB per-file ceiling,
+content-based MIME detection, safe display names, and duplicate reuse. The WebView receives no filesystem path,
+labels each retained item as not sent, and prevents prompt submission until that unsendable selection is removed.
+Message association, extraction, provider delivery, memory retrieval, provider
+tool loops, approvals, and tool execution are not implemented yet; those surfaces remain disabled or explicitly
+labelled.
 
 ## Development
 
@@ -119,8 +123,11 @@ result. Recovery mode blocks normal conversation connections and skips automatic
 only verified automatic-snapshot count and newest timestamp. Restoring either that newest snapshot or a manually
 selected backup stages, migrates, and verifies a replacement before preserving the damaged main database and present
 WAL/shared-memory sidecars in app-private storage. Successful replacement resumes normal conversation access without
-returning a filesystem path. Milestone 2 durable conversation storage is complete; native attachment ingestion is the
-next bounded foundation slice.
+returning a filesystem path. A separate native picker ingests files through a bounded streaming copy into an
+application-private attachment directory. SQLite stores only sanitized metadata and the SHA-256 content identity;
+identical content reuses its existing blob across restarts. Draft removal does not yet delete retained content, and
+attachments are not yet associated with stored messages, included in SQLite-only backups/exports, extracted, indexed,
+or delivered to providers.
 
 Run the layout-only browser preview:
 
