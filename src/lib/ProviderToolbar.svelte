@@ -14,15 +14,20 @@
     showContext: boolean;
     isLocalRoute: boolean;
     canExport: boolean;
+    canBackup: boolean;
     isExporting: boolean;
     exportFeedback: string | null;
     exportFailed: boolean;
+    isBackingUp: boolean;
+    backupFeedback: string | null;
+    backupFailed: boolean;
     onproviderchange: (providerId: ProviderId) => void;
     onmodelchange: (modelKey: string) => void;
     ontogglereasoning: () => void;
     onopensidebar: () => void;
     ontogglecontext: () => void;
     onexport: () => void;
+    onbackup: () => void;
   };
 
   let {
@@ -35,15 +40,20 @@
     showContext,
     isLocalRoute,
     canExport,
+    canBackup,
     isExporting,
     exportFeedback,
     exportFailed,
+    isBackingUp,
+    backupFeedback,
+    backupFailed,
     onproviderchange,
     onmodelchange,
     ontogglereasoning,
     onopensidebar,
     ontogglecontext,
     onexport,
+    onbackup,
   }: Props = $props();
 </script>
 
@@ -134,9 +144,20 @@
     >
       <Icon name="panel" size={18} />
     </button>
-    {#if exportFeedback}
-      <span class:error={exportFailed} class="export-feedback" role="status">{exportFeedback}</span>
+    {#if backupFeedback || exportFeedback}
+      <span class:error={backupFeedback ? backupFailed : exportFailed} class="export-feedback" role="status">
+        {backupFeedback ?? exportFeedback}
+      </span>
     {/if}
+    <button
+      class="icon-button"
+      aria-label={isBackingUp ? "Backing up local data" : "Back up local data"}
+      title="Back up local data"
+      disabled={!canBackup || isGenerating}
+      onclick={onbackup}
+    >
+      <Icon name="database" size={18} />
+    </button>
     <button
       class="icon-button"
       aria-label={isExporting ? "Exporting conversation" : "Export conversation as Markdown"}

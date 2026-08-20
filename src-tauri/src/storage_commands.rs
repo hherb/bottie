@@ -15,6 +15,9 @@ use crate::{
 
 const MARKDOWN_FILTER_NAME: &str = "Markdown";
 const MARKDOWN_EXTENSION: &str = "md";
+const SQLITE_FILTER_NAME: &str = "SQLite database";
+const SQLITE_EXTENSIONS: &[&str] = &["sqlite3", "db"];
+const BACKUP_FILE_NAME: &str = "bottie-backup.sqlite3";
 
 /// Result of one native Save-dialog interaction without exposing a filesystem path.
 #[derive(Serialize)]
@@ -31,6 +34,26 @@ pub(crate) struct ConversationExportOutcome {
 #[serde(rename_all = "snake_case")]
 enum ConversationExportStatus {
     /// The Markdown document was written successfully.
+    Saved,
+    /// The user closed the native dialog without selecting a destination.
+    Cancelled,
+}
+
+/// Result of one native backup Save-dialog interaction without exposing a filesystem path.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BackupOutcome {
+    /// Whether a complete verified snapshot was written or the user cancelled the dialog.
+    status: BackupStatus,
+    /// Saved leaf filename, absent when the dialog was cancelled.
+    file_name: Option<String>,
+}
+
+/// Stable native backup outcomes returned to the presentation layer.
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+enum BackupStatus {
+    /// The SQLite snapshot was written and verified successfully.
     Saved,
     /// The user closed the native dialog without selecting a destination.
     Cancelled,
@@ -103,6 +126,42 @@ pub(crate) async fn export_conversation_markdown(
         .to_owned();
     Ok(ConversationExportOutcome {
         status: ConversationExportStatus::Saved,
+        file_name: Some(file_name),
+    })
+}
+
+#[tauri::command]
+/// Saves a consistent snapshot of all local conversation data through a Rust-owned native dialog.
+pub(crate) async fn backup_conversation_store(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<BackupOutcome, StorageError> {
+    let selected = app
+        .dialog()
+        .file()
+        .set_title("Back up Bottie local data")
+        .set_file_name(BACKUP_FILE_NAME)
+        .add_filter(SQLITE_FILTER_NAME, SQLITE_EXTENSIONS)
+        .blocking_save_file();
+    let Some(selected) = selected else {
+        return Ok(BackupOutcome {
+            status: BackupStatus::Cancelled,
+            file_name: None,
+        });
+    };
+    let path = selected.into_path().map_err(|_| StorageError::backup())?;
+    let conversations = state.conversations.clone();
+    let backup_path = path.clone();
+    tauri::async_runtime::spawn_blocking(move || conversations.backup_to(&backup_path))
+        .await
+        .map_err(|_| StorageError::backup())??;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(BACKUP_FILE_NAME)
+        .to_owned();
+    Ok(BackupOutcome {
+        status: BackupStatus::Saved,
         file_name: Some(file_name),
     })
 }

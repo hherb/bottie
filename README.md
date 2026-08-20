@@ -87,8 +87,10 @@ context. Good and Poor rating controls
 write only the exact visible assistant response through a narrow native command. Selecting the active choice clears it;
 ratings stay local, survive restart, and remain attached to their preserved branch response. The toolbar's export action
 reconstructs only the selected lineage and asks Rust to show a native Markdown Save dialog. Rust writes the UTF-8 file;
-the WebView receives only a saved/cancelled outcome and leaf filename, never the chosen directory. JSON/batch export and
-backup/restore remain planned Milestone 2 work.
+the WebView receives only a saved/cancelled outcome and leaf filename, never the chosen directory. A separate global
+backup action asks Rust to create and verify a complete SQLite snapshot with SQLite's online backup API, including
+committed WAL content, while likewise returning no local path. Restore, automatic rotation, and JSON/batch export remain
+planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

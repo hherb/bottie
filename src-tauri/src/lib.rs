@@ -28,10 +28,11 @@ use inference::{
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use storage::ConversationStore;
 use storage_commands::{
-    append_conversation_message, branch_conversation_message, clear_last_open_conversation,
-    create_conversation, delete_conversation, export_conversation_markdown, list_conversations,
-    load_conversation, load_last_open_conversation, rate_conversation_response,
-    rename_conversation, restore_conversation, search_conversations, select_conversation_branch,
+    append_conversation_message, backup_conversation_store, branch_conversation_message,
+    clear_last_open_conversation, create_conversation, delete_conversation,
+    export_conversation_markdown, list_conversations, load_conversation,
+    load_last_open_conversation, rate_conversation_response, rename_conversation,
+    restore_conversation, search_conversations, select_conversation_branch,
     set_conversation_archived,
 };
 use tauri::{Manager, State};
@@ -385,6 +386,7 @@ pub fn run() {
             create_conversation,
             load_conversation,
             export_conversation_markdown,
+            backup_conversation_store,
             load_last_open_conversation,
             clear_last_open_conversation,
             append_conversation_message,
