@@ -98,6 +98,12 @@ export type ForkedConversation = {
   requestMessageId: string;
 };
 
+/** Native Save-dialog result that deliberately omits the selected filesystem path. */
+export type ConversationExportOutcome = {
+  status: "saved" | "cancelled";
+  fileName: string | null;
+};
+
 /** Produces the stable browser-preview storage failure. */
 function unavailableInBrowser(): StorageError {
   return {
@@ -128,6 +134,12 @@ export async function createConversation(title: string): Promise<StoredConversat
 export async function loadConversation(conversationId: string): Promise<StoredConversation> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<StoredConversation>("load_conversation", { conversationId });
+}
+
+/** Saves the selected visible lineage as Markdown without exposing its destination path. */
+export async function exportConversationMarkdown(conversationId: string): Promise<ConversationExportOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ConversationExportOutcome>("export_conversation_markdown", { conversationId });
 }
 
 /** Loads the exact conversation selected by the local profile, when present. */

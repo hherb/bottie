@@ -13,11 +13,16 @@
     reasoningEffort: ReasoningEffort;
     showContext: boolean;
     isLocalRoute: boolean;
+    canExport: boolean;
+    isExporting: boolean;
+    exportFeedback: string | null;
+    exportFailed: boolean;
     onproviderchange: (providerId: ProviderId) => void;
     onmodelchange: (modelKey: string) => void;
     ontogglereasoning: () => void;
     onopensidebar: () => void;
     ontogglecontext: () => void;
+    onexport: () => void;
   };
 
   let {
@@ -29,11 +34,16 @@
     reasoningEffort,
     showContext,
     isLocalRoute,
+    canExport,
+    isExporting,
+    exportFeedback,
+    exportFailed,
     onproviderchange,
     onmodelchange,
     ontogglereasoning,
     onopensidebar,
     ontogglecontext,
+    onexport,
   }: Props = $props();
 </script>
 
@@ -124,8 +134,17 @@
     >
       <Icon name="panel" size={18} />
     </button>
-    <button class="icon-button" aria-label="Conversation options">
-      <Icon name="more" size={19} />
+    {#if exportFeedback}
+      <span class:error={exportFailed} class="export-feedback" role="status">{exportFeedback}</span>
+    {/if}
+    <button
+      class="icon-button"
+      aria-label={isExporting ? "Exporting conversation" : "Export conversation as Markdown"}
+      title="Export conversation as Markdown"
+      disabled={!canExport || isGenerating}
+      onclick={onexport}
+    >
+      <Icon name="file" size={18} />
     </button>
   </div>
 </header>

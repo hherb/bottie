@@ -13,6 +13,7 @@ import {
   clearLastOpenConversation,
   createConversation,
   deleteConversation,
+  exportConversationMarkdown,
   listConversations,
   loadConversation,
   loadLastOpenConversation,
@@ -50,6 +51,9 @@ export class ConversationState {
   searchQuery = $state("");
   searchResults = $state<ConversationSearchResult[]>([]);
   isSearching = $state(false);
+  isExporting = $state(false);
+  exportFeedback = $state<string | null>(null);
+  exportFailed = $state(false);
 
   private searchSequence = 0;
 
@@ -177,6 +181,27 @@ export class ConversationState {
     }
   }
 
+  /** Opens the native Save dialog for the selected lineage and reports only its leaf filename. */
+  async exportMarkdown(): Promise<void> {
+    if (!this.activeConversationId || this.isManaging) return;
+    this.isManaging = true;
+    this.isExporting = true;
+    this.exportFeedback = null;
+    this.exportFailed = false;
+    try {
+      const outcome = await exportConversationMarkdown(this.activeConversationId);
+      if (outcome.status === "saved") this.exportFeedback = `Saved ${outcome.fileName ?? "Markdown export"}`;
+      this.storageError = null;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      this.exportFeedback = this.storageError.message;
+      this.exportFailed = true;
+    } finally {
+      this.isExporting = false;
+      this.isManaging = false;
+    }
+  }
+
   /** Creates a conversation when needed and durably appends the submitted prompt. */
   async persistUserMessage(prompt: string): Promise<ProviderRunContext | null> {
     try {
@@ -221,6 +246,8 @@ export class ConversationState {
     this.activeConversationId = null;
     this.branches = [];
     this.currentBranchId = null;
+    this.exportFeedback = null;
+    this.exportFailed = false;
     try {
       await clearLastOpenConversation();
       this.storageError = null;
@@ -231,6 +258,8 @@ export class ConversationState {
 
   /** Applies one reconstructed native conversation to durable navigation state. */
   private applyConversation(conversation: StoredConversation): Message[] {
+    this.exportFeedback = null;
+    this.exportFailed = false;
     this.activeConversationId = conversation.id;
     this.branches = conversation.branches;
     this.currentBranchId = conversation.currentBranchId;

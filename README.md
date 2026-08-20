@@ -17,7 +17,9 @@ copied as Markdown without generated HTML or response metadata. When separate re
 document includes labelled Reasoning and Response sections. Interrupted, cancelled, and transiently failed responses
 can be retried on a preserved alternative branch without overwriting the original attempt. Durable Good and Poor
 ratings can be set, changed, or cleared on each preserved assistant response and survive restart and branch switching.
-Bottie also restores the exact last-open conversation after restart and preserves an intentional blank new-chat view.
+The selected visible branch can be saved as a human-readable Markdown document containing separated reasoning,
+response status, provider/model provenance, and local ratings. Bottie also restores the exact last-open conversation
+after restart and preserves an intentional blank new-chat view.
 Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
@@ -83,8 +85,10 @@ forks the unchanged request and uses the provider/model/reasoning route currentl
 original attempt remains available through branch switching and its failure copy stays outside the next provider
 context. Good and Poor rating controls
 write only the exact visible assistant response through a narrow native command. Selecting the active choice clears it;
-ratings stay local, survive restart, and remain attached to their preserved branch response. Export and backup/restore
-remain planned Milestone 2 work.
+ratings stay local, survive restart, and remain attached to their preserved branch response. The toolbar's export action
+reconstructs only the selected lineage and asks Rust to show a native Markdown Save dialog. Rust writes the UTF-8 file;
+the WebView receives only a saved/cancelled outcome and leaf filename, never the chosen directory. JSON/batch export and
+backup/restore remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

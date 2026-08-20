@@ -74,11 +74,16 @@
       reasoningEffort={state.reasoningEffort}
       showContext={state.showContext}
       isLocalRoute={state.isLocalRoute}
+      canExport={Boolean(state.history.activeConversationId)}
+      isExporting={state.history.isExporting}
+      exportFeedback={state.history.exportFeedback}
+      exportFailed={state.history.exportFailed}
       onproviderchange={(providerId) => void state.changeProvider(providerId)}
       onmodelchange={(modelKey) => void state.changeModel(modelKey)}
       ontogglereasoning={() => state.toggleReasoning()}
       onopensidebar={() => (state.showSidebar = true)}
       ontogglecontext={() => (state.showContext = !state.showContext)}
+      onexport={() => void state.history.exportMarkdown()}
     />
 
     <ConversationView

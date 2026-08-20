@@ -445,6 +445,17 @@ kbd {
   background: rgba(233, 169, 104, 0.07);
   color: #e7b47f;
 }
+.export-feedback {
+  max-width: 150px;
+  overflow: hidden;
+  color: #8fded3;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.export-feedback.error {
+  color: #e79a9a;
+}
 .icon-button {
   display: grid;
   place-items: center;
@@ -461,6 +472,10 @@ kbd {
 .icon-button.active {
   background: rgba(255, 255, 255, 0.05);
   color: #dbd8e1;
+}
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 .mobile-menu {
   display: none;

@@ -29,9 +29,9 @@ use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use storage::ConversationStore;
 use storage_commands::{
     append_conversation_message, branch_conversation_message, clear_last_open_conversation,
-    create_conversation, delete_conversation, list_conversations, load_conversation,
-    load_last_open_conversation, rate_conversation_response, rename_conversation,
-    restore_conversation, search_conversations, select_conversation_branch,
+    create_conversation, delete_conversation, export_conversation_markdown, list_conversations,
+    load_conversation, load_last_open_conversation, rate_conversation_response,
+    rename_conversation, restore_conversation, search_conversations, select_conversation_branch,
     set_conversation_archived,
 };
 use tauri::{Manager, State};
@@ -348,6 +348,7 @@ async fn discover_models(
 /// Builds and runs the native Bottie application.
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("providers.json");
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
@@ -383,6 +384,7 @@ pub fn run() {
             search_conversations,
             create_conversation,
             load_conversation,
+            export_conversation_markdown,
             load_last_open_conversation,
             clear_last_open_conversation,
             append_conversation_message,
