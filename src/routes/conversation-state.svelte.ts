@@ -12,8 +12,10 @@ import {
   backupConversationStore,
   branchConversationMessage,
   clearLastOpenConversation,
+  conversationExportFeedback,
   createConversation,
   deleteConversation,
+  exportConversationJson,
   exportConversationMarkdown,
   listConversations,
   loadConversation,
@@ -28,6 +30,7 @@ import {
   setConversationArchived,
   storageErrorFromUnknown,
   type ConversationBranch,
+  type ConversationExportFormat,
   type ConversationSearchResult,
   type ConversationSummary,
   type ProviderRunContext,
@@ -195,6 +198,16 @@ export class ConversationState {
 
   /** Opens the native Save dialog for the selected lineage and reports only its leaf filename. */
   async exportMarkdown(): Promise<void> {
+    await this.exportConversation("markdown");
+  }
+
+  /** Opens the native Save dialog for a portable selected-lineage JSON document. */
+  async exportJson(): Promise<void> {
+    await this.exportConversation("json");
+  }
+
+  /** Runs one path-redacted native export flow and owns its shared presentation feedback. */
+  private async exportConversation(format: ConversationExportFormat): Promise<void> {
     if (!this.activeConversationId || this.isManaging) return;
     this.isManaging = true;
     this.isExporting = true;
@@ -203,8 +216,11 @@ export class ConversationState {
     this.backupFeedback = null;
     this.backupFailed = false;
     try {
-      const outcome = await exportConversationMarkdown(this.activeConversationId);
-      if (outcome.status === "saved") this.exportFeedback = `Saved ${outcome.fileName ?? "Markdown export"}`;
+      const exportConversation = format === "markdown" ? exportConversationMarkdown : exportConversationJson;
+      const outcome = await exportConversation(this.activeConversationId);
+      if (outcome.status === "saved") {
+        this.exportFeedback = conversationExportFeedback(format, outcome.fileName);
+      }
       this.storageError = null;
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);

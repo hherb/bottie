@@ -17,9 +17,10 @@ copied as Markdown without generated HTML or response metadata. When separate re
 document includes labelled Reasoning and Response sections. Interrupted, cancelled, and transiently failed responses
 can be retried on a preserved alternative branch without overwriting the original attempt. Durable Good and Poor
 ratings can be set, changed, or cleared on each preserved assistant response and survive restart and branch switching.
-The selected visible branch can be saved as a human-readable Markdown document containing separated reasoning,
-response status, provider/model provenance, and local ratings. Bottie also restores the exact last-open conversation
-after restart and preserves an intentional blank new-chat view. Native backup controls can create a verified SQLite
+The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
+formats retain separate reasoning, response status, provider/model provenance, and local ratings. Bottie also restores
+the exact last-open conversation after restart and preserves an intentional blank new-chat view. Native backup
+controls can create a verified SQLite
 snapshot or restore a validated Bottie backup after explicit confirmation and an automatic pre-restore safety copy.
 After a successful native startup, an app-private background rotation also creates at most one verified snapshot every
 24 hours and retains the seven newest automatic snapshots without pruning manual or pre-restore backups. If SQLite
@@ -91,10 +92,13 @@ forks the unchanged request and uses the provider/model/reasoning route currentl
 original attempt remains available through branch switching and its failure copy stays outside the next provider
 context. Good and Poor rating controls
 write only the exact visible assistant response through a narrow native command. Selecting the active choice clears it;
-ratings stay local, survive restart, and remain attached to their preserved branch response. The toolbar's export action
-reconstructs only the selected lineage and asks Rust to show a native Markdown Save dialog. Rust writes the UTF-8 file;
-the WebView receives only a saved/cancelled outcome and leaf filename, never the chosen directory. A separate global
-backup action asks Rust to create and verify a complete SQLite snapshot with SQLite's online backup API, including
+ratings stay local, survive restart, and remain attached to their preserved branch response. The toolbar's Markdown
+and JSON export actions reconstruct only the selected lineage and ask Rust to show a format-filtered native Save
+dialog. JSON uses the versioned `bottie-conversation` contract and retains ordered text, separate reasoning, message
+state, provider/model provenance, local rating, creation time, and provider-reported generation metadata without
+opaque storage identifiers. Rust writes the UTF-8 file; the WebView receives only a saved/cancelled outcome and leaf
+filename, never the chosen directory. A separate global backup action asks Rust to create and verify a complete SQLite
+snapshot with SQLite's online backup API, including
 committed WAL content, while likewise returning no local path. Restore opens and validates the selected database in
 Rust, migrates an isolated staging copy when supported, creates an application-private snapshot of the current store,
 and only then replaces the live database. The WebView receives leaf filenames rather than database paths. Native
@@ -105,7 +109,7 @@ result. Recovery mode blocks normal conversation connections and skips automatic
 only verified automatic-snapshot count and newest timestamp. Restoring either that newest snapshot or a manually
 selected backup stages, migrates, and verifies a replacement before preserving the damaged main database and present
 WAL/shared-memory sidecars in app-private storage. Successful replacement resumes normal conversation access without
-returning a filesystem path. JSON/batch export remains planned Milestone 2 work.
+returning a filesystem path. Batch export remains planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

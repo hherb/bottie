@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { activeConversationDateGroups, conversationsForLifecycle, type ConversationSummary } from "./storage";
+import {
+  activeConversationDateGroups,
+  conversationExportFeedback,
+  conversationsForLifecycle,
+  type ConversationSummary,
+} from "./storage";
 
 const conversations: ConversationSummary[] = [
   { id: "active", title: "Active", updatedAtMs: 3, lifecycle: "active" },
@@ -30,5 +35,10 @@ describe("conversation storage presentation helpers", () => {
       { label: "Previous 7 days", conversations: [active[2]] },
       { label: "Older", conversations: [active[3]] },
     ]);
+  });
+
+  it("labels successful Markdown and JSON exports without needing a native path", () => {
+    expect(conversationExportFeedback("markdown", "bottie-notes.md")).toBe("Saved bottie-notes.md");
+    expect(conversationExportFeedback("json", null)).toBe("Saved JSON export");
   });
 });

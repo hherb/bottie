@@ -15,6 +15,8 @@ use crate::{
 
 const MARKDOWN_FILTER_NAME: &str = "Markdown";
 const MARKDOWN_EXTENSION: &str = "md";
+const JSON_FILTER_NAME: &str = "JSON";
+const JSON_EXTENSION: &str = "json";
 const SQLITE_FILTER_NAME: &str = "SQLite database";
 const SQLITE_EXTENSIONS: &[&str] = &["sqlite3", "db"];
 const BACKUP_FILE_NAME: &str = "bottie-backup.sqlite3";
@@ -33,7 +35,7 @@ pub(crate) struct ConversationExportOutcome {
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 enum ConversationExportStatus {
-    /// The Markdown document was written successfully.
+    /// The requested conversation document was written successfully.
     Saved,
     /// The user closed the native dialog without selecting a destination.
     Cancelled,
@@ -140,6 +142,40 @@ pub(crate) async fn export_conversation_markdown(
         .set_title("Export conversation as Markdown")
         .set_file_name(&export.file_name)
         .add_filter(MARKDOWN_FILTER_NAME, &[MARKDOWN_EXTENSION])
+        .blocking_save_file();
+    let Some(selected) = selected else {
+        return Ok(ConversationExportOutcome {
+            status: ConversationExportStatus::Cancelled,
+            file_name: None,
+        });
+    };
+    let path = selected.into_path().map_err(|_| StorageError::export())?;
+    export.write_to(&path)?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(&export.file_name)
+        .to_owned();
+    Ok(ConversationExportOutcome {
+        status: ConversationExportStatus::Saved,
+        file_name: Some(file_name),
+    })
+}
+
+#[tauri::command]
+/// Saves the selected visible lineage as versioned JSON through a Rust-owned native dialog.
+pub(crate) async fn export_conversation_json(
+    conversation_id: String,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<ConversationExportOutcome, StorageError> {
+    let export = state.conversations.prepare_json_export(&conversation_id)?;
+    let selected = app
+        .dialog()
+        .file()
+        .set_title("Export conversation as JSON")
+        .set_file_name(&export.file_name)
+        .add_filter(JSON_FILTER_NAME, &[JSON_EXTENSION])
         .blocking_save_file();
     let Some(selected) = selected else {
         return Ok(ConversationExportOutcome {

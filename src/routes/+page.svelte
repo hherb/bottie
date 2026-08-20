@@ -113,6 +113,7 @@
         onopensidebar={() => (state.showSidebar = true)}
         ontogglecontext={() => (state.showContext = !state.showContext)}
         onexport={() => void state.history.exportMarkdown()}
+        onexportjson={() => void state.history.exportJson()}
         onbackup={() => void state.history.backup()}
         onrestore={() => {
           void state.history.restoreBackup().then((messages) => {

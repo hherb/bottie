@@ -128,7 +128,8 @@ ownership rewrite.
 - [x] response retry for interrupted, cancelled, and transiently failed attempts on preserved branches;
 - [x] durable Good/Poor response rating with replacement, clearing, and preserved-branch restoration;
 - [x] single-conversation Markdown export through a Rust-owned native Save dialog;
-- [ ] JSON/batch export.
+- [x] single-conversation JSON export through the same selected-lineage and native Save policy;
+- [ ] batch export.
 
 ## Milestone 3 — Attachments and multimodal context
 
