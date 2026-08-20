@@ -59,13 +59,22 @@ export type StorageRecoveryStatus = {
   latestAutomaticBackupAtMs: number | null;
 };
 
-/** Safe durable attachment metadata that deliberately omits every filesystem path. */
+/** Path-free native extraction metadata that deliberately omits extracted text. */
+export type AttachmentExtraction = {
+  state: "pending" | "ready" | "unsupported" | "failed";
+  format: "plain_text" | "markdown" | null;
+  characterCount: number | null;
+  errorCode: string | null;
+};
+
+/** Safe durable attachment metadata that deliberately omits every filesystem path and extracted text. */
 export type StoredAttachment = {
   id: string;
   displayName: string;
   mimeType: string;
   byteSize: number;
   sha256: string;
+  extraction: AttachmentExtraction;
 };
 
 /** Safe native ingestion metadata including whether retained content was reused. */
@@ -388,7 +397,18 @@ export function storedAttachmentToPresentation(attachment: StoredAttachment): At
     kind: attachment.mimeType.startsWith("image/") ? "image" : "file",
     mimeType: attachment.mimeType,
     sha256: attachment.sha256,
+    extraction: attachment.extraction,
   };
+}
+
+/** Describes native extraction state without exposing retained text to the WebView. */
+export function attachmentExtractionLabel(extraction: AttachmentExtraction): string {
+  if (extraction.state === "ready") {
+    return extraction.format === "markdown" ? "Markdown ready locally" : "Text ready locally";
+  }
+  if (extraction.state === "unsupported") return "No text extraction";
+  if (extraction.state === "pending") return "Text extraction pending";
+  return extraction.errorCode === "content_too_large" ? "Text too large to extract" : "Text extraction failed";
 }
 
 /** Groups active conversations by local calendar recency while preserving native ordering. */

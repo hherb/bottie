@@ -12,11 +12,13 @@ use std::{
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
+mod attachment_policy;
 pub(crate) mod attachments;
 mod backup;
 mod branching;
 mod error;
 mod export;
+pub(crate) mod extraction;
 mod lifecycle;
 mod migrate;
 mod migrations;
@@ -31,6 +33,9 @@ mod types;
 pub(crate) use attachments::{IngestedAttachment, MAX_ATTACHMENT_SELECTION_COUNT};
 pub(crate) use error::StorageError;
 pub(crate) use export::ConversationFileExport;
+pub(crate) use extraction::{
+    AttachmentExtractionFormat, AttachmentExtractionState, StoredAttachmentExtraction,
+};
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use recovery::StorageRecoveryStatus;
@@ -41,7 +46,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 9;
+const CURRENT_SCHEMA_VERSION: i64 = 10;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -82,6 +87,7 @@ impl ConversationStore {
             return Err(StorageError::internal());
         }
         drop(connection);
+        store.process_pending_attachment_extractions()?;
         store.recover_interrupted_runs()?;
         Ok(store)
     }

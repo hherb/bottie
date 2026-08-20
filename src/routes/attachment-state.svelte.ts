@@ -19,6 +19,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     kind: "file",
     mimeType: "text/plain",
     sha256: "preview",
+    extraction: { state: "ready", format: "markdown", characterCount: 18_432, errorCode: null },
   },
   {
     id: "preview-architecture",
@@ -27,6 +28,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     kind: "image",
     mimeType: "image/png",
     sha256: "preview",
+    extraction: { state: "unsupported", format: null, characterCount: null, errorCode: null },
   },
 ];
 
@@ -80,6 +82,16 @@ export class AttachmentState {
         kind: file.type.startsWith("image/") ? "image" : "file",
         mimeType: file.type || "application/octet-stream",
         sha256: "preview",
+        extraction: {
+          state: file.type.startsWith("text/") ? "ready" : "unsupported",
+          format: file.name.toLowerCase().endsWith(".md")
+            ? "markdown"
+            : file.type.startsWith("text/")
+              ? "plain_text"
+              : null,
+          characterCount: null,
+          errorCode: null,
+        },
       });
     }
     input.value = "";

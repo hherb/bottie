@@ -4,7 +4,11 @@
   import { copyAssistantResponse } from "$lib/clipboard";
   import Icon from "$lib/Icon.svelte";
   import { renderAssistantMarkdown } from "$lib/markdown";
-  import { formatToolPayload, type ConversationBranch } from "$lib/storage";
+  import {
+    attachmentExtractionLabel as extractionLabel,
+    formatToolPayload,
+    type ConversationBranch,
+  } from "$lib/storage";
   import type { ResponseRating } from "$lib/storage";
   import type { ModelInfo, ProviderError } from "$lib/inference";
   import type { InferenceStage, Message, ProviderStatus } from "$lib/presentation";
@@ -163,7 +167,9 @@
                   </span>
                   <span>
                     <strong>{attachment.name}</strong>
-                    <small>{attachment.size} · {attachment.mimeType} · Stored locally, not sent</small>
+                    <small>
+                      {attachment.size} · {attachment.mimeType} · {extractionLabel(attachment.extraction)} · Not sent
+                    </small>
                   </span>
                   <button
                     aria-label={`Remove ${attachment.name} from message`}

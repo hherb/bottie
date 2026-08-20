@@ -44,9 +44,11 @@ detection. Source and storage paths never reach the WebView, and the interface e
 as not yet sent. A selected draft can now commit atomically with its user message, reopen as ordered path-free metadata
 on the selected branch, and remain attached when that request is edited or regenerated. Association removal is limited
 to visible user messages while generation is idle and retains the content-addressed catalog row and blob. Provider
-requests remain text-only. The next bounded implementation slice is Rust-owned extraction state plus plain-text and
-Markdown extraction for associated attachments; do not bundle PDF/office parsing, provider delivery, image
-normalization, indexing, memory search, or broad visual-design work with it.
+requests remain text-only. Retained UTF-8 plain-text and Markdown attachments now receive bounded native extraction
+with durable ready, unsupported, or failed state. Extracted content remains inside SQLite; the WebView receives only
+format, character count, and path-free state/error metadata. The next bounded implementation slice is PDF text
+extraction with bounded page-aware state and error presentation; do not bundle office parsing, provider delivery,
+image normalization, indexing, memory search, or broad visual-design work with it.
 
 Read these files first:
 
@@ -60,7 +62,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
-`codex/durable-message-attachments`.
+`codex/text-markdown-attachment-extraction`.
 
 ## Current implementation
 
@@ -84,6 +86,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Th
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
 - native attachment selection, application-private ingestion, durable selected-lineage message association, draft and
   message-scoped removal, and path-redacted outcome feedback;
+- durable bounded plain-text and Markdown extraction state with path-free ready, unsupported, and failed labels;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
@@ -131,6 +134,7 @@ branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded co
 bounded append-only tool-call/result records, `src-tauri/src/storage/attachments.rs` owns bounded streaming ingestion,
 SHA-256 content identities, MIME sniffing, safe display names, deduplicated metadata, app-private blob placement,
 ordered message associations, selected-lineage validation, and association removal,
+`src-tauri/src/storage/extraction.rs` owns bounded UTF-8 extraction and durable native-only text,
 and `src-tauri/src/storage/export.rs` owns
 deterministic selected-lineage Markdown plus selected and batch JSON rendering and safe suggested filenames, and
 `src-tauri/src/storage/backup.rs` owns
@@ -221,8 +225,9 @@ Do not mistake visual fixtures for implemented backend behavior:
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
 - current attachment draft selection is session-only until it commits atomically with a submitted user message;
-- retained attachments are not extracted, normalized, indexed, exported, included in SQLite-only backups, or sent to
-  any provider;
+- plain-text and Markdown attachments are extracted into SQLite, so that native-only text is included in SQLite
+  backups; attachment blobs remain outside those backups, and no attachment is normalized, indexed, exported, or sent
+  to any provider;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
@@ -264,7 +269,56 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Durable selected-lineage message attachments
+## Most recently completed product slice: Plain-text and Markdown attachment extraction
+
+### Goal
+
+Extract bounded UTF-8 text behind the Rust boundary, retain explicit extraction state across restart, and make that
+state inspectable on draft and durable message attachments without sending content to a provider.
+
+### Implemented shape
+
+1. Schema version 10 adds one strict `attachment_extractions` row per content-addressed attachment with pending, ready,
+   unsupported, or failed state. Ready rows retain plain-text or Markdown source, Unicode character count, and no error;
+   failed rows retain only a stable path-free category; all other state combinations are rejected by SQLite checks.
+2. Native ingestion extracts content-sniffed `text/plain` files synchronously with a 2 MiB UTF-8 ceiling. Sanitized
+   `.md` and `.markdown` leaf extensions classify Markdown source; other supported files remain plain text. A UTF-8 BOM
+   is removed, source Markdown stays inert, and partial or invalid content is never stored.
+3. Migration and startup resume every pending extraction. Missing blobs, read failures, invalid UTF-8 beyond the MIME
+   sniff window, and over-limit text become durable failures without aborting startup; non-text content becomes
+   unsupported. Duplicate selections reuse the original content identity and completed extraction.
+4. Draft and selected-lineage attachment metadata now show Markdown ready locally, Text ready locally, No text
+   extraction, pending, over-limit, or generic failed state. Extracted text and filesystem paths never cross IPC.
+
+### Acceptance criteria
+
+- Existing version-9 stores migrate transactionally to version 10, seed extraction rows, and complete pending work from
+  application-private blobs without changing conversations, associations, branches, messages, runs, or selection.
+- Plain text and Markdown source survives restart inside the native store up to 2 MiB; unsupported and failed content
+  retains no extracted text.
+- Associated attachment metadata exposes only state, format, character count, and a stable error category. Provider
+  request construction remains text-only and exports remain attachment-content-free.
+- No PDF/office parsing, background worker, indexing, memory retrieval, provider delivery, image normalization,
+  attachment garbage collection, portable blob backup, or broad visual redesign is added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-21. The frontend suite has thirty-three passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has 105 tests: 101 pass
+by default and four live-provider tests remain opt-in. Thirteen focused attachment/extraction tests cover schema-7
+through schema-9 migration, UTF-8 plain-text and Markdown extraction, Markdown classification, the 2 MiB ceiling,
+unsupported content, ingestion/deduplication, atomic association, restart, branch inheritance, removal, MIME sniffing,
+safe display names, and path-free presentation mapping.
+
+The browser preview was inspected at 1320 x 820 and 420 x 780. Both extraction labels remain legible, document and body
+scroll widths equal the viewport at each breakpoint, and the browser console has no warnings or errors. A fresh native
+process migrated the real application store from schema 9 to schema 10 and relaunched successfully on the final
+uninstrumented build. Immutable read-only inspection confirmed the `attachment text extraction` migration,
+`quick_check = ok`, and one existing retained non-text attachment in durable `unsupported` state without extracted
+content. Automated path-backed tests exercise fresh text/Markdown selection, extraction, and restart; a new native file
+picker interaction was not synthetically clicked because macOS assistive access remains unavailable.
+
+## Prior completed product slice: Durable selected-lineage message attachments
 
 ### Goal
 
