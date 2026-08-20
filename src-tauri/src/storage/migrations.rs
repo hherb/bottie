@@ -193,3 +193,28 @@ CREATE TABLE message_attachments (
 CREATE INDEX message_attachments_attachment_idx
     ON message_attachments(attachment_id, message_id);
 "#;
+
+/// Adds durable, path-free text extraction state and native-only extracted content.
+pub(super) const MIGRATION_10: &str = r#"
+CREATE TABLE attachment_extractions (
+    attachment_id TEXT PRIMARY KEY REFERENCES attachments(id) ON DELETE CASCADE,
+    state TEXT NOT NULL CHECK (state IN ('pending', 'ready', 'unsupported', 'failed')),
+    format TEXT CHECK (format IN ('plain_text', 'markdown')),
+    text_content TEXT,
+    character_count INTEGER CHECK (character_count >= 0),
+    error_code TEXT,
+    updated_at_ms INTEGER NOT NULL,
+    CHECK (
+        (state = 'pending' AND format IS NULL AND text_content IS NULL
+            AND character_count IS NULL AND error_code IS NULL)
+        OR (state = 'ready' AND format IS NOT NULL AND text_content IS NOT NULL
+            AND character_count IS NOT NULL AND error_code IS NULL)
+        OR (state = 'unsupported' AND format IS NULL AND text_content IS NULL
+            AND character_count IS NULL AND error_code IS NULL)
+        OR (state = 'failed' AND format IS NULL AND text_content IS NULL
+            AND character_count IS NULL AND error_code IS NOT NULL)
+    )
+) STRICT;
+INSERT INTO attachment_extractions (attachment_id, state, updated_at_ms)
+SELECT id, 'pending', created_at_ms FROM attachments;
+"#;

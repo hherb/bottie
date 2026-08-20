@@ -5,6 +5,7 @@ import {
   canBatchExportConversations,
   conversationExportFeedback,
   conversationsForLifecycle,
+  attachmentExtractionLabel,
   formatToolPayload,
   mergeIngestedAttachments,
   storedAttachmentToPresentation,
@@ -66,6 +67,7 @@ describe("conversation storage presentation helpers", () => {
       mimeType: "image/png",
       byteSize: 16,
       sha256: "abc123",
+      extraction: { state: "unsupported", format: null, characterCount: null, errorCode: null },
       duplicate: false,
     };
     const duplicate = { ...first, duplicate: true };
@@ -78,6 +80,7 @@ describe("conversation storage presentation helpers", () => {
         kind: "image",
         mimeType: "image/png",
         sha256: "abc123",
+        extraction: { state: "unsupported", format: null, characterCount: null, errorCode: null },
       },
     ]);
     expect(mergeIngestedAttachments(mergeIngestedAttachments([], [first]), [duplicate])).toHaveLength(1);
@@ -91,6 +94,7 @@ describe("conversation storage presentation helpers", () => {
         mimeType: "text/plain",
         byteSize: 2_048,
         sha256: "abc123",
+        extraction: { state: "ready", format: "markdown", characterCount: 42, errorCode: null },
       }),
     ).toEqual({
       id: "attachment-1",
@@ -99,6 +103,27 @@ describe("conversation storage presentation helpers", () => {
       kind: "file",
       mimeType: "text/plain",
       sha256: "abc123",
+      extraction: { state: "ready", format: "markdown", characterCount: 42, errorCode: null },
     });
+  });
+
+  it("describes native extraction states without receiving extracted content", () => {
+    expect(attachmentExtractionLabel({ state: "ready", format: "markdown", characterCount: 42, errorCode: null })).toBe(
+      "Markdown ready locally",
+    );
+    expect(
+      attachmentExtractionLabel({ state: "ready", format: "plain_text", characterCount: 12, errorCode: null }),
+    ).toBe("Text ready locally");
+    expect(
+      attachmentExtractionLabel({ state: "unsupported", format: null, characterCount: null, errorCode: null }),
+    ).toBe("No text extraction");
+    expect(
+      attachmentExtractionLabel({
+        state: "failed",
+        format: null,
+        characterCount: null,
+        errorCode: "content_too_large",
+      }),
+    ).toBe("Text too large to extract");
   });
 });

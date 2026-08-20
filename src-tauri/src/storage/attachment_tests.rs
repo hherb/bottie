@@ -5,8 +5,10 @@ use std::fs;
 use sha2::{Digest, Sha256};
 
 use super::{
-    ConversationStore, MessageState, NewStoredMessage, StoredRole,
+    AttachmentExtractionFormat, AttachmentExtractionState, ConversationStore, MessageState,
+    NewStoredMessage, StoredRole,
     attachments::{MAX_ATTACHMENT_BYTES, detect_mime_type, safe_display_name},
+    extraction::MAX_EXTRACTED_TEXT_BYTES,
     tests::test_database_path,
 };
 
@@ -31,7 +33,11 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("database should open");
     connection
-        .execute_batch("DROP TABLE message_attachments; DROP TABLE attachments;")
+        .execute_batch(
+            "DROP TABLE attachment_extractions;
+             DROP TABLE message_attachments;
+             DROP TABLE attachments;",
+        )
         .expect("newer attachment tables should be removable in the fixture");
     connection
         .execute("DELETE FROM schema_migrations WHERE version > 7", [])
@@ -57,7 +63,7 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
             .status()
             .expect("status should load")
             .schema_version,
-        9
+        10
     );
     assert_eq!(table_count, 1);
 }
@@ -68,7 +74,7 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("database should open");
     connection
-        .execute_batch("DROP TABLE message_attachments;")
+        .execute_batch("DROP TABLE attachment_extractions; DROP TABLE message_attachments;")
         .expect("version nine table should be removable in the fixture");
     connection
         .execute("DELETE FROM schema_migrations WHERE version > 8", [])
@@ -94,9 +100,54 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
             .status()
             .expect("status should load")
             .schema_version,
-        9
+        10
     );
     assert_eq!(table_count, 1);
+}
+
+#[test]
+fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let attachment = ingest_fixture(&store, "migration.md", b"# Existing attachment");
+    let connection = store.open().expect("database should open");
+    connection
+        .execute_batch("DROP TABLE attachment_extractions;")
+        .expect("version ten table should be removable in the fixture");
+    connection
+        .execute("DELETE FROM schema_migrations WHERE version > 9", [])
+        .expect("newer migration records should be removable in the fixture");
+    connection
+        .pragma_update(None, "user_version", 9)
+        .expect("fixture version should be set");
+    drop(connection);
+    drop(store);
+
+    let upgraded = ConversationStore::initialize(path).expect("version nine store should upgrade");
+    let stored = upgraded
+        .stored_attachment_for_test(&attachment.id)
+        .expect("attachment should load")
+        .expect("attachment should remain present");
+
+    assert_eq!(
+        upgraded
+            .status()
+            .expect("status should load")
+            .schema_version,
+        10
+    );
+    assert_eq!(stored.extraction.state, AttachmentExtractionState::Ready);
+    assert_eq!(
+        stored.extraction.format,
+        Some(AttachmentExtractionFormat::Markdown)
+    );
+    assert_eq!(
+        upgraded
+            .extracted_text_for_test(&attachment.id)
+            .expect("extracted text should load")
+            .as_deref(),
+        Some("# Existing attachment")
+    );
 }
 
 #[test]
@@ -130,6 +181,10 @@ fn associates_ordered_attachments_with_a_user_message_across_reopen_and_branchin
             .map(|attachment| attachment.id.as_str())
             .collect::<Vec<_>>(),
         vec![second.id.as_str(), first.id.as_str()]
+    );
+    assert_eq!(
+        request.attachments[1].extraction.state,
+        AttachmentExtractionState::Ready
     );
     drop(store);
 
@@ -308,6 +363,88 @@ fn ingests_content_once_and_reuses_it_by_sha256() {
             .attachment_count()
             .expect("count should survive restart"),
         1
+    );
+}
+
+#[test]
+fn extracts_utf8_plain_text_and_markdown_without_exposing_content_metadata() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let plain = ingest_fixture(&store, "notes.txt", b"Durable notes\n");
+    let markdown = ingest_fixture(&store, "guide.MD", b"# Guide\n\nUse **Bottie**.\n");
+
+    let plain_stored = store
+        .stored_attachment_for_test(&plain.id)
+        .expect("plain attachment should load")
+        .expect("plain attachment should exist");
+    let markdown_stored = store
+        .stored_attachment_for_test(&markdown.id)
+        .expect("Markdown attachment should load")
+        .expect("Markdown attachment should exist");
+
+    assert_eq!(
+        plain_stored.extraction.state,
+        AttachmentExtractionState::Ready
+    );
+    assert_eq!(
+        plain_stored.extraction.format,
+        Some(AttachmentExtractionFormat::PlainText)
+    );
+    assert_eq!(plain_stored.extraction.character_count, Some(14));
+    assert_eq!(
+        markdown_stored.extraction.state,
+        AttachmentExtractionState::Ready
+    );
+    assert_eq!(
+        markdown_stored.extraction.format,
+        Some(AttachmentExtractionFormat::Markdown)
+    );
+    assert_eq!(
+        store
+            .extracted_text_for_test(&markdown.id)
+            .expect("Markdown extraction should load")
+            .as_deref(),
+        Some("# Guide\n\nUse **Bottie**.\n")
+    );
+}
+
+#[test]
+fn records_unsupported_and_bounded_failure_states_without_extracted_text() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let image = ingest_fixture(&store, "diagram.png", PNG_BYTES);
+    let oversized = ingest_fixture(
+        &store,
+        "large.txt",
+        &vec![b'a'; MAX_EXTRACTED_TEXT_BYTES + 1],
+    );
+    let image_stored = store
+        .stored_attachment_for_test(&image.id)
+        .expect("image attachment should load")
+        .expect("image attachment should exist");
+    let oversized_stored = store
+        .stored_attachment_for_test(&oversized.id)
+        .expect("oversized text attachment should load")
+        .expect("oversized text attachment should exist");
+
+    assert_eq!(
+        image_stored.extraction.state,
+        AttachmentExtractionState::Unsupported
+    );
+    assert_eq!(image_stored.extraction.format, None);
+    assert_eq!(
+        oversized_stored.extraction.state,
+        AttachmentExtractionState::Failed
+    );
+    assert_eq!(
+        oversized_stored.extraction.error_code.as_deref(),
+        Some("content_too_large")
+    );
+    assert_eq!(
+        store
+            .extracted_text_for_test(&oversized.id)
+            .expect("failed extraction should remain queryable"),
+        None
     );
 }
 

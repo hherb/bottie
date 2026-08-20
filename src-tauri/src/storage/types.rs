@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{StorageError, tools::StoredToolInvocation};
+use super::{StorageError, extraction::StoredAttachmentExtraction, tools::StoredToolInvocation};
 
 /// Durable message identity supplied when starting one native provider run.
 #[derive(Clone, Debug, Deserialize)]
@@ -365,6 +365,8 @@ pub(crate) struct StoredAttachment {
     pub(crate) byte_size: u64,
     /// Lowercase SHA-256 content identity.
     pub(crate) sha256: String,
+    /// Native-only extraction status; extracted content is deliberately omitted.
+    pub(crate) extraction: StoredAttachmentExtraction,
 }
 
 /// Complete durable conversation returned for reopening.

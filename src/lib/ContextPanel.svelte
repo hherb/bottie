@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
   import type { ModelInfo } from "$lib/inference";
+  import { attachmentExtractionLabel as extractionLabel } from "$lib/storage";
   import type { Attachment, MessageAttachment, ProviderStatus } from "$lib/presentation";
 
   type Props = {
@@ -63,7 +64,8 @@
             <Icon name={attachment.kind} size={18} />
           </span>
           <span class="attachment-copy">
-            <strong>{attachment.name}</strong><small>{attachment.size} · Ready for next message · Not sent</small>
+            <strong>{attachment.name}</strong>
+            <small>{attachment.size} · {extractionLabel(attachment.extraction)} · Not sent</small>
           </span>
           <button aria-label={`Remove ${attachment.name}`} onclick={() => onremove(attachment.id)}>
             <Icon name="x" size={15} />
@@ -77,7 +79,9 @@
           </span>
           <span class="attachment-copy">
             <strong>{association.attachment.name}</strong>
-            <small>{association.attachment.size} · Attached locally · Not sent</small>
+            <small>
+              {association.attachment.size} · {extractionLabel(association.attachment.extraction)} · Not sent
+            </small>
           </span>
           <button
             aria-label={`Remove ${association.attachment.name} from message`}

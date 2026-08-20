@@ -1,5 +1,5 @@
 import type { ProviderId, ProviderSettings } from "./inference";
-import type { ResponseRating, StoredToolInvocation } from "./storage";
+import type { AttachmentExtraction, ResponseRating, StoredToolInvocation } from "./storage";
 
 let messageSequence = Date.now();
 
@@ -33,6 +33,7 @@ export type Attachment = {
   kind: "image" | "file";
   mimeType: string;
   sha256: string;
+  extraction: AttachmentExtraction;
 };
 
 /** One visible selected-lineage attachment linked to its durable user message. */

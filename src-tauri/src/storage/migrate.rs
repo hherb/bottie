@@ -7,7 +7,7 @@ use super::{
     StorageError,
     migrations::{
         MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
-        MIGRATION_8, MIGRATION_9,
+        MIGRATION_8, MIGRATION_9, MIGRATION_10,
     },
     now_ms,
 };
@@ -58,6 +58,9 @@ impl ConversationStore {
         }
         if version < 9 {
             apply_migration(connection, MIGRATION_9, 9, "durable message attachments")?;
+        }
+        if version < 10 {
+            apply_migration(connection, MIGRATION_10, 10, "attachment text extraction")?;
         }
         Ok(())
     }
