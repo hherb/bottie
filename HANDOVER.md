@@ -18,8 +18,10 @@ WebView. Native conversation search now finds titles and visible message text ac
 opens the preserved branch containing each result. Assistant answers now render parser-owned Markdown while raw HTML,
 unsafe destinations, and remote image fetches stay inert. Non-empty assistant answers can now be copied as their exact
 Markdown source when reasoning is absent. When separate reasoning exists, the copied Markdown contains labelled
-Reasoning and Response sections without parser-generated HTML or response metadata. The next bounded implementation
-slice is response retry; do not bundle rating, export, backup, or broad product and visual-design planning with it.
+Reasoning and Response sections without parser-generated HTML or response metadata. Interrupted, cancelled, and
+transiently failed responses now expose a labelled retry action that forks the unchanged request while preserving the
+original attempt. The next bounded implementation slice is response rating; do not bundle export, backup, tool
+persistence, or broad product and visual-design planning with it.
 
 Read these files first:
 
@@ -69,6 +71,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
   clear behavior;
 - sanitized assistant Markdown with headings, lists, tables, quotes, safe external links, and code presentation;
 - assistant-response and reasoning copying as labelled Markdown with visible and screen-reader-readable feedback;
+- response retry for interrupted, cancelled, and retryable failed attempts, preserving the original branch;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -102,9 +105,9 @@ and marks leftover running records interrupted during the next startup. Assistan
 provider runs, and reopened conversations reconstruct real elapsed time plus provider-reported token/cost usage without
 estimating missing values. Creating or opening a conversation records it as the local profile's exact selection;
 starting a blank chat clears that selection, and archiving or deleting the selected conversation clears it in the same
-transaction as the lifecycle change. Editing or regenerating creates one new branch whose first request points to the
-visible predecessor from the selected lineage; switching branches reconstructs ancestry through native-owned parent
-message links without copying or deleting the original history.
+transaction as the lifecycle change. Editing, regenerating, or retrying creates one new branch whose first request
+points to the visible predecessor from the selected lineage; switching branches reconstructs ancestry through
+native-owned parent message links without copying or deleting the original history.
 
 The oMLX adapter:
 
@@ -210,7 +213,38 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Response copying
+## Most recently completed product slice: Response retry
+
+### Goal
+
+Let users try an interrupted, cancelled, or transiently failed request again without overwriting the failed attempt or
+silently sending provider-authored failure text back as conversation context.
+
+### Implemented shape
+
+1. Live provider failures retain the normalized native `retryable` decision. Reopened interruptions, cancellations,
+   timeouts, unavailable-provider failures, provider-server failures, and malformed responses reconstruct the same
+   presentation state from durable message state and stable error codes.
+2. Retry forks the unchanged visible user request through the existing native branch command, then starts generation
+   with the provider, model, and reasoning route currently visible in the toolbar. The failed attempt remains on its
+   original selectable branch.
+3. Failed assistant text stays excluded from the next provider context. A tested pure helper now owns the conversion
+   from visible successful messages to provider-neutral chat turns.
+4. The message row uses a labelled Retry action for retryable terminal states and keeps Regenerate for completed or
+   non-retryable responses. Both actions disable while generation/storage is busy or no route is available.
+
+### Acceptance criteria
+
+- Interrupted and cancelled responses can be retried after reopen; provider failures expose retry only when native
+  normalization says the operation may succeed if attempted again.
+- Retrying creates a new selected branch from the unchanged user request while preserving the original partial or
+  failed response for later branch switching.
+- Provider failure copy never enters the retried provider context, and no response content is overwritten or deleted.
+- The retry action remains labelled, keyboard reachable, and contained at the native minimum viewport.
+- No schema migration, native capability, provider adapter, credential flow, or general rating/export behavior is
+  added.
+
+## Prior completed product slice: Response copying
 
 ### Goal
 
@@ -564,7 +598,7 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-20 for response copying:
+The following passed on 2026-08-20 for response retry:
 
 ```sh
 npm run format:check
@@ -576,16 +610,18 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The frontend suite now has twenty-five tests, including five focused clipboard tests for unchanged answer-only source,
-labelled answer/reasoning Markdown, exact clipboard delegation, unavailable clipboard access, and rejected writes.
-`svelte-check` reports no errors or warnings.
+The frontend suite now has twenty-six tests. Retry-focused coverage verifies durable retryability for interruption,
+cancellation, transient provider failures, and non-retryable invalid/internal failures, plus exclusion of failed and
+empty assistant text from provider context. `svelte-check` reports no errors or warnings.
 
-The standard Rust suite remains at sixty-seven tests: sixty-three pass by default and four are opt-in live-provider
-tests. The browser preview was visually checked at its desktop size and the 720 x 620 native minimum; the copy action
-and feedback remained readable without console errors. The native app compiled and launched, and manual testing
-confirmed native WebView clipboard access. Live-provider tests were not required because this slice changes only
-derived WebView presentation and adds no Tauri command, storage migration, provider traffic, credential access, or
-native capability.
+The standard Rust suite now has sixty-eight tests: sixty-four pass by default and four are opt-in live-provider tests.
+A path-backed SQLite regression confirms that retry branching preserves the failed partial response on its original
+selectable branch. The browser preview was visually checked at its desktop size and the 720 x 620 native minimum using
+a temporary failed-response fixture; the labelled Retry action remained contained and no console errors appeared. The
+temporary fixture was removed after inspection. The native app compiled, launched against the existing schema-version-5
+store, and displayed the current conversation without console errors. macOS denied assistive access for automated
+native clicking, but the native retry flow was manually confirmed on 2026-08-20. Live-provider tests were not required
+because this slice does not change provider networking, streaming, cancellation, or credentials.
 
 ## Verification completed for the previous sanitized-Markdown slice
 
@@ -633,8 +669,8 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is response retry. Keep rating actions, tool-invocation persistence, export, and
-backups as later reviewable slices. Keep
+The next bounded implementation slice is response rating. Keep tool-invocation persistence, export, and backups as
+later reviewable slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

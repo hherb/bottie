@@ -18,6 +18,7 @@ export type Message = {
   model?: string;
   meta?: string;
   error?: boolean;
+  retryable?: boolean;
 };
 
 /** Browser-side attachment metadata used by the presentation-only attachment preview. */
