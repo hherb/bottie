@@ -108,9 +108,8 @@ export const INITIAL_MESSAGES: Message[] = [
     featured: true,
     model: "Product shell fixture",
     content:
-      "Absolutely. I’d build bottie as a sequence of small, complete slices—starting with the conversation " +
-      "experience, then connecting inference, persistence, and tools behind it.\n\nThe important boundary is " +
-      "simple: the WebView presents state; the Rust core owns secrets, files, storage, provider calls, and " +
-      "tool execution.",
+      "## A focused sequence\n\n1. Build the conversation experience.\n2. Connect inference and persistence.\n" +
+      "3. Add tools behind the native boundary.\n\nThe important boundary is simple: the `WebView` presents " +
+      "state; the **Rust core** owns secrets, files, storage, provider calls, and tool execution.",
   },
 ];
