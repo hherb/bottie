@@ -103,13 +103,9 @@
 
       <button
         class="send-button"
-        class:enabled={(prompt.trim().length > 0 && canSend && attachments.length === 0) || isGenerating}
-        disabled={(!prompt.trim() || !canSend || attachments.length > 0) && !isGenerating}
-        aria-label={isGenerating
-          ? "Stop generating"
-          : attachments.length > 0
-            ? "Remove attachments before sending"
-            : "Send message"}
+        class:enabled={(prompt.trim().length > 0 && canSend) || isGenerating}
+        disabled={(!prompt.trim() || !canSend) && !isGenerating}
+        aria-label={isGenerating ? "Stop generating" : "Send message"}
         onclick={onsend}
       >
         {#if isGenerating}
@@ -122,7 +118,7 @@
   </div>
   <p class="composer-note">
     {attachments.length > 0
-      ? "Attachments are stored locally but cannot be sent yet. Remove them to send a message."
+      ? "Attachments will stay linked locally; only your text is sent to the model."
       : "Bottie can make mistakes. Check important information."}
   </p>
 </footer>

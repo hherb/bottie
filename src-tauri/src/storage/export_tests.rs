@@ -25,6 +25,7 @@ fn export_message(
         model_id: (role == StoredRole::Assistant).then(|| "qwen3:latest".into()),
         provider_run: None,
         rating: (role == StoredRole::Assistant).then_some(ResponseRating::Good),
+        attachments: Vec::new(),
         created_at_ms: 1,
     }
 }

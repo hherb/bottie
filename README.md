@@ -36,10 +36,11 @@ Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. The native attachment picker now streams up
 to eight selected files into application-private, SHA-256-addressed storage with a 25 MiB per-file ceiling,
 content-based MIME detection, safe display names, and duplicate reuse. The WebView receives no filesystem path,
-labels each retained item as not sent, and prevents prompt submission until that unsendable selection is removed.
-Message association, extraction, provider delivery, memory retrieval, provider
-tool loops, approvals, and tool execution are not implemented yet; those surfaces remain disabled or explicitly
-labelled.
+labels each retained item as local-only, and can atomically associate the current selection with the submitted user
+message. Associations reopen on the selected branch, survive edit/regenerate forks, and can be removed without deleting
+the retained content blob. Only prompt text reaches the provider: extraction, attachment delivery, memory retrieval,
+provider tool loops, approvals, and tool execution are not implemented yet; those surfaces remain disabled or
+explicitly labelled.
 
 ## Development
 
@@ -87,8 +88,9 @@ prompt can be sent. On startup, any run left active by a prior process becomes a
 sidebar groups real conversation activity by local calendar date. Conversations can be renamed inline, archived, moved
 to recoverable trash, and restored without losing messages. The initial SQLite schema models conversations, main
 branches, ordered messages, separate text/reasoning blocks, provider runs, append-only usage snapshots, ordered tool
-invocations, and single append-only tool results. Provider-controlled tool names, call identities, argument objects,
-and outputs are validated and bounded before insertion. Reopened assistant responses recover provider-reported
+invocations, single append-only tool results, and ordered user-message attachment associations. Provider-controlled tool
+names, call identities, argument objects, and outputs are validated and bounded before insertion. Reopened assistant
+responses recover provider-reported
 token/cost metadata and structured tool activity without estimating or executing anything. The native store
 owns the local profile's last-open selection; opening or creating a conversation records it, while New chat clears it.
 Conversation search runs through a narrow Rust command, treats query characters literally, excludes Trash and separate
@@ -125,9 +127,12 @@ selected backup stages, migrates, and verifies a replacement before preserving t
 WAL/shared-memory sidecars in app-private storage. Successful replacement resumes normal conversation access without
 returning a filesystem path. A separate native picker ingests files through a bounded streaming copy into an
 application-private attachment directory. SQLite stores only sanitized metadata and the SHA-256 content identity;
-identical content reuses its existing blob across restarts. Draft removal does not yet delete retained content, and
-attachments are not yet associated with stored messages, included in SQLite-only backups/exports, extracted, indexed,
-or delivered to providers.
+identical content reuses its existing blob across restarts. Sending commits up to eight selected attachment identities
+with the user message, then clears the draft. Reopened selected lineages reconstruct ordered path-free metadata; edited
+and regenerated request branches inherit the source request's associations. Detaching is limited to visible user
+messages while generation is idle and retains the catalog row and blob for deduplication. Attachment bytes remain
+outside SQLite-only backups and exports, and attachments are not extracted, indexed, normalized, or delivered to
+providers.
 
 Run the layout-only browser preview:
 

@@ -59,13 +59,17 @@ export type StorageRecoveryStatus = {
   latestAutomaticBackupAtMs: number | null;
 };
 
-/** Safe native attachment metadata that deliberately omits every filesystem path. */
-export type IngestedAttachment = {
+/** Safe durable attachment metadata that deliberately omits every filesystem path. */
+export type StoredAttachment = {
   id: string;
   displayName: string;
   mimeType: string;
   byteSize: number;
   sha256: string;
+};
+
+/** Safe native ingestion metadata including whether retained content was reused. */
+export type IngestedAttachment = StoredAttachment & {
   duplicate: boolean;
 };
 
@@ -129,6 +133,7 @@ export type StoredMessage = {
   modelId: string | null;
   providerRun: StoredProviderRun | null;
   rating: ResponseRating | null;
+  attachments: StoredAttachment[];
   createdAtMs: number;
 };
 
@@ -276,9 +281,27 @@ export async function clearLastOpenConversation(): Promise<void> {
 }
 
 /** Appends one final user message through the narrow native storage command. */
-export async function appendConversationMessage(conversationId: string, text: string): Promise<StoredMessage> {
+export async function appendConversationMessage(
+  conversationId: string,
+  text: string,
+  attachmentIds: string[] = [],
+): Promise<StoredMessage> {
   if (!isTauri()) throw unavailableInBrowser();
-  return invoke<StoredMessage>("append_conversation_message", { conversationId, text });
+  return invoke<StoredMessage>("append_conversation_message", { conversationId, text, attachmentIds });
+}
+
+/** Removes one visible message association while native storage retains the deduplicated content. */
+export async function removeConversationMessageAttachment(
+  conversationId: string,
+  messageId: string,
+  attachmentId: string,
+): Promise<StoredMessage> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<StoredMessage>("remove_conversation_message_attachment", {
+    conversationId,
+    messageId,
+    attachmentId,
+  });
 }
 
 /** Forks one visible user message onto a newly selected durable branch. */
@@ -351,16 +374,21 @@ export function mergeIngestedAttachments(current: Attachment[], ingested: Ingest
   for (const attachment of ingested) {
     if (retainedIds.has(attachment.id)) continue;
     retainedIds.add(attachment.id);
-    merged.push({
-      id: attachment.id,
-      name: attachment.displayName,
-      size: formatBytes(attachment.byteSize),
-      kind: attachment.mimeType.startsWith("image/") ? "image" : "file",
-      mimeType: attachment.mimeType,
-      sha256: attachment.sha256,
-    });
+    merged.push(storedAttachmentToPresentation(attachment));
   }
   return merged;
+}
+
+/** Maps path-free durable attachment metadata into the shared presentation shape. */
+export function storedAttachmentToPresentation(attachment: StoredAttachment): Attachment {
+  return {
+    id: attachment.id,
+    name: attachment.displayName,
+    size: formatBytes(attachment.byteSize),
+    kind: attachment.mimeType.startsWith("image/") ? "image" : "file",
+    mimeType: attachment.mimeType,
+    sha256: attachment.sha256,
+  };
 }
 
 /** Groups active conversations by local calendar recency while preserving native ordering. */

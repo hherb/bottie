@@ -1,16 +1,20 @@
 //! Content-addressed application-private attachment ingestion.
 
 use std::{
+    collections::HashSet,
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
 };
 
-use rusqlite::{OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use super::{ConversationStore, StorageError, now_ms};
+use super::{
+    ConversationStore, DEFAULT_PROFILE_ID, StorageError, StoredAttachment, StoredMessage,
+    StoredRole, load_conversation_from_connection, now_ms,
+};
 
 const ATTACHMENT_DIRECTORY_NAME: &str = "attachments";
 const BLOB_DIRECTORY_NAME: &str = "blobs";
@@ -66,6 +70,42 @@ impl ConversationStore {
         let result = self.commit_blob(&temporary_path, prepared);
         let _ = fs::remove_file(&temporary_path);
         result
+    }
+
+    /// Removes one visible user-message association while retaining catalog metadata and bytes.
+    pub(crate) fn remove_message_attachment(
+        &self,
+        conversation_id: &str,
+        message_id: &str,
+        attachment_id: &str,
+    ) -> Result<StoredMessage, StorageError> {
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        ensure_no_active_run(&transaction, conversation_id)?;
+        let branch_id = selected_branch_id(&transaction, conversation_id)?;
+        if !visible_user_message_has_attachment(
+            &transaction,
+            &branch_id,
+            message_id,
+            attachment_id,
+        )? {
+            return Err(StorageError::not_found(
+                "That message attachment is unavailable.",
+            ));
+        }
+        transaction.execute(
+            "DELETE FROM message_attachments WHERE message_id = ?1 AND attachment_id = ?2",
+            params![message_id, attachment_id],
+        )?;
+        let conversation = load_conversation_from_connection(&transaction, conversation_id)?;
+        let message = conversation
+            .messages
+            .into_iter()
+            .find(|message| message.id == message_id)
+            .ok_or_else(StorageError::internal)?;
+        transaction.commit()?;
+        Ok(message)
     }
 
     /// Commits prepared bytes and metadata while preventing duplicate content rows.
@@ -145,6 +185,160 @@ impl ConversationStore {
             .query_row("SELECT COUNT(*) FROM attachments", [], |row| row.get(0))
             .map_err(Into::into)
     }
+}
+
+/// Validates and inserts ordered attachment associations for one newly appended message.
+pub(super) fn associate_message_attachments(
+    transaction: &Transaction<'_>,
+    message_id: &str,
+    role: StoredRole,
+    attachment_ids: &[String],
+) -> Result<Vec<StoredAttachment>, StorageError> {
+    if attachment_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    if role != StoredRole::User {
+        return Err(StorageError::invalid(
+            "Attachments can be associated only with user messages.",
+        ));
+    }
+    if attachment_ids.len() > MAX_ATTACHMENT_SELECTION_COUNT {
+        return Err(StorageError::invalid(format!(
+            "Attach at most {MAX_ATTACHMENT_SELECTION_COUNT} files to one message."
+        )));
+    }
+    let unique_ids = attachment_ids.iter().collect::<HashSet<_>>();
+    if unique_ids.len() != attachment_ids.len() {
+        return Err(StorageError::invalid(
+            "The same attachment cannot be associated twice.",
+        ));
+    }
+    let attached_at_ms = now_ms()?;
+    let mut attachments = Vec::with_capacity(attachment_ids.len());
+    for (ordinal, attachment_id) in attachment_ids.iter().enumerate() {
+        let attachment = stored_attachment(transaction, attachment_id)?.ok_or_else(|| {
+            StorageError::invalid("One or more selected attachments are unavailable.")
+        })?;
+        transaction.execute(
+            "INSERT INTO message_attachments (message_id, attachment_id, ordinal, attached_at_ms)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![message_id, attachment_id, ordinal as i64, attached_at_ms],
+        )?;
+        attachments.push(attachment);
+    }
+    Ok(attachments)
+}
+
+/// Reconstructs ordered path-free metadata for one durable message.
+pub(super) fn load_message_attachments(
+    connection: &Connection,
+    message_id: &str,
+) -> Result<Vec<StoredAttachment>, StorageError> {
+    let mut statement = connection.prepare(
+        "SELECT attachments.id, attachments.display_name, attachments.mime_type,
+                attachments.byte_size, attachments.sha256
+         FROM message_attachments
+         JOIN attachments ON attachments.id = message_attachments.attachment_id
+         WHERE message_attachments.message_id = ?1
+         ORDER BY message_attachments.ordinal",
+    )?;
+    statement
+        .query_map([message_id], stored_attachment_from_row)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(Into::into)
+}
+
+/// Loads one retained attachment identity without exposing its blob path.
+fn stored_attachment(
+    connection: &Connection,
+    attachment_id: &str,
+) -> Result<Option<StoredAttachment>, StorageError> {
+    connection
+        .query_row(
+            "SELECT id, display_name, mime_type, byte_size, sha256 FROM attachments WHERE id = ?1",
+            [attachment_id],
+            stored_attachment_from_row,
+        )
+        .optional()
+        .map_err(Into::into)
+}
+
+/// Decodes trusted attachment metadata shared by direct and message-scoped queries.
+fn stored_attachment_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredAttachment> {
+    Ok(StoredAttachment {
+        id: row.get(0)?,
+        display_name: row.get(1)?,
+        mime_type: row.get(2)?,
+        byte_size: row.get::<_, i64>(3)? as u64,
+        sha256: row.get(4)?,
+    })
+}
+
+/// Resolves the selected branch of one editable local-profile conversation.
+fn selected_branch_id(
+    transaction: &Transaction<'_>,
+    conversation_id: &str,
+) -> Result<String, StorageError> {
+    transaction
+        .query_row(
+            "SELECT current_branch_id FROM conversations
+             WHERE id = ?1 AND profile_id = ?2 AND deleted_at_ms IS NULL",
+            params![conversation_id, DEFAULT_PROFILE_ID],
+            |row| row.get(0),
+        )
+        .optional()?
+        .ok_or_else(|| StorageError::not_found("That conversation no longer exists."))
+}
+
+/// Prevents context mutation while a response is still linked to the request.
+fn ensure_no_active_run(
+    transaction: &Transaction<'_>,
+    conversation_id: &str,
+) -> Result<(), StorageError> {
+    let has_active_run: bool = transaction.query_row(
+        "SELECT EXISTS (
+             SELECT 1 FROM provider_runs WHERE conversation_id = ?1 AND state = 'running'
+         )",
+        [conversation_id],
+        |row| row.get(0),
+    )?;
+    if has_active_run {
+        return Err(StorageError::invalid(
+            "Wait for the active response to finish before removing message context.",
+        ));
+    }
+    Ok(())
+}
+
+/// Confirms that an association belongs to a visible selected-lineage user message.
+fn visible_user_message_has_attachment(
+    transaction: &Transaction<'_>,
+    branch_id: &str,
+    message_id: &str,
+    attachment_id: &str,
+) -> Result<bool, StorageError> {
+    transaction
+        .query_row(
+            "WITH RECURSIVE lineage(id, parent_message_id) AS (
+                 SELECT id, parent_message_id FROM messages
+                 WHERE id = (
+                     SELECT id FROM messages WHERE branch_id = ?1 ORDER BY sequence DESC LIMIT 1
+                 )
+                 UNION ALL
+                 SELECT messages.id, messages.parent_message_id
+                 FROM messages JOIN lineage ON messages.id = lineage.parent_message_id
+             )
+             SELECT EXISTS (
+                 SELECT 1 FROM lineage
+                 JOIN messages ON messages.id = lineage.id
+                 JOIN message_attachments ON message_attachments.message_id = messages.id
+                 WHERE messages.id = ?2 AND messages.role = 'user'
+                   AND message_attachments.attachment_id = ?3
+             )",
+            params![branch_id, message_id, attachment_id],
+            |row| row.get(0),
+        )
+        .map_err(Into::into)
 }
 
 /// Prepared content and safe metadata awaiting one database transaction.

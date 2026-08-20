@@ -1,11 +1,12 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
   import type { ModelInfo } from "$lib/inference";
-  import type { Attachment, ProviderStatus } from "$lib/presentation";
+  import type { Attachment, MessageAttachment, ProviderStatus } from "$lib/presentation";
 
   type Props = {
     open: boolean;
     attachments: Attachment[];
+    conversationAttachments: MessageAttachment[];
     selectedModel: ModelInfo | undefined;
     selectedProviderEndpoint: string;
     providerStatus: ProviderStatus;
@@ -13,14 +14,17 @@
     isAddingAttachments: boolean;
     attachmentFeedback: string | null;
     attachmentFailed: boolean;
+    attachmentActionsDisabled: boolean;
     onclose: () => void;
     onadd: () => void;
     onremove: (id: string) => void;
+    onremoveassociated: (messageId: string, attachmentId: string) => void;
   };
 
   let {
     open,
     attachments,
+    conversationAttachments,
     selectedModel,
     selectedProviderEndpoint,
     providerStatus,
@@ -28,9 +32,11 @@
     isAddingAttachments,
     attachmentFeedback,
     attachmentFailed,
+    attachmentActionsDisabled,
     onclose,
     onadd,
     onremove,
+    onremoveassociated,
   }: Props = $props();
 </script>
 
@@ -47,7 +53,7 @@
 
   <section class="context-section">
     <div class="section-heading">
-      <h3>Attachments <span>{attachments.length}</span></h3>
+      <h3>Attachments <span>{attachments.length + conversationAttachments.length}</span></h3>
       <button disabled={isAddingAttachments} onclick={onadd}>{isAddingAttachments ? "Adding…" : "Add"}</button>
     </div>
     <div class="attachment-list">
@@ -57,14 +63,32 @@
             <Icon name={attachment.kind} size={18} />
           </span>
           <span class="attachment-copy">
-            <strong>{attachment.name}</strong><small>{attachment.size} · {attachment.mimeType} · Not sent</small>
+            <strong>{attachment.name}</strong><small>{attachment.size} · Ready for next message · Not sent</small>
           </span>
           <button aria-label={`Remove ${attachment.name}`} onclick={() => onremove(attachment.id)}>
             <Icon name="x" size={15} />
           </button>
         </div>
       {/each}
-      {#if attachments.length === 0}
+      {#each conversationAttachments as association (`${association.messageId}:${association.attachment.id}`)}
+        <div class="attachment-row retained-association">
+          <span class:image={association.attachment.kind === "image"} class="attachment-icon">
+            <Icon name={association.attachment.kind} size={18} />
+          </span>
+          <span class="attachment-copy">
+            <strong>{association.attachment.name}</strong>
+            <small>{association.attachment.size} · Attached locally · Not sent</small>
+          </span>
+          <button
+            aria-label={`Remove ${association.attachment.name} from message`}
+            disabled={attachmentActionsDisabled}
+            onclick={() => onremoveassociated(association.messageId, association.attachment.id)}
+          >
+            <Icon name="x" size={15} />
+          </button>
+        </div>
+      {/each}
+      {#if attachments.length === 0 && conversationAttachments.length === 0}
         <button class="empty-attachments" onclick={onadd}>
           <Icon name="paperclip" size={18} />
           <span><strong>Add context</strong><small>Images, documents, or text files</small></span>

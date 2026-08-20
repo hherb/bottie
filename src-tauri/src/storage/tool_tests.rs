@@ -229,7 +229,8 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachments; DROP TABLE tool_results; DROP TABLE tool_invocations;",
+            "DROP TABLE message_attachments; DROP TABLE attachments;
+             DROP TABLE tool_results; DROP TABLE tool_invocations;",
         )
         .expect("post-version-six tables should be removable in the fixture");
     connection
@@ -257,7 +258,7 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
             .status()
             .expect("status should load")
             .schema_version,
-        8
+        9
     );
     assert_eq!(table_count, 2);
 }

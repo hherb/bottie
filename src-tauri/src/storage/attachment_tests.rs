@@ -5,12 +5,25 @@ use std::fs;
 use sha2::{Digest, Sha256};
 
 use super::{
-    ConversationStore,
+    ConversationStore, MessageState, NewStoredMessage, StoredRole,
     attachments::{MAX_ATTACHMENT_BYTES, detect_mime_type, safe_display_name},
     tests::test_database_path,
 };
 
 const PNG_BYTES: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR";
+
+/// Writes and ingests one attachment fixture beside the isolated test store.
+fn ingest_fixture(
+    store: &ConversationStore,
+    name: &str,
+    bytes: &[u8],
+) -> super::IngestedAttachment {
+    let source_path = store.path.with_file_name(name);
+    fs::write(&source_path, bytes).expect("attachment fixture should be written");
+    store
+        .ingest_attachment(&source_path)
+        .expect("attachment fixture should ingest")
+}
 
 #[test]
 fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
@@ -18,8 +31,8 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("database should open");
     connection
-        .execute_batch("DROP TABLE attachments;")
-        .expect("version eight table should be removable in the fixture");
+        .execute_batch("DROP TABLE message_attachments; DROP TABLE attachments;")
+        .expect("newer attachment tables should be removable in the fixture");
     connection
         .execute("DELETE FROM schema_migrations WHERE version > 7", [])
         .expect("newer migration records should be removable in the fixture");
@@ -44,9 +57,210 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
             .status()
             .expect("status should load")
             .schema_version,
-        8
+        9
     );
     assert_eq!(table_count, 1);
+}
+
+#[test]
+fn upgrades_version_eight_stores_with_empty_message_associations() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let connection = store.open().expect("database should open");
+    connection
+        .execute_batch("DROP TABLE message_attachments;")
+        .expect("version nine table should be removable in the fixture");
+    connection
+        .execute("DELETE FROM schema_migrations WHERE version > 8", [])
+        .expect("newer migration records should be removable in the fixture");
+    connection
+        .pragma_update(None, "user_version", 8)
+        .expect("fixture version should be set");
+    drop(connection);
+    drop(store);
+
+    let upgraded = ConversationStore::initialize(path).expect("version eight store should upgrade");
+    let connection = upgraded.open().expect("upgraded database should open");
+    let table_count: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_schema WHERE type = 'table' AND name = 'message_attachments'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("message attachment table should be queryable");
+
+    assert_eq!(
+        upgraded
+            .status()
+            .expect("status should load")
+            .schema_version,
+        9
+    );
+    assert_eq!(table_count, 1);
+}
+
+#[test]
+fn associates_ordered_attachments_with_a_user_message_across_reopen_and_branching() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let first = ingest_fixture(&store, "notes.txt", b"Durable notes");
+    let second = ingest_fixture(&store, "diagram.png", PNG_BYTES);
+    let conversation = store
+        .create_conversation("Attachment association")
+        .expect("conversation should be created");
+    let request = store
+        .append_message_with_attachments(
+            NewStoredMessage {
+                conversation_id: conversation.id.clone(),
+                role: StoredRole::User,
+                text: "Keep these with the request".into(),
+                reasoning: None,
+                state: MessageState::Final,
+                provider_id: None,
+                model_id: None,
+            },
+            &[second.id.clone(), first.id.clone()],
+        )
+        .expect("message and attachments should commit together");
+
+    assert_eq!(
+        request
+            .attachments
+            .iter()
+            .map(|attachment| attachment.id.as_str())
+            .collect::<Vec<_>>(),
+        vec![second.id.as_str(), first.id.as_str()]
+    );
+    drop(store);
+
+    let reopened = ConversationStore::initialize(path).expect("storage should reopen");
+    let loaded = reopened
+        .load_conversation(&conversation.id)
+        .expect("conversation should load");
+    assert_eq!(loaded.messages[0].attachments, request.attachments);
+
+    let forked = reopened
+        .fork_from_user_message(&conversation.id, &request.id, "Edit but retain context")
+        .expect("request should fork");
+    assert_eq!(
+        forked.conversation.messages[0].attachments,
+        request.attachments
+    );
+}
+
+#[test]
+fn rejects_invalid_attachment_sets_without_appending_a_message() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let attachment = ingest_fixture(&store, "notes.txt", b"Durable notes");
+    let conversation = store
+        .create_conversation("Invalid association")
+        .expect("conversation should be created");
+
+    let duplicate = store.append_message_with_attachments(
+        NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::User,
+            text: "Do not store this".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        },
+        &[attachment.id.clone(), attachment.id.clone()],
+    );
+    let missing = store.append_message_with_attachments(
+        NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::User,
+            text: "Do not store this either".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        },
+        &["missing".into()],
+    );
+
+    assert_eq!(
+        duplicate.expect_err("duplicates should fail").code,
+        "invalid_request"
+    );
+    assert_eq!(
+        missing.expect_err("unknown identities should fail").code,
+        "invalid_request"
+    );
+    assert!(
+        store
+            .load_conversation(&conversation.id)
+            .expect("conversation should remain readable")
+            .messages
+            .is_empty()
+    );
+}
+
+#[test]
+fn removes_only_the_visible_message_association_and_retains_content() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let attachment = ingest_fixture(&store, "notes.txt", b"Durable notes");
+    let blob_path = store.attachment_blob_path(&attachment.sha256);
+    let conversation = store
+        .create_conversation("Remove association")
+        .expect("conversation should be created");
+    let main_branch_id = conversation.current_branch_id.clone();
+    let request = store
+        .append_message_with_attachments(
+            NewStoredMessage {
+                conversation_id: conversation.id.clone(),
+                role: StoredRole::User,
+                text: "Attach then remove".into(),
+                reasoning: None,
+                state: MessageState::Final,
+                provider_id: None,
+                model_id: None,
+            },
+            &[attachment.id.clone()],
+        )
+        .expect("association should be stored");
+    let alternative = store
+        .fork_from_user_message(&conversation.id, &request.id, "Alternative request")
+        .expect("alternative should be created");
+    let alternative_request = alternative
+        .conversation
+        .messages
+        .last()
+        .expect("alternative request should be visible");
+    store
+        .select_branch(&conversation.id, &main_branch_id)
+        .expect("main branch should be selected");
+
+    assert!(
+        store
+            .remove_message_attachment(&conversation.id, &alternative_request.id, &attachment.id,)
+            .is_err()
+    );
+
+    let updated = store
+        .remove_message_attachment(&conversation.id, &request.id, &attachment.id)
+        .expect("visible association should be removable");
+
+    assert!(updated.attachments.is_empty());
+    assert_eq!(
+        store
+            .attachment_count()
+            .expect("catalog should remain readable"),
+        1
+    );
+    assert_eq!(
+        fs::read(blob_path).expect("retained blob should remain"),
+        b"Durable notes"
+    );
+    assert!(
+        store
+            .remove_message_attachment(&conversation.id, &request.id, &attachment.id)
+            .is_err()
+    );
 }
 
 #[test]

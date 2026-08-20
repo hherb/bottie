@@ -22,6 +22,7 @@ import {
   loadConversation,
   loadLastOpenConversation,
   rateConversationResponse,
+  removeConversationMessageAttachment,
   renameConversation,
   restoreConversation,
   restoreConversationStore,
@@ -30,6 +31,7 @@ import {
   selectConversationBranch,
   setConversationArchived,
   storageErrorFromUnknown,
+  storedAttachmentToPresentation,
   type ConversationBranch,
   type ConversationExportFormat,
   type ConversationSearchResult,
@@ -300,7 +302,7 @@ export class ConversationState {
   }
 
   /** Creates a conversation when needed and durably appends the submitted prompt. */
-  async persistUserMessage(prompt: string): Promise<ProviderRunContext | null> {
+  async persistUserMessage(prompt: string, attachmentIds: string[]): Promise<ProviderRunContext | null> {
     try {
       let conversationId = this.activeConversationId;
       if (!conversationId) {
@@ -308,7 +310,7 @@ export class ConversationState {
         this.applyConversation(conversation);
         conversationId = conversation.id;
       }
-      const stored = await appendConversationMessage(conversationId, prompt);
+      const stored = await appendConversationMessage(conversationId, prompt, attachmentIds);
       await this.refresh();
       return {
         conversationId,
@@ -317,6 +319,23 @@ export class ConversationState {
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
       return null;
+    }
+  }
+
+  /** Detaches one visible message attachment while retaining its native content for deduplication. */
+  async removeMessageAttachment(messages: Message[], messageId: string, attachmentId: string): Promise<void> {
+    if (!this.activeConversationId || this.isManaging) return;
+    const message = messages.find((candidate) => candidate.storageId === messageId && candidate.role === "user");
+    if (!message) return;
+    this.isManaging = true;
+    try {
+      const stored = await removeConversationMessageAttachment(this.activeConversationId, messageId, attachmentId);
+      message.attachments = stored.attachments.map(storedAttachmentToPresentation);
+      this.storageError = null;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+    } finally {
+      this.isManaging = false;
     }
   }
 
@@ -444,6 +463,7 @@ export class ConversationState {
       retryable: presentation.retryable,
       rating: message.rating ?? undefined,
       toolInvocations: message.providerRun?.toolInvocations,
+      attachments: message.attachments.map(storedAttachmentToPresentation),
     };
   }
 }

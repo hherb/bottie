@@ -4,6 +4,16 @@ use std::fs;
 
 use super::*;
 
+impl ConversationStore {
+    /// Appends one message without attachment associations through the storage test boundary.
+    pub(super) fn append_message(
+        &self,
+        message: NewStoredMessage,
+    ) -> Result<StoredMessage, StorageError> {
+        self.append_message_with_attachments(message, &[])
+    }
+}
+
 /// Creates an isolated database path for one storage test.
 pub(super) fn test_database_path() -> std::path::PathBuf {
     let directory = std::env::temp_dir().join(format!("bottie-storage-{}", uuid::Uuid::new_v4()));
@@ -18,7 +28,7 @@ fn initializes_ordered_migrations_and_default_local_profile() {
 
     let status = store.status().expect("storage status should load");
 
-    assert_eq!(status.schema_version, 8);
+    assert_eq!(status.schema_version, 9);
     assert_eq!(status.profile_name, "Local profile");
     assert_eq!(status.integrity_check, "ok");
     assert!(status.foreign_keys_enabled);
@@ -71,7 +81,7 @@ fn upgrades_a_version_two_store_without_rewriting_existing_messages() {
         )
         .expect("provider run table should be queryable");
 
-    assert_eq!(status.schema_version, 8);
+    assert_eq!(status.schema_version, 9);
     assert_eq!(provider_run_table, 1);
 }
 

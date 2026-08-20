@@ -41,9 +41,12 @@ provider call identities. Provider tool loops and execution remain absent. Nativ
 chosen local files into application-private content-addressed storage with SHA-256 identities, content-based MIME
 sniffing, safe display names, a 25 MiB per-file limit, an eight-file selection limit, and cross-session duplicate
 detection. Source and storage paths never reach the WebView, and the interface explicitly labels retained attachments
-as not yet sent. The next bounded implementation slice is durable attachment association with the submitted user
-message and selected conversation branch, including reopen behavior and removal semantics; do not bundle extraction,
-provider delivery, image normalization, indexing, memory search, or broad visual-design work with it.
+as not yet sent. A selected draft can now commit atomically with its user message, reopen as ordered path-free metadata
+on the selected branch, and remain attached when that request is edited or regenerated. Association removal is limited
+to visible user messages while generation is idle and retains the content-addressed catalog row and blob. Provider
+requests remain text-only. The next bounded implementation slice is Rust-owned extraction state plus plain-text and
+Markdown extraction for associated attachments; do not bundle PDF/office parsing, provider delivery, image
+normalization, indexing, memory search, or broad visual-design work with it.
 
 Read these files first:
 
@@ -56,7 +59,8 @@ Read these files first:
 7. `src-tauri/src/lib.rs`
 8. `src-tauri/tauri.conf.json`
 
-The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Work currently begins on local branch `main`.
+The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
+`codex/durable-message-attachments`.
 
 ## Current implementation
 
@@ -78,7 +82,8 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
   loaded/on-demand state, and an explicit local/cloud privacy indicator;
 - user and assistant message presentation;
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
-- native attachment selection, application-private ingestion, draft removal, and path-redacted outcome feedback;
+- native attachment selection, application-private ingestion, durable selected-lineage message association, draft and
+  message-scoped removal, and path-redacted outcome feedback;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
@@ -124,7 +129,8 @@ transactional conversation/message operations. `src-tauri/src/storage/runs.rs` o
 branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search,
 `src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, `src-tauri/src/storage/tools.rs` owns
 bounded append-only tool-call/result records, `src-tauri/src/storage/attachments.rs` owns bounded streaming ingestion,
-SHA-256 content identities, MIME sniffing, safe display names, deduplicated metadata, and app-private blob placement,
+SHA-256 content identities, MIME sniffing, safe display names, deduplicated metadata, app-private blob placement,
+ordered message associations, selected-lineage validation, and association removal,
 and `src-tauri/src/storage/export.rs` owns
 deterministic selected-lineage Markdown plus selected and batch JSON rendering and safe suggested filenames, and
 `src-tauri/src/storage/backup.rs` owns
@@ -134,8 +140,9 @@ safety copies, and post-copy integrity checks, `src-tauri/src/storage/recovery.r
 classification, verified automatic recovery-point discovery, restricted store state, damaged-bundle preservation, and
 staged replacement, and
 `src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
-`src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, user-message append,
-explicit branch, response-rating, selected-lineage Markdown/JSON and non-trashed batch JSON export, whole-store
+`src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, atomic user-message and
+attachment append, visible message-attachment removal, explicit branch, response-rating, selected-lineage Markdown/JSON
+and non-trashed batch JSON export, whole-store
 backup/restore,
 recovery-status/latest-snapshot restore, and lifecycle commands. The database lives in the OS application-data
 directory; the WebView never receives a database or attachment path, SQL, or generic filesystem/database
@@ -148,8 +155,9 @@ provider runs, and reopened conversations reconstruct real elapsed time plus pro
 estimating missing values. Creating or opening a conversation records it as the local profile's exact selection;
 starting a blank chat clears that selection, and archiving or deleting the selected conversation clears it in the same
 transaction as the lifecycle change. Editing, regenerating, or retrying creates one new branch whose first request
-points to the visible predecessor from the selected lineage; switching branches reconstructs ancestry through
-native-owned parent message links without copying or deleting the original history.
+points to the visible predecessor from the selected lineage; its ordered attachment associations are copied onto the
+new request. Switching branches reconstructs ancestry and message attachments through native-owned parent message links
+without copying or deleting the original history.
 
 The oMLX adapter:
 
@@ -212,8 +220,7 @@ Do not mistake visual fixtures for implemented backend behavior:
 - memory cards and relevance scores are fixtures;
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
-- native attachment bytes are copied and deduplicated, but current draft selection is session-only and is not yet
-  linked to a message or conversation;
+- current attachment draft selection is session-only until it commits atomically with a submitted user message;
 - retained attachments are not extracted, normalized, indexed, exported, included in SQLite-only backups, or sent to
   any provider;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
@@ -257,7 +264,57 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Native content-addressed attachment ingestion
+## Most recently completed product slice: Durable selected-lineage message attachments
+
+### Goal
+
+Associate already retained local files with the exact submitted user message and selected conversation branch while
+keeping provider requests text-only and preserving the native filesystem boundary.
+
+### Implemented shape
+
+1. Schema version 9 adds ordered `message_attachments` rows with message/catalog foreign keys and uniqueness for each
+   message identity and ordinal. User-message text and at most eight distinct existing attachment identities commit in
+   one immediate transaction; invalid or missing identities roll the message append back.
+2. Stored user messages reconstruct ordered sanitized name, detected MIME, byte size, SHA-256, and opaque attachment ID
+   across restart and branch switching. The composer and context panel distinguish next-message draft items from durable
+   selected-lineage associations and state that neither is sent to the model.
+3. Edit, regenerate, and retry branches copy the source request's associations onto the new immutable request. A narrow
+   removal command accepts only an association on a visible selected-lineage user message while no provider run is
+   active. Because removal is message-scoped, a shared ancestor loses that association everywhere the same message is
+   reconstructed; copied alternative requests retain their independent rows.
+4. Draft removal changes only ephemeral selection. Durable removal deletes only the association row: catalog metadata
+   and application-private bytes remain available for content deduplication. No path or blob bytes reach JavaScript.
+
+### Acceptance criteria
+
+- Existing version-8 stores migrate transactionally to version 9 without rewriting attachment metadata, blobs,
+  conversations, branches, messages, runs, tool activity, ratings, backup state, or selection.
+- Association order survives restart and selected-branch reconstruction; edited/regenerated requests inherit the
+  source request's associations without mutating the original request.
+- Duplicate, missing, over-limit, assistant-message, hidden-lineage, and active-run mutations are rejected natively;
+  failed association validation never leaves a user message behind.
+- Provider chat turns remain text-only. No extraction, image normalization, provider delivery, indexing, memory search,
+  export, portable attachment backup, garbage collection, tool execution, or broad visual redesign is added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-21. The frontend suite has thirty-two passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has 101 tests: ninety-
+seven pass by default and four live-provider tests remain opt-in. Nine focused attachment tests cover schema-7 and
+schema-8 migration, ingestion/deduplication, atomic ordered association, reopen and fork inheritance, invalid-set
+rollback, selected-lineage removal, retained bytes, MIME sniffing, display-name policy, and oversized-file cleanup.
+
+The presentation was checked in the browser preview at 1320 x 820 and 420 x 780. Draft/local-only labels remain legible,
+the responsive drawer has equal client and scroll widths, and the browser console has no warnings or errors. A fresh
+native process opened the real application store on a live oMLX route and remained running without terminal errors;
+immutable inspection confirmed schema 9, the `durable message attachments` migration, an initially empty association
+table, and `quick_check = ok`. Automated path-backed tests exercise association, reopen, branch, removal, and byte-
+retention behavior. macOS denied assistive access to synthetic picker/send/remove clicks, but the native file picker and
+durable attachment persistence flow were manually confirmed on 2026-08-21. Association removal remains covered by the
+path-backed native tests rather than a separate manual interaction check.
+
+## Prior completed product slice: Native content-addressed attachment ingestion
 
 ### Goal
 

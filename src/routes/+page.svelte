@@ -12,6 +12,7 @@
   import "$lib/styles/shell.css";
   import "$lib/styles/conversation-nav.css";
   import "$lib/styles/conversation.css";
+  import "$lib/styles/message-attachments.css";
   import "$lib/styles/tool-activity.css";
   import "$lib/styles/markdown.css";
   import "$lib/styles/composer.css";
@@ -143,6 +144,7 @@
         onregenerate={(responseId) => void state.regenerateResponse(responseId)}
         onretryresponse={(responseId) => void state.regenerateResponse(responseId, true)}
         onrateresponse={(responseId, rating) => void state.history.rateResponse(state.messages, responseId, rating)}
+        onremoveattachment={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
         onscrollready={(element) => state.setMessageScroll(element)}
       />
 
@@ -167,6 +169,7 @@
     <ContextPanel
       open={state.showContext}
       attachments={state.attachment.items}
+      conversationAttachments={state.conversationAttachments}
       selectedModel={state.selectedModel}
       selectedProviderEndpoint={state.selectedProviderEndpoint}
       providerStatus={state.providerStatus}
@@ -174,9 +177,11 @@
       isAddingAttachments={state.attachment.isIngesting}
       attachmentFeedback={state.attachment.feedback}
       attachmentFailed={state.attachment.failed}
+      attachmentActionsDisabled={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
       onclose={() => (state.showContext = false)}
       onadd={() => void state.attachment.openPicker()}
       onremove={(id) => state.attachment.remove(id)}
+      onremoveassociated={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
     />
 
     {#if state.showSettings}

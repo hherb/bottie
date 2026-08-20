@@ -7,6 +7,7 @@ import {
   conversationsForLifecycle,
   formatToolPayload,
   mergeIngestedAttachments,
+  storedAttachmentToPresentation,
   type IngestedAttachment,
   type ConversationSummary,
 } from "./storage";
@@ -80,5 +81,24 @@ describe("conversation storage presentation helpers", () => {
       },
     ]);
     expect(mergeIngestedAttachments(mergeIngestedAttachments([], [first]), [duplicate])).toHaveLength(1);
+  });
+
+  it("maps reopened attachment metadata into path-free message presentation", () => {
+    expect(
+      storedAttachmentToPresentation({
+        id: "attachment-1",
+        displayName: "notes.md",
+        mimeType: "text/plain",
+        byteSize: 2_048,
+        sha256: "abc123",
+      }),
+    ).toEqual({
+      id: "attachment-1",
+      name: "notes.md",
+      size: "2 KB",
+      kind: "file",
+      mimeType: "text/plain",
+      sha256: "abc123",
+    });
   });
 });

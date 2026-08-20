@@ -179,3 +179,17 @@ CREATE TABLE attachments (
 ) STRICT;
 CREATE INDEX attachments_created_idx ON attachments(created_at_ms, id);
 "#;
+
+/// Associates retained attachment metadata with ordered durable user messages.
+pub(super) const MIGRATION_9: &str = r#"
+CREATE TABLE message_attachments (
+    message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    attachment_id TEXT NOT NULL REFERENCES attachments(id) ON DELETE RESTRICT,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    attached_at_ms INTEGER NOT NULL,
+    PRIMARY KEY (message_id, attachment_id),
+    UNIQUE (message_id, ordinal)
+) STRICT;
+CREATE INDEX message_attachments_attachment_idx
+    ON message_attachments(attachment_id, message_id);
+"#;
