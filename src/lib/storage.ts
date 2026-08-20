@@ -110,6 +110,13 @@ export type BackupOutcome = {
   fileName: string | null;
 };
 
+/** Native restore result that returns leaf filenames but never filesystem paths. */
+export type RestoreOutcome = {
+  status: "restored" | "cancelled";
+  fileName: string | null;
+  safetyCopyFileName: string | null;
+};
+
 /** Produces the stable browser-preview storage failure. */
 function unavailableInBrowser(): StorageError {
   return {
@@ -152,6 +159,12 @@ export async function exportConversationMarkdown(conversationId: string): Promis
 export async function backupConversationStore(): Promise<BackupOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<BackupOutcome>("backup_conversation_store");
+}
+
+/** Restores a validated SQLite snapshot after a native-owned safety backup and confirmation. */
+export async function restoreConversationStore(): Promise<RestoreOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<RestoreOutcome>("restore_conversation_store");
 }
 
 /** Loads the exact conversation selected by the local profile, when present. */

@@ -25,9 +25,10 @@ selecting the active choice clears it without changing response content. The sel
 now be exported as a human-readable Markdown file through a Rust-owned native Save dialog without revealing the chosen
 path to the WebView. Users can also create a complete verified SQLite snapshot through a separate Rust-owned Save
 dialog; SQLite's online backup API includes committed WAL content without pausing the live store, and the destination
-path remains native-only. The next bounded implementation slice is manual restore from a validated Bottie backup with a
-pre-restore safety copy; do not bundle corruption recovery, scheduled rotation, batch export, tool persistence, or broad
-product and visual-design planning with it.
+path remains native-only. A separate native Open-and-confirm flow now restores validated Bottie backups only after
+creating an application-private snapshot of the current store; selected directories and database paths never reach the
+WebView. The next bounded implementation slice is automatic backup rotation with an explicit retention policy; do not
+bundle corruption recovery, batch export, tool persistence, or broad product and visual-design planning with it.
 
 Read these files first:
 
@@ -81,6 +82,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - durable Good/Poor response ratings with accessible pressed state, replacement, and clearing;
 - selected-lineage Markdown export through a native Save dialog with compact saved/error feedback;
 - complete manual SQLite backup creation through a native Save dialog with compact saved/error feedback;
+- confirmed manual restore from validated Bottie backups with a named pre-restore safety copy;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -104,10 +106,10 @@ transactional conversation/message operations. `src-tauri/src/storage/runs.rs` o
 branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search,
 `src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, `src-tauri/src/storage/export.rs` owns
 deterministic Markdown rendering and safe suggested filenames, `src-tauri/src/storage/backup.rs` owns consistent online
-SQLite snapshots and post-copy integrity verification, and
+SQLite snapshots, restore validation, isolated migration, pre-restore safety copies, and post-copy integrity checks, and
 `src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
 `src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, user-message append,
-explicit branch, response-rating, selected-lineage export, whole-store backup, and lifecycle commands. The
+explicit branch, response-rating, selected-lineage export, whole-store backup/restore, and lifecycle commands. The
 database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a selected branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
@@ -184,7 +186,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- JSON/batch export, restore, automatic backup rotation, and corruption recovery are not yet implemented;
+- JSON/batch export, automatic backup rotation, and corruption recovery are not yet implemented;
 - tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
@@ -225,7 +227,35 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Manual SQLite backup
+## Most recently completed product slice: Manual SQLite restore
+
+### Goal
+
+Let users replace the live conversation store with a validated Bottie backup without exposing filesystem paths to the
+WebView or risking the only current copy of their data.
+
+### Implemented shape
+
+1. A global toolbar action opens a SQLite-filtered native Open dialog, then requires an explicit native warning-dialog
+   confirmation. Restore is unavailable during provider generation or other storage management.
+2. Rust opens the candidate read-only and requires `quick_check=ok`, a supported Bottie schema version, the expected
+   foundation tables, and the built-in local profile before any live data changes.
+3. The candidate is copied to a same-directory staging database through SQLite's online backup API. Bottie applies any
+   supported pending migrations and repeats validation on that isolated copy.
+4. Rust creates a verified application-private snapshot of the current live store before restoring the staged database
+   through SQLite's backup API. A restore failure attempts to roll back from that safety copy, which remains available.
+5. The WebView receives only `restored` or `cancelled` plus the selected and safety-copy leaf filenames. It reloads the
+   restored navigation and exact last-open selection without receiving a path, SQL, or generic filesystem capability.
+
+### Acceptance criteria
+
+- A valid Bottie backup replaces the visible live conversations and preserves its selected branch/profile state.
+- The pre-restore safety copy independently reopens with the conversations that existed immediately before restore.
+- Corrupt, unrelated, empty, newer-schema, and live-database candidates are rejected before the live store changes.
+- Cancelling either native dialog is neutral; active provider work blocks restore at the native command boundary.
+- No scheduled rotation, corruption recovery, batch/JSON export, provider, credential, or tool behavior is added.
+
+## Prior completed product slice: Manual SQLite backup
 
 ### Goal
 
@@ -248,8 +278,7 @@ filesystem access or combining backup creation with restore and recovery policy.
 - Backup creation does not mutate the live database, selected conversation, branches, messages, or ratings.
 - The live database cannot be selected as its own backup destination.
 - Cancelling is neutral, while copy or integrity failures return a stable path-redacted message.
-- No restore, automatic rotation, corruption recovery, migration, batch/JSON export, provider, or tool behavior is
-  added.
+- No automatic rotation, corruption recovery, migration, batch/JSON export, provider, or tool behavior is added.
 
 ## Prior completed product slice: Conversation Markdown export
 
@@ -693,7 +722,7 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-20 for manual SQLite backup creation:
+The following passed on 2026-08-20 for manual SQLite restore:
 
 ```sh
 npm run format:check
@@ -706,17 +735,27 @@ cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 The frontend suite remains at twenty-seven passing tests and `svelte-check` reports no errors or warnings. The Rust
-suite has seventy-six tests: seventy-two pass by default and four remain opt-in live-provider checks. Two focused
-backup tests cover a path-backed WAL-aware snapshot, independent reopen and integrity checking, committed message
-content, unchanged live selection, and rejection of the live database as its own destination.
+suite has seventy-eight tests: seventy-four pass by default and four remain opt-in live-provider checks. Four focused
+backup/restore tests cover a path-backed WAL-aware snapshot, independent reopen and integrity checking, committed
+message content, rejection of the live database as its own destination, successful replacement, independent reopening
+of the pre-restore safety copy, and rejection of an unrelated SQLite database without changing live state.
 
 The browser preview was visually checked at 1320 x 820 and the 720 x 620 native minimum. The backup and conversation
-export actions remain labelled and contained in both desktop and compact toolbars, while both correctly stay disabled
-without their native prerequisites; there were no console warnings or errors. The native app compiled and launched
-against the existing schema-version-6 store. The user manually confirmed the real Save-panel flow, which created
-`bottie-backup.sqlite3`; an independent SQLite inspection returned `quick_check=ok`, schema version 6, and the same five
-conversations, twenty-six messages, seven provider runs, and three ratings as the live store. Live-provider tests were
-not required because this slice does not change provider networking, streaming, cancellation, or credentials.
+export actions and the new restore action remain labelled and contained in both desktop and compact toolbars, while all
+three correctly stay disabled without their native prerequisites; there were no console warnings or errors.
+The native app compiled and launched against the existing schema-version-6 store. A read-only inspection returned
+`quick_check=ok` with the unchanged five conversations, twenty-six messages, seven provider runs, and three ratings.
+macOS denied assistive access for automated native clicking, so the destructive restore confirmation was not exercised
+against the user's live store; path-backed integration tests cover the actual replacement and safety-copy contract.
+Live-provider tests were not required because this slice does not change provider networking, streaming, cancellation,
+or credentials.
+
+## Verification completed for the previous manual-backup slice
+
+The native app compiled and launched against the existing schema-version-6 store. The user manually confirmed the real
+Save-panel flow, which created `bottie-backup.sqlite3`; an independent SQLite inspection returned `quick_check=ok`,
+schema version 6, and the same five conversations, twenty-six messages, seven provider runs, and three ratings as the
+live store.
 
 ## Verification completed for the previous conversation-Markdown-export slice
 
@@ -827,9 +866,8 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is manual restore from a validated Bottie backup with a pre-restore safety copy.
-Keep corruption recovery, scheduled rotation, tool-invocation persistence, and batch/JSON export as later reviewable
-slices. Keep
+The next bounded implementation slice is automatic backup rotation with an explicit retention policy. Keep corruption
+recovery, tool-invocation persistence, and batch/JSON export as later reviewable slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

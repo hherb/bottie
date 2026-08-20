@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 use tauri::{AppHandle, State};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 use crate::{
     AppState,
@@ -56,6 +56,28 @@ enum BackupStatus {
     /// The SQLite snapshot was written and verified successfully.
     Saved,
     /// The user closed the native dialog without selecting a destination.
+    Cancelled,
+}
+
+/// Result of one native restore interaction without exposing any filesystem path.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RestoreOutcome {
+    /// Whether a validated backup was restored or the user cancelled the interaction.
+    status: RestoreStatus,
+    /// Selected backup's leaf filename, absent when the interaction was cancelled.
+    file_name: Option<String>,
+    /// Application-private pre-restore safety-copy filename, absent when cancelled.
+    safety_copy_file_name: Option<String>,
+}
+
+/// Stable native restore outcomes returned to the presentation layer.
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+enum RestoreStatus {
+    /// The selected backup replaced the live store after validation and safety copy.
+    Restored,
+    /// The user closed either native dialog without completing a restore.
     Cancelled,
 }
 
@@ -164,6 +186,81 @@ pub(crate) async fn backup_conversation_store(
         status: BackupStatus::Saved,
         file_name: Some(file_name),
     })
+}
+
+#[tauri::command]
+/// Restores a validated Bottie backup after creating an application-private safety snapshot.
+pub(crate) async fn restore_conversation_store(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<RestoreOutcome, StorageError> {
+    if !state.runs.lock().await.is_empty() {
+        return Err(StorageError::restore_while_active());
+    }
+    let selected = app
+        .dialog()
+        .file()
+        .set_title("Restore Bottie local data")
+        .add_filter(SQLITE_FILTER_NAME, SQLITE_EXTENSIONS)
+        .blocking_pick_file();
+    let Some(selected) = selected else {
+        return Ok(cancelled_restore());
+    };
+    let path = selected
+        .into_path()
+        .map_err(|_| StorageError::invalid_backup())?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("selected backup")
+        .to_owned();
+    let confirmed = app
+        .dialog()
+        .message(format!(
+            "Restore {file_name}? This replaces the current Bottie conversations. \
+             A pre-restore safety copy will be created automatically."
+        ))
+        .title("Restore Bottie local data")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Restore".into(),
+            "Cancel".into(),
+        ))
+        .blocking_show();
+    if !confirmed {
+        return Ok(cancelled_restore());
+    }
+    if !state.runs.lock().await.is_empty() {
+        return Err(StorageError::restore_while_active());
+    }
+    let conversations = state.conversations.clone();
+    let safety_path = conversations.pre_restore_backup_path()?;
+    let restore_path = path.clone();
+    let worker_safety_path = safety_path.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        conversations.restore_from(&restore_path, &worker_safety_path)
+    })
+    .await
+    .map_err(|_| StorageError::restore())??;
+    let safety_copy_file_name = safety_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("Bottie pre-restore safety copy")
+        .to_owned();
+    Ok(RestoreOutcome {
+        status: RestoreStatus::Restored,
+        file_name: Some(file_name),
+        safety_copy_file_name: Some(safety_copy_file_name),
+    })
+}
+
+/// Builds the neutral outcome shared by file-picker and confirmation cancellation.
+fn cancelled_restore() -> RestoreOutcome {
+    RestoreOutcome {
+        status: RestoreStatus::Cancelled,
+        file_name: None,
+        safety_copy_file_name: None,
+    }
 }
 
 #[tauri::command]
