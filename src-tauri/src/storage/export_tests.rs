@@ -1,8 +1,11 @@
 //! Selected and batch conversation export contract tests.
 
+use serde_json::json;
+
 use super::export::{
     json_export, markdown_export, render_conversation_json, render_conversation_markdown,
 };
+use super::tools::StoredToolInvocation;
 use super::*;
 
 /// Creates one durable message for pure export-rendering coverage.
@@ -85,6 +88,53 @@ fn labels_non_final_assistant_output_and_builds_a_safe_default_filename() {
     assert_eq!(export.file_name, "bottie-plans-q3.md");
     assert!(export.contents.contains("> Status: Cancelled"));
     assert!(export.contents.ends_with("Retained partial answer\n"));
+}
+
+#[test]
+fn renders_tool_activity_as_structured_markdown_without_opaque_call_ids() {
+    let mut response = export_message(
+        StoredRole::Assistant,
+        "I found the retained note.",
+        None,
+        MessageState::Final,
+    );
+    response.provider_run = Some(StoredProviderRun {
+        id: "native-run-id".into(),
+        state: ProviderRunState::Completed,
+        reasoning_effort: StoredReasoningEffort::Off,
+        started_at_ms: 1,
+        completed_at_ms: Some(3),
+        error_code: None,
+        usage: None,
+        tool_invocations: vec![StoredToolInvocation {
+            ordinal: 0,
+            tool_name: "search_memory".into(),
+            arguments: json!({"query": "release"}),
+            result: Some(super::tools::StoredToolResult {
+                output: json!({"title": "Release checklist"}),
+                is_error: false,
+                created_at_ms: 2,
+            }),
+            created_at_ms: 1,
+        }],
+    });
+    let conversation = StoredConversation {
+        id: "conversation-id".into(),
+        title: "Tool record".into(),
+        current_branch_id: "branch-id".into(),
+        branches: vec![],
+        messages: vec![response],
+    };
+
+    let rendered = render_conversation_markdown(&conversation);
+
+    assert!(rendered.contains("### Tool activity\n\n#### `search_memory`"));
+    assert!(rendered.contains("**Arguments**\n\n```json\n{\n  \"query\": \"release\"\n}\n```"));
+    assert!(
+        rendered.contains("**Result**\n\n```json\n{\n  \"title\": \"Release checklist\"\n}\n```")
+    );
+    assert!(rendered.contains("### Response\n\nI found the retained note."));
+    assert!(!rendered.contains("native-run-id"));
 }
 
 #[test]
@@ -196,6 +246,17 @@ fn renders_a_versioned_portable_json_contract_without_storage_identifiers() {
             output_tokens: Some(4),
             cost_usd: None,
         }),
+        tool_invocations: vec![StoredToolInvocation {
+            ordinal: 0,
+            tool_name: "search_memory".into(),
+            arguments: json!({"query": "trust boundary"}),
+            result: Some(super::tools::StoredToolResult {
+                output: json!({"matches": 2}),
+                is_error: false,
+                created_at_ms: 4,
+            }),
+            created_at_ms: 3,
+        }],
     });
     let conversation = StoredConversation {
         id: "conversation-id".into(),
@@ -220,7 +281,7 @@ fn renders_a_versioned_portable_json_contract_without_storage_identifiers() {
     let value: serde_json::Value = serde_json::from_str(&rendered).expect("JSON should parse");
 
     assert_eq!(value["format"], "bottie-conversation");
-    assert_eq!(value["version"], 1);
+    assert_eq!(value["version"], 2);
     assert_eq!(value["title"], "Architecture & safety");
     assert_eq!(value["messages"][0]["role"], "user");
     assert_eq!(value["messages"][0]["text"], "Explain the **boundary**.");
@@ -236,10 +297,27 @@ fn renders_a_versioned_portable_json_contract_without_storage_identifiers() {
         value["messages"][1]["generation"]["usage"]["inputTokens"],
         10
     );
+    assert_eq!(
+        value["messages"][1]["generation"]["toolInvocations"][0]["toolName"],
+        "search_memory"
+    );
+    assert_eq!(
+        value["messages"][1]["generation"]["toolInvocations"][0]["arguments"]["query"],
+        "trust boundary"
+    );
+    assert_eq!(
+        value["messages"][1]["generation"]["toolInvocations"][0]["result"]["output"]["matches"],
+        2
+    );
     assert!(value.get("id").is_none());
     assert!(value.get("currentBranchId").is_none());
     assert!(value["messages"][0].get("id").is_none());
     assert!(value["messages"][1]["generation"].get("id").is_none());
+    assert!(
+        value["messages"][1]["generation"]["toolInvocations"][0]
+            .get("providerCallId")
+            .is_none()
+    );
     assert!(rendered.ends_with('\n'));
 }
 
@@ -354,7 +432,7 @@ fn batches_active_and_archived_selected_lineages_without_trash_or_opaque_ids() {
 
     assert_eq!(export.file_name, "bottie-conversations.json");
     assert_eq!(value["format"], "bottie-conversation-batch");
-    assert_eq!(value["version"], 1);
+    assert_eq!(value["version"], 2);
     assert_eq!(value["conversations"].as_array().map(Vec::len), Some(2));
     assert_eq!(value["conversations"][0]["title"], "Active notes");
     assert_eq!(value["conversations"][0]["lifecycle"], "active");

@@ -15,10 +15,10 @@ const EXPORT_FILENAME_PREFIX: &str = "bottie-";
 const MARKDOWN_FILENAME_EXTENSION: &str = ".md";
 const JSON_FILENAME_EXTENSION: &str = ".json";
 const JSON_EXPORT_FORMAT: &str = "bottie-conversation";
-const JSON_EXPORT_VERSION: u8 = 1;
+const JSON_EXPORT_VERSION: u8 = 2;
 const BATCH_JSON_EXPORT_FILE_NAME: &str = "bottie-conversations.json";
 const BATCH_JSON_EXPORT_FORMAT: &str = "bottie-conversation-batch";
-const BATCH_JSON_EXPORT_VERSION: u8 = 1;
+const BATCH_JSON_EXPORT_VERSION: u8 = 2;
 
 /// Native-only file payload prepared before Bottie opens a save dialog.
 pub(crate) struct ConversationFileExport {
@@ -216,6 +216,8 @@ struct JsonGenerationExport<'a> {
     error_code: Option<&'a str>,
     /// Provider-reported token and cost totals, without estimates.
     usage: Option<&'a StoredUsage>,
+    /// Ordered tool calls and appended results without native or provider call identities.
+    tool_invocations: &'a [super::tools::StoredToolInvocation],
 }
 
 /// Renders deterministic pretty JSON and a trailing newline for portable text tooling.
@@ -294,6 +296,7 @@ impl<'a> From<&'a super::StoredProviderRun> for JsonGenerationExport<'a> {
             completed_at_ms: run.completed_at_ms,
             error_code: run.error_code.as_deref(),
             usage: run.usage.as_ref(),
+            tool_invocations: &run.tool_invocations,
         }
     }
 }
@@ -359,12 +362,55 @@ fn write_assistant_content(markdown: &mut String, message: &StoredMessage) {
         markdown.push_str("### Reasoning\n\n");
         markdown.push_str(reasoning);
         markdown.push_str("\n\n");
-        if !message.text.is_empty() {
-            markdown.push_str("### Response\n\n");
-        }
+    }
+    let tools = message
+        .provider_run
+        .as_ref()
+        .map(|run| run.tool_invocations.as_slice())
+        .unwrap_or_default();
+    write_tool_activity(markdown, tools);
+    if !message.text.is_empty() && (message.reasoning.is_some() || !tools.is_empty()) {
+        markdown.push_str("### Response\n\n");
     }
     markdown.push_str(&message.text);
     markdown.push('\n');
+}
+
+/// Writes ordered tool arguments and outcomes as inert structured JSON.
+fn write_tool_activity(markdown: &mut String, tools: &[super::tools::StoredToolInvocation]) {
+    if tools.is_empty() {
+        return;
+    }
+    markdown.push_str("### Tool activity\n\n");
+    for tool in tools {
+        writeln!(markdown, "#### {}\n", inline_code(&tool.tool_name))
+            .expect("writing to a string cannot fail");
+        markdown.push_str("**Arguments**\n\n");
+        write_json_fence(markdown, &tool.arguments);
+        match &tool.result {
+            Some(result) => {
+                markdown.push_str(if result.is_error {
+                    "**Error result**\n\n"
+                } else {
+                    "**Result**\n\n"
+                });
+                write_json_fence(markdown, &result.output);
+            }
+            None => markdown.push_str("**Result:** Pending\n\n"),
+        }
+    }
+}
+
+/// Writes deterministic pretty JSON inside a Markdown fence safe for embedded backticks.
+fn write_json_fence(markdown: &mut String, value: &serde_json::Value) {
+    let json = serde_json::to_string_pretty(value).expect("retained JSON values always serialize");
+    let longest_run = json
+        .split(|character| character != '`')
+        .map(str::len)
+        .max()
+        .unwrap_or_default();
+    let fence = "`".repeat((longest_run + 1).max(3));
+    writeln!(markdown, "{fence}json\n{json}\n{fence}\n").expect("writing to a string cannot fail");
 }
 
 /// Maps retained incomplete outcomes to stable human-readable export labels.

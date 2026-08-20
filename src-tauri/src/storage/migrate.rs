@@ -5,7 +5,9 @@ use rusqlite::{Connection, params};
 use super::{
     CURRENT_SCHEMA_VERSION, ConversationStore, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME,
     StorageError,
-    migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6},
+    migrations::{
+        MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
+    },
     now_ms,
 };
 
@@ -46,6 +48,9 @@ impl ConversationStore {
         }
         if version < 6 {
             apply_migration(connection, MIGRATION_6, 6, "assistant response ratings")?;
+        }
+        if version < 7 {
+            apply_migration(connection, MIGRATION_7, 7, "tool invocations and results")?;
         }
         Ok(())
     }

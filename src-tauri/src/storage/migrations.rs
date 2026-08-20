@@ -141,3 +141,27 @@ CREATE TABLE response_ratings (
     updated_at_ms INTEGER NOT NULL
 ) STRICT;
 "#;
+
+/// Adds immutable provider tool calls and their optional append-only results.
+pub(super) const MIGRATION_7: &str = r#"
+CREATE TABLE tool_invocations (
+    id TEXT PRIMARY KEY,
+    provider_run_id TEXT NOT NULL REFERENCES provider_runs(id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    provider_call_id TEXT NOT NULL CHECK (length(trim(provider_call_id)) > 0),
+    tool_name TEXT NOT NULL CHECK (length(trim(tool_name)) > 0),
+    arguments_json TEXT NOT NULL CHECK (json_valid(arguments_json)),
+    created_at_ms INTEGER NOT NULL,
+    UNIQUE (provider_run_id, ordinal),
+    UNIQUE (provider_run_id, provider_call_id)
+) STRICT;
+CREATE TABLE tool_results (
+    id TEXT PRIMARY KEY,
+    tool_invocation_id TEXT NOT NULL UNIQUE REFERENCES tool_invocations(id) ON DELETE CASCADE,
+    output_json TEXT NOT NULL CHECK (json_valid(output_json)),
+    is_error INTEGER NOT NULL CHECK (is_error IN (0, 1)),
+    created_at_ms INTEGER NOT NULL
+) STRICT;
+CREATE INDEX tool_invocations_run_created_idx
+    ON tool_invocations(provider_run_id, ordinal);
+"#;

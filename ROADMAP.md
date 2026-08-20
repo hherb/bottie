@@ -92,7 +92,7 @@ Status: complete
 
 Outcome: conversations survive restart and can be searched, branched, exported, and recovered.
 
-Status: in progress
+Status: complete
 
 ### Design gate
 
@@ -107,7 +107,7 @@ ownership rewrite.
 - [x] WAL mode, foreign keys, busy handling, and startup integrity checks;
 - [x] built-in local profile, conversations, main branches, ordered messages, and text/reasoning blocks;
 - [x] append-oriented provider runs and provider-reported usage records;
-- [ ] append-oriented tool invocations and results;
+- [x] append-oriented tool invocations and results;
 - [x] crash-safe draft/partial message persistence and interrupted-run recovery;
 - [x] manual SQLite backup creation through a Rust-owned Save dialog and SQLite's online backup API;
 - [x] confirmed manual restore from a validated Bottie backup with a pre-restore safety copy;

@@ -1,0 +1,95 @@
+.tool-activity-block {
+  margin: 4px 0 12px;
+  border: 1px solid rgba(91, 184, 167, 0.16);
+  border-radius: 10px;
+  background: rgba(91, 184, 167, 0.035);
+}
+.tool-activity-block > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  color: #91c4b9;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.tool-activity-block > summary::-webkit-details-marker {
+  display: none;
+}
+.tool-activity-block > summary::after {
+  margin-left: auto;
+  color: #666f6d;
+  content: "+";
+  font-size: 12px;
+}
+.tool-activity-block[open] > summary::after {
+  content: "−";
+}
+.tool-activity-block > summary small {
+  color: #66726f;
+  font-size: 7px;
+  font-weight: 550;
+}
+.tool-activity-list {
+  display: grid;
+  gap: 8px;
+  padding: 9px 10px 10px;
+  border-top: 1px solid rgba(91, 184, 167, 0.1);
+}
+.tool-record {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.12);
+}
+.tool-record header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.tool-record header code {
+  overflow: hidden;
+  color: #b4d5ce;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-record header span,
+.tool-record > span,
+.tool-record > p {
+  color: #747d7b;
+  font-size: 7.5px;
+}
+.tool-record header span.error-result {
+  color: #d49a91;
+}
+.tool-record > span {
+  display: block;
+  margin: 8px 0 4px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.tool-record pre {
+  max-height: 180px;
+  padding: 7px 8px;
+  margin: 0;
+  overflow: auto;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  color: #aaaead;
+  font:
+    8.5px/1.5 "SFMono-Regular",
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.tool-record > p {
+  margin: 0;
+}
