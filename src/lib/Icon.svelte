@@ -5,6 +5,7 @@
     | "check"
     | "chevron-down"
     | "copy"
+    | "database"
     | "edit"
     | "file"
     | "globe"
@@ -67,6 +68,9 @@
   {:else if name === "copy"}
     <rect x="9" y="9" width="10" height="10" rx="2" />
     <path d="M15 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+  {:else if name === "database"}
+    <ellipse cx="12" cy="5" rx="8" ry="3" />
+    <path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" />
   {:else if name === "edit"}
     <path d="M12 20h9" />
     <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />

@@ -9,6 +9,7 @@ import {
 import { nextMessageId, type Message } from "$lib/presentation";
 import {
   appendConversationMessage,
+  backupConversationStore,
   branchConversationMessage,
   clearLastOpenConversation,
   createConversation,
@@ -52,8 +53,11 @@ export class ConversationState {
   searchResults = $state<ConversationSearchResult[]>([]);
   isSearching = $state(false);
   isExporting = $state(false);
+  isBackingUp = $state(false);
   exportFeedback = $state<string | null>(null);
   exportFailed = $state(false);
+  backupFeedback = $state<string | null>(null);
+  backupFailed = $state(false);
 
   private searchSequence = 0;
 
@@ -188,6 +192,8 @@ export class ConversationState {
     this.isExporting = true;
     this.exportFeedback = null;
     this.exportFailed = false;
+    this.backupFeedback = null;
+    this.backupFailed = false;
     try {
       const outcome = await exportConversationMarkdown(this.activeConversationId);
       if (outcome.status === "saved") this.exportFeedback = `Saved ${outcome.fileName ?? "Markdown export"}`;
@@ -198,6 +204,29 @@ export class ConversationState {
       this.exportFailed = true;
     } finally {
       this.isExporting = false;
+      this.isManaging = false;
+    }
+  }
+
+  /** Opens the native Save dialog for a complete SQLite snapshot and reports only its leaf filename. */
+  async backup(): Promise<void> {
+    if (this.isManaging) return;
+    this.isManaging = true;
+    this.isBackingUp = true;
+    this.backupFeedback = null;
+    this.backupFailed = false;
+    this.exportFeedback = null;
+    this.exportFailed = false;
+    try {
+      const outcome = await backupConversationStore();
+      if (outcome.status === "saved") this.backupFeedback = `Backed up ${outcome.fileName ?? "local data"}`;
+      this.storageError = null;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      this.backupFeedback = this.storageError.message;
+      this.backupFailed = true;
+    } finally {
+      this.isBackingUp = false;
       this.isManaging = false;
     }
   }

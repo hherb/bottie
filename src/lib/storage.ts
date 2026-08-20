@@ -104,6 +104,12 @@ export type ConversationExportOutcome = {
   fileName: string | null;
 };
 
+/** Native backup result that deliberately omits the selected filesystem path. */
+export type BackupOutcome = {
+  status: "saved" | "cancelled";
+  fileName: string | null;
+};
+
 /** Produces the stable browser-preview storage failure. */
 function unavailableInBrowser(): StorageError {
   return {
@@ -140,6 +146,12 @@ export async function loadConversation(conversationId: string): Promise<StoredCo
 export async function exportConversationMarkdown(conversationId: string): Promise<ConversationExportOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ConversationExportOutcome>("export_conversation_markdown", { conversationId });
+}
+
+/** Saves a complete SQLite snapshot without exposing its destination path. */
+export async function backupConversationStore(): Promise<BackupOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<BackupOutcome>("backup_conversation_store");
 }
 
 /** Loads the exact conversation selected by the local profile, when present. */
