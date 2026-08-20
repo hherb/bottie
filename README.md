@@ -96,8 +96,10 @@ ratings stay local, survive restart, and remain attached to their preserved bran
 and JSON export actions reconstruct only the selected lineage and ask Rust to show a format-filtered native Save
 dialog. JSON uses the versioned `bottie-conversation` contract and retains ordered text, separate reasoning, message
 state, provider/model provenance, local rating, creation time, and provider-reported generation metadata without
-opaque storage identifiers. Rust writes the UTF-8 file; the WebView receives only a saved/cancelled outcome and leaf
-filename, never the chosen directory. A separate global backup action asks Rust to create and verify a complete SQLite
+opaque storage identifiers. A separate global JSON action writes every active and archived conversation's selected
+lineage through the versioned `bottie-conversation-batch` contract while excluding Trash and hidden branch siblings.
+Rust writes each UTF-8 file; the WebView receives only a saved/cancelled outcome and leaf filename, never the chosen
+directory. A separate global backup action asks Rust to create and verify a complete SQLite
 snapshot with SQLite's online backup API, including
 committed WAL content, while likewise returning no local path. Restore opens and validates the selected database in
 Rust, migrates an isolated staging copy when supported, creates an application-private snapshot of the current store,
@@ -109,7 +111,7 @@ result. Recovery mode blocks normal conversation connections and skips automatic
 only verified automatic-snapshot count and newest timestamp. Restoring either that newest snapshot or a manually
 selected backup stages, migrates, and verifies a replacement before preserving the damaged main database and present
 WAL/shared-memory sidecars in app-private storage. Successful replacement resumes normal conversation access without
-returning a filesystem path. Batch export remains planned Milestone 2 work.
+returning a filesystem path. Append-oriented tool invocation/result persistence remains planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

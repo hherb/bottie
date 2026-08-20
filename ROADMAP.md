@@ -129,7 +129,7 @@ ownership rewrite.
 - [x] durable Good/Poor response rating with replacement, clearing, and preserved-branch restoration;
 - [x] single-conversation Markdown export through a Rust-owned native Save dialog;
 - [x] single-conversation JSON export through the same selected-lineage and native Save policy;
-- [ ] batch export.
+- [x] batch JSON export of active and archived selected lineages through a Rust-owned native Save dialog.
 
 ## Milestone 3 — Attachments and multimodal context
 

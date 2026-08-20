@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   activeConversationDateGroups,
+  canBatchExportConversations,
   conversationExportFeedback,
   conversationsForLifecycle,
   type ConversationSummary,
@@ -17,6 +18,12 @@ describe("conversation storage presentation helpers", () => {
   it("selects one lifecycle group without changing native ordering", () => {
     expect(conversationsForLifecycle(conversations, "archived")).toEqual([conversations[1]]);
     expect(conversationsForLifecycle(conversations, "active")).toEqual([conversations[0]]);
+  });
+
+  it("enables batch export only when active or archived conversations exist", () => {
+    expect(canBatchExportConversations(conversations)).toBe(true);
+    expect(canBatchExportConversations([conversations[2]])).toBe(false);
+    expect(canBatchExportConversations([])).toBe(false);
   });
 
   it("groups active conversations by local calendar recency", () => {
@@ -37,8 +44,9 @@ describe("conversation storage presentation helpers", () => {
     ]);
   });
 
-  it("labels successful Markdown and JSON exports without needing a native path", () => {
+  it("labels successful selected and batch exports without needing a native path", () => {
     expect(conversationExportFeedback("markdown", "bottie-notes.md")).toBe("Saved bottie-notes.md");
     expect(conversationExportFeedback("json", null)).toBe("Saved JSON export");
+    expect(conversationExportFeedback("batch-json", null)).toBe("Saved all conversations");
   });
 });

@@ -14,6 +14,7 @@
     showContext: boolean;
     isLocalRoute: boolean;
     canExport: boolean;
+    canBatchExport: boolean;
     canBackup: boolean;
     canRestore: boolean;
     isExporting: boolean;
@@ -30,6 +31,7 @@
     ontogglecontext: () => void;
     onexport: () => void;
     onexportjson: () => void;
+    onexportbatchjson: () => void;
     onbackup: () => void;
     onrestore: () => void;
   };
@@ -44,6 +46,7 @@
     showContext,
     isLocalRoute,
     canExport,
+    canBatchExport,
     canBackup,
     canRestore,
     isExporting,
@@ -60,6 +63,7 @@
     ontogglecontext,
     onexport,
     onexportjson,
+    onexportbatchjson,
     onbackup,
     onrestore,
   }: Props = $props();
@@ -192,6 +196,15 @@
       onclick={onexportjson}
     >
       <Icon name="braces" size={18} />
+    </button>
+    <button
+      class="icon-button"
+      aria-label={isExporting ? "Exporting conversations" : "Export all conversations as JSON"}
+      title="Export all conversations as JSON"
+      disabled={!canBatchExport || isGenerating}
+      onclick={onexportbatchjson}
+    >
+      <Icon name="files" size={18} />
     </button>
   </div>
 </header>

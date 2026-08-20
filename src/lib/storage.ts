@@ -111,12 +111,12 @@ export type ConversationExportOutcome = {
   fileName: string | null;
 };
 
-/** Portable selected-conversation formats supported by the native Save flow. */
-export type ConversationExportFormat = "markdown" | "json";
+/** Portable selected and multi-conversation formats supported by native Save flows. */
+export type ConversationExportFormat = "markdown" | "json" | "batch-json";
 
 /** Builds compact success feedback from a path-redacted native export outcome. */
 export function conversationExportFeedback(format: ConversationExportFormat, fileName: string | null): string {
-  const fallback = format === "markdown" ? "Markdown export" : "JSON export";
+  const fallback = format === "markdown" ? "Markdown export" : format === "json" ? "JSON export" : "all conversations";
   return `Saved ${fileName ?? fallback}`;
 }
 
@@ -175,6 +175,12 @@ export async function exportConversationMarkdown(conversationId: string): Promis
 export async function exportConversationJson(conversationId: string): Promise<ConversationExportOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ConversationExportOutcome>("export_conversation_json", { conversationId });
+}
+
+/** Saves every active and archived selected lineage as one versioned JSON document. */
+export async function exportConversationBatchJson(): Promise<ConversationExportOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ConversationExportOutcome>("export_conversation_batch_json");
 }
 
 /** Saves a complete SQLite snapshot without exposing its destination path. */
@@ -277,6 +283,11 @@ export function conversationsForLifecycle(
   lifecycle: ConversationLifecycle,
 ): ConversationSummary[] {
   return conversations.filter((conversation) => conversation.lifecycle === lifecycle);
+}
+
+/** Reports whether at least one non-trashed conversation is available for batch export. */
+export function canBatchExportConversations(conversations: ConversationSummary[]): boolean {
+  return conversations.some((conversation) => conversation.lifecycle !== "deleted");
 }
 
 /** Groups active conversations by local calendar recency while preserving native ordering. */

@@ -8,6 +8,7 @@
   import ProviderToolbar from "$lib/ProviderToolbar.svelte";
   import Sidebar from "$lib/Sidebar.svelte";
   import StorageRecovery from "$lib/StorageRecovery.svelte";
+  import { canBatchExportConversations } from "$lib/storage";
   import "$lib/styles/shell.css";
   import "$lib/styles/conversation-nav.css";
   import "$lib/styles/conversation.css";
@@ -98,6 +99,7 @@
         showContext={state.showContext}
         isLocalRoute={state.isLocalRoute}
         canExport={Boolean(state.history.activeConversationId)}
+        canBatchExport={canBatchExportConversations(state.history.conversations)}
         canBackup={state.runtime.version !== "preview"}
         canRestore={state.runtime.version !== "preview"}
         isExporting={state.history.isExporting}
@@ -114,6 +116,7 @@
         ontogglecontext={() => (state.showContext = !state.showContext)}
         onexport={() => void state.history.exportMarkdown()}
         onexportjson={() => void state.history.exportJson()}
+        onexportbatchjson={() => void state.history.exportBatchJson()}
         onbackup={() => void state.history.backup()}
         onrestore={() => {
           void state.history.restoreBackup().then((messages) => {

@@ -1,4 +1,4 @@
-//! Selected-conversation Markdown and JSON export contract tests.
+//! Selected and batch conversation export contract tests.
 
 use super::export::{
     json_export, markdown_export, render_conversation_json, render_conversation_markdown,
@@ -279,4 +279,120 @@ fn builds_a_json_filename_and_keeps_the_selected_lineage_policy() {
     assert_eq!(export.contents, direct.contents);
     assert!(export.contents.contains("Selected request"));
     assert!(!export.contents.contains("Original request"));
+}
+
+#[test]
+fn batches_active_and_archived_selected_lineages_without_trash_or_opaque_ids() {
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    let active = store
+        .create_conversation("Active notes")
+        .expect("active conversation should be created");
+    let original = store
+        .append_message(NewStoredMessage {
+            conversation_id: active.id.clone(),
+            role: StoredRole::User,
+            text: "Hidden original request".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        })
+        .expect("original request should append");
+    store
+        .fork_from_user_message(&active.id, &original.id, "Selected active request")
+        .expect("selected active branch should fork");
+
+    let archived = store
+        .create_conversation("Archived notes")
+        .expect("archived conversation should be created");
+    store
+        .append_message(NewStoredMessage {
+            conversation_id: archived.id.clone(),
+            role: StoredRole::User,
+            text: "Retained archived request".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        })
+        .expect("archived request should append");
+    store
+        .set_conversation_archived(&archived.id, true)
+        .expect("conversation should archive");
+
+    let deleted = store
+        .create_conversation("Deleted notes")
+        .expect("deleted conversation should be created");
+    store
+        .append_message(NewStoredMessage {
+            conversation_id: deleted.id.clone(),
+            role: StoredRole::User,
+            text: "Trash should stay excluded".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        })
+        .expect("deleted request should append");
+    store
+        .delete_conversation(&deleted.id)
+        .expect("conversation should move to trash");
+    store
+        .open_conversation(&active.id)
+        .expect("active conversation should be selected");
+
+    let export = store
+        .prepare_batch_json_export()
+        .expect("batch JSON should export");
+    let value: serde_json::Value =
+        serde_json::from_str(&export.contents).expect("batch JSON should parse");
+    let selected = store
+        .load_last_open_conversation()
+        .expect("selection should load")
+        .expect("the active conversation should remain selected");
+
+    assert_eq!(export.file_name, "bottie-conversations.json");
+    assert_eq!(value["format"], "bottie-conversation-batch");
+    assert_eq!(value["version"], 1);
+    assert_eq!(value["conversations"].as_array().map(Vec::len), Some(2));
+    assert_eq!(value["conversations"][0]["title"], "Active notes");
+    assert_eq!(value["conversations"][0]["lifecycle"], "active");
+    assert_eq!(
+        value["conversations"][0]["messages"][0]["text"],
+        "Selected active request"
+    );
+    assert_eq!(value["conversations"][1]["title"], "Archived notes");
+    assert_eq!(value["conversations"][1]["lifecycle"], "archived");
+    assert!(value["conversations"][0].get("updatedAtMs").is_some());
+    assert!(value["conversations"][0].get("id").is_none());
+    assert!(!export.contents.contains("Hidden original request"));
+    assert!(!export.contents.contains("Trash should stay excluded"));
+    assert!(!export.contents.contains(&active.id));
+    assert!(!export.contents.contains(&archived.id));
+    assert!(export.contents.ends_with('\n'));
+    assert_eq!(selected.id, active.id);
+}
+
+#[test]
+fn rejects_a_batch_export_when_only_trashed_conversations_exist() {
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    let deleted = store
+        .create_conversation("Deleted notes")
+        .expect("conversation should be created");
+    store
+        .delete_conversation(&deleted.id)
+        .expect("conversation should move to trash");
+
+    let error = match store.prepare_batch_json_export() {
+        Ok(_) => panic!("trash alone should not produce a batch export"),
+        Err(error) => error,
+    };
+
+    assert_eq!(error.code, "not_found");
+    assert_eq!(
+        error.message,
+        "There are no active or archived conversations to export."
+    );
 }
