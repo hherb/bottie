@@ -233,7 +233,8 @@ changing generated content, or collapsing preserved branch alternatives.
 3. Reopened conversations reconstruct the current rating beside each preserved assistant response. Ratings remain on
    their exact response when users switch branches and survive a fresh process.
 4. Good and Poor controls expose `aria-pressed`, disable during generation or storage mutation, and use the active
-   control as the clear action. A tested pure helper owns the toggle decision.
+   control as the clear action. Selected Good uses a dark green treatment and selected Poor uses dark red so state does
+   not depend on a subtle white-brightness difference. A tested pure helper owns the toggle decision.
 
 ### Acceptance criteria
 
@@ -651,9 +652,10 @@ contained, and its unrated buttons expose false `aria-pressed` state while corre
 storage. The native app compiled and launched twice against the existing store; a read-only host check confirmed
 schema version 6, the `assistant response ratings` migration record, and `quick_check=ok`. The default-size native
 window reopened the selected branch without layout or launch errors. macOS denied assistive access for automated native
-clicking, so the real Good to Poor to clear click sequence remains a manual confirmation item; its mutation and
-fresh-process persistence are covered by the path-backed native tests. Live-provider tests were not required because
-this slice does not change provider networking, streaming, cancellation, or credentials.
+clicking, but the real rating mutation and persistence flow was manually confirmed on 2026-08-20. A follow-up contrast
+review found the original violet/white active treatment too subtle, so selected Good and Poor controls now use distinct
+dark green and dark red treatments. Live-provider tests were not required because this slice does not change provider
+networking, streaming, cancellation, or credentials.
 
 ## Verification completed for the previous response-retry slice
 

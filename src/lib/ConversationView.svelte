@@ -224,6 +224,7 @@
                 {/if}
               {/if}
               <button
+                class="rating-action good-rating"
                 class:active-rating={message.rating === "good"}
                 aria-label="Good response"
                 aria-pressed={message.rating === "good"}
@@ -231,6 +232,7 @@
                 onclick={() => onrateresponse(message.id, "good")}><Icon name="thumbs-up" size={15} /></button
               >
               <button
+                class="rating-action poor-rating"
                 class:active-rating={message.rating === "poor"}
                 aria-label="Poor response"
                 aria-pressed={message.rating === "poor"}
