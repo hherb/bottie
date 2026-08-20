@@ -12,6 +12,7 @@
   import "$lib/styles/shell.css";
   import "$lib/styles/conversation-nav.css";
   import "$lib/styles/conversation.css";
+  import "$lib/styles/tool-activity.css";
   import "$lib/styles/markdown.css";
   import "$lib/styles/composer.css";
   import "$lib/styles/context.css";

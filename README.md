@@ -17,8 +17,12 @@ copied as Markdown without generated HTML or response metadata. When separate re
 document includes labelled Reasoning and Response sections. Interrupted, cancelled, and transiently failed responses
 can be retried on a preserved alternative branch without overwriting the original attempt. Durable Good and Poor
 ratings can be set, changed, or cleared on each preserved assistant response and survive restart and branch switching.
+Native provider runs can also retain ordered structured tool calls and one append-only result per call. Reopened tool
+activity is visible in a calm expandable panel, even though provider tool loops and execution remain intentionally
+deferred.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
-formats retain separate reasoning, response status, provider/model provenance, and local ratings. Bottie also restores
+formats retain separate reasoning, response status, provider/model provenance, local ratings, and retained tool
+activity. Bottie also restores
 the exact last-open conversation after restart and preserves an intentional blank new-chat view. Native backup
 controls can create a verified SQLite
 snapshot or restore a validated Bottie backup after explicit confirmation and an automatic pre-restore safety copy.
@@ -29,8 +33,9 @@ can restore the newest verified automatic snapshot or choose a manual backup; Ru
 bundle in app-private storage before replacement.
 Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
-per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
-not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
+per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, provider tool
+loops, approvals, and tool execution are not implemented yet; those UI surfaces are disabled or labelled as
+preview-only fixtures.
 
 ## Development
 
@@ -77,8 +82,10 @@ reasoning, and usage before forwarding those events to the interface, and commit
 prompt can be sent. On startup, any run left active by a prior process becomes an interrupted partial response. The
 sidebar groups real conversation activity by local calendar date. Conversations can be renamed inline, archived, moved
 to recoverable trash, and restored without losing messages. The initial SQLite schema models conversations, main
-branches, ordered messages, separate text/reasoning blocks, provider runs, and append-only usage snapshots. Reopened
-assistant responses recover provider-reported token/cost metadata without estimating missing values. The native store
+branches, ordered messages, separate text/reasoning blocks, provider runs, append-only usage snapshots, ordered tool
+invocations, and single append-only tool results. Provider-controlled tool names, call identities, argument objects,
+and outputs are validated and bounded before insertion. Reopened assistant responses recover provider-reported
+token/cost metadata and structured tool activity without estimating or executing anything. The native store
 owns the local profile's last-open selection; opening or creating a conversation records it, while New chat clears it.
 Conversation search runs through a narrow Rust command, treats query characters literally, excludes Trash and separate
 reasoning blocks, and returns at most 50 activity-ordered results with bounded snippets. It intentionally uses the
@@ -94,10 +101,11 @@ context. Good and Poor rating controls
 write only the exact visible assistant response through a narrow native command. Selecting the active choice clears it;
 ratings stay local, survive restart, and remain attached to their preserved branch response. The toolbar's Markdown
 and JSON export actions reconstruct only the selected lineage and ask Rust to show a format-filtered native Save
-dialog. JSON uses the versioned `bottie-conversation` contract and retains ordered text, separate reasoning, message
+dialog. JSON uses version 2 of the `bottie-conversation` contract and retains ordered text, separate reasoning, message
 state, provider/model provenance, local rating, creation time, and provider-reported generation metadata without
-opaque storage identifiers. A separate global JSON action writes every active and archived conversation's selected
-lineage through the versioned `bottie-conversation-batch` contract while excluding Trash and hidden branch siblings.
+opaque storage identifiers. Retained tool arguments/results are included without native run or provider call IDs. A
+separate global JSON action writes every active and archived conversation's selected lineage through version 2 of the
+`bottie-conversation-batch` contract while excluding Trash and hidden branch siblings.
 Rust writes each UTF-8 file; the WebView receives only a saved/cancelled outcome and leaf filename, never the chosen
 directory. A separate global backup action asks Rust to create and verify a complete SQLite
 snapshot with SQLite's online backup API, including
@@ -111,7 +119,8 @@ result. Recovery mode blocks normal conversation connections and skips automatic
 only verified automatic-snapshot count and newest timestamp. Restoring either that newest snapshot or a manually
 selected backup stages, migrates, and verifies a replacement before preserving the damaged main database and present
 WAL/shared-memory sidecars in app-private storage. Successful replacement resumes normal conversation access without
-returning a filesystem path. Append-oriented tool invocation/result persistence remains planned Milestone 2 work.
+returning a filesystem path. Milestone 2 durable conversation storage is complete; native attachment ingestion is the
+next bounded foundation slice.
 
 Run the layout-only browser preview:
 

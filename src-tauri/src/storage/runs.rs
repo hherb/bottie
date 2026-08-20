@@ -247,6 +247,7 @@ pub(super) fn load_provider_run(
         completed_at_ms: values.3,
         error_code: values.4,
         usage,
+        tool_invocations: super::tools::load_tool_invocations(transaction, run_id)?,
     })
 }
 

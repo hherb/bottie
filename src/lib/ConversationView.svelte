@@ -4,7 +4,7 @@
   import { copyAssistantResponse } from "$lib/clipboard";
   import Icon from "$lib/Icon.svelte";
   import { renderAssistantMarkdown } from "$lib/markdown";
-  import type { ConversationBranch } from "$lib/storage";
+  import { formatToolPayload, type ConversationBranch } from "$lib/storage";
   import type { ResponseRating } from "$lib/storage";
   import type { ModelInfo, ProviderError } from "$lib/inference";
   import type { InferenceStage, Message, ProviderStatus } from "$lib/presentation";
@@ -161,6 +161,38 @@
               </summary>
               <div class="reasoning-content">
                 {#each message.reasoning.split("\n\n") as paragraph}<p>{paragraph}</p>{/each}
+              </div>
+            </details>
+          {/if}
+
+          {#if message.toolInvocations?.length}
+            <details class="tool-activity-block">
+              <summary>
+                <span>Tool activity</span>
+                <small>
+                  {message.toolInvocations.length}
+                  {message.toolInvocations.length === 1 ? "call" : "calls"}
+                </small>
+              </summary>
+              <div class="tool-activity-list">
+                {#each message.toolInvocations as tool (tool.ordinal)}
+                  <section class="tool-record">
+                    <header>
+                      <code>{tool.toolName}</code>
+                      <span class:error-result={tool.result?.isError}>
+                        {tool.result ? (tool.result.isError ? "Error" : "Complete") : "Pending"}
+                      </span>
+                    </header>
+                    <span>Arguments</span>
+                    <pre>{formatToolPayload(tool.arguments)}</pre>
+                    <span>{tool.result?.isError ? "Error result" : "Result"}</span>
+                    {#if tool.result}
+                      <pre>{formatToolPayload(tool.result.output)}</pre>
+                    {:else}
+                      <p>Pending</p>
+                    {/if}
+                  </section>
+                {/each}
               </div>
             </details>
           {/if}

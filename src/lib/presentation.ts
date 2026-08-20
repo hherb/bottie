@@ -1,5 +1,5 @@
 import type { ProviderId, ProviderSettings } from "./inference";
-import type { ResponseRating } from "./storage";
+import type { ResponseRating, StoredToolInvocation } from "./storage";
 
 let messageSequence = Date.now();
 
@@ -21,6 +21,7 @@ export type Message = {
   error?: boolean;
   retryable?: boolean;
   rating?: ResponseRating;
+  toolInvocations?: StoredToolInvocation[];
 };
 
 /** Browser-side attachment metadata used by the presentation-only attachment preview. */
@@ -114,5 +115,18 @@ export const INITIAL_MESSAGES: Message[] = [
       "## A focused sequence\n\n1. Build the conversation experience.\n2. Connect inference and persistence.\n" +
       "3. Add tools behind the native boundary.\n\nThe important boundary is simple: the `WebView` presents " +
       "state; the **Rust core** owns secrets, files, storage, provider calls, and tool execution.",
+    toolInvocations: [
+      {
+        ordinal: 0,
+        toolName: "search_memory",
+        arguments: { query: "bottie architecture boundary" },
+        result: {
+          output: { matches: 2, source: "Local conversation memory" },
+          isError: false,
+          createdAtMs: 2,
+        },
+        createdAtMs: 1,
+      },
+    ],
   },
 ];

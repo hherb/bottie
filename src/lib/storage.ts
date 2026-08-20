@@ -25,6 +25,23 @@ export type StoredProviderRun = {
   completedAtMs: number | null;
   errorCode: string | null;
   usage: Usage | null;
+  toolInvocations: StoredToolInvocation[];
+};
+
+/** One append-only tool call reconstructed without native or provider call identities. */
+export type StoredToolInvocation = {
+  ordinal: number;
+  toolName: string;
+  arguments: unknown;
+  result: StoredToolResult | null;
+  createdAtMs: number;
+};
+
+/** One structured tool outcome linked to a retained call. */
+export type StoredToolResult = {
+  output: unknown;
+  isError: boolean;
+  createdAtMs: number;
 };
 
 /** Stable storage failure returned by native commands. */
@@ -69,6 +86,12 @@ export type ConversationDateGroup = {
 
 const MILLISECONDS_PER_DAY = 86_400_000;
 const PREVIOUS_DAYS_LIMIT = 7;
+const TOOL_JSON_INDENT_SPACES = 2;
+
+/** Formats structured native tool data as inert readable JSON. */
+export function formatToolPayload(value: unknown): string {
+  return JSON.stringify(value, null, TOOL_JSON_INDENT_SPACES);
+}
 
 /** One persisted text/reasoning message. */
 export type StoredMessage = {

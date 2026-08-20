@@ -5,6 +5,7 @@ import {
   canBatchExportConversations,
   conversationExportFeedback,
   conversationsForLifecycle,
+  formatToolPayload,
   type ConversationSummary,
 } from "./storage";
 
@@ -48,5 +49,10 @@ describe("conversation storage presentation helpers", () => {
     expect(conversationExportFeedback("markdown", "bottie-notes.md")).toBe("Saved bottie-notes.md");
     expect(conversationExportFeedback("json", null)).toBe("Saved JSON export");
     expect(conversationExportFeedback("batch-json", null)).toBe("Saved all conversations");
+  });
+
+  it("formats retained tool payloads as readable inert JSON", () => {
+    expect(formatToolPayload({ query: "release", count: 2 })).toBe('{\n  "query": "release",\n  "count": 2\n}');
+    expect(formatToolPayload("plain result")).toBe('"plain result"');
   });
 });

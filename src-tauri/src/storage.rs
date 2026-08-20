@@ -14,6 +14,7 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 mod backup;
 mod branching;
+mod error;
 mod export;
 mod lifecycle;
 mod migrate;
@@ -23,8 +24,10 @@ mod recovery;
 mod runs;
 mod search;
 mod selection;
+mod tools;
 mod types;
 
+pub(crate) use error::StorageError;
 pub(crate) use export::ConversationFileExport;
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
@@ -32,11 +35,11 @@ pub(crate) use recovery::StorageRecoveryStatus;
 pub(crate) use types::{
     ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
     ForkedConversation, MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext,
-    ProviderRunState, ResponseRating, RunBlockKind, StorageError, StoredConversation,
-    StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
+    ProviderRunState, ResponseRating, RunBlockKind, StoredConversation, StoredMessage,
+    StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 6;
+const CURRENT_SCHEMA_VERSION: i64 = 7;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -458,6 +461,10 @@ mod rating_tests;
 #[cfg(test)]
 #[path = "storage/export_tests.rs"]
 mod export_tests;
+
+#[cfg(test)]
+#[path = "storage/tool_tests.rs"]
+mod tool_tests;
 
 #[cfg(test)]
 #[path = "storage/backup_tests.rs"]

@@ -6,7 +6,7 @@ Last verified: 2026-08-20
 
 Bottie is a greenfield Tauri 2 desktop chatbot. Milestone 1 is complete: the native app supports oMLX, Ollama,
 OpenAI-compatible, and Anthropic-compatible text inference through Rust-owned networking, credentials, streaming, and
-cancellation. Milestone 2 is in progress: a Rust-owned bundled SQLite store now persists local-profile conversations
+cancellation. Milestone 2 is complete: a Rust-owned bundled SQLite store now persists local-profile conversations
 and ordered text/reasoning messages across restart. Accepted provider runs now persist their request link, provider,
 model, generation settings, terminal outcome, timing, provider-reported usage, and crash-safe partial text/reasoning
 checkpoints. Runs left active by an earlier process reopen as visibly interrupted partial responses. Users can rename,
@@ -35,9 +35,12 @@ backup is newer than 24 hours and retains the seven newest automatic snapshots. 
 prunes manual backups or pre-restore safety copies, and reports a path-redacted outcome in session diagnostics. If
 SQLite reports corruption at startup, Bottie now opens in a restricted recovery state instead of aborting launch. The
 guided screen can restore the newest verified automatic snapshot or a manually selected Bottie backup after preserving
-the damaged database bundle in app-private storage. The next bounded implementation slice is append-oriented tool-call
-and tool-result persistence; do not bundle provider tool loops, tool execution, approvals, web access, attachments,
-import, or broad product and visual-design work with it.
+the damaged database bundle in app-private storage. Native provider runs now also retain ordered structured tool calls
+and one append-only result per call; reopened tool activity is inspectable and portable without exposing native or
+provider call identities. Provider tool loops and execution remain absent. The next bounded implementation slice is
+native content-addressed attachment ingestion with MIME sniffing, hashes, size limits, duplicate detection, and safe
+display names; do not bundle extraction, indexing, provider delivery, memory search, or broad visual-design work with
+it.
 
 Read these files first:
 
@@ -89,6 +92,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - assistant-response and reasoning copying as labelled Markdown with visible and screen-reader-readable feedback;
 - response retry for interrupted, cancelled, and retryable failed attempts, preserving the original branch;
 - durable Good/Poor response ratings with accessible pressed state, replacement, and clearing;
+- expandable persisted tool-call arguments and pending/success/error results on reopened assistant responses;
 - selected-lineage Markdown/JSON and non-trashed batch JSON export through native Save dialogs with compact feedback;
 - complete manual SQLite backup creation through a native Save dialog with compact saved/error feedback;
 - confirmed manual restore from validated Bottie backups with a named pre-restore safety copy;
@@ -115,7 +119,8 @@ credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach S
 transactional conversation/message operations. `src-tauri/src/storage/runs.rs` owns provider-run and usage records,
 `src-tauri/src/storage/selection.rs` owns profile-scoped last-open state, `src-tauri/src/storage/branching.rs` owns
 branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search,
-`src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, `src-tauri/src/storage/export.rs` owns
+`src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, `src-tauri/src/storage/tools.rs` owns
+bounded append-only tool-call/result records, `src-tauri/src/storage/export.rs` owns
 deterministic selected-lineage Markdown plus selected and batch JSON rendering and safe suggested filenames, and
 `src-tauri/src/storage/backup.rs` owns
 consistent online SQLite snapshots, strict automatic-backup discovery and rotation, restore validation, isolated
@@ -204,7 +209,8 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- tool-invocation persistence is not yet implemented;
+- provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
+  activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
 - no web search or fetch tool exists;
@@ -244,7 +250,55 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Batch conversation JSON export
+## Most recently completed product slice: Append-oriented tool activity persistence
+
+### Goal
+
+Retain provider-emitted tool calls and their outcomes as durable, structured, inspectable conversation provenance
+without implementing a tool loop, executing a tool, exposing mutation commands to the WebView, or leaking opaque call
+identities.
+
+### Implemented shape
+
+1. Schema version 7 adds immutable ordered `tool_invocations` under native provider runs and at most one append-only
+   `tool_results` row per call. Foreign keys cascade with the owning run while unique constraints prevent duplicate
+   provider call identities, ordinals, or outcomes.
+2. Rust accepts calls/results only while the owning run is active, trims and bounds provider-controlled identities,
+   requires argument objects, caps each serialized JSON payload at 1 MiB, and reconstructs resolved or pending calls
+   in provider order after restart and branch switching.
+3. Reopened assistant responses expose an expandable read-only Tool activity panel. It renders arguments and
+   pending/success/error outcomes as inert text with no execution, approval, retry, web, provider, or filesystem
+   capability in JavaScript.
+4. Selected and batch JSON export contracts advance to version 2 and include structured tool activity without native
+   run or provider call IDs. Markdown exports add explicit tool sections using dynamic safe fences for embedded
+   backticks.
+
+### Acceptance criteria
+
+- Existing version-6 stores migrate transactionally to version 7 without rewriting messages, branches, runs, ratings,
+  backups, or selection.
+- Ordered calls, unresolved calls, results, and error results survive restart; duplicates, malformed linkage,
+  non-object arguments, oversized payloads, and writes after terminal run state are rejected natively.
+- Tool records follow their provider response through selected-branch reconstruction and portable export while opaque
+  database/run/provider-call identities remain absent from the WebView and files.
+- No provider protocol, streaming event, tool loop, execution, approval, web access, attachment, import, or credential
+  behavior is added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-20. The frontend suite has thirty passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has ninety-two tests:
+eighty-eight pass by default and four live-provider tests remain opt-in. Four focused tool tests cover schema-6
+migration, ordered call/result restart reconstruction, unresolved calls, validation, linkage, duplicates, and terminal
+run rejection; nine export tests cover version-2 JSON and Markdown tool records without opaque identities.
+
+The expanded read-only panel was visually checked in the browser preview at 1320 x 820 and 420 x 780. Both viewports
+kept the document and JSON payloads within their containers with no horizontal overflow, and the browser console was
+clean. A fresh native process migrated the existing application store from schema 6 to 7 and remained open without
+console errors; read-only inspection confirmed both new tables were empty, the migration record was present, and
+`quick_check` returned `ok`.
+
+## Prior completed product slice: Batch conversation JSON export
 
 ### Goal
 
@@ -1062,9 +1116,8 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is batch conversation export using the established native Save-dialog and
-path-redaction policies. Keep import, migration-rollback planning, and tool-invocation persistence as later reviewable
-slices. Keep
+That earlier branching handover led to the completed export, recovery, and tool-persistence slices recorded above.
+Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

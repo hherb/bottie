@@ -443,6 +443,7 @@ export class ConversationState {
       error: presentation.error,
       retryable: presentation.retryable,
       rating: message.rating ?? undefined,
+      toolInvocations: message.providerRun?.toolInvocations,
     };
   }
 }
