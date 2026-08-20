@@ -278,6 +278,7 @@ export class ConversationState {
       model,
       meta: presentation.meta ?? completedMeta,
       error: presentation.error,
+      retryable: presentation.retryable,
     };
   }
 }

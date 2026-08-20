@@ -116,6 +116,63 @@ fn forks_an_edited_user_message_without_rewriting_the_original_branch() {
 }
 
 #[test]
+fn forks_a_retry_without_rewriting_the_failed_response() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let conversation = store
+        .create_conversation("Response retry")
+        .expect("conversation should be created");
+    let request = append_final(
+        &store,
+        &conversation.id,
+        StoredRole::User,
+        "Try the provider",
+    );
+    let failed_run_id = uuid::Uuid::new_v4().to_string();
+    store
+        .start_provider_run(NewProviderRun {
+            id: failed_run_id.clone(),
+            conversation_id: conversation.id.clone(),
+            request_message_id: request.id.clone(),
+            provider_id: "ollama".into(),
+            model_id: "retry-model".into(),
+            reasoning_effort: StoredReasoningEffort::Off,
+            temperature: None,
+            max_output_tokens: Some(256),
+        })
+        .expect("the original run should start");
+    store
+        .checkpoint_provider_delta(&failed_run_id, RunBlockKind::Text, "Saved partial")
+        .expect("the partial response should checkpoint");
+    store
+        .finish_provider_run(
+            &failed_run_id,
+            ProviderRunState::Failed,
+            Some("timeout"),
+            None,
+        )
+        .expect("the original run should fail durably");
+
+    let retried = store
+        .fork_from_user_message(&conversation.id, &request.id, &request.text)
+        .expect("the failed request should fork for retry");
+
+    assert_eq!(retried.conversation.messages.len(), 1);
+    assert_eq!(retried.conversation.messages[0].text, "Try the provider");
+    let original_branch = retried
+        .conversation
+        .branches
+        .first()
+        .expect("the original branch should remain available");
+    let original = store
+        .select_branch(&conversation.id, &original_branch.id)
+        .expect("the original failed attempt should remain selectable");
+    assert_eq!(original.messages.len(), 2);
+    assert_eq!(original.messages[1].text, "Saved partial");
+    assert_eq!(original.messages[1].state, MessageState::Failed);
+}
+
+#[test]
 fn rejects_branching_from_a_message_outside_the_selected_ancestry() {
     let store =
         ConversationStore::initialize(test_database_path()).expect("storage should initialize");

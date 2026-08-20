@@ -89,12 +89,14 @@
       activeStage={state.activeStage}
       inferenceStages={state.inferenceStages}
       isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
+      canGenerate={state.canSend}
       branches={state.history.branches}
       currentBranchId={state.history.currentBranchId}
       onretry={() => void state.refreshModels()}
       onselectbranch={(branchId) => void state.selectConversationBranch(branchId)}
       oneditmessage={(message, text) => void state.editAndRegenerate(message, text)}
       onregenerate={(responseId) => void state.regenerateResponse(responseId)}
+      onretryresponse={(responseId) => void state.regenerateResponse(responseId, true)}
       onscrollready={(element) => state.setMessageScroll(element)}
     />
 

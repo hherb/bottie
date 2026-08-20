@@ -4,6 +4,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { tick } from "svelte";
 
 import {
+  chatTurnsForMessages,
   completionMeta,
   displayEndpoint,
   filterUsableModels,
@@ -21,7 +22,6 @@ import {
   providerErrorFromUnknown,
   rememberProviderSelection,
   startChat,
-  type ChatTurn,
   type ModelInfo,
   type ProviderId,
   type ProviderError,
@@ -312,8 +312,10 @@ export class PageState {
     await this.startGeneration(branched.context);
   }
 
-  /** Regenerates one response by forking its unchanged durable user request. */
-  async regenerateResponse(responseId: number): Promise<void> {
+  /** Regenerates one response, optionally requiring a retryable terminal state. */
+  async regenerateResponse(responseId: number, retryOnly = false): Promise<void> {
+    const response = this.messages.find((message) => message.id === responseId && message.role === "assistant");
+    if (retryOnly && !response?.retryable) return;
     const request = requestMessageForResponse(this.messages, responseId);
     if (request) await this.editAndRegenerate(request, request.content);
   }
@@ -328,12 +330,7 @@ export class PageState {
     this.currentUsage = null;
     this.providerError = null;
     const model = this.selectedModel;
-    const requestMessages: ChatTurn[] = this.messages
-      .filter((message) => message.content.trim() !== "" && !message.error)
-      .map((message) => ({
-        role: message.role,
-        content: [{ type: "text", text: message.content }],
-      }));
+    const requestMessages = chatTurnsForMessages(this.messages);
     const assistantId = nextMessageId();
     this.activeAssistantId = assistantId;
     this.messages.push({
@@ -341,6 +338,7 @@ export class PageState {
       role: "assistant",
       content: "",
       model: model ? `${model.displayName} · ${model.providerName}` : "Selected model",
+      retryable: false,
     });
     const startedAt = performance.now();
     await this.scrollToBottom();
@@ -367,6 +365,7 @@ export class PageState {
       if (reply) {
         reply.content = normalized.message;
         reply.error = true;
+        reply.retryable = normalized.retryable;
       }
       this.providerError = normalized;
       if (normalized.code === "unavailable") this.providerStatus = "offline";
@@ -403,13 +402,16 @@ export class PageState {
     } else if (event.type === "completed") {
       this.currentUsage = event.usage ?? this.currentUsage;
       reply.meta = completionMeta(startedAt, performance.now(), this.currentUsage);
+      reply.retryable = false;
       void this.finalizeNativeGeneration(run);
     } else if (event.type === "cancelled") {
       if (reply.content === "") reply.content = "Generation stopped.";
       reply.meta = "Stopped · partial response";
+      reply.retryable = true;
       void this.finalizeNativeGeneration(run);
     } else if (event.type === "failed") {
       reply.error = true;
+      reply.retryable = event.error.retryable;
       reply.content = reply.content
         ? `${reply.content}\n\nGeneration stopped: ${event.error.message}`
         : event.error.message;

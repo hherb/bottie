@@ -16,12 +16,14 @@
     activeStage: number;
     inferenceStages: InferenceStage[];
     isGenerating: boolean;
+    canGenerate: boolean;
     branches: ConversationBranch[];
     currentBranchId: string | null;
     onretry: () => void;
     onselectbranch: (branchId: string) => void;
     oneditmessage: (message: Message, text: string) => void;
     onregenerate: (responseId: number) => void;
+    onretryresponse: (responseId: number) => void;
     onscrollready: (element: HTMLDivElement) => void;
   };
 
@@ -33,12 +35,14 @@
     activeStage,
     inferenceStages,
     isGenerating,
+    canGenerate,
     branches,
     currentBranchId,
     onretry,
     onselectbranch,
     oneditmessage,
     onregenerate,
+    onretryresponse,
     onscrollready,
   }: Props = $props();
   let messageScroll: HTMLDivElement;
@@ -192,33 +196,47 @@
                 }}><Icon name="edit" size={14} /></button
               >
             </div>
-          {:else if message.role === "assistant" && message.content !== ""}
+          {:else if message.role === "assistant" && (message.content !== "" || message.retryable)}
             <div class="message-actions">
-              <button
-                aria-label={copyFeedback?.messageId === message.id && copyFeedback.succeeded
-                  ? message.reasoning
-                    ? "Response and reasoning copied"
-                    : "Response copied"
-                  : message.reasoning
-                    ? "Copy response and reasoning"
-                    : "Copy response"}
-                onclick={() => void copyResponse(message)}
-              >
-                <Icon
-                  name={copyFeedback?.messageId === message.id && copyFeedback.succeeded ? "check" : "copy"}
-                  size={15}
-                />
-              </button>
-              {#if copyFeedback?.messageId === message.id}
-                <span class:error={!copyFeedback.succeeded} class="copy-status" role="status">
-                  {copyFeedback.succeeded ? (message.reasoning ? "Copied with reasoning" : "Copied") : "Copy failed"}
-                </span>
+              {#if message.content !== ""}
+                <button
+                  aria-label={copyFeedback?.messageId === message.id && copyFeedback.succeeded
+                    ? message.reasoning
+                      ? "Response and reasoning copied"
+                      : "Response copied"
+                    : message.reasoning
+                      ? "Copy response and reasoning"
+                      : "Copy response"}
+                  onclick={() => void copyResponse(message)}
+                >
+                  <Icon
+                    name={copyFeedback?.messageId === message.id && copyFeedback.succeeded ? "check" : "copy"}
+                    size={15}
+                  />
+                </button>
+                {#if copyFeedback?.messageId === message.id}
+                  <span class:error={!copyFeedback.succeeded} class="copy-status" role="status">
+                    {copyFeedback.succeeded ? (message.reasoning ? "Copied with reasoning" : "Copied") : "Copy failed"}
+                  </span>
+                {/if}
               {/if}
               <button aria-label="Good response"><Icon name="thumbs-up" size={15} /></button>
               <button aria-label="Poor response"><Icon name="thumbs-down" size={15} /></button>
-              <button aria-label="Regenerate response" disabled={isGenerating} onclick={() => onregenerate(message.id)}
-                ><Icon name="refresh" size={15} /></button
-              >
+              {#if message.retryable}
+                <button
+                  class="retry-response"
+                  aria-label="Retry response"
+                  disabled={isGenerating || !canGenerate}
+                  onclick={() => onretryresponse(message.id)}
+                  ><Icon name="refresh" size={15} /><span>Retry</span></button
+                >
+              {:else}
+                <button
+                  aria-label="Regenerate response"
+                  disabled={isGenerating || !canGenerate}
+                  onclick={() => onregenerate(message.id)}><Icon name="refresh" size={15} /></button
+                >
+              {/if}
               {#if message.meta}<span class="response-meta">{message.meta}</span>{/if}
             </div>
           {/if}

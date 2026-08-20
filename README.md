@@ -14,8 +14,9 @@ search active or archived histories by title or visible message text. Search res
 contains the match. Assistant answers render sanitized Markdown for readable headings, lists, tables, links, and code;
 raw HTML is escaped and remote Markdown images are reduced to inert labels. Each non-empty assistant answer can be
 copied as Markdown without generated HTML or response metadata. When separate reasoning is present, the clipboard
-document includes labelled Reasoning and Response sections. Bottie also restores the exact last-open conversation
-after restart and preserves an intentional blank new-chat view. Remote
+document includes labelled Reasoning and Response sections. Interrupted, cancelled, and transiently failed responses
+can be retried on a preserved alternative branch without overwriting the original attempt. Bottie also restores the
+exact last-open conversation after restart and preserves an intentional blank new-chat view. Remote
 API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
@@ -76,7 +77,10 @@ Markdown parser configured to reject raw HTML, non-HTTP(S)/email link destinatio
 fetches. User prompts and provider reasoning remain plain text. Copying writes the exact stored assistant answer through
 the WebView clipboard API when no reasoning is present. Responses with reasoning become one Markdown document with
 labelled Reasoning and Response sections, and the action reports success or failure in place. Rating actions, export,
-and backup/restore remain planned Milestone 2 work.
+and backup/restore remain planned Milestone 2 work. Interrupted, cancelled, timeout, unavailable-provider,
+provider-server, and malformed-response attempts expose a labelled retry action. Retry forks the unchanged request and
+uses the provider/model/reasoning route currently visible in the toolbar, while the original attempt remains available
+through branch switching and its failure copy stays outside the next provider context.
 
 Run the layout-only browser preview:
 

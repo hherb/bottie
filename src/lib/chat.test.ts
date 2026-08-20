@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  chatTurnsForMessages,
   completionMeta,
   conversationTitle,
   displayEndpoint,
@@ -81,6 +82,7 @@ describe("chat presentation helpers", () => {
       fallbackText: undefined,
       meta: "Interrupted · saved partial response",
       error: true,
+      retryable: true,
     });
     expect(persistedMessagePresentation("partial", "interrupted", false).fallbackText).toBe(
       "Generation interrupted before any response was saved.",
@@ -89,6 +91,11 @@ describe("chat presentation helpers", () => {
     expect(persistedMessagePresentation("failed", "timeout", false).meta).toBe(
       "Generation failed · saved partial response",
     );
+    expect(persistedMessagePresentation("cancelled", null, true).retryable).toBe(true);
+    expect(persistedMessagePresentation("failed", "server", true).retryable).toBe(true);
+    expect(persistedMessagePresentation("failed", "invalid_request", true).retryable).toBe(false);
+    expect(persistedMessagePresentation("failed", "internal", true).retryable).toBe(false);
+    expect(persistedMessagePresentation("final", null, true).retryable).toBe(false);
   });
 
   it("finds the persisted user request immediately preceding a response", () => {
@@ -100,6 +107,20 @@ describe("chat presentation helpers", () => {
     expect(requestMessageForResponse(messages, 2)).toEqual(messages[0]);
     expect(requestMessageForResponse(messages, 1)).toBeUndefined();
     expect(requestMessageForResponse(messages, 99)).toBeUndefined();
+  });
+
+  it("keeps only meaningful successful messages in provider context", () => {
+    expect(
+      chatTurnsForMessages([
+        { id: 1, role: "user", content: "Question" },
+        { id: 2, role: "assistant", content: "Partial failure", error: true, retryable: true },
+        { id: 3, role: "assistant", content: "   " },
+        { id: 4, role: "assistant", content: "Answer" },
+      ]),
+    ).toEqual([
+      { role: "user", content: [{ type: "text", text: "Question" }] },
+      { role: "assistant", content: [{ type: "text", text: "Answer" }] },
+    ]);
   });
 
   it("keeps only streaming text models", () => {

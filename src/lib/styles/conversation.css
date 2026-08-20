@@ -349,6 +349,14 @@
   height: 26px;
   border-radius: 6px;
 }
+.message-actions button.retry-response {
+  grid-auto-flow: column;
+  gap: 4px;
+  width: auto;
+  padding: 0 7px;
+  color: #b9b2e7;
+  font-size: 8px;
+}
 .user-message-actions {
   justify-content: flex-end;
   margin-top: -4px;

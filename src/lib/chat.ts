@@ -1,4 +1,4 @@
-import type { ModelInfo, ProviderId, ReasoningEffort, Usage } from "./inference";
+import type { ChatTurn, ModelInfo, ProviderError, ProviderId, ReasoningEffort, Usage } from "./inference";
 import type { Message } from "./presentation";
 
 /** Number of bytes in one kibibyte, displayed with the familiar KB label. */
@@ -12,6 +12,14 @@ const MILLISECONDS_PER_SECOND = 1_000;
 
 /** Maximum number of Unicode characters used for a generated conversation title. */
 const MAX_CONVERSATION_TITLE_CHARACTERS = 80;
+
+/** Provider failures whose original request may succeed when attempted again. */
+const RETRYABLE_PROVIDER_ERROR_CODES = new Set<ProviderError["code"]>([
+  "unavailable",
+  "timeout",
+  "server",
+  "malformed_response",
+]);
 
 /** The provider-scoped result of resolving a model selection. */
 export type ModelSelection = {
@@ -28,6 +36,7 @@ export type PersistedMessagePresentation = {
   fallbackText: string | undefined;
   meta: string | undefined;
   error: boolean;
+  retryable: boolean;
 };
 
 /** Creates a collision-safe key for a provider and model pair. */
@@ -86,6 +95,7 @@ export function persistedMessagePresentation(
       fallbackText: hasContent ? undefined : "Generation interrupted before any response was saved.",
       meta: "Interrupted · saved partial response",
       error: true,
+      retryable: true,
     };
   }
   if (state === "cancelled") {
@@ -93,6 +103,7 @@ export function persistedMessagePresentation(
       fallbackText: hasContent ? undefined : "Generation stopped.",
       meta: "Stopped · saved partial response",
       error: false,
+      retryable: true,
     };
   }
   if (state === "failed") {
@@ -100,9 +111,10 @@ export function persistedMessagePresentation(
       fallbackText: hasContent ? undefined : "Generation failed before any response was saved.",
       meta: "Generation failed · saved partial response",
       error: true,
+      retryable: RETRYABLE_PROVIDER_ERROR_CODES.has(errorCode as ProviderError["code"]),
     };
   }
-  return { fallbackText: undefined, meta: undefined, error: false };
+  return { fallbackText: undefined, meta: undefined, error: false, retryable: false };
 }
 
 /** Finds the durable user request immediately preceding one rendered assistant response. */
@@ -111,6 +123,16 @@ export function requestMessageForResponse(messages: Message[], responseId: numbe
   if (responseIndex <= 0) return undefined;
   const request = messages[responseIndex - 1];
   return request.role === "user" && request.storageId ? request : undefined;
+}
+
+/** Converts visible, successful message text into provider-neutral chat turns. */
+export function chatTurnsForMessages(messages: Message[]): ChatTurn[] {
+  return messages
+    .filter((message) => message.content.trim() !== "" && !message.error)
+    .map((message) => ({
+      role: message.role,
+      content: [{ type: "text", text: message.content }],
+    }));
 }
 
 /** Formats measured duration and provider-reported usage without estimating missing values. */
