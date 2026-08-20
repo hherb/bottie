@@ -1,5 +1,6 @@
 import type { ChatTurn, ModelInfo, ProviderError, ProviderId, ReasoningEffort, Usage } from "./inference";
 import type { Message } from "./presentation";
+import type { ResponseRating } from "./storage";
 
 /** Number of bytes in one kibibyte, displayed with the familiar KB label. */
 const BYTES_PER_KIBIBYTE = 1_024;
@@ -123,6 +124,11 @@ export function requestMessageForResponse(messages: Message[], responseId: numbe
   if (responseIndex <= 0) return undefined;
   const request = messages[responseIndex - 1];
   return request.role === "user" && request.storageId ? request : undefined;
+}
+
+/** Selects a requested response rating, or clears it when the active choice is selected again. */
+export function nextResponseRating(current: ResponseRating | null, selected: ResponseRating): ResponseRating | null {
+  return current === selected ? null : selected;
 }
 
 /** Converts visible, successful message text into provider-neutral chat turns. */

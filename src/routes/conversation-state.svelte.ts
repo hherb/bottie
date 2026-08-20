@@ -1,6 +1,11 @@
 /** Reactive durable-conversation state kept separate from provider orchestration. */
 
-import { conversationTitle, persistedCompletionMeta, persistedMessagePresentation } from "$lib/chat";
+import {
+  conversationTitle,
+  nextResponseRating,
+  persistedCompletionMeta,
+  persistedMessagePresentation,
+} from "$lib/chat";
 import { nextMessageId, type Message } from "$lib/presentation";
 import {
   appendConversationMessage,
@@ -11,6 +16,7 @@ import {
   listConversations,
   loadConversation,
   loadLastOpenConversation,
+  rateConversationResponse,
   renameConversation,
   restoreConversation,
   searchConversations,
@@ -21,6 +27,7 @@ import {
   type ConversationSearchResult,
   type ConversationSummary,
   type ProviderRunContext,
+  type ResponseRating,
   type StorageError,
   type StoredMessage,
   type StoredConversation,
@@ -153,6 +160,23 @@ export class ConversationState {
     }
   }
 
+  /** Toggles one durable assistant-response rating through the native storage boundary. */
+  async rateResponse(messages: Message[], responseId: number, selected: ResponseRating): Promise<void> {
+    const response = messages.find((message) => message.id === responseId && message.role === "assistant");
+    if (!this.activeConversationId || !response?.storageId || this.isManaging) return;
+    this.isManaging = true;
+    try {
+      const rating = nextResponseRating(response.rating ?? null, selected);
+      const stored = await rateConversationResponse(this.activeConversationId, response.storageId, rating);
+      response.rating = stored ?? undefined;
+      this.storageError = null;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+    } finally {
+      this.isManaging = false;
+    }
+  }
+
   /** Creates a conversation when needed and durably appends the submitted prompt. */
   async persistUserMessage(prompt: string): Promise<ProviderRunContext | null> {
     try {
@@ -174,9 +198,22 @@ export class ConversationState {
     }
   }
 
-  /** Refreshes durable navigation after native generation reaches a terminal state. */
-  async refreshAfterGeneration(): Promise<void> {
-    await this.refresh();
+  /** Reloads the completed native response identity and refreshes navigation after generation. */
+  async refreshAfterGeneration(): Promise<Message[] | null> {
+    const conversationId = this.activeConversationId;
+    if (!conversationId) {
+      await this.refresh();
+      return null;
+    }
+    try {
+      const conversation = await loadConversation(conversationId);
+      const messages = this.applyConversation(conversation);
+      await this.refresh();
+      return messages;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      return null;
+    }
   }
 
   /** Clears the active identity and persists the intentional blank new-chat view. */
@@ -279,6 +316,7 @@ export class ConversationState {
       meta: presentation.meta ?? completedMeta,
       error: presentation.error,
       retryable: presentation.retryable,
+      rating: message.rating ?? undefined,
     };
   }
 }

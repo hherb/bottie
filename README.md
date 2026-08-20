@@ -15,9 +15,10 @@ contains the match. Assistant answers render sanitized Markdown for readable hea
 raw HTML is escaped and remote Markdown images are reduced to inert labels. Each non-empty assistant answer can be
 copied as Markdown without generated HTML or response metadata. When separate reasoning is present, the clipboard
 document includes labelled Reasoning and Response sections. Interrupted, cancelled, and transiently failed responses
-can be retried on a preserved alternative branch without overwriting the original attempt. Bottie also restores the
-exact last-open conversation after restart and preserves an intentional blank new-chat view. Remote
-API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
+can be retried on a preserved alternative branch without overwriting the original attempt. Durable Good and Poor
+ratings can be set, changed, or cleared on each preserved assistant response and survive restart and branch switching.
+Bottie also restores the exact last-open conversation after restart and preserves an intentional blank new-chat view.
+Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
 not implemented yet; those UI surfaces are disabled or labelled as preview-only fixtures.
@@ -76,11 +77,14 @@ existing store rather than adding FTS5 before the later memory-search milestone.
 Markdown parser configured to reject raw HTML, non-HTTP(S)/email link destinations, relative navigation, and image
 fetches. User prompts and provider reasoning remain plain text. Copying writes the exact stored assistant answer through
 the WebView clipboard API when no reasoning is present. Responses with reasoning become one Markdown document with
-labelled Reasoning and Response sections, and the action reports success or failure in place. Rating actions, export,
-and backup/restore remain planned Milestone 2 work. Interrupted, cancelled, timeout, unavailable-provider,
-provider-server, and malformed-response attempts expose a labelled retry action. Retry forks the unchanged request and
-uses the provider/model/reasoning route currently visible in the toolbar, while the original attempt remains available
-through branch switching and its failure copy stays outside the next provider context.
+labelled Reasoning and Response sections, and the action reports success or failure in place. Interrupted, cancelled,
+timeout, unavailable-provider, provider-server, and malformed-response attempts expose a labelled retry action. Retry
+forks the unchanged request and uses the provider/model/reasoning route currently visible in the toolbar, while the
+original attempt remains available through branch switching and its failure copy stays outside the next provider
+context. Good and Poor rating controls
+write only the exact visible assistant response through a narrow native command. Selecting the active choice clears it;
+ratings stay local, survive restart, and remain attached to their preserved branch response. Export and backup/restore
+remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

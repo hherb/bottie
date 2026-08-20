@@ -5,6 +5,7 @@
   import Icon from "$lib/Icon.svelte";
   import { renderAssistantMarkdown } from "$lib/markdown";
   import type { ConversationBranch } from "$lib/storage";
+  import type { ResponseRating } from "$lib/storage";
   import type { ModelInfo, ProviderError } from "$lib/inference";
   import type { InferenceStage, Message, ProviderStatus } from "$lib/presentation";
 
@@ -24,6 +25,7 @@
     oneditmessage: (message: Message, text: string) => void;
     onregenerate: (responseId: number) => void;
     onretryresponse: (responseId: number) => void;
+    onrateresponse: (responseId: number, rating: ResponseRating) => void;
     onscrollready: (element: HTMLDivElement) => void;
   };
 
@@ -43,6 +45,7 @@
     oneditmessage,
     onregenerate,
     onretryresponse,
+    onrateresponse,
     onscrollready,
   }: Props = $props();
   let messageScroll: HTMLDivElement;
@@ -220,8 +223,20 @@
                   </span>
                 {/if}
               {/if}
-              <button aria-label="Good response"><Icon name="thumbs-up" size={15} /></button>
-              <button aria-label="Poor response"><Icon name="thumbs-down" size={15} /></button>
+              <button
+                class:active-rating={message.rating === "good"}
+                aria-label="Good response"
+                aria-pressed={message.rating === "good"}
+                disabled={isGenerating || !message.storageId}
+                onclick={() => onrateresponse(message.id, "good")}><Icon name="thumbs-up" size={15} /></button
+              >
+              <button
+                class:active-rating={message.rating === "poor"}
+                aria-label="Poor response"
+                aria-pressed={message.rating === "poor"}
+                disabled={isGenerating || !message.storageId}
+                onclick={() => onrateresponse(message.id, "poor")}><Icon name="thumbs-down" size={15} /></button
+              >
               {#if message.retryable}
                 <button
                   class="retry-response"

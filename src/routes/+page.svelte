@@ -97,6 +97,7 @@
       oneditmessage={(message, text) => void state.editAndRegenerate(message, text)}
       onregenerate={(responseId) => void state.regenerateResponse(responseId)}
       onretryresponse={(responseId) => void state.regenerateResponse(responseId, true)}
+      onrateresponse={(responseId, rating) => void state.history.rateResponse(state.messages, responseId, rating)}
       onscrollready={(element) => state.setMessageScroll(element)}
     />
 

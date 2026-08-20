@@ -424,7 +424,8 @@ export class PageState {
   /** Refreshes navigation after Rust has durably closed the response and provider run. */
   private async finalizeNativeGeneration(run: number): Promise<void> {
     this.isPersistingMessage = true;
-    await this.history.refreshAfterGeneration();
+    const messages = await this.history.refreshAfterGeneration();
+    if (messages) this.messages = messages;
     this.isPersistingMessage = false;
     this.finishGeneration(run);
   }

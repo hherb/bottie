@@ -20,8 +20,10 @@ unsafe destinations, and remote image fetches stay inert. Non-empty assistant an
 Markdown source when reasoning is absent. When separate reasoning exists, the copied Markdown contains labelled
 Reasoning and Response sections without parser-generated HTML or response metadata. Interrupted, cancelled, and
 transiently failed responses now expose a labelled retry action that forks the unchanged request while preserving the
-original attempt. The next bounded implementation slice is response rating; do not bundle export, backup, tool
-persistence, or broad product and visual-design planning with it.
+original attempt. Assistant responses can now retain a local Good or Poor rating across restart and branch switching;
+selecting the active choice clears it without changing response content. The next bounded implementation slice is
+single-conversation Markdown export; do not bundle backup/restore, tool persistence, or broad product and visual-design
+planning with it.
 
 Read these files first:
 
@@ -72,6 +74,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - sanitized assistant Markdown with headings, lists, tables, quotes, safe external links, and code presentation;
 - assistant-response and reasoning copying as labelled Markdown with visible and screen-reader-readable feedback;
 - response retry for interrupted, cancelled, and retryable failed attempts, preserving the original branch;
+- durable Good/Poor response ratings with accessible pressed state, replacement, and clearing;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -92,10 +95,11 @@ credential-vault boundary. Provider JSON, SSE, and NDJSON parsing do not reach S
 `src-tauri/src/storage.rs` owns short-lived configured SQLite connections, migrations, integrity policy, and
 transactional conversation/message operations. `src-tauri/src/storage/runs.rs` owns provider-run and usage records,
 `src-tauri/src/storage/selection.rs` owns profile-scoped last-open state, `src-tauri/src/storage/branching.rs` owns
-branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search, and
+branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search,
+`src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, and
 `src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
 `src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, user-message append,
-explicit branch, and lifecycle commands. The
+explicit branch, response-rating, and lifecycle commands. The
 database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a selected branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
@@ -213,7 +217,34 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Response retry
+## Most recently completed product slice: Response rating
+
+### Goal
+
+Let users retain a simple local quality signal on an exact assistant response without sending feedback to a provider,
+changing generated content, or collapsing preserved branch alternatives.
+
+### Implemented shape
+
+1. Schema version 6 adds one optional Good/Poor rating row per immutable message. Ratings are local application data;
+   no provider adapter, credential flow, or outbound request receives them.
+2. One narrow native command sets, replaces, or clears a rating only for an assistant response in the selected visible
+   lineage. User, foreign-conversation, hidden-sibling, and deleted-conversation targets are rejected.
+3. Reopened conversations reconstruct the current rating beside each preserved assistant response. Ratings remain on
+   their exact response when users switch branches and survive a fresh process.
+4. Good and Poor controls expose `aria-pressed`, disable during generation or storage mutation, and use the active
+   control as the clear action. A tested pure helper owns the toggle decision.
+
+### Acceptance criteria
+
+- A visible durable assistant response can be rated Good or Poor, changed between those choices, and cleared by
+  selecting the active choice.
+- Ratings survive restart and branch switching without changing conversation activity order or generated content.
+- The Rust boundary rejects non-assistant, foreign, hidden, and deleted targets and exposes no generic database access.
+- Live responses reload their durable message identity after terminal persistence before rating becomes available.
+- No export, backup/restore, provider, credential, attachment, tool, or general feedback-comment behavior is added.
+
+## Prior completed product slice: Response retry
 
 ### Goal
 
@@ -598,6 +629,34 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
+The following passed on 2026-08-20 for response rating:
+
+```sh
+npm run format:check
+npm run check
+npm test
+npm run build
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+The frontend suite has twenty-seven tests, including the pure Good/Poor replacement-and-clear decision, and
+`svelte-check` reports no errors or warnings. The Rust suite has seventy tests: sixty-six pass by default and four are
+opt-in live-provider tests. Twenty-six path-backed storage tests include schema-version-6 migration, rating persistence
+across reopen, replacement, clearing, and rejection of user, foreign, hidden-sibling, and deleted targets.
+
+The browser preview was visually checked at its desktop size and at 800 x 700. The response action row remains
+contained, and its unrated buttons expose false `aria-pressed` state while correctly remaining disabled without native
+storage. The native app compiled and launched twice against the existing store; a read-only host check confirmed
+schema version 6, the `assistant response ratings` migration record, and `quick_check=ok`. The default-size native
+window reopened the selected branch without layout or launch errors. macOS denied assistive access for automated native
+clicking, so the real Good to Poor to clear click sequence remains a manual confirmation item; its mutation and
+fresh-process persistence are covered by the path-backed native tests. Live-provider tests were not required because
+this slice does not change provider networking, streaming, cancellation, or credentials.
+
+## Verification completed for the previous response-retry slice
+
 The following passed on 2026-08-20 for response retry:
 
 ```sh
@@ -669,8 +728,8 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is response rating. Keep tool-invocation persistence, export, and backups as
-later reviewable slices. Keep
+The next bounded implementation slice is single-conversation Markdown export. Keep tool-invocation persistence,
+backup/restore, and batch export as later reviewable slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

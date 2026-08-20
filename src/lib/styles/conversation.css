@@ -370,6 +370,10 @@
   background: rgba(255, 255, 255, 0.05);
   color: #d8d5dc;
 }
+.message-actions button.active-rating {
+  background: rgba(143, 125, 247, 0.12);
+  color: #b9b2e7;
+}
 .copy-status {
   align-self: center;
   margin: 0 4px 0 2px;

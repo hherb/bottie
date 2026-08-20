@@ -9,6 +9,7 @@ import {
   formatBytes,
   isCloudProvider,
   modelKey,
+  nextResponseRating,
   persistedCompletionMeta,
   persistedMessagePresentation,
   requestMessageForResponse,
@@ -107,6 +108,12 @@ describe("chat presentation helpers", () => {
     expect(requestMessageForResponse(messages, 2)).toEqual(messages[0]);
     expect(requestMessageForResponse(messages, 1)).toBeUndefined();
     expect(requestMessageForResponse(messages, 99)).toBeUndefined();
+  });
+
+  it("selects a response rating and clears an already active choice", () => {
+    expect(nextResponseRating(null, "good")).toBe("good");
+    expect(nextResponseRating("poor", "good")).toBe("good");
+    expect(nextResponseRating("good", "good")).toBeNull();
   });
 
   it("keeps only meaningful successful messages in provider context", () => {

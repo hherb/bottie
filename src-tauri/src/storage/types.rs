@@ -103,6 +103,35 @@ pub(crate) enum MessageState {
     Failed,
 }
 
+/// Local quality rating attached to one durable assistant response.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ResponseRating {
+    /// The response was useful or otherwise good.
+    Good,
+    /// The response was not useful or otherwise poor.
+    Poor,
+}
+
+impl ResponseRating {
+    /// Returns the stable SQLite representation.
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Self::Good => "good",
+            Self::Poor => "poor",
+        }
+    }
+
+    /// Parses a trusted rating constrained by the schema.
+    pub(super) fn from_database(value: &str) -> Result<Self, StorageError> {
+        match value {
+            "good" => Ok(Self::Good),
+            "poor" => Ok(Self::Poor),
+            _ => Err(StorageError::internal()),
+        }
+    }
+}
+
 impl MessageState {
     /// Returns the stable SQLite representation.
     pub(super) fn as_str(self) -> &'static str {
@@ -358,6 +387,8 @@ pub(crate) struct StoredMessage {
     pub(crate) model_id: Option<String>,
     /// Provider-run provenance and usage linked to an assistant response.
     pub(crate) provider_run: Option<StoredProviderRun>,
+    /// Current local quality rating for an assistant response.
+    pub(crate) rating: Option<ResponseRating>,
     /// Persisted creation time.
     pub(crate) created_at_ms: i64,
 }
