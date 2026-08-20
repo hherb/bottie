@@ -27,8 +27,11 @@ path to the WebView. Users can also create a complete verified SQLite snapshot t
 dialog; SQLite's online backup API includes committed WAL content without pausing the live store, and the destination
 path remains native-only. A separate native Open-and-confirm flow now restores validated Bottie backups only after
 creating an application-private snapshot of the current store; selected directories and database paths never reach the
-WebView. The next bounded implementation slice is automatic backup rotation with an explicit retention policy; do not
-bundle corruption recovery, batch export, tool persistence, or broad product and visual-design planning with it.
+WebView. After a successful startup, Bottie now creates a verified application-private snapshot when no automatic
+backup is newer than 24 hours and retains the seven newest automatic snapshots. Rotation runs in the background, never
+prunes manual backups or pre-restore safety copies, and reports a path-redacted outcome in session diagnostics. The next
+bounded implementation slice is corruption detection and guided recovery; do not bundle batch export, tool
+persistence, migration-rollback planning, or broad product and visual-design work with it.
 
 Read these files first:
 
@@ -83,8 +86,9 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - selected-lineage Markdown export through a native Save dialog with compact saved/error feedback;
 - complete manual SQLite backup creation through a native Save dialog with compact saved/error feedback;
 - confirmed manual restore from validated Bottie backups with a named pre-restore safety copy;
+- verified daily automatic SQLite snapshots with a seven-snapshot app-private retention policy;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
-  and redacted session diagnostics;
+  and secret/path-redacted session diagnostics including automatic-backup outcomes;
 - context-panel open/close behavior;
 - reduced-motion and keyboard-focus support.
 
@@ -106,7 +110,8 @@ transactional conversation/message operations. `src-tauri/src/storage/runs.rs` o
 branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search,
 `src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, `src-tauri/src/storage/export.rs` owns
 deterministic Markdown rendering and safe suggested filenames, `src-tauri/src/storage/backup.rs` owns consistent online
-SQLite snapshots, restore validation, isolated migration, pre-restore safety copies, and post-copy integrity checks, and
+SQLite snapshots, strict automatic-backup discovery and rotation, restore validation, isolated migration, pre-restore
+safety copies, and post-copy integrity checks, and
 `src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
 `src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, user-message append,
 explicit branch, response-rating, selected-lineage export, whole-store backup/restore, and lifecycle commands. The
@@ -186,7 +191,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- JSON/batch export, automatic backup rotation, and corruption recovery are not yet implemented;
+- JSON/batch export and corruption recovery are not yet implemented;
 - tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
@@ -227,7 +232,50 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Manual SQLite restore
+## Most recently completed product slice: Automatic SQLite backup rotation
+
+### Goal
+
+Maintain recent verified local recovery points without requiring users to remember a manual backup routine or granting
+the WebView any filesystem authority.
+
+### Implemented shape
+
+1. After the live store initializes and passes its integrity policy, Bottie schedules rotation on a blocking native
+   worker so startup presentation is not held behind the database copy.
+2. When no managed automatic snapshot is newer than 24 hours, SQLite's online backup API writes a unique staging file,
+   reopens it with `quick_check=ok`, and atomically renames it into the app-private `automatic-backups` directory.
+3. Only filenames matching Bottie's timestamp-and-UUID contract participate in rotation. After a successful new
+   snapshot, the seven newest managed files remain and older managed files are removed.
+4. Manual backups, pre-restore safety copies, unrecognized files, and the live database remain outside the rotation set.
+   A copy or prune failure leaves the app usable and adds a stable path-redacted error to Recent diagnostics.
+5. Successful creation and already-current outcomes are also visible in Recent diagnostics without returning directory
+   names, filenames, or database paths to the WebView.
+
+### Acceptance criteria
+
+- The first successful startup rotation creates an independently readable snapshot containing committed WAL content.
+- Another startup inside 24 hours reuses the current set; reaching the 24-hour boundary creates a new snapshot.
+- Rotation keeps seven successful managed snapshots and creates/verifies the new snapshot before removing an old one.
+- Manual backups, restore safety copies, and unrecognized files are never removed by automatic retention.
+- Rotation failures do not block Bottie startup and do not expose a native path or SQL detail.
+- No corruption recovery, migration rollback, backup settings, batch/JSON export, provider, credential, or tool behavior
+  is added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-20. The frontend suite has twenty-seven tests and
+`svelte-check` reports no errors or warnings. The Rust suite has eighty tests: seventy-six pass by default and four
+live-provider tests remain opt-in. Path-backed rotation tests cover the 24-hour boundary, independent snapshot
+readability, seven-file retention, and preservation of unrecognized and pre-restore files.
+
+The native app compiled and opened twice against the existing application store. The first fresh process created one
+automatic snapshot; immutable read-only inspection confirmed `quick_check=ok`, schema version 6, the built-in local
+profile, and the same five-conversation/26-message counts as the live store. A second fresh process inside the retention
+interval kept exactly that one snapshot, confirming the real startup skip path. Provider live tests were not required
+because this slice does not change provider networking, streaming, cancellation, or credentials.
+
+## Prior completed product slice: Manual SQLite restore
 
 ### Goal
 
@@ -866,8 +914,9 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is automatic backup rotation with an explicit retention policy. Keep corruption
-recovery, tool-invocation persistence, and batch/JSON export as later reviewable slices. Keep
+The next bounded implementation slice is corruption detection and guided recovery using the now-rotated verified
+snapshots. Keep migration-rollback planning, tool-invocation persistence, and batch/JSON export as later reviewable
+slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

@@ -63,6 +63,14 @@ impl StorageError {
         }
     }
 
+    /// Creates a path-redacted automatic-backup rotation failure.
+    pub(crate) fn automatic_backup() -> Self {
+        Self {
+            code: "internal",
+            message: "Bottie could not update its automatic local backups.".into(),
+        }
+    }
+
     /// Creates a validation failure for a selected database that is not a supported Bottie backup.
     pub(crate) fn invalid_backup() -> Self {
         Self {

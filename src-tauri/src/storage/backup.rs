@@ -1,6 +1,9 @@
-//! Consistent manual backup and restore for Bottie's live SQLite conversation store.
+//! Consistent manual backup, automatic rotation, and restore for Bottie's live SQLite store.
 
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use rusqlite::{Connection, MAIN_DB, OpenFlags};
 
@@ -8,6 +11,11 @@ use super::{CURRENT_SCHEMA_VERSION, ConversationStore, StorageError, now_ms};
 
 const PRE_RESTORE_FILE_PREFIX: &str = "bottie-pre-restore";
 const RESTORE_STAGING_FILE_PREFIX: &str = ".bottie-restore-staging";
+const AUTOMATIC_BACKUP_DIRECTORY: &str = "automatic-backups";
+const AUTOMATIC_BACKUP_FILE_PREFIX: &str = "bottie-auto";
+const AUTOMATIC_BACKUP_STAGING_PREFIX: &str = ".bottie-auto-staging";
+const AUTOMATIC_BACKUP_INTERVAL_MS: i64 = 24 * 60 * 60 * 1_000;
+const AUTOMATIC_BACKUP_RETENTION_COUNT: usize = 7;
 const REQUIRED_BACKUP_TABLES: &[&str] = &[
     "schema_migrations",
     "profiles",
@@ -16,6 +24,23 @@ const REQUIRED_BACKUP_TABLES: &[&str] = &[
     "messages",
     "message_blocks",
 ];
+
+/// Summary of one automatic-backup rotation without exposing native paths.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct AutomaticBackupRotation {
+    /// Whether this rotation created a new verified snapshot.
+    pub(crate) created: bool,
+    /// Number of managed automatic snapshots remaining after rotation.
+    pub(crate) retained: usize,
+    /// Number of expired managed snapshots removed by this rotation.
+    pub(crate) pruned: usize,
+}
+
+/// One application-owned automatic snapshot discovered from its strict filename contract.
+struct ManagedBackup {
+    timestamp_ms: i64,
+    path: PathBuf,
+}
 
 impl ConversationStore {
     /// Copies every committed page to an independently readable database through SQLite's online backup API.
@@ -30,6 +55,66 @@ impl ConversationStore {
             .backup(MAIN_DB, destination, None)
             .map_err(|_| StorageError::backup())?;
         verify_backup(destination)
+    }
+
+    /// Creates a verified snapshot when the newest automatic backup is at least 24 hours old.
+    pub(crate) fn rotate_automatic_backups(&self) -> Result<AutomaticBackupRotation, StorageError> {
+        let timestamp_ms = now_ms().map_err(|_| StorageError::automatic_backup())?;
+        self.rotate_automatic_backups_at(timestamp_ms)
+    }
+
+    /// Applies the automatic-backup interval and retention contract for a supplied timestamp.
+    pub(crate) fn rotate_automatic_backups_at(
+        &self,
+        timestamp_ms: i64,
+    ) -> Result<AutomaticBackupRotation, StorageError> {
+        let directory = automatic_backup_directory(&self.path)?;
+        fs::create_dir_all(&directory).map_err(|_| StorageError::automatic_backup())?;
+        let mut backups = managed_backups(&directory)?;
+        let freshness_threshold = timestamp_ms.saturating_sub(AUTOMATIC_BACKUP_INTERVAL_MS);
+        if backups
+            .iter()
+            .any(|backup| backup.timestamp_ms > freshness_threshold)
+        {
+            return Ok(AutomaticBackupRotation {
+                created: false,
+                retained: backups.len(),
+                pruned: 0,
+            });
+        }
+
+        let id = uuid::Uuid::new_v4();
+        let staging = directory.join(format!("{AUTOMATIC_BACKUP_STAGING_PREFIX}-{id}.sqlite3"));
+        let destination = directory.join(format!(
+            "{AUTOMATIC_BACKUP_FILE_PREFIX}-{timestamp_ms}-{id}.sqlite3"
+        ));
+        if self.backup_to(&staging).is_err() {
+            remove_database_files(&staging);
+            return Err(StorageError::automatic_backup());
+        }
+        if fs::rename(&staging, &destination).is_err() {
+            remove_database_files(&staging);
+            return Err(StorageError::automatic_backup());
+        }
+        backups.push(ManagedBackup {
+            timestamp_ms,
+            path: destination,
+        });
+        backups.sort_by(|left, right| {
+            right
+                .timestamp_ms
+                .cmp(&left.timestamp_ms)
+                .then_with(|| right.path.cmp(&left.path))
+        });
+        let expired = backups.split_off(backups.len().min(AUTOMATIC_BACKUP_RETENTION_COUNT));
+        for backup in &expired {
+            fs::remove_file(&backup.path).map_err(|_| StorageError::automatic_backup())?;
+        }
+        Ok(AutomaticBackupRotation {
+            created: true,
+            retained: backups.len(),
+            pruned: expired.len(),
+        })
     }
 
     /// Chooses an application-private filename for the safety snapshot created before restore.
@@ -83,6 +168,41 @@ impl ConversationStore {
         }
         Ok(())
     }
+}
+
+/// Resolves the app-private rotation directory beside the live database.
+fn automatic_backup_directory(live: &Path) -> Result<PathBuf, StorageError> {
+    live.parent()
+        .map(|parent| parent.join(AUTOMATIC_BACKUP_DIRECTORY))
+        .ok_or_else(StorageError::automatic_backup)
+}
+
+/// Finds only regular files whose names exactly match Bottie's automatic-backup contract.
+fn managed_backups(directory: &Path) -> Result<Vec<ManagedBackup>, StorageError> {
+    let backups = fs::read_dir(directory)
+        .map_err(|_| StorageError::automatic_backup())?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().is_ok_and(|file_type| file_type.is_file()))
+        .filter_map(|entry| {
+            let timestamp_ms = automatic_backup_timestamp(&entry.file_name())?;
+            Some(ManagedBackup {
+                timestamp_ms,
+                path: entry.path(),
+            })
+        })
+        .collect();
+    Ok(backups)
+}
+
+/// Parses the timestamp from one strictly formatted managed automatic-backup filename.
+fn automatic_backup_timestamp(name: &std::ffi::OsStr) -> Option<i64> {
+    let name = name.to_str()?;
+    let body = name
+        .strip_prefix(&format!("{AUTOMATIC_BACKUP_FILE_PREFIX}-"))?
+        .strip_suffix(".sqlite3")?;
+    let (timestamp, id) = body.split_once('-')?;
+    uuid::Uuid::parse_str(id).ok()?;
+    timestamp.parse().ok()
 }
 
 /// Returns whether two existing paths resolve to the same filesystem entry.

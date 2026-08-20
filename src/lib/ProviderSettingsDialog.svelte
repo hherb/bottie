@@ -261,13 +261,13 @@
         <span><strong>Connection policy</strong><small>{CONNECTION_POLICY}</small></span>
       </div>
 
-      <section class="diagnostics" aria-label="Recent provider diagnostics">
+      <section class="diagnostics" aria-label="Recent native diagnostics">
         <div class="diagnostics-heading">
-          <span><strong>Recent diagnostics</strong><small>Structured and secret-redacted</small></span>
+          <span><strong>Recent diagnostics</strong><small>Structured with secrets and paths redacted</small></span>
           <button type="button" onclick={refreshDiagnostics}>Refresh</button>
         </div>
         {#if diagnostics.length === 0}
-          <p class="diagnostics-empty">No provider activity has been recorded this session.</p>
+          <p class="diagnostics-empty">No native activity has been recorded this session.</p>
         {:else}
           <div class="diagnostic-list">
             {#each diagnostics.slice(-6).reverse() as entry}

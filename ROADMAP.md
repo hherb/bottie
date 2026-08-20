@@ -111,7 +111,8 @@ ownership rewrite.
 - [x] crash-safe draft/partial message persistence and interrupted-run recovery;
 - [x] manual SQLite backup creation through a Rust-owned Save dialog and SQLite's online backup API;
 - [x] confirmed manual restore from a validated Bottie backup with a pre-restore safety copy;
-- [ ] automatic backup rotation and corruption-recovery strategy;
+- [x] automatic backup rotation with one snapshot per 24 hours and seven-snapshot retention;
+- [ ] corruption-detection and guided-recovery strategy;
 - [x] soft deletion and retention metadata.
 
 ### Conversation experience
@@ -204,7 +205,7 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 Outcome: bottie is safe and comfortable enough for sustained daily use.
 
 - first-run provider and privacy setup;
-- automatic backup rotation, migration rollback planning, and corruption recovery;
+- automatic backup rotation (complete), migration rollback planning, and corruption recovery;
 - crash-safe partial messages and interrupted indexing recovery;
 - structured local diagnostics with redaction and opt-in export;
 - CSP and Tauri capability review;
