@@ -132,3 +132,12 @@ SET current_branch_id = (
     LIMIT 1
 );
 "#;
+
+/// Adds one mutable local quality rating per immutable assistant response.
+pub(super) const MIGRATION_6: &str = r#"
+CREATE TABLE response_ratings (
+    message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+    rating TEXT NOT NULL CHECK (rating IN ('good', 'poor')),
+    updated_at_ms INTEGER NOT NULL
+) STRICT;
+"#;

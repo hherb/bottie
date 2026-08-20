@@ -370,6 +370,16 @@
   background: rgba(255, 255, 255, 0.05);
   color: #d8d5dc;
 }
+.message-actions button.active-rating.good-rating {
+  background: #173329;
+  color: #78d2a6;
+  box-shadow: inset 0 0 0 1px rgba(120, 210, 166, 0.3);
+}
+.message-actions button.active-rating.poor-rating {
+  background: #3a2026;
+  color: #e58e99;
+  box-shadow: inset 0 0 0 1px rgba(229, 142, 153, 0.3);
+}
 .copy-status {
   align-self: center;
   margin: 0 4px 0 2px;

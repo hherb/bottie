@@ -123,7 +123,8 @@ ownership rewrite.
 - [x] Markdown rendering with sanitization;
 - [x] assistant-response and reasoning copying as labelled Markdown with accessible outcome feedback;
 - [x] response retry for interrupted, cancelled, and transiently failed attempts on preserved branches;
-- rating and export actions;
+- [x] durable Good/Poor response rating with replacement, clearing, and preserved-branch restoration;
+- conversation export actions;
 - JSON or Markdown export and backup restore.
 
 ## Milestone 3 — Attachments and multimodal context

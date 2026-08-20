@@ -6,7 +6,8 @@ use crate::{
     AppState,
     storage::{
         ConversationSearchResult, ConversationSummary, ForkedConversation, MessageState,
-        NewStoredMessage, StorageError, StoredConversation, StoredMessage, StoredRole,
+        NewStoredMessage, ResponseRating, StorageError, StoredConversation, StoredMessage,
+        StoredRole,
     },
 };
 
@@ -100,6 +101,19 @@ pub(crate) fn select_conversation_branch(
     state
         .conversations
         .select_branch(&conversation_id, &branch_id)
+}
+
+#[tauri::command]
+/// Sets or clears the local quality rating for one durable assistant response.
+pub(crate) fn rate_conversation_response(
+    conversation_id: String,
+    message_id: String,
+    rating: Option<ResponseRating>,
+    state: State<'_, AppState>,
+) -> Result<Option<ResponseRating>, StorageError> {
+    state
+        .conversations
+        .rate_response(&conversation_id, &message_id, rating)
 }
 
 #[tauri::command]

@@ -6,21 +6,24 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 mod branching;
 mod lifecycle;
+mod migrate;
 mod migrations;
+mod ratings;
 mod runs;
 mod search;
 mod selection;
 mod types;
 
-use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5};
+#[cfg(test)]
+use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use types::{
     ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
     ForkedConversation, MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext,
-    ProviderRunState, RunBlockKind, StorageError, StoredConversation, StoredMessage,
-    StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
+    ProviderRunState, ResponseRating, RunBlockKind, StorageError, StoredConversation,
+    StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 5;
+const CURRENT_SCHEMA_VERSION: i64 = 6;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -166,6 +169,7 @@ impl ConversationStore {
             provider_id: message.provider_id,
             model_id: message.model_id,
             provider_run: None,
+            rating: None,
             created_at_ms: now_ms()?,
         };
         transaction.execute(
@@ -213,79 +217,6 @@ impl ConversationStore {
         connection.pragma_update(None, "journal_mode", "WAL")?;
         connection.pragma_update(None, "synchronous", "NORMAL")?;
         Ok(connection)
-    }
-
-    /// Applies each pending migration exactly once and ensures the built-in profile exists.
-    fn migrate(&self, connection: &mut Connection) -> Result<(), StorageError> {
-        let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        if version > CURRENT_SCHEMA_VERSION {
-            return Err(StorageError::internal());
-        }
-        if version < 1 {
-            let transaction =
-                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-            transaction.execute_batch(MIGRATION_1)?;
-            let now = now_ms()?;
-            transaction.execute(
-                "INSERT INTO schema_migrations (version, name, applied_at_ms) VALUES (1, 'storage foundation', ?1)",
-                [now],
-            )?;
-            transaction.execute(
-                "INSERT INTO profiles (id, name, created_at_ms) VALUES (?1, ?2, ?3)",
-                params![DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME, now],
-            )?;
-            transaction.pragma_update(None, "user_version", 1)?;
-            transaction.commit()?;
-        }
-        if version < 2 {
-            let transaction =
-                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-            transaction.execute_batch(MIGRATION_2)?;
-            transaction.execute(
-                "INSERT INTO schema_migrations (version, name, applied_at_ms)
-                 VALUES (2, 'branch-local message order', ?1)",
-                [now_ms()?],
-            )?;
-            transaction.pragma_update(None, "user_version", 2)?;
-            transaction.commit()?;
-        }
-        if version < 3 {
-            let transaction =
-                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-            transaction.execute_batch(MIGRATION_3)?;
-            transaction.execute(
-                "INSERT INTO schema_migrations (version, name, applied_at_ms)
-                 VALUES (3, 'provider runs and usage', ?1)",
-                [now_ms()?],
-            )?;
-            transaction.pragma_update(None, "user_version", 3)?;
-            transaction.commit()?;
-        }
-        if version < 4 {
-            let transaction =
-                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-            transaction.execute_batch(MIGRATION_4)?;
-            transaction.execute(
-                "INSERT INTO schema_migrations (version, name, applied_at_ms)
-                 VALUES (4, 'last open conversation', ?1)",
-                [now_ms()?],
-            )?;
-            transaction.pragma_update(None, "user_version", 4)?;
-            transaction.commit()?;
-        }
-        if version < 5 {
-            let transaction =
-                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-            transaction.execute_batch(MIGRATION_5)?;
-            transaction.execute(
-                "INSERT INTO schema_migrations (version, name, applied_at_ms)
-                 VALUES (5, 'selected conversation branch', ?1)",
-                [now_ms()?],
-            )?;
-            transaction.pragma_update(None, "user_version", 5)?;
-            transaction.commit()?;
-        }
-        Ok(())
     }
 
     /// Returns current migration and SQLite policy state.
@@ -340,8 +271,10 @@ fn load_conversation_from_connection(
              FROM messages JOIN lineage ON messages.id = lineage.parent_message_id
          )
          SELECT messages.id, messages.role, messages.state, messages.provider_id, messages.model_id,
-                messages.provider_run_id, messages.created_at_ms
-         FROM lineage JOIN messages ON messages.id = lineage.id ORDER BY lineage.depth DESC",
+                messages.provider_run_id, response_ratings.rating, messages.created_at_ms
+         FROM lineage JOIN messages ON messages.id = lineage.id
+         LEFT JOIN response_ratings ON response_ratings.message_id = messages.id
+         ORDER BY lineage.depth DESC",
     )?;
     let rows = statement.query_map([&branch_id], |row| {
         Ok((
@@ -351,12 +284,13 @@ fn load_conversation_from_connection(
             row.get::<_, Option<String>>(3)?,
             row.get::<_, Option<String>>(4)?,
             row.get::<_, Option<String>>(5)?,
-            row.get::<_, i64>(6)?,
+            row.get::<_, Option<String>>(6)?,
+            row.get::<_, i64>(7)?,
         ))
     })?;
     let mut messages = Vec::new();
     for row in rows {
-        let (id, role, state, provider_id, model_id, provider_run_id, created_at_ms) = row?;
+        let (id, role, state, provider_id, model_id, provider_run_id, rating, created_at_ms) = row?;
         let (text, reasoning) = load_blocks(connection, &id)?;
         let provider_run = provider_run_id
             .as_deref()
@@ -371,6 +305,10 @@ fn load_conversation_from_connection(
             provider_id,
             model_id,
             provider_run,
+            rating: rating
+                .as_deref()
+                .map(ResponseRating::from_database)
+                .transpose()?,
             created_at_ms,
         });
     }
@@ -487,3 +425,7 @@ mod branch_tests;
 #[cfg(test)]
 #[path = "storage/search_tests.rs"]
 mod search_tests;
+
+#[cfg(test)]
+#[path = "storage/rating_tests.rs"]
+mod rating_tests;

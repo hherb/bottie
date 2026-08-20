@@ -7,6 +7,9 @@ import type { Usage } from "./inference";
 /** Durable message states supported by the initial SQLite schema. */
 export type StoredMessageState = "partial" | "final" | "cancelled" | "failed";
 
+/** Local quality rating attached to one durable assistant response. */
+export type ResponseRating = "good" | "poor";
+
 /** Durable identity linking a native generation to its persisted user request. */
 export type ProviderRunContext = {
   conversationId: string;
@@ -70,6 +73,7 @@ export type StoredMessage = {
   providerId: string | null;
   modelId: string | null;
   providerRun: StoredProviderRun | null;
+  rating: ResponseRating | null;
   createdAtMs: number;
 };
 
@@ -158,6 +162,16 @@ export async function branchConversationMessage(
 export async function selectConversationBranch(conversationId: string, branchId: string): Promise<StoredConversation> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<StoredConversation>("select_conversation_branch", { conversationId, branchId });
+}
+
+/** Sets or clears the local quality rating for one durable assistant response. */
+export async function rateConversationResponse(
+  conversationId: string,
+  messageId: string,
+  rating: ResponseRating | null,
+): Promise<ResponseRating | null> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ResponseRating | null>("rate_conversation_response", { conversationId, messageId, rating });
 }
 
 /** Renames one active or archived conversation. */

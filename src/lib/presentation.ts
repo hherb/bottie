@@ -1,4 +1,5 @@
 import type { ProviderId, ProviderSettings } from "./inference";
+import type { ResponseRating } from "./storage";
 
 let messageSequence = Date.now();
 
@@ -19,6 +20,7 @@ export type Message = {
   meta?: string;
   error?: boolean;
   retryable?: boolean;
+  rating?: ResponseRating;
 };
 
 /** Browser-side attachment metadata used by the presentation-only attachment preview. */
