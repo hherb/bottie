@@ -22,7 +22,10 @@ response status, provider/model provenance, and local ratings. Bottie also resto
 after restart and preserves an intentional blank new-chat view. Native backup controls can create a verified SQLite
 snapshot or restore a validated Bottie backup after explicit confirmation and an automatic pre-restore safety copy.
 After a successful native startup, an app-private background rotation also creates at most one verified snapshot every
-24 hours and retains the seven newest automatic snapshots without pruning manual or pre-restore backups.
+24 hours and retains the seven newest automatic snapshots without pruning manual or pre-restore backups. If SQLite
+reports corruption at startup, Bottie opens a restricted recovery screen instead of mutating the damaged store. Users
+can restore the newest verified automatic snapshot or choose a manual backup; Rust preserves the damaged database
+bundle in app-private storage before replacement.
 Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
@@ -96,8 +99,13 @@ committed WAL content, while likewise returning no local path. Restore opens and
 Rust, migrates an isolated staging copy when supported, creates an application-private snapshot of the current store,
 and only then replaces the live database. The WebView receives leaf filenames rather than database paths. Native
 startup rotation creates and verifies a new app-private snapshot when the newest is at least 24 hours old, retains the
-seven newest managed snapshots, and reports its path-redacted result in Recent diagnostics. Corruption recovery and
-JSON/batch export remain planned Milestone 2 work.
+seven newest managed snapshots, and reports its path-redacted result in Recent diagnostics. Before normal store
+initialization, Rust opens existing data read-only and classifies explicit SQLite corruption or a non-`ok` integrity
+result. Recovery mode blocks normal conversation connections and skips automatic rotation. Its WebView status contains
+only verified automatic-snapshot count and newest timestamp. Restoring either that newest snapshot or a manually
+selected backup stages, migrates, and verifies a replacement before preserving the damaged main database and present
+WAL/shared-memory sidecars in app-private storage. Successful replacement resumes normal conversation access without
+returning a filesystem path. JSON/batch export remains planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

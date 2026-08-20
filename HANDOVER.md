@@ -29,9 +29,12 @@ path remains native-only. A separate native Open-and-confirm flow now restores v
 creating an application-private snapshot of the current store; selected directories and database paths never reach the
 WebView. After a successful startup, Bottie now creates a verified application-private snapshot when no automatic
 backup is newer than 24 hours and retains the seven newest automatic snapshots. Rotation runs in the background, never
-prunes manual backups or pre-restore safety copies, and reports a path-redacted outcome in session diagnostics. The next
-bounded implementation slice is corruption detection and guided recovery; do not bundle batch export, tool
-persistence, migration-rollback planning, or broad product and visual-design work with it.
+prunes manual backups or pre-restore safety copies, and reports a path-redacted outcome in session diagnostics. If
+SQLite reports corruption at startup, Bottie now opens in a restricted recovery state instead of aborting launch. The
+guided screen can restore the newest verified automatic snapshot or a manually selected Bottie backup after preserving
+the damaged database bundle in app-private storage. The next bounded implementation slice is selected-conversation JSON
+export; do not bundle batch export, tool persistence, migration-rollback planning, or broad product and visual-design
+work with it.
 
 Read these files first:
 
@@ -87,6 +90,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - complete manual SQLite backup creation through a native Save dialog with compact saved/error feedback;
 - confirmed manual restore from validated Bottie backups with a named pre-restore safety copy;
 - verified daily automatic SQLite snapshots with a seven-snapshot app-private retention policy;
+- corruption-aware startup with guided automatic/manual restore and app-private damaged-data preservation;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and secret/path-redacted session diagnostics including automatic-backup outcomes;
 - context-panel open/close behavior;
@@ -111,10 +115,13 @@ branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded co
 `src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, `src-tauri/src/storage/export.rs` owns
 deterministic Markdown rendering and safe suggested filenames, `src-tauri/src/storage/backup.rs` owns consistent online
 SQLite snapshots, strict automatic-backup discovery and rotation, restore validation, isolated migration, pre-restore
-safety copies, and post-copy integrity checks, and
+safety copies, and post-copy integrity checks, `src-tauri/src/storage/recovery.rs` owns read-only startup corruption
+classification, verified automatic recovery-point discovery, restricted store state, damaged-bundle preservation, and
+staged replacement, and
 `src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
 `src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, user-message append,
-explicit branch, response-rating, selected-lineage export, whole-store backup/restore, and lifecycle commands. The
+explicit branch, response-rating, selected-lineage export, whole-store backup/restore, recovery-status/latest-snapshot
+restore, and lifecycle commands. The
 database lives in the OS application-data directory; the WebView never receives a path, SQL, or generic database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a selected branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
@@ -191,7 +198,7 @@ Do not mistake visual fixtures for implemented backend behavior:
   real and survive conversation reopen;
 - attachments retain only browser-side name, size, and type metadata;
 - no attachment bytes are read, copied, extracted, or indexed;
-- JSON/batch export and corruption recovery are not yet implemented;
+- JSON/batch export is not yet implemented;
 - tool-invocation persistence is not yet implemented;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
@@ -232,7 +239,55 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Automatic SQLite backup rotation
+## Most recently completed product slice: Corruption detection and guided recovery
+
+### Goal
+
+Keep Bottie usable when SQLite identifies a corrupt live conversation store, while preventing further conversation
+mutation and providing a path-redacted route back to verified data.
+
+### Implemented shape
+
+1. Startup opens an existing database read-only and runs SQLite's bounded `quick_check` before migration. Explicit
+   `SQLITE_CORRUPT`, `SQLITE_NOTADB`, or non-`ok` integrity results create a restricted native store instead of aborting
+   Tauri setup. Other initialization failures remain fatal rather than being mislabeled as corruption.
+2. Every normal conversation connection is guarded by the shared restricted-state flag, and automatic rotation does not
+   run against damaged data. The WebView receives only `ready` or `recovery_required`, the count of verified managed
+   snapshots, and the newest snapshot timestamp—never a database path or automatic-backup filename.
+3. A dedicated recovery screen pauses the normal shell and offers the newest verified automatic snapshot plus a manual
+   Bottie-backup picker. Both flows retain native confirmation; manual candidates still pass the existing schema,
+   profile, integrity, and isolated-migration checks.
+4. Before replacement, Rust moves the exact damaged database, WAL, and shared-memory files that exist into one unique
+   app-private preservation directory. A migrated verified replacement is prepared independently before that move and
+   installed by same-directory rename; failed installation rolls the preserved bundle back.
+5. Successful recovery clears the shared restriction, reloads navigation and exact selection, and resumes model
+   discovery. The WebView receives only a human-readable source label and preservation-directory leaf name.
+
+### Acceptance criteria
+
+- Corrupt or non-database live bytes no longer prevent the native app from opening to a recovery action.
+- Conversation, generation, backup, export, and lifecycle access remains paused until a verified restore succeeds.
+- Only strictly named automatic snapshots that independently pass Bottie restore validation are counted or selected.
+- The newest verified automatic snapshot and a valid manual backup both use the same staged replacement policy.
+- Damaged main/WAL/shared-memory files are preserved before replacement, and no path or SQL detail crosses IPC.
+- Healthy startup, existing manual restore, provider networking, credentials, migrations, and automatic retention keep
+  their existing behavior.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-20. The frontend suite has twenty-seven passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has eighty-three tests:
+seventy-nine pass by default and four live-provider tests remain opt-in. Three path-backed recovery tests cover
+restricted corrupt startup, filtering corrupt managed-looking snapshots, newest verified automatic recovery, resumed
+conversation access, and byte-exact damaged-main preservation.
+
+The native app compiled and remained open against the existing healthy store. The recovery screen was visually checked
+at 1320 x 820 and 420 x 780 through a temporary browser-preview fixture; both recovery actions remained visible, the
+responsive card stayed contained, and no console warnings or errors appeared. The temporary fixture was removed. A
+destructive native corruption exercise was intentionally not run against the user's live application store; the real
+filesystem replacement flow is covered by the path-backed Rust tests.
+
+## Prior completed product slice: Automatic SQLite backup rotation
 
 ### Goal
 
@@ -914,9 +969,9 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is corruption detection and guided recovery using the now-rotated verified
-snapshots. Keep migration-rollback planning, tool-invocation persistence, and batch/JSON export as later reviewable
-slices. Keep
+The next bounded implementation slice is selected-conversation JSON export using the existing native Save-dialog and
+selected-lineage policy. Keep batch export, migration-rollback planning, and tool-invocation persistence as later
+reviewable slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

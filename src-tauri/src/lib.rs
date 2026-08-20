@@ -30,10 +30,11 @@ use storage::ConversationStore;
 use storage_commands::{
     append_conversation_message, backup_conversation_store, branch_conversation_message,
     clear_last_open_conversation, create_conversation, delete_conversation,
-    export_conversation_markdown, list_conversations, load_conversation,
-    load_last_open_conversation, rate_conversation_response, rename_conversation,
-    restore_conversation, restore_conversation_store, search_conversations,
-    select_conversation_branch, set_conversation_archived,
+    export_conversation_markdown, get_storage_recovery_status, list_conversations,
+    load_conversation, load_last_open_conversation, rate_conversation_response,
+    rename_conversation, restore_conversation, restore_conversation_store,
+    restore_latest_automatic_backup, search_conversations, select_conversation_branch,
+    set_conversation_archived,
 };
 use tauri::{Manager, State};
 
@@ -45,6 +46,7 @@ struct AppState {
     diagnostics: Diagnostics,
     credentials: Arc<dyn CredentialStore>,
     conversations: ConversationStore,
+    storage_management: tauri::async_runtime::Mutex<()>,
 }
 
 /// Starts the non-blocking startup rotation and records only path-redacted session diagnostics.
@@ -387,10 +389,25 @@ pub fn run() {
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("providers.json");
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
-            let conversations = ConversationStore::initialize(database_path)
+            let startup = ConversationStore::initialize_for_app(database_path)
                 .map_err(|error| std::io::Error::other(error.message))?;
             let diagnostics = Diagnostics::default();
-            schedule_automatic_backup(conversations.clone(), diagnostics.clone());
+            let conversations = startup.store;
+            if startup.recovery_required {
+                let recovery_diagnostics = diagnostics.clone();
+                tauri::async_runtime::spawn(async move {
+                    record_diagnostic(
+                        &recovery_diagnostics,
+                        "error",
+                        "Local data recovery required",
+                        None,
+                        Some("SQLite integrity failed; conversation access is paused"),
+                    )
+                    .await;
+                });
+            } else {
+                schedule_automatic_backup(conversations.clone(), diagnostics.clone());
+            }
             let settings = load_provider_settings(&settings_path).unwrap_or_default();
             let providers = ProviderSet::from_settings(&settings).unwrap_or_else(|_| ProviderSet {
                 omlx: OmlxProvider::new().expect("the built-in oMLX configuration must be valid"),
@@ -405,6 +422,7 @@ pub fn run() {
                 diagnostics,
                 credentials: Arc::new(SystemCredentialStore::default()),
                 conversations,
+                storage_management: tauri::async_runtime::Mutex::new(()),
             });
             Ok(())
         })
@@ -417,6 +435,7 @@ pub fn run() {
             remember_provider_selection,
             test_provider_connection,
             get_diagnostics,
+            get_storage_recovery_status,
             list_conversations,
             search_conversations,
             create_conversation,
@@ -424,6 +443,7 @@ pub fn run() {
             export_conversation_markdown,
             backup_conversation_store,
             restore_conversation_store,
+            restore_latest_automatic_backup,
             load_last_open_conversation,
             clear_last_open_conversation,
             append_conversation_message,

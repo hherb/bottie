@@ -43,6 +43,7 @@ import {
 } from "$lib/presentation";
 
 import { ConversationState } from "./conversation-state.svelte";
+import { RecoveryState } from "./recovery-state.svelte";
 
 const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
@@ -74,6 +75,7 @@ export class PageState {
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
   providerSettings = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
+  recovery = new RecoveryState();
   history = new ConversationState();
 
   private generationRun = 0;
@@ -86,17 +88,14 @@ export class PageState {
   get selectedModel(): ModelInfo | undefined {
     return this.models.find((model) => modelKey(model) === this.selectedModelKey);
   }
-
   /** Whether the current provider and model selection can accept a message. */
   get canSend(): boolean {
     return this.providerStatus === "available" && Boolean(this.selectedModel) && !this.isPersistingMessage;
   }
-
   /** Whether the selected route keeps prompt traffic on this device. */
   get isLocalRoute(): boolean {
     return !isCloudProvider(this.selectedProviderId);
   }
-
   /** Compact active-provider endpoint used by the privacy-route presentation. */
   get selectedProviderEndpoint(): string {
     const baseUrl = {
@@ -107,7 +106,6 @@ export class PageState {
     }[this.selectedProviderId || "ollama"];
     return displayEndpoint(baseUrl);
   }
-
   /** Normalized activity stages for the active provider. */
   get inferenceStages(): InferenceStage[] {
     return [
@@ -123,7 +121,6 @@ export class PageState {
       },
     ];
   }
-
   /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {
     if (!isTauri()) {
@@ -144,6 +141,10 @@ export class PageState {
       this.selectedProviderId = this.providerSettings.lastProviderId ?? "";
     } catch (error) {
       console.warn("Could not read provider settings", error);
+    }
+    if (!(await this.recovery.initialize())) {
+      this.providerStatus = "offline";
+      return;
     }
     const [messages] = await Promise.all([this.history.initialize(), this.refreshModels()]);
     this.messages = messages;

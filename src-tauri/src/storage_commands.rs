@@ -8,8 +8,8 @@ use crate::{
     AppState,
     storage::{
         ConversationSearchResult, ConversationSummary, ForkedConversation, MessageState,
-        NewStoredMessage, ResponseRating, StorageError, StoredConversation, StoredMessage,
-        StoredRole,
+        NewStoredMessage, ResponseRating, StorageError, StorageRecoveryStatus, StoredConversation,
+        StoredMessage, StoredRole,
     },
 };
 
@@ -67,8 +67,8 @@ pub(crate) struct RestoreOutcome {
     status: RestoreStatus,
     /// Selected backup's leaf filename, absent when the interaction was cancelled.
     file_name: Option<String>,
-    /// Application-private pre-restore safety-copy filename, absent when cancelled.
-    safety_copy_file_name: Option<String>,
+    /// Application-private safety file or directory name, absent when cancelled.
+    preserved_copy_name: Option<String>,
 }
 
 /// Stable native restore outcomes returned to the presentation layer.
@@ -79,6 +79,14 @@ enum RestoreStatus {
     Restored,
     /// The user closed either native dialog without completing a restore.
     Cancelled,
+}
+
+#[tauri::command]
+/// Returns path-redacted corruption state and verified automatic-recovery availability.
+pub(crate) fn get_storage_recovery_status(
+    state: State<'_, AppState>,
+) -> Result<StorageRecoveryStatus, StorageError> {
+    state.conversations.recovery_status()
 }
 
 #[tauri::command]
@@ -158,6 +166,7 @@ pub(crate) async fn backup_conversation_store(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<BackupOutcome, StorageError> {
+    let _management = state.storage_management.lock().await;
     let selected = app
         .dialog()
         .file()
@@ -194,6 +203,7 @@ pub(crate) async fn restore_conversation_store(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<RestoreOutcome, StorageError> {
+    let _management = state.storage_management.lock().await;
     if !state.runs.lock().await.is_empty() {
         return Err(StorageError::restore_while_active());
     }
@@ -214,11 +224,17 @@ pub(crate) async fn restore_conversation_store(
         .and_then(|name| name.to_str())
         .unwrap_or("selected backup")
         .to_owned();
+    let recovery_required = state.conversations.is_recovery_required();
+    let preservation_detail = if recovery_required {
+        "Bottie will preserve the damaged database files before replacement."
+    } else {
+        "A pre-restore safety copy will be created automatically."
+    };
     let confirmed = app
         .dialog()
         .message(format!(
             "Restore {file_name}? This replaces the current Bottie conversations. \
-             A pre-restore safety copy will be created automatically."
+             {preservation_detail}"
         ))
         .title("Restore Bottie local data")
         .kind(MessageDialogKind::Warning)
@@ -234,7 +250,7 @@ pub(crate) async fn restore_conversation_store(
         return Err(StorageError::restore_while_active());
     }
     let conversations = state.conversations.clone();
-    let safety_path = conversations.pre_restore_backup_path()?;
+    let safety_path = conversations.restore_preservation_path()?;
     let restore_path = path.clone();
     let worker_safety_path = safety_path.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -242,15 +258,67 @@ pub(crate) async fn restore_conversation_store(
     })
     .await
     .map_err(|_| StorageError::restore())??;
-    let safety_copy_file_name = safety_path
+    let preserved_copy_name = safety_path
         .file_name()
         .and_then(|name| name.to_str())
-        .unwrap_or("Bottie pre-restore safety copy")
+        .unwrap_or("Bottie preserved local data")
         .to_owned();
     Ok(RestoreOutcome {
         status: RestoreStatus::Restored,
         file_name: Some(file_name),
-        safety_copy_file_name: Some(safety_copy_file_name),
+        preserved_copy_name: Some(preserved_copy_name),
+    })
+}
+
+#[tauri::command]
+/// Restores the newest verified app-private automatic snapshot after native confirmation.
+pub(crate) async fn restore_latest_automatic_backup(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<RestoreOutcome, StorageError> {
+    let _management = state.storage_management.lock().await;
+    if !state.runs.lock().await.is_empty() {
+        return Err(StorageError::restore_while_active());
+    }
+    let status = state.conversations.recovery_status()?;
+    if status.latest_automatic_backup_at_ms.is_none() {
+        return Err(StorageError::no_automatic_backup());
+    }
+    let confirmed = app
+        .dialog()
+        .message(
+            "Restore the latest verified automatic backup? Bottie will preserve the damaged database files first.",
+        )
+        .title("Recover Bottie local data")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Restore".into(),
+            "Cancel".into(),
+        ))
+        .blocking_show();
+    if !confirmed {
+        return Ok(cancelled_restore());
+    }
+    if !state.runs.lock().await.is_empty() {
+        return Err(StorageError::restore_while_active());
+    }
+    let conversations = state.conversations.clone();
+    let preservation = conversations.restore_preservation_path()?;
+    let worker_preservation = preservation.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        conversations.restore_latest_automatic_backup(&worker_preservation)
+    })
+    .await
+    .map_err(|_| StorageError::restore())??;
+    let preserved_copy_name = preservation
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("Bottie preserved damaged data")
+        .to_owned();
+    Ok(RestoreOutcome {
+        status: RestoreStatus::Restored,
+        file_name: Some("latest automatic backup".into()),
+        preserved_copy_name: Some(preserved_copy_name),
     })
 }
 
@@ -259,7 +327,7 @@ fn cancelled_restore() -> RestoreOutcome {
     RestoreOutcome {
         status: RestoreStatus::Cancelled,
         file_name: None,
-        safety_copy_file_name: None,
+        preserved_copy_name: None,
     }
 }
 

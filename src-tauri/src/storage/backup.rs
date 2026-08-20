@@ -37,9 +37,9 @@ pub(crate) struct AutomaticBackupRotation {
 }
 
 /// One application-owned automatic snapshot discovered from its strict filename contract.
-struct ManagedBackup {
-    timestamp_ms: i64,
-    path: PathBuf,
+pub(super) struct ManagedBackup {
+    pub(super) timestamp_ms: i64,
+    pub(super) path: PathBuf,
 }
 
 impl ConversationStore {
@@ -136,6 +136,12 @@ impl ConversationStore {
         source: &Path,
         safety_copy: &Path,
     ) -> Result<(), StorageError> {
+        if self
+            .recovery_required
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            return self.recover_corrupt_store(source, safety_copy);
+        }
         if paths_refer_to_same_file(&self.path, source) {
             return Err(StorageError::invalid_backup());
         }
@@ -171,14 +177,14 @@ impl ConversationStore {
 }
 
 /// Resolves the app-private rotation directory beside the live database.
-fn automatic_backup_directory(live: &Path) -> Result<PathBuf, StorageError> {
+pub(super) fn automatic_backup_directory(live: &Path) -> Result<PathBuf, StorageError> {
     live.parent()
         .map(|parent| parent.join(AUTOMATIC_BACKUP_DIRECTORY))
         .ok_or_else(StorageError::automatic_backup)
 }
 
 /// Finds only regular files whose names exactly match Bottie's automatic-backup contract.
-fn managed_backups(directory: &Path) -> Result<Vec<ManagedBackup>, StorageError> {
+pub(super) fn managed_backups(directory: &Path) -> Result<Vec<ManagedBackup>, StorageError> {
     let backups = fs::read_dir(directory)
         .map_err(|_| StorageError::automatic_backup())?
         .filter_map(|entry| entry.ok())
@@ -233,7 +239,7 @@ fn verify_backup(path: &Path) -> Result<(), StorageError> {
 }
 
 /// Rejects corrupt, unrelated, empty, and newer-schema databases before live data can change.
-fn validate_restore_source(path: &Path) -> Result<(), StorageError> {
+pub(super) fn validate_restore_source(path: &Path) -> Result<(), StorageError> {
     let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(|_| StorageError::invalid_backup())?;
     let integrity: String = connection
@@ -272,7 +278,7 @@ fn validate_restore_source(path: &Path) -> Result<(), StorageError> {
 }
 
 /// Copies a candidate into an isolated database while including any committed WAL content.
-fn copy_database(source: &Path, destination: &Path) -> Result<(), rusqlite::Error> {
+pub(super) fn copy_database(source: &Path, destination: &Path) -> Result<(), rusqlite::Error> {
     let connection = Connection::open_with_flags(source, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     connection.backup(MAIN_DB, destination, None)
 }
@@ -293,7 +299,7 @@ fn validate_live_restore(connection: &Connection) -> Result<(), StorageError> {
 }
 
 /// Chooses a unique same-directory staging file so restore never mutates the selected backup.
-fn restore_staging_path(live: &Path) -> Result<PathBuf, StorageError> {
+pub(super) fn restore_staging_path(live: &Path) -> Result<PathBuf, StorageError> {
     let parent = live.parent().ok_or_else(StorageError::restore)?;
     Ok(parent.join(format!(
         "{RESTORE_STAGING_FILE_PREFIX}-{}.sqlite3",
@@ -302,7 +308,7 @@ fn restore_staging_path(live: &Path) -> Result<PathBuf, StorageError> {
 }
 
 /// Removes the exact temporary database and any SQLite sidecars left by validation.
-fn remove_database_files(path: &Path) {
+pub(super) fn remove_database_files(path: &Path) {
     let _ = std::fs::remove_file(path);
     for suffix in ["-wal", "-shm"] {
         let mut sidecar = path.as_os_str().to_os_string();
