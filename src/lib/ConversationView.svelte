@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { onDestroy } from "svelte";
+
+  import { copyAssistantResponse } from "$lib/clipboard";
   import Icon from "$lib/Icon.svelte";
   import { renderAssistantMarkdown } from "$lib/markdown";
   import type { ConversationBranch } from "$lib/storage";
@@ -41,9 +44,29 @@
   let messageScroll: HTMLDivElement;
   let editingMessageId = $state<number | null>(null);
   let editedText = $state("");
+  let copyFeedback = $state<{ messageId: number; succeeded: boolean } | null>(null);
+  let copyFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Time that clipboard success or failure feedback remains visible. */
+  const COPY_FEEDBACK_DURATION_MS = 2_400;
+
+  /** Copies the assistant answer and any separate reasoning as labelled Markdown sections. */
+  async function copyResponse(message: Message): Promise<void> {
+    const succeeded = await copyAssistantResponse({ content: message.content, reasoning: message.reasoning });
+    copyFeedback = { messageId: message.id, succeeded };
+    if (copyFeedbackTimer !== undefined) clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = setTimeout(() => {
+      copyFeedback = null;
+      copyFeedbackTimer = undefined;
+    }, COPY_FEEDBACK_DURATION_MS);
+  }
 
   $effect(() => {
     if (messageScroll) onscrollready(messageScroll);
+  });
+
+  onDestroy(() => {
+    if (copyFeedbackTimer !== undefined) clearTimeout(copyFeedbackTimer);
   });
 </script>
 
@@ -171,7 +194,26 @@
             </div>
           {:else if message.role === "assistant" && message.content !== ""}
             <div class="message-actions">
-              <button aria-label="Copy response"><Icon name="copy" size={15} /></button>
+              <button
+                aria-label={copyFeedback?.messageId === message.id && copyFeedback.succeeded
+                  ? message.reasoning
+                    ? "Response and reasoning copied"
+                    : "Response copied"
+                  : message.reasoning
+                    ? "Copy response and reasoning"
+                    : "Copy response"}
+                onclick={() => void copyResponse(message)}
+              >
+                <Icon
+                  name={copyFeedback?.messageId === message.id && copyFeedback.succeeded ? "check" : "copy"}
+                  size={15}
+                />
+              </button>
+              {#if copyFeedback?.messageId === message.id}
+                <span class:error={!copyFeedback.succeeded} class="copy-status" role="status">
+                  {copyFeedback.succeeded ? (message.reasoning ? "Copied with reasoning" : "Copied") : "Copy failed"}
+                </span>
+              {/if}
               <button aria-label="Good response"><Icon name="thumbs-up" size={15} /></button>
               <button aria-label="Poor response"><Icon name="thumbs-down" size={15} /></button>
               <button aria-label="Regenerate response" disabled={isGenerating} onclick={() => onregenerate(message.id)}

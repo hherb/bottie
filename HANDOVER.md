@@ -16,8 +16,10 @@ response creates a selected alternative branch while preserving every prior line
 remains explicit, cloud routes are visible before sending, and credential-vault values are never returned to the
 WebView. Native conversation search now finds titles and visible message text across active and archived histories and
 opens the preserved branch containing each result. Assistant answers now render parser-owned Markdown while raw HTML,
-unsafe destinations, and remote image fetches stay inert. The next bounded implementation slice is response copying;
-do not bundle retry, rating, export, backup, or broad product and visual-design planning with it.
+unsafe destinations, and remote image fetches stay inert. Non-empty assistant answers can now be copied as their exact
+Markdown source when reasoning is absent. When separate reasoning exists, the copied Markdown contains labelled
+Reasoning and Response sections without parser-generated HTML or response metadata. The next bounded implementation
+slice is response retry; do not bundle rating, export, backup, or broad product and visual-design planning with it.
 
 Read these files first:
 
@@ -66,6 +68,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - native conversation search with snippets, archived-result labels, matching-branch selection, and keyboard focus and
   clear behavior;
 - sanitized assistant Markdown with headings, lists, tables, quotes, safe external links, and code presentation;
+- assistant-response and reasoning copying as labelled Markdown with visible and screen-reader-readable feedback;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -207,7 +210,35 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Sanitized Markdown rendering
+## Most recently completed product slice: Response copying
+
+### Goal
+
+Let users copy an assistant answer and its optional separate reasoning predictably without mixing in generated HTML or
+response metadata.
+
+### Implemented shape
+
+1. Every non-empty assistant answer has a working copy action that writes Markdown through the WebView clipboard API.
+   Answers without reasoning remain byte-for-byte unchanged so pasted Markdown stays portable and editable.
+2. When separate provider reasoning exists, the clipboard document contains `## Reasoning` and `## Response` sections
+   in generation order. Model and usage metadata and parser-generated HTML remain excluded.
+3. The action reports `Copied`, `Copied with reasoning`, or `Copy failed` beside the response and exposes the result as
+   a polite status update. Feedback clears after a bounded interval and repeat writes replace the prior timer cleanly.
+4. Clipboard access stays in ephemeral WebView presentation code. No native command, Tauri permission, database write,
+   or persisted-message transformation was added.
+
+### Acceptance criteria
+
+- Copying a streamed, reopened, interrupted, or alternative-branch answer includes the answer and any separate
+  reasoning available at the moment the action runs.
+- Answers without reasoning copy byte-for-byte; answers with reasoning use explicit Markdown section headings rather
+  than parser-generated HTML.
+- Successful writes show a checkmark and accessible confirmation; unavailable or rejected clipboard access produces
+  an accessible failure state without an unhandled error.
+- Copying does not mutate durable conversation content or require a broader native capability.
+
+## Prior completed product slice: Sanitized Markdown rendering
 
 ### Goal
 
@@ -533,30 +564,35 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-20 for sanitized Markdown rendering:
+The following passed on 2026-08-20 for response copying:
 
 ```sh
 npm run format:check
 npm run check
 npm test
 npm run build
-npm audit --omit=dev
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-The frontend suite now has twenty tests, including six focused Markdown-policy tests for answer structure, tables, raw
-HTML escaping, external-link isolation, unsafe destinations, remote-image neutralization, and empty streaming state.
-`svelte-check` reports no errors or warnings. The production dependency audit reports zero vulnerabilities. The full
-development-tree audit retains three low-severity advisories through the existing SvelteKit toolchain; npm offers only
-a breaking forced resolution, so this bounded presentation slice does not apply it.
+The frontend suite now has twenty-five tests, including five focused clipboard tests for unchanged answer-only source,
+labelled answer/reasoning Markdown, exact clipboard delegation, unavailable clipboard access, and rejected writes.
+`svelte-check` reports no errors or warnings.
 
 The standard Rust suite remains at sixty-seven tests: sixty-three pass by default and four are opt-in live-provider
-tests. The browser preview was visually checked at 1320 x 820 and 800 x 700 with representative headings, an ordered
-list, inline code, and emphasis; both layouts remained readable without console errors. Native and live-provider manual
-tests were not required because this slice changes only derived WebView presentation and adds no Tauri command,
-storage migration, provider traffic, credential access, or native capability.
+tests. The browser preview was visually checked at its desktop size and the 720 x 620 native minimum; the copy action
+and feedback remained readable without console errors. The native app compiled and launched, and manual testing
+confirmed native WebView clipboard access. Live-provider tests were not required because this slice changes only
+derived WebView presentation and adds no Tauri command, storage migration, provider traffic, credential access, or
+native capability.
+
+## Verification completed for the previous sanitized-Markdown slice
+
+The sanitized-Markdown checks included the same standard frontend and Rust commands plus the production dependency
+audit. Six focused Markdown-policy tests cover answer structure, tables, raw HTML escaping, external-link isolation,
+unsafe destinations, remote-image neutralization, and empty streaming state. The browser preview was visually checked
+at 1320 x 820 and 800 x 700 with representative headings, an ordered list, inline code, and emphasis.
 
 ## Verification completed for the previous conversation-search slice
 
@@ -597,8 +633,8 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is response copying. Keep retry and rating actions, tool-invocation persistence,
-export, and backups as later reviewable slices. Keep
+The next bounded implementation slice is response retry. Keep rating actions, tool-invocation persistence, export, and
+backups as later reviewable slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

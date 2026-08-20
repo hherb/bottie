@@ -12,8 +12,10 @@ generation, its next launch marks that run interrupted and reopens the response 
 saved. Users can edit earlier prompts or regenerate responses into preserved, switchable conversation branches, and
 search active or archived histories by title or visible message text. Search results open the preserved branch that
 contains the match. Assistant answers render sanitized Markdown for readable headings, lists, tables, links, and code;
-raw HTML is escaped and remote Markdown images are reduced to inert labels. Bottie also restores the exact last-open
-conversation after restart and preserves an intentional blank new-chat view. Remote
+raw HTML is escaped and remote Markdown images are reduced to inert labels. Each non-empty assistant answer can be
+copied as Markdown without generated HTML or response metadata. When separate reasoning is present, the clipboard
+document includes labelled Reasoning and Response sections. Bottie also restores the exact last-open conversation
+after restart and preserves an intentional blank new-chat view. Remote
 API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
 Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. Attachments, memory retrieval, and tools are
@@ -71,8 +73,10 @@ Conversation search runs through a narrow Rust command, treats query characters 
 reasoning blocks, and returns at most 50 activity-ordered results with bounded snippets. It intentionally uses the
 existing store rather than adding FTS5 before the later memory-search milestone. Assistant answers pass through a
 Markdown parser configured to reject raw HTML, non-HTTP(S)/email link destinations, relative navigation, and image
-fetches. User prompts and provider reasoning remain plain text. Copy/rating actions, export, and backup/restore remain
-planned Milestone 2 work.
+fetches. User prompts and provider reasoning remain plain text. Copying writes the exact stored assistant answer through
+the WebView clipboard API when no reasoning is present. Responses with reasoning become one Markdown document with
+labelled Reasoning and Response sections, and the action reports success or failure in place. Rating actions, export,
+and backup/restore remain planned Milestone 2 work.
 
 Run the layout-only browser preview:
 

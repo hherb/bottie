@@ -121,7 +121,8 @@ ownership rewrite.
 - [x] date grouping based on real conversation activity;
 - [x] bounded native conversation search across titles and visible message text;
 - [x] Markdown rendering with sanitization;
-- copy, retry, rating, and export actions;
+- [x] assistant-response and reasoning copying as labelled Markdown with accessible outcome feedback;
+- retry, rating, and export actions;
 - JSON or Markdown export and backup restore.
 
 ## Milestone 3 — Attachments and multimodal context
