@@ -1,6 +1,6 @@
 # bottie handover
 
-Last verified: 2026-08-20
+Last verified: 2026-08-21
 
 ## Start here
 
@@ -37,10 +37,13 @@ SQLite reports corruption at startup, Bottie now opens in a restricted recovery 
 guided screen can restore the newest verified automatic snapshot or a manually selected Bottie backup after preserving
 the damaged database bundle in app-private storage. Native provider runs now also retain ordered structured tool calls
 and one append-only result per call; reopened tool activity is inspectable and portable without exposing native or
-provider call identities. Provider tool loops and execution remain absent. The next bounded implementation slice is
-native content-addressed attachment ingestion with MIME sniffing, hashes, size limits, duplicate detection, and safe
-display names; do not bundle extraction, indexing, provider delivery, memory search, or broad visual-design work with
-it.
+provider call identities. Provider tool loops and execution remain absent. Native attachment selection now streams
+chosen local files into application-private content-addressed storage with SHA-256 identities, content-based MIME
+sniffing, safe display names, a 25 MiB per-file limit, an eight-file selection limit, and cross-session duplicate
+detection. Source and storage paths never reach the WebView, and the interface explicitly labels retained attachments
+as not yet sent. The next bounded implementation slice is durable attachment association with the submitted user
+message and selected conversation branch, including reopen behavior and removal semantics; do not bundle extraction,
+provider delivery, image normalization, indexing, memory search, or broad visual-design work with it.
 
 Read these files first:
 
@@ -75,7 +78,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
   loaded/on-demand state, and an explicit local/cloud privacy indicator;
 - user and assistant message presentation;
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
-- attachment selection and removal in presentation state;
+- native attachment selection, application-private ingestion, draft removal, and path-redacted outcome feedback;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
@@ -120,7 +123,9 @@ transactional conversation/message operations. `src-tauri/src/storage/runs.rs` o
 `src-tauri/src/storage/selection.rs` owns profile-scoped last-open state, `src-tauri/src/storage/branching.rs` owns
 branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded conversation search,
 `src-tauri/src/storage/ratings.rs` owns response-rating validation and mutation, `src-tauri/src/storage/tools.rs` owns
-bounded append-only tool-call/result records, `src-tauri/src/storage/export.rs` owns
+bounded append-only tool-call/result records, `src-tauri/src/storage/attachments.rs` owns bounded streaming ingestion,
+SHA-256 content identities, MIME sniffing, safe display names, deduplicated metadata, and app-private blob placement,
+and `src-tauri/src/storage/export.rs` owns
 deterministic selected-lineage Markdown plus selected and batch JSON rendering and safe suggested filenames, and
 `src-tauri/src/storage/backup.rs` owns
 consistent online SQLite snapshots, strict automatic-backup discovery and rotation, restore validation, isolated
@@ -133,7 +138,7 @@ staged replacement, and
 explicit branch, response-rating, selected-lineage Markdown/JSON and non-trashed batch JSON export, whole-store
 backup/restore,
 recovery-status/latest-snapshot restore, and lifecycle commands. The database lives in the OS application-data
-directory; the WebView never receives a path, SQL, or generic database
+directory; the WebView never receives a database or attachment path, SQL, or generic filesystem/database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a selected branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
 blocks. User prompts commit before inference starts, and terminal assistant responses commit before another prompt can
@@ -207,8 +212,10 @@ Do not mistake visual fixtures for implemented backend behavior:
 - memory cards and relevance scores are fixtures;
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
-- attachments retain only browser-side name, size, and type metadata;
-- no attachment bytes are read, copied, extracted, or indexed;
+- native attachment bytes are copied and deduplicated, but current draft selection is session-only and is not yet
+  linked to a message or conversation;
+- retained attachments are not extracted, normalized, indexed, exported, included in SQLite-only backups, or sent to
+  any provider;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
@@ -250,7 +257,54 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Append-oriented tool activity persistence
+## Most recently completed product slice: Native content-addressed attachment ingestion
+
+### Goal
+
+Retain user-selected local files behind the Rust filesystem boundary with bounded, content-derived metadata while
+making it unmistakable that extraction, durable message association, and provider delivery do not exist yet.
+
+### Implemented shape
+
+1. Schema version 8 adds a global attachment catalog keyed uniquely by lowercase SHA-256. Blob bytes live under a
+   two-character hash shard in the application-data directory; neither source nor retained paths are stored in the
+   WebView contract.
+2. Rust streams through a 64 KiB copy buffer, rechecks the 25 MiB ceiling while reading, rejects empty/non-regular
+   files, sniffs up to 8 KiB of content, and falls back to valid UTF-8 text or inert binary MIME types rather than
+   trusting extensions or browser claims.
+3. Display names remove separators, controls, bidi overrides, leading/trailing dots, excess whitespace, and content
+   beyond 120 Unicode scalar values. One native picker accepts at most eight files and reports independent, path-free
+   rejections so one bad file does not discard valid peers.
+4. Existing hashes reuse one durable metadata identity and one blob across process restarts. The current draft merges
+   that metadata without repeated chips, supports presentation-only removal, labels detected type plus `Not sent`,
+   and blocks prompt submission until the unsendable attachment selection is removed.
+
+### Acceptance criteria
+
+- Existing version-7 stores migrate transactionally to version 8 without rewriting conversations, branches, messages,
+  runs, tool activity, ratings, backup state, or selection.
+- Identical bytes selected under different names resolve to one row and one content blob; partial copies and rejected
+  oversized files leave no metadata or final blob.
+- The WebView receives only opaque attachment ID, sanitized display name, detected MIME, byte size, hash, and duplicate
+  state; local source/storage paths, raw bytes, and unrestricted file capability remain native-only.
+- No message/conversation association, extraction, image normalization, indexing, provider delivery, export, backup,
+  garbage collection, memory search, or tool behavior is added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-21. The frontend suite has thirty-one passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has ninety-seven tests:
+ninety-three pass by default and four live-provider tests remain opt-in. Five focused attachment tests cover schema-7
+migration, content hashing/deduplication across reopen, byte retention, MIME sniffing, display-name policy, and
+oversized-file cleanup.
+
+The presentation was checked in the browser preview at 1320 x 820 and 420 x 780. Detected MIME and `Not sent` remain
+legible, the responsive context drawer has no horizontal overflow, and the browser console is clean. A fresh native
+process migrated the real application store to schema 8 and remained open without terminal errors; immutable
+inspection confirmed the new migration, an empty attachment catalog, and `quick_check` returned `ok`. Automated
+path-backed tests exercise the byte-ingestion contract, but the macOS picker interaction itself remains a manual check.
+
+## Prior completed product slice: Append-oriented tool activity persistence
 
 ### Goal
 

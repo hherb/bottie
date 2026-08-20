@@ -7,6 +7,7 @@ use super::{
     StorageError,
     migrations::{
         MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
+        MIGRATION_8,
     },
     now_ms,
 };
@@ -51,6 +52,9 @@ impl ConversationStore {
         }
         if version < 7 {
             apply_migration(connection, MIGRATION_7, 7, "tool invocations and results")?;
+        }
+        if version < 8 {
+            apply_migration(connection, MIGRATION_8, 8, "content-addressed attachments")?;
         }
         Ok(())
     }

@@ -13,8 +13,10 @@ use crate::{
     },
 };
 
+mod attachments;
 mod export;
 
+pub(crate) use attachments::ingest_attachments;
 pub(crate) use export::{
     export_conversation_batch_json, export_conversation_json, export_conversation_markdown,
 };

@@ -12,8 +12,9 @@
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
     onsend: () => void;
+    onadd: () => void;
     onfiles: (event: Event) => void;
-    onremove: (id: number) => void;
+    onremove: (id: string) => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -28,6 +29,7 @@
     oninput,
     onkeydown,
     onsend,
+    onadd,
     onfiles,
     onremove,
     oncomposerready,
@@ -88,7 +90,7 @@
           multiple
           tabindex="-1"
         />
-        <button aria-label="Attach files" onclick={() => attachmentInput?.click()}>
+        <button aria-label="Attach files" onclick={onadd}>
           <Icon name="paperclip" size={18} />
         </button>
         <button class="tool-toggle" aria-label="Memory search is not available yet" disabled>
@@ -101,9 +103,13 @@
 
       <button
         class="send-button"
-        class:enabled={(prompt.trim().length > 0 && canSend) || isGenerating}
-        disabled={(!prompt.trim() || !canSend) && !isGenerating}
-        aria-label={isGenerating ? "Stop generating" : "Send message"}
+        class:enabled={(prompt.trim().length > 0 && canSend && attachments.length === 0) || isGenerating}
+        disabled={(!prompt.trim() || !canSend || attachments.length > 0) && !isGenerating}
+        aria-label={isGenerating
+          ? "Stop generating"
+          : attachments.length > 0
+            ? "Remove attachments before sending"
+            : "Send message"}
         onclick={onsend}
       >
         {#if isGenerating}
@@ -114,5 +120,9 @@
       </button>
     </div>
   </div>
-  <p class="composer-note">Bottie can make mistakes. Check important information.</p>
+  <p class="composer-note">
+    {attachments.length > 0
+      ? "Attachments are stored locally but cannot be sent yet. Remove them to send a message."
+      : "Bottie can make mistakes. Check important information."}
+  </p>
 </footer>

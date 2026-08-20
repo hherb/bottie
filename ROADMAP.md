@@ -135,16 +135,18 @@ ownership rewrite.
 
 Outcome: users can safely add images and documents and see exactly what is sent to a model.
 
-- content-addressed attachment storage in the application data directory;
-- MIME sniffing, hashes, size limits, duplicate detection, and safe filenames;
-- extraction pipeline for plain text, Markdown, PDF, and selected office formats;
-- image normalization and metadata removal policy;
-- background extraction and indexing states;
-- capability-aware image delivery to vision models;
-- clear behavior for text-only models;
-- per-message and per-conversation attachment scope;
-- attachment removal, garbage collection, and export behavior;
-- previews and extraction-error UX.
+Status: in progress
+
+- [x] content-addressed attachment storage in the application data directory;
+- [x] MIME sniffing, hashes, size limits, duplicate detection, and safe display names;
+- [ ] extraction pipeline for plain text, Markdown, PDF, and selected office formats;
+- [ ] image normalization and metadata removal policy;
+- [ ] background extraction and indexing states;
+- [ ] capability-aware image delivery to vision models;
+- [ ] clear behavior for text-only models;
+- [ ] per-message and per-conversation attachment scope;
+- [ ] attachment removal, garbage collection, backup, and export behavior;
+- [ ] previews and extraction-error UX.
 
 Raw local filesystem paths must never be forwarded to a provider.
 

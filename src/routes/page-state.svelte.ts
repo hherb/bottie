@@ -8,7 +8,6 @@ import {
   completionMeta,
   displayEndpoint,
   filterUsableModels,
-  formatBytes,
   isCloudProvider,
   modelKey,
   requestMessageForResponse,
@@ -35,7 +34,6 @@ import {
   INITIAL_MESSAGES,
   MAX_COMPOSER_HEIGHT_PX,
   nextMessageId,
-  type Attachment,
   type InferenceStage,
   type Message,
   type ProviderStatus,
@@ -43,6 +41,7 @@ import {
 } from "$lib/presentation";
 
 import { ConversationState } from "./conversation-state.svelte";
+import { AttachmentState } from "./attachment-state.svelte";
 import { RecoveryState } from "./recovery-state.svelte";
 
 const IDLE_STAGE = -1;
@@ -53,10 +52,6 @@ const NEXT_EVENT_LOOP_TICK_MS = 0;
 /** Owns the reactive state and imperative actions shared by the page's presentation components. */
 export class PageState {
   messages = $state<Message[]>(isTauri() ? [] : INITIAL_MESSAGES.map((message) => ({ ...message })));
-  attachments = $state<Attachment[]>([
-    { id: 1, name: "bottie-notes.md", size: "18 KB", kind: "file" },
-    { id: 2, name: "architecture.png", size: "1.2 MB", kind: "image" },
-  ]);
   prompt = $state("");
   isGenerating = $state(false);
   isPersistingMessage = $state(false);
@@ -77,12 +72,12 @@ export class PageState {
   providerSettings = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
   recovery = new RecoveryState();
   history = new ConversationState();
+  attachment = new AttachmentState();
 
   private generationRun = 0;
   private cancellationRequested = false;
   private messageScroll?: HTMLDivElement;
   private composer?: HTMLTextAreaElement;
-  private attachmentInput?: HTMLInputElement;
 
   /** Currently selected provider-qualified model, when discovery has produced one. */
   get selectedModel(): ModelInfo | undefined {
@@ -254,16 +249,6 @@ export class PageState {
     this.composer = element;
   }
 
-  /** Registers the hidden attachment input after its component mounts. */
-  setAttachmentInput(element: HTMLInputElement): void {
-    this.attachmentInput = element;
-  }
-
-  /** Opens the native browser file picker used by the attachment preview. */
-  openAttachmentPicker(): void {
-    this.attachmentInput?.click();
-  }
-
   /** Scrolls the conversation to its newest content after pending DOM updates. */
   async scrollToBottom(behavior: ScrollBehavior = "smooth"): Promise<void> {
     await tick();
@@ -289,6 +274,10 @@ export class PageState {
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
     if (!submittedPrompt || this.isGenerating || !this.canSend) return;
+    if (this.attachment.items.length > 0) {
+      this.attachment.explainUnavailableDelivery();
+      return;
+    }
     this.isPersistingMessage = true;
     const runContext = await this.history.persistUserMessage(submittedPrompt);
     this.isPersistingMessage = false;
@@ -300,6 +289,7 @@ export class PageState {
       content: submittedPrompt,
     });
     this.prompt = "";
+    this.attachment.clear();
     this.resizeComposer();
     await this.startGeneration(runContext);
   }
@@ -476,24 +466,5 @@ export class PageState {
     this.prompt = "";
     this.showSidebar = false;
     setTimeout(() => this.composer?.focus(), NEXT_EVENT_LOOP_TICK_MS);
-  }
-
-  /** Adds browser-visible attachment metadata without reading any file bytes. */
-  addAttachments(event: Event): void {
-    const input = event.currentTarget as HTMLInputElement;
-    for (const file of Array.from(input.files ?? [])) {
-      this.attachments.push({
-        id: Date.now() + this.attachments.length,
-        name: file.name,
-        size: formatBytes(file.size),
-        kind: file.type.startsWith("image/") ? "image" : "file",
-      });
-    }
-    input.value = "";
-  }
-
-  /** Removes one attachment preview by its ephemeral identifier. */
-  removeAttachment(id: number): void {
-    this.attachments = this.attachments.filter((attachment) => attachment.id !== id);
   }
 }
