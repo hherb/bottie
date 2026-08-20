@@ -47,6 +47,14 @@ impl StorageError {
         }
     }
 
+    /// Creates a stable failure while corrupt local data is awaiting guided recovery.
+    pub(super) fn recovery_required() -> Self {
+        Self {
+            code: "recovery_required",
+            message: "Bottie paused local conversation access until its data is recovered.".into(),
+        }
+    }
+
     /// Creates a path-redacted file-export failure.
     pub(crate) fn export() -> Self {
         Self {
@@ -100,6 +108,23 @@ impl StorageError {
         Self {
             code: "internal",
             message: "Bottie could not create the pre-restore safety copy. Your current data was not changed.".into(),
+        }
+    }
+
+    /// Creates a failure when damaged database files cannot be preserved before recovery.
+    pub(crate) fn recovery_preservation() -> Self {
+        Self {
+            code: "internal",
+            message: "Bottie could not preserve the damaged local data. Nothing was replaced."
+                .into(),
+        }
+    }
+
+    /// Creates a stable failure when guided recovery has no verified managed snapshot.
+    pub(crate) fn no_automatic_backup() -> Self {
+        Self {
+            code: "invalid_request",
+            message: "No verified automatic backup is available.".into(),
         }
     }
 }

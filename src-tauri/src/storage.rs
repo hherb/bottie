@@ -1,6 +1,14 @@
 //! Rust-owned durable conversation storage.
 
-use std::{fs, path::PathBuf, time::Duration};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
@@ -11,6 +19,7 @@ mod lifecycle;
 mod migrate;
 mod migrations;
 mod ratings;
+mod recovery;
 mod runs;
 mod search;
 mod selection;
@@ -18,6 +27,7 @@ mod types;
 
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
+pub(crate) use recovery::StorageRecoveryStatus;
 pub(crate) use types::{
     ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
     ForkedConversation, MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext,
@@ -47,6 +57,7 @@ struct StorageStatus {
 #[derive(Clone)]
 pub(crate) struct ConversationStore {
     path: PathBuf,
+    recovery_required: Arc<AtomicBool>,
 }
 
 impl ConversationStore {
@@ -55,7 +66,10 @@ impl ConversationStore {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let store = Self { path };
+        let store = Self {
+            path,
+            recovery_required: Arc::new(AtomicBool::new(false)),
+        };
         let mut connection = store.open()?;
         store.migrate(&mut connection)?;
         if store.integrity_check(&connection)? != "ok" {
@@ -213,6 +227,14 @@ impl ConversationStore {
 
     /// Opens one connection with Bottie's durability and integrity policy enabled.
     fn open(&self) -> Result<Connection, StorageError> {
+        if self.recovery_required.load(Ordering::Acquire) {
+            return Err(StorageError::recovery_required());
+        }
+        self.open_unchecked()
+    }
+
+    /// Opens one configured connection while startup recovery is inspecting or replacing the store.
+    fn open_unchecked(&self) -> Result<Connection, StorageError> {
         let connection = Connection::open(&self.path)?;
         connection.busy_timeout(SQLITE_BUSY_TIMEOUT)?;
         connection.pragma_update(None, "foreign_keys", true)?;
@@ -439,3 +461,7 @@ mod export_tests;
 #[cfg(test)]
 #[path = "storage/backup_tests.rs"]
 mod backup_tests;
+
+#[cfg(test)]
+#[path = "storage/recovery_tests.rs"]
+mod recovery_tests;

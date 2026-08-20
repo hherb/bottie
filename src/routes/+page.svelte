@@ -7,6 +7,7 @@
   import ProviderSettingsDialog from "$lib/ProviderSettingsDialog.svelte";
   import ProviderToolbar from "$lib/ProviderToolbar.svelte";
   import Sidebar from "$lib/Sidebar.svelte";
+  import StorageRecovery from "$lib/StorageRecovery.svelte";
   import "$lib/styles/shell.css";
   import "$lib/styles/conversation-nav.css";
   import "$lib/styles/conversation.css";
@@ -14,12 +15,21 @@
   import "$lib/styles/composer.css";
   import "$lib/styles/context.css";
   import "$lib/styles/settings.css";
+  import "$lib/styles/recovery.css";
 
   import { PageState } from "./page-state.svelte";
 
   const state = new PageState();
 
   onMount(() => state.initialize());
+
+  /** Completes guided recovery before returning to normal conversation and provider initialization. */
+  async function recoverStorage(source: "manual" | "automatic"): Promise<void> {
+    const messages = await state.recovery.restore(state.history, source);
+    if (messages === null) return;
+    state.messages = messages;
+    await state.refreshModels();
+  }
 </script>
 
 <svelte:head>
@@ -27,132 +37,146 @@
   <meta name="description" content="A private, provider-flexible conversation space with persistent memory." />
 </svelte:head>
 
-<div class="app-shell">
-  <div class="ambient ambient-one"></div>
-  <div class="ambient ambient-two"></div>
-
-  <Sidebar
-    mobileOpen={state.showSidebar}
-    runtimeVersion={state.runtime.version}
-    conversations={state.history.conversations}
-    activeConversationId={state.history.activeConversationId}
-    storageError={state.history.storageError?.message ?? null}
-    searchQuery={state.history.searchQuery}
-    searchResults={state.history.searchResults}
-    isSearching={state.history.isSearching}
-    isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
-    onclose={() => (state.showSidebar = false)}
-    onnewchat={() => void state.startNewChat()}
-    onselectconversation={(conversationId) => void state.openConversation(conversationId)}
-    onsearch={(query) => void state.history.search(query)}
-    onselectsearchresult={(result) => void state.openSearchResult(result)}
-    onrenameconversation={(conversationId, title) => void state.history.rename(conversationId, title)}
-    onarchiveconversation={(conversationId, archived) => {
-      void state.history.setArchived(conversationId, archived).then((closed) => {
-        if (closed) void state.startNewChat();
-      });
-    }}
-    ondeleteconversation={(conversationId) => {
-      void state.history.delete(conversationId).then((closed) => {
-        if (closed) void state.startNewChat();
-      });
-    }}
-    onrestoreconversation={(conversationId) => void state.history.restore(conversationId)}
-    onopensettings={() => {
-      state.showSettings = true;
-      state.showSidebar = false;
-    }}
+{#if state.recovery.status === null}
+  <main class="storage-startup" aria-label="Checking local data">Checking local data…</main>
+{:else if state.recovery.status.state === "recovery_required"}
+  <StorageRecovery
+    automaticBackupCount={state.recovery.status.automaticBackupCount}
+    latestAutomaticBackupAtMs={state.recovery.status.latestAutomaticBackupAtMs}
+    isRestoring={state.history.isRestoring}
+    feedback={state.history.backupFeedback}
+    failed={state.history.backupFailed}
+    onrestoreautomatic={() => void recoverStorage("automatic")}
+    onrestoremanual={() => void recoverStorage("manual")}
   />
+{:else}
+  <div class="app-shell">
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
 
-  <main class="workspace">
-    <ProviderToolbar
-      providerId={state.selectedProviderId}
-      selectedModelKey={state.selectedModelKey}
-      models={state.models}
-      providerStatus={state.providerStatus}
+    <Sidebar
+      mobileOpen={state.showSidebar}
+      runtimeVersion={state.runtime.version}
+      conversations={state.history.conversations}
+      activeConversationId={state.history.activeConversationId}
+      storageError={state.history.storageError?.message ?? null}
+      searchQuery={state.history.searchQuery}
+      searchResults={state.history.searchResults}
+      isSearching={state.history.isSearching}
       isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
-      reasoningEffort={state.reasoningEffort}
-      showContext={state.showContext}
-      isLocalRoute={state.isLocalRoute}
-      canExport={Boolean(state.history.activeConversationId)}
-      canBackup={state.runtime.version !== "preview"}
-      canRestore={state.runtime.version !== "preview"}
-      isExporting={state.history.isExporting}
-      exportFeedback={state.history.exportFeedback}
-      exportFailed={state.history.exportFailed}
-      isBackingUp={state.history.isBackingUp}
-      isRestoring={state.history.isRestoring}
-      backupFeedback={state.history.backupFeedback}
-      backupFailed={state.history.backupFailed}
-      onproviderchange={(providerId) => void state.changeProvider(providerId)}
-      onmodelchange={(modelKey) => void state.changeModel(modelKey)}
-      ontogglereasoning={() => state.toggleReasoning()}
-      onopensidebar={() => (state.showSidebar = true)}
-      ontogglecontext={() => (state.showContext = !state.showContext)}
-      onexport={() => void state.history.exportMarkdown()}
-      onbackup={() => void state.history.backup()}
-      onrestore={() => {
-        void state.history.restoreBackup().then((messages) => {
-          if (messages) state.messages = messages;
+      onclose={() => (state.showSidebar = false)}
+      onnewchat={() => void state.startNewChat()}
+      onselectconversation={(conversationId) => void state.openConversation(conversationId)}
+      onsearch={(query) => void state.history.search(query)}
+      onselectsearchresult={(result) => void state.openSearchResult(result)}
+      onrenameconversation={(conversationId, title) => void state.history.rename(conversationId, title)}
+      onarchiveconversation={(conversationId, archived) => {
+        void state.history.setArchived(conversationId, archived).then((closed) => {
+          if (closed) void state.startNewChat();
         });
+      }}
+      ondeleteconversation={(conversationId) => {
+        void state.history.delete(conversationId).then((closed) => {
+          if (closed) void state.startNewChat();
+        });
+      }}
+      onrestoreconversation={(conversationId) => void state.history.restore(conversationId)}
+      onopensettings={() => {
+        state.showSettings = true;
+        state.showSidebar = false;
       }}
     />
 
-    <ConversationView
-      messages={state.messages}
-      providerStatus={state.providerStatus}
-      providerError={state.providerError}
-      selectedModel={state.selectedModel}
-      activeStage={state.activeStage}
-      inferenceStages={state.inferenceStages}
-      isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
-      canGenerate={state.canSend}
-      branches={state.history.branches}
-      currentBranchId={state.history.currentBranchId}
-      onretry={() => void state.refreshModels()}
-      onselectbranch={(branchId) => void state.selectConversationBranch(branchId)}
-      oneditmessage={(message, text) => void state.editAndRegenerate(message, text)}
-      onregenerate={(responseId) => void state.regenerateResponse(responseId)}
-      onretryresponse={(responseId) => void state.regenerateResponse(responseId, true)}
-      onrateresponse={(responseId, rating) => void state.history.rateResponse(state.messages, responseId, rating)}
-      onscrollready={(element) => state.setMessageScroll(element)}
-    />
+    <main class="workspace">
+      <ProviderToolbar
+        providerId={state.selectedProviderId}
+        selectedModelKey={state.selectedModelKey}
+        models={state.models}
+        providerStatus={state.providerStatus}
+        isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
+        reasoningEffort={state.reasoningEffort}
+        showContext={state.showContext}
+        isLocalRoute={state.isLocalRoute}
+        canExport={Boolean(state.history.activeConversationId)}
+        canBackup={state.runtime.version !== "preview"}
+        canRestore={state.runtime.version !== "preview"}
+        isExporting={state.history.isExporting}
+        exportFeedback={state.history.exportFeedback}
+        exportFailed={state.history.exportFailed}
+        isBackingUp={state.history.isBackingUp}
+        isRestoring={state.history.isRestoring}
+        backupFeedback={state.history.backupFeedback}
+        backupFailed={state.history.backupFailed}
+        onproviderchange={(providerId) => void state.changeProvider(providerId)}
+        onmodelchange={(modelKey) => void state.changeModel(modelKey)}
+        ontogglereasoning={() => state.toggleReasoning()}
+        onopensidebar={() => (state.showSidebar = true)}
+        ontogglecontext={() => (state.showContext = !state.showContext)}
+        onexport={() => void state.history.exportMarkdown()}
+        onbackup={() => void state.history.backup()}
+        onrestore={() => {
+          void state.history.restoreBackup().then((messages) => {
+            if (messages) state.messages = messages;
+          });
+        }}
+      />
 
-    <Composer
+      <ConversationView
+        messages={state.messages}
+        providerStatus={state.providerStatus}
+        providerError={state.providerError}
+        selectedModel={state.selectedModel}
+        activeStage={state.activeStage}
+        inferenceStages={state.inferenceStages}
+        isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
+        canGenerate={state.canSend}
+        branches={state.history.branches}
+        currentBranchId={state.history.currentBranchId}
+        onretry={() => void state.refreshModels()}
+        onselectbranch={(branchId) => void state.selectConversationBranch(branchId)}
+        oneditmessage={(message, text) => void state.editAndRegenerate(message, text)}
+        onregenerate={(responseId) => void state.regenerateResponse(responseId)}
+        onretryresponse={(responseId) => void state.regenerateResponse(responseId, true)}
+        onrateresponse={(responseId, rating) => void state.history.rateResponse(state.messages, responseId, rating)}
+        onscrollready={(element) => state.setMessageScroll(element)}
+      />
+
+      <Composer
+        attachments={state.attachments}
+        prompt={state.prompt}
+        isGenerating={state.isGenerating}
+        canSend={state.canSend}
+        providerStatus={state.providerStatus}
+        onprompt={(prompt) => (state.prompt = prompt)}
+        oninput={() => state.resizeComposer()}
+        onkeydown={(event) => state.handleComposerKeydown(event)}
+        onsend={() => state.handleSendButton()}
+        onfiles={(event) => state.addAttachments(event)}
+        onremove={(id) => state.removeAttachment(id)}
+        oncomposerready={(element) => state.setComposer(element)}
+        onattachmentinputready={(element) => state.setAttachmentInput(element)}
+      />
+    </main>
+
+    <ContextPanel
+      open={state.showContext}
       attachments={state.attachments}
-      prompt={state.prompt}
-      isGenerating={state.isGenerating}
-      canSend={state.canSend}
+      selectedModel={state.selectedModel}
+      selectedProviderEndpoint={state.selectedProviderEndpoint}
       providerStatus={state.providerStatus}
-      onprompt={(prompt) => (state.prompt = prompt)}
-      oninput={() => state.resizeComposer()}
-      onkeydown={(event) => state.handleComposerKeydown(event)}
-      onsend={() => state.handleSendButton()}
-      onfiles={(event) => state.addAttachments(event)}
+      isLocalRoute={state.isLocalRoute}
+      onclose={() => (state.showContext = false)}
+      onadd={() => state.openAttachmentPicker()}
       onremove={(id) => state.removeAttachment(id)}
-      oncomposerready={(element) => state.setComposer(element)}
-      onattachmentinputready={(element) => state.setAttachmentInput(element)}
     />
-  </main>
 
-  <ContextPanel
-    open={state.showContext}
-    attachments={state.attachments}
-    selectedModel={state.selectedModel}
-    selectedProviderEndpoint={state.selectedProviderEndpoint}
-    providerStatus={state.providerStatus}
-    isLocalRoute={state.isLocalRoute}
-    onclose={() => (state.showContext = false)}
-    onadd={() => state.openAttachmentPicker()}
-    onremove={(id) => state.removeAttachment(id)}
-  />
-
-  {#if state.showSettings}
-    <ProviderSettingsDialog
-      settings={state.providerSettings}
-      isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
-      onclose={() => (state.showSettings = false)}
-      onsaved={(settings) => state.applyProviderSettings(settings)}
-    />
-  {/if}
-</div>
+    {#if state.showSettings}
+      <ProviderSettingsDialog
+        settings={state.providerSettings}
+        isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
+        onclose={() => (state.showSettings = false)}
+        onsaved={(settings) => state.applyProviderSettings(settings)}
+      />
+    {/if}
+  </div>
+{/if}

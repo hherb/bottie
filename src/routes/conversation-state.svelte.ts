@@ -22,6 +22,7 @@ import {
   renameConversation,
   restoreConversation,
   restoreConversationStore,
+  restoreLatestAutomaticBackup,
   searchConversations,
   selectConversationBranch,
   setConversationArchived,
@@ -238,8 +239,8 @@ export class ConversationState {
     }
   }
 
-  /** Restores one confirmed native backup, refreshes all durable state, and reports the safety-copy filename. */
-  async restoreBackup(): Promise<Message[] | null> {
+  /** Restores one confirmed native recovery point, refreshes durable state, and reports preserved local data. */
+  async restoreBackup(source: "manual" | "automatic" = "manual"): Promise<Message[] | null> {
     if (this.isManaging) return null;
     this.isManaging = true;
     this.isRestoring = true;
@@ -248,7 +249,7 @@ export class ConversationState {
     this.exportFeedback = null;
     this.exportFailed = false;
     try {
-      const outcome = await restoreConversationStore();
+      const outcome = source === "automatic" ? await restoreLatestAutomaticBackup() : await restoreConversationStore();
       if (outcome.status !== "restored") return null;
       this.searchSequence += 1;
       this.searchQuery = "";
@@ -257,8 +258,8 @@ export class ConversationState {
       const messages = await this.initialize();
       if (this.storageError) throw this.storageError;
       const backupName = outcome.fileName ?? "local data";
-      const safetyName = outcome.safetyCopyFileName ?? "pre-restore safety copy";
-      this.backupFeedback = `Restored ${backupName} · safety copy ${safetyName}`;
+      const preservedName = outcome.preservedCopyName ?? "preserved local data";
+      this.backupFeedback = `Restored ${backupName} · preserved current data as ${preservedName}`;
       this.storageError = null;
       return messages;
     } catch (error) {

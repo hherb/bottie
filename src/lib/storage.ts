@@ -29,8 +29,15 @@ export type StoredProviderRun = {
 
 /** Stable storage failure returned by native commands. */
 export type StorageError = {
-  code: "invalid_request" | "not_found" | "internal";
+  code: "invalid_request" | "not_found" | "recovery_required" | "internal";
   message: string;
+};
+
+/** Path-redacted native state for startup integrity and automatic recovery. */
+export type StorageRecoveryStatus = {
+  state: "ready" | "recovery_required";
+  automaticBackupCount: number;
+  latestAutomaticBackupAtMs: number | null;
 };
 
 /** One conversation row used by navigation. */
@@ -114,7 +121,7 @@ export type BackupOutcome = {
 export type RestoreOutcome = {
   status: "restored" | "cancelled";
   fileName: string | null;
-  safetyCopyFileName: string | null;
+  preservedCopyName: string | null;
 };
 
 /** Produces the stable browser-preview storage failure. */
@@ -165,6 +172,20 @@ export async function backupConversationStore(): Promise<BackupOutcome> {
 export async function restoreConversationStore(): Promise<RestoreOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<RestoreOutcome>("restore_conversation_store");
+}
+
+/** Reads corruption state and verified automatic-backup availability without receiving native paths. */
+export async function getStorageRecoveryStatus(): Promise<StorageRecoveryStatus> {
+  if (!isTauri()) {
+    return { state: "ready", automaticBackupCount: 0, latestAutomaticBackupAtMs: null };
+  }
+  return invoke<StorageRecoveryStatus>("get_storage_recovery_status");
+}
+
+/** Restores the newest verified app-private automatic backup through native confirmation. */
+export async function restoreLatestAutomaticBackup(): Promise<RestoreOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<RestoreOutcome>("restore_latest_automatic_backup");
 }
 
 /** Loads the exact conversation selected by the local profile, when present. */
