@@ -15,8 +15,9 @@ including an intentional blank new-chat view, now survives restart. Editing a us
 response creates a selected alternative branch while preserving every prior lineage for switching. Provider selection
 remains explicit, cloud routes are visible before sending, and credential-vault values are never returned to the
 WebView. Native conversation search now finds titles and visible message text across active and archived histories and
-opens the preserved branch containing each result. The next bounded implementation slice is sanitized Markdown
-rendering; do not reopen broad product or visual-design planning.
+opens the preserved branch containing each result. Assistant answers now render parser-owned Markdown while raw HTML,
+unsafe destinations, and remote image fetches stay inert. The next bounded implementation slice is response copying;
+do not bundle retry, rating, export, backup, or broad product and visual-design planning with it.
 
 Read these files first:
 
@@ -64,6 +65,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Wo
 - inline user-message editing, assistant-response regeneration, and preserved branch switching;
 - native conversation search with snippets, archived-result labels, matching-branch selection, and keyboard focus and
   clear behavior;
+- sanitized assistant Markdown with headings, lists, tables, quotes, safe external links, and code presentation;
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
   and redacted session diagnostics;
 - context-panel open/close behavior;
@@ -169,7 +171,8 @@ Do not mistake visual fixtures for implemented backend behavior:
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
 - no web search or fetch tool exists;
-- there are no automated component or end-to-end UI tests yet; pure presentation helpers have frontend unit coverage.
+- there are no automated component or end-to-end UI tests yet; pure presentation and Markdown-policy helpers have
+  frontend unit coverage.
 
 The browser preview intentionally reports `Browser preview`; only the native Tauri runtime can invoke `app_info`.
 
@@ -204,7 +207,36 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Conversation search
+## Most recently completed product slice: Sanitized Markdown rendering
+
+### Goal
+
+Render structured assistant answers clearly without trusting provider-authored HTML, allowing unsafe navigation, or
+silently fetching remote image resources.
+
+### Implemented shape
+
+1. `src/lib/markdown.ts` owns one tested parser configuration; raw HTML stays escaped and only parser-generated markup
+   reaches Svelte's HTML rendering boundary.
+2. Explicit absolute HTTP, HTTPS, and email links open in an isolated browsing context with `noopener noreferrer`.
+   Relative destinations and other protocols do not become anchors.
+3. Markdown images become inert text labels so an answer cannot trigger a remote tracking request. User messages and
+   provider reasoning remain plain text and do not pass through the Markdown renderer.
+4. Assistant typography covers headings, paragraphs, emphasis, lists, quotes, inline and fenced code, tables, rules,
+   and links without adding syntax-highlighting execution or changing persisted message content.
+5. Rendering remains derived presentation state, so streamed, interrupted, reopened, and alternative-branch answers
+   share the same policy without a storage migration.
+
+### Acceptance criteria
+
+- Common answer structure renders consistently for both streamed and reopened assistant messages.
+- Provider-supplied HTML is displayed as text rather than interpreted as DOM.
+- Script-like, relative, and unsupported link destinations cannot navigate the WebView.
+- Remote Markdown images cannot initiate a network request; their alt text remains visible.
+- User prompts and hidden reasoning retain their existing plain-text presentation.
+- The WebView receives no new native capability and durable message content remains unchanged.
+
+## Prior completed product slice: Conversation search
 
 ### Goal
 
@@ -501,31 +533,40 @@ units required by a slice, and preserve the current layout and motion unless fun
 
 ## Verification completed for the current slice
 
-The following passed on 2026-08-20 for conversation search:
+The following passed on 2026-08-20 for sanitized Markdown rendering:
 
 ```sh
 npm run format:check
 npm run check
 npm test
 npm run build
+npm audit --omit=dev
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
-npm run tauri dev
 ```
 
-The standard Rust suite now has sixty-seven tests: sixty-three pass by default and four remain opt-in live-provider
-tests. Twenty-three storage tests now include literal/case-insensitive title and message search, Trash/reasoning
-exclusion, archived results, exact preserved-branch recovery, Unicode-safe snippets, and native query/result bounds.
-The frontend suite remains fourteen pure-helper tests; `svelte-check` reports no errors or warnings.
+The frontend suite now has twenty tests, including six focused Markdown-policy tests for answer structure, tables, raw
+HTML escaping, external-link isolation, unsafe destinations, remote-image neutralization, and empty streaming state.
+`svelte-check` reports no errors or warnings. The production dependency audit reports zero vulnerabilities. The full
+development-tree audit retains three low-severity advisories through the existing SvelteKit toolchain; npm offers only
+a breaking forced resolution, so this bounded presentation slice does not apply it.
 
-The path-backed native search tests exercise the real SQLite schema without a new migration or index. The Tauri app
-compiled and launched against the existing application store without console errors. The sidebar search field, empty
-state, focus treatment, and navigation layout were visually checked in the browser preview at the desktop default and
-an 800 x 700 responsive viewport; the browser preview intentionally cannot invoke the native search command. Live
-provider tests were not required because this slice does not change provider networking, streaming, or cancellation.
+The standard Rust suite remains at sixty-seven tests: sixty-three pass by default and four are opt-in live-provider
+tests. The browser preview was visually checked at 1320 x 820 and 800 x 700 with representative headings, an ordered
+list, inline code, and emphasis; both layouts remained readable without console errors. Native and live-provider manual
+tests were not required because this slice changes only derived WebView presentation and adds no Tauri command,
+storage migration, provider traffic, credential access, or native capability.
 
-## Verification completed for the previous slice
+## Verification completed for the previous conversation-search slice
+
+The conversation-search checks included the same standard frontend and Rust commands plus a native app launch. The
+path-backed native search tests exercise the real SQLite schema without a new migration or index. The sidebar search
+field, empty state, focus treatment, and navigation layout were visually checked in the browser preview at the desktop
+default and an 800 x 700 responsive viewport; the browser preview intentionally cannot invoke the native search
+command. The Tauri app compiled and launched against the existing application store without console errors.
+
+## Verification completed for the earlier edit-and-regenerate slice
 
 The following passed on 2026-08-20 for edit-and-regenerate branching:
 
@@ -556,8 +597,8 @@ for all three existing conversations. The desktop WebView was visually checked a
 affordance present and no overflow. End-to-end branch mutation is covered by the path-backed native integration test;
 macOS denied assistive access for automated clicking in the native window during this run.
 
-The next bounded implementation slice is sanitized Markdown rendering. Keep tool-invocation persistence, copy/rating
-actions, export, and backups as later reviewable slices. Keep
+The next bounded implementation slice is response copying. Keep retry and rating actions, tool-invocation persistence,
+export, and backups as later reviewable slices. Keep
 FastEmbed/EmbeddingGemma implementation with the first memory-search consumer, where download progress, cache location,
 dimensions, and reindex metadata can be implemented coherently.
 

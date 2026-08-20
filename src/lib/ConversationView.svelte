@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
+  import { renderAssistantMarkdown } from "$lib/markdown";
   import type { ConversationBranch } from "$lib/storage";
   import type { ModelInfo, ProviderError } from "$lib/inference";
   import type { InferenceStage, Message, ProviderStatus } from "$lib/presentation";
@@ -110,8 +111,13 @@
               </div>
             </div>
           {:else}
-            <div class="message-text">
-              {#each message.content.split("\n\n") as paragraph}<p>{paragraph}</p>{/each}
+            <div class:markdown-body={message.role === "assistant"} class="message-text">
+              {#if message.role === "assistant"}
+                <!-- The renderer emits parser-owned markup with raw HTML and unsafe destinations disabled. -->
+                {@html renderAssistantMarkdown(message.content)}
+              {:else}
+                {#each message.content.split("\n\n") as paragraph}<p>{paragraph}</p>{/each}
+              {/if}
               {#if message.content === "" && isGenerating}<span class="typing-caret"></span>{/if}
             </div>
           {/if}

@@ -120,7 +120,7 @@ ownership rewrite.
 - [x] reopen the exact conversation after restart;
 - [x] date grouping based on real conversation activity;
 - [x] bounded native conversation search across titles and visible message text;
-- Markdown rendering with sanitization;
+- [x] Markdown rendering with sanitization;
 - copy, retry, rating, and export actions;
 - JSON or Markdown export and backup restore.
 
