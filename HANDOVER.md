@@ -44,11 +44,12 @@ detection. Source and storage paths never reach the WebView, and the interface e
 as not yet sent. A selected draft can now commit atomically with its user message, reopen as ordered path-free metadata
 on the selected branch, and remain attached when that request is edited or regenerated. Association removal is limited
 to visible user messages while generation is idle and retains the content-addressed catalog row and blob. Provider
-requests remain text-only. Retained UTF-8 plain-text and Markdown attachments now receive bounded native extraction
-with durable ready, unsupported, or failed state. Extracted content remains inside SQLite; the WebView receives only
-format, character count, and path-free state/error metadata. The next bounded implementation slice is PDF text
-extraction with bounded page-aware state and error presentation; do not bundle office parsing, provider delivery,
-image normalization, indexing, memory search, or broad visual-design work with it.
+requests remain text-only. Retained UTF-8 plain-text, Markdown, and PDF attachments now receive bounded native
+extraction with durable ready, unsupported, or failed state. PDF work is limited to 500 pages, 8 MiB of decompressed
+content per page, and 2 MiB of retained extracted text. Extracted content remains inside SQLite; the WebView receives
+only format, character count, PDF page count, and path-free state/error metadata. The next bounded implementation slice
+is DOCX text extraction with archive/XML limits and the same native-only content policy; do not bundle other office
+formats, provider delivery, image normalization, indexing, memory search, or broad visual-design work with it.
 
 Read these files first:
 
@@ -62,7 +63,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
-`codex/text-markdown-attachment-extraction`.
+`codex/pdf-attachment-extraction`.
 
 ## Current implementation
 
@@ -86,7 +87,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Th
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
 - native attachment selection, application-private ingestion, durable selected-lineage message association, draft and
   message-scoped removal, and path-redacted outcome feedback;
-- durable bounded plain-text and Markdown extraction state with path-free ready, unsupported, and failed labels;
+- durable bounded plain-text, Markdown, and page-aware PDF extraction state with path-free status labels;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
@@ -134,7 +135,7 @@ branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded co
 bounded append-only tool-call/result records, `src-tauri/src/storage/attachments.rs` owns bounded streaming ingestion,
 SHA-256 content identities, MIME sniffing, safe display names, deduplicated metadata, app-private blob placement,
 ordered message associations, selected-lineage validation, and association removal,
-`src-tauri/src/storage/extraction.rs` owns bounded UTF-8 extraction and durable native-only text,
+`src-tauri/src/storage/extraction.rs` owns bounded UTF-8/PDF extraction and durable native-only text,
 and `src-tauri/src/storage/export.rs` owns
 deterministic selected-lineage Markdown plus selected and batch JSON rendering and safe suggested filenames, and
 `src-tauri/src/storage/backup.rs` owns
@@ -225,7 +226,7 @@ Do not mistake visual fixtures for implemented backend behavior:
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
 - current attachment draft selection is session-only until it commits atomically with a submitted user message;
-- plain-text and Markdown attachments are extracted into SQLite, so that native-only text is included in SQLite
+- plain-text, Markdown, and PDF attachments are extracted into SQLite, so that native-only text is included in SQLite
   backups; attachment blobs remain outside those backups, and no attachment is normalized, indexed, exported, or sent
   to any provider;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
@@ -269,7 +270,56 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Plain-text and Markdown attachment extraction
+## Most recently completed product slice: Bounded PDF text extraction
+
+### Goal
+
+Extract useful PDF text behind the Rust boundary with explicit page/decompression/output ceilings, retain page-aware
+state across restart, and present stable path-free success or failure labels without sending document content to a
+provider.
+
+### Implemented shape
+
+1. Schema version 11 rebuilds the strict `attachment_extractions` table to add `pdf` format and nullable `page_count`.
+   SQLite requires a positive page count only for ready PDF rows, forbids it for every other format/state, and continues
+   to reject partial success/failure combinations. Existing PDF rows that version 10 marked unsupported return to
+   pending so startup can process their already-retained blobs; completed text/Markdown state is preserved.
+2. Content-sniffed `application/pdf` blobs are parsed synchronously inside Rust with `lopdf`. Extraction accepts at most
+   500 pages, bounds decompressed content to 8 MiB per page during load and text decoding, and retains at most 2 MiB of
+   joined UTF-8 text. It stores the document's full page count even when some pages contain no extractable text.
+3. Password-protected, malformed, text-free, over-page, over-output, and parser-failed PDFs become durable failed rows
+   with stable categories and no partial text/page metadata. Missing/read failures keep the existing path-free policy.
+4. Draft and selected-lineage attachment labels now show `PDF text ready locally` with singular/plural page count or a
+   specific encrypted, malformed, text-free, page-limit, size-limit, or extraction-failure message. Extracted PDF text,
+   parser detail, and filesystem paths never cross IPC.
+
+### Acceptance criteria
+
+- Existing version-10 stores migrate transactionally to version 11, preserve non-PDF extraction rows, and process
+  retained PDFs without changing conversations, associations, branches, messages, runs, or selection.
+- Valid PDFs retain bounded native-only text, Unicode character count, and page count across reopen; any failed PDF
+  retains no extracted text or page count.
+- Provider request construction remains text-only, and conversation exports remain attachment-content-free.
+- No DOCX/other office parsing, background worker, indexing, memory retrieval, provider delivery, image normalization,
+  attachment garbage collection, portable blob backup, OCR, preview rendering, or broad visual redesign is added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-21. The frontend suite has thirty-three passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has 109 tests: 105 pass
+by default and four live-provider tests remain opt-in. Seventeen focused attachment/extraction tests cover schema-7
+through schema-10 migration, valid two-page PDF text/page metadata, the 500-page limit, malformed and text-free failure
+states, prior text/Markdown behavior, the shared 2 MiB ceiling, ingestion/association/reopen behavior, MIME sniffing,
+safe display names, and path-free presentation mapping.
+
+The browser preview was inspected at 1320 x 820 and 420 x 780. The PDF page-count label remains legible, document width
+equals each viewport, and the browser console has no warnings or errors. A fresh native process migrated the real
+application store from schema 10 to schema 11 and launched successfully. Immutable read-only inspection confirmed the
+`bounded PDF text extraction` migration and `quick_check = ok`. Automated path-backed tests exercise fresh PDF
+ingestion, extraction, migration, and failure handling; a new native picker interaction was not synthetically clicked
+because macOS continues to deny `osascript` assistive access.
+
+## Prior completed product slice: Plain-text and Markdown attachment extraction
 
 ### Goal
 

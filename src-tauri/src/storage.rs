@@ -46,7 +46,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 10;
+const CURRENT_SCHEMA_VERSION: i64 = 11;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -487,11 +487,12 @@ mod tool_tests;
 #[cfg(test)]
 #[path = "storage/attachment_tests.rs"]
 mod attachment_tests;
-
 #[cfg(test)]
 #[path = "storage/backup_tests.rs"]
 mod backup_tests;
-
+#[cfg(test)]
+#[path = "storage/extraction_tests.rs"]
+mod extraction_tests;
 #[cfg(test)]
 #[path = "storage/recovery_tests.rs"]
 mod recovery_tests;

@@ -218,3 +218,43 @@ CREATE TABLE attachment_extractions (
 INSERT INTO attachment_extractions (attachment_id, state, updated_at_ms)
 SELECT id, 'pending', created_at_ms FROM attachments;
 "#;
+
+/// Extends native extraction state with page-aware PDF text while preserving completed text rows.
+pub(super) const MIGRATION_11: &str = r#"
+CREATE TABLE attachment_extractions_v11 (
+    attachment_id TEXT PRIMARY KEY REFERENCES attachments(id) ON DELETE CASCADE,
+    state TEXT NOT NULL CHECK (state IN ('pending', 'ready', 'unsupported', 'failed')),
+    format TEXT CHECK (format IN ('plain_text', 'markdown', 'pdf')),
+    text_content TEXT,
+    character_count INTEGER CHECK (character_count >= 0),
+    page_count INTEGER CHECK (page_count > 0),
+    error_code TEXT,
+    updated_at_ms INTEGER NOT NULL,
+    CHECK (
+        (state = 'pending' AND format IS NULL AND text_content IS NULL
+            AND character_count IS NULL AND page_count IS NULL AND error_code IS NULL)
+        OR (state = 'ready' AND format IN ('plain_text', 'markdown') AND text_content IS NOT NULL
+            AND character_count IS NOT NULL AND page_count IS NULL AND error_code IS NULL)
+        OR (state = 'ready' AND format = 'pdf' AND text_content IS NOT NULL
+            AND character_count IS NOT NULL AND page_count IS NOT NULL AND error_code IS NULL)
+        OR (state = 'unsupported' AND format IS NULL AND text_content IS NULL
+            AND character_count IS NULL AND page_count IS NULL AND error_code IS NULL)
+        OR (state = 'failed' AND format IS NULL AND text_content IS NULL
+            AND character_count IS NULL AND page_count IS NULL AND error_code IS NOT NULL)
+    )
+) STRICT;
+INSERT INTO attachment_extractions_v11
+    (attachment_id, state, format, text_content, character_count, page_count, error_code, updated_at_ms)
+SELECT attachment_extractions.attachment_id,
+       CASE WHEN attachments.mime_type = 'application/pdf' THEN 'pending' ELSE attachment_extractions.state END,
+       CASE WHEN attachments.mime_type = 'application/pdf' THEN NULL ELSE attachment_extractions.format END,
+       CASE WHEN attachments.mime_type = 'application/pdf' THEN NULL ELSE attachment_extractions.text_content END,
+       CASE WHEN attachments.mime_type = 'application/pdf' THEN NULL ELSE attachment_extractions.character_count END,
+       NULL,
+       CASE WHEN attachments.mime_type = 'application/pdf' THEN NULL ELSE attachment_extractions.error_code END,
+       attachment_extractions.updated_at_ms
+FROM attachment_extractions
+JOIN attachments ON attachments.id = attachment_extractions.attachment_id;
+DROP TABLE attachment_extractions;
+ALTER TABLE attachment_extractions_v11 RENAME TO attachment_extractions;
+"#;

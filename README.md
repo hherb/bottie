@@ -38,10 +38,11 @@ to eight selected files into application-private, SHA-256-addressed storage with
 content-based MIME detection, safe display names, and duplicate reuse. The WebView receives no filesystem path,
 labels each retained item as local-only, and can atomically associate the current selection with the submitted user
 message. Associations reopen on the selected branch, survive edit/regenerate forks, and can be removed without deleting
-the retained content blob. Plain-text and Markdown source up to 2 MiB is extracted into durable native-only state;
-the WebView receives format, character count, and path-free status metadata but never the extracted content. Only
-prompt text reaches the provider: PDF/office extraction, attachment delivery, memory retrieval, provider tool loops,
-approvals, and tool execution are not implemented yet; those surfaces remain disabled or explicitly labelled.
+the retained content blob. Plain-text, Markdown, and PDF text up to 2 MiB is extracted into durable native-only state.
+PDF parsing is additionally limited to 500 pages and 8 MiB of decompressed content per page. The WebView receives
+format, character count, PDF page count, and path-free status metadata but never the extracted content. Only prompt
+text reaches the provider: office extraction, attachment delivery, memory retrieval, provider tool loops, approvals,
+and tool execution are not implemented yet; those surfaces remain disabled or explicitly labelled.
 
 ## Development
 
@@ -132,11 +133,13 @@ identical content reuses its existing blob across restarts. Sending commits up t
 with the user message, then clears the draft. Reopened selected lineages reconstruct ordered path-free metadata; edited
 and regenerated request branches inherit the source request's associations. Detaching is limited to visible user
 messages while generation is idle and retains the catalog row and blob for deduplication. Attachment bytes remain
-outside SQLite-only backups and exports. Schema-version-10 extraction records retain up to 2 MiB of UTF-8 plain-text or
-Markdown source inside SQLite, resume pending work after migration or interruption, and expose only path-free state to
-the interface. That extracted text is included in SQLite backups but remains absent from conversation exports and
-provider requests. PDF/office content is not yet extracted; no attachment is indexed, normalized, or delivered to a
-provider.
+outside SQLite-only backups and exports. Schema-version-11 extraction records retain up to 2 MiB of UTF-8 plain-text,
+Markdown, or derived PDF text inside SQLite, resume pending work after migration or interruption, and expose only
+path-free state to the interface. PDF extraction retains a page count, refuses files over 500 pages, bounds each
+decompressed page stream to 8 MiB, and reports encrypted, malformed, text-free, extraction, and size failures without
+parser details or paths. That extracted text is included in SQLite backups but remains absent from conversation
+exports and provider requests. Office content is not yet extracted; no attachment is indexed, normalized, or delivered
+to a provider.
 
 Run the layout-only browser preview:
 

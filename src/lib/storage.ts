@@ -62,8 +62,9 @@ export type StorageRecoveryStatus = {
 /** Path-free native extraction metadata that deliberately omits extracted text. */
 export type AttachmentExtraction = {
   state: "pending" | "ready" | "unsupported" | "failed";
-  format: "plain_text" | "markdown" | null;
+  format: "plain_text" | "markdown" | "pdf" | null;
   characterCount: number | null;
+  pageCount: number | null;
   errorCode: string | null;
 };
 
@@ -125,6 +126,14 @@ export type ConversationDateGroup = {
 const MILLISECONDS_PER_DAY = 86_400_000;
 const PREVIOUS_DAYS_LIMIT = 7;
 const TOOL_JSON_INDENT_SPACES = 2;
+const ATTACHMENT_EXTRACTION_FAILURE_LABELS: Record<string, string> = {
+  content_too_large: "Text too large to extract",
+  pdf_encrypted: "Encrypted PDF not supported",
+  pdf_extraction_failed: "PDF text extraction failed",
+  pdf_invalid: "PDF could not be read",
+  pdf_no_text: "PDF has no extractable text",
+  pdf_page_limit_exceeded: "PDF has too many pages",
+};
 
 /** Formats structured native tool data as inert readable JSON. */
 export function formatToolPayload(value: unknown): string {
@@ -404,11 +413,15 @@ export function storedAttachmentToPresentation(attachment: StoredAttachment): At
 /** Describes native extraction state without exposing retained text to the WebView. */
 export function attachmentExtractionLabel(extraction: AttachmentExtraction): string {
   if (extraction.state === "ready") {
+    if (extraction.format === "pdf") {
+      const pageLabel = extraction.pageCount === 1 ? "1 page" : `${extraction.pageCount ?? 0} pages`;
+      return `PDF text ready locally · ${pageLabel}`;
+    }
     return extraction.format === "markdown" ? "Markdown ready locally" : "Text ready locally";
   }
   if (extraction.state === "unsupported") return "No text extraction";
   if (extraction.state === "pending") return "Text extraction pending";
-  return extraction.errorCode === "content_too_large" ? "Text too large to extract" : "Text extraction failed";
+  return ATTACHMENT_EXTRACTION_FAILURE_LABELS[extraction.errorCode ?? ""] ?? "Text extraction failed";
 }
 
 /** Groups active conversations by local calendar recency while preserving native ordering. */
