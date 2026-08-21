@@ -8,6 +8,7 @@
   import ProviderToolbar from "$lib/ProviderToolbar.svelte";
   import Sidebar from "$lib/Sidebar.svelte";
   import StorageRecovery from "$lib/StorageRecovery.svelte";
+  import { composerAttachmentNote } from "$lib/chat";
   import { canBatchExportConversations } from "$lib/storage";
   import "$lib/styles/shell.css";
   import "$lib/styles/conversation-nav.css";
@@ -155,7 +156,8 @@
         attachments={state.attachment.items}
         prompt={state.prompt}
         isGenerating={state.isGenerating}
-        canSend={state.canSend}
+        canSend={state.canSend && state.attachment.canSubmit(state.selectedModel)}
+        attachmentNote={composerAttachmentNote(state.attachment.items, state.selectedModel)}
         providerStatus={state.providerStatus}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.resizeComposer()}

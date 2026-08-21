@@ -7,6 +7,7 @@
     prompt: string;
     isGenerating: boolean;
     canSend: boolean;
+    attachmentNote: string;
     providerStatus: ProviderStatus;
     onprompt: (prompt: string) => void;
     oninput: () => void;
@@ -24,6 +25,7 @@
     prompt,
     isGenerating,
     canSend,
+    attachmentNote,
     providerStatus,
     onprompt,
     oninput,
@@ -117,8 +119,6 @@
     </div>
   </div>
   <p class="composer-note">
-    {attachments.length > 0
-      ? "Attachments will stay linked locally; only your text is sent to the model."
-      : "Bottie can make mistakes. Check important information."}
+    {attachmentNote}
   </p>
 </footer>

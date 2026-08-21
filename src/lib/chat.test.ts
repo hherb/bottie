@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  attachmentDeliveryLabel,
   chatTurnsForMessages,
+  composerAttachmentNote,
   completionMeta,
   conversationTitle,
   displayEndpoint,
+  draftImageDeliveryBlocker,
   filterUsableModels,
   formatBytes,
   isCloudProvider,
@@ -137,6 +140,87 @@ describe("chat presentation helpers", () => {
       capabilities: { ...ollamaModel.capabilities, text: false, streaming: false, embeddings: true },
     };
     expect(filterUsableModels([ollamaModel, embeddingModel])).toEqual([ollamaModel]);
+  });
+
+  it("explains image delivery for vision and text-only selections", () => {
+    const image = {
+      id: "image",
+      name: "diagram.png",
+      size: "12 KB",
+      kind: "image" as const,
+      mimeType: "image/png",
+      sha256: "hash",
+      extraction: {
+        state: "unsupported" as const,
+        format: null,
+        characterCount: null,
+        pageCount: null,
+        errorCode: null,
+      },
+      normalization: {
+        state: "ready" as const,
+        format: "png" as const,
+        width: 20,
+        height: 10,
+        byteSize: 100,
+        errorCode: null,
+      },
+    };
+    const textModel = {
+      ...ollamaModel,
+      capabilities: { ...ollamaModel.capabilities, vision: false },
+    };
+
+    expect(attachmentDeliveryLabel(image, ollamaModel)).toBe("Included with vision requests");
+    expect(attachmentDeliveryLabel(image, undefined)).toBe("Not sent · choose a vision model");
+    expect(attachmentDeliveryLabel(image, textModel)).toBe("Not sent · selected model is text-only");
+    expect(draftImageDeliveryBlocker([image], ollamaModel)).toBeNull();
+    expect(draftImageDeliveryBlocker([image], textModel)).toBe(
+      "The selected model is text-only. Choose a vision model or remove the image.",
+    );
+    expect(composerAttachmentNote([image], ollamaModel)).toBe(
+      "Normalized images will be sent to the selected vision model.",
+    );
+    expect(composerAttachmentNote([image], undefined)).toBe("Choose a vision-capable model to send normalized images.");
+  });
+
+  it("waits for current-draft image normalization and keeps documents local", () => {
+    const pendingImage = {
+      id: "pending",
+      name: "photo.jpg",
+      size: "12 KB",
+      kind: "image" as const,
+      mimeType: "image/jpeg",
+      sha256: "hash",
+      extraction: {
+        state: "unsupported" as const,
+        format: null,
+        characterCount: null,
+        pageCount: null,
+        errorCode: null,
+      },
+      normalization: {
+        state: "pending" as const,
+        format: null,
+        width: null,
+        height: null,
+        byteSize: null,
+        errorCode: null,
+      },
+    };
+    const document = {
+      ...pendingImage,
+      id: "doc",
+      kind: "file" as const,
+      mimeType: "application/pdf",
+    };
+
+    expect(draftImageDeliveryBlocker([pendingImage], ollamaModel)).toBe(
+      "Wait for image normalization to finish before sending.",
+    );
+    expect(composerAttachmentNote([document], ollamaModel)).toBe(
+      "Document attachments stay linked locally; only your text is sent.",
+    );
   });
 
   it("prefers a remembered provider and model when both remain available", () => {

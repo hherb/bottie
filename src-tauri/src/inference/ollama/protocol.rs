@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{PROVIDER_ID, PROVIDER_NAME};
+use crate::inference::multimodal::{base64_image, text_content};
 use crate::inference::types::{
     ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
     ProviderError, ReasoningEffort, Usage,
@@ -194,6 +195,8 @@ enum OllamaThinkValue {
 struct OllamaChatTurn {
     role: &'static str,
     content: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    images: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -218,20 +221,25 @@ impl From<ChatRequest> for OllamaChatRequest {
             messages: request
                 .messages
                 .into_iter()
-                .map(|turn| OllamaChatTurn {
-                    role: match turn.role {
+                .map(|turn| {
+                    let role = match turn.role {
                         ChatRole::System => "system",
                         ChatRole::User => "user",
                         ChatRole::Assistant => "assistant",
-                    },
-                    content: turn
+                    };
+                    let images = turn
                         .content
-                        .into_iter()
-                        .map(|block| match block {
-                            ContentBlock::Text { text } => text,
+                        .iter()
+                        .filter_map(|block| match block {
+                            ContentBlock::Image { bytes, .. } => Some(base64_image(bytes)),
+                            ContentBlock::Text { .. } => None,
                         })
-                        .collect::<Vec<_>>()
-                        .join("\n"),
+                        .collect();
+                    OllamaChatTurn {
+                        role,
+                        content: text_content(turn.content),
+                        images,
+                    }
                 })
                 .collect(),
             stream: true,

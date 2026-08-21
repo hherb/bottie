@@ -7,11 +7,12 @@ use url::Url;
 
 use super::{
     InferenceProvider, StreamSink,
+    multimodal::{AnthropicContent, anthropic_content, text_content},
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_remote_base_url},
     sse::SseDecoder,
     types::{
-        ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
-        ProviderError, ProviderErrorCode, ReasoningEffort, Usage,
+        ChatRequest, ChatRole, ModelInfo, ModelLoadState, ProviderCapabilities, ProviderError,
+        ProviderErrorCode, ReasoningEffort, Usage,
     },
 };
 
@@ -231,6 +232,8 @@ struct ModelList {
 struct ModelRecord {
     id: String,
     display_name: Option<String>,
+    #[serde(default)]
+    capabilities: Vec<String>,
 }
 
 fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
@@ -244,18 +247,25 @@ fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
         .data
         .into_iter()
         .filter(|model| !model.id.trim().is_empty())
-        .map(|model| ModelInfo {
-            provider_id: PROVIDER_ID.into(),
-            provider_name: PROVIDER_NAME.into(),
-            display_name: model.display_name.unwrap_or_else(|| model.id.clone()),
-            model_id: model.id,
-            max_context_tokens: None,
-            load_state: ModelLoadState::Unknown,
-            capabilities: ProviderCapabilities {
-                text: true,
-                streaming: true,
-                ..Default::default()
-            },
+        .map(|model| {
+            let vision = model
+                .capabilities
+                .iter()
+                .any(|capability| capability == "vision");
+            ModelInfo {
+                provider_id: PROVIDER_ID.into(),
+                provider_name: PROVIDER_NAME.into(),
+                display_name: model.display_name.unwrap_or_else(|| model.id.clone()),
+                model_id: model.id,
+                max_context_tokens: None,
+                load_state: ModelLoadState::Unknown,
+                capabilities: ProviderCapabilities {
+                    text: true,
+                    streaming: true,
+                    vision,
+                    ..Default::default()
+                },
+            }
         })
         .collect::<Vec<_>>();
     if models.is_empty() {
@@ -286,7 +296,7 @@ struct AnthropicChatRequest {
 #[derive(Serialize)]
 struct AnthropicTurn {
     role: &'static str,
-    content: String,
+    content: AnthropicContent,
 }
 
 #[derive(Serialize)]
@@ -307,23 +317,15 @@ impl From<ChatRequest> for AnthropicChatRequest {
         let mut system = Vec::new();
         let mut messages = Vec::new();
         for turn in request.messages {
-            let content = turn
-                .content
-                .into_iter()
-                .map(|block| match block {
-                    ContentBlock::Text { text } => text,
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
             match turn.role {
-                ChatRole::System => system.push(content),
+                ChatRole::System => system.push(text_content(turn.content)),
                 ChatRole::User => messages.push(AnthropicTurn {
                     role: "user",
-                    content,
+                    content: anthropic_content(turn.content),
                 }),
                 ChatRole::Assistant => messages.push(AnthropicTurn {
                     role: "assistant",
-                    content,
+                    content: anthropic_content(turn.content),
                 }),
             }
         }
@@ -445,46 +447,4 @@ impl From<WireUsage> for Usage {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn decodes_text_thinking_usage_and_completion() {
-        assert!(matches!(
-            decode_stream_payload(concat!(
-                r#"{"type":"content_block_delta","index":0,"delta":{"#,
-                r#""type":"text_delta","text":"Hi"}}"#,
-            ))
-            .unwrap(),
-            DecodedEvent::Text(value) if value == "Hi"
-        ));
-        assert!(matches!(
-            decode_stream_payload(concat!(
-                r#"{"type":"content_block_delta","index":0,"delta":{"#,
-                r#""type":"thinking_delta","thinking":"Check"}}"#,
-            ))
-            .unwrap(),
-            DecodedEvent::Reasoning(value) if value == "Check"
-        ));
-        assert!(matches!(
-            decode_stream_payload(r#"{"type":"message_stop"}"#).unwrap(),
-            DecodedEvent::Done
-        ));
-    }
-
-    #[test]
-    fn request_separates_system_turn_and_maps_reasoning() {
-        let request: ChatRequest = serde_json::from_str(concat!(
-            r#"{"providerId":"anthropic","modelId":"claude-example","messages":["#,
-            r#"{"role":"system","content":[{"type":"text","text":"Be brief"}]},"#,
-            r#"{"role":"user","content":[{"type":"text","text":"Hi"}]}],"#,
-            r#""settings":{"reasoningEffort":"low"}}"#,
-        ))
-        .unwrap();
-        let body = serde_json::to_value(AnthropicChatRequest::from(request)).unwrap();
-        assert_eq!(body["system"], "Be brief");
-        assert_eq!(body["thinking"]["type"], "adaptive");
-        assert_eq!(body["output_config"]["effort"], "low");
-        assert!(body.get("temperature").is_none());
-    }
-}
+mod tests;

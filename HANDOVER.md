@@ -40,11 +40,12 @@ and one append-only result per call; reopened tool activity is inspectable and p
 provider call identities. Provider tool loops and execution remain absent. Native attachment selection now streams
 chosen local files into application-private content-addressed storage with SHA-256 identities, content-based MIME
 sniffing, safe display names, a 25 MiB per-file limit, an eight-file selection limit, and cross-session duplicate
-detection. Source and storage paths never reach the WebView, and the interface explicitly labels retained attachments
-as not yet sent. A selected draft can now commit atomically with its user message, reopen as ordered path-free metadata
+detection. Source and storage paths never reach the WebView, and the interface explicitly labels retained attachment
+delivery state for the selected model. A selected draft can now commit atomically with its user message, reopen as
+ordered path-free metadata
 on the selected branch, and remain attached when that request is edited or regenerated. Association removal is limited
-to visible user messages while generation is idle and retains the content-addressed catalog row and blob. Provider
-requests remain text-only. Retained UTF-8 plain-text, Markdown, PDF, and DOCX attachments now receive bounded native
+to visible user messages while generation is idle and retains the content-addressed catalog row and blob. Retained
+UTF-8 plain-text, Markdown, PDF, and DOCX attachments now receive bounded native
 extraction with durable ready, unsupported, or failed state. PDF work is limited to 500 pages, 8 MiB of decompressed
 content per page, and 2 MiB of retained extracted text. DOCX work validates the package manifest, bounds archive
 entries and total declared expansion, reads only bounded in-memory XML, caps XML events/depth, and shares the 2 MiB
@@ -53,9 +54,13 @@ application-private derivatives. Rust applies EXIF orientation, caps dimensions,
 encoded output, and re-encodes without forwarding source metadata. The WebView receives only path-free processing
 state, format, dimensions, counts, and sizes. Ingestion now returns after committing durable pending work; one native
 worker resumes extraction and normalization after startup, selection, or restore and streams path-free state updates to
-visible draft and message attachments. The next bounded implementation slice is capability-aware JPEG/PNG delivery to
-vision-capable models with explicit behavior for text-only models; do not bundle document delivery, indexing,
-embeddings, other office formats, preview rendering, garbage collection, or broad visual-design work with it.
+visible draft and message attachments. Native generation now reconstructs exact durable text context and reads
+normalized JPEG/PNG bytes only inside Rust. A current image requires explicit vision capability from native model
+discovery; text-only models block that draft while omitting older images from later text requests. Vision routes receive
+at most eight images and 50 MiB of normalized derivatives through Ollama, OpenAI-shaped, or Anthropic-shaped request
+blocks. Documents remain local-only. The next bounded implementation slice is durable background indexing states for
+extracted attachment text; do not bundle FTS/vector retrieval, embeddings, document delivery, other office formats,
+preview rendering, garbage collection, or broad visual-design work with it.
 
 Read these files first:
 
@@ -69,7 +74,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
-`codex/background-attachment-processing`.
+`codex/vision-image-delivery`.
 
 ## Current implementation
 
@@ -94,6 +99,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Th
 - native attachment selection, application-private ingestion, durable selected-lineage message association, draft and
   message-scoped removal, and path-redacted outcome feedback;
 - durable background plain-text, Markdown, page-aware PDF, DOCX, JPEG, and PNG processing with live path-free labels;
+- capability-aware normalized JPEG/PNG delivery labels and current-draft blocking for text-only models;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
@@ -147,6 +153,8 @@ lease state,
 `src-tauri/src/storage/docx.rs` owns bounded package validation and WordprocessingML text extraction,
 `src-tauri/src/storage/image_codec.rs` owns bounded JPEG/PNG decode, orientation, and metadata-free encoding,
 `src-tauri/src/storage/image_normalization.rs` owns derivative persistence and path-free normalization state,
+`src-tauri/src/storage/attachment_delivery.rs` owns selected-lineage reconstruction, current-image readiness, bounded
+derivative loading, and path-free delivery errors,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
 restore pause/resume coordination,
 and `src-tauri/src/storage/export.rs` owns
@@ -157,7 +165,8 @@ migration, pre-restore
 safety copies, and post-copy integrity checks, `src-tauri/src/storage/recovery.rs` owns read-only startup corruption
 classification, verified automatic recovery-point discovery, restricted store state, damaged-bundle preservation, and
 staged replacement, and
-`src-tauri/src/generation.rs` closes each native run before its terminal stream event reaches the WebView.
+`src-tauri/src/generation.rs` reconciles the current WebView prompt with durable selected-lineage context, applies
+native-discovered vision policy, and closes each native run before its terminal stream event reaches the WebView.
 `src-tauri/src/storage_commands.rs` exposes only list/search, create, selected-load/clear, atomic user-message and
 attachment append, visible message-attachment removal, explicit branch, response-rating, selected-lineage Markdown/JSON
 and non-trashed batch JSON export, whole-store
@@ -239,9 +248,10 @@ Do not mistake visual fixtures for implemented backend behavior:
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
 - current attachment draft selection is session-only until it commits atomically with a submitted user message;
-- plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite, while JPEG/PNG derivatives remain
-  application-private; SQLite backups include native-only text and derivative metadata but not original blobs or
-  normalized derivatives, and no attachment is indexed, exported, or sent to any provider;
+- plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; JPEG/PNG derivatives
+  remain application-private and are read only for capability-confirmed vision requests; SQLite backups include
+  native-only text and derivative metadata but not original blobs or normalized derivatives, and no attachment is
+  indexed or exported;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
@@ -283,7 +293,61 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Durable background attachment processing
+## Most recently completed product slice: Capability-aware normalized image delivery
+
+### Goal
+
+Deliver normalized JPEG and PNG attachments to models only after native discovery explicitly confirms vision support,
+without exposing image bytes, derivative identities, or paths to the WebView.
+
+### Implemented shape
+
+1. Native generation rebuilds the selected durable lineage, verifies that the WebView's current prompt matches the
+   stored request, and reads ready normalized derivatives only inside Rust. One request is limited to eight images and
+   50 MiB of derivative bytes across the selected lineage.
+2. A current ready image requires the selected model to advertise the exact `vision` capability. Pending images block
+   until normalization completes, failed or unsupported current images require removal, and text-only models block a
+   current image while omitting historical images from later text requests.
+3. Ollama receives base64 image arrays on the owning message. oMLX and OpenAI-compatible routes receive OpenAI-shaped
+   image URL content parts, while Anthropic-compatible routes receive base64 image source blocks. Text-only request
+   serialization is unchanged.
+4. Native model discovery remains conservative: Ollama uses advertised capabilities, and compatible model catalogues
+   opt into vision only when they expose an explicit `vision` capability. Model names are never used as a proxy.
+5. Draft, conversation, and context-panel labels explain pending, local-only, text-only, and vision-delivery states.
+   Document attachments remain local-only and are never inserted into provider requests.
+
+### Acceptance criteria
+
+- The WebView cannot deserialize native image blocks or supply bytes, paths, MIME claims, or derivative identifiers.
+- Images are read from bounded application-private derivatives, remain attached to their owning durable user turn,
+  and are never delivered merely because a model name appears multimodal.
+- A current image cannot be silently dropped: unavailable normalization and text-only selection are explicit blockers.
+  Historical images may be omitted so a later text-only turn can still run.
+- Provider fixtures cover Ollama, OpenAI-shaped, and Anthropic-shaped multimodal request contracts while existing text,
+  reasoning, cancellation, usage, and error normalization remain intact.
+- Document delivery, extracted-text delivery, indexing, retrieval, embeddings, previews, other formats, garbage
+  collection, portable blob backup, and broad visual redesign remain outside this slice.
+
+### Verification completed
+
+The standard frontend and Rust source checks passed on 2026-08-21. Prettier reports clean formatting, `svelte-check`
+reports no errors or warnings, all 37 frontend tests pass, the production build succeeds, `cargo fmt --check` is clean,
+and `cargo check` succeeds. One complete native run passed 127 tests while the four live-provider tests remained
+intentionally ignored. The exact final 132-test target also compiles and links after the historical-image edge-case
+test was added. New tests cover native durable-context loading, deferred bounded byte loading, normalization readiness,
+WebView image injection rejection, capability enforcement, stale-current-text rejection, and all three provider shapes.
+
+macOS repeatedly held freshly linked Rust test executables in policy evaluation before the test harness started. The
+complete run succeeded after ad-hoc signing one disposable generated executable; subsequent ad-hoc, Apple Development,
+and Developer ID signatures still left the final artifact held before test code. Neither repository source nor the
+release-signing configuration was changed. A native development binary also rebuilt and restarted successfully under
+existing watcher. Immutable read-only inspection of its real schema-13 store reported `quick_check = ok`, two
+retained attachments, and zero pending extraction or normalization rows. Desktop and 420-pixel browser-preview checks
+showed the revised labels without document or attachment-row overflow and with no console warnings or errors; that
+review caught and corrected an initially misleading no-model delivery label. No synthetic native picker interaction
+or live image request was claimed.
+
+## Prior completed product slice: Durable background attachment processing
 
 ### Goal
 

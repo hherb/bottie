@@ -2,6 +2,7 @@
   import Icon from "$lib/Icon.svelte";
   import type { ModelInfo } from "$lib/inference";
   import { attachmentStatusLabel } from "$lib/attachment";
+  import { attachmentDeliveryLabel } from "$lib/chat";
   import type { Attachment, MessageAttachment, ProviderStatus } from "$lib/presentation";
 
   type Props = {
@@ -66,7 +67,8 @@
           <span class="attachment-copy">
             <strong>{attachment.name}</strong>
             <small
-              >{attachment.size} · {attachmentStatusLabel(attachment.normalization, attachment.extraction)} · Not sent</small
+              >{attachment.size} · {attachmentStatusLabel(attachment.normalization, attachment.extraction)} ·
+              {attachmentDeliveryLabel(attachment, selectedModel)}</small
             >
           </span>
           <button aria-label={`Remove ${attachment.name}`} onclick={() => onremove(attachment.id)}>
@@ -83,7 +85,8 @@
             <strong>{association.attachment.name}</strong>
             <small>
               {association.attachment.size} ·
-              {attachmentStatusLabel(association.attachment.normalization, association.attachment.extraction)} · Not sent
+              {attachmentStatusLabel(association.attachment.normalization, association.attachment.extraction)} ·
+              {attachmentDeliveryLabel(association.attachment, selectedModel)}
             </small>
           </span>
           <button

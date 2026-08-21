@@ -1,6 +1,7 @@
 //! Provider-neutral inference orchestration and concrete provider adapters.
 
 mod anthropic;
+mod multimodal;
 mod ollama;
 mod omlx;
 mod openai;
@@ -18,5 +19,6 @@ pub use settings::{
     ProviderSettings, load_provider_settings, redact_diagnostic, save_provider_settings,
 };
 pub use types::{
-    ChatRequest, ChatRun, ModelInfo, ProviderError, ReasoningEffort, StreamEvent, Usage,
+    ChatRequest, ChatRole, ChatRun, ChatTurn, ContentBlock, ImageMediaType, ModelInfo,
+    ProviderError, ReasoningEffort, StreamEvent, Usage,
 };

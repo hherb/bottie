@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex};
 use futures_util::{FutureExt, future::Abortable};
 
 use super::*;
-use crate::inference::types::{ChatSettings, ChatTurn, ContentBlock, ReasoningEffort};
+use crate::inference::types::{
+    ChatSettings, ChatTurn, ContentBlock, ImageMediaType, ReasoningEffort,
+};
 
 #[derive(Clone, Default)]
 struct RecordingSink {
@@ -72,13 +74,14 @@ fn accepts_only_loopback_endpoints() {
 fn decodes_live_model_list_shape() {
     let fixture = concat!(
         r#"{"object":"list","data":[{"id":"Qwen3.6-35B-A3B-8bit","#,
-        r#""object":"model","max_model_len":262144}]}"#,
+        r#""object":"model","max_model_len":262144,"capabilities":["vision"]}]}"#,
     );
     let models = decode_model_list(fixture.as_bytes()).expect("model list should decode");
     assert_eq!(models.len(), 1);
     assert_eq!(models[0].model_id, "Qwen3.6-35B-A3B-8bit");
     assert_eq!(models[0].max_context_tokens, Some(262_144));
     assert!(models[0].capabilities.streaming);
+    assert!(models[0].capabilities.vision);
 }
 
 #[test]
@@ -143,6 +146,24 @@ fn sends_explicit_off_and_low_reasoning_controls() {
     let low = serde_json::to_value(OmlxChatRequest::from(request)).unwrap();
     assert_eq!(low["chat_template_kwargs"]["enable_thinking"], true);
     assert_eq!(low["reasoning_effort"], "low");
+}
+
+#[test]
+fn serializes_normalized_images_as_openai_content_parts() {
+    let mut request = live_request("vision-model".into(), "describe this");
+    request.messages[0].content.push(ContentBlock::Image {
+        media_type: ImageMediaType::Jpeg,
+        bytes: b"normalized-jpeg".to_vec(),
+    });
+
+    let body = serde_json::to_value(OmlxChatRequest::from(request)).unwrap();
+
+    assert_eq!(body["messages"][0]["content"][0]["type"], "text");
+    assert_eq!(body["messages"][0]["content"][1]["type"], "image_url");
+    assert_eq!(
+        body["messages"][0]["content"][1]["image_url"]["url"],
+        "data:image/jpeg;base64,bm9ybWFsaXplZC1qcGVn"
+    );
 }
 
 #[test]

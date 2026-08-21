@@ -2,12 +2,13 @@
 
 Bottie is a local-first desktop chatbot built with Tauri 2, Rust, Svelte, and TypeScript. It is designed to connect to oMLX, Ollama, Anthropic-compatible, and OpenAI-compatible inference providers while keeping application secrets, files, tools, and persistent memory behind the Rust boundary.
 
-The current developer preview pairs the interactive product shell with real, text-only inference through oMLX,
-Ollama, OpenAI-compatible, and Anthropic-compatible providers. The Rust core validates provider endpoints, discovers
-models, tests connections, streams normalized answer and reasoning events over a typed Tauri IPC channel, and owns
-end-to-end cancellation. Conversations and their ordered text/reasoning messages persist in a Rust-owned bundled
-SQLite database and reopen after restart. Accepted provider runs retain their model, generation settings, terminal
-state, elapsed time, provider-reported token/cost usage, and checkpointed partial output. If Bottie exits during a
+The current developer preview pairs the interactive product shell with real text and capability-gated image inference
+through oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible providers. The Rust core validates provider
+endpoints, discovers models, tests connections, streams normalized answer and reasoning events over a typed Tauri IPC
+channel, and owns end-to-end cancellation. Conversations and their ordered text/reasoning messages persist in a
+Rust-owned bundled SQLite database and reopen after restart. Accepted provider runs retain their model, generation
+settings, terminal state, elapsed time, provider-reported token/cost usage, and checkpointed partial output. If Bottie
+exits during a
 generation, its next launch marks that run interrupted and reopens the response with the text and reasoning already
 saved. Users can edit earlier prompts or regenerate responses into preserved, switchable conversation branches, and
 search active or archived histories by title or visible message text. Search results open the preserved branch that
@@ -46,8 +47,11 @@ orientation applied to their pixels, and are re-encoded without source metadata 
 content-addressed derivatives. Ingestion commits durable pending state and returns before document parsing or image
 decoding; one native background worker resumes pending work after startup, selection, or restore. The WebView receives
 path-free live extraction or normalization updates, dimensions, counts, and sizes but never extracted text, derivative
-identities, bytes, or paths. Only prompt text reaches the provider:
-attachment delivery, other office formats, memory
+identities, bytes, or paths. A current normalized JPEG or PNG can be sent only after native discovery confirms that the
+selected model advertises vision support. Text-only selections block a current image with an explicit explanation and
+omit older image associations; document content remains local-only. Native delivery reconstructs the selected durable
+lineage, reads at most eight normalized images and 50 MiB per request, and emits provider-native Ollama, OpenAI-shaped,
+or Anthropic-shaped image blocks without exposing bytes to JavaScript. Document delivery, other office formats, memory
 retrieval, provider tool loops, approvals, and tool execution are not implemented yet; those surfaces remain disabled
 or explicitly labelled.
 
@@ -155,8 +159,9 @@ axis, 16 million total pixels, 128 MiB of decoded image allocation, and 25 MiB o
 is applied before both formats are re-encoded through metadata-free encoders into application-private,
 content-addressed derivatives. SQLite backups include extracted text and path-free derivative metadata, but original
 blobs and normalized derivatives remain outside those backups. Extracted text and images remain absent from
-conversation exports and provider requests. Other office formats are not extracted; no attachment is indexed or
-delivered to a provider.
+conversation exports. Ready JPEG/PNG derivatives are read only by Rust for capability-confirmed vision requests, with
+an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from provider requests. Other
+office formats are not extracted, and no attachment is indexed.
 
 Run the layout-only browser preview:
 

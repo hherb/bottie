@@ -5,12 +5,13 @@ use url::Url;
 
 use super::{
     InferenceProvider,
+    multimodal::{OpenAiContent, openai_content},
     provider::StreamSink,
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_local_base_url},
     sse::SseDecoder,
     types::{
-        ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
-        ProviderError, ProviderErrorCode, ReasoningEffort, Usage,
+        ChatRequest, ChatRole, ModelInfo, ModelLoadState, ProviderCapabilities, ProviderError,
+        ProviderErrorCode, ReasoningEffort, Usage,
     },
 };
 
@@ -236,6 +237,8 @@ struct OmlxModelList {
 struct OmlxModel {
     id: String,
     max_model_len: Option<u64>,
+    #[serde(default)]
+    capabilities: Vec<String>,
 }
 
 /// Decodes and normalizes the oMLX model-list response.
@@ -250,18 +253,25 @@ fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
         .data
         .into_iter()
         .filter(|model| !model.id.trim().is_empty())
-        .map(|model| ModelInfo {
-            provider_id: PROVIDER_ID.into(),
-            provider_name: PROVIDER_NAME.into(),
-            display_name: model.id.replace("--", "/"),
-            model_id: model.id,
-            max_context_tokens: model.max_model_len,
-            load_state: ModelLoadState::Unknown,
-            capabilities: ProviderCapabilities {
-                text: true,
-                streaming: true,
-                ..ProviderCapabilities::default()
-            },
+        .map(|model| {
+            let vision = model
+                .capabilities
+                .iter()
+                .any(|capability| capability == "vision");
+            ModelInfo {
+                provider_id: PROVIDER_ID.into(),
+                provider_name: PROVIDER_NAME.into(),
+                display_name: model.id.replace("--", "/"),
+                model_id: model.id,
+                max_context_tokens: model.max_model_len,
+                load_state: ModelLoadState::Unknown,
+                capabilities: ProviderCapabilities {
+                    text: true,
+                    streaming: true,
+                    vision,
+                    ..ProviderCapabilities::default()
+                },
+            }
         })
         .collect::<Vec<_>>();
     if models.is_empty() {
@@ -302,7 +312,7 @@ struct OmlxStreamOptions {
 #[derive(Serialize)]
 struct OmlxChatTurn {
     role: &'static str,
-    content: String,
+    content: OpenAiContent,
 }
 
 impl From<ChatRequest> for OmlxChatRequest {
@@ -321,14 +331,7 @@ impl From<ChatRequest> for OmlxChatRequest {
                         ChatRole::User => "user",
                         ChatRole::Assistant => "assistant",
                     },
-                    content: turn
-                        .content
-                        .into_iter()
-                        .map(|block| match block {
-                            ContentBlock::Text { text } => text,
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n"),
+                    content: openai_content(turn.content),
                 })
                 .collect(),
             stream: true,

@@ -145,8 +145,8 @@ Status: in progress
 - [x] bounded JPEG/PNG normalization, EXIF orientation application, and metadata removal policy;
 - [x] durable background extraction and image-normalization lifecycle;
 - [ ] background indexing states;
-- [ ] capability-aware image delivery to vision models;
-- [ ] clear behavior for text-only models;
+- [x] capability-aware image delivery to vision models;
+- [x] clear behavior for text-only models;
 - [x] per-message association with selected-branch reopen, fork inheritance, and association removal;
 - [ ] conversation-level attachment scope;
 - [ ] attachment garbage collection plus portable backup and export behavior;
