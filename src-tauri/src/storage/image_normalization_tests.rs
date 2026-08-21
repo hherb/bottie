@@ -10,7 +10,7 @@ use image::{
 use super::{
     ConversationStore,
     image_codec::{MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS},
-    tests::test_database_path,
+    tests::{completed_ingestion, process_pending_attachments, test_database_path},
 };
 
 const PRIVATE_PNG_METADATA: &[u8] = b"Comment\0secret-camera-metadata";
@@ -23,9 +23,10 @@ fn ingest_fixture(
 ) -> super::IngestedAttachment {
     let source_path = store.path.with_file_name(name);
     fs::write(&source_path, bytes).expect("image fixture should be written");
-    store
+    let ingested = store
         .ingest_attachment(&source_path)
-        .expect("image fixture should ingest")
+        .expect("image fixture should ingest");
+    completed_ingestion(store, ingested)
 }
 
 /// Encodes one small RGBA PNG through the same codec family used by normalization.
@@ -213,6 +214,7 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
 
     let upgraded =
         ConversationStore::initialize(path).expect("version twelve store should upgrade");
+    process_pending_attachments(&upgraded);
     let stored = upgraded
         .stored_attachment_for_test(&attachment.id)
         .expect("attachment should load")

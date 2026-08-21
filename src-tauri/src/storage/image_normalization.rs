@@ -156,24 +156,6 @@ impl StoredImageNormalization {
 }
 
 impl ConversationStore {
-    /// Completes every image normalization left pending by migration or interruption.
-    pub(super) fn process_pending_image_normalizations(&self) -> Result<(), StorageError> {
-        let connection = self.open()?;
-        let mut statement = connection.prepare(
-            "SELECT attachment_id FROM attachment_image_normalizations
-             WHERE state = 'pending' ORDER BY updated_at_ms, attachment_id",
-        )?;
-        let attachment_ids = statement
-            .query_map([], |row| row.get::<_, String>(0))?
-            .collect::<Result<Vec<_>, _>>()?;
-        drop(statement);
-        drop(connection);
-        for attachment_id in attachment_ids {
-            self.process_image_normalization(&attachment_id)?;
-        }
-        Ok(())
-    }
-
     /// Resolves one pending image into ready, unsupported, or failed native state.
     pub(super) fn process_image_normalization(
         &self,

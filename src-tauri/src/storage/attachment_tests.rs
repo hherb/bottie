@@ -9,7 +9,7 @@ use super::{
     NewStoredMessage, StoredRole,
     attachments::{MAX_ATTACHMENT_BYTES, detect_mime_type, safe_display_name},
     extraction::MAX_EXTRACTED_TEXT_BYTES,
-    tests::test_database_path,
+    tests::{completed_ingestion, process_pending_attachments, test_database_path},
 };
 
 const PNG_BYTES: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR";
@@ -22,9 +22,10 @@ fn ingest_fixture(
 ) -> super::IngestedAttachment {
     let source_path = store.path.with_file_name(name);
     fs::write(&source_path, bytes).expect("attachment fixture should be written");
-    store
+    let ingested = store
         .ingest_attachment(&source_path)
-        .expect("attachment fixture should ingest")
+        .expect("attachment fixture should ingest");
+    completed_ingestion(store, ingested)
 }
 
 #[test]
@@ -132,6 +133,7 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
     drop(store);
 
     let upgraded = ConversationStore::initialize(path).expect("version nine store should upgrade");
+    process_pending_attachments(&upgraded);
     let stored = upgraded
         .stored_attachment_for_test(&attachment.id)
         .expect("attachment should load")

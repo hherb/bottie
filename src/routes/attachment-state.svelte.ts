@@ -1,7 +1,9 @@
 /** Reactive draft state for native-owned attachment ingestion. */
 
 import { isTauri } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
+import { ATTACHMENT_PROCESSING_EVENT, applyAttachmentProcessingUpdate } from "$lib/attachment";
 import { formatBytes } from "$lib/chat";
 import type { Attachment } from "$lib/presentation";
 import {
@@ -9,6 +11,7 @@ import {
   mergeIngestedAttachments,
   storageErrorFromUnknown,
   type AttachmentIngestOutcome,
+  type StoredAttachment,
 } from "$lib/storage";
 
 const PREVIEW_ATTACHMENTS: Attachment[] = [
@@ -62,6 +65,27 @@ export class AttachmentState {
   failed = $state(false);
 
   private browserInput?: HTMLInputElement;
+  private queuedProcessingUpdates = new Map<string, StoredAttachment>();
+  private submittedItems: Attachment[] | null = null;
+  private stopProcessingUpdates?: UnlistenFn;
+
+  /** Listens for path-free native processing results throughout the page lifecycle. */
+  async listenForProcessingUpdates(onUpdate: (update: StoredAttachment) => void): Promise<void> {
+    try {
+      this.stopProcessingUpdates = await listen<StoredAttachment>(ATTACHMENT_PROCESSING_EVENT, (event) => {
+        this.applyProcessingUpdate(event.payload);
+        onUpdate(event.payload);
+      });
+    } catch (error) {
+      console.warn("Could not listen for attachment processing updates", error);
+    }
+  }
+
+  /** Releases the native processing listener when the page is unmounted. */
+  dispose(): void {
+    this.stopProcessingUpdates?.();
+    this.stopProcessingUpdates = undefined;
+  }
 
   /** Registers the browser-preview file input after its component mounts. */
   setBrowserInput(element: HTMLInputElement): void {
@@ -83,6 +107,12 @@ export class AttachmentState {
       if (outcome.status === "cancelled") return;
       const priorIds = new Set(this.items.map((item) => item.id));
       this.items = mergeIngestedAttachments(this.items, outcome.attachments);
+      for (const attachment of outcome.attachments) {
+        const update = this.queuedProcessingUpdates.get(attachment.id);
+        if (!update) continue;
+        this.items = applyAttachmentProcessingUpdate(this.items, update);
+        this.queuedProcessingUpdates.delete(attachment.id);
+      }
       this.feedback = attachmentOutcomeFeedback(outcome, priorIds);
       this.failed = outcome.rejections.length > 0;
     } catch (error) {
@@ -138,6 +168,37 @@ export class AttachmentState {
     this.items = [];
     this.feedback = null;
     this.failed = false;
+  }
+
+  /** Applies or temporarily queues one path-free native background-processing update. */
+  applyProcessingUpdate(update: StoredAttachment): void {
+    if (this.submittedItems) {
+      this.submittedItems = applyAttachmentProcessingUpdate(this.submittedItems, update);
+    }
+    const updated = applyAttachmentProcessingUpdate(this.items, update);
+    if (updated === this.items) {
+      if (this.isIngesting) this.queuedProcessingUpdates.set(update.id, update);
+      return;
+    }
+    this.items = updated;
+  }
+
+  /** Captures the current draft while background events may still update its processing state. */
+  beginSubmission(): Attachment[] {
+    this.submittedItems = this.items.map((attachment) => ({ ...attachment }));
+    return this.submittedItems;
+  }
+
+  /** Returns the latest submitted metadata and closes the in-flight capture. */
+  finishSubmission(): Attachment[] {
+    const submitted = this.submittedItems ?? [];
+    this.submittedItems = null;
+    return submitted;
+  }
+
+  /** Closes an unsuccessful submission while leaving the draft intact. */
+  cancelSubmission(): void {
+    this.submittedItems = null;
   }
 }
 

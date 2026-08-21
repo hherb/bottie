@@ -24,7 +24,10 @@
 
   const state = new PageState();
 
-  onMount(() => state.initialize());
+  onMount(() => {
+    void state.initialize();
+    return () => state.dispose();
+  });
 
   /** Completes guided recovery before returning to normal conversation and provider initialization. */
   async function recoverStorage(source: "manual" | "automatic"): Promise<void> {

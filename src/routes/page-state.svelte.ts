@@ -3,6 +3,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { tick } from "svelte";
 
+import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
 import {
   chatTurnsForMessages,
   completionMeta,
@@ -135,6 +136,9 @@ export class PageState {
       };
       return;
     }
+    await this.attachment.listenForProcessingUpdates((update) => {
+      this.messages = applyAttachmentProcessingUpdateToMessages(this.messages, update);
+    });
     try {
       this.runtime = await invoke<RuntimeInfo>("app_info");
     } catch (error) {
@@ -152,6 +156,11 @@ export class PageState {
     }
     const [messages] = await Promise.all([this.history.initialize(), this.refreshModels()]);
     this.messages = messages;
+  }
+
+  /** Releases native event listeners when the page is unmounted. */
+  dispose(): void {
+    this.attachment.dispose();
   }
 
   /** Opens one persisted conversation from the sidebar. */
@@ -283,20 +292,24 @@ export class PageState {
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
     if (!submittedPrompt || this.isGenerating || !this.canSend) return;
-    const submittedAttachments = this.attachment.items.map((attachment) => ({ ...attachment }));
+    const submittedAttachments = this.attachment.beginSubmission();
     this.isPersistingMessage = true;
     const runContext = await this.history.persistUserMessage(
       submittedPrompt,
       submittedAttachments.map((attachment) => attachment.id),
     );
     this.isPersistingMessage = false;
-    if (!runContext) return;
+    if (!runContext) {
+      this.attachment.cancelSubmission();
+      return;
+    }
+    const completedAttachments = this.attachment.finishSubmission();
     this.messages.push({
       id: nextMessageId(),
       storageId: runContext.requestMessageId,
       role: "user",
       content: submittedPrompt,
-      attachments: submittedAttachments,
+      attachments: completedAttachments,
     });
     this.prompt = "";
     this.attachment.clear();

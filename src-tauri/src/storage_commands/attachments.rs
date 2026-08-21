@@ -76,9 +76,12 @@ pub(crate) async fn ingest_attachments(
         .collect::<Result<Vec<PathBuf>, StorageError>>()?;
     let _management = state.storage_management.lock().await;
     let conversations = state.conversations.clone();
-    tauri::async_runtime::spawn_blocking(move || ingest_selected_paths(&conversations, paths))
-        .await
-        .map_err(|_| StorageError::internal())
+    let outcome =
+        tauri::async_runtime::spawn_blocking(move || ingest_selected_paths(&conversations, paths))
+            .await
+            .map_err(|_| StorageError::internal())?;
+    state.attachment_processing.wake();
+    Ok(outcome)
 }
 
 /// Ingests selections independently so one policy rejection does not discard valid peers.

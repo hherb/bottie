@@ -12,7 +12,11 @@ import {
   type IngestedAttachment,
   type ConversationSummary,
 } from "./storage";
-import { attachmentStatusLabel } from "./attachment";
+import {
+  applyAttachmentProcessingUpdate,
+  applyAttachmentProcessingUpdateToMessages,
+  attachmentStatusLabel,
+} from "./attachment";
 
 const conversations: ConversationSummary[] = [
   { id: "active", title: "Active", updatedAtMs: 3, lifecycle: "active" },
@@ -117,6 +121,59 @@ describe("conversation storage presentation helpers", () => {
       extraction: { state: "ready", format: "markdown", characterCount: 42, pageCount: null, errorCode: null },
       normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
     });
+  });
+
+  it("applies a path-free background update only to the matching attachment", () => {
+    const pending = storedAttachmentToPresentation({
+      id: "attachment-1",
+      displayName: "notes.txt",
+      mimeType: "text/plain",
+      byteSize: 12,
+      sha256: "abc123",
+      extraction: { state: "pending", format: null, characterCount: null, pageCount: null, errorCode: null },
+      normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
+    });
+    const untouched = { ...pending, id: "attachment-2", name: "other.txt" };
+    const updated = {
+      id: "attachment-1",
+      displayName: "notes.txt",
+      mimeType: "text/plain",
+      byteSize: 12,
+      sha256: "abc123",
+      extraction: {
+        state: "ready" as const,
+        format: "plain_text" as const,
+        characterCount: 12,
+        pageCount: null,
+        errorCode: null,
+      },
+      normalization: {
+        state: "unsupported" as const,
+        format: null,
+        width: null,
+        height: null,
+        byteSize: null,
+        errorCode: null,
+      },
+    };
+
+    expect(applyAttachmentProcessingUpdate([pending, untouched], updated)).toEqual([
+      storedAttachmentToPresentation(updated),
+      untouched,
+    ]);
+    expect(applyAttachmentProcessingUpdate([untouched], updated)).toEqual([untouched]);
+    expect(
+      applyAttachmentProcessingUpdateToMessages(
+        [
+          { id: 1, role: "user", content: "Attached", attachments: [pending] },
+          { id: 2, role: "assistant", content: "Unchanged" },
+        ],
+        updated,
+      ),
+    ).toEqual([
+      { id: 1, role: "user", content: "Attached", attachments: [storedAttachmentToPresentation(updated)] },
+      { id: 2, role: "assistant", content: "Unchanged" },
+    ]);
   });
 
   it("describes native extraction states without receiving extracted content", () => {

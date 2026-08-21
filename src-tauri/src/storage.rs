@@ -13,6 +13,7 @@ use std::{
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 mod attachment_policy;
+mod attachment_processing;
 pub(crate) mod attachments;
 mod backup;
 mod branching;
@@ -91,8 +92,6 @@ impl ConversationStore {
             return Err(StorageError::internal());
         }
         drop(connection);
-        store.process_pending_attachment_extractions()?;
-        store.process_pending_image_normalizations()?;
         store.recover_interrupted_runs()?;
         Ok(store)
     }
@@ -457,6 +456,9 @@ fn now_ms() -> Result<i64, StorageError> {
     i64::try_from(elapsed.as_millis()).map_err(|_| StorageError::internal())
 }
 
+#[cfg(test)]
+#[path = "storage/attachment_processing_tests.rs"]
+mod attachment_processing_tests;
 #[cfg(test)]
 #[path = "storage/attachment_tests.rs"]
 mod attachment_tests;

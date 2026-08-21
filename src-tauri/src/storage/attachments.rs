@@ -70,10 +70,7 @@ impl ConversationStore {
         let prepared = prepared?;
         let result = self.commit_blob(&temporary_path, prepared);
         let _ = fs::remove_file(&temporary_path);
-        let attachment = result?;
-        self.process_attachment_extraction(&attachment.id)?;
-        self.process_image_normalization(&attachment.id)?;
-        self.ingested_attachment(&attachment.id, attachment.duplicate)
+        result
     }
 
     /// Removes one visible user-message association while retaining catalog metadata and bytes.
@@ -189,18 +186,6 @@ impl ConversationStore {
         Ok(attachment)
     }
 
-    /// Reloads one ingestion result after native extraction reaches a durable state.
-    fn ingested_attachment(
-        &self,
-        attachment_id: &str,
-        duplicate: bool,
-    ) -> Result<IngestedAttachment, StorageError> {
-        let connection = self.open()?;
-        let stored =
-            stored_attachment(&connection, attachment_id)?.ok_or_else(StorageError::internal)?;
-        Ok(ingested_from_stored(stored, duplicate))
-    }
-
     /// Returns the application-private attachment directory beside the SQLite store.
     pub(super) fn attachment_root(&self) -> PathBuf {
         self.path
@@ -305,7 +290,7 @@ pub(super) fn load_message_attachments(
 }
 
 /// Loads one retained attachment identity without exposing its blob path.
-fn stored_attachment(
+pub(super) fn stored_attachment(
     connection: &Connection,
     attachment_id: &str,
 ) -> Result<Option<StoredAttachment>, StorageError> {

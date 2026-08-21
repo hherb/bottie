@@ -43,8 +43,10 @@ state. PDF parsing is additionally limited to 500 pages and 8 MiB of decompresse
 validates the package manifest and bounds archive entries, total declared expansion, main-document XML, XML events,
 and XML depth. JPEG and PNG images are decoded within dimension, pixel, allocation, and output ceilings, have EXIF
 orientation applied to their pixels, and are re-encoded without source metadata into application-private,
-content-addressed derivatives. The WebView receives path-free extraction or normalization state, dimensions, counts,
-and sizes but never extracted text, derivative identities, bytes, or paths. Only prompt text reaches the provider:
+content-addressed derivatives. Ingestion commits durable pending state and returns before document parsing or image
+decoding; one native background worker resumes pending work after startup, selection, or restore. The WebView receives
+path-free live extraction or normalization updates, dimensions, counts, and sizes but never extracted text, derivative
+identities, bytes, or paths. Only prompt text reaches the provider:
 attachment delivery, other office formats, memory
 retrieval, provider tool loops, approvals, and tool execution are not implemented yet; those surfaces remain disabled
 or explicitly labelled.
@@ -134,7 +136,11 @@ selected backup stages, migrates, and verifies a replacement before preserving t
 WAL/shared-memory sidecars in app-private storage. Successful replacement resumes normal conversation access without
 returning a filesystem path. A separate native picker ingests files through a bounded streaming copy into an
 application-private attachment directory. SQLite stores only sanitized metadata and the SHA-256 content identity;
-identical content reuses its existing blob across restarts. Sending commits up to eight selected attachment identities
+identical content reuses its existing blob across restarts. Ingestion leaves extraction and supported image
+normalization durably pending, then wakes a single process-lifetime worker instead of parsing or decoding inside the
+picker command. The worker handles one item at a time, resumes pending rows after startup or restore, and emits only
+path-free terminal metadata to update visible draft and message attachments. Store replacement pauses the worker after
+its current bounded item and resumes it afterward. Sending commits up to eight selected attachment identities
 with the user message, then clears the draft. Reopened selected lineages reconstruct ordered path-free metadata; edited
 and regenerated request branches inherit the source request's associations. Detaching is limited to visible user
 messages while generation is idle and retains the catalog row and blob for deduplication. Attachment bytes remain
