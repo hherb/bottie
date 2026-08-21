@@ -3,8 +3,10 @@
 use std::{
     fs::File,
     io::{Read, Take},
+    path::Path,
 };
 
+use lopdf::{DecompressError, Document, Error as PdfError, LoadOptions};
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 
@@ -13,14 +15,24 @@ use super::{ConversationStore, StorageError, now_ms};
 const BYTES_PER_MEBIBYTE: usize = 1024 * 1024;
 const MAX_EXTRACTED_TEXT_MEBIBYTES: usize = 2;
 const EXTRACTION_READ_LIMIT: u64 = (MAX_EXTRACTED_TEXT_BYTES + 1) as u64;
+const MAX_PDF_DECOMPRESSED_PAGE_MEBIBYTES: usize = 8;
+const MAX_PDF_DECOMPRESSED_PAGE_BYTES: usize =
+    MAX_PDF_DECOMPRESSED_PAGE_MEBIBYTES * BYTES_PER_MEBIBYTE;
 const ERROR_CONTENT_TOO_LARGE: &str = "content_too_large";
 const ERROR_INVALID_UTF8: &str = "invalid_utf8";
 const ERROR_MISSING_CONTENT: &str = "missing_content";
+const ERROR_PDF_ENCRYPTED: &str = "pdf_encrypted";
+const ERROR_PDF_EXTRACTION_FAILED: &str = "pdf_extraction_failed";
+const ERROR_PDF_INVALID: &str = "pdf_invalid";
+const ERROR_PDF_NO_TEXT: &str = "pdf_no_text";
+const ERROR_PDF_PAGE_LIMIT_EXCEEDED: &str = "pdf_page_limit_exceeded";
 const ERROR_READ_FAILED: &str = "read_failed";
 
 /// Maximum retained UTF-8 bytes accepted into SQLite for one attachment.
 pub(crate) const MAX_EXTRACTED_TEXT_BYTES: usize =
     MAX_EXTRACTED_TEXT_MEBIBYTES * BYTES_PER_MEBIBYTE;
+/// Maximum PDF page count accepted by the synchronous extraction slice.
+pub(crate) const MAX_PDF_PAGES: usize = 500;
 
 /// Current durable state of native attachment text extraction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -67,6 +79,8 @@ pub(crate) enum AttachmentExtractionFormat {
     PlainText,
     /// Markdown source retained without rendering or HTML interpretation.
     Markdown,
+    /// Text derived from a bounded page-aware PDF parse.
+    Pdf,
 }
 
 impl AttachmentExtractionFormat {
@@ -75,6 +89,7 @@ impl AttachmentExtractionFormat {
         match self {
             Self::PlainText => "plain_text",
             Self::Markdown => "markdown",
+            Self::Pdf => "pdf",
         }
     }
 
@@ -83,6 +98,7 @@ impl AttachmentExtractionFormat {
         match value {
             "plain_text" => Ok(Self::PlainText),
             "markdown" => Ok(Self::Markdown),
+            "pdf" => Ok(Self::Pdf),
             _ => Err(StorageError::internal()),
         }
     }
@@ -98,6 +114,8 @@ pub(crate) struct StoredAttachmentExtraction {
     pub(crate) format: Option<AttachmentExtractionFormat>,
     /// Unicode scalar count for ready text without exposing the text itself.
     pub(crate) character_count: Option<u64>,
+    /// PDF page count for ready PDF text, absent for every other format and state.
+    pub(crate) page_count: Option<u64>,
     /// Stable path-free failure category for failed extraction.
     pub(crate) error_code: Option<String>,
 }
@@ -153,10 +171,14 @@ impl ConversationStore {
         if state != AttachmentExtractionState::Pending.as_str() {
             return Ok(());
         }
+        if mime_type == "application/pdf" {
+            return self.process_pdf_extraction(attachment_id, &sha256);
+        }
         if mime_type != "text/plain" {
             return self.persist_extraction(
                 attachment_id,
                 AttachmentExtractionState::Unsupported,
+                None,
                 None,
                 None,
                 None,
@@ -187,7 +209,31 @@ impl ConversationStore {
             Some(format),
             Some(text),
             Some(character_count),
+            None,
         )
+    }
+
+    /// Extracts bounded PDF text or records one stable path-free failure category.
+    fn process_pdf_extraction(
+        &self,
+        attachment_id: &str,
+        sha256: &str,
+    ) -> Result<(), StorageError> {
+        let blob_path = self.attachment_blob_path(sha256);
+        if !blob_path.is_file() {
+            return self.persist_extraction_failure(attachment_id, ERROR_MISSING_CONTENT);
+        }
+        match extract_pdf(&blob_path) {
+            Ok(extracted) => self.persist_extraction(
+                attachment_id,
+                AttachmentExtractionState::Ready,
+                Some(AttachmentExtractionFormat::Pdf),
+                Some(extracted.text),
+                Some(extracted.character_count),
+                Some(extracted.page_count),
+            ),
+            Err(error_code) => self.persist_extraction_failure(attachment_id, error_code),
+        }
     }
 
     /// Persists one path-free failed state without retaining partial content.
@@ -200,7 +246,7 @@ impl ConversationStore {
         connection.execute(
             "UPDATE attachment_extractions
              SET state = 'failed', format = NULL, text_content = NULL,
-                 character_count = NULL, error_code = ?1, updated_at_ms = ?2
+                 character_count = NULL, page_count = NULL, error_code = ?1, updated_at_ms = ?2
              WHERE attachment_id = ?3 AND state = 'pending'",
             params![error_code, now_ms()?, attachment_id],
         )?;
@@ -215,18 +261,20 @@ impl ConversationStore {
         format: Option<AttachmentExtractionFormat>,
         text: Option<String>,
         character_count: Option<u64>,
+        page_count: Option<u64>,
     ) -> Result<(), StorageError> {
         let connection = self.open()?;
         connection.execute(
             "UPDATE attachment_extractions
              SET state = ?1, format = ?2, text_content = ?3, character_count = ?4,
-                 error_code = NULL, updated_at_ms = ?5
-             WHERE attachment_id = ?6 AND state = 'pending'",
+                 page_count = ?5, error_code = NULL, updated_at_ms = ?6
+             WHERE attachment_id = ?7 AND state = 'pending'",
             params![
                 state.as_str(),
                 format.map(AttachmentExtractionFormat::as_str),
                 text,
                 character_count.map(|count| count as i64),
+                page_count.map(|count| count as i64),
                 now_ms()?,
                 attachment_id
             ],
@@ -247,6 +295,76 @@ impl ConversationStore {
                 |row| row.get(0),
             )
             .map_err(Into::into)
+    }
+}
+
+/// Successfully extracted page-aware PDF content retained only in native storage.
+struct ExtractedPdf {
+    text: String,
+    character_count: u64,
+    page_count: u64,
+}
+
+/// Extracts text from an untrusted retained PDF within page, stream, and output ceilings.
+fn extract_pdf(path: &Path) -> Result<ExtractedPdf, &'static str> {
+    let options = LoadOptions::with_max_decompressed_size(MAX_PDF_DECOMPRESSED_PAGE_BYTES);
+    let document = Document::load_with_options(path, options).map_err(pdf_load_error_code)?;
+    if document.was_encrypted() {
+        return Err(ERROR_PDF_ENCRYPTED);
+    }
+    let page_numbers = document.get_pages().into_keys().collect::<Vec<_>>();
+    if page_numbers.len() > MAX_PDF_PAGES {
+        return Err(ERROR_PDF_PAGE_LIMIT_EXCEEDED);
+    }
+    let mut text = String::new();
+    for page_number in &page_numbers {
+        let page_text = document
+            .extract_text_with_limit(&[*page_number], MAX_PDF_DECOMPRESSED_PAGE_BYTES)
+            .map_err(pdf_extraction_error_code)?;
+        let page_text = page_text.trim();
+        if page_text.is_empty() {
+            continue;
+        }
+        let separator_bytes = usize::from(!text.is_empty()) * 2;
+        if text.len() + separator_bytes + page_text.len() > MAX_EXTRACTED_TEXT_BYTES {
+            return Err(ERROR_CONTENT_TOO_LARGE);
+        }
+        if !text.is_empty() {
+            text.push_str("\n\n");
+        }
+        text.push_str(page_text);
+    }
+    if text.is_empty() {
+        return Err(ERROR_PDF_NO_TEXT);
+    }
+    Ok(ExtractedPdf {
+        character_count: text.chars().count() as u64,
+        page_count: page_numbers.len() as u64,
+        text,
+    })
+}
+
+/// Maps PDF parser failures into stable categories that never expose paths or parser details.
+fn pdf_load_error_code(error: PdfError) -> &'static str {
+    match error {
+        PdfError::InvalidPassword
+        | PdfError::Decryption(_)
+        | PdfError::UnsupportedSecurityHandler(_) => ERROR_PDF_ENCRYPTED,
+        PdfError::IO(_) => ERROR_READ_FAILED,
+        PdfError::Decompress(DecompressError::MemoryLimitExceeded { .. }) => {
+            ERROR_CONTENT_TOO_LARGE
+        }
+        _ => ERROR_PDF_INVALID,
+    }
+}
+
+/// Maps page text decoding failures without revealing untrusted document details.
+fn pdf_extraction_error_code(error: PdfError) -> &'static str {
+    match error {
+        PdfError::Decompress(DecompressError::MemoryLimitExceeded { .. }) => {
+            ERROR_CONTENT_TOO_LARGE
+        }
+        _ => ERROR_PDF_EXTRACTION_FAILED,
     }
 }
 

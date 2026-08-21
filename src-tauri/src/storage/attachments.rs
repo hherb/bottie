@@ -141,6 +141,7 @@ impl ConversationStore {
                 state: AttachmentExtractionState::Pending,
                 format: None,
                 character_count: None,
+                page_count: None,
                 error_code: None,
             },
             duplicate: false,
@@ -270,7 +271,7 @@ pub(super) fn load_message_attachments(
         "SELECT attachments.id, attachments.display_name, attachments.mime_type,
                 attachments.byte_size, attachments.sha256, attachment_extractions.state,
                 attachment_extractions.format, attachment_extractions.character_count,
-                attachment_extractions.error_code
+                attachment_extractions.page_count, attachment_extractions.error_code
          FROM message_attachments
          JOIN attachments ON attachments.id = message_attachments.attachment_id
          JOIN attachment_extractions ON attachment_extractions.attachment_id = attachments.id
@@ -293,7 +294,7 @@ fn stored_attachment(
             "SELECT attachments.id, attachments.display_name, attachments.mime_type,
                     attachments.byte_size, attachments.sha256, attachment_extractions.state,
                     attachment_extractions.format, attachment_extractions.character_count,
-                    attachment_extractions.error_code
+                    attachment_extractions.page_count, attachment_extractions.error_code
              FROM attachments
              JOIN attachment_extractions ON attachment_extractions.attachment_id = attachments.id
              WHERE attachments.id = ?1",
@@ -324,7 +325,8 @@ fn stored_attachment_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Store
             state,
             format,
             character_count: row.get::<_, Option<i64>>(7)?.map(|count| count as u64),
-            error_code: row.get(8)?,
+            page_count: row.get::<_, Option<i64>>(8)?.map(|count| count as u64),
+            error_code: row.get(9)?,
         },
     })
 }
@@ -406,7 +408,7 @@ fn find_attachment(
             "SELECT attachments.id, attachments.display_name, attachments.mime_type,
                     attachments.byte_size, attachments.sha256, attachment_extractions.state,
                     attachment_extractions.format, attachment_extractions.character_count,
-                    attachment_extractions.error_code
+                    attachment_extractions.page_count, attachment_extractions.error_code
              FROM attachments
              JOIN attachment_extractions ON attachment_extractions.attachment_id = attachments.id
              WHERE attachments.sha256 = ?1",

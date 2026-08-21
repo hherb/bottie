@@ -19,7 +19,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     kind: "file",
     mimeType: "text/plain",
     sha256: "preview",
-    extraction: { state: "ready", format: "markdown", characterCount: 18_432, errorCode: null },
+    extraction: { state: "ready", format: "markdown", characterCount: 18_432, pageCount: null, errorCode: null },
   },
   {
     id: "preview-architecture",
@@ -28,7 +28,16 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     kind: "image",
     mimeType: "image/png",
     sha256: "preview",
-    extraction: { state: "unsupported", format: null, characterCount: null, errorCode: null },
+    extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
+  },
+  {
+    id: "preview-field-guide",
+    name: "field-guide.pdf",
+    size: "860 KB",
+    kind: "file",
+    mimeType: "application/pdf",
+    sha256: "preview",
+    extraction: { state: "ready", format: "pdf", characterCount: 24_180, pageCount: 12, errorCode: null },
   },
 ];
 
@@ -90,6 +99,7 @@ export class AttachmentState {
               ? "plain_text"
               : null,
           characterCount: null,
+          pageCount: null,
           errorCode: null,
         },
       });

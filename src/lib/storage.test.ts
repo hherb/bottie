@@ -67,7 +67,7 @@ describe("conversation storage presentation helpers", () => {
       mimeType: "image/png",
       byteSize: 16,
       sha256: "abc123",
-      extraction: { state: "unsupported", format: null, characterCount: null, errorCode: null },
+      extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
       duplicate: false,
     };
     const duplicate = { ...first, duplicate: true };
@@ -80,7 +80,7 @@ describe("conversation storage presentation helpers", () => {
         kind: "image",
         mimeType: "image/png",
         sha256: "abc123",
-        extraction: { state: "unsupported", format: null, characterCount: null, errorCode: null },
+        extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
       },
     ]);
     expect(mergeIngestedAttachments(mergeIngestedAttachments([], [first]), [duplicate])).toHaveLength(1);
@@ -94,7 +94,7 @@ describe("conversation storage presentation helpers", () => {
         mimeType: "text/plain",
         byteSize: 2_048,
         sha256: "abc123",
-        extraction: { state: "ready", format: "markdown", characterCount: 42, errorCode: null },
+        extraction: { state: "ready", format: "markdown", characterCount: 42, pageCount: null, errorCode: null },
       }),
     ).toEqual({
       id: "attachment-1",
@@ -103,27 +103,64 @@ describe("conversation storage presentation helpers", () => {
       kind: "file",
       mimeType: "text/plain",
       sha256: "abc123",
-      extraction: { state: "ready", format: "markdown", characterCount: 42, errorCode: null },
+      extraction: { state: "ready", format: "markdown", characterCount: 42, pageCount: null, errorCode: null },
     });
   });
 
   it("describes native extraction states without receiving extracted content", () => {
-    expect(attachmentExtractionLabel({ state: "ready", format: "markdown", characterCount: 42, errorCode: null })).toBe(
-      "Markdown ready locally",
-    );
     expect(
-      attachmentExtractionLabel({ state: "ready", format: "plain_text", characterCount: 12, errorCode: null }),
+      attachmentExtractionLabel({
+        state: "ready",
+        format: "markdown",
+        characterCount: 42,
+        pageCount: null,
+        errorCode: null,
+      }),
+    ).toBe("Markdown ready locally");
+    expect(
+      attachmentExtractionLabel({
+        state: "ready",
+        format: "plain_text",
+        characterCount: 12,
+        pageCount: null,
+        errorCode: null,
+      }),
     ).toBe("Text ready locally");
     expect(
-      attachmentExtractionLabel({ state: "unsupported", format: null, characterCount: null, errorCode: null }),
+      attachmentExtractionLabel({
+        state: "unsupported",
+        format: null,
+        characterCount: null,
+        pageCount: null,
+        errorCode: null,
+      }),
     ).toBe("No text extraction");
+    expect(
+      attachmentExtractionLabel({
+        state: "ready",
+        format: "pdf",
+        characterCount: 42,
+        pageCount: 2,
+        errorCode: null,
+      }),
+    ).toBe("PDF text ready locally · 2 pages");
     expect(
       attachmentExtractionLabel({
         state: "failed",
         format: null,
         characterCount: null,
+        pageCount: null,
         errorCode: "content_too_large",
       }),
     ).toBe("Text too large to extract");
+    expect(
+      attachmentExtractionLabel({
+        state: "failed",
+        format: null,
+        characterCount: null,
+        pageCount: null,
+        errorCode: "pdf_page_limit_exceeded",
+      }),
+    ).toBe("PDF has too many pages");
   });
 });
