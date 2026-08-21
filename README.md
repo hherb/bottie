@@ -89,6 +89,13 @@ Run the native desktop application:
 npm run tauri dev
 ```
 
+On macOS, this package script development-signs each freshly linked executable with the only usable Apple Development
+identity in the active keychains before Cargo runs it. This prevents macOS execution-policy scans from holding a new
+large debug binary for minutes. No certificate name or fingerprint is stored in the repository, and release signing
+is unchanged. If more than one Apple Development identity is usable, set `BOTTIE_APPLE_SIGNING_IDENTITY` to the exact
+certificate label or SHA-1 fingerprint for the intended identity. Other platforms and Tauri commands pass through
+without development signing.
+
 With oMLX or Ollama running on its default loopback port, the native app discovers available models automatically.
 Provider and model use separate selectors; changing providers refreshes that provider's models, and the last successful
 pair is restored after restart. Settings can change either endpoint and test it before saving. Rust rejects non-loopback

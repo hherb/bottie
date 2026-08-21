@@ -79,8 +79,8 @@ Read these files first:
 7. `src-tauri/src/lib.rs`
 8. `src-tauri/tauri.conf.json`
 
-The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
-`codex/conversation-attachment-scope`.
+The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current development-workflow fix is
+on local branch `codex/macos-development-signing`.
 
 ## Current implementation
 
@@ -307,6 +307,29 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
+
+## Most recently completed development-workflow fix: macOS development signing
+
+Fresh large ad-hoc-signed debug executables could be held by macOS execution policy for several minutes before Bottie
+entered application code. The documented `npm run tauri dev` command now installs a Cargo runner only for macOS Tauri
+development. That runner discovers the active Apple Development identities, requires an explicit environment choice
+when multiple identities are usable, signs the exact freshly linked executable with a stable development identifier
+and hardened runtime, verifies the signature, and then starts Bottie. It records no certificate label, fingerprint,
+team, or private-key material in the repository. Non-macOS and non-development Tauri commands pass through unchanged,
+and release signing and notarization configuration remain outside this workflow.
+
+Focused unit coverage preserves identity selection, ambiguity and mismatch failures, macOS-development gating, Cargo
+runner construction and unsupported-path rejection, and Tauri executable resolution. A temporary copy of the same
+54 MiB debug executable was first signed and cold-launched to validate the approach: AppKit check-in began immediately
+and the app reported ready about 70 ms later, instead of the previously observed multi-minute pre-application hold. A
+fresh launch through the repository wrapper then produced a valid Apple Development signature, reached AppKit check-in
+38 ms after Bottie's first unified-log activity, reported ready 46 ms after check-in, and recorded WebKit's first
+meaningful paint at 0.387 seconds. The app remained live until the verification process stopped it with Control-C.
+The standard checks also pass: Prettier reports clean formatting, `svelte-check` reports no errors or warnings, all 48
+frontend tests pass, the production build succeeds, `cargo fmt --check` and `cargo check` pass, and the complete Rust
+suite reports 140 passed with four live-provider tests intentionally ignored. `git diff --check` is clean. The only
+known development-runner limitation is that Cargo's environment runner format cannot represent Node or repository
+paths containing whitespace; the wrapper detects and reports that case before compilation.
 
 ## Most recently completed product slice: Conversation-level attachment scope
 
@@ -1703,6 +1726,11 @@ npm run tauri dev
 ```
 
 Use the explicit Cargo manifest because the repository root is not a Cargo workspace.
+
+On macOS, use the documented npm command for native development. It dynamically selects the sole usable Apple
+Development identity and signs each freshly linked Cargo executable before launch. If multiple development identities
+are usable, set `BOTTIE_APPLE_SIGNING_IDENTITY` to the intended certificate label or SHA-1 fingerprint. The wrapper
+does not alter release signing.
 
 ## Known housekeeping
 

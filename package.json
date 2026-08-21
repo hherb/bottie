@@ -8,11 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run --pool=forks --maxWorkers=1",
-    "format": "prettier --write \"src/**/*.{ts,svelte,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\"",
+    "format": "prettier --write \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\"",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "tauri"
+    "tauri": "node scripts/macos-development-signing.mjs --tauri"
   },
   "license": "MIT",
   "dependencies": {
