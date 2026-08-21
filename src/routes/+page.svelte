@@ -156,6 +156,7 @@
         attachments={state.attachment.items}
         prompt={state.prompt}
         isGenerating={state.isGenerating}
+        canCompose={state.canSend}
         canSend={state.canSend && state.attachment.canSubmit(state.selectedModel)}
         attachmentNote={composerAttachmentNote(state.attachment.items, state.selectedModel)}
         providerStatus={state.providerStatus}

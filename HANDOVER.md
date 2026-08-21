@@ -257,8 +257,8 @@ Do not mistake visual fixtures for implemented backend behavior:
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
 - no web search or fetch tool exists;
-- there are no automated component or end-to-end UI tests yet; pure presentation and Markdown-policy helpers have
-  frontend unit coverage.
+- there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
+  pure presentation and Markdown-policy helpers have frontend unit coverage.
 
 The browser preview intentionally reports `Browser preview`; only the native Tauri runtime can invoke `app_info`.
 
@@ -331,11 +331,12 @@ without exposing image bytes, derivative identities, or paths to the WebView.
 ### Verification completed
 
 The standard frontend and Rust source checks passed on 2026-08-21. Prettier reports clean formatting, `svelte-check`
-reports no errors or warnings, all 37 frontend tests pass, the production build succeeds, `cargo fmt --check` is clean,
+reports no errors or warnings, all 39 frontend tests pass, the production build succeeds, `cargo fmt --check` is clean,
 and `cargo check` succeeds. One complete native run passed 127 tests while the four live-provider tests remained
 intentionally ignored. The exact final 132-test target also compiles and links after the historical-image edge-case
 test was added. New tests cover native durable-context loading, deferred bounded byte loading, normalization readiness,
-WebView image injection rejection, capability enforcement, stale-current-text rejection, and all three provider shapes.
+WebView image injection rejection, capability enforcement, stale-current-text rejection, all three provider shapes,
+and the composer regression that keeps prompt input enabled when only attachment submission is blocked.
 
 macOS repeatedly held freshly linked Rust test executables in policy evaluation before the test harness started. The
 complete run succeeded after ad-hoc signing one disposable generated executable; subsequent ad-hoc, Apple Development,
