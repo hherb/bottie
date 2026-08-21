@@ -172,8 +172,8 @@
     </button>
     <button
       class="icon-button"
-      aria-label={isBackingUp ? "Backing up local data" : "Back up local data"}
-      title="Back up local data"
+      aria-label={isBackingUp ? "Backing up local data and attachments" : "Back up local data and attachments"}
+      title="Back up local data and attachments"
       disabled={!canBackup || isGenerating}
       onclick={onbackup}
     >
@@ -181,8 +181,8 @@
     </button>
     <button
       class="icon-button"
-      aria-label={isExporting ? "Exporting conversation" : "Export conversation as Markdown"}
-      title="Export conversation as Markdown"
+      aria-label={isExporting ? "Exporting conversation" : "Export conversation as Markdown with attachments"}
+      title="Export conversation as Markdown; retained files are bundled when present"
       disabled={!canExport || isGenerating}
       onclick={onexport}
     >
@@ -190,8 +190,8 @@
     </button>
     <button
       class="icon-button"
-      aria-label={isExporting ? "Exporting conversation" : "Export conversation as JSON"}
-      title="Export conversation as JSON"
+      aria-label={isExporting ? "Exporting conversation" : "Export conversation as JSON with attachments"}
+      title="Export conversation as JSON; retained files are bundled when present"
       disabled={!canExport || isGenerating}
       onclick={onexportjson}
     >
@@ -199,8 +199,8 @@
     </button>
     <button
       class="icon-button"
-      aria-label={isExporting ? "Exporting conversations" : "Export all conversations as JSON"}
-      title="Export all conversations as JSON"
+      aria-label={isExporting ? "Exporting conversations" : "Export all conversations as JSON with attachments"}
+      title="Export all conversations as JSON; retained files are bundled when present"
       disabled={!canBatchExport || isGenerating}
       onclick={onexportbatchjson}
     >

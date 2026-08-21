@@ -149,7 +149,7 @@ Status: in progress
 - [x] clear behavior for text-only models;
 - [x] per-message association with selected-branch reopen, fork inheritance, and association removal;
 - [x] conversation-level attachment scope;
-- [ ] portable attachment backup and export behavior;
+- [x] portable attachment backup and export behavior;
 - [ ] attachment garbage collection;
 - [ ] previews and extraction-error UX.
 

@@ -29,6 +29,8 @@ mod image_normalization;
 mod lifecycle;
 mod migrate;
 mod migrations;
+mod portable_backup;
+mod portable_export;
 mod ratings;
 mod recovery;
 mod runs;
@@ -43,14 +45,16 @@ pub(crate) use attachment_delivery::{ProviderContextImage, ProviderContextMessag
 pub(crate) use attachment_indexing::{AttachmentIndexingState, StoredAttachmentIndexing};
 pub(crate) use attachments::{IngestedAttachment, MAX_ATTACHMENT_SELECTION_COUNT};
 pub(crate) use error::StorageError;
-pub(crate) use export::ConversationFileExport;
 pub(crate) use extraction::{
     AttachmentExtractionFormat, AttachmentExtractionState, StoredAttachmentExtraction,
 };
 pub(crate) use image_normalization::StoredImageNormalization;
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
+pub(crate) use portable_export::ConversationFileExport;
 pub(crate) use recovery::StorageRecoveryStatus;
+#[cfg(test)]
+use types::StorageStatus;
 pub(crate) use types::{
     ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
     ForkedConversation, MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext,
@@ -64,17 +68,6 @@ const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
 const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_CONVERSATION_TITLE_CHARACTERS: usize = 80;
-
-/// Diagnostic storage policy status used by tests and future recovery UI.
-#[cfg(test)]
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct StorageStatus {
-    schema_version: i64,
-    profile_name: String,
-    integrity_check: String,
-    foreign_keys_enabled: bool,
-    journal_mode: String,
-}
 
 /// Path-backed SQLite store opened through short-lived configured connections.
 #[derive(Clone)]
@@ -485,6 +478,8 @@ mod export_tests;
 mod extraction_tests;
 #[cfg(test)]
 mod image_normalization_tests;
+#[cfg(test)]
+mod portable_export_tests;
 #[cfg(test)]
 mod rating_tests;
 #[cfg(test)]
