@@ -1,6 +1,7 @@
 #![deny(missing_docs)]
 //! Native application commands and lifecycle for Bottie's Tauri desktop shell.
 
+mod attachment_garbage_collector;
 mod attachment_processor;
 mod command_types;
 mod credentials;
@@ -397,6 +398,12 @@ pub fn run() {
                 .map_err(|error| std::io::Error::other(error.message))?;
             let diagnostics = Diagnostics::default();
             let conversations = startup.store;
+            if !startup.recovery_required {
+                attachment_garbage_collector::collect_at_startup(
+                    &conversations,
+                    diagnostics.clone(),
+                );
+            }
             let attachment_processing = AttachmentProcessor::start(
                 app.handle().clone(),
                 conversations.clone(),

@@ -150,7 +150,7 @@ Status: in progress
 - [x] per-message association with selected-branch reopen, fork inheritance, and association removal;
 - [x] conversation-level attachment scope;
 - [x] portable attachment backup and export behavior;
-- [ ] attachment garbage collection;
+- [x] restart-boundary attachment garbage collection;
 - [ ] previews and extraction-error UX.
 
 Raw local filesystem paths must never be forwarded to a provider.

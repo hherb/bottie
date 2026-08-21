@@ -174,7 +174,14 @@ and regenerated request branches inherit the source request's associations. Deta
 messages while generation is idle and retains the catalog row and blob for deduplication. Conversation-scoped
 associations apply on every branch and future request;
 ready images are treated as current vision context and deduplicated when the same file is message-linked, while
-documents remain local-only. Schema-version-15 records retain up to 2 MiB of UTF-8 plain-text,
+documents remain local-only. Before drafts or background processing begin on each successful non-recovery startup,
+Rust deletes catalog entries older than a 24-hour safety window with no message or conversation association, including
+their extraction and normalization metadata. It then removes only equally old, strict hash-addressed
+original/derivative files absent from the surviving catalog and clears old interrupted attachment temporary files.
+Recoverable Trash references, recent cross-process drafts, and shared derivatives remain live; unexpected files are
+left untouched. Cleanup commits catalog changes before file sweeping and holds a SQLite write lock during the sweep so
+interruption can leave only harmless untracked bytes for the next pass. Recent diagnostics receives counts and
+reclaimed bytes without paths or content identities. Schema-version-15 records retain up to 2 MiB of UTF-8 plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
 and expose only path-free state to the interface. Each attachment also retains waiting-for-extraction, indexable,
 unsupported, or blocked readiness for a later native text index; indexable means eligible, not indexed. PDF extraction

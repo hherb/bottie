@@ -13,6 +13,7 @@ use std::{
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 mod attachment_delivery;
+mod attachment_garbage_collection;
 mod attachment_indexing;
 mod attachment_policy;
 mod attachment_processing;
@@ -42,6 +43,7 @@ mod types;
 pub(crate) use attachment_delivery::{ProviderAttachmentContext, ProviderImageFormat};
 #[cfg(test)]
 pub(crate) use attachment_delivery::{ProviderContextImage, ProviderContextMessage};
+pub(crate) use attachment_garbage_collection::AttachmentGarbageCollection;
 pub(crate) use attachment_indexing::{AttachmentIndexingState, StoredAttachmentIndexing};
 pub(crate) use attachments::{IngestedAttachment, MAX_ATTACHMENT_SELECTION_COUNT};
 pub(crate) use error::StorageError;
@@ -462,6 +464,8 @@ fn now_ms() -> Result<i64, StorageError> {
 
 #[cfg(test)]
 mod attachment_delivery_tests;
+#[cfg(test)]
+mod attachment_garbage_collection_tests;
 #[cfg(test)]
 mod attachment_indexing_tests;
 #[cfg(test)]
