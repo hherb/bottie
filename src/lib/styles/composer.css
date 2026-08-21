@@ -46,6 +46,10 @@
   color: #aaa7b0;
   font-size: 8.5px;
 }
+.attachment-chip.failed {
+  border-color: rgba(217, 143, 145, 0.38);
+  background: rgba(217, 143, 145, 0.055);
+}
 .attachment-chip > span:nth-child(2) {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -60,6 +64,14 @@
   border-radius: 5px;
   background: rgba(143, 125, 247, 0.1);
   color: #9f91ee;
+  overflow: hidden;
+}
+.chip-icon img,
+.attachment-icon img,
+.message-attachment-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .chip-icon.image {
   background: rgba(91, 216, 200, 0.09);

@@ -2,6 +2,7 @@
 //! Native application commands and lifecycle for Bottie's Tauri desktop shell.
 
 mod attachment_garbage_collector;
+mod attachment_preview_protocol;
 mod attachment_processor;
 mod command_types;
 mod credentials;
@@ -390,6 +391,16 @@ async fn discover_models(
 /// Builds and runs the native Bottie application.
 pub fn run() {
     tauri::Builder::default()
+        .register_uri_scheme_protocol("bottie-attachment", |context, request| {
+            if context.webview_label() != "main" {
+                return tauri::http::Response::builder()
+                    .status(tauri::http::StatusCode::NOT_FOUND)
+                    .body(Vec::new())
+                    .expect("static preview response should build");
+            }
+            let state = context.app_handle().state::<AppState>();
+            attachment_preview_protocol::response(&state.conversations, &request)
+        })
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("providers.json");

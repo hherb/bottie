@@ -149,7 +149,7 @@ describe("chat presentation helpers", () => {
       size: "12 KB",
       kind: "image" as const,
       mimeType: "image/png",
-      sha256: "hash",
+      previewUrl: null,
       extraction: {
         state: "unsupported" as const,
         format: null,
@@ -192,7 +192,7 @@ describe("chat presentation helpers", () => {
       size: "12 KB",
       kind: "image" as const,
       mimeType: "image/jpeg",
-      sha256: "hash",
+      previewUrl: null,
       extraction: {
         state: "unsupported" as const,
         format: null,

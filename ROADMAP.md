@@ -135,7 +135,7 @@ ownership rewrite.
 
 Outcome: users can safely add images and documents and see exactly what is sent to a model.
 
-Status: in progress
+Status: complete
 
 - [x] content-addressed attachment storage in the application data directory;
 - [x] MIME sniffing, hashes, size limits, duplicate detection, and safe display names;
@@ -151,7 +151,7 @@ Status: in progress
 - [x] conversation-level attachment scope;
 - [x] portable attachment backup and export behavior;
 - [x] restart-boundary attachment garbage collection;
-- [ ] previews and extraction-error UX.
+- [x] bounded ready-image previews and explicit extraction/normalization-error UX.
 
 Raw local filesystem paths must never be forwarded to a provider.
 

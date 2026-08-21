@@ -23,6 +23,30 @@ const IMAGE_NORMALIZATION_FAILURE_LABELS: Record<string, string> = {
   image_write_failed: "Image normalization could not be saved",
 };
 
+/** One explicit local-only consequence for failed attachment preparation. */
+export type AttachmentFailure = {
+  title: string;
+  detail: string;
+};
+
+/** Describes a failed extraction or normalization without exposing native diagnostics. */
+export function attachmentFailure(attachment: Attachment): AttachmentFailure | null {
+  if (attachment.normalization.state === "failed") {
+    return {
+      title:
+        IMAGE_NORMALIZATION_FAILURE_LABELS[attachment.normalization.errorCode ?? ""] ?? "Image normalization failed",
+      detail: "The original file is still stored locally, but Bottie cannot preview or send this image.",
+    };
+  }
+  if (attachment.extraction.state === "failed") {
+    return {
+      title: attachmentExtractionLabel(attachment.extraction),
+      detail: "The original file is still stored locally, but its text is unavailable for later indexing.",
+    };
+  }
+  return null;
+}
+
 /** Describes image normalization, falling back to text extraction for non-image attachments. */
 export function attachmentStatusLabel(
   normalization: ImageNormalization,

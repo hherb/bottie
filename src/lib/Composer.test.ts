@@ -1,13 +1,14 @@
 import { render } from "svelte/server";
 import { describe, expect, it, vi } from "vitest";
 
+import type { Attachment } from "./presentation";
 import Composer from "./Composer.svelte";
 
 /** Renders the composer with inert callbacks and the requested interaction eligibility. */
-function renderedComposer(canCompose: boolean, canSend: boolean): string {
+function renderedComposer(canCompose: boolean, canSend: boolean, attachments: Attachment[] = []): string {
   return render(Composer, {
     props: {
-      attachments: [],
+      attachments,
       prompt: "Describe this image",
       isGenerating: false,
       canCompose,
@@ -37,5 +38,31 @@ describe("Composer", () => {
 
   it("disables text input when the provider and model cannot accept a prompt", () => {
     expect(renderedComposer(false, false)).toMatch(/<textarea[^>]* disabled/);
+  });
+
+  it("keeps one ready thumbnail and failure explanation attached to its draft chip", () => {
+    const failedImage: Attachment = {
+      id: "image",
+      name: "broken.png",
+      size: "4 KB",
+      kind: "image",
+      mimeType: "image/png",
+      previewUrl: null,
+      extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
+      indexing: { state: "unsupported" },
+      normalization: {
+        state: "failed",
+        format: null,
+        width: null,
+        height: null,
+        byteSize: null,
+        errorCode: "image_decode_failed",
+      },
+    };
+
+    const html = renderedComposer(true, false, [failedImage]);
+    expect(html).toContain('class="attachment-chip failed"');
+    expect(html).toContain("Image could not be decoded");
+    expect(html).toContain("cannot preview or send this image");
   });
 });

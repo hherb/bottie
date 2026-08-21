@@ -15,7 +15,7 @@ const attachment: Attachment = {
   size: "1 KB",
   kind: "image",
   mimeType: "image/png",
-  sha256: "abc",
+  previewUrl: null,
   extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
   indexing: { state: "unsupported" },
   normalization: { state: "ready", format: "png", width: 1, height: 1, byteSize: 68, errorCode: null },

@@ -1,5 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
+  import AttachmentVisual from "$lib/AttachmentVisual.svelte";
+  import { attachmentFailure } from "$lib/attachment";
   import { MAX_COMPOSER_ATTACHMENTS, type Attachment, type ProviderStatus } from "$lib/presentation";
 
   type Props = {
@@ -53,11 +55,17 @@
     {#if attachments.length > 0}
       <div class="composer-attachments">
         {#each attachments.slice(0, MAX_COMPOSER_ATTACHMENTS) as attachment (attachment.id)}
-          <div class="attachment-chip">
-            <span class:image={attachment.kind === "image"} class="chip-icon">
-              <Icon name={attachment.kind} size={14} />
-            </span>
+          {@const failure = attachmentFailure(attachment)}
+          <div
+            class:failed={Boolean(failure)}
+            class="attachment-chip"
+            title={failure ? `${failure.title}. ${failure.detail}` : undefined}
+          >
+            <AttachmentVisual {attachment} className="chip-icon" iconSize={14} />
             <span>{attachment.name}</span>
+            {#if failure}
+              <span class="visually-hidden">{failure.title}. {failure.detail}</span>
+            {/if}
             <button aria-label={`Remove ${attachment.name}`} onclick={() => onremove(attachment.id)}>
               <Icon name="x" size={13} />
             </button>

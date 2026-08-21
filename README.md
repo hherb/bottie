@@ -197,7 +197,13 @@ ready normalized derivatives in verified backup-only tables. Conversation export
 files, never extracted SQLite text or normalized derivatives. Ready JPEG/PNG derivatives are read only by Rust for
 capability-confirmed vision requests, with
 an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from provider requests. Other
-office formats are not extracted, and no attachment is indexed or retrievable yet.
+office formats are not extracted, and no attachment is indexed or retrievable yet. Ready images also receive a
+metadata-free thumbnail capped to 320 pixels on either axis. The WebView requests that thumbnail through a private
+`bottie-attachment` protocol using only the opaque attachment ID; Rust rejects non-GET, malformed, missing, pending,
+unsupported, and failed requests without returning a path, hash, derivative identity, or native diagnostic. Failed
+text extraction and image normalization remain linked locally and now show a specific, accessible consequence in the
+composer, context panel, and retained message presentation. Preview generation does not add retry controls or change
+provider delivery.
 
 Run the layout-only browser preview:
 

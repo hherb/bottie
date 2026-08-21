@@ -72,9 +72,12 @@ every original blob and ready normalized derivative, while selected and batch ex
 with versioned path-free manifests. Each successful non-recovery startup now removes attachment catalog rows older
 than a 24-hour safety window with no message or conversation reference, then sweeps equally old strict untracked
 original/derivative files and interrupted temporary work without touching recent cross-process drafts, recoverable
-Trash references, or shared derivatives. The next bounded implementation slice is attachment previews and
-extraction-error UX; do not bundle extraction retry controls, document delivery, other office formats, retrieval, or
-broad visual-design work with it.
+Trash references, or shared derivatives. Milestone 3 is now complete: ready normalized images render as bounded,
+metadata-free thumbnails in draft, context, and retained-message surfaces through an opaque attachment-ID-only native
+protocol. Original and derivative hashes do not serialize through attachment IPC. Failed extraction and normalization
+remain explicitly local and show a specific accessible consequence without adding retry controls. The next bounded
+implementation slice is the SQLite FTS5 lexical-search foundation for persistent memory; do not bundle sqlite-vec,
+embedding download/runtime work, chunking, retrieval injection, memory tools, or attachment retry controls with it.
 
 Read these files first:
 
@@ -113,6 +116,7 @@ branch `codex/attachment-garbage-collection`.
 - native attachment selection, application-private ingestion, durable selected-lineage message and branch-independent
   conversation associations, explicit scope labels, narrow removal, and path-redacted outcome feedback;
 - durable background plain-text, Markdown, page-aware PDF, DOCX, JPEG, and PNG processing with live path-free labels;
+- bounded ready-image thumbnails plus explicit local-only extraction and normalization failure presentation;
 - durable extracted-text indexing readiness with honest indexable, unsupported, and blocked presentation;
 - capability-aware normalized JPEG/PNG delivery labels and current-draft blocking for text-only models;
 - a composer with memory and web affordances;
@@ -177,6 +181,9 @@ claiming any index content,
 `src/lib/storage-transfer.ts` owns the path-redacted frontend backup, restore, and export contracts,
 `src-tauri/src/storage/attachment_delivery.rs` owns selected-lineage reconstruction, current-image readiness, bounded
 derivative loading, and path-free delivery errors,
+`src-tauri/src/storage/attachment_preview.rs` owns bounded metadata-free thumbnail generation from ready derivatives,
+and `src-tauri/src/attachment_preview_protocol.rs` serves those pixels only through GET requests containing one opaque
+attachment ID,
 `src-tauri/src/storage/attachment_garbage_collection.rs` owns restart-boundary catalog pruning, strict managed-file
 sweeping, interrupted temporary cleanup, and shared-derivative preservation,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
@@ -345,7 +352,64 @@ suite reports 140 passed with four live-provider tests intentionally ignored. `g
 known development-runner limitation is that Cargo's environment runner format cannot represent Node or repository
 paths containing whitespace; the wrapper detects and reports that case before compilation.
 
-## Most recently completed product slice: Restart-boundary attachment garbage collection
+## Most recently completed product slice: Attachment previews and extraction-error UX
+
+### Goal
+
+Make ready local images visually recognizable and failed attachment preparation understandable without exposing an
+arbitrary file surface, moving native identities or content into Svelte state, or bundling retry and retrieval work.
+
+### Implemented shape
+
+1. Rust resolves only a ready JPEG/PNG derivative from one opaque UUID, decodes it under the existing 128 MiB ceiling,
+   scales it to at most 320 pixels on either axis, and re-encodes metadata-free JPEG or PNG bytes under a 2 MiB preview
+   ceiling. Pending, unsupported, failed, missing, and malformed identities have no preview.
+2. A dedicated `bottie-attachment` custom protocol accepts GET requests from Bottie's main WebView only. Responses use
+   trusted media types, `no-store`, and `nosniff`; every failure is bodyless and path-redacted. CSP permits only that
+   protocol's image origin in addition to bundled, blob, and data images.
+3. Svelte derives the preview URL from the opaque attachment ID only after native metadata reports ready normalization.
+   One shared visual renders lazy thumbnails in composer chips, context rows, and durable message cards, then falls
+   back to the existing file icon if a preview request fails.
+4. Stable path-free failure codes now produce a clear title and consequence: the original remains local, while failed
+   document text is unavailable for later indexing and a failed image cannot be previewed or sent. Draft chips expose
+   the same explanation accessibly; context and message cards show it directly.
+5. Original SHA-256 content identities remain available to Rust storage/export internals but are skipped by both picker
+   and reopened-attachment serialization, so the WebView receives only the opaque attachment ID and safe metadata.
+
+### Acceptance criteria
+
+- Preview requests cannot select a path, hash, MIME claim, source/original, extracted text, or arbitrary derivative;
+  only one ready attachment UUID can resolve to a freshly re-encoded bounded thumbnail.
+- The main WebView is the only protocol caller, only GET is accepted, and invalid/unavailable requests reveal no native
+  detail. Preview pixels do not enter Tauri IPC or Svelte state.
+- Draft, conversation, message, archived, and reopened attachments reuse the same typed presentation. Documents and
+  incomplete/failed images retain icons, while a broken preview degrades to its icon without affecting delivery state.
+- Extraction and normalization failures identify their local-only consequence without implying deletion, indexing,
+  provider delivery, or retry support.
+- Extraction retry, document delivery, other office formats, FTS/vector construction, embeddings, retrieval, and broad
+  visual redesign remain outside this slice.
+
+### Verification completed
+
+Focused tests first failed against absent preview and failure contracts. Rust coverage proves pending/document/missing
+content has no preview, ready PNG pixels are resized and re-encoded, hashes are absent from picker and reopened JSON,
+and protocol method/path/header policy is enforced. Frontend coverage proves thumbnail/icon fallback, draft failure
+accessibility, context error presentation, stable failure explanations, and path-free processing updates.
+
+The standard checks pass: Prettier reports clean formatting, `svelte-check` reports no errors or warnings, all 53
+frontend tests pass, the production build succeeds, and Cargo formatting/check pass. The complete Rust suite reports
+155 passed with the four opt-in live-provider checks intentionally ignored. `git diff --check` is clean.
+
+Browser-preview checks at 1320 × 820, 720 × 620, and 420 × 780 show ready thumbnails and the explicit
+extraction-error card without horizontal overflow or console warnings/errors. A fresh signed native launch reopened
+the selected durable conversation and visibly rendered a real receipt thumbnail through the custom protocol beside a
+PDF icon; an app-window-only capture confirmed the 1320 × 820 layout without collecting other application content.
+The app was stopped after verification. A post-launch immutable read-only store inspection reports schema version 15,
+`quick_check=ok`, four catalogued attachments, two ready image normalizations, and no running provider records. Native
+picker behavior and a deliberately failed live attachment were not exercised; the error layout is covered by focused
+component tests and the browser fixture.
+
+## Prior completed product slice: Restart-boundary attachment garbage collection
 
 ### Goal
 
