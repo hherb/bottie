@@ -68,6 +68,11 @@ export type AttachmentExtraction = {
   errorCode: string | null;
 };
 
+/** Path-free readiness for later native text indexing. */
+export type AttachmentIndexing = {
+  state: "waiting_for_extraction" | "indexable" | "unsupported" | "blocked";
+};
+
 /** Path-free native image normalization metadata that omits derivative identity, bytes, and paths. */
 export type ImageNormalization = {
   state: "pending" | "ready" | "unsupported" | "failed";
@@ -86,6 +91,7 @@ export type StoredAttachment = {
   byteSize: number;
   sha256: string;
   extraction: AttachmentExtraction;
+  indexing: AttachmentIndexing;
   normalization: ImageNormalization;
 };
 
@@ -424,6 +430,7 @@ export function storedAttachmentToPresentation(attachment: StoredAttachment): At
     mimeType: attachment.mimeType,
     sha256: attachment.sha256,
     extraction: attachment.extraction,
+    indexing: attachment.indexing,
     normalization: attachment.normalization,
   };
 }

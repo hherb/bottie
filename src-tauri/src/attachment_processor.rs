@@ -1,4 +1,4 @@
-//! Process-lifetime scheduling for durable attachment extraction and normalization.
+//! Process-lifetime scheduling for durable attachment processing and indexing readiness.
 
 use std::{
     sync::mpsc::{Receiver, Sender, channel},

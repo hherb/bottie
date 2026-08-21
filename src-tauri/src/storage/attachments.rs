@@ -10,9 +10,10 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::Serialize;
 
 use super::{
-    AttachmentExtractionFormat, AttachmentExtractionState, ConversationStore, DEFAULT_PROFILE_ID,
-    StorageError, StoredAttachment, StoredAttachmentExtraction, StoredImageNormalization,
-    StoredMessage, StoredRole,
+    AttachmentExtractionFormat, AttachmentExtractionState, AttachmentIndexingState,
+    ConversationStore, DEFAULT_PROFILE_ID, StorageError, StoredAttachment,
+    StoredAttachmentExtraction, StoredAttachmentIndexing, StoredImageNormalization, StoredMessage,
+    StoredRole,
     attachment_policy::{PreparedAttachment, prepare_blob, validate_source},
     load_conversation_from_connection, now_ms,
 };
@@ -43,6 +44,8 @@ pub(crate) struct IngestedAttachment {
     pub(crate) sha256: String,
     /// Native-only extraction status; extracted content is deliberately omitted.
     pub(crate) extraction: StoredAttachmentExtraction,
+    /// Readiness for later native text indexing without any extracted content.
+    pub(crate) indexing: StoredAttachmentIndexing,
     /// Native-only image normalization status; derivative bytes and paths are omitted.
     pub(crate) normalization: StoredImageNormalization,
     /// Whether this selection reused an already retained content blob.
@@ -146,6 +149,9 @@ impl ConversationStore {
                 page_count: None,
                 error_code: None,
             },
+            indexing: StoredAttachmentIndexing {
+                state: AttachmentIndexingState::WaitingForExtraction,
+            },
             normalization,
             duplicate: false,
         };
@@ -168,6 +174,11 @@ impl ConversationStore {
         transaction.execute(
             "INSERT INTO attachment_extractions (attachment_id, state, updated_at_ms)
              VALUES (?1, 'pending', ?2)",
+            params![attachment.id, now_ms()?],
+        )?;
+        transaction.execute(
+            "INSERT INTO attachment_text_indexing (attachment_id, state, updated_at_ms)
+             VALUES (?1, 'waiting_for_extraction', ?2)",
             params![attachment.id, now_ms()?],
         )?;
         transaction.execute(
@@ -272,12 +283,14 @@ pub(super) fn load_message_attachments(
                 attachments.byte_size, attachments.sha256, attachment_extractions.state,
                 attachment_extractions.format, attachment_extractions.character_count,
                 attachment_extractions.page_count, attachment_extractions.error_code,
+                attachment_text_indexing.state,
                 attachment_image_normalizations.state, attachment_image_normalizations.format,
                 attachment_image_normalizations.width, attachment_image_normalizations.height,
                 attachment_image_normalizations.byte_size, attachment_image_normalizations.error_code
          FROM message_attachments
          JOIN attachments ON attachments.id = message_attachments.attachment_id
          JOIN attachment_extractions ON attachment_extractions.attachment_id = attachments.id
+         JOIN attachment_text_indexing ON attachment_text_indexing.attachment_id = attachments.id
          JOIN attachment_image_normalizations
            ON attachment_image_normalizations.attachment_id = attachments.id
          WHERE message_attachments.message_id = ?1
@@ -300,11 +313,13 @@ pub(super) fn stored_attachment(
                     attachments.byte_size, attachments.sha256, attachment_extractions.state,
                     attachment_extractions.format, attachment_extractions.character_count,
                     attachment_extractions.page_count, attachment_extractions.error_code,
+                    attachment_text_indexing.state,
                     attachment_image_normalizations.state, attachment_image_normalizations.format,
                     attachment_image_normalizations.width, attachment_image_normalizations.height,
                     attachment_image_normalizations.byte_size, attachment_image_normalizations.error_code
              FROM attachments
              JOIN attachment_extractions ON attachment_extractions.attachment_id = attachments.id
+             JOIN attachment_text_indexing ON attachment_text_indexing.attachment_id = attachments.id
              JOIN attachment_image_normalizations
                ON attachment_image_normalizations.attachment_id = attachments.id
              WHERE attachments.id = ?1",
@@ -338,7 +353,11 @@ fn stored_attachment_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Store
             page_count: row.get::<_, Option<i64>>(8)?.map(|count| count as u64),
             error_code: row.get(9)?,
         },
-        normalization: StoredImageNormalization::from_row(row, 10)?,
+        indexing: StoredAttachmentIndexing {
+            state: AttachmentIndexingState::from_database(&row.get::<_, String>(10)?)
+                .map_err(|_| rusqlite::Error::InvalidQuery)?,
+        },
+        normalization: StoredImageNormalization::from_row(row, 11)?,
     })
 }
 
@@ -420,11 +439,13 @@ fn find_attachment(
                     attachments.byte_size, attachments.sha256, attachment_extractions.state,
                     attachment_extractions.format, attachment_extractions.character_count,
                     attachment_extractions.page_count, attachment_extractions.error_code,
+                    attachment_text_indexing.state,
                     attachment_image_normalizations.state, attachment_image_normalizations.format,
                     attachment_image_normalizations.width, attachment_image_normalizations.height,
                     attachment_image_normalizations.byte_size, attachment_image_normalizations.error_code
              FROM attachments
              JOIN attachment_extractions ON attachment_extractions.attachment_id = attachments.id
+             JOIN attachment_text_indexing ON attachment_text_indexing.attachment_id = attachments.id
              JOIN attachment_image_normalizations
                ON attachment_image_normalizations.attachment_id = attachments.id
              WHERE attachments.sha256 = ?1",
@@ -447,6 +468,7 @@ fn ingested_from_stored(attachment: StoredAttachment, duplicate: bool) -> Ingest
         byte_size: attachment.byte_size,
         sha256: attachment.sha256,
         extraction: attachment.extraction,
+        indexing: attachment.indexing,
         normalization: attachment.normalization,
         duplicate,
     }

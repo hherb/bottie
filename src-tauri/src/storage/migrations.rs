@@ -348,3 +348,24 @@ SELECT id,
        created_at_ms
 FROM attachments;
 "#;
+
+/// Adds durable readiness for later background text indexing without creating an index.
+pub(super) const MIGRATION_14: &str = r#"
+CREATE TABLE attachment_text_indexing (
+    attachment_id TEXT PRIMARY KEY REFERENCES attachments(id) ON DELETE CASCADE,
+    state TEXT NOT NULL CHECK (
+        state IN ('waiting_for_extraction', 'indexable', 'unsupported', 'blocked')
+    ),
+    updated_at_ms INTEGER NOT NULL
+) STRICT;
+INSERT INTO attachment_text_indexing (attachment_id, state, updated_at_ms)
+SELECT attachment_extractions.attachment_id,
+       CASE attachment_extractions.state
+           WHEN 'pending' THEN 'waiting_for_extraction'
+           WHEN 'ready' THEN 'indexable'
+           WHEN 'unsupported' THEN 'unsupported'
+           WHEN 'failed' THEN 'blocked'
+       END,
+       attachment_extractions.updated_at_ms
+FROM attachment_extractions;
+"#;

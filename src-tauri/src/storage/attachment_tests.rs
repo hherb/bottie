@@ -35,7 +35,8 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachment_image_normalizations;
+            "DROP TABLE attachment_text_indexing;
+             DROP TABLE attachment_image_normalizations;
              DROP TABLE attachment_extractions;
              DROP TABLE message_attachments;
              DROP TABLE attachments;",
@@ -65,7 +66,7 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
             .status()
             .expect("status should load")
             .schema_version,
-        13
+        14
     );
     assert_eq!(table_count, 1);
 }
@@ -77,7 +78,8 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachment_image_normalizations;
+            "DROP TABLE attachment_text_indexing;
+             DROP TABLE attachment_image_normalizations;
              DROP TABLE attachment_extractions;
              DROP TABLE message_attachments;",
         )
@@ -106,7 +108,7 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
             .status()
             .expect("status should load")
             .schema_version,
-        13
+        14
     );
     assert_eq!(table_count, 1);
 }
@@ -119,7 +121,8 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachment_image_normalizations;
+            "DROP TABLE attachment_text_indexing;
+             DROP TABLE attachment_image_normalizations;
              DROP TABLE attachment_extractions;",
         )
         .expect("version ten table should be removable in the fixture");
@@ -144,7 +147,7 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
             .status()
             .expect("status should load")
             .schema_version,
-        13
+        14
     );
     assert_eq!(stored.extraction.state, AttachmentExtractionState::Ready);
     assert_eq!(
