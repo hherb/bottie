@@ -35,7 +35,8 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachment_text_indexing;
+            "DROP TABLE conversation_attachments;
+             DROP TABLE attachment_text_indexing;
              DROP TABLE attachment_image_normalizations;
              DROP TABLE attachment_extractions;
              DROP TABLE message_attachments;
@@ -66,7 +67,7 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
             .status()
             .expect("status should load")
             .schema_version,
-        14
+        15
     );
     assert_eq!(table_count, 1);
 }
@@ -78,7 +79,8 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachment_text_indexing;
+            "DROP TABLE conversation_attachments;
+             DROP TABLE attachment_text_indexing;
              DROP TABLE attachment_image_normalizations;
              DROP TABLE attachment_extractions;
              DROP TABLE message_attachments;",
@@ -108,7 +110,7 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
             .status()
             .expect("status should load")
             .schema_version,
-        14
+        15
     );
     assert_eq!(table_count, 1);
 }
@@ -121,7 +123,8 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachment_text_indexing;
+            "DROP TABLE conversation_attachments;
+             DROP TABLE attachment_text_indexing;
              DROP TABLE attachment_image_normalizations;
              DROP TABLE attachment_extractions;",
         )
@@ -147,7 +150,7 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
             .status()
             .expect("status should load")
             .schema_version,
-        14
+        15
     );
     assert_eq!(stored.extraction.state, AttachmentExtractionState::Ready);
     assert_eq!(
@@ -161,6 +164,45 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
             .as_deref(),
         Some("# Existing attachment")
     );
+}
+
+#[test]
+fn upgrades_version_fourteen_stores_with_empty_conversation_scope() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let connection = store.open().expect("database should open");
+    connection
+        .execute_batch("DROP TABLE conversation_attachments;")
+        .expect("conversation attachment table should be removable");
+    connection
+        .execute("DELETE FROM schema_migrations WHERE version = 15", [])
+        .expect("conversation-scope migration record should be removable");
+    connection
+        .pragma_update(None, "user_version", 14)
+        .expect("fixture version should be set");
+    drop(connection);
+    drop(store);
+
+    let upgraded =
+        ConversationStore::initialize(path).expect("version fourteen store should upgrade");
+    let connection = upgraded.open().expect("upgraded database should open");
+    let table_count: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_schema
+             WHERE type = 'table' AND name = 'conversation_attachments'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("conversation attachment table should be queryable");
+
+    assert_eq!(
+        upgraded
+            .status()
+            .expect("status should load")
+            .schema_version,
+        15
+    );
+    assert_eq!(table_count, 1);
 }
 
 #[test]
@@ -213,6 +255,120 @@ fn associates_ordered_attachments_with_a_user_message_across_reopen_and_branchin
     assert_eq!(
         forked.conversation.messages[0].attachments,
         request.attachments
+    );
+}
+
+#[test]
+fn associates_ordered_attachments_with_a_conversation_across_reopen_and_branching() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let first = ingest_fixture(&store, "project.md", b"# Project context");
+    let second = ingest_fixture(&store, "reference.txt", b"Shared reference");
+    let conversation = store
+        .create_conversation("Conversation attachment scope")
+        .expect("conversation should be created");
+
+    let attached = store
+        .add_conversation_attachments(
+            &conversation.id,
+            &[second.id.clone(), first.id.clone(), second.id.clone()],
+        )
+        .expect("conversation attachments should commit");
+
+    assert_eq!(
+        attached
+            .iter()
+            .map(|attachment| attachment.id.as_str())
+            .collect::<Vec<_>>(),
+        vec![second.id.as_str(), first.id.as_str()]
+    );
+    drop(store);
+
+    let reopened = ConversationStore::initialize(path).expect("storage should reopen");
+    let loaded = reopened
+        .load_conversation(&conversation.id)
+        .expect("conversation should load");
+    assert_eq!(loaded.attachments, attached);
+
+    let request = reopened
+        .append_message(NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::User,
+            text: "Use the shared context".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        })
+        .expect("request should append");
+    let forked = reopened
+        .fork_from_user_message(&conversation.id, &request.id, "Keep shared context")
+        .expect("request should fork");
+    assert_eq!(forked.conversation.attachments, attached);
+}
+
+#[test]
+fn validates_and_removes_only_conversation_scoped_associations() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let attachment = ingest_fixture(&store, "scope.txt", b"Conversation scope");
+    let unrelated = ingest_fixture(&store, "other.txt", b"Other content");
+    let conversation = store
+        .create_conversation("Scoped removal")
+        .expect("conversation should be created");
+    store
+        .add_conversation_attachments(&conversation.id, &[attachment.id.clone()])
+        .expect("conversation attachment should commit");
+
+    let missing = store.remove_conversation_attachment(&conversation.id, &unrelated.id);
+    assert_eq!(
+        missing.expect_err("unassociated content should fail").code,
+        "not_found"
+    );
+
+    let remaining = store
+        .remove_conversation_attachment(&conversation.id, &attachment.id)
+        .expect("conversation attachment should be removable");
+    assert!(remaining.is_empty());
+    assert_eq!(store.attachment_count().expect("catalog should remain"), 2);
+}
+
+#[test]
+fn bounds_conversation_scope_without_partially_associating_content() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let conversation = store
+        .create_conversation("Bounded conversation scope")
+        .expect("conversation should be created");
+    let attachments = (0..=super::attachments::MAX_ATTACHMENT_SELECTION_COUNT)
+        .map(|index| {
+            ingest_fixture(
+                &store,
+                &format!("context-{index}.txt"),
+                format!("Context {index}").as_bytes(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let accepted = attachments
+        .iter()
+        .take(super::attachments::MAX_ATTACHMENT_SELECTION_COUNT)
+        .map(|attachment| attachment.id.clone())
+        .collect::<Vec<_>>();
+    store
+        .add_conversation_attachments(&conversation.id, &accepted)
+        .expect("bounded conversation scope should commit");
+
+    let error = store
+        .add_conversation_attachments(&conversation.id, &[attachments.last().unwrap().id.clone()])
+        .expect_err("ninth conversation attachment should fail");
+    let loaded = store
+        .load_conversation(&conversation.id)
+        .expect("conversation should remain readable");
+
+    assert_eq!(error.code, "invalid_request");
+    assert_eq!(
+        loaded.attachments.len(),
+        super::attachments::MAX_ATTACHMENT_SELECTION_COUNT
     );
 }
 

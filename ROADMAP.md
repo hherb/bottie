@@ -148,8 +148,9 @@ Status: in progress
 - [x] capability-aware image delivery to vision models;
 - [x] clear behavior for text-only models;
 - [x] per-message association with selected-branch reopen, fork inheritance, and association removal;
-- [ ] conversation-level attachment scope;
-- [ ] attachment garbage collection plus portable backup and export behavior;
+- [x] conversation-level attachment scope;
+- [ ] portable attachment backup and export behavior;
+- [ ] attachment garbage collection;
 - [ ] previews and extraction-error UX.
 
 Raw local filesystem paths must never be forwarded to a provider.

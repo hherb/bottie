@@ -30,14 +30,14 @@ use inference::{
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use storage::ConversationStore;
 use storage_commands::{
-    append_conversation_message, backup_conversation_store, branch_conversation_message,
-    clear_last_open_conversation, create_conversation, delete_conversation,
-    export_conversation_batch_json, export_conversation_json, export_conversation_markdown,
-    get_storage_recovery_status, ingest_attachments, list_conversations, load_conversation,
-    load_last_open_conversation, rate_conversation_response,
-    remove_conversation_message_attachment, rename_conversation, restore_conversation,
-    restore_conversation_store, restore_latest_automatic_backup, search_conversations,
-    select_conversation_branch, set_conversation_archived,
+    add_conversation_attachments, append_conversation_message, backup_conversation_store,
+    branch_conversation_message, clear_last_open_conversation, create_conversation,
+    delete_conversation, export_conversation_batch_json, export_conversation_json,
+    export_conversation_markdown, get_storage_recovery_status, ingest_attachments,
+    list_conversations, load_conversation, load_last_open_conversation, rate_conversation_response,
+    remove_conversation_attachment, remove_conversation_message_attachment, rename_conversation,
+    restore_conversation, restore_conversation_store, restore_latest_automatic_backup,
+    search_conversations, select_conversation_branch, set_conversation_archived,
 };
 use tauri::{Manager, State};
 
@@ -461,6 +461,8 @@ pub fn run() {
             load_last_open_conversation,
             clear_last_open_conversation,
             append_conversation_message,
+            add_conversation_attachments,
+            remove_conversation_attachment,
             remove_conversation_message_attachment,
             branch_conversation_message,
             select_conversation_branch,

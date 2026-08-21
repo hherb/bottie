@@ -229,7 +229,8 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachment_text_indexing;
+            "DROP TABLE conversation_attachments;
+             DROP TABLE attachment_text_indexing;
              DROP TABLE attachment_image_normalizations;
              DROP TABLE attachment_extractions;
              DROP TABLE message_attachments; DROP TABLE attachments;
@@ -261,7 +262,7 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
             .status()
             .expect("status should load")
             .schema_version,
-        14
+        15
     );
     assert_eq!(table_count, 2);
 }

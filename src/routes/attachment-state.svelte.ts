@@ -75,8 +75,8 @@ export class AttachmentState {
   private stopProcessingUpdates?: UnlistenFn;
 
   /** Returns whether the current draft satisfies native image-delivery prerequisites. */
-  canSubmit(model: ModelInfo | undefined): boolean {
-    return draftImageDeliveryBlocker(this.items, model) === null;
+  canSubmit(model: ModelInfo | undefined, conversationItems: Attachment[] = []): boolean {
+    return draftImageDeliveryBlocker([...this.items, ...conversationItems], model) === null;
   }
 
   /** Listens for path-free native processing results throughout the page lifecycle. */

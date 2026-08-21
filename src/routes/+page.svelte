@@ -22,6 +22,12 @@
   import "$lib/styles/recovery.css";
 
   import { PageState } from "./page-state.svelte";
+  import {
+    inferenceStages,
+    messageAttachmentAssociations,
+    nextRequestAttachments,
+    selectedProviderEndpoint,
+  } from "./page-presentation";
 
   const state = new PageState();
 
@@ -137,9 +143,9 @@
         providerError={state.providerError}
         selectedModel={state.selectedModel}
         activeStage={state.activeStage}
-        inferenceStages={state.inferenceStages}
+        inferenceStages={inferenceStages(state.isLocalRoute, state.selectedModel?.providerName, state.reasoningEffort)}
         isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
-        canGenerate={state.canSend}
+        canGenerate={state.canSend && state.conversationAttachmentsCanSubmit}
         branches={state.history.branches}
         currentBranchId={state.history.currentBranchId}
         onretry={() => void state.refreshModels()}
@@ -157,8 +163,11 @@
         prompt={state.prompt}
         isGenerating={state.isGenerating}
         canCompose={state.canSend}
-        canSend={state.canSend && state.attachment.canSubmit(state.selectedModel)}
-        attachmentNote={composerAttachmentNote(state.attachment.items, state.selectedModel)}
+        canSend={state.canSend && state.attachmentsCanSubmit}
+        attachmentNote={composerAttachmentNote(
+          nextRequestAttachments(state.attachment.items, state.history.conversationAttachments),
+          state.selectedModel,
+        )}
         providerStatus={state.providerStatus}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.resizeComposer()}
@@ -175,9 +184,11 @@
     <ContextPanel
       open={state.showContext}
       attachments={state.attachment.items}
-      conversationAttachments={state.conversationAttachments}
+      conversationAttachments={state.history.conversationAttachments}
+      messageAttachments={messageAttachmentAssociations(state.messages)}
+      canKeepInConversation={Boolean(state.history.activeConversationId)}
       selectedModel={state.selectedModel}
-      selectedProviderEndpoint={state.selectedProviderEndpoint}
+      selectedProviderEndpoint={selectedProviderEndpoint(state.selectedProviderId, state.providerSettings)}
       providerStatus={state.providerStatus}
       isLocalRoute={state.isLocalRoute}
       isAddingAttachments={state.attachment.isIngesting}
@@ -187,7 +198,9 @@
       onclose={() => (state.showContext = false)}
       onadd={() => void state.attachment.openPicker()}
       onremove={(id) => state.attachment.remove(id)}
-      onremoveassociated={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
+      onkeep={(attachmentId) => void state.keepDraftAttachmentInConversation(attachmentId)}
+      onremoveconversation={(attachmentId) => void state.removeConversationAttachment(attachmentId)}
+      onremovemessage={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
     />
 
     {#if state.showSettings}

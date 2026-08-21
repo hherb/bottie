@@ -8,7 +8,7 @@ use super::{
     migrations::{
         MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
         MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_12, MIGRATION_13,
-        MIGRATION_14,
+        MIGRATION_14, MIGRATION_15,
     },
     now_ms,
 };
@@ -78,6 +78,14 @@ impl ConversationStore {
                 MIGRATION_14,
                 14,
                 "attachment text indexing readiness",
+            )?;
+        }
+        if version < 15 {
+            apply_migration(
+                connection,
+                MIGRATION_15,
+                15,
+                "conversation attachment scope",
             )?;
         }
         Ok(())

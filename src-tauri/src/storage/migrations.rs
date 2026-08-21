@@ -369,3 +369,17 @@ SELECT attachment_extractions.attachment_id,
        attachment_extractions.updated_at_ms
 FROM attachment_extractions;
 "#;
+
+/// Adds ordered attachment context shared by every branch and request in one conversation.
+pub(super) const MIGRATION_15: &str = r#"
+CREATE TABLE conversation_attachments (
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    attachment_id TEXT NOT NULL REFERENCES attachments(id) ON DELETE RESTRICT,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    attached_at_ms INTEGER NOT NULL,
+    PRIMARY KEY (conversation_id, attachment_id),
+    UNIQUE (conversation_id, ordinal)
+) STRICT;
+CREATE INDEX conversation_attachments_attachment_idx
+    ON conversation_attachments(attachment_id, conversation_id);
+"#;

@@ -1,6 +1,6 @@
 //! Bounded native preparation of durable image context for provider requests.
 
-use std::{fs::File, io::Read};
+use std::{collections::HashSet, fs::File, io::Read};
 
 use rusqlite::Connection;
 
@@ -56,6 +56,7 @@ pub(crate) struct ProviderAttachmentContext {
     pub(crate) current_request_has_image: bool,
 }
 
+#[derive(Clone)]
 struct ReadyImage {
     format: NormalizedImageFormat,
     sha256: String,
@@ -81,19 +82,34 @@ impl ConversationStore {
                 "The provider request no longer matches the selected conversation branch.",
             ));
         }
-        let mut current_request_has_image = false;
+        let conversation_attachment_ids = conversation
+            .attachments
+            .iter()
+            .map(|attachment| attachment.id.clone())
+            .collect::<HashSet<_>>();
+        let mut current_request_has_image = conversation
+            .attachments
+            .iter()
+            .any(|attachment| attachment.mime_type.starts_with("image/"));
+        let conversation_images = ready_conversation_images(&connection, conversation_id)?;
         let mut messages = Vec::new();
         for message in conversation.messages {
             if !include_in_provider_context(message.role, message.state, &message.text) {
                 continue;
             }
             let is_current = message.id == request_message_id;
-            let ready = ready_message_images(&connection, &message.id, is_current)?;
+            let mut ready = ready_message_images(
+                &connection,
+                &message.id,
+                is_current,
+                &conversation_attachment_ids,
+            )?;
             if is_current {
-                current_request_has_image = message
+                current_request_has_image |= message
                     .attachments
                     .iter()
                     .any(|attachment| attachment.mime_type.starts_with("image/"));
+                ready.extend(conversation_images.iter().cloned());
             }
             messages.push(ProviderContextMessage {
                 role: message.role,
@@ -177,9 +193,10 @@ fn ready_message_images(
     connection: &Connection,
     message_id: &str,
     is_current: bool,
+    excluded_attachment_ids: &HashSet<String>,
 ) -> Result<Vec<ReadyImage>, StorageError> {
     let mut statement = connection.prepare(
-        "SELECT attachments.mime_type, attachment_image_normalizations.state,
+        "SELECT attachments.id, attachments.mime_type, attachment_image_normalizations.state,
                 attachment_image_normalizations.format,
                 attachment_image_normalizations.normalized_sha256,
                 attachment_image_normalizations.byte_size
@@ -194,15 +211,19 @@ fn ready_message_images(
         Ok((
             row.get::<_, String>(0)?,
             row.get::<_, String>(1)?,
-            row.get::<_, Option<String>>(2)?,
+            row.get::<_, String>(2)?,
             row.get::<_, Option<String>>(3)?,
-            row.get::<_, Option<i64>>(4)?,
+            row.get::<_, Option<String>>(4)?,
+            row.get::<_, Option<i64>>(5)?,
         ))
     })?;
     let mut ready = Vec::new();
     for row in rows {
-        let (mime_type, state, format, sha256, byte_size) = row?;
+        let (attachment_id, mime_type, state, format, sha256, byte_size) = row?;
         if !mime_type.starts_with("image/") {
+            continue;
+        }
+        if excluded_attachment_ids.contains(&attachment_id) {
             continue;
         }
         if is_current && state == "pending" {
@@ -225,6 +246,64 @@ fn ready_message_images(
             .ok_or_else(StorageError::internal)?;
         ready.push(ReadyImage {
             format,
+            sha256: sha256.ok_or_else(StorageError::internal)?,
+            byte_size: byte_size
+                .and_then(|value| u64::try_from(value).ok())
+                .ok_or_else(StorageError::internal)?,
+        });
+    }
+    Ok(ready)
+}
+
+/// Resolves conversation-scoped images as required context for the current request.
+fn ready_conversation_images(
+    connection: &Connection,
+    conversation_id: &str,
+) -> Result<Vec<ReadyImage>, StorageError> {
+    let mut statement = connection.prepare(
+        "SELECT attachments.id, attachments.mime_type, attachment_image_normalizations.state,
+                attachment_image_normalizations.format,
+                attachment_image_normalizations.normalized_sha256,
+                attachment_image_normalizations.byte_size
+         FROM conversation_attachments
+         JOIN attachments ON attachments.id = conversation_attachments.attachment_id
+         JOIN attachment_image_normalizations
+           ON attachment_image_normalizations.attachment_id = attachments.id
+         WHERE conversation_attachments.conversation_id = ?1
+         ORDER BY conversation_attachments.ordinal",
+    )?;
+    let rows = statement.query_map([conversation_id], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, Option<String>>(3)?,
+            row.get::<_, Option<String>>(4)?,
+            row.get::<_, Option<i64>>(5)?,
+        ))
+    })?;
+    let mut ready = Vec::new();
+    for row in rows {
+        let (_attachment_id, mime_type, state, format, sha256, byte_size) = row?;
+        if !mime_type.starts_with("image/") {
+            continue;
+        }
+        if state == "pending" {
+            return Err(StorageError::invalid(
+                "Wait for image normalization to finish before sending.",
+            ));
+        }
+        if state != "ready" {
+            return Err(StorageError::invalid(
+                "Remove images that could not be normalized as JPEG or PNG before sending.",
+            ));
+        }
+        ready.push(ReadyImage {
+            format: format
+                .as_deref()
+                .map(NormalizedImageFormat::from_database)
+                .transpose()?
+                .ok_or_else(StorageError::internal)?,
             sha256: sha256.ok_or_else(StorageError::internal)?,
             byte_size: byte_size
                 .and_then(|value| u64::try_from(value).ok())

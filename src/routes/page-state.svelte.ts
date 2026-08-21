@@ -7,7 +7,7 @@ import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
 import {
   chatTurnsForMessages,
   completionMeta,
-  displayEndpoint,
+  draftImageDeliveryBlocker,
   filterUsableModels,
   isCloudProvider,
   modelKey,
@@ -35,9 +35,7 @@ import {
   INITIAL_MESSAGES,
   MAX_COMPOSER_HEIGHT_PX,
   nextMessageId,
-  type InferenceStage,
   type Message,
-  type MessageAttachment,
   type ProviderStatus,
   type RuntimeInfo,
 } from "$lib/presentation";
@@ -88,42 +86,17 @@ export class PageState {
   get canSend(): boolean {
     return this.providerStatus === "available" && Boolean(this.selectedModel) && !this.isPersistingMessage;
   }
-  /** Attachment associations visible on the currently selected durable lineage. */
-  get conversationAttachments(): MessageAttachment[] {
-    return this.messages.flatMap((message) =>
-      message.storageId
-        ? (message.attachments ?? []).map((attachment) => ({ messageId: message.storageId!, attachment }))
-        : [],
-    );
+  /** Whether every current image has a ready derivative and an explicitly vision-capable route. */
+  get attachmentsCanSubmit(): boolean {
+    return this.attachment.canSubmit(this.selectedModel, this.history.conversationAttachments);
+  }
+  /** Whether branch-independent conversation images can be applied to a regenerated request. */
+  get conversationAttachmentsCanSubmit(): boolean {
+    return draftImageDeliveryBlocker(this.history.conversationAttachments, this.selectedModel) === null;
   }
   /** Whether the selected route keeps prompt traffic on this device. */
   get isLocalRoute(): boolean {
     return !isCloudProvider(this.selectedProviderId);
-  }
-  /** Compact active-provider endpoint used by the privacy-route presentation. */
-  get selectedProviderEndpoint(): string {
-    const baseUrl = {
-      ollama: this.providerSettings.ollamaBaseUrl,
-      omlx: this.providerSettings.omlxBaseUrl,
-      openai: this.providerSettings.openaiBaseUrl,
-      anthropic: this.providerSettings.anthropicBaseUrl,
-    }[this.selectedProviderId || "ollama"];
-    return displayEndpoint(baseUrl);
-  }
-  /** Normalized activity stages for the active provider. */
-  get inferenceStages(): InferenceStage[] {
-    return [
-      {
-        icon: "shield",
-        label: this.isLocalRoute ? "Connected locally" : "Cloud route confirmed",
-        detail: `Rust → ${this.selectedModel?.providerName ?? "provider"}`,
-      },
-      {
-        icon: "sparkles",
-        label: "Streaming response",
-        detail: this.reasoningEffort === "low" ? "Low reasoning" : "Reasoning off",
-      },
-    ];
   }
   /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {
@@ -137,6 +110,7 @@ export class PageState {
     }
     await this.attachment.listenForProcessingUpdates((update) => {
       this.messages = applyAttachmentProcessingUpdateToMessages(this.messages, update);
+      this.history.applyAttachmentProcessingUpdate(update);
     });
     try {
       this.runtime = await invoke<RuntimeInfo>("app_info");
@@ -290,7 +264,7 @@ export class PageState {
   /** Starts one provider-qualified chat stream and normalizes its events into message state. */
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
-    if (!submittedPrompt || this.isGenerating || !this.canSend || !this.attachment.canSubmit(this.selectedModel)) {
+    if (!submittedPrompt || this.isGenerating || !this.canSend || !this.attachmentsCanSubmit) {
       return;
     }
     const submittedAttachments = this.attachment.beginSubmission();
@@ -324,9 +298,22 @@ export class PageState {
     await this.history.removeMessageAttachment(this.messages, messageId, attachmentId);
   }
 
+  /** Promotes one retained draft item into branch-independent conversation context. */
+  async keepDraftAttachmentInConversation(attachmentId: string): Promise<void> {
+    if (this.isGenerating || this.isPersistingMessage) return;
+    const added = await this.history.addAttachmentsToConversation([attachmentId]);
+    if (added) this.attachment.remove(attachmentId);
+  }
+
+  /** Removes one branch-independent association while preserving retained content. */
+  async removeConversationAttachment(attachmentId: string): Promise<void> {
+    if (this.isGenerating || this.isPersistingMessage) return;
+    await this.history.removeAttachmentFromConversation(attachmentId);
+  }
+
   /** Forks one durable user request and generates a response on the new selected branch. */
   async editAndRegenerate(message: Message, text: string): Promise<void> {
-    if (!message.storageId || this.isGenerating || !this.canSend) return;
+    if (!message.storageId || this.isGenerating || !this.canSend || !this.conversationAttachmentsCanSubmit) return;
     const branched = await this.history.branchFromUserMessage(message.storageId, text);
     if (!branched) return;
     this.messages = branched.messages;

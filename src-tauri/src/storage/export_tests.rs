@@ -37,6 +37,7 @@ fn renders_selected_conversation_content_and_metadata_as_markdown() {
         title: "Architecture & safety".into(),
         current_branch_id: "branch-id".into(),
         branches: vec![],
+        attachments: vec![],
         messages: vec![
             export_message(
                 StoredRole::User,
@@ -76,6 +77,7 @@ fn labels_non_final_assistant_output_and_builds_a_safe_default_filename() {
         title: "../../Plans: Q3?".into(),
         current_branch_id: "branch-id".into(),
         branches: vec![],
+        attachments: vec![],
         messages: vec![export_message(
             StoredRole::Assistant,
             "Retained partial answer",
@@ -124,6 +126,7 @@ fn renders_tool_activity_as_structured_markdown_without_opaque_call_ids() {
         title: "Tool record".into(),
         current_branch_id: "branch-id".into(),
         branches: vec![],
+        attachments: vec![],
         messages: vec![response],
     };
 
@@ -207,6 +210,7 @@ fn writes_the_prepared_utf8_document_to_an_explicit_native_path() {
         title: "Unicode export".into(),
         current_branch_id: "branch-id".into(),
         branches: vec![],
+        attachments: vec![],
         messages: vec![export_message(
             StoredRole::User,
             "Keep café notes exact.",
@@ -267,6 +271,7 @@ fn renders_a_versioned_portable_json_contract_without_storage_identifiers() {
             id: "branch-id".into(),
             name: "Main".into(),
         }],
+        attachments: vec![],
         messages: vec![
             export_message(
                 StoredRole::User,

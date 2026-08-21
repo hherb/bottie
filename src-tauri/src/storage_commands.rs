@@ -8,8 +8,8 @@ use crate::{
     AppState,
     storage::{
         ConversationSearchResult, ConversationSummary, ForkedConversation, MessageState,
-        NewStoredMessage, ResponseRating, StorageError, StorageRecoveryStatus, StoredConversation,
-        StoredMessage, StoredRole,
+        NewStoredMessage, ResponseRating, StorageError, StorageRecoveryStatus, StoredAttachment,
+        StoredConversation, StoredMessage, StoredRole,
     },
 };
 
@@ -321,6 +321,30 @@ pub(crate) fn append_conversation_message(
         },
         &attachment_ids,
     )
+}
+
+#[tauri::command]
+/// Adds retained files to ordered conversation scope without exposing content or paths.
+pub(crate) fn add_conversation_attachments(
+    conversation_id: String,
+    attachment_ids: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<StoredAttachment>, StorageError> {
+    state
+        .conversations
+        .add_conversation_attachments(&conversation_id, &attachment_ids)
+}
+
+#[tauri::command]
+/// Detaches one file from conversation scope without deleting retained content.
+pub(crate) fn remove_conversation_attachment(
+    conversation_id: String,
+    attachment_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<StoredAttachment>, StorageError> {
+    state
+        .conversations
+        .remove_conversation_attachment(&conversation_id, &attachment_id)
 }
 
 #[tauri::command]
