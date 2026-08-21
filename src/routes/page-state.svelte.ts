@@ -50,7 +50,6 @@ const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
 const STREAMING_STAGE = 1;
 const NEXT_EVENT_LOOP_TICK_MS = 0;
-
 /** Owns the reactive state and imperative actions shared by the page's presentation components. */
 export class PageState {
   messages = $state<Message[]>(isTauri() ? [] : INITIAL_MESSAGES.map((message) => ({ ...message })));
@@ -291,7 +290,9 @@ export class PageState {
   /** Starts one provider-qualified chat stream and normalizes its events into message state. */
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
-    if (!submittedPrompt || this.isGenerating || !this.canSend) return;
+    if (!submittedPrompt || this.isGenerating || !this.canSend || !this.attachment.canSubmit(this.selectedModel)) {
+      return;
+    }
     const submittedAttachments = this.attachment.beginSubmission();
     this.isPersistingMessage = true;
     const runContext = await this.history.persistUserMessage(

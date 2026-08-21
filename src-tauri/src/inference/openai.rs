@@ -7,11 +7,12 @@ use url::Url;
 
 use super::{
     InferenceProvider, StreamSink,
+    multimodal::{OpenAiContent, openai_content},
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_remote_base_url},
     sse::SseDecoder,
     types::{
-        ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
-        ProviderError, ProviderErrorCode, ReasoningEffort, Usage,
+        ChatRequest, ChatRole, ModelInfo, ModelLoadState, ProviderCapabilities, ProviderError,
+        ProviderErrorCode, ReasoningEffort, Usage,
     },
 };
 
@@ -202,6 +203,8 @@ struct ModelList {
 #[derive(Deserialize)]
 struct ModelRecord {
     id: String,
+    #[serde(default)]
+    capabilities: Vec<String>,
 }
 
 fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
@@ -215,18 +218,25 @@ fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
         .data
         .into_iter()
         .filter(|model| !model.id.trim().is_empty())
-        .map(|model| ModelInfo {
-            provider_id: PROVIDER_ID.into(),
-            provider_name: PROVIDER_NAME.into(),
-            display_name: model.id.clone(),
-            model_id: model.id,
-            max_context_tokens: None,
-            load_state: ModelLoadState::Unknown,
-            capabilities: ProviderCapabilities {
-                text: true,
-                streaming: true,
-                ..Default::default()
-            },
+        .map(|model| {
+            let vision = model
+                .capabilities
+                .iter()
+                .any(|capability| capability == "vision");
+            ModelInfo {
+                provider_id: PROVIDER_ID.into(),
+                provider_name: PROVIDER_NAME.into(),
+                display_name: model.id.clone(),
+                model_id: model.id,
+                max_context_tokens: None,
+                load_state: ModelLoadState::Unknown,
+                capabilities: ProviderCapabilities {
+                    text: true,
+                    streaming: true,
+                    vision,
+                    ..Default::default()
+                },
+            }
         })
         .collect::<Vec<_>>();
     if models.is_empty() {
@@ -259,7 +269,7 @@ struct OpenAiStreamOptions {
 #[derive(Serialize)]
 struct OpenAiTurn {
     role: &'static str,
-    content: String,
+    content: OpenAiContent,
 }
 
 impl From<ChatRequest> for OpenAiChatRequest {
@@ -275,14 +285,7 @@ impl From<ChatRequest> for OpenAiChatRequest {
                         ChatRole::User => "user",
                         ChatRole::Assistant => "assistant",
                     },
-                    content: turn
-                        .content
-                        .into_iter()
-                        .map(|block| match block {
-                            ContentBlock::Text { text } => text,
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n"),
+                    content: openai_content(turn.content),
                 })
                 .collect(),
             stream: true,
@@ -372,11 +375,15 @@ fn decode_stream_payload(payload: &str) -> Result<DecodedEvent, ProviderError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::inference::ContentBlock;
 
     #[test]
     fn decodes_models_usage_cost_and_reasoning() {
-        let models = decode_model_list(br#"{"data":[{"id":"gpt-example"}]}"#).unwrap();
+        let models =
+            decode_model_list(br#"{"data":[{"id":"gpt-example","capabilities":["vision"]}]}"#)
+                .unwrap();
         assert_eq!(models[0].provider_id, "openai");
+        assert!(models[0].capabilities.vision);
         let usage = decode_stream_payload(
             r#"{"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":7,"cost":0.004}}"#,
         )
@@ -403,5 +410,27 @@ mod tests {
         assert_eq!(body["max_completion_tokens"], 4096);
         assert_eq!(body["stream_options"]["include_usage"], true);
         assert!(body.get("temperature").is_none());
+    }
+
+    #[test]
+    fn request_serializes_normalized_images_as_content_parts() {
+        let mut request: ChatRequest = serde_json::from_str(concat!(
+            r#"{"providerId":"openai","modelId":"gpt-example","messages":["#,
+            r#"{"role":"user","content":[{"type":"text","text":"describe this"}]}]}"#,
+        ))
+        .unwrap();
+        request.messages[0].content.push(ContentBlock::Image {
+            media_type: crate::inference::types::ImageMediaType::Png,
+            bytes: b"normalized-png".to_vec(),
+        });
+
+        let body = serde_json::to_value(OpenAiChatRequest::from(request)).unwrap();
+
+        assert_eq!(body["messages"][0]["content"][0]["type"], "text");
+        assert_eq!(body["messages"][0]["content"][1]["type"], "image_url");
+        assert_eq!(
+            body["messages"][0]["content"][1]["image_url"]["url"],
+            "data:image/png;base64,bm9ybWFsaXplZC1wbmc="
+        );
     }
 }

@@ -4,7 +4,8 @@ import { isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import { ATTACHMENT_PROCESSING_EVENT, applyAttachmentProcessingUpdate } from "$lib/attachment";
-import { formatBytes } from "$lib/chat";
+import { draftImageDeliveryBlocker, formatBytes } from "$lib/chat";
+import type { ModelInfo } from "$lib/inference";
 import type { Attachment } from "$lib/presentation";
 import {
   ingestAttachments,
@@ -68,6 +69,11 @@ export class AttachmentState {
   private queuedProcessingUpdates = new Map<string, StoredAttachment>();
   private submittedItems: Attachment[] | null = null;
   private stopProcessingUpdates?: UnlistenFn;
+
+  /** Returns whether the current draft satisfies native image-delivery prerequisites. */
+  canSubmit(model: ModelInfo | undefined): boolean {
+    return draftImageDeliveryBlocker(this.items, model) === null;
+  }
 
   /** Listens for path-free native processing results throughout the page lifecycle. */
   async listenForProcessingUpdates(onUpdate: (update: StoredAttachment) => void): Promise<void> {

@@ -68,7 +68,7 @@ pub struct ChatRequest {
 }
 
 /// A role and ordered content blocks in a conversation.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatTurn {
     /// Participant role for this turn.
@@ -77,8 +77,8 @@ pub struct ChatTurn {
     pub content: Vec<ContentBlock>,
 }
 
-/// Roles currently supported by the text-only slice.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+/// Roles currently supported by durable chat context.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ChatRole {
     /// Instruction supplied by the application.
@@ -89,12 +89,39 @@ pub enum ChatRole {
     Assistant,
 }
 
-/// Provider-neutral message content. Later slices can add block variants here.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+/// Provider-neutral message content prepared behind the native boundary.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentBlock {
     /// Plain text message content.
     Text { text: String },
+    #[serde(skip_deserializing)]
+    /// Metadata-free normalized image bytes loaded only by Rust-owned storage.
+    Image {
+        /// Normalized encoding forwarded to compatible provider wire formats.
+        media_type: ImageMediaType,
+        /// Bounded derivative bytes that never cross into the WebView.
+        bytes: Vec<u8>,
+    },
+}
+
+/// Native image encodings accepted by provider delivery.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImageMediaType {
+    /// Metadata-free JPEG derivative.
+    Jpeg,
+    /// Metadata-free PNG derivative.
+    Png,
+}
+
+impl ImageMediaType {
+    /// Returns the MIME value required by provider image blocks.
+    pub(crate) fn as_mime_type(self) -> &'static str {
+        match self {
+            Self::Jpeg => "image/jpeg",
+            Self::Png => "image/png",
+        }
+    }
 }
 
 /// Generation settings shared by compatible text providers.
@@ -305,5 +332,24 @@ impl ProviderError {
             retryable: false,
             diagnostic,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn webview_requests_cannot_inject_native_image_bytes() {
+        let request = serde_json::from_value::<ChatRequest>(serde_json::json!({
+            "providerId": "ollama",
+            "modelId": "vision-model",
+            "messages": [{
+                "role": "user",
+                "content": [{"type": "image", "mediaType": "png", "bytes": [1, 2, 3]}]
+            }]
+        }));
+
+        assert!(request.is_err());
     }
 }

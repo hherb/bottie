@@ -6,7 +6,9 @@
     attachments: Attachment[];
     prompt: string;
     isGenerating: boolean;
+    canCompose: boolean;
     canSend: boolean;
+    attachmentNote: string;
     providerStatus: ProviderStatus;
     onprompt: (prompt: string) => void;
     oninput: () => void;
@@ -23,7 +25,9 @@
     attachments,
     prompt,
     isGenerating,
+    canCompose,
     canSend,
+    attachmentNote,
     providerStatus,
     onprompt,
     oninput,
@@ -74,7 +78,7 @@
       }}
       {onkeydown}
       rows="1"
-      disabled={!canSend && !isGenerating}
+      disabled={!canCompose && !isGenerating}
       placeholder={providerStatus === "available"
         ? "Message the selected model…"
         : "Connect a provider to send a message"}
@@ -117,8 +121,6 @@
     </div>
   </div>
   <p class="composer-note">
-    {attachments.length > 0
-      ? "Attachments will stay linked locally; only your text is sent to the model."
-      : "Bottie can make mistakes. Check important information."}
+    {attachmentNote}
   </p>
 </footer>

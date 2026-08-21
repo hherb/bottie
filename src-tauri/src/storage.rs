@@ -12,6 +12,7 @@ use std::{
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
+mod attachment_delivery;
 mod attachment_policy;
 mod attachment_processing;
 pub(crate) mod attachments;
@@ -34,6 +35,9 @@ mod selection;
 mod tools;
 mod types;
 
+pub(crate) use attachment_delivery::{ProviderAttachmentContext, ProviderImageFormat};
+#[cfg(test)]
+pub(crate) use attachment_delivery::{ProviderContextImage, ProviderContextMessage};
 pub(crate) use attachments::{IngestedAttachment, MAX_ATTACHMENT_SELECTION_COUNT};
 pub(crate) use error::StorageError;
 pub(crate) use export::ConversationFileExport;
@@ -457,44 +461,32 @@ fn now_ms() -> Result<i64, StorageError> {
 }
 
 #[cfg(test)]
-#[path = "storage/attachment_processing_tests.rs"]
+mod attachment_delivery_tests;
+#[cfg(test)]
 mod attachment_processing_tests;
 #[cfg(test)]
-#[path = "storage/attachment_tests.rs"]
 mod attachment_tests;
 #[cfg(test)]
-#[path = "storage/backup_tests.rs"]
 mod backup_tests;
 #[cfg(test)]
-#[path = "storage/branch_tests.rs"]
 mod branch_tests;
 #[cfg(test)]
-#[path = "storage/export_tests.rs"]
 mod export_tests;
 #[cfg(test)]
-#[path = "storage/extraction_tests.rs"]
 mod extraction_tests;
 #[cfg(test)]
-#[path = "storage/image_normalization_tests.rs"]
 mod image_normalization_tests;
 #[cfg(test)]
-#[path = "storage/rating_tests.rs"]
 mod rating_tests;
 #[cfg(test)]
-#[path = "storage/recovery_tests.rs"]
 mod recovery_tests;
 #[cfg(test)]
-#[path = "storage/run_tests.rs"]
 mod run_tests;
 #[cfg(test)]
-#[path = "storage/search_tests.rs"]
 mod search_tests;
 #[cfg(test)]
-#[path = "storage/selection_tests.rs"]
 mod selection_tests;
 #[cfg(test)]
-#[path = "storage/tests.rs"]
 mod tests;
 #[cfg(test)]
-#[path = "storage/tool_tests.rs"]
 mod tool_tests;

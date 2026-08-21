@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use futures_util::StreamExt;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -5,12 +7,13 @@ use url::Url;
 
 use super::{
     InferenceProvider,
+    multimodal::{OpenAiContent, openai_content},
     provider::StreamSink,
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_local_base_url},
     sse::SseDecoder,
     types::{
-        ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
-        ProviderError, ProviderErrorCode, ReasoningEffort, Usage,
+        ChatRequest, ChatRole, ModelInfo, ModelLoadState, ProviderCapabilities, ProviderError,
+        ProviderErrorCode, ReasoningEffort, Usage,
     },
 };
 
@@ -64,25 +67,37 @@ impl OmlxProvider {
             )
         })
     }
-}
 
-impl InferenceProvider for OmlxProvider {
-    /// Discovers streaming text models through the oMLX model endpoint.
-    async fn discover_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
+    /// Performs one timeout-bounded discovery GET request.
+    async fn get(&self, path: &str) -> Result<Vec<u8>, ProviderError> {
         let response = self
             .client
-            .get(self.endpoint("v1/models")?)
+            .get(self.endpoint(path)?)
             .timeout(DISCOVERY_TIMEOUT)
             .send()
             .await
             .map_err(map_request_error)?;
-
         if !response.status().is_success() {
             return Err(response_error(response).await);
         }
+        response
+            .bytes()
+            .await
+            .map(|bytes| bytes.to_vec())
+            .map_err(map_request_error)
+    }
+}
 
-        let bytes = response.bytes().await.map_err(map_request_error)?;
-        decode_model_list(&bytes)
+impl InferenceProvider for OmlxProvider {
+    /// Discovers oMLX models and enriches them with explicit VLM and residency metadata.
+    async fn discover_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
+        let mut models = decode_model_list(&self.get("v1/models").await?)?;
+        if let Ok(status_bytes) = self.get("v1/models/status").await
+            && let Ok(statuses) = decode_model_status(&status_bytes)
+        {
+            enrich_models(&mut models, &statuses);
+        }
+        Ok(models)
     }
 
     /// Streams one oMLX SSE chat response into the normalized sink.
@@ -236,6 +251,27 @@ struct OmlxModelList {
 struct OmlxModel {
     id: String,
     max_model_len: Option<u64>,
+    #[serde(default)]
+    capabilities: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct OmlxModelStatusList {
+    models: Vec<OmlxModelStatus>,
+}
+
+#[derive(Deserialize)]
+struct OmlxModelStatus {
+    id: String,
+    loaded: Option<bool>,
+    engine_type: Option<String>,
+    model_type: Option<String>,
+}
+
+#[derive(Clone, Copy)]
+struct OmlxModelStatusMetadata {
+    vision: bool,
+    load_state: ModelLoadState,
 }
 
 /// Decodes and normalizes the oMLX model-list response.
@@ -250,18 +286,25 @@ fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
         .data
         .into_iter()
         .filter(|model| !model.id.trim().is_empty())
-        .map(|model| ModelInfo {
-            provider_id: PROVIDER_ID.into(),
-            provider_name: PROVIDER_NAME.into(),
-            display_name: model.id.replace("--", "/"),
-            model_id: model.id,
-            max_context_tokens: model.max_model_len,
-            load_state: ModelLoadState::Unknown,
-            capabilities: ProviderCapabilities {
-                text: true,
-                streaming: true,
-                ..ProviderCapabilities::default()
-            },
+        .map(|model| {
+            let vision = model
+                .capabilities
+                .iter()
+                .any(|capability| capability == "vision");
+            ModelInfo {
+                provider_id: PROVIDER_ID.into(),
+                provider_name: PROVIDER_NAME.into(),
+                display_name: model.id.replace("--", "/"),
+                model_id: model.id,
+                max_context_tokens: model.max_model_len,
+                load_state: ModelLoadState::Unknown,
+                capabilities: ProviderCapabilities {
+                    text: true,
+                    streaming: true,
+                    vision,
+                    ..ProviderCapabilities::default()
+                },
+            }
         })
         .collect::<Vec<_>>();
     if models.is_empty() {
@@ -271,6 +314,44 @@ fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
         ));
     }
     Ok(models)
+}
+
+/// Decodes explicit oMLX model type and residency metadata by model identity.
+fn decode_model_status(
+    bytes: &[u8],
+) -> Result<HashMap<String, OmlxModelStatusMetadata>, ProviderError> {
+    let response: OmlxModelStatusList = serde_json::from_slice(bytes).map_err(|error| {
+        ProviderError::malformed(
+            "oMLX returned an invalid model status list.",
+            Some(error.to_string()),
+        )
+    })?;
+    Ok(response
+        .models
+        .into_iter()
+        .filter(|model| !model.id.trim().is_empty())
+        .map(|model| {
+            let vision = model.model_type.as_deref() == Some("vlm")
+                || model.engine_type.as_deref() == Some("vlm");
+            let load_state = match model.loaded {
+                Some(true) => ModelLoadState::Loaded,
+                Some(false) => ModelLoadState::Unloaded,
+                None => ModelLoadState::Unknown,
+            };
+            (model.id, OmlxModelStatusMetadata { vision, load_state })
+        })
+        .collect())
+}
+
+/// Applies status metadata without weakening capabilities already advertised by the catalogue.
+fn enrich_models(models: &mut [ModelInfo], statuses: &HashMap<String, OmlxModelStatusMetadata>) {
+    for model in models {
+        let Some(status) = statuses.get(&model.model_id) else {
+            continue;
+        };
+        model.capabilities.vision |= status.vision;
+        model.load_state = status.load_state;
+    }
 }
 
 #[derive(Serialize)]
@@ -302,7 +383,7 @@ struct OmlxStreamOptions {
 #[derive(Serialize)]
 struct OmlxChatTurn {
     role: &'static str,
-    content: String,
+    content: OpenAiContent,
 }
 
 impl From<ChatRequest> for OmlxChatRequest {
@@ -321,14 +402,7 @@ impl From<ChatRequest> for OmlxChatRequest {
                         ChatRole::User => "user",
                         ChatRole::Assistant => "assistant",
                     },
-                    content: turn
-                        .content
-                        .into_iter()
-                        .map(|block| match block {
-                            ContentBlock::Text { text } => text,
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n"),
+                    content: openai_content(turn.content),
                 })
                 .collect(),
             stream: true,

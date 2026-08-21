@@ -6,6 +6,7 @@
   import { renderAssistantMarkdown } from "$lib/markdown";
   import { formatToolPayload, type ConversationBranch } from "$lib/storage";
   import { attachmentStatusLabel } from "$lib/attachment";
+  import { attachmentDeliveryLabel } from "$lib/chat";
   import type { ResponseRating } from "$lib/storage";
   import type { ModelInfo, ProviderError } from "$lib/inference";
   import type { InferenceStage, Message, ProviderStatus } from "$lib/presentation";
@@ -166,7 +167,8 @@
                     <strong>{attachment.name}</strong>
                     <small>
                       {attachment.size} · {attachment.mimeType} ·
-                      {attachmentStatusLabel(attachment.normalization, attachment.extraction)} · Not sent
+                      {attachmentStatusLabel(attachment.normalization, attachment.extraction)} ·
+                      {attachmentDeliveryLabel(attachment, selectedModel)}
                     </small>
                   </span>
                   <button

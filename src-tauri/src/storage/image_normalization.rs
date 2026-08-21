@@ -83,7 +83,7 @@ impl NormalizedImageFormat {
     }
 
     /// Parses a trusted value constrained by the schema.
-    fn from_database(value: &str) -> Result<Self, StorageError> {
+    pub(super) fn from_database(value: &str) -> Result<Self, StorageError> {
         match value {
             "jpeg" => Ok(Self::Jpeg),
             "png" => Ok(Self::Png),
@@ -275,7 +275,7 @@ impl ConversationStore {
     }
 
     /// Resolves a normalized content hash to its private derivative location.
-    fn normalized_image_path(
+    pub(super) fn normalized_image_path(
         &self,
         sha256: &str,
         format: NormalizedImageFormat,

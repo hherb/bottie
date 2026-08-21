@@ -8,7 +8,7 @@ use super::protocol::{
 };
 use super::*;
 use crate::inference::types::{
-    ChatRole, ChatSettings, ChatTurn, ContentBlock, ModelLoadState, ReasoningEffort,
+    ChatRole, ChatSettings, ChatTurn, ContentBlock, ImageMediaType, ModelLoadState, ReasoningEffort,
 };
 
 #[derive(Clone, Default)]
@@ -155,6 +155,30 @@ fn sends_explicit_off_and_low_reasoning_controls() {
     request.settings.reasoning_effort = ReasoningEffort::Low;
     let low = serde_json::to_value(OllamaChatRequest::from(request)).unwrap();
     assert_eq!(low["think"], "low");
+}
+
+#[test]
+fn sends_normalized_image_bytes_only_on_the_owning_ollama_turn() {
+    let mut request = live_request("vision-model".into(), "describe this image");
+    request.messages[0].content.push(ContentBlock::Image {
+        media_type: ImageMediaType::Png,
+        bytes: b"normalized-png".to_vec(),
+    });
+    request.messages.push(ChatTurn {
+        role: ChatRole::Assistant,
+        content: vec![ContentBlock::Text {
+            text: "Earlier answer".into(),
+        }],
+    });
+
+    let body = serde_json::to_value(OllamaChatRequest::from(request)).unwrap();
+
+    assert_eq!(body["messages"][0]["content"], "describe this image");
+    assert_eq!(
+        body["messages"][0]["images"],
+        serde_json::json!(["bm9ybWFsaXplZC1wbmc="])
+    );
+    assert!(body["messages"][1].get("images").is_none());
 }
 
 #[test]
