@@ -23,11 +23,13 @@ transiently failed responses now expose a labelled retry action that forks the u
 original attempt. Assistant responses can now retain a local Good or Poor rating across restart and branch switching;
 selecting the active choice clears it without changing response content. The selected visible conversation lineage can
 now be exported as either human-readable Markdown or versioned, machine-readable JSON through Rust-owned native Save
-dialogs without revealing the chosen path to the WebView. A separate global action exports every active and archived
-conversation's selected lineage as one versioned JSON document while excluding Trash and hidden branch siblings. Users
-can also create a complete verified SQLite snapshot
-through a separate Rust-owned Save dialog; SQLite's online backup API includes committed WAL content without pausing
-the live store, and the destination path remains native-only. A separate native Open-and-confirm flow now restores
+dialogs without revealing the chosen path to the WebView. Referenced conversation- and message-scoped files turn the
+export into a ZIP containing the document plus hash-deduplicated originals; attachment-free exports stay plain. A
+separate global action applies the same behavior to every active and archived conversation's selected lineage while
+excluding Trash and hidden branch siblings. Users can also create a complete verified SQLite snapshot through a
+separate Rust-owned Save dialog; SQLite's online backup API includes committed WAL content plus verified original and
+ready-normalized attachment bytes in backup-only tables without pausing the live store, and the destination path
+remains native-only. A separate native Open-and-confirm flow now restores
 validated Bottie backups only after
 creating an application-private snapshot of the current store; selected directories and database paths never reach the
 WebView. After a successful startup, Bottie now creates a verified application-private snapshot when no automatic
@@ -35,7 +37,8 @@ backup is newer than 24 hours and retains the seven newest automatic snapshots. 
 prunes manual backups or pre-restore safety copies, and reports a path-redacted outcome in session diagnostics. If
 SQLite reports corruption at startup, Bottie now opens in a restricted recovery state instead of aborting launch. The
 guided screen can restore the newest verified automatic snapshot or a manually selected Bottie backup after preserving
-the damaged database bundle in app-private storage. Native provider runs now also retain ordered structured tool calls
+the damaged database bundle and prior attachment tree in app-private storage. Native provider runs now also retain
+ordered structured tool calls
 and one append-only result per call; reopened tool activity is inspectable and portable without exposing native or
 provider call identities. Provider tool loops and execution remain absent. Native attachment selection now streams
 chosen local files into application-private content-addressed storage with SHA-256 identities, content-based MIME
@@ -64,9 +67,11 @@ construction: Bottie still has no FTS, vectors, chunks, embeddings, or attachmen
 files can now be kept in durable conversation scope independently of any branch or message. The interface distinguishes
 next-message, conversation, and message associations and supports narrow removal without deleting retained content.
 Conversation-scoped normalized images apply to every current request, require explicit vision capability, and are
-deduplicated when the same file is also linked to a message; documents remain local-only. The next bounded
-implementation slice is portable attachment backup and export behavior; do not bundle garbage collection, previews,
-extraction retry controls, document delivery, other office formats, or broad visual-design work with it.
+deduplicated when the same file is also linked to a message; documents remain local-only. Portable backups now retain
+every original blob and ready normalized derivative, while selected and batch exports bundle only referenced originals
+with versioned path-free manifests. The next bounded implementation slice is attachment garbage collection; do not
+bundle previews, extraction retry controls, document delivery, other office formats, or broad visual-design work with
+it.
 
 Read these files first:
 
@@ -164,6 +169,9 @@ claiming any index content,
 `src-tauri/src/storage/docx.rs` owns bounded package validation and WordprocessingML text extraction,
 `src-tauri/src/storage/image_codec.rs` owns bounded JPEG/PNG decode, orientation, and metadata-free encoding,
 `src-tauri/src/storage/image_normalization.rs` owns derivative persistence and path-free normalization state,
+`src-tauri/src/storage/portable_backup.rs` owns verified backup-only byte tables and staged rehydration,
+`src-tauri/src/storage/portable_export.rs` owns deduplicated ZIP members and portable attachment references,
+`src/lib/storage-transfer.ts` owns the path-redacted frontend backup, restore, and export contracts,
 `src-tauri/src/storage/attachment_delivery.rs` owns selected-lineage reconstruction, current-image readiness, bounded
 derivative loading, and path-free delivery errors,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
@@ -263,10 +271,9 @@ Do not mistake visual fixtures for implemented backend behavior:
   or is explicitly promoted into an existing conversation's durable context;
 - plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; their indexable state
   means only that extraction succeeded because no FTS, vector, chunk, embedding, or retrieval index exists; JPEG/PNG
-  derivatives
-  remain application-private and are read only for capability-confirmed vision requests; SQLite backups include
-  native-only text and derivative metadata but not original blobs or normalized derivatives, and no attachment is
-  indexed or exported;
+  derivatives remain application-private and are read only for capability-confirmed vision requests; portable SQLite
+  backups embed originals and ready derivatives, selected/batch exports bundle referenced originals, and no attachment
+  is indexed;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
@@ -332,6 +339,62 @@ known development-runner limitation is that Cargo's environment runner format ca
 paths containing whitespace; the wrapper detects and reports that case before compilation.
 
 ## Most recently completed product slice: Conversation-level attachment scope
+## Most recently completed product slice: Portable attachment backup and export
+
+### Goal
+
+Make retained attachment content portable through Bottie's existing native backup and conversation-export actions
+without exposing filesystem paths or bytes to the WebView, weakening integrity checks, or adding an import surface.
+
+### Implemented shape
+
+1. Manual, automatic, and pre-restore safety SQLite snapshots now add backup-only format/version, original-blob, and
+   ready-normalized-derivative tables after SQLite's online backup completes. Every embedded row is checked against the
+   copied catalog's exact byte size, lowercase SHA-256 identity, and derivative format before the backup is accepted.
+2. Normal restore validates and extracts portable bytes into a unique app-private staging tree, strips backup-only
+   tables from the staged live database, creates a portable safety copy of current data, and swaps the database plus
+   attachment root with rollback on installation failure. Legacy valid SQLite backups without portable tables remain
+   accepted and leave the existing attachment root untouched.
+3. Guided corruption recovery applies the same portable validation and rehydration. When a portable snapshot is used,
+   the damaged database/WAL/SHM bundle and previous attachment tree are retained together before replacement.
+4. Selected Markdown, selected JSON, and non-trashed batch JSON exports include safe conversation- and message-scope
+   attachment references. JSON contracts advance to version 3. If any selected reference exists, Rust writes a ZIP
+   containing the document and one original blob per SHA-256 identity; attachment-free exports preserve the prior plain
+   `.md` or `.json` shape. The WebView still receives only saved/cancelled status and a leaf filename.
+
+### Acceptance criteria
+
+- A completed portable backup independently passes SQLite `quick_check`, contains every catalogued original and every
+  ready derivative exactly once, and rejects missing, extra, size-mismatched, format-mismatched, or hash-mismatched
+  embedded bytes.
+- Manual and automatic recovery restore the selected database and attachment tree together. The pre-restore safety
+  copy retains the prior attachment bytes, while failure before installation leaves live data unchanged.
+- Conversation exports include only conversation scope plus the selected visible message lineage, exclude Trash and
+  hidden branch siblings under the existing policies, and deduplicate a file referenced by multiple scopes.
+- No source path, application-private path, database path, raw byte buffer, extracted text, derivative identity, or SQL
+  crosses Tauri IPC. Garbage collection, import, previews, retry controls, document delivery, retrieval, and other
+  formats remain outside this slice.
+
+### Verification completed
+
+The standard frontend checks passed on 2026-08-21: Prettier reports clean formatting, `svelte-check` reports no errors
+or warnings, all 42 frontend tests pass, and the production build succeeds. `cargo fmt --check` and `cargo check`
+pass. The Rust suite has 150 tests: 146 pass and the four live oMLX/Ollama checks remain explicitly ignored when
+their loopback servers are absent.
+
+Focused Rust coverage proves that a copied `.sqlite3` backup remains independently readable without WAL or shared-
+memory sidecars, verifies every embedded original and ready derivative by size and SHA-256, rejects tampered bytes
+without changing live state, restores attachment bytes while retaining the previous tree in the safety copy, and
+rehydrates portable bytes during automatic corruption recovery. Selected Markdown/JSON and batch JSON export tests
+also verify relative attachment links, portable metadata, original-byte members, and cross-scope deduplication.
+
+A 1320-by-820 desktop browser preview confirmed the updated backup/export descriptions, no horizontal overflow, and
+no console warnings or errors. An immutable read-only inspection of the live store reported schema version 15,
+`quick_check=ok`, eight conversations, fifty messages, three attachment catalog rows, no conversation-scoped
+associations, and no backup-only portable tables. The native Save/Open dialogs and a destructive restore against the
+live store were intentionally not exercised, so final native interaction remains a manual follow-up.
+
+## Prior completed product slice: Conversation-level attachment scope
 
 ### Goal
 

@@ -81,9 +81,26 @@ fn latest_automatic_backup_recovers_corrupt_store_and_preserves_damaged_bytes() 
     let conversation = store
         .create_conversation("Return after recovery")
         .expect("conversation should be created");
+    let attachment_source = live_path.with_file_name("recovery-notes.txt");
+    fs::write(&attachment_source, b"portable recovery attachment")
+        .expect("attachment source should be written");
+    let attachment = tests::completed_ingestion(
+        &store,
+        store
+            .ingest_attachment(&attachment_source)
+            .expect("recovery attachment should ingest"),
+    );
+    store
+        .add_conversation_attachments(&conversation.id, &[attachment.id.clone()])
+        .expect("recovery attachment should enter conversation scope");
     store
         .rotate_automatic_backups_at(SNAPSHOT_AT_MS)
         .expect("automatic backup should be created");
+    fs::write(
+        store.attachment_blob_path(&attachment.sha256),
+        b"damaged attachment bytes",
+    )
+    .expect("live attachment bytes should be damaged after the snapshot");
     drop(store);
     super::backup::remove_database_files(&live_path);
     let damaged_bytes = b"damaged live store";
@@ -117,11 +134,30 @@ fn latest_automatic_backup_recovers_corrupt_store_and_preserves_damaged_bytes() 
         .store
         .list_conversations()
         .expect("conversation access should resume");
+    let recovered_conversation = startup
+        .store
+        .open_conversation(&conversation.id)
+        .expect("recovered conversation should reopen");
     let preserved_live = preservation.join("bottie.sqlite3");
+    let restored_attachment = startup.store.attachment_blob_path(&attachment.sha256);
+    let preserved_attachment = preservation
+        .join("attachments")
+        .join("blobs")
+        .join(&attachment.sha256[..2])
+        .join(&attachment.sha256);
 
     assert_eq!(restored_at_ms, SNAPSHOT_AT_MS);
     assert_eq!(status.state, recovery::StorageRecoveryState::Ready);
     assert_eq!(conversations[0].id, conversation.id);
+    assert_eq!(recovered_conversation.attachments[0].id, attachment.id);
+    assert_eq!(
+        fs::read(restored_attachment).expect("portable attachment should recover"),
+        b"portable recovery attachment"
+    );
+    assert_eq!(
+        fs::read(preserved_attachment).expect("damaged attachment should be preserved"),
+        b"damaged attachment bytes"
+    );
     assert_eq!(
         fs::read(preserved_live).expect("damaged database should be preserved"),
         damaged_bytes

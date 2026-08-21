@@ -5,6 +5,15 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { formatBytes } from "./chat";
 import type { Usage } from "./inference";
 import type { Attachment } from "./presentation";
+import type { BackupOutcome, ConversationExportOutcome, RestoreOutcome } from "./storage-transfer";
+
+export { conversationExportFeedback } from "./storage-transfer";
+export type {
+  BackupOutcome,
+  ConversationExportFormat,
+  ConversationExportOutcome,
+  RestoreOutcome,
+} from "./storage-transfer";
 
 /** Durable message states supported by the initial SQLite schema. */
 export type StoredMessageState = "partial" | "final" | "cancelled" | "failed";
@@ -200,34 +209,6 @@ export type ForkedConversation = {
   requestMessageId: string;
 };
 
-/** Native Save-dialog result that deliberately omits the selected filesystem path. */
-export type ConversationExportOutcome = {
-  status: "saved" | "cancelled";
-  fileName: string | null;
-};
-
-/** Portable selected and multi-conversation formats supported by native Save flows. */
-export type ConversationExportFormat = "markdown" | "json" | "batch-json";
-
-/** Builds compact success feedback from a path-redacted native export outcome. */
-export function conversationExportFeedback(format: ConversationExportFormat, fileName: string | null): string {
-  const fallback = format === "markdown" ? "Markdown export" : format === "json" ? "JSON export" : "all conversations";
-  return `Saved ${fileName ?? fallback}`;
-}
-
-/** Native backup result that deliberately omits the selected filesystem path. */
-export type BackupOutcome = {
-  status: "saved" | "cancelled";
-  fileName: string | null;
-};
-
-/** Native restore result that returns leaf filenames but never filesystem paths. */
-export type RestoreOutcome = {
-  status: "restored" | "cancelled";
-  fileName: string | null;
-  preservedCopyName: string | null;
-};
-
 /** Produces the stable browser-preview storage failure. */
 function unavailableInBrowser(): StorageError {
   return {
@@ -266,31 +247,31 @@ export async function ingestAttachments(): Promise<AttachmentIngestOutcome> {
   return invoke<AttachmentIngestOutcome>("ingest_attachments");
 }
 
-/** Saves the selected visible lineage as Markdown without exposing its destination path. */
+/** Saves Markdown plus any referenced retained files without exposing its destination path. */
 export async function exportConversationMarkdown(conversationId: string): Promise<ConversationExportOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ConversationExportOutcome>("export_conversation_markdown", { conversationId });
 }
 
-/** Saves the selected visible lineage as versioned JSON without exposing its destination path. */
+/** Saves versioned JSON plus any referenced retained files without exposing its destination path. */
 export async function exportConversationJson(conversationId: string): Promise<ConversationExportOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ConversationExportOutcome>("export_conversation_json", { conversationId });
 }
 
-/** Saves every active and archived selected lineage as one versioned JSON document. */
+/** Saves eligible selected lineages and referenced retained files as one portable export. */
 export async function exportConversationBatchJson(): Promise<ConversationExportOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ConversationExportOutcome>("export_conversation_batch_json");
 }
 
-/** Saves a complete SQLite snapshot without exposing its destination path. */
+/** Saves a verified SQLite snapshot with embedded retained and normalized attachment bytes. */
 export async function backupConversationStore(): Promise<BackupOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<BackupOutcome>("backup_conversation_store");
 }
 
-/** Restores a validated SQLite snapshot after a native-owned safety backup and confirmation. */
+/** Restores a validated SQLite snapshot and embedded attachment bytes after native confirmation. */
 export async function restoreConversationStore(): Promise<RestoreOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<RestoreOutcome>("restore_conversation_store");

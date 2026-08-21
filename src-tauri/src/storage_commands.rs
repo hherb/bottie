@@ -111,7 +111,7 @@ pub(crate) fn load_conversation(
 }
 
 #[tauri::command]
-/// Saves a consistent snapshot of all local conversation data through a Rust-owned native dialog.
+/// Saves a consistent snapshot with embedded attachment bytes through a Rust-owned native dialog.
 pub(crate) async fn backup_conversation_store(
     app: AppHandle,
     state: State<'_, AppState>,

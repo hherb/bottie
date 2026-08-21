@@ -22,11 +22,14 @@ Native provider runs can also retain ordered structured tool calls and one appen
 activity is visible in a calm expandable panel, even though provider tool loops and execution remain intentionally
 deferred.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
-formats retain separate reasoning, response status, provider/model provenance, local ratings, and retained tool
-activity. Bottie also restores
+formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
+and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
+writes a ZIP containing the document plus one deduplicated original file per content hash; exports without attachments
+remain plain Markdown or JSON. Bottie also restores
 the exact last-open conversation after restart and preserves an intentional blank new-chat view. Native backup
-controls can create a verified SQLite
-snapshot or restore a validated Bottie backup after explicit confirmation and an automatic pre-restore safety copy.
+controls can create a verified SQLite snapshot with original attachment blobs and ready normalized derivatives embedded
+in backup-only tables, or restore a validated Bottie backup after explicit confirmation and an automatic pre-restore
+safety copy.
 After a successful native startup, an app-private background rotation also creates at most one verified snapshot every
 24 hours and retains the seven newest automatic snapshots without pruning manual or pre-restore backups. If SQLite
 reports corruption at startup, Bottie opens a restricted recovery screen instead of mutating the damaged store. Users
@@ -137,25 +140,29 @@ context. Good and Poor rating controls
 write only the exact visible assistant response through a narrow native command. Selecting the active choice clears it;
 ratings stay local, survive restart, and remain attached to their preserved branch response. The toolbar's Markdown
 and JSON export actions reconstruct only the selected lineage and ask Rust to show a format-filtered native Save
-dialog. JSON uses version 2 of the `bottie-conversation` contract and retains ordered text, separate reasoning, message
+dialog. JSON uses version 3 of the `bottie-conversation` contract and retains ordered text, separate reasoning, message
 state, provider/model provenance, local rating, creation time, and provider-reported generation metadata without
-opaque storage identifiers. Retained tool arguments/results are included without native run or provider call IDs. A
-separate global JSON action writes every active and archived conversation's selected lineage through version 2 of the
-`bottie-conversation-batch` contract while excluding Trash and hidden branch siblings.
-Rust writes each UTF-8 file; the WebView receives only a saved/cancelled outcome and leaf filename, never the chosen
-directory. A separate global backup action asks Rust to create and verify a complete SQLite
-snapshot with SQLite's online backup API, including
-committed WAL content, while likewise returning no local path. Restore opens and validates the selected database in
-Rust, migrates an isolated staging copy when supported, creates an application-private snapshot of the current store,
-and only then replaces the live database. The WebView receives leaf filenames rather than database paths. Native
+opaque storage identifiers. Conversation- and message-scoped attachment entries include safe display metadata, hashes,
+and archive-relative members. Retained tool arguments/results are included without native run or provider call IDs. A
+separate global JSON action writes every active and archived conversation's selected lineage through version 3 of the
+`bottie-conversation-batch` contract while excluding Trash and hidden branch siblings. Exports with referenced files
+are ZIP bundles containing the UTF-8 document and one hash-deduplicated original blob; otherwise their historical plain
+file shape is unchanged. The WebView receives only a saved/cancelled outcome and leaf filename, never the chosen
+directory. A separate global backup action asks Rust to create and verify a complete SQLite snapshot with SQLite's
+online backup API, including committed WAL content, original attachment blobs, and ready normalized derivatives in
+backup-only tables, while likewise returning no local path. Restore opens and validates the selected database and every
+embedded hash in Rust, migrates an isolated staging copy when supported, creates an application-private portable
+snapshot of the current store, rehydrates attachment bytes through a private staging tree, and only then replaces the
+live database and attachment root. The WebView receives leaf filenames rather than database paths. Native
 startup rotation creates and verifies a new app-private snapshot when the newest is at least 24 hours old, retains the
 seven newest managed snapshots, and reports its path-redacted result in Recent diagnostics. Before normal store
 initialization, Rust opens existing data read-only and classifies explicit SQLite corruption or a non-`ok` integrity
 result. Recovery mode blocks normal conversation connections and skips automatic rotation. Its WebView status contains
 only verified automatic-snapshot count and newest timestamp. Restoring either that newest snapshot or a manually
-selected backup stages, migrates, and verifies a replacement before preserving the damaged main database and present
-WAL/shared-memory sidecars in app-private storage. Successful replacement resumes normal conversation access without
-returning a filesystem path. A separate native picker ingests files through a bounded streaming copy into an
+selected backup stages, migrates, and verifies a replacement before preserving the damaged main database, present
+WAL/shared-memory sidecars, and prior attachment tree in app-private storage. Successful replacement resumes normal
+conversation access without returning a filesystem path. A separate native picker ingests files through a bounded
+streaming copy into an
 application-private attachment directory. SQLite stores only sanitized metadata and the SHA-256 content identity;
 identical content reuses its existing blob across restarts. Ingestion leaves extraction and supported image
 normalization durably pending, then wakes a single process-lifetime worker instead of parsing or decoding inside the
@@ -164,8 +171,8 @@ path-free terminal metadata to update visible draft and message attachments. Sto
 its current bounded item and resumes it afterward. Sending commits up to eight selected attachment identities
 with the user message, then clears the draft. Reopened selected lineages reconstruct ordered path-free metadata; edited
 and regenerated request branches inherit the source request's associations. Detaching is limited to visible user
-messages while generation is idle and retains the catalog row and blob for deduplication. Attachment bytes remain
-outside SQLite-only backups and exports. Conversation-scoped associations apply on every branch and future request;
+messages while generation is idle and retains the catalog row and blob for deduplication. Conversation-scoped
+associations apply on every branch and future request;
 ready images are treated as current vision context and deduplicated when the same file is message-linked, while
 documents remain local-only. Schema-version-15 records retain up to 2 MiB of UTF-8 plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
@@ -178,9 +185,10 @@ filename, reads only bounded ZIP members in memory, rejects overlapping/encrypte
 WordprocessingML size, events, depth, and output. JPEG and PNG normalization accepts at most 8,192 pixels on either
 axis, 16 million total pixels, 128 MiB of decoded image allocation, and 25 MiB of encoded output. JPEG EXIF orientation
 is applied before both formats are re-encoded through metadata-free encoders into application-private,
-content-addressed derivatives. SQLite backups include extracted text and path-free derivative metadata, but original
-blobs and normalized derivatives remain outside those backups. Extracted text and images remain absent from
-conversation exports. Ready JPEG/PNG derivatives are read only by Rust for capability-confirmed vision requests, with
+content-addressed derivatives. Portable manual, automatic, and pre-restore SQLite backups embed original blobs plus
+ready normalized derivatives in verified backup-only tables. Conversation exports include selected-scope original
+files, never extracted SQLite text or normalized derivatives. Ready JPEG/PNG derivatives are read only by Rust for
+capability-confirmed vision requests, with
 an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from provider requests. Other
 office formats are not extracted, and no attachment is indexed or retrievable yet.
 
