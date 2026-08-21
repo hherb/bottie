@@ -51,9 +51,11 @@ entries and total declared expansion, reads only bounded in-memory XML, caps XML
 retained-text ceiling. JPEG and PNG attachments now receive bounded native normalization into content-addressed,
 application-private derivatives. Rust applies EXIF orientation, caps dimensions, pixels, decoder allocation, and
 encoded output, and re-encodes without forwarding source metadata. The WebView receives only path-free processing
-state, format, dimensions, counts, and sizes. The next bounded implementation slice is moving existing attachment
-extraction and normalization work off ingestion/startup into a durable background lifecycle; do not bundle indexing,
-embeddings, provider delivery, other office formats, preview rendering, or broad visual-design work with it.
+state, format, dimensions, counts, and sizes. Ingestion now returns after committing durable pending work; one native
+worker resumes extraction and normalization after startup, selection, or restore and streams path-free state updates to
+visible draft and message attachments. The next bounded implementation slice is capability-aware JPEG/PNG delivery to
+vision-capable models with explicit behavior for text-only models; do not bundle document delivery, indexing,
+embeddings, other office formats, preview rendering, garbage collection, or broad visual-design work with it.
 
 Read these files first:
 
@@ -67,7 +69,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
-`codex/image-attachment-normalization`.
+`codex/background-attachment-processing`.
 
 ## Current implementation
 
@@ -91,7 +93,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Th
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
 - native attachment selection, application-private ingestion, durable selected-lineage message association, draft and
   message-scoped removal, and path-redacted outcome feedback;
-- durable bounded plain-text, Markdown, page-aware PDF, DOCX, JPEG, and PNG processing state with path-free labels;
+- durable background plain-text, Markdown, page-aware PDF, DOCX, JPEG, and PNG processing with live path-free labels;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
@@ -139,10 +141,14 @@ branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded co
 bounded append-only tool-call/result records, `src-tauri/src/storage/attachments.rs` owns bounded streaming ingestion,
 SHA-256 content identities, MIME sniffing, safe display names, deduplicated metadata, app-private blob placement,
 ordered message associations, selected-lineage validation, and association removal,
+`src-tauri/src/storage/attachment_processing.rs` selects one oldest pending item without introducing an in-progress
+lease state,
 `src-tauri/src/storage/extraction.rs` owns extraction persistence and bounded UTF-8/PDF parsing,
 `src-tauri/src/storage/docx.rs` owns bounded package validation and WordprocessingML text extraction,
 `src-tauri/src/storage/image_codec.rs` owns bounded JPEG/PNG decode, orientation, and metadata-free encoding,
 `src-tauri/src/storage/image_normalization.rs` owns derivative persistence and path-free normalization state,
+`src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
+restore pause/resume coordination,
 and `src-tauri/src/storage/export.rs` owns
 deterministic selected-lineage Markdown plus selected and batch JSON rendering and safe suggested filenames, and
 `src-tauri/src/storage/backup.rs` owns
@@ -277,7 +283,60 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Bounded JPEG and PNG normalization
+## Most recently completed product slice: Durable background attachment processing
+
+### Goal
+
+Keep bounded document extraction and image normalization responsive by moving all parsing and decoding out of picker
+ingestion and store initialization while preserving durable restart recovery and the Rust/WebView trust boundary.
+
+### Implemented shape
+
+1. Ingestion atomically commits retained bytes, catalog metadata, extraction state, and normalization state, then
+   returns the path-free pending record without running a parser or image codec. Duplicate selections reuse the newest
+   durable state and wake the same worker harmlessly.
+2. One process-lifetime native worker drains the oldest attachment whose extraction or normalization remains pending.
+   It handles one item at a time, coalesces startup/selection/restore wakeups, and leaves work pending for retry after a
+   process interruption instead of adding a fragile in-progress lease.
+3. Each completed item emits one typed event containing only the existing path-free attachment contract. Draft chips,
+   an attachment captured during message persistence, and visible selected-lineage message associations update from
+   pending to ready, unsupported, or failed without receiving extracted text, derivative identities, bytes, or paths.
+4. Manual and corruption-recovery store replacement pause the worker after its current bounded item. An RAII guard
+   resumes it on both success and error, and a successful restore wakes any pending work in the replacement store.
+5. Store initialization now performs only directory creation, migrations, integrity policy, and interrupted provider-
+   run recovery. Pending attachment work survives a fresh process and is scheduled only by the background lifecycle.
+
+### Acceptance criteria
+
+- Native picker latency no longer includes UTF-8, PDF, DOCX, JPEG, or PNG processing; accepted files can be associated
+  while their durable state remains pending.
+- Pending extraction and normalization survive restart and resume without schema changes or loss of prior terminal
+  rows, message associations, conversations, branches, runs, selection, or retained bytes.
+- Exactly one worker serializes bounded attachment work, observes restore pauses between items, and does not busy-loop
+  after a storage error.
+- The WebView receives only path-free processing metadata, including when an event completes before the picker result
+  merges into the current draft.
+- No indexing, embeddings, provider delivery, other office/image formats, preview rendering, garbage collection,
+  portable blob backup, or broad visual redesign is added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-21. The frontend suite has thirty-five passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has 121 tests: 117 pass
+by default and four live-provider tests remain opt-in. Focused native contracts prove that ingestion returns durable
+pending state, one explicit background pass reaches the expected terminal metadata, startup leaves pending work for the
+worker instead of blocking, and that work survives a fresh store process. Existing extraction, normalization,
+migration, association, restore, and error-policy tests now drain work only through the explicit processing boundary.
+The frontend contract covers exact-ID draft and visible-message updates without exposing content or paths.
+
+A fresh native development process launched successfully against the real schema-13 application store. Immutable
+read-only inspection while Bottie was running reported `quick_check = ok`, two retained attachments, and zero pending
+extraction or normalization rows. Bottie remains running for manual interaction. macOS denied `osascript` assistive
+access, so this pass did not synthetically click the native picker or claim a fresh observed pending-to-terminal label
+transition; the path-backed storage lifecycle and frontend event mapping remain automated instead. Provider networking
+was unchanged, so the four opt-in live-provider tests were not rerun.
+
+## Prior completed product slice: Bounded JPEG and PNG normalization
 
 ### Goal
 

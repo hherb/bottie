@@ -129,24 +129,6 @@ pub(crate) struct StoredAttachmentExtraction {
 }
 
 impl ConversationStore {
-    /// Completes every extraction left pending by migration or an interrupted process.
-    pub(super) fn process_pending_attachment_extractions(&self) -> Result<(), StorageError> {
-        let connection = self.open()?;
-        let mut statement = connection.prepare(
-            "SELECT attachment_id FROM attachment_extractions
-             WHERE state = 'pending' ORDER BY updated_at_ms, attachment_id",
-        )?;
-        let attachment_ids = statement
-            .query_map([], |row| row.get::<_, String>(0))?
-            .collect::<Result<Vec<_>, _>>()?;
-        drop(statement);
-        drop(connection);
-        for attachment_id in attachment_ids {
-            self.process_attachment_extraction(&attachment_id)?;
-        }
-        Ok(())
-    }
-
     /// Resolves one pending attachment into ready, unsupported, or failed native state.
     pub(super) fn process_attachment_extraction(
         &self,

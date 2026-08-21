@@ -1,6 +1,7 @@
 #![deny(missing_docs)]
 //! Native application commands and lifecycle for Bottie's Tauri desktop shell.
 
+mod attachment_processor;
 mod command_types;
 mod credentials;
 mod diagnostics;
@@ -13,6 +14,7 @@ mod stream_channel;
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
 
+use attachment_processor::AttachmentProcessor;
 use command_types::{
     AppInfo, ProviderConnectionDraft, ProviderConnectionTest, ProviderCredentialStatus,
     ProviderCredentialUpdate, ProviderSelection,
@@ -47,6 +49,7 @@ struct AppState {
     diagnostics: Diagnostics,
     credentials: Arc<dyn CredentialStore>,
     conversations: ConversationStore,
+    attachment_processing: AttachmentProcessor,
     storage_management: tauri::async_runtime::Mutex<()>,
 }
 
@@ -394,6 +397,11 @@ pub fn run() {
                 .map_err(|error| std::io::Error::other(error.message))?;
             let diagnostics = Diagnostics::default();
             let conversations = startup.store;
+            let attachment_processing = AttachmentProcessor::start(
+                app.handle().clone(),
+                conversations.clone(),
+                diagnostics.clone(),
+            );
             if startup.recovery_required {
                 let recovery_diagnostics = diagnostics.clone();
                 tauri::async_runtime::spawn(async move {
@@ -408,6 +416,7 @@ pub fn run() {
                 });
             } else {
                 schedule_automatic_backup(conversations.clone(), diagnostics.clone());
+                attachment_processing.wake();
             }
             let settings = load_provider_settings(&settings_path).unwrap_or_default();
             let providers = ProviderSet::from_settings(&settings).unwrap_or_else(|_| ProviderSet {
@@ -423,6 +432,7 @@ pub fn run() {
                 diagnostics,
                 credentials: Arc::new(SystemCredentialStore::default()),
                 conversations,
+                attachment_processing,
                 storage_management: tauri::async_runtime::Mutex::new(()),
             });
             Ok(())

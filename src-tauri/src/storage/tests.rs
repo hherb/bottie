@@ -21,6 +21,37 @@ pub(super) fn test_database_path() -> std::path::PathBuf {
     directory.join("bottie.sqlite3")
 }
 
+/// Drains durable attachment work synchronously at the explicit storage test boundary.
+pub(super) fn process_pending_attachments(store: &ConversationStore) {
+    while store
+        .process_next_pending_attachment()
+        .expect("pending attachment processing should succeed")
+        .is_some()
+    {}
+}
+
+/// Completes a newly ingested fixture while preserving its selection-specific duplicate flag.
+pub(super) fn completed_ingestion(
+    store: &ConversationStore,
+    ingested: IngestedAttachment,
+) -> IngestedAttachment {
+    process_pending_attachments(store);
+    let stored = store
+        .stored_attachment_for_test(&ingested.id)
+        .expect("processed attachment should load")
+        .expect("processed attachment should exist");
+    IngestedAttachment {
+        id: stored.id,
+        display_name: stored.display_name,
+        mime_type: stored.mime_type,
+        byte_size: stored.byte_size,
+        sha256: stored.sha256,
+        extraction: stored.extraction,
+        normalization: stored.normalization,
+        duplicate: ingested.duplicate,
+    }
+}
+
 #[test]
 fn initializes_ordered_migrations_and_default_local_profile() {
     let path = test_database_path();

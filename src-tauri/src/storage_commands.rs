@@ -200,14 +200,17 @@ pub(crate) async fn restore_conversation_store(
         return Err(StorageError::restore_while_active());
     }
     let conversations = state.conversations.clone();
+    let attachment_processing = state.attachment_processing.clone();
     let safety_path = conversations.restore_preservation_path()?;
     let restore_path = path.clone();
     let worker_safety_path = safety_path.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _processing_pause = attachment_processing.pause();
         conversations.restore_from(&restore_path, &worker_safety_path)
     })
     .await
     .map_err(|_| StorageError::restore())??;
+    state.attachment_processing.wake();
     let preserved_copy_name = safety_path
         .file_name()
         .and_then(|name| name.to_str())
@@ -253,13 +256,16 @@ pub(crate) async fn restore_latest_automatic_backup(
         return Err(StorageError::restore_while_active());
     }
     let conversations = state.conversations.clone();
+    let attachment_processing = state.attachment_processing.clone();
     let preservation = conversations.restore_preservation_path()?;
     let worker_preservation = preservation.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        let _processing_pause = attachment_processing.pause();
         conversations.restore_latest_automatic_backup(&worker_preservation)
     })
     .await
     .map_err(|_| StorageError::restore())??;
+    state.attachment_processing.wake();
     let preserved_copy_name = preservation
         .file_name()
         .and_then(|name| name.to_str())

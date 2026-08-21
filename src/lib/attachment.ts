@@ -1,6 +1,16 @@
 /** Pure path-free presentation policy for retained attachment processing state. */
 
-import { attachmentExtractionLabel, type AttachmentExtraction, type ImageNormalization } from "./storage";
+import type { Attachment, Message } from "./presentation";
+import {
+  attachmentExtractionLabel,
+  storedAttachmentToPresentation,
+  type AttachmentExtraction,
+  type ImageNormalization,
+  type StoredAttachment,
+} from "./storage";
+
+/** Native event carrying path-free metadata after durable background processing. */
+export const ATTACHMENT_PROCESSING_EVENT = "attachment-processing-updated";
 
 const IMAGE_NORMALIZATION_FAILURE_LABELS: Record<string, string> = {
   image_decode_failed: "Image could not be decoded",
@@ -23,4 +33,20 @@ export function attachmentStatusLabel(normalization: ImageNormalization, extract
     return IMAGE_NORMALIZATION_FAILURE_LABELS[normalization.errorCode ?? ""] ?? "Image normalization failed";
   }
   return extraction ? attachmentExtractionLabel(extraction) : "No image normalization";
+}
+
+/** Replaces one matching attachment with its latest path-free native processing state. */
+export function applyAttachmentProcessingUpdate(current: Attachment[], updated: StoredAttachment): Attachment[] {
+  if (!current.some((attachment) => attachment.id === updated.id)) return current;
+  const presentation = storedAttachmentToPresentation(updated);
+  return current.map((attachment) => (attachment.id === updated.id ? presentation : attachment));
+}
+
+/** Applies one native processing result to matching attachments in visible messages. */
+export function applyAttachmentProcessingUpdateToMessages(messages: Message[], updated: StoredAttachment): Message[] {
+  return messages.map((message) => {
+    if (!message.attachments) return message;
+    const attachments = applyAttachmentProcessingUpdate(message.attachments, updated);
+    return attachments === message.attachments ? message : { ...message, attachments };
+  });
 }

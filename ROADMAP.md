@@ -143,7 +143,8 @@ Status: in progress
 - [x] bounded page-aware PDF text extraction with path-free failure states;
 - [x] bounded DOCX extraction as the first selected office format;
 - [x] bounded JPEG/PNG normalization, EXIF orientation application, and metadata removal policy;
-- [ ] background extraction and indexing states;
+- [x] durable background extraction and image-normalization lifecycle;
+- [ ] background indexing states;
 - [ ] capability-aware image delivery to vision models;
 - [ ] clear behavior for text-only models;
 - [x] per-message association with selected-branch reopen, fork inheritance, and association removal;

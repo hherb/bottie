@@ -10,7 +10,7 @@ use super::{
     docx::{MAX_DOCX_ARCHIVE_ENTRIES, MAX_DOCX_XML_DEPTH},
     extraction::MAX_PDF_PAGES,
     migrations::{MIGRATION_10, MIGRATION_11},
-    tests::test_database_path,
+    tests::{completed_ingestion, process_pending_attachments, test_database_path},
 };
 
 const DOCX_MIME_TYPE: &str =
@@ -78,9 +78,10 @@ fn ingest_pdf(
 ) -> super::IngestedAttachment {
     let source_path = store.path.with_file_name(name);
     fs::write(&source_path, pdf_fixture(page_texts)).expect("PDF fixture should be written");
-    store
+    let ingested = store
         .ingest_attachment(&source_path)
-        .expect("PDF fixture should ingest")
+        .expect("PDF fixture should ingest");
+    completed_ingestion(store, ingested)
 }
 
 /// Builds one minimal DOCX package with caller-controlled main-document XML and extra entries.
@@ -129,9 +130,10 @@ fn ingest_docx(
     let source_path = store.path.with_file_name(name);
     fs::write(&source_path, docx_fixture(document_xml, extra_entry_count))
         .expect("DOCX fixture should be written");
-    store
+    let ingested = store
         .ingest_attachment(&source_path)
-        .expect("DOCX fixture should ingest")
+        .expect("DOCX fixture should ingest");
+    completed_ingestion(store, ingested)
 }
 
 #[test]
@@ -219,6 +221,7 @@ fn upgrades_version_eleven_docx_state_and_extracts_retained_content() {
 
     let upgraded =
         ConversationStore::initialize(path).expect("version eleven store should upgrade");
+    process_pending_attachments(&upgraded);
     let stored = upgraded
         .stored_attachment_for_test(&docx.id)
         .expect("DOCX attachment should load")
@@ -387,6 +390,7 @@ fn upgrades_version_ten_pdf_state_and_extracts_retained_content() {
     drop(store);
 
     let upgraded = ConversationStore::initialize(path).expect("version ten store should upgrade");
+    process_pending_attachments(&upgraded);
     let stored = upgraded
         .stored_attachment_for_test(&pdf.id)
         .expect("PDF attachment should load")
@@ -443,6 +447,7 @@ fn records_path_free_failures_for_empty_and_malformed_pdfs() {
     let malformed = store
         .ingest_attachment(&malformed_path)
         .expect("malformed PDF should retain metadata");
+    process_pending_attachments(&store);
     let empty_stored = store
         .stored_attachment_for_test(&empty.id)
         .expect("empty PDF should load")
