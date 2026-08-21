@@ -379,6 +379,7 @@ pub(crate) struct StoredAttachment {
     /// Exact retained byte count.
     pub(crate) byte_size: u64,
     /// Lowercase SHA-256 content identity.
+    #[serde(skip_serializing)]
     pub(crate) sha256: String,
     /// Native-only extraction status; extracted content is deliberately omitted.
     pub(crate) extraction: StoredAttachmentExtraction,

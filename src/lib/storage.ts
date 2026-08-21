@@ -1,7 +1,6 @@
 /** Typed frontend boundary for Rust-owned durable conversation storage. */
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
-
+import { convertFileSrc, invoke, isTauri } from "@tauri-apps/api/core";
 import { formatBytes } from "./chat";
 import type { Usage } from "./inference";
 import type { Attachment } from "./presentation";
@@ -98,7 +97,6 @@ export type StoredAttachment = {
   displayName: string;
   mimeType: string;
   byteSize: number;
-  sha256: string;
   extraction: AttachmentExtraction;
   indexing: AttachmentIndexing;
   normalization: ImageNormalization;
@@ -166,6 +164,7 @@ const ATTACHMENT_EXTRACTION_FAILURE_LABELS: Record<string, string> = {
   pdf_no_text: "PDF has no extractable text",
   pdf_page_limit_exceeded: "PDF has too many pages",
 };
+const ATTACHMENT_PREVIEW_PROTOCOL = "bottie-attachment";
 
 /** Formats structured native tool data as inert readable JSON. */
 export function formatToolPayload(value: unknown): string {
@@ -428,7 +427,10 @@ export function storedAttachmentToPresentation(attachment: StoredAttachment): At
     size: formatBytes(attachment.byteSize),
     kind: attachment.mimeType.startsWith("image/") ? "image" : "file",
     mimeType: attachment.mimeType,
-    sha256: attachment.sha256,
+    previewUrl:
+      attachment.normalization.state === "ready" && isTauri()
+        ? convertFileSrc(attachment.id, ATTACHMENT_PREVIEW_PROTOCOL)
+        : null,
     extraction: attachment.extraction,
     indexing: attachment.indexing,
     normalization: attachment.normalization,

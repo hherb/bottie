@@ -16,6 +16,7 @@ mod attachment_delivery;
 mod attachment_garbage_collection;
 mod attachment_indexing;
 mod attachment_policy;
+mod attachment_preview;
 mod attachment_processing;
 pub(crate) mod attachments;
 mod backup;
@@ -468,6 +469,8 @@ mod attachment_delivery_tests;
 mod attachment_garbage_collection_tests;
 #[cfg(test)]
 mod attachment_indexing_tests;
+#[cfg(test)]
+mod attachment_preview_tests;
 #[cfg(test)]
 mod attachment_processing_tests;
 #[cfg(test)]

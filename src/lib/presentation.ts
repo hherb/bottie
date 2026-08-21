@@ -38,7 +38,8 @@ export type Attachment = {
   size: string;
   kind: "image" | "file";
   mimeType: string;
-  sha256: string;
+  /** ID-only native protocol URL for a bounded ready image thumbnail. */
+  previewUrl: string | null;
   extraction: AttachmentExtraction;
   indexing: AttachmentIndexing;
   normalization: ImageNormalization;

@@ -15,6 +15,7 @@ import {
 import {
   applyAttachmentProcessingUpdate,
   applyAttachmentProcessingUpdateToMessages,
+  attachmentFailure,
   attachmentStatusLabel,
 } from "./attachment";
 
@@ -71,7 +72,6 @@ describe("conversation storage presentation helpers", () => {
       displayName: "diagram.png",
       mimeType: "image/png",
       byteSize: 16,
-      sha256: "abc123",
       extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
       indexing: { state: "unsupported" },
       normalization: { state: "ready", format: "png", width: 2, height: 2, byteSize: 16, errorCode: null },
@@ -86,7 +86,7 @@ describe("conversation storage presentation helpers", () => {
         size: "16 B",
         kind: "image",
         mimeType: "image/png",
-        sha256: "abc123",
+        previewUrl: null,
         extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
         indexing: { state: "unsupported" },
         normalization: { state: "ready", format: "png", width: 2, height: 2, byteSize: 16, errorCode: null },
@@ -102,7 +102,6 @@ describe("conversation storage presentation helpers", () => {
         displayName: "notes.md",
         mimeType: "text/plain",
         byteSize: 2_048,
-        sha256: "abc123",
         extraction: { state: "ready", format: "markdown", characterCount: 42, pageCount: null, errorCode: null },
         indexing: { state: "indexable" },
         normalization: {
@@ -120,10 +119,50 @@ describe("conversation storage presentation helpers", () => {
       size: "2 KB",
       kind: "file",
       mimeType: "text/plain",
-      sha256: "abc123",
+      previewUrl: null,
       extraction: { state: "ready", format: "markdown", characterCount: 42, pageCount: null, errorCode: null },
       indexing: { state: "indexable" },
       normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
+    });
+  });
+
+  it("explains local-only consequences for extraction and normalization failures", () => {
+    const document = storedAttachmentToPresentation({
+      id: "document",
+      displayName: "scanned.pdf",
+      mimeType: "application/pdf",
+      byteSize: 100,
+      extraction: {
+        state: "failed",
+        format: "pdf",
+        characterCount: null,
+        pageCount: null,
+        errorCode: "pdf_no_text",
+      },
+      indexing: { state: "blocked" },
+      normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
+    });
+    const image = {
+      ...document,
+      kind: "image" as const,
+      mimeType: "image/png",
+      normalization: {
+        state: "failed" as const,
+        format: null,
+        width: null,
+        height: null,
+        byteSize: null,
+        errorCode: "image_decode_failed",
+      },
+    };
+
+    expect(attachmentFailure(document)).toEqual({
+      title: "PDF has no extractable text",
+      detail: "The original file is still stored locally, but its text is unavailable for later indexing.",
+    });
+    expect(attachmentFailure(image)).toEqual({
+      title: "Image could not be decoded",
+      detail: "The original file is still stored locally, but Bottie cannot preview or send this image.",
     });
   });
 
@@ -133,7 +172,6 @@ describe("conversation storage presentation helpers", () => {
       displayName: "notes.txt",
       mimeType: "text/plain",
       byteSize: 12,
-      sha256: "abc123",
       extraction: { state: "pending", format: null, characterCount: null, pageCount: null, errorCode: null },
       indexing: { state: "waiting_for_extraction" },
       normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
@@ -144,7 +182,6 @@ describe("conversation storage presentation helpers", () => {
       displayName: "notes.txt",
       mimeType: "text/plain",
       byteSize: 12,
-      sha256: "abc123",
       extraction: {
         state: "ready" as const,
         format: "plain_text" as const,

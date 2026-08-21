@@ -41,6 +41,7 @@ pub(crate) struct IngestedAttachment {
     /// Exact byte count retained in application-private storage.
     pub(crate) byte_size: u64,
     /// Lowercase SHA-256 content identity.
+    #[serde(skip_serializing)]
     pub(crate) sha256: String,
     /// Native-only extraction status; extracted content is deliberately omitted.
     pub(crate) extraction: StoredAttachmentExtraction,

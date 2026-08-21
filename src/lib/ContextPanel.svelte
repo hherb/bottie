@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
+  import AttachmentVisual from "$lib/AttachmentVisual.svelte";
   import type { ModelInfo } from "$lib/inference";
-  import { attachmentStatusLabel } from "$lib/attachment";
+  import { attachmentFailure, attachmentStatusLabel } from "$lib/attachment";
   import { attachmentDeliveryLabel } from "$lib/chat";
   import type { Attachment, MessageAttachment, ProviderStatus } from "$lib/presentation";
 
@@ -70,17 +71,21 @@
     </div>
     <div class="attachment-list">
       {#each attachments as attachment (attachment.id)}
-        <div class="attachment-row">
-          <span class:image={attachment.kind === "image"} class="attachment-icon">
-            <Icon name={attachment.kind} size={18} />
-          </span>
+        {@const failure = attachmentFailure(attachment)}
+        <div class:failed={Boolean(failure)} class="attachment-row">
+          <AttachmentVisual {attachment} className="attachment-icon" iconSize={18} />
           <span class="attachment-copy">
             <strong>{attachment.name}</strong>
             <small
               >Next message · {attachment.size} ·
-              {attachmentStatusLabel(attachment.normalization, attachment.extraction, attachment.indexing)} ·
+              {failure
+                ? "Needs attention"
+                : attachmentStatusLabel(attachment.normalization, attachment.extraction, attachment.indexing)} ·
               {attachmentDeliveryLabel(attachment, selectedModel)}</small
             >
+            {#if failure}
+              <small class="attachment-error"><span>{failure.title}</span>{failure.detail}</small>
+            {/if}
           </span>
           <button
             class="scope-action"
@@ -94,17 +99,21 @@
         </div>
       {/each}
       {#each conversationAttachments as attachment (attachment.id)}
-        <div class="attachment-row conversation-association">
-          <span class:image={attachment.kind === "image"} class="attachment-icon">
-            <Icon name={attachment.kind} size={18} />
-          </span>
+        {@const failure = attachmentFailure(attachment)}
+        <div class:failed={Boolean(failure)} class="attachment-row conversation-association">
+          <AttachmentVisual {attachment} className="attachment-icon" iconSize={18} />
           <span class="attachment-copy">
             <strong>{attachment.name}</strong>
             <small>
               Conversation · {attachment.size} ·
-              {attachmentStatusLabel(attachment.normalization, attachment.extraction, attachment.indexing)} ·
+              {failure
+                ? "Needs attention"
+                : attachmentStatusLabel(attachment.normalization, attachment.extraction, attachment.indexing)} ·
               {attachmentDeliveryLabel(attachment, selectedModel)}
             </small>
+            {#if failure}
+              <small class="attachment-error"><span>{failure.title}</span>{failure.detail}</small>
+            {/if}
           </span>
           <button
             aria-label={`Remove ${attachment.name} from conversation`}
@@ -116,21 +125,25 @@
         </div>
       {/each}
       {#each messageAttachments as association (`${association.messageId}:${association.attachment.id}`)}
-        <div class="attachment-row retained-association">
-          <span class:image={association.attachment.kind === "image"} class="attachment-icon">
-            <Icon name={association.attachment.kind} size={18} />
-          </span>
+        {@const failure = attachmentFailure(association.attachment)}
+        <div class:failed={Boolean(failure)} class="attachment-row retained-association">
+          <AttachmentVisual attachment={association.attachment} className="attachment-icon" iconSize={18} />
           <span class="attachment-copy">
             <strong>{association.attachment.name}</strong>
             <small>
               Message · {association.attachment.size} ·
-              {attachmentStatusLabel(
-                association.attachment.normalization,
-                association.attachment.extraction,
-                association.attachment.indexing,
-              )} ·
+              {failure
+                ? "Needs attention"
+                : attachmentStatusLabel(
+                    association.attachment.normalization,
+                    association.attachment.extraction,
+                    association.attachment.indexing,
+                  )} ·
               {attachmentDeliveryLabel(association.attachment, selectedModel)}
             </small>
+            {#if failure}
+              <small class="attachment-error"><span>{failure.title}</span>{failure.detail}</small>
+            {/if}
           </span>
           <button
             aria-label={`Remove ${association.attachment.name} from message`}
