@@ -2,9 +2,28 @@
 
 use std::fs;
 
+use super::types::StorageStatus;
 use super::*;
 
 impl ConversationStore {
+    /// Returns current migration and SQLite policy state through the storage test boundary.
+    pub(super) fn status(&self) -> Result<StorageStatus, StorageError> {
+        let connection = self.open()?;
+        Ok(StorageStatus {
+            schema_version: connection
+                .pragma_query_value(None, "user_version", |row| row.get(0))?,
+            profile_name: connection.query_row(
+                "SELECT name FROM profiles WHERE id = ?1",
+                [DEFAULT_PROFILE_ID],
+                |row| row.get(0),
+            )?,
+            integrity_check: self.integrity_check(&connection)?,
+            foreign_keys_enabled: connection
+                .pragma_query_value(None, "foreign_keys", |row| row.get(0))?,
+            journal_mode: connection.pragma_query_value(None, "journal_mode", |row| row.get(0))?,
+        })
+    }
+
     /// Appends one message without attachment associations through the storage test boundary.
     pub(super) fn append_message(
         &self,
@@ -60,7 +79,7 @@ fn initializes_ordered_migrations_and_default_local_profile() {
 
     let status = store.status().expect("storage status should load");
 
-    assert_eq!(status.schema_version, 15);
+    assert_eq!(status.schema_version, 16);
     assert_eq!(status.profile_name, "Local profile");
     assert_eq!(status.integrity_check, "ok");
     assert!(status.foreign_keys_enabled);
@@ -113,7 +132,7 @@ fn upgrades_a_version_two_store_without_rewriting_existing_messages() {
         )
         .expect("provider run table should be queryable");
 
-    assert_eq!(status.schema_version, 15);
+    assert_eq!(status.schema_version, 16);
     assert_eq!(provider_run_table, 1);
 }
 

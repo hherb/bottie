@@ -29,6 +29,8 @@ pub(crate) mod extraction;
 mod image_codec;
 mod image_normalization;
 mod lifecycle;
+mod memory_lexical;
+mod memory_lexical_migration;
 mod migrate;
 mod migrations;
 mod portable_backup;
@@ -56,8 +58,6 @@ pub(crate) use image_normalization::StoredImageNormalization;
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use portable_export::ConversationFileExport;
 pub(crate) use recovery::StorageRecoveryStatus;
-#[cfg(test)]
-use types::StorageStatus;
 pub(crate) use types::{
     ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
     ForkedConversation, MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext,
@@ -65,7 +65,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 15;
+const CURRENT_SCHEMA_VERSION: i64 = 16;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -271,25 +271,6 @@ impl ConversationStore {
         Ok(connection)
     }
 
-    /// Returns current migration and SQLite policy state.
-    #[cfg(test)]
-    fn status(&self) -> Result<StorageStatus, StorageError> {
-        let connection = self.open()?;
-        Ok(StorageStatus {
-            schema_version: connection
-                .pragma_query_value(None, "user_version", |row| row.get(0))?,
-            profile_name: connection.query_row(
-                "SELECT name FROM profiles WHERE id = ?1",
-                [DEFAULT_PROFILE_ID],
-                |row| row.get(0),
-            )?,
-            integrity_check: self.integrity_check(&connection)?,
-            foreign_keys_enabled: connection
-                .pragma_query_value(None, "foreign_keys", |row| row.get(0))?,
-            journal_mode: connection.pragma_query_value(None, "journal_mode", |row| row.get(0))?,
-        })
-    }
-
     /// Runs SQLite's bounded quick integrity check.
     fn integrity_check(&self, connection: &Connection) -> Result<String, StorageError> {
         connection
@@ -485,6 +466,8 @@ mod export_tests;
 mod extraction_tests;
 #[cfg(test)]
 mod image_normalization_tests;
+#[cfg(test)]
+mod memory_lexical_tests;
 #[cfg(test)]
 mod portable_export_tests;
 #[cfg(test)]
