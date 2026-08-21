@@ -85,6 +85,51 @@ fn decodes_live_model_list_shape() {
 }
 
 #[test]
+fn enriches_catalogue_from_explicit_vlm_status_metadata() {
+    let catalogue = br#"{
+        "object":"list",
+        "data":[
+            {"id":"Qwen3.8-27B-8bit","max_model_len":262144},
+            {"id":"gemma-4-26b-a4b-it-4bit","max_model_len":262144},
+            {"id":"LFM2.5-8B-A1B-MLX-8bit","max_model_len":128000}
+        ]
+    }"#;
+    let status = br#"{
+        "models":[
+            {
+                "id":"Qwen3.8-27B-8bit",
+                "loaded":true,
+                "engine_type":"vlm",
+                "model_type":"vlm"
+            },
+            {
+                "id":"gemma-4-26b-a4b-it-4bit",
+                "loaded":false,
+                "engine_type":"vlm",
+                "model_type":"vlm"
+            },
+            {
+                "id":"LFM2.5-8B-A1B-MLX-8bit",
+                "loaded":false,
+                "engine_type":"batched",
+                "model_type":"llm"
+            }
+        ]
+    }"#;
+
+    let mut models = decode_model_list(catalogue).expect("catalogue should decode");
+    let statuses = decode_model_status(status).expect("status should decode");
+    enrich_models(&mut models, &statuses);
+
+    assert!(models[0].capabilities.vision);
+    assert_eq!(models[0].load_state, ModelLoadState::Loaded);
+    assert!(models[1].capabilities.vision);
+    assert_eq!(models[1].load_state, ModelLoadState::Unloaded);
+    assert!(!models[2].capabilities.vision);
+    assert_eq!(models[2].load_state, ModelLoadState::Unloaded);
+}
+
+#[test]
 fn decodes_fragmented_sse_and_completion() {
     let mut decoder = SseDecoder::default();
     assert!(

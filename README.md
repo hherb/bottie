@@ -84,7 +84,12 @@ Run the native desktop application:
 npm run tauri dev
 ```
 
-With oMLX or Ollama running on its default loopback port, the native app discovers available models automatically. Provider and model use separate selectors; changing providers refreshes that provider's models, and the last successful pair is restored after restart. Settings can change either endpoint and test it before saving. Rust rejects non-loopback hosts, embedded credentials, paths, query strings, and fragments; redirects are disabled, and no HTTP capability is exposed to the WebView. Ollama discovery also normalizes model capabilities, context size, and loaded/on-demand state.
+With oMLX or Ollama running on its default loopback port, the native app discovers available models automatically.
+Provider and model use separate selectors; changing providers refreshes that provider's models, and the last successful
+pair is restored after restart. Settings can change either endpoint and test it before saving. Rust rejects non-loopback
+hosts, embedded credentials, paths, query strings, and fragments; redirects are disabled, and no HTTP capability is
+exposed to the WebView. oMLX discovery reads explicit VLM and residency metadata from `/v1/models/status`. Ollama
+discovery also normalizes model capabilities, context size, and loaded/on-demand state.
 
 Settings also support HTTPS OpenAI-compatible and Anthropic-compatible profiles. API keys are written and removed
 through narrow Rust commands backed by the OS credential vault. Cloud routes are visibly labelled before sending,

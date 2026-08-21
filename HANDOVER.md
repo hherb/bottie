@@ -189,7 +189,7 @@ without copying or deleting the original history.
 The oMLX adapter:
 
 - owns and validates a configurable loopback endpoint, defaulting to `http://127.0.0.1:8000/`;
-- discovers models with `GET /v1/models`;
+- discovers models with `GET /v1/models` and enriches vision/residency from `GET /v1/models/status` when available;
 - streams `POST /v1/chat/completions` SSE responses;
 - normalizes started, text delta, reasoning delta, usage, completed, cancelled, and failed events;
 - maps connection, timeout, HTTP, and malformed-response failures to structured user-readable errors;
@@ -198,7 +198,8 @@ The oMLX adapter:
 The Ollama adapter:
 
 - owns and validates a configurable loopback endpoint, defaulting to `http://127.0.0.1:11434/`;
-- discovers installed models with `GET /api/tags`, capabilities/context with `POST /api/show`, and loaded state with `GET /api/ps`;
+- discovers installed models with `GET /api/tags`, capabilities/context with `POST /api/show`, and loaded state with
+  `GET /api/ps`;
 - streams native `POST /api/chat` NDJSON responses;
 - normalizes answer text, separate thinking text, prompt/output usage, completion, provider errors, and malformed
   streams;
@@ -311,8 +312,9 @@ without exposing image bytes, derivative identities, or paths to the WebView.
 3. Ollama receives base64 image arrays on the owning message. oMLX and OpenAI-compatible routes receive OpenAI-shaped
    image URL content parts, while Anthropic-compatible routes receive base64 image source blocks. Text-only request
    serialization is unchanged.
-4. Native model discovery remains conservative: Ollama uses advertised capabilities, and compatible model catalogues
-   opt into vision only when they expose an explicit `vision` capability. Model names are never used as a proxy.
+4. Native model discovery remains conservative: Ollama uses advertised capabilities, oMLX maps its explicit `vlm`
+   model/engine status to vision, and other compatible catalogues opt in only through an explicit `vision` capability.
+   Model names are never used as a proxy.
 5. Draft, conversation, and context-panel labels explain pending, local-only, text-only, and vision-delivery states.
    Document attachments remain local-only and are never inserted into provider requests.
 
@@ -333,16 +335,18 @@ without exposing image bytes, derivative identities, or paths to the WebView.
 The standard frontend and Rust source checks passed on 2026-08-21. Prettier reports clean formatting, `svelte-check`
 reports no errors or warnings, all 39 frontend tests pass, the production build succeeds, `cargo fmt --check` is clean,
 and `cargo check` succeeds. One complete native run passed 127 tests while the four live-provider tests remained
-intentionally ignored. The exact final 132-test target also compiles and links after the historical-image edge-case
-test was added. New tests cover native durable-context loading, deferred bounded byte loading, normalization readiness,
-WebView image injection rejection, capability enforcement, stale-current-text rejection, all three provider shapes,
-and the composer regression that keeps prompt input enabled when only attachment submission is blocked.
+intentionally ignored. The final Rust test target also compiles and links after the historical-image edge-case and oMLX
+VLM-status tests were added. New tests cover native durable-context loading, deferred bounded byte loading,
+normalization readiness, WebView image injection rejection, capability enforcement, stale-current-text rejection, all
+three provider shapes, oMLX status enrichment, and the composer regression that keeps prompt input enabled when only
+attachment submission is blocked. Live oMLX 0.6.0 inspection confirmed that `/v1/models/status` marks
+`Qwen3.8-27B-8bit` and the installed Gemma 4 vision models with explicit `vlm` model and engine types.
 
 macOS repeatedly held freshly linked Rust test executables in policy evaluation before the test harness started. The
 complete run succeeded after ad-hoc signing one disposable generated executable; subsequent ad-hoc, Apple Development,
-and Developer ID signatures still left the final artifact held before test code. Neither repository source nor the
+and Developer ID signatures still left later artifacts held before test code. Neither repository source nor the
 release-signing configuration was changed. A native development binary also rebuilt and restarted successfully under
-existing watcher. Immutable read-only inspection of its real schema-13 store reported `quick_check = ok`, two
+the existing watcher. Immutable read-only inspection of its real schema-13 store reported `quick_check = ok`, two
 retained attachments, and zero pending extraction or normalization rows. Desktop and 420-pixel browser-preview checks
 showed the revised labels without document or attachment-row overflow and with no console warnings or errors; that
 review caught and corrected an initially misleading no-model delivery label. No synthetic native picker interaction
