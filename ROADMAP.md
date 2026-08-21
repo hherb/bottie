@@ -142,7 +142,7 @@ Status: in progress
 - [x] bounded native extraction state and UTF-8 source retention for plain text and Markdown;
 - [x] bounded page-aware PDF text extraction with path-free failure states;
 - [x] bounded DOCX extraction as the first selected office format;
-- [ ] image normalization and metadata removal policy;
+- [x] bounded JPEG/PNG normalization, EXIF orientation application, and metadata removal policy;
 - [ ] background extraction and indexing states;
 - [ ] capability-aware image delivery to vision models;
 - [ ] clear behavior for text-only models;

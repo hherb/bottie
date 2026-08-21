@@ -4,11 +4,8 @@
   import { copyAssistantResponse } from "$lib/clipboard";
   import Icon from "$lib/Icon.svelte";
   import { renderAssistantMarkdown } from "$lib/markdown";
-  import {
-    attachmentExtractionLabel as extractionLabel,
-    formatToolPayload,
-    type ConversationBranch,
-  } from "$lib/storage";
+  import { formatToolPayload, type ConversationBranch } from "$lib/storage";
+  import { attachmentStatusLabel } from "$lib/attachment";
   import type { ResponseRating } from "$lib/storage";
   import type { ModelInfo, ProviderError } from "$lib/inference";
   import type { InferenceStage, Message, ProviderStatus } from "$lib/presentation";
@@ -168,7 +165,8 @@
                   <span>
                     <strong>{attachment.name}</strong>
                     <small>
-                      {attachment.size} · {attachment.mimeType} · {extractionLabel(attachment.extraction)} · Not sent
+                      {attachment.size} · {attachment.mimeType} ·
+                      {attachmentStatusLabel(attachment.normalization, attachment.extraction)} · Not sent
                     </small>
                   </span>
                   <button

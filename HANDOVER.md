@@ -48,10 +48,12 @@ requests remain text-only. Retained UTF-8 plain-text, Markdown, PDF, and DOCX at
 extraction with durable ready, unsupported, or failed state. PDF work is limited to 500 pages, 8 MiB of decompressed
 content per page, and 2 MiB of retained extracted text. DOCX work validates the package manifest, bounds archive
 entries and total declared expansion, reads only bounded in-memory XML, caps XML events/depth, and shares the 2 MiB
-retained-text ceiling. Extracted content remains inside SQLite; the WebView receives only format, character count, PDF
-page count, and path-free state/error metadata. The next bounded implementation slice is JPEG/PNG normalization with
-dimension/pixel/output limits and metadata removal behind the same native-only policy; do not bundle provider delivery,
-other office formats, indexing, memory search, preview rendering, or broad visual-design work with it.
+retained-text ceiling. JPEG and PNG attachments now receive bounded native normalization into content-addressed,
+application-private derivatives. Rust applies EXIF orientation, caps dimensions, pixels, decoder allocation, and
+encoded output, and re-encodes without forwarding source metadata. The WebView receives only path-free processing
+state, format, dimensions, counts, and sizes. The next bounded implementation slice is moving existing attachment
+extraction and normalization work off ingestion/startup into a durable background lifecycle; do not bundle indexing,
+embeddings, provider delivery, other office formats, preview rendering, or broad visual-design work with it.
 
 Read these files first:
 
@@ -65,7 +67,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
-`codex/docx-attachment-extraction`.
+`codex/image-attachment-normalization`.
 
 ## Current implementation
 
@@ -89,7 +91,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Th
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
 - native attachment selection, application-private ingestion, durable selected-lineage message association, draft and
   message-scoped removal, and path-redacted outcome feedback;
-- durable bounded plain-text, Markdown, page-aware PDF, and DOCX extraction state with path-free status labels;
+- durable bounded plain-text, Markdown, page-aware PDF, DOCX, JPEG, and PNG processing state with path-free labels;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
@@ -139,6 +141,8 @@ SHA-256 content identities, MIME sniffing, safe display names, deduplicated meta
 ordered message associations, selected-lineage validation, and association removal,
 `src-tauri/src/storage/extraction.rs` owns extraction persistence and bounded UTF-8/PDF parsing,
 `src-tauri/src/storage/docx.rs` owns bounded package validation and WordprocessingML text extraction,
+`src-tauri/src/storage/image_codec.rs` owns bounded JPEG/PNG decode, orientation, and metadata-free encoding,
+`src-tauri/src/storage/image_normalization.rs` owns derivative persistence and path-free normalization state,
 and `src-tauri/src/storage/export.rs` owns
 deterministic selected-lineage Markdown plus selected and batch JSON rendering and safe suggested filenames, and
 `src-tauri/src/storage/backup.rs` owns
@@ -229,9 +233,9 @@ Do not mistake visual fixtures for implemented backend behavior:
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
 - current attachment draft selection is session-only until it commits atomically with a submitted user message;
-- plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite, so native-only text is included in SQLite
-  backups; attachment blobs remain outside those backups, and no attachment is normalized, indexed, exported, or sent
-  to any provider;
+- plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite, while JPEG/PNG derivatives remain
+  application-private; SQLite backups include native-only text and derivative metadata but not original blobs or
+  normalized derivatives, and no attachment is indexed, exported, or sent to any provider;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
@@ -273,7 +277,58 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Bounded DOCX text extraction
+## Most recently completed product slice: Bounded JPEG and PNG normalization
+
+### Goal
+
+Create safe application-private image derivatives behind the Rust boundary, remove source metadata without losing JPEG
+orientation, and expose enough path-free state for users to understand whether an image is locally ready.
+
+### Implemented shape
+
+1. Schema version 13 adds strict `attachment_image_normalizations` rows with pending, ready, unsupported, or failed
+   state. Ready rows retain format, oriented dimensions, byte size, and a native-only SHA-256 derivative identity;
+   every other state is constrained to omit derivative metadata.
+2. Content-sniffed JPEG and PNG sources are decoded with an 8,192-pixel per-axis ceiling, 16-million-pixel ceiling,
+   128 MiB decoder-allocation ceiling, and exact 25 MiB encoded-output ceiling. Unsupported attachment types never
+   enter the codec.
+3. Rust reads JPEG EXIF orientation before decoding and applies it to the pixels. JPEG is re-encoded at named quality
+   90 and PNG is re-encoded losslessly; neither encoder receives source EXIF, ICC, text, or other metadata.
+4. Completed derivatives are SHA-256 addressed under application-private attachment storage. Temporary output is
+   created with exclusive semantics, size-capped while streaming, synced before commit, and safely reused when the
+   same normalized content already exists.
+5. Draft and reopened attachments expose only normalization state, JPEG/PNG format, oriented dimensions, byte size,
+   and stable error category. Derivative hashes, bytes, and filesystem paths never enter IPC or Svelte state.
+
+### Acceptance criteria
+
+- Existing version-12 stores migrate transactionally to version 13 and resume retained JPEG/PNG normalization without
+  changing conversations, associations, branches, messages, runs, extracted text, or selection.
+- PNG text metadata is absent from normalized output; JPEG EXIF orientation is baked into output dimensions and EXIF
+  is absent from the derivative.
+- Dimension, pixel, decoder-allocation, encoded-output, malformed-input, missing-content, and write failures use stable
+  path-free state and retain no partial derivative metadata.
+- Provider requests remain text-only, conversation exports remain attachment-content-free, and SQLite-only backups do
+  not claim to carry original or normalized attachment bytes.
+- No background worker, indexing, embeddings, memory retrieval, provider delivery, preview rendering, other image or
+  office format, garbage collection, portable blob backup, or broad visual redesign is added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-21. The frontend suite has thirty-four passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has 118 tests: 114 pass
+by default and four live-provider tests remain opt-in. Five focused native tests cover PNG metadata removal, JPEG
+orientation plus EXIF removal, dimension and pixel policy failures, exact output writer bounds, and schema-12
+migration/resume. The focused frontend contract covers path-free ready, failed, and non-image fallback labels.
+
+The browser preview was inspected at 1320 x 820 and the 720 x 620 native minimum. `PNG normalized locally · 1440 ×
+900` remains visible in the attachment context row at both sizes with no console warnings or errors. A fresh native
+process migrated the real application store from schema 12 to schema 13 with `quick_check = ok`; its retained 739 x
+1600 PNG produced a 581,996-byte normalized derivative. A second fresh process reopened the same ready record and
+derivative dimensions unchanged. Bottie remains running for manual interaction; provider networking was unchanged, so
+the four opt-in live-provider tests were not rerun.
+
+## Prior completed product slice: Bounded DOCX text extraction
 
 ### Goal
 

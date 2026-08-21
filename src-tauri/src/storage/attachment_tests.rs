@@ -34,7 +34,8 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachment_extractions;
+            "DROP TABLE attachment_image_normalizations;
+             DROP TABLE attachment_extractions;
              DROP TABLE message_attachments;
              DROP TABLE attachments;",
         )
@@ -63,7 +64,7 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
             .status()
             .expect("status should load")
             .schema_version,
-        12
+        13
     );
     assert_eq!(table_count, 1);
 }
@@ -74,7 +75,11 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("database should open");
     connection
-        .execute_batch("DROP TABLE attachment_extractions; DROP TABLE message_attachments;")
+        .execute_batch(
+            "DROP TABLE attachment_image_normalizations;
+             DROP TABLE attachment_extractions;
+             DROP TABLE message_attachments;",
+        )
         .expect("version nine table should be removable in the fixture");
     connection
         .execute("DELETE FROM schema_migrations WHERE version > 8", [])
@@ -100,7 +105,7 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
             .status()
             .expect("status should load")
             .schema_version,
-        12
+        13
     );
     assert_eq!(table_count, 1);
 }
@@ -112,7 +117,10 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
     let attachment = ingest_fixture(&store, "migration.md", b"# Existing attachment");
     let connection = store.open().expect("database should open");
     connection
-        .execute_batch("DROP TABLE attachment_extractions;")
+        .execute_batch(
+            "DROP TABLE attachment_image_normalizations;
+             DROP TABLE attachment_extractions;",
+        )
         .expect("version ten table should be removable in the fixture");
     connection
         .execute("DELETE FROM schema_migrations WHERE version > 9", [])
@@ -134,7 +142,7 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
             .status()
             .expect("status should load")
             .schema_version,
-        12
+        13
     );
     assert_eq!(stored.extraction.state, AttachmentExtractionState::Ready);
     assert_eq!(
