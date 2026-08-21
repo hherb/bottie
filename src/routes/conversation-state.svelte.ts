@@ -1,13 +1,10 @@
 /** Reactive durable-conversation state kept separate from provider orchestration. */
 
+import { conversationTitle, nextResponseRating } from "$lib/chat";
+import type { Message } from "$lib/presentation";
+import { applyAttachmentProcessingUpdate } from "$lib/attachment";
 import {
-  conversationTitle,
-  nextResponseRating,
-  persistedCompletionMeta,
-  persistedMessagePresentation,
-} from "$lib/chat";
-import { nextMessageId, type Message } from "$lib/presentation";
-import {
+  addConversationAttachments,
   appendConversationMessage,
   backupConversationStore,
   branchConversationMessage,
@@ -22,6 +19,7 @@ import {
   loadConversation,
   loadLastOpenConversation,
   rateConversationResponse,
+  removeConversationAttachment,
   removeConversationMessageAttachment,
   renameConversation,
   restoreConversation,
@@ -39,9 +37,11 @@ import {
   type ProviderRunContext,
   type ResponseRating,
   type StorageError,
-  type StoredMessage,
   type StoredConversation,
+  type StoredAttachment,
 } from "$lib/storage";
+
+import { storedMessageToPresentation } from "./conversation-presentation";
 
 /** Presentation and native request identity produced by one branch fork. */
 export type BranchedGeneration = {
@@ -55,6 +55,7 @@ export class ConversationState {
   activeConversationId = $state<string | null>(null);
   branches = $state<ConversationBranch[]>([]);
   currentBranchId = $state<string | null>(null);
+  conversationAttachments = $state<import("$lib/presentation").Attachment[]>([]);
   storageError = $state<StorageError | null>(null);
   isManaging = $state(false);
   searchQuery = $state("");
@@ -339,6 +340,45 @@ export class ConversationState {
     }
   }
 
+  /** Adds already retained content to the active conversation's branch-independent scope. */
+  async addAttachmentsToConversation(attachmentIds: string[]): Promise<boolean> {
+    if (!this.activeConversationId || this.isManaging) return false;
+    this.isManaging = true;
+    try {
+      const stored = await addConversationAttachments(this.activeConversationId, attachmentIds);
+      this.conversationAttachments = stored.map(storedAttachmentToPresentation);
+      await this.refresh();
+      this.storageError = null;
+      return true;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      return false;
+    } finally {
+      this.isManaging = false;
+    }
+  }
+
+  /** Removes one branch-independent conversation association without deleting retained bytes. */
+  async removeAttachmentFromConversation(attachmentId: string): Promise<void> {
+    if (!this.activeConversationId || this.isManaging) return;
+    this.isManaging = true;
+    try {
+      const stored = await removeConversationAttachment(this.activeConversationId, attachmentId);
+      this.conversationAttachments = stored.map(storedAttachmentToPresentation);
+      await this.refresh();
+      this.storageError = null;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+    } finally {
+      this.isManaging = false;
+    }
+  }
+
+  /** Applies one path-free background result to matching conversation-scoped metadata. */
+  applyAttachmentProcessingUpdate(update: StoredAttachment): void {
+    this.conversationAttachments = applyAttachmentProcessingUpdate(this.conversationAttachments, update);
+  }
+
   /** Reloads the completed native response identity and refreshes navigation after generation. */
   async refreshAfterGeneration(): Promise<Message[] | null> {
     const conversationId = this.activeConversationId;
@@ -362,6 +402,7 @@ export class ConversationState {
     this.activeConversationId = null;
     this.branches = [];
     this.currentBranchId = null;
+    this.conversationAttachments = [];
     this.exportFeedback = null;
     this.exportFailed = false;
     try {
@@ -379,7 +420,8 @@ export class ConversationState {
     this.activeConversationId = conversation.id;
     this.branches = conversation.branches;
     this.currentBranchId = conversation.currentBranchId;
-    return conversation.messages.map((message) => this.presentationMessage(message));
+    this.conversationAttachments = conversation.attachments.map(storedAttachmentToPresentation);
+    return conversation.messages.map(storedMessageToPresentation);
   }
 
   /** Renames one active or archived conversation and refreshes navigation. */
@@ -433,37 +475,5 @@ export class ConversationState {
     } finally {
       this.isManaging = false;
     }
-  }
-
-  /** Maps one durable record into the richer ephemeral presentation shape. */
-  private presentationMessage(message: StoredMessage): Message {
-    const model = message.modelId && message.providerId ? `${message.modelId} · ${message.providerId}` : undefined;
-    const completedMeta = message.providerRun
-      ? persistedCompletionMeta(
-          message.providerRun.startedAtMs,
-          message.providerRun.completedAtMs,
-          message.providerRun.usage,
-        )
-      : undefined;
-    const hasContent = message.text.length > 0 || Boolean(message.reasoning);
-    const presentation = persistedMessagePresentation(
-      message.state,
-      message.providerRun?.errorCode ?? null,
-      hasContent,
-    );
-    return {
-      id: nextMessageId(),
-      storageId: message.id,
-      role: message.role,
-      content: message.text || presentation.fallbackText || "",
-      reasoning: message.reasoning ?? undefined,
-      model,
-      meta: presentation.meta ?? completedMeta,
-      error: presentation.error,
-      retryable: presentation.retryable,
-      rating: message.rating ?? undefined,
-      toolInvocations: message.providerRun?.toolInvocations,
-      attachments: message.attachments.map(storedAttachmentToPresentation),
-    };
   }
 }

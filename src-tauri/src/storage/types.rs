@@ -389,6 +389,8 @@ pub(crate) struct StoredConversation {
     pub(crate) current_branch_id: String,
     /// Available branches ordered by creation.
     pub(crate) branches: Vec<ConversationBranch>,
+    /// Ordered retained files shared by every branch and future request in this conversation.
+    pub(crate) attachments: Vec<StoredAttachment>,
     /// Ordered messages on the selected branch lineage.
     pub(crate) messages: Vec<StoredMessage>,
 }

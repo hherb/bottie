@@ -190,6 +190,7 @@ export type StoredConversation = {
   title: string;
   currentBranchId: string;
   branches: ConversationBranch[];
+  attachments: StoredAttachment[];
   messages: StoredMessage[];
 };
 
@@ -329,6 +330,24 @@ export async function appendConversationMessage(
 ): Promise<StoredMessage> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<StoredMessage>("append_conversation_message", { conversationId, text, attachmentIds });
+}
+
+/** Adds retained files to durable conversation scope and returns its complete ordered context. */
+export async function addConversationAttachments(
+  conversationId: string,
+  attachmentIds: string[],
+): Promise<StoredAttachment[]> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<StoredAttachment[]>("add_conversation_attachments", { conversationId, attachmentIds });
+}
+
+/** Removes one conversation-scoped association while retaining its deduplicated content. */
+export async function removeConversationAttachment(
+  conversationId: string,
+  attachmentId: string,
+): Promise<StoredAttachment[]> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<StoredAttachment[]>("remove_conversation_attachment", { conversationId, attachmentId });
 }
 
 /** Removes one visible message association while native storage retains the deduplicated content. */

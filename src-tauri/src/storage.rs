@@ -19,6 +19,7 @@ mod attachment_processing;
 pub(crate) mod attachments;
 mod backup;
 mod branching;
+mod conversation_attachments;
 mod docx;
 mod error;
 mod export;
@@ -57,7 +58,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 14;
+const CURRENT_SCHEMA_VERSION: i64 = 15;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -140,6 +141,7 @@ impl ConversationStore {
                 id: branch_id,
                 name: DEFAULT_BRANCH_NAME.into(),
             }],
+            attachments: Vec::new(),
             messages: Vec::new(),
         })
     }
@@ -379,11 +381,14 @@ fn load_conversation_from_connection(
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
+    let attachments =
+        conversation_attachments::load_conversation_attachments(connection, conversation_id)?;
     Ok(StoredConversation {
         id: conversation_id.into(),
         title,
         current_branch_id: branch_id,
         branches,
+        attachments,
         messages,
     })
 }

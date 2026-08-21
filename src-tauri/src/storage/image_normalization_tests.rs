@@ -202,7 +202,8 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE attachment_text_indexing;
+            "DROP TABLE conversation_attachments;
+             DROP TABLE attachment_text_indexing;
              DROP TABLE attachment_image_normalizations;",
         )
         .expect("newer attachment-processing tables should be removable");
@@ -228,7 +229,7 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
             .status()
             .expect("status should load")
             .schema_version,
-        14
+        15
     );
     assert_eq!(
         stored.normalization.state,

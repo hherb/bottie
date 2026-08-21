@@ -106,3 +106,71 @@ fn rejects_a_current_image_until_native_normalization_finishes() {
         "Wait for image normalization to finish before sending."
     );
 }
+
+#[test]
+fn applies_conversation_scoped_images_to_each_current_request_without_duplicates() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let attachment = ingest_png(&store, true);
+    let conversation = store
+        .create_conversation("Shared vision context")
+        .expect("conversation should be created");
+    store
+        .add_conversation_attachments(&conversation.id, &[attachment.id.clone()])
+        .expect("conversation image should be attached");
+    let request = store
+        .append_message_with_attachments(
+            NewStoredMessage {
+                conversation_id: conversation.id.clone(),
+                role: StoredRole::User,
+                text: "Use the shared image".into(),
+                reasoning: None,
+                state: MessageState::Final,
+                provider_id: None,
+                model_id: None,
+            },
+            &[attachment.id.clone()],
+        )
+        .expect("request should commit");
+
+    let context = store
+        .provider_attachment_context(&conversation.id, &request.id)
+        .expect("conversation image context should load");
+
+    assert!(context.current_request_has_image);
+    assert_eq!(context.messages[0].images.len(), 1);
+}
+
+#[test]
+fn rejects_a_pending_conversation_image_on_the_current_request() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let attachment = ingest_png(&store, false);
+    let conversation = store
+        .create_conversation("Pending shared vision context")
+        .expect("conversation should be created");
+    store
+        .add_conversation_attachments(&conversation.id, &[attachment.id.clone()])
+        .expect("conversation image should be attached");
+    let request = store
+        .append_message(NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::User,
+            text: "Use the shared image".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        })
+        .expect("request should commit");
+
+    let error = store
+        .provider_attachment_context(&conversation.id, &request.id)
+        .expect_err("pending conversation image must block the current request");
+
+    assert_eq!(error.code, "invalid_request");
+    assert_eq!(
+        error.message,
+        "Wait for image normalization to finish before sending."
+    );
+}

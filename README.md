@@ -39,8 +39,10 @@ to eight selected files into application-private, SHA-256-addressed storage with
 content-based MIME detection, safe display names, and duplicate reuse. The WebView receives no filesystem path,
 labels each retained item as local-only, and can atomically associate the current selection with the submitted user
 message. Associations reopen on the selected branch, survive edit/regenerate forks, and can be removed without deleting
-the retained content blob. Plain-text, Markdown, PDF, and DOCX text up to 2 MiB is extracted into durable native-only
-state. PDF parsing is additionally limited to 500 pages and 8 MiB of decompressed content per page. DOCX parsing
+the retained content blob. Retained draft items can also be promoted into an existing conversation's durable,
+branch-independent context, bounded to eight distinct files and removable without deleting content. Plain-text,
+Markdown, PDF, and DOCX text up to 2 MiB is extracted into durable native-only state. PDF parsing is additionally
+limited to 500 pages and 8 MiB of decompressed content per page. DOCX parsing
 validates the package manifest and bounds archive entries, total declared expansion, main-document XML, XML events,
 and XML depth. JPEG and PNG images are decoded within dimension, pixel, allocation, and output ceilings, have EXIF
 orientation applied to their pixels, and are re-encoded without source metadata into application-private,
@@ -156,7 +158,9 @@ its current bounded item and resumes it afterward. Sending commits up to eight s
 with the user message, then clears the draft. Reopened selected lineages reconstruct ordered path-free metadata; edited
 and regenerated request branches inherit the source request's associations. Detaching is limited to visible user
 messages while generation is idle and retains the catalog row and blob for deduplication. Attachment bytes remain
-outside SQLite-only backups and exports. Schema-version-14 records retain up to 2 MiB of UTF-8 plain-text,
+outside SQLite-only backups and exports. Conversation-scoped associations apply on every branch and future request;
+ready images are treated as current vision context and deduplicated when the same file is message-linked, while
+documents remain local-only. Schema-version-15 records retain up to 2 MiB of UTF-8 plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
 and expose only path-free state to the interface. Each attachment also retains waiting-for-extraction, indexable,
 unsupported, or blocked readiness for a later native text index; indexable means eligible, not indexed. PDF extraction

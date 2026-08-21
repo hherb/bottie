@@ -60,10 +60,13 @@ discovery; text-only models block that draft while omitting older images from la
 at most eight images and 50 MiB of normalized derivatives through Ollama, OpenAI-shaped, or Anthropic-shaped request
 blocks. Documents remain local-only. Extracted text now also moves through durable waiting-for-extraction, indexable,
 unsupported, or blocked readiness in the same resumable native worker. Indexable is only eligibility for later index
-construction: Bottie still has no FTS, vectors, chunks, embeddings, or attachment retrieval. The next bounded
-implementation slice is conversation-level attachment scope; do not bundle portable backup/export, garbage
-collection, previews, extraction retry controls, document delivery, other office formats, or broad visual-design work
-with it.
+construction: Bottie still has no FTS, vectors, chunks, embeddings, or attachment retrieval. Up to eight retained
+files can now be kept in durable conversation scope independently of any branch or message. The interface distinguishes
+next-message, conversation, and message associations and supports narrow removal without deleting retained content.
+Conversation-scoped normalized images apply to every current request, require explicit vision capability, and are
+deduplicated when the same file is also linked to a message; documents remain local-only. The next bounded
+implementation slice is portable attachment backup and export behavior; do not bundle garbage collection, previews,
+extraction retry controls, document delivery, other office formats, or broad visual-design work with it.
 
 Read these files first:
 
@@ -77,7 +80,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
-`codex/attachment-indexing-state`.
+`codex/conversation-attachment-scope`.
 
 ## Current implementation
 
@@ -99,8 +102,8 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Th
   loaded/on-demand state, and an explicit local/cloud privacy indicator;
 - user and assistant message presentation;
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
-- native attachment selection, application-private ingestion, durable selected-lineage message association, draft and
-  message-scoped removal, and path-redacted outcome feedback;
+- native attachment selection, application-private ingestion, durable selected-lineage message and branch-independent
+  conversation associations, explicit scope labels, narrow removal, and path-redacted outcome feedback;
 - durable background plain-text, Markdown, page-aware PDF, DOCX, JPEG, and PNG processing with live path-free labels;
 - durable extracted-text indexing readiness with honest indexable, unsupported, and blocked presentation;
 - capability-aware normalized JPEG/PNG delivery labels and current-draft blocking for text-only models;
@@ -151,6 +154,8 @@ branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded co
 bounded append-only tool-call/result records, `src-tauri/src/storage/attachments.rs` owns bounded streaming ingestion,
 SHA-256 content identities, MIME sniffing, safe display names, deduplicated metadata, app-private blob placement,
 ordered message associations, selected-lineage validation, and association removal,
+`src-tauri/src/storage/conversation_attachments.rs` owns bounded ordered conversation associations, local-profile
+validation, active-run exclusion, and association removal without content deletion,
 `src-tauri/src/storage/attachment_processing.rs` selects one oldest pending item without introducing an in-progress
 lease state,
 `src-tauri/src/storage/attachment_indexing.rs` derives durable readiness for future text indexing without retaining or
@@ -254,7 +259,8 @@ Do not mistake visual fixtures for implemented backend behavior:
 - memory cards and relevance scores are fixtures;
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
-- current attachment draft selection is session-only until it commits atomically with a submitted user message;
+- current next-message attachment selection is session-only until it commits atomically with a submitted user message
+  or is explicitly promoted into an existing conversation's durable context;
 - plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; their indexable state
   means only that extraction succeeded because no FTS, vector, chunk, embedding, or retrieval index exists; JPEG/PNG
   derivatives
@@ -302,7 +308,58 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Durable attachment indexing readiness
+## Most recently completed product slice: Conversation-level attachment scope
+
+### Goal
+
+Let users keep retained files in durable branch-independent conversation context while preserving explicit delivery,
+bounded mutation, and the Rust/WebView filesystem boundary.
+
+### Implemented shape
+
+1. Schema version 15 adds ordered `conversation_attachments` associations with conversation cascade, attachment
+   deletion restriction, unique attachment membership, and a strict eight-file conversation ceiling. Existing
+   schema-14 stores migrate with an empty scope and no message, branch, attachment, processing, run, or selection
+   rewrite.
+2. Narrow add/remove commands accept only opaque retained identities, validate the built-in local profile, reject
+   deleted conversations and active provider runs, and return only complete ordered path-free metadata. Repeated input
+   identities and already-scoped content are idempotent; invalid or over-limit additions roll back atomically.
+3. The context panel labels next-message, conversation, and message scope separately. A retained draft item can be kept
+   in an existing conversation, and conversation removal deletes only that association while leaving catalog metadata
+   and bytes available for deduplication.
+4. Conversation scope survives restart and branch switching. Scoped normalized JPEG/PNG derivatives are applied to
+   every current request, treated as current image context for readiness and vision policy, and sent only once when the
+   same identity is also linked to a message. Scoped documents remain local-only and expose no extracted text.
+
+### Acceptance criteria
+
+- Conversation scope remains ordered, bounded to eight distinct retained files, durable across reopen, and identical
+  on every branch without copying associations during a fork.
+- Mutations fail closed for missing/deleted conversations, unavailable content, over-limit sets, and active runs; no
+  failure leaves a partial association or deletes content.
+- The WebView receives no source path, blob path, extracted text, normalized identity, derivative bytes, or SQL.
+- Text-only models and incomplete/failed scoped images block the next request with the existing explicit image policy;
+  vision routes receive ready normalized images through the existing native request ceiling.
+- Portable blob backup/export, garbage collection, previews, extraction retry, document delivery, retrieval, and other
+  formats remain outside this slice.
+
+### Verification completed
+
+The standard frontend checks passed on 2026-08-21: Prettier reports clean formatting, `svelte-check` reports no errors
+or warnings, all 42 frontend tests pass, and the production build succeeds. `cargo fmt --check`, `cargo check`, and the
+complete Rust suite pass; 140 tests execute successfully and four live-provider tests remain intentionally ignored.
+New native coverage exercises schema-14 migration, ordered reopen and branch preservation, idempotent association,
+bounded rollback, scoped removal with retained content, current-request image application, duplicate suppression, and
+pending-image rejection. New pure frontend coverage preserves explicit attachment ownership and provider-route labels.
+
+The exact schema-14 and schema-15 SQL was applied to an immutable disposable copy of the real schema-13 Bottie store.
+The migrated copy reports `quick_check = ok`, zero foreign-key violations, schema version 15, three retained
+attachments, three indexing-readiness rows, and an empty conversation scope. The live store remains unchanged at
+schema 13 because native launch approval was withheld to avoid migrating durable user data. Browser-preview checks at
+1320 × 820, 720 × 620, and 420 × 780 showed the scope labels and Keep/remove controls without horizontal overflow or
+console warnings; body and document widths matched each viewport.
+
+## Prior completed product slice: Durable attachment indexing readiness
 
 ### Goal
 
