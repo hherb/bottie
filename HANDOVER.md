@@ -69,9 +69,12 @@ next-message, conversation, and message associations and supports narrow removal
 Conversation-scoped normalized images apply to every current request, require explicit vision capability, and are
 deduplicated when the same file is also linked to a message; documents remain local-only. Portable backups now retain
 every original blob and ready normalized derivative, while selected and batch exports bundle only referenced originals
-with versioned path-free manifests. The next bounded implementation slice is attachment garbage collection; do not
-bundle previews, extraction retry controls, document delivery, other office formats, or broad visual-design work with
-it.
+with versioned path-free manifests. Each successful non-recovery startup now removes attachment catalog rows older
+than a 24-hour safety window with no message or conversation reference, then sweeps equally old strict untracked
+original/derivative files and interrupted temporary work without touching recent cross-process drafts, recoverable
+Trash references, or shared derivatives. The next bounded implementation slice is attachment previews and
+extraction-error UX; do not bundle extraction retry controls, document delivery, other office formats, retrieval, or
+broad visual-design work with it.
 
 Read these files first:
 
@@ -84,8 +87,8 @@ Read these files first:
 7. `src-tauri/src/lib.rs`
 8. `src-tauri/tauri.conf.json`
 
-The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current development-workflow fix is
-on local branch `codex/macos-development-signing`.
+The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
+branch `codex/attachment-garbage-collection`.
 
 ## Current implementation
 
@@ -174,6 +177,8 @@ claiming any index content,
 `src/lib/storage-transfer.ts` owns the path-redacted frontend backup, restore, and export contracts,
 `src-tauri/src/storage/attachment_delivery.rs` owns selected-lineage reconstruction, current-image readiness, bounded
 derivative loading, and path-free delivery errors,
+`src-tauri/src/storage/attachment_garbage_collection.rs` owns restart-boundary catalog pruning, strict managed-file
+sweeping, interrupted temporary cleanup, and shared-derivative preservation,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
 restore pause/resume coordination,
 and `src-tauri/src/storage/export.rs` owns
@@ -268,7 +273,9 @@ Do not mistake visual fixtures for implemented backend behavior:
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
 - current next-message attachment selection is session-only until it commits atomically with a submitted user message
-  or is explicitly promoted into an existing conversation's durable context;
+  or is explicitly promoted into an existing conversation's durable context; an unassociated selection is eligible
+  for native garbage collection after the 24-hour safety window and a later successful startup because the draft itself
+  does not survive restart;
 - plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; their indexable state
   means only that extraction succeeded because no FTS, vector, chunk, embedding, or retrieval index exists; JPEG/PNG
   derivatives remain application-private and are read only for capability-confirmed vision requests; portable SQLite
@@ -338,8 +345,61 @@ suite reports 140 passed with four live-provider tests intentionally ignored. `g
 known development-runner limitation is that Cargo's environment runner format cannot represent Node or repository
 paths containing whitespace; the wrapper detects and reports that case before compilation.
 
-## Most recently completed product slice: Conversation-level attachment scope
-## Most recently completed product slice: Portable attachment backup and export
+## Most recently completed product slice: Restart-boundary attachment garbage collection
+
+### Goal
+
+Reclaim retained attachment content that no durable message or conversation can reach, without racing a current draft,
+weakening recoverable Trash, deleting shared derivatives, exposing paths, or adding a user-facing destructive action.
+
+### Implemented shape
+
+1. Each successful non-recovery native startup runs collection synchronously before the attachment worker starts or the
+   WebView can create a draft. A 24-hour safety window protects recent work owned by another Bottie process. Recovery
+   mode skips collection so damaged data remains untouched until guided recovery.
+2. One immediate SQLite transaction deletes only old attachment rows with no `message_attachments` and no
+   `conversation_attachments` reference. Cascades remove extraction, indexing-readiness, and normalization metadata;
+   soft-deleted conversations still retain their associations and remain fully restorable.
+3. After the catalog commit, Rust takes a second immediate transaction, loads the surviving original and
+   ready-derivative identities, and holds that write lock while sweeping only equally old, strict lowercase SHA-256
+   paths in Bottie's managed blob and normalized-image trees. Shared derivatives remain while any catalog row uses
+   them, unexpected files are ignored, and symbolic links are removed only as directory entries.
+4. Old files in dedicated ingestion and normalization temporary trees are cleared without following symbolic links.
+   The pass reports only counts and reclaimed regular-file bytes through bounded Recent diagnostics; paths, hashes,
+   bytes, and database details remain native-only.
+
+### Acceptance criteria
+
+- Same-process drafts cannot race collection; recent cross-process drafts and writes remain protected by the safety
+  window and the database write lock. Unassociated content becomes eligible after 24 hours and a later startup.
+- Message scope, conversation scope, hidden branch siblings, archived conversations, and recoverable Trash all retain
+  their original and ready derivative content.
+- A crash after catalog deletion can leave only untracked managed files, which the next strict sweep removes; a live
+  catalog row is never made to point at bytes deliberately deleted by the collector.
+- Shared normalized derivatives are removed only after their last live catalog reference disappears. Unexpected files
+  and paths outside Bottie's dedicated attachment root remain untouched.
+- No source path, application-private path, database path, hash, raw byte buffer, extracted text, derivative identity,
+  or SQL crosses Tauri IPC. Previews, retry controls, document delivery, retrieval, and other formats remain outside
+  this slice.
+
+### Verification completed
+
+Focused Rust coverage starts with the absent-collector contract, then proves unreferenced catalog/original/derivative
+cleanup, strict crash-debris sweeping, temporary cleanup, recoverable Trash and conversation-scope preservation,
+recent cross-process draft preservation, shared-derivative retention, and rejection of wrong-shard, alternate-format,
+or uppercase managed filenames. The full Rust suite reports 152 passed with four opt-in live-provider checks
+intentionally ignored. `cargo fmt --check` and
+`cargo check` pass. Prettier reports clean formatting, `svelte-check` reports no errors or warnings, all 48 frontend
+tests pass, and the production build succeeds; no frontend behavior changed.
+
+Before native launch, an immutable live-store check reported schema version 15, `quick_check=ok`, three catalog rows,
+five message associations, and zero unreferenced rows. The signed native app then launched and remained live; WebKit
+reported first meaningful paint at 0.384 seconds. A post-start immutable check reported the same schema, integrity,
+catalog, and association counts, confirming that every referenced original survived collection. The app was stopped
+cleanly after verification. The path-backed garbage-collection tests exercise actual deletion; no disposable garbage
+was injected into the user's live attachment tree.
+
+## Prior completed product slice: Portable attachment backup and export
 
 ### Goal
 

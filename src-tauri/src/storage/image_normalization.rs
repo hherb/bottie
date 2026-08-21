@@ -316,4 +316,21 @@ impl ConversationStore {
             })
             .transpose()
     }
+
+    /// Loads one derivative identity only through the storage test boundary.
+    #[cfg(test)]
+    pub(super) fn normalized_sha256_for_test(
+        &self,
+        attachment_id: &str,
+    ) -> Result<Option<String>, StorageError> {
+        self.open()?
+            .query_row(
+                "SELECT normalized_sha256 FROM attachment_image_normalizations
+                 WHERE attachment_id = ?1 AND state = 'ready'",
+                [attachment_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(Into::into)
+    }
 }
