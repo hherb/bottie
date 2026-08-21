@@ -141,7 +141,7 @@ Status: in progress
 - [x] MIME sniffing, hashes, size limits, duplicate detection, and safe display names;
 - [x] bounded native extraction state and UTF-8 source retention for plain text and Markdown;
 - [x] bounded page-aware PDF text extraction with path-free failure states;
-- [ ] extraction pipeline for selected office formats;
+- [x] bounded DOCX extraction as the first selected office format;
 - [ ] image normalization and metadata removal policy;
 - [ ] background extraction and indexing states;
 - [ ] capability-aware image delivery to vision models;

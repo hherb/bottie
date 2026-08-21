@@ -146,6 +146,15 @@ describe("conversation storage presentation helpers", () => {
     ).toBe("PDF text ready locally · 2 pages");
     expect(
       attachmentExtractionLabel({
+        state: "ready",
+        format: "docx",
+        characterCount: 64,
+        pageCount: null,
+        errorCode: null,
+      }),
+    ).toBe("DOCX text ready locally");
+    expect(
+      attachmentExtractionLabel({
         state: "failed",
         format: null,
         characterCount: null,
@@ -162,5 +171,14 @@ describe("conversation storage presentation helpers", () => {
         errorCode: "pdf_page_limit_exceeded",
       }),
     ).toBe("PDF has too many pages");
+    expect(
+      attachmentExtractionLabel({
+        state: "failed",
+        format: null,
+        characterCount: null,
+        pageCount: null,
+        errorCode: "docx_archive_limit_exceeded",
+      }),
+    ).toBe("DOCX archive is too complex");
   });
 });

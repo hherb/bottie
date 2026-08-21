@@ -8,7 +8,7 @@ use std::{
 
 use sha2::{Digest, Sha256};
 
-use super::StorageError;
+use super::{StorageError, docx};
 
 const COPY_BUFFER_BYTES: usize = 64 * 1024;
 const MIME_SNIFF_BYTES: usize = 8 * 1024;
@@ -83,9 +83,17 @@ pub(super) fn prepare_blob(
     if byte_size == 0 {
         return Err(StorageError::invalid("Empty files cannot be attached."));
     }
+    drop(destination);
+    let sniffed_mime_type = detect_mime_type(&sniffed, display_name);
+    let mime_type =
+        if sniffed_mime_type == "application/zip" && docx::is_docx_package(temporary_path) {
+            docx::DOCX_MIME_TYPE
+        } else {
+            sniffed_mime_type
+        };
     Ok(PreparedAttachment {
         display_name: display_name.into(),
-        mime_type: detect_mime_type(&sniffed, display_name).into(),
+        mime_type: mime_type.into(),
         byte_size,
         sha256: format!("{:x}", hasher.finalize()),
     })

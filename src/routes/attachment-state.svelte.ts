@@ -39,6 +39,15 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     sha256: "preview",
     extraction: { state: "ready", format: "pdf", characterCount: 24_180, pageCount: 12, errorCode: null },
   },
+  {
+    id: "preview-review-notes",
+    name: "review-notes.docx",
+    size: "46 KB",
+    kind: "file",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    sha256: "preview",
+    extraction: { state: "ready", format: "docx", characterCount: 8_420, pageCount: null, errorCode: null },
+  },
 ];
 
 /** Owns current-draft attachment metadata and path-redacted picker feedback. */

@@ -16,6 +16,7 @@ mod attachment_policy;
 pub(crate) mod attachments;
 mod backup;
 mod branching;
+mod docx;
 mod error;
 mod export;
 pub(crate) mod extraction;
@@ -46,7 +47,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 11;
+const CURRENT_SCHEMA_VERSION: i64 = 12;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
