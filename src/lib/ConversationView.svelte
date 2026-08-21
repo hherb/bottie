@@ -167,7 +167,7 @@
                     <strong>{attachment.name}</strong>
                     <small>
                       {attachment.size} · {attachment.mimeType} ·
-                      {attachmentStatusLabel(attachment.normalization, attachment.extraction)} ·
+                      {attachmentStatusLabel(attachment.normalization, attachment.extraction, attachment.indexing)} ·
                       {attachmentDeliveryLabel(attachment, selectedModel)}
                     </small>
                   </span>

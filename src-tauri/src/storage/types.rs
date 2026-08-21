@@ -3,8 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    StorageError, extraction::StoredAttachmentExtraction,
-    image_normalization::StoredImageNormalization, tools::StoredToolInvocation,
+    StorageError, attachment_indexing::StoredAttachmentIndexing,
+    extraction::StoredAttachmentExtraction, image_normalization::StoredImageNormalization,
+    tools::StoredToolInvocation,
 };
 
 /// Durable message identity supplied when starting one native provider run.
@@ -370,6 +371,8 @@ pub(crate) struct StoredAttachment {
     pub(crate) sha256: String,
     /// Native-only extraction status; extracted content is deliberately omitted.
     pub(crate) extraction: StoredAttachmentExtraction,
+    /// Readiness for later native text indexing; indexed content does not exist yet.
+    pub(crate) indexing: StoredAttachmentIndexing,
     /// Native-only image normalization status; derivative bytes and paths are omitted.
     pub(crate) normalization: StoredImageNormalization,
 }

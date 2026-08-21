@@ -1,4 +1,4 @@
-//! Durable coordination for pending attachment extraction and normalization work.
+//! Durable coordination for pending attachment extraction, indexing readiness, and normalization.
 
 use rusqlite::OptionalExtension;
 
@@ -22,11 +22,15 @@ impl ConversationStore {
                    ON attachment_extractions.attachment_id = attachments.id
                  JOIN attachment_image_normalizations
                    ON attachment_image_normalizations.attachment_id = attachments.id
+                 JOIN attachment_text_indexing
+                   ON attachment_text_indexing.attachment_id = attachments.id
                  WHERE attachment_extractions.state = 'pending'
                     OR attachment_image_normalizations.state = 'pending'
+                    OR attachment_text_indexing.state = 'waiting_for_extraction'
                  ORDER BY MIN(
                      attachment_extractions.updated_at_ms,
-                     attachment_image_normalizations.updated_at_ms
+                     attachment_image_normalizations.updated_at_ms,
+                     attachment_text_indexing.updated_at_ms
                  ), attachments.id
                  LIMIT 1",
                 [],
@@ -39,6 +43,7 @@ impl ConversationStore {
         };
 
         self.process_attachment_extraction(&attachment_id)?;
+        self.reconcile_attachment_indexing(&attachment_id)?;
         self.process_image_normalization(&attachment_id)?;
         stored_attachment(&self.open()?, &attachment_id)
     }

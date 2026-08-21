@@ -67,7 +67,8 @@
           <span class="attachment-copy">
             <strong>{attachment.name}</strong>
             <small
-              >{attachment.size} · {attachmentStatusLabel(attachment.normalization, attachment.extraction)} ·
+              >{attachment.size} ·
+              {attachmentStatusLabel(attachment.normalization, attachment.extraction, attachment.indexing)} ·
               {attachmentDeliveryLabel(attachment, selectedModel)}</small
             >
           </span>
@@ -85,7 +86,11 @@
             <strong>{association.attachment.name}</strong>
             <small>
               {association.attachment.size} ·
-              {attachmentStatusLabel(association.attachment.normalization, association.attachment.extraction)} ·
+              {attachmentStatusLabel(
+                association.attachment.normalization,
+                association.attachment.extraction,
+                association.attachment.indexing,
+              )} ·
               {attachmentDeliveryLabel(association.attachment, selectedModel)}
             </small>
           </span>

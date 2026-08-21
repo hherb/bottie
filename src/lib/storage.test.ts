@@ -73,6 +73,7 @@ describe("conversation storage presentation helpers", () => {
       byteSize: 16,
       sha256: "abc123",
       extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
+      indexing: { state: "unsupported" },
       normalization: { state: "ready", format: "png", width: 2, height: 2, byteSize: 16, errorCode: null },
       duplicate: false,
     };
@@ -87,6 +88,7 @@ describe("conversation storage presentation helpers", () => {
         mimeType: "image/png",
         sha256: "abc123",
         extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
+        indexing: { state: "unsupported" },
         normalization: { state: "ready", format: "png", width: 2, height: 2, byteSize: 16, errorCode: null },
       },
     ]);
@@ -102,6 +104,7 @@ describe("conversation storage presentation helpers", () => {
         byteSize: 2_048,
         sha256: "abc123",
         extraction: { state: "ready", format: "markdown", characterCount: 42, pageCount: null, errorCode: null },
+        indexing: { state: "indexable" },
         normalization: {
           state: "unsupported",
           format: null,
@@ -119,6 +122,7 @@ describe("conversation storage presentation helpers", () => {
       mimeType: "text/plain",
       sha256: "abc123",
       extraction: { state: "ready", format: "markdown", characterCount: 42, pageCount: null, errorCode: null },
+      indexing: { state: "indexable" },
       normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
     });
   });
@@ -131,6 +135,7 @@ describe("conversation storage presentation helpers", () => {
       byteSize: 12,
       sha256: "abc123",
       extraction: { state: "pending", format: null, characterCount: null, pageCount: null, errorCode: null },
+      indexing: { state: "waiting_for_extraction" },
       normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
     });
     const untouched = { ...pending, id: "attachment-2", name: "other.txt" };
@@ -147,6 +152,7 @@ describe("conversation storage presentation helpers", () => {
         pageCount: null,
         errorCode: null,
       },
+      indexing: { state: "indexable" as const },
       normalization: {
         state: "unsupported" as const,
         format: null,
@@ -289,7 +295,8 @@ describe("conversation storage presentation helpers", () => {
           pageCount: null,
           errorCode: null,
         },
+        { state: "indexable" },
       ),
-    ).toBe("Markdown ready locally");
+    ).toBe("Markdown ready locally · Ready for indexing");
   });
 });

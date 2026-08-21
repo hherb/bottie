@@ -46,8 +46,11 @@ and XML depth. JPEG and PNG images are decoded within dimension, pixel, allocati
 orientation applied to their pixels, and are re-encoded without source metadata into application-private,
 content-addressed derivatives. Ingestion commits durable pending state and returns before document parsing or image
 decoding; one native background worker resumes pending work after startup, selection, or restore. The WebView receives
-path-free live extraction or normalization updates, dimensions, counts, and sizes but never extracted text, derivative
-identities, bytes, or paths. A current normalized JPEG or PNG can be sent only after native discovery confirms that the
+path-free live extraction, indexing-readiness, or normalization updates, dimensions, counts, and sizes but never
+extracted text, derivative identities, bytes, or paths. Extracted text becomes explicitly indexable in the same
+resumable worker; unsupported and failed extraction become terminal unsupported or blocked readiness. This does not
+create FTS, vectors, chunks, embeddings, or retrieval. A current normalized JPEG or PNG can be sent only after native
+discovery confirms that the
 selected model advertises vision support. Text-only selections block a current image with an explicit explanation and
 omit older image associations; document content remains local-only. Native delivery reconstructs the selected durable
 lineage, reads at most eight normalized images and 50 MiB per request, and emits provider-native Ollama, OpenAI-shaped,
@@ -153,9 +156,11 @@ its current bounded item and resumes it afterward. Sending commits up to eight s
 with the user message, then clears the draft. Reopened selected lineages reconstruct ordered path-free metadata; edited
 and regenerated request branches inherit the source request's associations. Detaching is limited to visible user
 messages while generation is idle and retains the catalog row and blob for deduplication. Attachment bytes remain
-outside SQLite-only backups and exports. Schema-version-13 records retain up to 2 MiB of UTF-8 plain-text,
+outside SQLite-only backups and exports. Schema-version-14 records retain up to 2 MiB of UTF-8 plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
-and expose only path-free state to the interface. PDF extraction retains a page count, refuses files over 500 pages,
+and expose only path-free state to the interface. Each attachment also retains waiting-for-extraction, indexable,
+unsupported, or blocked readiness for a later native text index; indexable means eligible, not indexed. PDF extraction
+retains a page count, refuses files over 500 pages,
 bounds each decompressed page stream to 8 MiB, and reports encrypted, malformed, text-free, extraction, and size
 failures without parser details or paths. DOCX extraction recognizes the package by its manifest rather than its
 filename, reads only bounded ZIP members in memory, rejects overlapping/encrypted/over-complex archives, and bounds
@@ -166,7 +171,7 @@ content-addressed derivatives. SQLite backups include extracted text and path-fr
 blobs and normalized derivatives remain outside those backups. Extracted text and images remain absent from
 conversation exports. Ready JPEG/PNG derivatives are read only by Rust for capability-confirmed vision requests, with
 an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from provider requests. Other
-office formats are not extracted, and no attachment is indexed.
+office formats are not extracted, and no attachment is indexed or retrievable yet.
 
 Run the layout-only browser preview:
 

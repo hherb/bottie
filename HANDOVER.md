@@ -58,9 +58,12 @@ visible draft and message attachments. Native generation now reconstructs exact 
 normalized JPEG/PNG bytes only inside Rust. A current image requires explicit vision capability from native model
 discovery; text-only models block that draft while omitting older images from later text requests. Vision routes receive
 at most eight images and 50 MiB of normalized derivatives through Ollama, OpenAI-shaped, or Anthropic-shaped request
-blocks. Documents remain local-only. The next bounded implementation slice is durable background indexing states for
-extracted attachment text; do not bundle FTS/vector retrieval, embeddings, document delivery, other office formats,
-preview rendering, garbage collection, or broad visual-design work with it.
+blocks. Documents remain local-only. Extracted text now also moves through durable waiting-for-extraction, indexable,
+unsupported, or blocked readiness in the same resumable native worker. Indexable is only eligibility for later index
+construction: Bottie still has no FTS, vectors, chunks, embeddings, or attachment retrieval. The next bounded
+implementation slice is conversation-level attachment scope; do not bundle portable backup/export, garbage
+collection, previews, extraction retry controls, document delivery, other office formats, or broad visual-design work
+with it.
 
 Read these files first:
 
@@ -74,7 +77,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
-`codex/vision-image-delivery`.
+`codex/attachment-indexing-state`.
 
 ## Current implementation
 
@@ -99,6 +102,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Th
 - native attachment selection, application-private ingestion, durable selected-lineage message association, draft and
   message-scoped removal, and path-redacted outcome feedback;
 - durable background plain-text, Markdown, page-aware PDF, DOCX, JPEG, and PNG processing with live path-free labels;
+- durable extracted-text indexing readiness with honest indexable, unsupported, and blocked presentation;
 - capability-aware normalized JPEG/PNG delivery labels and current-draft blocking for text-only models;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
@@ -149,6 +153,8 @@ SHA-256 content identities, MIME sniffing, safe display names, deduplicated meta
 ordered message associations, selected-lineage validation, and association removal,
 `src-tauri/src/storage/attachment_processing.rs` selects one oldest pending item without introducing an in-progress
 lease state,
+`src-tauri/src/storage/attachment_indexing.rs` derives durable readiness for future text indexing without retaining or
+claiming any index content,
 `src-tauri/src/storage/extraction.rs` owns extraction persistence and bounded UTF-8/PDF parsing,
 `src-tauri/src/storage/docx.rs` owns bounded package validation and WordprocessingML text extraction,
 `src-tauri/src/storage/image_codec.rs` owns bounded JPEG/PNG decode, orientation, and metadata-free encoding,
@@ -249,7 +255,9 @@ Do not mistake visual fixtures for implemented backend behavior:
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
 - current attachment draft selection is session-only until it commits atomically with a submitted user message;
-- plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; JPEG/PNG derivatives
+- plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; their indexable state
+  means only that extraction succeeded because no FTS, vector, chunk, embedding, or retrieval index exists; JPEG/PNG
+  derivatives
   remain application-private and are read only for capability-confirmed vision requests; SQLite backups include
   native-only text and derivative metadata but not original blobs or normalized derivatives, and no attachment is
   indexed or exported;
@@ -294,7 +302,56 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Capability-aware normalized image delivery
+## Most recently completed product slice: Durable attachment indexing readiness
+
+### Goal
+
+Persist the exact background readiness of extracted attachment text for later native indexing without claiming or
+bundling an FTS index, vector index, chunker, embedding runtime, or retrieval path.
+
+### Implemented shape
+
+1. Schema version 14 adds one strict `attachment_text_indexing` row per retained attachment. The allowed states are
+   `waiting_for_extraction`, `indexable`, `unsupported`, and `blocked`; the table contains no extracted text, chunks,
+   embeddings, provider data, or filesystem paths.
+2. New ingestion commits waiting indexing readiness atomically with the attachment catalog, extraction state, and
+   normalization state. The existing single native worker reconciles readiness after extraction: ready text becomes
+   indexable, unsupported content becomes unsupported, and failed extraction becomes blocked.
+3. The pending-work query includes waiting indexing rows independently of extraction and normalization. A process
+   interruption after extraction commits but before readiness reconciliation therefore resumes on the next worker
+   wake instead of leaving an attachment stranded.
+4. Existing schema-13 stores seed readiness directly from each durable extraction outcome. Draft, selected-lineage,
+   and context-panel metadata receive only the path-free state; extracted text remains Rust-only. Eligible documents
+   are labelled `Ready for indexing`, not indexed or searchable.
+
+### Acceptance criteria
+
+- Fresh and migrated attachments always have exactly one constrained indexing-readiness row.
+- Background readiness survives restart and reaches a terminal eligibility state after extraction, including when a
+  prior worker pass stopped between the extraction and indexing transitions.
+- The WebView receives readiness but no extracted text, paths, chunks, embeddings, or index internals.
+- Document provider delivery, FTS/vector construction, chunking, embeddings, retrieval, conversation-level scope,
+  previews, garbage collection, and portable attachment backup/export remain outside this slice.
+
+### Verification completed
+
+The standard frontend checks passed on 2026-08-21: Prettier reports clean formatting, `svelte-check` reports no errors
+or warnings, all 39 frontend tests pass, and the production build succeeds. `cargo fmt --check` and `cargo check`
+succeed, and the complete Rust test target compiles and links with five new indexing-readiness tests covering fresh
+ingestion, indexable/unsupported/blocked outcomes, restart persistence, an interruption between extraction and
+readiness reconciliation, and schema-13 state mapping. The Rust test executable is held by macOS policy before its
+harness starts, including after ad-hoc signing and removing the disposable artifact's provenance attribute, so this
+pass does not claim an executed Rust suite.
+
+The exact schema-14 migration was applied to a disposable copy of the real schema-13 Bottie database. The migrated
+copy reports `quick_check = ok`, zero foreign-key violations, schema version 14, three indexing rows for three retained
+attachments, one indexable row, and two unsupported rows. The live store remains unchanged at schema 13 because the
+native development process was also held before application code: read-only process inspection showed only the
+executable and `dyld` open, with no SQLite file or app frameworks loaded. Desktop and 420 × 780 browser-preview checks
+showed `Ready for indexing` on text, PDF, and DOCX fixtures; the mobile document/body widths and context-drawer edge
+equalled the 420-pixel viewport, with no console warnings or errors.
+
+## Prior completed product slice: Capability-aware normalized image delivery
 
 ### Goal
 

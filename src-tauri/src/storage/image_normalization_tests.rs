@@ -201,8 +201,11 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
     let attachment = ingest_fixture(&store, "migration.png", &png_fixture(3, 2));
     let connection = store.open().expect("database should open");
     connection
-        .execute_batch("DROP TABLE attachment_image_normalizations;")
-        .expect("version thirteen table should be removable");
+        .execute_batch(
+            "DROP TABLE attachment_text_indexing;
+             DROP TABLE attachment_image_normalizations;",
+        )
+        .expect("newer attachment-processing tables should be removable");
     connection
         .execute("DELETE FROM schema_migrations WHERE version > 12", [])
         .expect("newer migration record should be removable");
@@ -225,7 +228,7 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
             .status()
             .expect("status should load")
             .schema_version,
-        13
+        14
     );
     assert_eq!(
         stored.normalization.state,

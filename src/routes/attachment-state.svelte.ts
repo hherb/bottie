@@ -24,6 +24,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     mimeType: "text/plain",
     sha256: "preview",
     extraction: { state: "ready", format: "markdown", characterCount: 18_432, pageCount: null, errorCode: null },
+    indexing: { state: "indexable" },
     normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
   },
   {
@@ -34,6 +35,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     mimeType: "image/png",
     sha256: "preview",
     extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
+    indexing: { state: "unsupported" },
     normalization: { state: "ready", format: "png", width: 1_440, height: 900, byteSize: 1_048_576, errorCode: null },
   },
   {
@@ -44,6 +46,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     mimeType: "application/pdf",
     sha256: "preview",
     extraction: { state: "ready", format: "pdf", characterCount: 24_180, pageCount: 12, errorCode: null },
+    indexing: { state: "indexable" },
     normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
   },
   {
@@ -54,6 +57,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     sha256: "preview",
     extraction: { state: "ready", format: "docx", characterCount: 8_420, pageCount: null, errorCode: null },
+    indexing: { state: "indexable" },
     normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
   },
 ];
@@ -150,6 +154,9 @@ export class AttachmentState {
           characterCount: null,
           pageCount: null,
           errorCode: null,
+        },
+        indexing: {
+          state: file.type.startsWith("text/") ? "indexable" : "unsupported",
         },
         normalization: {
           state: "unsupported",

@@ -157,6 +157,7 @@ describe("chat presentation helpers", () => {
         pageCount: null,
         errorCode: null,
       },
+      indexing: { state: "unsupported" as const },
       normalization: {
         state: "ready" as const,
         format: "png" as const,
@@ -199,6 +200,7 @@ describe("chat presentation helpers", () => {
         pageCount: null,
         errorCode: null,
       },
+      indexing: { state: "unsupported" as const },
       normalization: {
         state: "pending" as const,
         format: null,

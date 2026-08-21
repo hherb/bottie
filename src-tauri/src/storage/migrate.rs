@@ -8,6 +8,7 @@ use super::{
     migrations::{
         MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
         MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_12, MIGRATION_13,
+        MIGRATION_14,
     },
     now_ms,
 };
@@ -70,6 +71,14 @@ impl ConversationStore {
         }
         if version < 13 {
             apply_migration(connection, MIGRATION_13, 13, "bounded image normalization")?;
+        }
+        if version < 14 {
+            apply_migration(
+                connection,
+                MIGRATION_14,
+                14,
+                "attachment text indexing readiness",
+            )?;
         }
         Ok(())
     }

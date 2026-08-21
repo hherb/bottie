@@ -1,5 +1,11 @@
 import type { ProviderId, ProviderSettings } from "./inference";
-import type { AttachmentExtraction, ImageNormalization, ResponseRating, StoredToolInvocation } from "./storage";
+import type {
+  AttachmentExtraction,
+  AttachmentIndexing,
+  ImageNormalization,
+  ResponseRating,
+  StoredToolInvocation,
+} from "./storage";
 
 let messageSequence = Date.now();
 
@@ -34,6 +40,7 @@ export type Attachment = {
   mimeType: string;
   sha256: string;
   extraction: AttachmentExtraction;
+  indexing: AttachmentIndexing;
   normalization: ImageNormalization;
 };
 

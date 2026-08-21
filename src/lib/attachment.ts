@@ -5,6 +5,7 @@ import {
   attachmentExtractionLabel,
   storedAttachmentToPresentation,
   type AttachmentExtraction,
+  type AttachmentIndexing,
   type ImageNormalization,
   type StoredAttachment,
 } from "./storage";
@@ -23,7 +24,11 @@ const IMAGE_NORMALIZATION_FAILURE_LABELS: Record<string, string> = {
 };
 
 /** Describes image normalization, falling back to text extraction for non-image attachments. */
-export function attachmentStatusLabel(normalization: ImageNormalization, extraction?: AttachmentExtraction): string {
+export function attachmentStatusLabel(
+  normalization: ImageNormalization,
+  extraction?: AttachmentExtraction,
+  indexing?: AttachmentIndexing,
+): string {
   if (normalization.state === "ready") {
     const format = normalization.format === "jpeg" ? "JPEG" : "PNG";
     return `${format} normalized locally · ${normalization.width ?? 0} × ${normalization.height ?? 0}`;
@@ -32,7 +37,9 @@ export function attachmentStatusLabel(normalization: ImageNormalization, extract
   if (normalization.state === "failed") {
     return IMAGE_NORMALIZATION_FAILURE_LABELS[normalization.errorCode ?? ""] ?? "Image normalization failed";
   }
-  return extraction ? attachmentExtractionLabel(extraction) : "No image normalization";
+  if (!extraction) return "No image normalization";
+  const extractionLabel = attachmentExtractionLabel(extraction);
+  return indexing?.state === "indexable" ? `${extractionLabel} · Ready for indexing` : extractionLabel;
 }
 
 /** Replaces one matching attachment with its latest path-free native processing state. */

@@ -13,6 +13,7 @@ use std::{
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 
 mod attachment_delivery;
+mod attachment_indexing;
 mod attachment_policy;
 mod attachment_processing;
 pub(crate) mod attachments;
@@ -38,6 +39,7 @@ mod types;
 pub(crate) use attachment_delivery::{ProviderAttachmentContext, ProviderImageFormat};
 #[cfg(test)]
 pub(crate) use attachment_delivery::{ProviderContextImage, ProviderContextMessage};
+pub(crate) use attachment_indexing::{AttachmentIndexingState, StoredAttachmentIndexing};
 pub(crate) use attachments::{IngestedAttachment, MAX_ATTACHMENT_SELECTION_COUNT};
 pub(crate) use error::StorageError;
 pub(crate) use export::ConversationFileExport;
@@ -55,7 +57,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 13;
+const CURRENT_SCHEMA_VERSION: i64 = 14;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -462,6 +464,8 @@ fn now_ms() -> Result<i64, StorageError> {
 
 #[cfg(test)]
 mod attachment_delivery_tests;
+#[cfg(test)]
+mod attachment_indexing_tests;
 #[cfg(test)]
 mod attachment_processing_tests;
 #[cfg(test)]
