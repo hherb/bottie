@@ -19,10 +19,12 @@ use super::{
         restore_staging_path, validate_restore_source,
     },
     now_ms,
+    portable_backup::{extract_portable_payload, strip_portable_payload},
 };
 
 const DAMAGED_STORE_DIRECTORY_PREFIX: &str = "bottie-damaged-data";
 const RECOVERY_REPLACEMENT_PREFIX: &str = ".bottie-recovery-replacement";
+const RECOVERY_ATTACHMENT_STAGING_PREFIX: &str = ".bottie-recovery-attachments";
 const SQLITE_SIDECAR_SUFFIXES: &[&str] = &["-wal", "-shm"];
 
 /// Startup result that keeps the native app available when SQLite reports corruption.
@@ -139,9 +141,17 @@ impl ConversationStore {
         validate_restore_source(source)?;
         let staging = restore_staging_path(&self.path)?;
         let replacement = recovery_replacement_path(&self.path)?;
-        let result = self.recover_through_replacement(source, preservation, &staging, &replacement);
+        let attachment_staging = recovery_attachment_staging_path(&self.path)?;
+        let result = self.recover_through_replacement(
+            source,
+            preservation,
+            &staging,
+            &replacement,
+            &attachment_staging,
+        );
         remove_database_files(&staging);
         remove_database_files(&replacement);
+        let _ = fs::remove_dir_all(&attachment_staging);
         result
     }
 
@@ -152,23 +162,34 @@ impl ConversationStore {
         preservation: &Path,
         staging: &Path,
         replacement: &Path,
+        attachment_staging: &Path,
     ) -> Result<(), StorageError> {
         copy_database(source, staging).map_err(|_| StorageError::invalid_backup())?;
-        let migrated = ConversationStore::initialize(staging.to_path_buf())
+        ConversationStore::initialize(staging.to_path_buf())
             .map_err(|_| StorageError::invalid_backup())?;
-        migrated
-            .backup_to(replacement)
-            .map_err(|_| StorageError::restore())?;
-        drop(migrated);
+        let has_portable_payload = extract_portable_payload(staging, attachment_staging)?;
+        strip_portable_payload(staging)?;
+        copy_database(staging, replacement).map_err(|_| StorageError::restore())?;
         validate_restore_source(replacement).map_err(|_| StorageError::restore())?;
 
-        let moved = preserve_database_bundle(&self.path, preservation)?;
+        let mut moved = preserve_database_bundle(&self.path, preservation)?;
+        if has_portable_payload {
+            preserve_attachment_root(&self.path, preservation, &mut moved)?;
+        }
         if fs::rename(replacement, &self.path).is_err() {
+            rollback_preserved_bundle(&moved);
+            return Err(StorageError::restore());
+        }
+        if has_portable_payload && fs::rename(attachment_staging, self.attachment_root()).is_err() {
+            remove_database_files(&self.path);
             rollback_preserved_bundle(&moved);
             return Err(StorageError::restore());
         }
         if ConversationStore::initialize(self.path.clone()).is_err() {
             remove_database_files(&self.path);
+            if has_portable_payload {
+                let _ = fs::remove_dir_all(self.attachment_root());
+            }
             rollback_preserved_bundle(&moved);
             return Err(StorageError::restore());
         }
@@ -268,6 +289,29 @@ fn rollback_preserved_bundle(moved: &[(PathBuf, PathBuf)]) {
     }
 }
 
+/// Moves the live attachment tree into the same damaged-data preservation directory.
+fn preserve_attachment_root(
+    live: &Path,
+    preservation: &Path,
+    moved: &mut Vec<(PathBuf, PathBuf)>,
+) -> Result<(), StorageError> {
+    let source = live
+        .parent()
+        .ok_or_else(StorageError::recovery_preservation)?
+        .join("attachments");
+    if !source.exists() {
+        return Ok(());
+    }
+    let destination = preservation.join("attachments");
+    if fs::rename(&source, &destination).is_err() {
+        rollback_preserved_bundle(moved);
+        let _ = fs::remove_dir(preservation);
+        return Err(StorageError::recovery_preservation());
+    }
+    moved.push((source, destination));
+    Ok(())
+}
+
 /// Resolves the exact main database plus WAL and shared-memory sidecar paths.
 fn database_bundle_paths(live: &Path) -> Vec<PathBuf> {
     let mut paths = vec![live.to_path_buf()];
@@ -277,4 +321,13 @@ fn database_bundle_paths(live: &Path) -> Vec<PathBuf> {
         paths.push(PathBuf::from(sidecar));
     }
     paths
+}
+
+/// Chooses a unique native-only directory for rehydrating a recovery snapshot's attachment bytes.
+fn recovery_attachment_staging_path(live: &Path) -> Result<PathBuf, StorageError> {
+    let parent = live.parent().ok_or_else(StorageError::restore)?;
+    Ok(parent.join(format!(
+        "{RECOVERY_ATTACHMENT_STAGING_PREFIX}-{}",
+        uuid::Uuid::new_v4()
+    )))
 }

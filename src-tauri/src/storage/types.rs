@@ -8,6 +8,17 @@ use super::{
     tools::StoredToolInvocation,
 };
 
+/// Diagnostic storage policy status used by tests and future recovery UI.
+#[cfg(test)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct StorageStatus {
+    pub(super) schema_version: i64,
+    pub(super) profile_name: String,
+    pub(super) integrity_check: String,
+    pub(super) foreign_keys_enabled: bool,
+    pub(super) journal_mode: String,
+}
+
 /// Durable message identity supplied when starting one native provider run.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

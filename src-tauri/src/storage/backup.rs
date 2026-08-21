@@ -7,6 +7,10 @@ use std::{
 
 use rusqlite::{Connection, MAIN_DB, OpenFlags};
 
+use super::portable_backup::{
+    embed_portable_payload, extract_portable_payload, strip_portable_payload,
+    strip_portable_payload_from_connection, validate_portable_payload,
+};
 use super::{CURRENT_SCHEMA_VERSION, ConversationStore, StorageError, now_ms};
 
 const PRE_RESTORE_FILE_PREFIX: &str = "bottie-pre-restore";
@@ -50,10 +54,15 @@ impl ConversationStore {
                 "Choose a different location for the Bottie backup.",
             ));
         }
+        remove_database_sidecars(destination);
         let source = self.open()?;
         source
             .backup(MAIN_DB, destination, None)
             .map_err(|_| StorageError::backup())?;
+        if embed_portable_payload(destination, &self.attachment_root()).is_err() {
+            remove_database_files(destination);
+            return Err(StorageError::backup());
+        }
         verify_backup(destination)
     }
 
@@ -147,8 +156,11 @@ impl ConversationStore {
         }
         validate_restore_source(source)?;
         let staging = restore_staging_path(&self.path)?;
-        let restore_result = self.restore_through_staging(source, safety_copy, &staging);
+        let attachment_staging = attachment_restore_staging_path(&self.path)?;
+        let restore_result =
+            self.restore_through_staging(source, safety_copy, &staging, &attachment_staging);
         remove_database_files(&staging);
+        let _ = fs::remove_dir_all(&attachment_staging);
         restore_result
     }
 
@@ -158,19 +170,45 @@ impl ConversationStore {
         source: &Path,
         safety_copy: &Path,
         staging: &Path,
+        attachment_staging: &Path,
     ) -> Result<(), StorageError> {
         copy_database(source, staging).map_err(|_| StorageError::invalid_backup())?;
         ConversationStore::initialize(staging.to_path_buf())
             .map_err(|_| StorageError::invalid_backup())?;
         validate_restore_source(staging)?;
+        let has_portable_payload = extract_portable_payload(staging, &attachment_staging)?;
+        strip_portable_payload(staging)?;
         self.backup_to(safety_copy)
             .map_err(|_| StorageError::restore_safety_copy())?;
-        let mut live = self.open().map_err(|_| StorageError::restore())?;
+        let attachment_rollback = if has_portable_payload {
+            Some(install_attachment_staging(
+                &attachment_staging,
+                &self.attachment_root(),
+            )?)
+        } else {
+            None
+        };
+        let mut live = match self.open() {
+            Ok(live) => live,
+            Err(_) => {
+                if let Some(rollback) = attachment_rollback.as_deref() {
+                    rollback_attachment_install(&self.attachment_root(), rollback);
+                }
+                return Err(StorageError::restore());
+            }
+        };
         if live.restore(MAIN_DB, staging, None::<fn(_)>).is_err()
             || validate_live_restore(&live).is_err()
         {
             let _ = live.restore(MAIN_DB, safety_copy, None::<fn(_)>);
+            let _ = strip_portable_payload_from_connection(&live);
+            if let Some(rollback) = attachment_rollback.as_deref() {
+                rollback_attachment_install(&self.attachment_root(), rollback);
+            }
             return Err(StorageError::restore());
+        }
+        if let Some(rollback) = attachment_rollback {
+            let _ = fs::remove_dir_all(rollback);
         }
         Ok(())
     }
@@ -231,10 +269,12 @@ fn verify_backup(path: &Path) -> Result<(), StorageError> {
     let integrity: String = connection
         .pragma_query_value(None, "quick_check", |row| row.get(0))
         .map_err(|_| StorageError::backup())?;
-    if integrity == "ok" {
-        Ok(())
-    } else {
+    if integrity != "ok" {
         Err(StorageError::backup())
+    } else {
+        validate_portable_payload(&connection)
+            .map(|_| ())
+            .map_err(|_| StorageError::backup())
     }
 }
 
@@ -271,9 +311,47 @@ pub(super) fn validate_restore_source(path: &Path) -> Result<(), StorageError> {
         )
         .map_err(|_| StorageError::invalid_backup())?;
     if has_local_profile {
-        Ok(())
+        validate_portable_payload(&connection).map(|_| ())
     } else {
         Err(StorageError::invalid_backup())
+    }
+}
+
+/// Chooses a unique same-parent directory for rehydrating a portable attachment payload.
+fn attachment_restore_staging_path(live: &Path) -> Result<PathBuf, StorageError> {
+    let parent = live.parent().ok_or_else(StorageError::restore)?;
+    Ok(parent.join(format!(
+        ".bottie-attachment-restore-{}",
+        uuid::Uuid::new_v4()
+    )))
+}
+
+/// Installs staged attachment bytes while retaining the previous root for rollback.
+fn install_attachment_staging(staging: &Path, live: &Path) -> Result<PathBuf, StorageError> {
+    let parent = live.parent().ok_or_else(StorageError::restore)?;
+    let rollback = parent.join(format!(
+        ".bottie-attachment-rollback-{}",
+        uuid::Uuid::new_v4()
+    ));
+    if live.exists() && fs::rename(live, &rollback).is_err() {
+        let _ = fs::remove_dir_all(staging);
+        return Err(StorageError::restore());
+    }
+    if fs::rename(staging, live).is_err() {
+        if rollback.exists() {
+            let _ = fs::rename(&rollback, live);
+        }
+        let _ = fs::remove_dir_all(staging);
+        return Err(StorageError::restore());
+    }
+    Ok(rollback)
+}
+
+/// Restores the previous attachment root after a database-installation failure.
+fn rollback_attachment_install(live: &Path, rollback: &Path) {
+    let _ = fs::remove_dir_all(live);
+    if rollback.exists() {
+        let _ = fs::rename(rollback, live);
     }
 }
 
@@ -310,6 +388,11 @@ pub(super) fn restore_staging_path(live: &Path) -> Result<PathBuf, StorageError>
 /// Removes the exact temporary database and any SQLite sidecars left by validation.
 pub(super) fn remove_database_files(path: &Path) {
     let _ = std::fs::remove_file(path);
+    remove_database_sidecars(path);
+}
+
+/// Removes only SQLite WAL/shared-memory sidecars for one exact database path.
+fn remove_database_sidecars(path: &Path) {
     for suffix in ["-wal", "-shm"] {
         let mut sidecar = path.as_os_str().to_os_string();
         sidecar.push(suffix);

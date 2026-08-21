@@ -1,6 +1,6 @@
 //! Deterministic Markdown and JSON rendering for selected durable conversation lineages.
 
-use std::{fmt::Write, path::Path};
+use std::fmt::Write;
 
 use serde::Serialize;
 
@@ -8,6 +8,10 @@ use super::{
     ConversationLifecycle, ConversationStore, DEFAULT_PROFILE_ID, MessageState, ProviderRunState,
     ResponseRating, StorageError, StoredConversation, StoredMessage, StoredReasoningEffort,
     StoredRole, StoredUsage, load_conversation_from_connection,
+    portable_export::{
+        ConversationFileExport, PortableAttachmentReference, portable_attachment_reference,
+        write_attachment_markdown_section,
+    },
 };
 
 const MAX_EXPORT_FILENAME_SLUG_CHARACTERS: usize = 64;
@@ -15,25 +19,10 @@ const EXPORT_FILENAME_PREFIX: &str = "bottie-";
 const MARKDOWN_FILENAME_EXTENSION: &str = ".md";
 const JSON_FILENAME_EXTENSION: &str = ".json";
 const JSON_EXPORT_FORMAT: &str = "bottie-conversation";
-const JSON_EXPORT_VERSION: u8 = 2;
+const JSON_EXPORT_VERSION: u8 = 3;
 const BATCH_JSON_EXPORT_FILE_NAME: &str = "bottie-conversations.json";
 const BATCH_JSON_EXPORT_FORMAT: &str = "bottie-conversation-batch";
-const BATCH_JSON_EXPORT_VERSION: u8 = 2;
-
-/// Native-only file payload prepared before Bottie opens a save dialog.
-pub(crate) struct ConversationFileExport {
-    /// Safe suggested leaf filename that reveals no local directory.
-    pub(crate) file_name: String,
-    /// Complete UTF-8 document to write after user confirmation.
-    pub(crate) contents: String,
-}
-
-impl ConversationFileExport {
-    /// Writes the complete UTF-8 document while mapping filesystem details to a path-redacted error.
-    pub(crate) fn write_to(&self, path: &Path) -> Result<(), StorageError> {
-        std::fs::write(path, &self.contents).map_err(|_| StorageError::export())
-    }
-}
+const BATCH_JSON_EXPORT_VERSION: u8 = 3;
 
 impl ConversationStore {
     /// Prepares the current visible lineage without changing the profile's open-conversation selection.
@@ -43,7 +32,8 @@ impl ConversationStore {
     ) -> Result<ConversationFileExport, StorageError> {
         let connection = self.open()?;
         let conversation = load_conversation_from_connection(&connection, conversation_id)?;
-        Ok(markdown_export(&conversation))
+        let export = markdown_export(&conversation);
+        Ok(self.bundle_export(export, &[&conversation]))
     }
 
     /// Prepares portable JSON for the visible lineage without changing profile selection.
@@ -53,7 +43,8 @@ impl ConversationStore {
     ) -> Result<ConversationFileExport, StorageError> {
         let connection = self.open()?;
         let conversation = load_conversation_from_connection(&connection, conversation_id)?;
-        json_export(&conversation)
+        let export = json_export(&conversation)?;
+        Ok(self.bundle_export(export, &[&conversation]))
     }
 
     /// Prepares every non-deleted conversation's selected lineage as one portable JSON document.
@@ -96,36 +87,40 @@ impl ConversationStore {
             .collect::<Result<Vec<_>, StorageError>>()?;
         let export = batch_json_export(&conversations)?;
         transaction.commit()?;
-        Ok(export)
+        let conversation_refs = conversations
+            .iter()
+            .map(|item| &item.conversation)
+            .collect::<Vec<_>>();
+        Ok(self.bundle_export(export, &conversation_refs))
     }
 }
 
 /// Builds one native-only Markdown export payload from a reconstructed conversation.
 pub(super) fn markdown_export(conversation: &StoredConversation) -> ConversationFileExport {
-    ConversationFileExport {
-        file_name: export_file_name(&conversation.title, MARKDOWN_FILENAME_EXTENSION),
-        contents: render_conversation_markdown(conversation),
-    }
+    ConversationFileExport::document(
+        export_file_name(&conversation.title, MARKDOWN_FILENAME_EXTENSION),
+        render_conversation_markdown(conversation),
+    )
 }
 
 /// Builds one native-only JSON export payload from a reconstructed conversation.
 pub(super) fn json_export(
     conversation: &StoredConversation,
 ) -> Result<ConversationFileExport, StorageError> {
-    Ok(ConversationFileExport {
-        file_name: export_file_name(&conversation.title, JSON_FILENAME_EXTENSION),
-        contents: render_conversation_json(conversation)?,
-    })
+    Ok(ConversationFileExport::document(
+        export_file_name(&conversation.title, JSON_FILENAME_EXTENSION),
+        render_conversation_json(conversation)?,
+    ))
 }
 
 /// Builds one native-only JSON payload from ordered non-deleted selected lineages.
 fn batch_json_export(
     conversations: &[BatchConversationExport],
 ) -> Result<ConversationFileExport, StorageError> {
-    Ok(ConversationFileExport {
-        file_name: BATCH_JSON_EXPORT_FILE_NAME.into(),
-        contents: render_conversation_batch_json(conversations)?,
-    })
+    Ok(ConversationFileExport::document(
+        BATCH_JSON_EXPORT_FILE_NAME.into(),
+        render_conversation_batch_json(conversations)?,
+    ))
 }
 
 /// Native-only conversation metadata required by the batch export contract.
@@ -147,6 +142,8 @@ struct JsonConversationExport<'a> {
     version: u8,
     /// Human-readable conversation title.
     title: &'a str,
+    /// Branch-independent conversation attachment scope.
+    attachments: Vec<PortableAttachmentReference>,
     /// Ordered messages reconstructed from the selected visible lineage.
     messages: Vec<JsonMessageExport<'a>>,
 }
@@ -172,6 +169,8 @@ struct JsonBatchConversationExport<'a> {
     lifecycle: ConversationLifecycle,
     /// Last persisted activity time as Unix milliseconds.
     updated_at_ms: i64,
+    /// Branch-independent conversation attachment scope.
+    attachments: Vec<PortableAttachmentReference>,
     /// Ordered messages reconstructed from the selected visible lineage.
     messages: Vec<JsonMessageExport<'a>>,
 }
@@ -196,6 +195,8 @@ struct JsonMessageExport<'a> {
     generation: Option<JsonGenerationExport<'a>>,
     /// Local response rating, when present.
     rating: Option<ResponseRating>,
+    /// Ordered retained files associated with this selected-lineage message.
+    attachments: Vec<PortableAttachmentReference>,
     /// Persisted creation time as Unix milliseconds.
     created_at_ms: i64,
 }
@@ -228,6 +229,11 @@ pub(super) fn render_conversation_json(
         format: JSON_EXPORT_FORMAT,
         version: JSON_EXPORT_VERSION,
         title: &conversation.title,
+        attachments: conversation
+            .attachments
+            .iter()
+            .map(portable_attachment_reference)
+            .collect(),
         messages: conversation
             .messages
             .iter()
@@ -252,6 +258,12 @@ fn render_conversation_batch_json(
                 title: &item.conversation.title,
                 lifecycle: item.lifecycle,
                 updated_at_ms: item.updated_at_ms,
+                attachments: item
+                    .conversation
+                    .attachments
+                    .iter()
+                    .map(portable_attachment_reference)
+                    .collect(),
                 messages: item
                     .conversation
                     .messages
@@ -281,6 +293,11 @@ impl<'a> From<&'a StoredMessage> for JsonMessageExport<'a> {
                 .as_ref()
                 .map(JsonGenerationExport::from),
             rating: message.rating,
+            attachments: message
+                .attachments
+                .iter()
+                .map(portable_attachment_reference)
+                .collect(),
             created_at_ms: message.created_at_ms,
         }
     }
@@ -304,6 +321,11 @@ impl<'a> From<&'a super::StoredProviderRun> for JsonGenerationExport<'a> {
 /// Renders user content verbatim and assistant Markdown with explicit reasoning and response sections.
 pub(super) fn render_conversation_markdown(conversation: &StoredConversation) -> String {
     let mut markdown = format!("# {}\n", conversation.title);
+    write_attachment_markdown_section(
+        &mut markdown,
+        &conversation.attachments,
+        "Conversation attachments",
+    );
     for message in &conversation.messages {
         markdown.push_str("\n## ");
         markdown.push_str(match message.role {
@@ -317,6 +339,7 @@ pub(super) fn render_conversation_markdown(conversation: &StoredConversation) ->
         } else {
             markdown.push_str(&message.text);
             markdown.push('\n');
+            write_attachment_markdown_section(&mut markdown, &message.attachments, "Attachments");
         }
     }
     markdown

@@ -10,6 +10,8 @@ const MARKDOWN_FILTER_NAME: &str = "Markdown";
 const MARKDOWN_EXTENSION: &str = "md";
 const JSON_FILTER_NAME: &str = "JSON";
 const JSON_EXTENSION: &str = "json";
+const BUNDLE_FILTER_NAME: &str = "Bottie export bundle";
+const BUNDLE_EXTENSION: &str = "zip";
 
 /// Result of one native Save-dialog interaction without exposing a filesystem path.
 #[derive(Serialize)]
@@ -32,7 +34,7 @@ enum ConversationExportStatus {
 }
 
 #[tauri::command]
-/// Saves the selected visible lineage as UTF-8 Markdown through a Rust-owned native dialog.
+/// Saves the selected lineage as Markdown plus referenced attachment bytes through a native dialog.
 pub(crate) async fn export_conversation_markdown(
     conversation_id: String,
     app: AppHandle,
@@ -51,7 +53,7 @@ pub(crate) async fn export_conversation_markdown(
 }
 
 #[tauri::command]
-/// Saves the selected visible lineage as versioned JSON through a Rust-owned native dialog.
+/// Saves the selected lineage as versioned JSON plus referenced attachment bytes through a native dialog.
 pub(crate) async fn export_conversation_json(
     conversation_id: String,
     app: AppHandle,
@@ -68,7 +70,7 @@ pub(crate) async fn export_conversation_json(
 }
 
 #[tauri::command]
-/// Saves all active and archived selected lineages as one versioned JSON document.
+/// Saves all eligible selected lineages and referenced attachment bytes as one portable export.
 pub(crate) async fn export_conversation_batch_json(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -95,6 +97,11 @@ fn save_export(
     filter_name: &str,
     extension: &str,
 ) -> Result<ConversationExportOutcome, StorageError> {
+    let (filter_name, extension) = if export.is_bundle() {
+        (BUNDLE_FILTER_NAME, BUNDLE_EXTENSION)
+    } else {
+        (filter_name, extension)
+    };
     let selected = app
         .dialog()
         .file()

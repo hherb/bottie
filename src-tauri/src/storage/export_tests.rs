@@ -287,7 +287,7 @@ fn renders_a_versioned_portable_json_contract_without_storage_identifiers() {
     let value: serde_json::Value = serde_json::from_str(&rendered).expect("JSON should parse");
 
     assert_eq!(value["format"], "bottie-conversation");
-    assert_eq!(value["version"], 2);
+    assert_eq!(value["version"], 3);
     assert_eq!(value["title"], "Architecture & safety");
     assert_eq!(value["messages"][0]["role"], "user");
     assert_eq!(value["messages"][0]["text"], "Explain the **boundary**.");
@@ -438,7 +438,7 @@ fn batches_active_and_archived_selected_lineages_without_trash_or_opaque_ids() {
 
     assert_eq!(export.file_name, "bottie-conversations.json");
     assert_eq!(value["format"], "bottie-conversation-batch");
-    assert_eq!(value["version"], 2);
+    assert_eq!(value["version"], 3);
     assert_eq!(value["conversations"].as_array().map(Vec::len), Some(2));
     assert_eq!(value["conversations"][0]["title"], "Active notes");
     assert_eq!(value["conversations"][0]["lifecycle"], "active");
