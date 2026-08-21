@@ -377,10 +377,11 @@ pending-image rejection. New pure frontend coverage preserves explicit attachmen
 
 The exact schema-14 and schema-15 SQL was applied to an immutable disposable copy of the real schema-13 Bottie store.
 The migrated copy reports `quick_check = ok`, zero foreign-key violations, schema version 15, three retained
-attachments, three indexing-readiness rows, and an empty conversation scope. The live store remains unchanged at
-schema 13 because native launch approval was withheld to avoid migrating durable user data. Browser-preview checks at
-1320 × 820, 720 × 620, and 420 × 780 showed the scope labels and Keep/remove controls without horizontal overflow or
-console warnings; body and document widths matched each viewport.
+attachments, three indexing-readiness rows, and an empty conversation scope. A later explicitly approved native launch
+for the macOS development-signing workflow migrated the live store. A subsequent immutable read-only check reports
+`quick_check = ok`, schema version 15, three retained attachments, and an empty conversation scope. Browser-preview
+checks at 1320 × 820, 720 × 620, and 420 × 780 showed the scope labels and Keep/remove controls without horizontal
+overflow or console warnings; body and document widths matched each viewport.
 
 ## Prior completed product slice: Durable attachment indexing readiness
 
