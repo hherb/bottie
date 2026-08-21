@@ -159,9 +159,12 @@ Raw local filesystem paths must never be forwarded to a provider.
 
 Outcome: models can retrieve relevant past conversations with visible provenance and user control.
 
+Status: in progress
+
 ### Search foundation
 
-- SQLite FTS5 index and BM25 lexical search;
+- [x] native SQLite FTS5 whole-source index and bounded BM25 lexical search with built-in-profile enforcement plus
+  source, conversation, and date filters;
 - statically linked `sqlite-vec` semantic index;
 - Rust-owned FastEmbed runtime using quantized EmbeddingGemma 300M as the single built-in embedding model;
 - application-owned model download/cache progress and versioned embedding metadata, without a user-facing embedding-provider picker;

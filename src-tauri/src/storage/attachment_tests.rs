@@ -67,7 +67,7 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
             .status()
             .expect("status should load")
             .schema_version,
-        15
+        16
     );
     assert_eq!(table_count, 1);
 }
@@ -110,7 +110,7 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
             .status()
             .expect("status should load")
             .schema_version,
-        15
+        16
     );
     assert_eq!(table_count, 1);
 }
@@ -150,7 +150,7 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
             .status()
             .expect("status should load")
             .schema_version,
-        15
+        16
     );
     assert_eq!(stored.extraction.state, AttachmentExtractionState::Ready);
     assert_eq!(
@@ -175,8 +175,8 @@ fn upgrades_version_fourteen_stores_with_empty_conversation_scope() {
         .execute_batch("DROP TABLE conversation_attachments;")
         .expect("conversation attachment table should be removable");
     connection
-        .execute("DELETE FROM schema_migrations WHERE version = 15", [])
-        .expect("conversation-scope migration record should be removable");
+        .execute("DELETE FROM schema_migrations WHERE version >= 15", [])
+        .expect("newer migration records should be removable");
     connection
         .pragma_update(None, "user_version", 14)
         .expect("fixture version should be set");
@@ -200,7 +200,7 @@ fn upgrades_version_fourteen_stores_with_empty_conversation_scope() {
             .status()
             .expect("status should load")
             .schema_version,
-        15
+        16
     );
     assert_eq!(table_count, 1);
 }

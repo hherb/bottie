@@ -75,9 +75,12 @@ original/derivative files and interrupted temporary work without touching recent
 Trash references, or shared derivatives. Milestone 3 is now complete: ready normalized images render as bounded,
 metadata-free thumbnails in draft, context, and retained-message surfaces through an opaque attachment-ID-only native
 protocol. Original and derivative hashes do not serialize through attachment IPC. Failed extraction and normalization
-remain explicitly local and show a specific accessible consequence without adding retry controls. The next bounded
-implementation slice is the SQLite FTS5 lexical-search foundation for persistent memory; do not bundle sqlite-vec,
-embedding download/runtime work, chunking, retrieval injection, memory tools, or attachment retry controls with it.
+remain explicitly local and show a specific accessible consequence without adding retry controls. Persistent-memory
+work has now started with a native derived SQLite FTS5 index and bounded BM25 query layer over complete final message
+answers and ready extracted documents. Reasoning, partial/failed responses, Trash-only content, and unassociated draft
+files are not retrievable. No memory query crosses IPC or enters provider context yet. The next bounded implementation
+slice is a versioned deterministic chunk catalog for messages and extracted documents; do not bundle sqlite-vec,
+embedding download/runtime work, retrieval injection, memory tools, or attachment retry controls with it.
 
 Read these files first:
 
@@ -91,7 +94,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/attachment-garbage-collection`.
+branch `codex/fts5-lexical-memory`.
 
 ## Current implementation
 
@@ -186,6 +189,8 @@ and `src-tauri/src/attachment_preview_protocol.rs` serves those pixels only thro
 attachment ID,
 `src-tauri/src/storage/attachment_garbage_collection.rs` owns restart-boundary catalog pruning, strict managed-file
 sweeping, interrupted temporary cleanup, and shared-derivative preservation,
+`src-tauri/src/storage/memory_lexical.rs` owns bounded native BM25 queries and lifecycle/association filters, while
+`src-tauri/src/storage/memory_lexical_migration.rs` owns the derived FTS5 schema, backfill, and synchronization triggers,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
 restore pause/resume coordination,
 and `src-tauri/src/storage/export.rs` owns
@@ -284,14 +289,14 @@ Do not mistake visual fixtures for implemented backend behavior:
   for native garbage collection after the 24-hour safety window and a later successful startup because the draft itself
   does not survive restart;
 - plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; their indexable state
-  means only that extraction succeeded because no FTS, vector, chunk, embedding, or retrieval index exists; JPEG/PNG
+  feeds a whole-source native FTS5 index, but no vector, chunk, embedding, tool, or provider retrieval exists; JPEG/PNG
   derivatives remain application-private and are read only for capability-confirmed vision requests; portable SQLite
-  backups embed originals and ready derivatives, selected/batch exports bundle referenced originals, and no attachment
-  is indexed;
+  backups embed originals and ready derivatives, while selected/batch exports bundle referenced originals;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- SQLite conversation storage exists, but no FTS5 or vector extension exists yet;
+- the native FTS5 memory query has no IPC, tool, citation, context-panel, or provider-injection consumer yet, and no
+  vector extension exists;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
   pure presentation and Markdown-policy helpers have frontend unit coverage.
@@ -329,7 +334,54 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed development-workflow fix: macOS development signing
+## Most recently completed product slice: SQLite FTS5 lexical-memory foundation
+
+### Goal
+
+Establish bounded native lexical retrieval over durable conversation and extracted-document content without exposing
+memory search to the WebView or providers, and without bundling chunking, vectors, embeddings, or memory tools.
+
+### Implemented shape
+
+1. Schema version 16 adds a derived SQLite FTS5 index using the Unicode tokenizer with diacritic removal. Migration
+   backfills one complete source for each final user/assistant text message and each ready non-empty extracted document.
+   Separate provider reasoning and non-final assistant responses are never indexed.
+2. SQLite triggers keep message sources synchronized as blocks append and responses become final, aggregating streamed
+   deltas in durable ordinal order. Extraction transitions likewise add, replace, or remove one whole-document source;
+   attachment deletion and message deletion remove their derived entries.
+3. A native-only Rust query contract normalizes user text into quoted AND terms before FTS evaluation, limits queries
+   to 200 characters and results to 50, returns bounded excerpts, and orders by SQLite BM25 with deterministic ties.
+4. Native filters cover message/document source, exact conversation association, and inclusive creation dates. Search
+   always restricts to the built-in profile, excludes Trash, and requires a ready document to have a durable message or
+   conversation association, so a processed but unsubmitted draft cannot become retrievable memory.
+5. The FTS index is derived state included in normal SQLite backup/restore behavior. No command, IPC type, Svelte state,
+   provider request, tool, or export surface exposes the query, source identities, extracted content, or index internals.
+
+### Acceptance criteria
+
+- Existing schema-15 stores migrate transactionally and backfill final visible message text plus ready extracted text.
+- Streamed answer deltas become exactly one searchable message source only after successful completion; reasoning,
+  partial, cancelled, and failed responses remain absent.
+- Ready extracted documents are searchable only while durably associated with a non-trashed conversation. Conversation,
+  source, and date filters are applied inside Rust-owned SQLite queries.
+- Operator-shaped input cannot inject FTS syntax, native bounds are enforced, and BM25 supplies stable lexical ranking.
+- sqlite-vec, embeddings, model download/cache UX, chunking, resumable reindex, fusion, memory tools, retrieval injection,
+  UI controls, and attachment retry remain outside this slice.
+
+### Verification completed
+
+Focused tests first failed against the absent migration, index, and native query contracts. Coverage now proves
+schema-15 backfill, reasoning exclusion, terminal streamed-answer aggregation, associated-document eligibility across
+restart, Trash/draft exclusion, BM25 ordering, filters, syntax normalization, and query/result ceilings. Cargo formatting
+and check pass without warnings. The complete Rust suite reports 160 passed with four opt-in live-provider checks
+intentionally ignored. Backup, restore, corruption recovery, and earlier migration tests remain green. Prettier,
+`svelte-check`, all 53 frontend tests, and the production build pass; `git diff --check` is clean. A fresh signed native
+launch migrated the live store from schema 15 to 16 and remained running until stopped after verification. Immutable
+read-only inspection reported `quick_check=ok`, the FTS5 virtual table, all eight synchronization triggers, 52 indexed
+message sources, two indexed attachment sources, and no running provider records. No UI changed, so browser layout
+review and picker/provider interaction were not applicable; the four opt-in live-provider tests remained skipped.
+
+## Prior completed development-workflow fix: macOS development signing
 
 Fresh large ad-hoc-signed debug executables could be held by macOS execution policy for several minutes before Bottie
 entered application code. The documented `npm run tauri dev` command now installs a Cargo runner only for macOS Tauri
@@ -352,7 +404,7 @@ suite reports 140 passed with four live-provider tests intentionally ignored. `g
 known development-runner limitation is that Cargo's environment runner format cannot represent Node or repository
 paths containing whitespace; the wrapper detects and reports that case before compilation.
 
-## Most recently completed product slice: Attachment previews and extraction-error UX
+## Prior completed product slice: Attachment previews and extraction-error UX
 
 ### Goal
 

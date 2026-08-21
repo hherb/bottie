@@ -5,6 +5,7 @@ use rusqlite::{Connection, params};
 use super::{
     CURRENT_SCHEMA_VERSION, ConversationStore, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME,
     StorageError,
+    memory_lexical_migration::MIGRATION_16,
     migrations::{
         MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
         MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_12, MIGRATION_13,
@@ -86,6 +87,14 @@ impl ConversationStore {
                 MIGRATION_15,
                 15,
                 "conversation attachment scope",
+            )?;
+        }
+        if version < 16 {
+            apply_migration(
+                connection,
+                MIGRATION_16,
+                16,
+                "FTS5 lexical memory foundation",
             )?;
         }
         Ok(())

@@ -127,8 +127,8 @@ responses recover provider-reported
 token/cost metadata and structured tool activity without estimating or executing anything. The native store
 owns the local profile's last-open selection; opening or creating a conversation records it, while New chat clears it.
 Conversation search runs through a narrow Rust command, treats query characters literally, excludes Trash and separate
-reasoning blocks, and returns at most 50 activity-ordered results with bounded snippets. It intentionally uses the
-existing store rather than adding FTS5 before the later memory-search milestone. Assistant answers pass through a
+reasoning blocks, and returns at most 50 activity-ordered results with bounded snippets. That user-facing navigation
+search remains a literal scan distinct from the native-only FTS5 memory foundation. Assistant answers pass through a
 Markdown parser configured to reject raw HTML, non-HTTP(S)/email link destinations, relative navigation, and image
 fetches. User prompts and provider reasoning remain plain text. Copying writes the exact stored assistant answer through
 the WebView clipboard API when no reasoning is present. Responses with reasoning become one Markdown document with
@@ -181,10 +181,10 @@ original/derivative files absent from the surviving catalog and clears old inter
 Recoverable Trash references, recent cross-process drafts, and shared derivatives remain live; unexpected files are
 left untouched. Cleanup commits catalog changes before file sweeping and holds a SQLite write lock during the sweep so
 interruption can leave only harmless untracked bytes for the next pass. Recent diagnostics receives counts and
-reclaimed bytes without paths or content identities. Schema-version-15 records retain up to 2 MiB of UTF-8 plain-text,
+reclaimed bytes without paths or content identities. Schema-version-16 stores retain up to 2 MiB of UTF-8 plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
 and expose only path-free state to the interface. Each attachment also retains waiting-for-extraction, indexable,
-unsupported, or blocked readiness for a later native text index; indexable means eligible, not indexed. PDF extraction
+unsupported, or blocked readiness; ready non-empty text now feeds the derived whole-source FTS5 index. PDF extraction
 retains a page count, refuses files over 500 pages,
 bounds each decompressed page stream to 8 MiB, and reports encrypted, malformed, text-free, extraction, and size
 failures without parser details or paths. DOCX extraction recognizes the package by its manifest rather than its
@@ -197,13 +197,21 @@ ready normalized derivatives in verified backup-only tables. Conversation export
 files, never extracted SQLite text or normalized derivatives. Ready JPEG/PNG derivatives are read only by Rust for
 capability-confirmed vision requests, with
 an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from provider requests. Other
-office formats are not extracted, and no attachment is indexed or retrievable yet. Ready images also receive a
+office formats are not extracted, and indexed document text remains native-only and unavailable to providers. Ready
+images also receive a
 metadata-free thumbnail capped to 320 pixels on either axis. The WebView requests that thumbnail through a private
 `bottie-attachment` protocol using only the opaque attachment ID; Rust rejects non-GET, malformed, missing, pending,
 unsupported, and failed requests without returning a path, hash, derivative identity, or native diagnostic. Failed
 text extraction and image normalization remain linked locally and now show a specific, accessible consequence in the
 composer, context panel, and retained message presentation. Preview generation does not add retry controls or change
 provider delivery.
+
+Schema version 16 begins the persistent-memory search foundation with a derived native SQLite FTS5 index. It aggregates
+each final user or assistant answer into one source, excludes separate reasoning and non-final responses, and indexes
+ready extracted documents as whole sources. A bounded Rust-only query layer provides BM25 ranking plus source,
+conversation, and date filters while excluding Trash and unassociated drafts. This is not yet a user-facing memory
+feature: no FTS query, excerpt, source identity, or extracted document content crosses IPC or enters a provider request.
+Chunking, sqlite-vec, embeddings, reindex controls, memory tools, and retrieval injection remain unimplemented.
 
 Run the layout-only browser preview:
 
