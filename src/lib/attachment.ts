@@ -1,0 +1,26 @@
+/** Pure path-free presentation policy for retained attachment processing state. */
+
+import { attachmentExtractionLabel, type AttachmentExtraction, type ImageNormalization } from "./storage";
+
+const IMAGE_NORMALIZATION_FAILURE_LABELS: Record<string, string> = {
+  image_decode_failed: "Image could not be decoded",
+  image_decode_limit_exceeded: "Image decoding exceeds local limit",
+  image_dimension_limit_exceeded: "Image dimensions exceed local limit",
+  image_missing_content: "Retained image content is unavailable",
+  image_output_too_large: "Normalized image exceeds local size limit",
+  image_pixel_limit_exceeded: "Image pixel count exceeds local limit",
+  image_write_failed: "Image normalization could not be saved",
+};
+
+/** Describes image normalization, falling back to text extraction for non-image attachments. */
+export function attachmentStatusLabel(normalization: ImageNormalization, extraction?: AttachmentExtraction): string {
+  if (normalization.state === "ready") {
+    const format = normalization.format === "jpeg" ? "JPEG" : "PNG";
+    return `${format} normalized locally · ${normalization.width ?? 0} × ${normalization.height ?? 0}`;
+  }
+  if (normalization.state === "pending") return "Image normalization pending";
+  if (normalization.state === "failed") {
+    return IMAGE_NORMALIZATION_FAILURE_LABELS[normalization.errorCode ?? ""] ?? "Image normalization failed";
+  }
+  return extraction ? attachmentExtractionLabel(extraction) : "No image normalization";
+}

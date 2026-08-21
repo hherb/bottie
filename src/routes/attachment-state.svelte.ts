@@ -20,6 +20,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     mimeType: "text/plain",
     sha256: "preview",
     extraction: { state: "ready", format: "markdown", characterCount: 18_432, pageCount: null, errorCode: null },
+    normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
   },
   {
     id: "preview-architecture",
@@ -29,6 +30,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     mimeType: "image/png",
     sha256: "preview",
     extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
+    normalization: { state: "ready", format: "png", width: 1_440, height: 900, byteSize: 1_048_576, errorCode: null },
   },
   {
     id: "preview-field-guide",
@@ -38,6 +40,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     mimeType: "application/pdf",
     sha256: "preview",
     extraction: { state: "ready", format: "pdf", characterCount: 24_180, pageCount: 12, errorCode: null },
+    normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
   },
   {
     id: "preview-review-notes",
@@ -47,6 +50,7 @@ const PREVIEW_ATTACHMENTS: Attachment[] = [
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     sha256: "preview",
     extraction: { state: "ready", format: "docx", characterCount: 8_420, pageCount: null, errorCode: null },
+    normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
   },
 ];
 
@@ -109,6 +113,14 @@ export class AttachmentState {
               : null,
           characterCount: null,
           pageCount: null,
+          errorCode: null,
+        },
+        normalization: {
+          state: "unsupported",
+          format: null,
+          width: null,
+          height: null,
+          byteSize: null,
           errorCode: null,
         },
       });

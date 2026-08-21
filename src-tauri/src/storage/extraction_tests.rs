@@ -206,6 +206,9 @@ fn upgrades_version_eleven_docx_state_and_extracts_retained_content() {
         )
         .expect("version eleven DOCX should be unsupported");
     connection
+        .execute_batch("DROP TABLE attachment_image_normalizations;")
+        .expect("version thirteen table should be removable");
+    connection
         .execute("DELETE FROM schema_migrations WHERE version > 11", [])
         .expect("newer migration record should be removable");
     connection
@@ -371,6 +374,9 @@ fn upgrades_version_ten_pdf_state_and_extracts_retained_content() {
             [&pdf.id],
         )
         .expect("version ten PDF should be unsupported");
+    connection
+        .execute_batch("DROP TABLE attachment_image_normalizations;")
+        .expect("version thirteen table should be removable");
     connection
         .execute("DELETE FROM schema_migrations WHERE version > 10", [])
         .expect("newer migration record should be removable");

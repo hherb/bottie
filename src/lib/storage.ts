@@ -68,6 +68,16 @@ export type AttachmentExtraction = {
   errorCode: string | null;
 };
 
+/** Path-free native image normalization metadata that omits derivative identity, bytes, and paths. */
+export type ImageNormalization = {
+  state: "pending" | "ready" | "unsupported" | "failed";
+  format: "jpeg" | "png" | null;
+  width: number | null;
+  height: number | null;
+  byteSize: number | null;
+  errorCode: string | null;
+};
+
 /** Safe durable attachment metadata that deliberately omits every filesystem path and extracted text. */
 export type StoredAttachment = {
   id: string;
@@ -76,6 +86,7 @@ export type StoredAttachment = {
   byteSize: number;
   sha256: string;
   extraction: AttachmentExtraction;
+  normalization: ImageNormalization;
 };
 
 /** Safe native ingestion metadata including whether retained content was reused. */
@@ -413,6 +424,7 @@ export function storedAttachmentToPresentation(attachment: StoredAttachment): At
     mimeType: attachment.mimeType,
     sha256: attachment.sha256,
     extraction: attachment.extraction,
+    normalization: attachment.normalization,
   };
 }
 

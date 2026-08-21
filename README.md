@@ -41,8 +41,11 @@ message. Associations reopen on the selected branch, survive edit/regenerate for
 the retained content blob. Plain-text, Markdown, PDF, and DOCX text up to 2 MiB is extracted into durable native-only
 state. PDF parsing is additionally limited to 500 pages and 8 MiB of decompressed content per page. DOCX parsing
 validates the package manifest and bounds archive entries, total declared expansion, main-document XML, XML events,
-and XML depth. The WebView receives format, character count, PDF page count, and path-free status metadata but never
-the extracted content. Only prompt text reaches the provider: attachment delivery, other office formats, memory
+and XML depth. JPEG and PNG images are decoded within dimension, pixel, allocation, and output ceilings, have EXIF
+orientation applied to their pixels, and are re-encoded without source metadata into application-private,
+content-addressed derivatives. The WebView receives path-free extraction or normalization state, dimensions, counts,
+and sizes but never extracted text, derivative identities, bytes, or paths. Only prompt text reaches the provider:
+attachment delivery, other office formats, memory
 retrieval, provider tool loops, approvals, and tool execution are not implemented yet; those surfaces remain disabled
 or explicitly labelled.
 
@@ -135,15 +138,19 @@ identical content reuses its existing blob across restarts. Sending commits up t
 with the user message, then clears the draft. Reopened selected lineages reconstruct ordered path-free metadata; edited
 and regenerated request branches inherit the source request's associations. Detaching is limited to visible user
 messages while generation is idle and retains the catalog row and blob for deduplication. Attachment bytes remain
-outside SQLite-only backups and exports. Schema-version-12 extraction records retain up to 2 MiB of UTF-8 plain-text,
+outside SQLite-only backups and exports. Schema-version-13 records retain up to 2 MiB of UTF-8 plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
 and expose only path-free state to the interface. PDF extraction retains a page count, refuses files over 500 pages,
 bounds each decompressed page stream to 8 MiB, and reports encrypted, malformed, text-free, extraction, and size
 failures without parser details or paths. DOCX extraction recognizes the package by its manifest rather than its
 filename, reads only bounded ZIP members in memory, rejects overlapping/encrypted/over-complex archives, and bounds
-WordprocessingML size, events, depth, and output. Extracted text is included in SQLite backups but remains absent from
-conversation exports and provider requests. Other office formats are not extracted; no attachment is indexed,
-normalized, or delivered to a provider.
+WordprocessingML size, events, depth, and output. JPEG and PNG normalization accepts at most 8,192 pixels on either
+axis, 16 million total pixels, 128 MiB of decoded image allocation, and 25 MiB of encoded output. JPEG EXIF orientation
+is applied before both formats are re-encoded through metadata-free encoders into application-private,
+content-addressed derivatives. SQLite backups include extracted text and path-free derivative metadata, but original
+blobs and normalized derivatives remain outside those backups. Extracted text and images remain absent from
+conversation exports and provider requests. Other office formats are not extracted; no attachment is indexed or
+delivered to a provider.
 
 Run the layout-only browser preview:
 

@@ -12,6 +12,7 @@ import {
   type IngestedAttachment,
   type ConversationSummary,
 } from "./storage";
+import { attachmentStatusLabel } from "./attachment";
 
 const conversations: ConversationSummary[] = [
   { id: "active", title: "Active", updatedAtMs: 3, lifecycle: "active" },
@@ -68,6 +69,7 @@ describe("conversation storage presentation helpers", () => {
       byteSize: 16,
       sha256: "abc123",
       extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
+      normalization: { state: "ready", format: "png", width: 2, height: 2, byteSize: 16, errorCode: null },
       duplicate: false,
     };
     const duplicate = { ...first, duplicate: true };
@@ -81,6 +83,7 @@ describe("conversation storage presentation helpers", () => {
         mimeType: "image/png",
         sha256: "abc123",
         extraction: { state: "unsupported", format: null, characterCount: null, pageCount: null, errorCode: null },
+        normalization: { state: "ready", format: "png", width: 2, height: 2, byteSize: 16, errorCode: null },
       },
     ]);
     expect(mergeIngestedAttachments(mergeIngestedAttachments([], [first]), [duplicate])).toHaveLength(1);
@@ -95,6 +98,14 @@ describe("conversation storage presentation helpers", () => {
         byteSize: 2_048,
         sha256: "abc123",
         extraction: { state: "ready", format: "markdown", characterCount: 42, pageCount: null, errorCode: null },
+        normalization: {
+          state: "unsupported",
+          format: null,
+          width: null,
+          height: null,
+          byteSize: null,
+          errorCode: null,
+        },
       }),
     ).toEqual({
       id: "attachment-1",
@@ -104,6 +115,7 @@ describe("conversation storage presentation helpers", () => {
       mimeType: "text/plain",
       sha256: "abc123",
       extraction: { state: "ready", format: "markdown", characterCount: 42, pageCount: null, errorCode: null },
+      normalization: { state: "unsupported", format: null, width: null, height: null, byteSize: null, errorCode: null },
     });
   });
 
@@ -180,5 +192,47 @@ describe("conversation storage presentation helpers", () => {
         errorCode: "docx_archive_limit_exceeded",
       }),
     ).toBe("DOCX archive is too complex");
+  });
+
+  it("describes path-free image normalization without receiving derivative bytes", () => {
+    expect(
+      attachmentStatusLabel({
+        state: "ready",
+        format: "png",
+        width: 1_200,
+        height: 800,
+        byteSize: 320_000,
+        errorCode: null,
+      }),
+    ).toBe("PNG normalized locally · 1200 × 800");
+    expect(
+      attachmentStatusLabel({
+        state: "failed",
+        format: null,
+        width: null,
+        height: null,
+        byteSize: null,
+        errorCode: "image_dimension_limit_exceeded",
+      }),
+    ).toBe("Image dimensions exceed local limit");
+    expect(
+      attachmentStatusLabel(
+        {
+          state: "unsupported",
+          format: null,
+          width: null,
+          height: null,
+          byteSize: null,
+          errorCode: null,
+        },
+        {
+          state: "ready",
+          format: "markdown",
+          characterCount: 42,
+          pageCount: null,
+          errorCode: null,
+        },
+      ),
+    ).toBe("Markdown ready locally");
   });
 });

@@ -38,6 +38,7 @@ sha2 = "0.10"
 lopdf = { version = "0.44", default-features = false }
 quick-xml = "0.41"
 zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"

@@ -20,6 +20,8 @@ mod docx;
 mod error;
 mod export;
 pub(crate) mod extraction;
+mod image_codec;
+mod image_normalization;
 mod lifecycle;
 mod migrate;
 mod migrations;
@@ -37,6 +39,7 @@ pub(crate) use export::ConversationFileExport;
 pub(crate) use extraction::{
     AttachmentExtractionFormat, AttachmentExtractionState, StoredAttachmentExtraction,
 };
+pub(crate) use image_normalization::StoredImageNormalization;
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use recovery::StorageRecoveryStatus;
@@ -47,7 +50,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 12;
+const CURRENT_SCHEMA_VERSION: i64 = 13;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -89,6 +92,7 @@ impl ConversationStore {
         }
         drop(connection);
         store.process_pending_attachment_extractions()?;
+        store.process_pending_image_normalizations()?;
         store.recover_interrupted_runs()?;
         Ok(store)
     }
@@ -454,46 +458,41 @@ fn now_ms() -> Result<i64, StorageError> {
 }
 
 #[cfg(test)]
-#[path = "storage/tests.rs"]
-mod tests;
-
-#[cfg(test)]
-#[path = "storage/run_tests.rs"]
-mod run_tests;
-
-#[cfg(test)]
-#[path = "storage/selection_tests.rs"]
-mod selection_tests;
-
-#[cfg(test)]
-#[path = "storage/branch_tests.rs"]
-mod branch_tests;
-
-#[cfg(test)]
-#[path = "storage/search_tests.rs"]
-mod search_tests;
-
-#[cfg(test)]
-#[path = "storage/rating_tests.rs"]
-mod rating_tests;
-
-#[cfg(test)]
-#[path = "storage/export_tests.rs"]
-mod export_tests;
-
-#[cfg(test)]
-#[path = "storage/tool_tests.rs"]
-mod tool_tests;
-
-#[cfg(test)]
 #[path = "storage/attachment_tests.rs"]
 mod attachment_tests;
 #[cfg(test)]
 #[path = "storage/backup_tests.rs"]
 mod backup_tests;
 #[cfg(test)]
+#[path = "storage/branch_tests.rs"]
+mod branch_tests;
+#[cfg(test)]
+#[path = "storage/export_tests.rs"]
+mod export_tests;
+#[cfg(test)]
 #[path = "storage/extraction_tests.rs"]
 mod extraction_tests;
 #[cfg(test)]
+#[path = "storage/image_normalization_tests.rs"]
+mod image_normalization_tests;
+#[cfg(test)]
+#[path = "storage/rating_tests.rs"]
+mod rating_tests;
+#[cfg(test)]
 #[path = "storage/recovery_tests.rs"]
 mod recovery_tests;
+#[cfg(test)]
+#[path = "storage/run_tests.rs"]
+mod run_tests;
+#[cfg(test)]
+#[path = "storage/search_tests.rs"]
+mod search_tests;
+#[cfg(test)]
+#[path = "storage/selection_tests.rs"]
+mod selection_tests;
+#[cfg(test)]
+#[path = "storage/tests.rs"]
+mod tests;
+#[cfg(test)]
+#[path = "storage/tool_tests.rs"]
+mod tool_tests;

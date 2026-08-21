@@ -7,7 +7,7 @@ use super::{
     StorageError,
     migrations::{
         MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
-        MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_12,
+        MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_12, MIGRATION_13,
     },
     now_ms,
 };
@@ -67,6 +67,9 @@ impl ConversationStore {
         }
         if version < 12 {
             apply_migration(connection, MIGRATION_12, 12, "bounded DOCX text extraction")?;
+        }
+        if version < 13 {
+            apply_migration(connection, MIGRATION_13, 13, "bounded image normalization")?;
         }
         Ok(())
     }

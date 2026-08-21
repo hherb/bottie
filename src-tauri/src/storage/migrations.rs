@@ -317,3 +317,34 @@ JOIN attachments ON attachments.id = attachment_extractions.attachment_id;
 DROP TABLE attachment_extractions;
 ALTER TABLE attachment_extractions_v12 RENAME TO attachment_extractions;
 "#;
+
+/// Adds durable native-only JPEG and PNG normalization state and derivative identities.
+pub(super) const MIGRATION_13: &str = r#"
+CREATE TABLE attachment_image_normalizations (
+    attachment_id TEXT PRIMARY KEY REFERENCES attachments(id) ON DELETE CASCADE,
+    state TEXT NOT NULL CHECK (state IN ('pending', 'ready', 'unsupported', 'failed')),
+    format TEXT CHECK (format IN ('jpeg', 'png')),
+    width INTEGER CHECK (width > 0),
+    height INTEGER CHECK (height > 0),
+    byte_size INTEGER CHECK (byte_size > 0),
+    normalized_sha256 TEXT
+        CHECK (length(normalized_sha256) = 64 AND normalized_sha256 NOT GLOB '*[^0-9a-f]*'),
+    error_code TEXT,
+    updated_at_ms INTEGER NOT NULL,
+    CHECK (
+        (state = 'pending' AND format IS NULL AND width IS NULL AND height IS NULL
+            AND byte_size IS NULL AND normalized_sha256 IS NULL AND error_code IS NULL)
+        OR (state = 'ready' AND format IS NOT NULL AND width IS NOT NULL AND height IS NOT NULL
+            AND byte_size IS NOT NULL AND normalized_sha256 IS NOT NULL AND error_code IS NULL)
+        OR (state = 'unsupported' AND format IS NULL AND width IS NULL AND height IS NULL
+            AND byte_size IS NULL AND normalized_sha256 IS NULL AND error_code IS NULL)
+        OR (state = 'failed' AND format IS NULL AND width IS NULL AND height IS NULL
+            AND byte_size IS NULL AND normalized_sha256 IS NULL AND error_code IS NOT NULL)
+    )
+) STRICT;
+INSERT INTO attachment_image_normalizations (attachment_id, state, updated_at_ms)
+SELECT id,
+       CASE WHEN mime_type IN ('image/jpeg', 'image/png') THEN 'pending' ELSE 'unsupported' END,
+       created_at_ms
+FROM attachments;
+"#;
