@@ -29,6 +29,8 @@ pub(crate) mod extraction;
 mod image_codec;
 mod image_normalization;
 mod lifecycle;
+mod memory_chunks;
+mod memory_chunks_migration;
 mod memory_lexical;
 mod memory_lexical_migration;
 mod migrate;
@@ -65,7 +67,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 16;
+const CURRENT_SCHEMA_VERSION: i64 = 17;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -229,6 +231,7 @@ impl ConversationStore {
             ],
         )?;
         insert_blocks(&transaction, &stored)?;
+        memory_chunks::refresh_message_chunks(&transaction, &stored.id)?;
         stored.attachments = attachments::associate_message_attachments(
             &transaction,
             &stored.id,
@@ -466,6 +469,8 @@ mod export_tests;
 mod extraction_tests;
 #[cfg(test)]
 mod image_normalization_tests;
+#[cfg(test)]
+mod memory_chunks_tests;
 #[cfg(test)]
 mod memory_lexical_tests;
 #[cfg(test)]

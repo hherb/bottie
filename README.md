@@ -54,7 +54,8 @@ decoding; one native background worker resumes pending work after startup, selec
 path-free live extraction, indexing-readiness, or normalization updates, dimensions, counts, and sizes but never
 extracted text, derivative identities, bytes, or paths. Extracted text becomes explicitly indexable in the same
 resumable worker; unsupported and failed extraction become terminal unsupported or blocked readiness. This does not
-create FTS, vectors, chunks, embeddings, or retrieval. A current normalized JPEG or PNG can be sent only after native
+send document content to providers or expose derived FTS/chunk state, vectors, embeddings, or retrieval. A current
+normalized JPEG or PNG can be sent only after native
 discovery confirms that the
 selected model advertises vision support. Text-only selections block a current image with an explicit explanation and
 omit older image associations; document content remains local-only. Native delivery reconstructs the selected durable
@@ -181,7 +182,8 @@ original/derivative files absent from the surviving catalog and clears old inter
 Recoverable Trash references, recent cross-process drafts, and shared derivatives remain live; unexpected files are
 left untouched. Cleanup commits catalog changes before file sweeping and holds a SQLite write lock during the sweep so
 interruption can leave only harmless untracked bytes for the next pass. Recent diagnostics receives counts and
-reclaimed bytes without paths or content identities. Schema-version-16 stores retain up to 2 MiB of UTF-8 plain-text,
+reclaimed bytes without paths or content identities. Current schema-version-17 stores retain up to 2 MiB of UTF-8
+plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
 and expose only path-free state to the interface. Each attachment also retains waiting-for-extraction, indexable,
 unsupported, or blocked readiness; ready non-empty text now feeds the derived whole-source FTS5 index. PDF extraction
@@ -211,7 +213,10 @@ each final user or assistant answer into one source, excludes separate reasoning
 ready extracted documents as whole sources. A bounded Rust-only query layer provides BM25 ranking plus source,
 conversation, and date filters while excluding Trash and unassociated drafts. This is not yet a user-facing memory
 feature: no FTS query, excerpt, source identity, or extracted document content crosses IPC or enters a provider request.
-Chunking, sqlite-vec, embeddings, reindex controls, memory tools, and retrieval injection remain unimplemented.
+Schema version 17 derives the same eligible text into deterministic, versioned, Unicode-safe chunks. Version 1 keeps
+exact source offsets and stable SHA-256 identities, prefers whitespace boundaries at up to 1,200 characters, and uses
+approximately 200 characters of overlap. sqlite-vec, embeddings, reindex controls, memory tools, and retrieval
+injection remain unimplemented, and no chunk content or identity crosses IPC.
 
 Run the layout-only browser preview:
 

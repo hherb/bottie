@@ -242,6 +242,7 @@ impl ConversationStore {
                         attachment_id
                     ],
                 )?;
+                super::memory_chunks::refresh_attachment_chunks(&transaction, attachment_id)?;
                 transaction.commit()?;
                 Ok(())
             }
@@ -278,14 +279,18 @@ impl ConversationStore {
         attachment_id: &str,
         error_code: &str,
     ) -> Result<(), StorageError> {
-        let connection = self.open()?;
-        connection.execute(
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        transaction.execute(
             "UPDATE attachment_extractions
              SET state = 'failed', format = NULL, text_content = NULL,
                  character_count = NULL, page_count = NULL, error_code = ?1, updated_at_ms = ?2
              WHERE attachment_id = ?3 AND state = 'pending'",
             params![error_code, now_ms()?, attachment_id],
         )?;
+        super::memory_chunks::refresh_attachment_chunks(&transaction, attachment_id)?;
+        transaction.commit()?;
         Ok(())
     }
 
@@ -299,8 +304,10 @@ impl ConversationStore {
         character_count: Option<u64>,
         page_count: Option<u64>,
     ) -> Result<(), StorageError> {
-        let connection = self.open()?;
-        connection.execute(
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        transaction.execute(
             "UPDATE attachment_extractions
              SET state = ?1, format = ?2, text_content = ?3, character_count = ?4,
                  page_count = ?5, error_code = NULL, updated_at_ms = ?6
@@ -315,6 +322,8 @@ impl ConversationStore {
                 attachment_id
             ],
         )?;
+        super::memory_chunks::refresh_attachment_chunks(&transaction, attachment_id)?;
+        transaction.commit()?;
         Ok(())
     }
 

@@ -178,6 +178,12 @@ impl ConversationStore {
             "UPDATE messages SET state = ?1 WHERE provider_run_id = ?2 AND state = 'partial'",
             params![message_state.as_str(), run_id],
         )?;
+        let response_message_id: String = transaction.query_row(
+            "SELECT id FROM messages WHERE provider_run_id = ?1",
+            [run_id],
+            |row| row.get(0),
+        )?;
+        super::memory_chunks::refresh_message_chunks(&transaction, &response_message_id)?;
         if let Some(usage) = usage {
             append_usage_if_changed(&transaction, run_id, completed_at_ms, usage)?;
         }

@@ -1,6 +1,6 @@
 # bottie handover
 
-Last verified: 2026-08-21
+Last verified: 2026-08-22
 
 ## Start here
 
@@ -62,8 +62,8 @@ normalized JPEG/PNG bytes only inside Rust. A current image requires explicit vi
 discovery; text-only models block that draft while omitting older images from later text requests. Vision routes receive
 at most eight images and 50 MiB of normalized derivatives through Ollama, OpenAI-shaped, or Anthropic-shaped request
 blocks. Documents remain local-only. Extracted text now also moves through durable waiting-for-extraction, indexable,
-unsupported, or blocked readiness in the same resumable native worker. Indexable is only eligibility for later index
-construction: Bottie still has no FTS, vectors, chunks, embeddings, or attachment retrieval. Up to eight retained
+unsupported, or blocked readiness in the same resumable native worker. Indexable is eligibility for native derived
+memory construction, not provider delivery. Up to eight retained
 files can now be kept in durable conversation scope independently of any branch or message. The interface distinguishes
 next-message, conversation, and message associations and supports narrow removal without deleting retained content.
 Conversation-scoped normalized images apply to every current request, require explicit vision capability, and are
@@ -76,11 +76,14 @@ Trash references, or shared derivatives. Milestone 3 is now complete: ready norm
 metadata-free thumbnails in draft, context, and retained-message surfaces through an opaque attachment-ID-only native
 protocol. Original and derivative hashes do not serialize through attachment IPC. Failed extraction and normalization
 remain explicitly local and show a specific accessible consequence without adding retry controls. Persistent-memory
-work has now started with a native derived SQLite FTS5 index and bounded BM25 query layer over complete final message
-answers and ready extracted documents. Reasoning, partial/failed responses, Trash-only content, and unassociated draft
-files are not retrievable. No memory query crosses IPC or enters provider context yet. The next bounded implementation
-slice is a versioned deterministic chunk catalog for messages and extracted documents; do not bundle sqlite-vec,
-embedding download/runtime work, retrieval injection, memory tools, or attachment retry controls with it.
+work now includes a native derived SQLite FTS5 index and bounded BM25 query layer over complete final message answers
+and ready extracted documents. Schema version 17 also derives a versioned deterministic chunk catalog from those same
+eligible sources. Unicode-safe, whitespace-aware chunks retain exact source offsets, stable SHA-256 identities, and a
+1,200-character ceiling with approximately 200 characters of overlap. Reasoning and non-final responses never enter
+either derived layer. No memory query, chunk, identity, or extracted content crosses IPC or enters provider context.
+The next bounded implementation slice is the first resumable semantic-index consumer over this catalog, combining
+statically linked sqlite-vec with Rust-owned EmbeddingGemma/FastEmbed acquisition, versioned embedding/index metadata,
+and application-owned cache progress; do not bundle retrieval injection, memory tools/UI, or attachment retry controls.
 
 Read these files first:
 
@@ -94,7 +97,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/fts5-lexical-memory`.
+branch `codex/versioned-memory-chunks`.
 
 ## Current implementation
 
@@ -191,6 +194,8 @@ attachment ID,
 sweeping, interrupted temporary cleanup, and shared-derivative preservation,
 `src-tauri/src/storage/memory_lexical.rs` owns bounded native BM25 queries and lifecycle/association filters, while
 `src-tauri/src/storage/memory_lexical_migration.rs` owns the derived FTS5 schema, backfill, and synchronization triggers,
+`src-tauri/src/storage/memory_chunks.rs` owns versioned Unicode-safe deterministic chunking plus transactional source
+replacement, while `src-tauri/src/storage/memory_chunks_migration.rs` owns catalog metadata and stale-row cleanup,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
 restore pause/resume coordination,
 and `src-tauri/src/storage/export.rs` owns
@@ -289,14 +294,15 @@ Do not mistake visual fixtures for implemented backend behavior:
   for native garbage collection after the 24-hour safety window and a later successful startup because the draft itself
   does not survive restart;
 - plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; their indexable state
-  feeds a whole-source native FTS5 index, but no vector, chunk, embedding, tool, or provider retrieval exists; JPEG/PNG
+  feeds a whole-source native FTS5 index and deterministic native chunk catalog, but no vector, embedding, tool, or
+  provider retrieval exists; JPEG/PNG
   derivatives remain application-private and are read only for capability-confirmed vision requests; portable SQLite
   backups embed originals and ready derivatives, while selected/batch exports bundle referenced originals;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - the native FTS5 memory query has no IPC, tool, citation, context-panel, or provider-injection consumer yet, and no
-  vector extension exists;
+  chunk or vector query surface exists;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
   pure presentation and Markdown-policy helpers have frontend unit coverage.
@@ -334,7 +340,54 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: SQLite FTS5 lexical-memory foundation
+## Most recently completed product slice: Versioned deterministic memory chunks
+
+### Goal
+
+Create a stable native-only chunk catalog over final message answers and ready extracted documents without adding a
+vector runtime, embeddings, retrieval injection, tools, or WebView exposure.
+
+### Implemented shape
+
+1. Schema version 17 adds singleton algorithm metadata and a derived `memory_chunks` catalog. Every row records source
+   kind and opaque identity, built-in profile ownership, chunking version, ordinal, exact Unicode-scalar start/end
+   offsets, source creation time, content SHA-256, and a stable SHA-256 chunk identity.
+2. Chunking version 1 preserves exact source slices, prefers a whitespace boundary between 900 and 1,200 Unicode
+   scalar values, and retains approximately 200 characters of word-aligned overlap. Identical source content and
+   identity produce the same ordered rows across migration and restart.
+3. Migration backfill runs inside the schema transaction over final message text and ready non-empty extracted text.
+   Message reasoning, partial/cancelled/failed responses, and empty sources remain absent.
+4. Final message append, edit/regenerate branch creation, provider completion, and attachment extraction replace their
+   derived rows inside the same write transaction. Cleanup triggers delete stale rows before source mutation or delete,
+   so unexpected direct changes can leave a missing derived source but never stale chunk content.
+5. The catalog stays Rust/SQLite-only and remains derived state in ordinary backup/restore. No command, IPC type,
+   provider request, export, Svelte state, vector extension, embedding runtime, or retrieval consumer was added.
+
+### Acceptance criteria
+
+- Schema-16 stores migrate transactionally and backfill deterministic chunks for final answers and ready documents.
+- Unicode boundaries and exact offsets are safe, each chunk is at most 1,200 characters, adjacent chunks overlap, and
+  algorithm/version constants match durable metadata.
+- Streamed response text appears only after successful completion; reasoning and non-final responses remain absent.
+- Newly ready documents receive chunks transactionally, while failed/invalidated extraction and deleted sources remove
+  stale rows.
+- sqlite-vec, FastEmbed/model download, semantic queries, reindex controls, memory tools/UI, provider injection, and
+  attachment retry remain outside this slice.
+
+### Verification completed
+
+Focused tests first failed against the absent catalog modules and methods. Four chunk-specific tests now cover
+deterministic Unicode boundaries and overlap, exact offsets and stable identities, schema-16 message/document backfill,
+durable algorithm metadata, reasoning exclusion, partial-to-final provider lifecycle, runtime document extraction, and
+stale-row removal. The complete Rust suite reports 164 passed with four opt-in live-provider checks intentionally
+ignored. Prettier, `svelte-check`, all 53 frontend tests, the production build, Cargo formatting, and Cargo check pass;
+`svelte-check` reports no errors or warnings and `git diff --check` is clean. A fresh signed native launch migrated the
+live store from schema 16 to 17 and remained running until stopped after verification. Immutable read-only inspection
+reported `quick_check=ok`, version-1 `unicode-whitespace-v1` metadata, 77 chunks across 52 message sources, seven chunks
+across two attachment sources, no over-limit or offset-inconsistent rows, and no running provider records. No UI or
+provider behavior changed, so browser layout review, picker interaction, and live-provider tests were not applicable.
+
+## Prior completed product slice: SQLite FTS5 lexical-memory foundation
 
 ### Goal
 

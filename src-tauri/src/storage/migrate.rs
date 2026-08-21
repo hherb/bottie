@@ -5,6 +5,8 @@ use rusqlite::{Connection, params};
 use super::{
     CURRENT_SCHEMA_VERSION, ConversationStore, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME,
     StorageError,
+    memory_chunks::backfill_memory_chunks,
+    memory_chunks_migration::MIGRATION_17,
     memory_lexical_migration::MIGRATION_16,
     migrations::{
         MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
@@ -97,8 +99,26 @@ impl ConversationStore {
                 "FTS5 lexical memory foundation",
             )?;
         }
+        if version < 17 {
+            apply_memory_chunk_migration(connection)?;
+        }
         Ok(())
     }
+}
+
+/// Creates and backfills the Rust-derived chunk catalog in one immediate transaction.
+fn apply_memory_chunk_migration(connection: &mut Connection) -> Result<(), StorageError> {
+    let transaction =
+        connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+    transaction.execute_batch(MIGRATION_17)?;
+    backfill_memory_chunks(&transaction)?;
+    transaction.execute(
+        "INSERT INTO schema_migrations (version, name, applied_at_ms) VALUES (17, ?1, ?2)",
+        params!["versioned deterministic memory chunks", now_ms()?],
+    )?;
+    transaction.pragma_update(None, "user_version", 17)?;
+    transaction.commit()?;
+    Ok(())
 }
 
 /// Applies and records one migration inside its own immediate transaction.

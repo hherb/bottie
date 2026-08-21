@@ -62,7 +62,7 @@ fn persists_changes_and_clears_one_assistant_response_rating() {
             .status()
             .expect("storage status should load")
             .schema_version,
-        16
+        17
     );
     let reopened = store
         .load_conversation(&conversation.id)

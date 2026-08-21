@@ -165,10 +165,10 @@ Status: in progress
 
 - [x] native SQLite FTS5 whole-source index and bounded BM25 lexical search with built-in-profile enforcement plus
   source, conversation, and date filters;
+- [x] versioned deterministic Unicode-safe chunk catalog for final message answers and ready extracted documents;
 - statically linked `sqlite-vec` semantic index;
 - Rust-owned FastEmbed runtime using quantized EmbeddingGemma 300M as the single built-in embedding model;
 - application-owned model download/cache progress and versioned embedding metadata, without a user-facing embedding-provider picker;
-- chunking for messages and extracted documents;
 - embedding model, dimensions, chunking version, and index-generation metadata;
 - resumable background indexing and complete reindex support;
 - reciprocal-rank fusion of lexical and vector results;
