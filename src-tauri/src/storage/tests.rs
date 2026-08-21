@@ -28,7 +28,7 @@ fn initializes_ordered_migrations_and_default_local_profile() {
 
     let status = store.status().expect("storage status should load");
 
-    assert_eq!(status.schema_version, 11);
+    assert_eq!(status.schema_version, 12);
     assert_eq!(status.profile_name, "Local profile");
     assert_eq!(status.integrity_check, "ok");
     assert!(status.foreign_keys_enabled);
@@ -81,7 +81,7 @@ fn upgrades_a_version_two_store_without_rewriting_existing_messages() {
         )
         .expect("provider run table should be queryable");
 
-    assert_eq!(status.schema_version, 11);
+    assert_eq!(status.schema_version, 12);
     assert_eq!(provider_run_table, 1);
 }
 

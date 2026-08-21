@@ -10,7 +10,11 @@ use lopdf::{DecompressError, Document, Error as PdfError, LoadOptions};
 use rusqlite::{OptionalExtension, params};
 use serde::Serialize;
 
-use super::{ConversationStore, StorageError, now_ms};
+use super::{
+    ConversationStore, StorageError,
+    docx::{self, DOCX_MIME_TYPE},
+    now_ms,
+};
 
 const BYTES_PER_MEBIBYTE: usize = 1024 * 1024;
 const MAX_EXTRACTED_TEXT_MEBIBYTES: usize = 2;
@@ -18,7 +22,7 @@ const EXTRACTION_READ_LIMIT: u64 = (MAX_EXTRACTED_TEXT_BYTES + 1) as u64;
 const MAX_PDF_DECOMPRESSED_PAGE_MEBIBYTES: usize = 8;
 const MAX_PDF_DECOMPRESSED_PAGE_BYTES: usize =
     MAX_PDF_DECOMPRESSED_PAGE_MEBIBYTES * BYTES_PER_MEBIBYTE;
-const ERROR_CONTENT_TOO_LARGE: &str = "content_too_large";
+pub(super) const ERROR_CONTENT_TOO_LARGE: &str = "content_too_large";
 const ERROR_INVALID_UTF8: &str = "invalid_utf8";
 const ERROR_MISSING_CONTENT: &str = "missing_content";
 const ERROR_PDF_ENCRYPTED: &str = "pdf_encrypted";
@@ -81,6 +85,8 @@ pub(crate) enum AttachmentExtractionFormat {
     Markdown,
     /// Text derived from a bounded page-aware PDF parse.
     Pdf,
+    /// Text derived from a bounded DOCX package and WordprocessingML parse.
+    Docx,
 }
 
 impl AttachmentExtractionFormat {
@@ -90,6 +96,7 @@ impl AttachmentExtractionFormat {
             Self::PlainText => "plain_text",
             Self::Markdown => "markdown",
             Self::Pdf => "pdf",
+            Self::Docx => "docx",
         }
     }
 
@@ -99,6 +106,7 @@ impl AttachmentExtractionFormat {
             "plain_text" => Ok(Self::PlainText),
             "markdown" => Ok(Self::Markdown),
             "pdf" => Ok(Self::Pdf),
+            "docx" => Ok(Self::Docx),
             _ => Err(StorageError::internal()),
         }
     }
@@ -174,6 +182,13 @@ impl ConversationStore {
         if mime_type == "application/pdf" {
             return self.process_pdf_extraction(attachment_id, &sha256);
         }
+        if mime_type == DOCX_MIME_TYPE
+            || (mime_type == "application/zip"
+                && (display_name.to_ascii_lowercase().ends_with(".docx")
+                    || docx::is_docx_package(&self.attachment_blob_path(&sha256))))
+        {
+            return self.process_docx_extraction(attachment_id, &sha256);
+        }
         if mime_type != "text/plain" {
             return self.persist_extraction(
                 attachment_id,
@@ -211,6 +226,45 @@ impl ConversationStore {
             Some(character_count),
             None,
         )
+    }
+
+    /// Extracts bounded DOCX text or records one stable path-free failure category.
+    fn process_docx_extraction(
+        &self,
+        attachment_id: &str,
+        sha256: &str,
+    ) -> Result<(), StorageError> {
+        let blob_path = self.attachment_blob_path(sha256);
+        if !blob_path.is_file() {
+            return self.persist_extraction_failure(attachment_id, ERROR_MISSING_CONTENT);
+        }
+        match docx::extract_docx(&blob_path) {
+            Ok(extracted) => {
+                let mut connection = self.open()?;
+                let transaction = connection
+                    .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+                transaction.execute(
+                    "UPDATE attachments SET mime_type = ?1 WHERE id = ?2",
+                    params![DOCX_MIME_TYPE, attachment_id],
+                )?;
+                transaction.execute(
+                    "UPDATE attachment_extractions
+                     SET state = 'ready', format = 'docx', text_content = ?1,
+                         character_count = ?2, page_count = NULL, error_code = NULL,
+                         updated_at_ms = ?3
+                     WHERE attachment_id = ?4 AND state = 'pending'",
+                    params![
+                        extracted.text,
+                        extracted.character_count as i64,
+                        now_ms()?,
+                        attachment_id
+                    ],
+                )?;
+                transaction.commit()?;
+                Ok(())
+            }
+            Err(error_code) => self.persist_extraction_failure(attachment_id, error_code),
+        }
     }
 
     /// Extracts bounded PDF text or records one stable path-free failure category.

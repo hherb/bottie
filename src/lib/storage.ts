@@ -62,7 +62,7 @@ export type StorageRecoveryStatus = {
 /** Path-free native extraction metadata that deliberately omits extracted text. */
 export type AttachmentExtraction = {
   state: "pending" | "ready" | "unsupported" | "failed";
-  format: "plain_text" | "markdown" | "pdf" | null;
+  format: "plain_text" | "markdown" | "pdf" | "docx" | null;
   characterCount: number | null;
   pageCount: number | null;
   errorCode: string | null;
@@ -128,6 +128,12 @@ const PREVIOUS_DAYS_LIMIT = 7;
 const TOOL_JSON_INDENT_SPACES = 2;
 const ATTACHMENT_EXTRACTION_FAILURE_LABELS: Record<string, string> = {
   content_too_large: "Text too large to extract",
+  docx_archive_limit_exceeded: "DOCX archive is too complex",
+  docx_encrypted: "Encrypted DOCX not supported",
+  docx_invalid: "DOCX could not be read",
+  docx_no_text: "DOCX has no extractable text",
+  docx_xml_limit_exceeded: "DOCX document is too complex",
+  docx_xml_invalid: "DOCX document XML could not be read",
   pdf_encrypted: "Encrypted PDF not supported",
   pdf_extraction_failed: "PDF text extraction failed",
   pdf_invalid: "PDF could not be read",
@@ -417,6 +423,7 @@ export function attachmentExtractionLabel(extraction: AttachmentExtraction): str
       const pageLabel = extraction.pageCount === 1 ? "1 page" : `${extraction.pageCount ?? 0} pages`;
       return `PDF text ready locally · ${pageLabel}`;
     }
+    if (extraction.format === "docx") return "DOCX text ready locally";
     return extraction.format === "markdown" ? "Markdown ready locally" : "Text ready locally";
   }
   if (extraction.state === "unsupported") return "No text extraction";

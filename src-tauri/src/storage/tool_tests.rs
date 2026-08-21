@@ -259,7 +259,7 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
             .status()
             .expect("status should load")
             .schema_version,
-        11
+        12
     );
     assert_eq!(table_count, 2);
 }

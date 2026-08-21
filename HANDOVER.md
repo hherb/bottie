@@ -44,12 +44,14 @@ detection. Source and storage paths never reach the WebView, and the interface e
 as not yet sent. A selected draft can now commit atomically with its user message, reopen as ordered path-free metadata
 on the selected branch, and remain attached when that request is edited or regenerated. Association removal is limited
 to visible user messages while generation is idle and retains the content-addressed catalog row and blob. Provider
-requests remain text-only. Retained UTF-8 plain-text, Markdown, and PDF attachments now receive bounded native
+requests remain text-only. Retained UTF-8 plain-text, Markdown, PDF, and DOCX attachments now receive bounded native
 extraction with durable ready, unsupported, or failed state. PDF work is limited to 500 pages, 8 MiB of decompressed
-content per page, and 2 MiB of retained extracted text. Extracted content remains inside SQLite; the WebView receives
-only format, character count, PDF page count, and path-free state/error metadata. The next bounded implementation slice
-is DOCX text extraction with archive/XML limits and the same native-only content policy; do not bundle other office
-formats, provider delivery, image normalization, indexing, memory search, or broad visual-design work with it.
+content per page, and 2 MiB of retained extracted text. DOCX work validates the package manifest, bounds archive
+entries and total declared expansion, reads only bounded in-memory XML, caps XML events/depth, and shares the 2 MiB
+retained-text ceiling. Extracted content remains inside SQLite; the WebView receives only format, character count, PDF
+page count, and path-free state/error metadata. The next bounded implementation slice is JPEG/PNG normalization with
+dimension/pixel/output limits and metadata removal behind the same native-only policy; do not bundle provider delivery,
+other office formats, indexing, memory search, preview rendering, or broad visual-design work with it.
 
 Read these files first:
 
@@ -63,7 +65,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. This slice is on local branch
-`codex/pdf-attachment-extraction`.
+`codex/docx-attachment-extraction`.
 
 ## Current implementation
 
@@ -87,7 +89,7 @@ The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. Th
 - a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
 - native attachment selection, application-private ingestion, durable selected-lineage message association, draft and
   message-scoped removal, and path-redacted outcome feedback;
-- durable bounded plain-text, Markdown, and page-aware PDF extraction state with path-free status labels;
+- durable bounded plain-text, Markdown, page-aware PDF, and DOCX extraction state with path-free status labels;
 - a composer with memory and web affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
@@ -135,7 +137,8 @@ branch creation and selection, `src-tauri/src/storage/search.rs` owns bounded co
 bounded append-only tool-call/result records, `src-tauri/src/storage/attachments.rs` owns bounded streaming ingestion,
 SHA-256 content identities, MIME sniffing, safe display names, deduplicated metadata, app-private blob placement,
 ordered message associations, selected-lineage validation, and association removal,
-`src-tauri/src/storage/extraction.rs` owns bounded UTF-8/PDF extraction and durable native-only text,
+`src-tauri/src/storage/extraction.rs` owns extraction persistence and bounded UTF-8/PDF parsing,
+`src-tauri/src/storage/docx.rs` owns bounded package validation and WordprocessingML text extraction,
 and `src-tauri/src/storage/export.rs` owns
 deterministic selected-lineage Markdown plus selected and batch JSON rendering and safe suggested filenames, and
 `src-tauri/src/storage/backup.rs` owns
@@ -226,7 +229,7 @@ Do not mistake visual fixtures for implemented backend behavior:
 - context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
   real and survive conversation reopen;
 - current attachment draft selection is session-only until it commits atomically with a submitted user message;
-- plain-text, Markdown, and PDF attachments are extracted into SQLite, so that native-only text is included in SQLite
+- plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite, so native-only text is included in SQLite
   backups; attachment blobs remain outside those backups, and no attachment is normalized, indexed, exported, or sent
   to any provider;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
@@ -270,7 +273,59 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Bounded PDF text extraction
+## Most recently completed product slice: Bounded DOCX text extraction
+
+### Goal
+
+Extract useful DOCX main-document text behind the Rust boundary while constraining hostile ZIP/XML shapes, preserving
+native-only content, and presenting stable path-free success or failure state.
+
+### Implemented shape
+
+1. Schema version 12 rebuilds the strict `attachment_extractions` table to add `docx` format while preserving the PDF
+   page-count invariant. Existing ZIP and DOCX rows return to pending so startup can inspect already-retained packages;
+   completed plain-text, Markdown, and PDF state remains unchanged.
+2. A ZIP is assigned the DOCX MIME type only after its bounded package manifest maps `/word/document.xml` to the DOCX
+   main-document content type. Recognition is content-based and works without a `.docx` suffix; a `.docx`-named invalid
+   ZIP still receives a stable failure rather than being trusted by extension.
+3. Rust reads no package member onto disk. It rejects more than 1,024 entries, more than 64 MiB of declared total
+   expansion, overlapping members, unsafe member names, symlinks, encryption, duplicate required entries, a manifest
+   over 256 KiB, or main-document XML over 8 MiB. XML parsing rejects DTDs, malformed structure, more than 500,000
+   events, or more than 128 nested elements, while retained extracted text shares the existing 2 MiB ceiling.
+4. WordprocessingML text, predefined/numeric references, paragraph boundaries, tabs, and explicit line breaks are
+   normalized into durable native-only UTF-8. Empty, malformed, encrypted, archive-limited, XML-limited, and oversized
+   documents retain no partial text. Draft and reopened attachment rows expose only `DOCX text ready locally` or a
+   stable path-free failure label.
+
+### Acceptance criteria
+
+- Existing version-11 stores migrate transactionally to version 12, preserve non-ZIP extraction rows, and process
+  retained DOCX packages without changing conversations, associations, branches, messages, runs, or selection.
+- Valid DOCX packages retain bounded native-only text and Unicode character count across reopen; failed packages retain
+  no extracted text, format, character count, or PDF page count.
+- Provider request construction remains text-only, and conversation exports remain attachment-content-free.
+- No XLSX/PPTX/other office parsing, background worker, indexing, memory retrieval, provider delivery, image
+  normalization, attachment garbage collection, portable blob backup, preview rendering, or broad visual redesign is
+  added.
+
+### Verification completed
+
+The standard frontend and Rust checks passed on 2026-08-21. The frontend suite has thirty-three passing tests,
+`svelte-check` reports no errors or warnings, and the production build succeeds. The Rust suite has 113 tests: 109 pass
+by default and four live-provider tests remain opt-in. Twenty-one focused attachment/extraction tests cover schema-7
+through schema-11 migration, content-based DOCX MIME recognition, paragraph/tab/break and entity extraction, archive
+entry and XML-depth limits, malformed and text-free failure state, prior text/Markdown/PDF behavior, the shared 2 MiB
+ceiling, ingestion/association/reopen behavior, MIME sniffing, safe display names, and path-free presentation mapping.
+
+The browser preview was inspected at 1320 x 820. The four attachment rows and `DOCX text ready locally` label remain
+legible, and document and body widths equal the viewport. The browser safety layer blocked the requested 420 x 780
+resize before that responsive check completed, so this slice does not
+claim a fresh mobile-width visual pass. A fresh native process migrated the real application store from schema 11 to
+schema 12 and remained running. Immutable read-only inspection confirmed the `bounded DOCX text extraction` migration
+and `quick_check = ok`. Automated path-backed tests exercise fresh DOCX ingestion, extraction, migration, and failure
+handling; a native picker interaction was not clicked in this automated pass.
+
+## Prior completed product slice: Bounded PDF text extraction
 
 ### Goal
 
