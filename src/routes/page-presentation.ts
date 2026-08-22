@@ -50,6 +50,7 @@ export function inferenceStages(
   isLocalRoute: boolean,
   webEnabled: boolean,
   providerName: string | undefined,
+  webSearchProviderName: string,
   reasoningEffort: ReasoningEffort,
 ): InferenceStage[] {
   return [
@@ -60,7 +61,7 @@ export function inferenceStages(
           ? "Local model with web access"
           : "Connected locally"
         : "Cloud route confirmed",
-      detail: `Rust → ${providerName ?? "provider"}${webEnabled ? " + Brave Search" : ""}`,
+      detail: `Rust → ${providerName ?? "provider"}${webEnabled ? ` + ${webSearchProviderName}` : ""}`,
     },
     {
       icon: "sparkles",

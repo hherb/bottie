@@ -17,7 +17,7 @@ const AUTHENTICATION_REASON: &str = "unlock cloud provider credentials";
 const AUTHENTICATION_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Stable native provider identities allowed to own credential-vault entries.
-pub(crate) const NATIVE_CREDENTIAL_IDS: [&str; 3] = ["openai", "anthropic", "brave"];
+pub(crate) const NATIVE_CREDENTIAL_IDS: [&str; 4] = ["openai", "anthropic", "brave", "exa"];
 
 /// Narrow secret-store contract used by native provider orchestration.
 pub(crate) trait CredentialStore: Send + Sync {
@@ -257,6 +257,7 @@ mod tests {
         assert!(validate_native_credential_provider("openai").is_ok());
         assert!(validate_native_credential_provider("anthropic").is_ok());
         assert!(validate_native_credential_provider("brave").is_ok());
+        assert!(validate_native_credential_provider("exa").is_ok());
         assert!(validate_native_credential_provider("ollama").is_err());
         assert!(validate_native_credential_provider("").is_err());
     }

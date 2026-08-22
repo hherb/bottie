@@ -147,20 +147,21 @@ approvals, and unknown or mismatched calls return fixed redacted errors through 
 approval UI or approval-required tool is registered yet. Schema version 21 now adds native execution classification,
 stable terminal outcome, and native-work duration to each append-only tool record. Historical rows remain explicitly
 legacy. Reopened responses show a calm call summary and one expandable audit record per call, with raw arguments and
-results behind nested disclosures. A provider-neutral native web-search boundary now has one concrete Brave Search
-adapter. Rust validates bounded queries, keeps the subscription token in a sensitive header, disables redirects, caps
-response bytes, and normalizes only inert HTTP(S) result metadata. Settings now stores or removes the Brave key through
-the operating-system credential vault and can test the fixed route with one bounded native probe. Credential material,
-probe results, provider bodies, and arbitrary endpoints never cross IPC. The adapter is still not registered as a model
-tool. One closed provider-independent `web_search` definition now adds optional day, week, month, or year freshness and
-bounded include/exclude domain filters. Native validation rejects malformed DNS names, conflicts, and effective Brave
-queries that exceed its complete query limits; the Brave adapter maps those filters and rechecks normalized result
-hosts before returning them. The safe read-only native dispatcher now executes the typed contract through a selected
-search provider and maps all failures into the existing 64 KiB redacted envelope. A session-only Web toggle now
+results behind nested disclosures. A provider-neutral native web-search boundary now has fixed Brave Search and Exa
+Search adapters. Rust validates bounded queries, confines either API key to a sensitive header, disables redirects,
+caps response bytes, and normalizes only inert HTTP(S) result metadata. Settings stores the credentials independently
+in the operating-system vault, tests either fixed route with one bounded native probe, and persists one secret-free
+active-engine choice. Credential material, probe results, provider bodies, and arbitrary endpoints never cross IPC.
+One closed provider-independent `web_search` definition adds optional day, week, month, or year freshness and bounded
+include/exclude domain filters. Native validation rejects malformed DNS names, conflicts, and complete queries that
+exceed Bottie's fixed limits. Brave maps those filters to its query API; Exa uses native domain arrays and an absolute
+publication-date lower bound. Both adapters recheck normalized result hosts before returning them. The safe read-only
+native dispatcher executes the typed contract through the selected search provider and maps all failures into the
+existing 64 KiB redacted envelope. A session-only Web toggle now
 advertises that definition only to explicitly enabled, tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible
 models. All three mapped providers execute calls through the same bounded native loop, durable audit, cancellation,
 and common result envelope used by memory tools. The next bounded implementation slice is native `web_fetch` with
-redirect, size, content-type, and timeout policy; do not bundle a second search provider, oMLX mapping, automatic
+redirect, size, content-type, and timeout policy; do not bundle another search provider, oMLX mapping, automatic
 retrieval injection, model-cache deletion, document opening, or attachment retry controls.
 
 Read these files first:
@@ -304,13 +305,13 @@ dispatch,
 `src-tauri/src/tool_loop.rs` owns provider-neutral multi-call correlation, recursion/call/output/deadline policy, and
 shared cancellation checks used by mapped provider generation,
 `src-tauri/src/web_search/` owns typed provider-neutral arguments, freshness and domain policy, the pluggable
-query/result/error contract, and the fixed-endpoint Brave Search adapter with strict request/response bounds, safe
-result-URL policy, and redacted provider failures,
+query/result/error contract, and fixed-endpoint Brave Search and Exa Search adapters with strict request/response
+bounds, safe result-URL policy, and redacted provider failures,
 `src-tauri/src/storage/tool_audit_migration.rs` owns schema-21 audit columns and honest legacy backfill,
 `src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
-embedding details, while `src-tauri/src/generation_web_tools.rs` selects Ollama-only Web availability, resolves the
-native Brave credential, and routes accepted web calls into the strict provider-independent dispatcher,
+embedding details, while `src-tauri/src/generation_web_tools.rs` selects mapped Web availability, resolves only the
+active search engine's native credential, and routes accepted calls into the strict provider-independent dispatcher,
 `src-tauri/src/generation_usage.rs` owns provider-neutral usage and cost accumulation across repeated tool rounds,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
@@ -478,7 +479,54 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Explicit Anthropic-compatible native web-search tool loop
+## Most recently completed product slice: Exa Search provider and search-engine settings
+
+### Goal
+
+Add Exa as a second fixed native search engine, let users retain independent Brave and Exa keys, and route the existing
+closed `web_search` tool through one explicitly selected engine without exposing credentials, provider bodies, search
+queries, or arbitrary endpoints to the WebView.
+
+### Implemented shape
+
+1. `ProviderSettings` now stores one validated `brave` or `exa` identity and defaults older settings files to Brave.
+   Settings presents an explicit engine selector plus independent add, replace, retain, remove, and test controls for
+   both credentials. Selecting one engine never deletes the other key.
+2. The Exa adapter owns `POST https://api.exa.ai/search`, uses a sensitive `x-api-key` header, disables redirects,
+   applies the existing 3-second connect and 15-second request timeouts, and rejects non-JSON or responses beyond 2 MiB.
+3. Bottie's bounded query and result limits remain unchanged. Exa receives the normalized query, result count, native
+   domain arrays, moderation, bounded highlight retrieval, and an absolute UTC `startPublishedDate` for day, week,
+   month, or year freshness. Returned URLs are normalized and rechecked against Bottie's include/exclude policy;
+   titles, highlights, and publication metadata are collapsed and truncated before entering the common envelope.
+4. Connection testing accepts only the two compiled-in routes, uses a draft key or selected vault entry, and returns
+   provider identity, elapsed time, and a fixed success message without results. Generation reads the saved engine
+   choice, unlocks only that credential, and uses the unchanged safe dispatcher, durable audit, bounded loop,
+   cancellation, and Ollama/OpenAI/Anthropic wire mappings.
+5. Toolbar, activity, and context privacy labels now name the selected Brave Search or Exa Search hop. Web remains
+   session-only, off by default, unavailable for oMLX, and gated by explicit discovered tool capability.
+
+### Acceptance criteria
+
+- Existing settings reopen on Brave without a migration, while only `brave` and `exa` can be persisted.
+- Both credentials remain Rust/keyring-owned and cross IPC only as secret-free configured/unlocked status.
+- Exa authentication never enters a URL or body; redirects, timeouts, response bytes, unsafe URLs, provider bodies,
+  and normalized display metadata retain explicit bounds.
+- Freshness and domain filters map to Exa's fixed request fields and are rechecked natively after normalization.
+- Missing credentials and provider failures use stable redacted guidance for the selected engine.
+- `web_fetch`, oMLX mapping, automatic retrieval, arbitrary search endpoints, and schema changes remain outside this
+  slice.
+
+### Verification completed
+
+All standard checks pass: Prettier, Svelte diagnostics, 76 Vitest tests, production build, Cargo formatting/check, and
+269 Rust tests with 13 explicit opt-in tests ignored. One user-authorized bounded live search passed through each native
+adapter using throwaway process-only credentials; no document fetch ran and neither key was saved. The browser preview
+was visually checked at 1440 x 900 and the 720 x 620 native minimum. The engine selector, independent Brave/Exa cards,
+fixed host disclosures, internal scrolling, and absence of horizontal overflow were confirmed. Browser-preview controls
+are intentionally read-only, so OS-vault mutation, Touch ID, and a persisted selection across a native restart remain
+manually unverified.
+
+## Prior completed product slice: Explicit Anthropic-compatible native web-search tool loop
 
 ### Goal
 

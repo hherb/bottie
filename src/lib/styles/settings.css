@@ -129,7 +129,8 @@
   font-size: 10px;
 }
 .endpoint-row input,
-.credential-row input {
+.credential-row input,
+.provider-setting select {
   min-width: 0;
   height: 36px;
   padding: 0 10px;
@@ -142,7 +143,8 @@
   font-size: 10px;
 }
 .endpoint-row input:focus,
-.credential-row input:focus {
+.credential-row input:focus,
+.provider-setting select:focus {
   border-color: rgba(143, 125, 247, 0.5);
   box-shadow: 0 0 0 3px rgba(143, 125, 247, 0.07);
 }

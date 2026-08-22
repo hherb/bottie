@@ -5,8 +5,13 @@ use std::{
 };
 
 use super::brave::{decode_filtered_fixture_response, decode_fixture_response, map_fixture_status};
+use super::exa::{
+    decode_filtered_fixture_response as decode_exa_filtered_fixture_response,
+    decode_fixture_response as decode_exa_fixture_response,
+    map_fixture_status as map_exa_fixture_status,
+};
 use super::{
-    BraveSearchProvider, MAX_WEB_SEARCH_QUERY_CHARS, MAX_WEB_SEARCH_QUERY_WORDS,
+    BraveSearchProvider, ExaSearchProvider, MAX_WEB_SEARCH_QUERY_CHARS, MAX_WEB_SEARCH_QUERY_WORDS,
     MAX_WEB_SEARCH_RESULTS, WebSearchErrorCode, WebSearchFreshness, WebSearchProvider,
     WebSearchRequest, connection_test_request,
 };
@@ -33,6 +38,113 @@ fn brave_requires_a_non_empty_native_credential() {
     };
     assert_eq!(error.code, WebSearchErrorCode::CredentialRequired);
     assert!(!error.message.contains("   "));
+}
+
+#[test]
+fn exa_requires_a_non_empty_native_credential() {
+    let error = match ExaSearchProvider::new("   ") {
+        Ok(_) => panic!("an empty credential must fail"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, WebSearchErrorCode::CredentialRequired);
+}
+
+#[test]
+fn exa_builds_a_bounded_json_request_with_header_authentication() {
+    let provider =
+        ExaSearchProvider::for_loopback_fixture("http://127.0.0.1:9/", "fixture-secret").unwrap();
+    let request = provider
+        .fixture_request(
+            &WebSearchRequest::with_filters(
+                "bottie rust",
+                3,
+                Some(WebSearchFreshness::Week),
+                vec!["docs.rs".into()],
+                vec!["forum.example".into()],
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+    assert_eq!(request.method(), reqwest::Method::POST);
+    assert_eq!(request.url().path(), "/search");
+    assert!(!request.url().as_str().contains("fixture-secret"));
+    assert_eq!(
+        request.headers().get("x-api-key").unwrap(),
+        "fixture-secret"
+    );
+    assert!(request.headers().get("x-api-key").unwrap().is_sensitive());
+    let body: serde_json::Value =
+        serde_json::from_slice(request.body().unwrap().as_bytes().unwrap()).unwrap();
+    assert_eq!(body["query"], "bottie rust");
+    assert_eq!(body["numResults"], 3);
+    assert_eq!(body["includeDomains"], serde_json::json!(["docs.rs"]));
+    assert_eq!(body["excludeDomains"], serde_json::json!(["forum.example"]));
+    assert_eq!(body["moderation"], true);
+    assert_eq!(body["contents"]["highlights"], true);
+    assert!(body["startPublishedDate"].as_str().unwrap().ends_with('Z'));
+}
+
+#[test]
+fn exa_decodes_only_bounded_safe_results_and_rechecks_domains() {
+    let response_body = serde_json::json!({
+        "results": [
+            {
+                "title": "  Rust   book ",
+                "url": "https://docs.rust-lang.org/book/#start",
+                "publishedDate": "2026-08-22T00:00:00Z",
+                "highlights": [" Safe   native excerpt. "]
+            },
+            { "title": "Outside", "url": "https://example.com/private", "highlights": ["Drop"] },
+            { "title": "Unsafe", "url": "javascript:alert(1)", "highlights": ["Drop"] }
+        ]
+    })
+    .to_string();
+    let request =
+        WebSearchRequest::with_filters("rust", 5, None, vec!["rust-lang.org".into()], Vec::new())
+            .unwrap();
+    let response =
+        decode_exa_filtered_fixture_response(response_body.as_bytes(), &request).unwrap();
+
+    assert_eq!(response.provider_id(), "exa");
+    assert_eq!(response.results().len(), 1);
+    assert_eq!(response.results()[0].title(), "Rust book");
+    assert_eq!(
+        response.results()[0].url(),
+        "https://docs.rust-lang.org/book/"
+    );
+    assert_eq!(response.results()[0].snippet(), "Safe native excerpt.");
+    assert_eq!(
+        response.results()[0].published_at(),
+        Some("2026-08-22T00:00:00Z")
+    );
+
+    let unfiltered = decode_exa_fixture_response(response_body.as_bytes(), 3).unwrap();
+    assert_eq!(unfiltered.results().len(), 2);
+}
+
+#[test]
+fn exa_owns_the_fixed_endpoint_and_maps_failures_without_provider_content() {
+    let provider = ExaSearchProvider::new("fixture-secret").unwrap();
+    let request = provider
+        .fixture_request(&WebSearchRequest::new("bottie", 1).unwrap())
+        .unwrap();
+    assert_eq!(request.url().scheme(), "https");
+    assert_eq!(request.url().host_str(), Some("api.exa.ai"));
+    assert_eq!(request.url().path(), "/search");
+
+    assert_eq!(
+        map_exa_fixture_status(401).code,
+        WebSearchErrorCode::CredentialRejected
+    );
+    assert_eq!(
+        map_exa_fixture_status(429).code,
+        WebSearchErrorCode::RateLimited
+    );
+    assert_eq!(
+        map_exa_fixture_status(422).code,
+        WebSearchErrorCode::InvalidRequest
+    );
 }
 
 #[test]

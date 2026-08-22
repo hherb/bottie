@@ -11,7 +11,10 @@ use crate::{
     },
     tool_loop::NativeToolCall,
     tool_policy::{ToolPolicyError, ToolPolicyErrorCode},
-    web_search::{BRAVE_SEARCH_PROVIDER_ID, BraveSearchProvider, WEB_SEARCH_TOOL_NAME},
+    web_search::{
+        BRAVE_SEARCH_PROVIDER_ID, BraveSearchProvider, EXA_SEARCH_PROVIDER_ID, ExaSearchProvider,
+        WEB_SEARCH_TOOL_NAME,
+    },
 };
 
 /// Confirms explicit Web intent plus a mapped provider's discovered per-model tool capability.
@@ -34,31 +37,49 @@ pub(crate) fn memory_tools_enabled(
         && model_supports_tools
 }
 
-/// Resolves the configured Brave credential and constructs the fixed native search adapter.
+/// Resolves the selected credential and constructs its fixed native search adapter.
 pub(crate) fn configured_web_search(
+    provider_id: &str,
     credentials: &dyn CredentialStore,
 ) -> Result<Arc<dyn NativeWebSearchExecutor>, ProviderError> {
+    if !matches!(
+        provider_id,
+        BRAVE_SEARCH_PROVIDER_ID | EXA_SEARCH_PROVIDER_ID
+    ) {
+        return Err(ProviderError::invalid_request(
+            "Choose a supported web search engine in Settings.",
+        ));
+    }
     let api_key = credentials
-        .get(BRAVE_SEARCH_PROVIDER_ID)
+        .get(provider_id)
         .map_err(|_| {
             ProviderError::internal(
                 "Bottie could not access the configured web-search credential.",
                 None,
             )
         })?
-        .ok_or_else(|| {
-            ProviderError::invalid_request(
-                "Add a Brave Search API key in Settings before enabling Web.",
-            )
-        })?;
-    BraveSearchProvider::new(api_key)
-        .map(|provider| Arc::new(provider) as Arc<dyn NativeWebSearchExecutor>)
-        .map_err(|_| {
-            ProviderError::internal(
-                "Bottie could not initialize the configured web-search provider.",
-                None,
-            )
-        })
+        .ok_or_else(|| ProviderError::invalid_request(missing_credential_message(provider_id)))?;
+    let provider = match provider_id {
+        BRAVE_SEARCH_PROVIDER_ID => BraveSearchProvider::new(api_key)
+            .map(|provider| Arc::new(provider) as Arc<dyn NativeWebSearchExecutor>),
+        EXA_SEARCH_PROVIDER_ID => ExaSearchProvider::new(api_key)
+            .map(|provider| Arc::new(provider) as Arc<dyn NativeWebSearchExecutor>),
+        _ => unreachable!("provider identity was validated above"),
+    };
+    provider.map_err(|_| {
+        ProviderError::internal(
+            "Bottie could not initialize the configured web-search provider.",
+            None,
+        )
+    })
+}
+
+/// Returns the user action for a missing selected search credential.
+fn missing_credential_message(provider_id: &str) -> &'static str {
+    match provider_id {
+        EXA_SEARCH_PROVIDER_ID => "Add an Exa Search API key in Settings before enabling Web.",
+        _ => "Add a Brave Search API key in Settings before enabling Web.",
+    }
 }
 
 /// Synchronous generation-loop boundary implemented by native asynchronous search providers.
@@ -68,6 +89,12 @@ pub(crate) trait NativeWebSearchExecutor: Send + Sync {
 }
 
 impl NativeWebSearchExecutor for BraveSearchProvider {
+    fn execute(&self, call: &NativeToolCall) -> MemoryToolExecution {
+        tauri::async_runtime::block_on(dispatch_web_search_tool(self, call, None))
+    }
+}
+
+impl NativeWebSearchExecutor for ExaSearchProvider {
     fn execute(&self, call: &NativeToolCall) -> MemoryToolExecution {
         tauri::async_runtime::block_on(dispatch_web_search_tool(self, call, None))
     }
@@ -145,8 +172,11 @@ mod tests {
     }
 
     #[test]
-    fn requires_a_native_brave_credential_before_advertising_web_search() {
-        let error = match configured_web_search(&CredentialFixture { fail_read: false }) {
+    fn requires_the_selected_native_credential_before_advertising_web_search() {
+        let error = match configured_web_search(
+            BRAVE_SEARCH_PROVIDER_ID,
+            &CredentialFixture { fail_read: false },
+        ) {
             Ok(_) => panic!("missing credential must not build a web-search executor"),
             Err(error) => error,
         };
@@ -157,11 +187,26 @@ mod tests {
             "Add a Brave Search API key in Settings before enabling Web."
         );
         assert!(error.diagnostic.is_none());
+
+        let error = match configured_web_search(
+            EXA_SEARCH_PROVIDER_ID,
+            &CredentialFixture { fail_read: false },
+        ) {
+            Ok(_) => panic!("missing credential must not build a web-search executor"),
+            Err(error) => error,
+        };
+        assert_eq!(
+            error.message,
+            "Add an Exa Search API key in Settings before enabling Web."
+        );
     }
 
     #[test]
     fn redacts_native_credential_access_failures_before_generation() {
-        let error = match configured_web_search(&CredentialFixture { fail_read: true }) {
+        let error = match configured_web_search(
+            EXA_SEARCH_PROVIDER_ID,
+            &CredentialFixture { fail_read: true },
+        ) {
             Ok(_) => panic!("credential failure must not build a web-search executor"),
             Err(error) => error,
         };
@@ -174,5 +219,19 @@ mod tests {
         assert!(error.diagnostic.is_none());
         assert!(!error.message.contains("private"));
         assert!(!error.message.contains("secret"));
+    }
+
+    #[test]
+    fn rejects_unknown_search_engines_before_credential_access() {
+        let error = match configured_web_search("custom", &CredentialFixture { fail_read: true }) {
+            Ok(_) => panic!("unknown provider must not build a web-search executor"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.code, ProviderErrorCode::InvalidRequest);
+        assert_eq!(
+            error.message,
+            "Choose a supported web search engine in Settings."
+        );
     }
 }

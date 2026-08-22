@@ -1,7 +1,10 @@
 //! Provider-neutral native web-search boundary and concrete adapters.
 
 mod brave;
+mod exa;
 
+#[cfg(test)]
+mod live_tests;
 #[cfg(test)]
 mod tests;
 
@@ -9,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use url::{Host, Url};
 
 pub use brave::BraveSearchProvider;
+pub use exa::ExaSearchProvider;
 
 /// Maximum Unicode-scalar length accepted for one provider-neutral search query.
 pub const MAX_WEB_SEARCH_QUERY_CHARS: usize = 400;
@@ -24,8 +28,10 @@ pub(crate) const MAX_WEB_SEARCH_TOOL_RESULTS: usize = 10;
 pub(crate) const MAX_WEB_SEARCH_FILTER_DOMAINS: usize = 5;
 /// Maximum Unicode-scalar length accepted for one normalized domain filter.
 pub(crate) const MAX_WEB_SEARCH_DOMAIN_CHARS: usize = 253;
-/// Stable identity of the first configured native web-search provider.
+/// Stable identity of the fixed native Brave Search provider.
 pub const BRAVE_SEARCH_PROVIDER_ID: &str = "brave";
+/// Stable identity of the fixed native Exa Search provider.
+pub const EXA_SEARCH_PROVIDER_ID: &str = "exa";
 /// Stable name of the provider-independent web-search tool contract.
 pub(crate) const WEB_SEARCH_TOOL_NAME: &str = "web_search";
 
@@ -161,13 +167,11 @@ impl WebSearchRequest {
     }
 
     /// Returns normalized exact or parent domains allowed in result URLs.
-    #[cfg(test)]
     pub(crate) fn include_domains(&self) -> &[String] {
         &self.include_domains
     }
 
     /// Returns normalized exact or parent domains removed from result URLs.
-    #[cfg(test)]
     pub(crate) fn exclude_domains(&self) -> &[String] {
         &self.exclude_domains
     }

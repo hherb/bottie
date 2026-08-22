@@ -9,6 +9,7 @@
   import Sidebar from "$lib/Sidebar.svelte";
   import StorageRecovery from "$lib/StorageRecovery.svelte";
   import { composerAttachmentNote } from "$lib/chat";
+  import { webSearchProviderName } from "$lib/presentation";
   import { canBatchExportConversations } from "$lib/storage";
   import "$lib/styles/shell.css";
   import "$lib/styles/conversation-nav.css";
@@ -113,6 +114,7 @@
         showContext={state.showContext}
         isLocalRoute={state.isLocalRoute}
         webEnabled={state.web.enabled}
+        webSearchProviderName={webSearchProviderName(state.providerSettings.webSearchProviderId)}
         canExport={Boolean(state.history.activeConversationId)}
         canBatchExport={canBatchExportConversations(state.history.conversations)}
         canBackup={state.runtime.version !== "preview"}
@@ -150,6 +152,7 @@
           state.isLocalRoute,
           state.web.enabled,
           state.selectedModel?.providerName,
+          webSearchProviderName(state.providerSettings.webSearchProviderId),
           state.reasoningEffort,
         )}
         isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
@@ -206,6 +209,7 @@
       providerStatus={state.providerStatus}
       isLocalRoute={state.isLocalRoute}
       webEnabled={state.web.enabled}
+      webSearchProviderName={webSearchProviderName(state.providerSettings.webSearchProviderId)}
       isAddingAttachments={state.attachment.isIngesting}
       attachmentFeedback={state.attachment.feedback}
       attachmentFailed={state.attachment.failed}

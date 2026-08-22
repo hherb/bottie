@@ -26,13 +26,15 @@ native memory-tool batches through the strict dispatcher while enforcing an eigh
 output, 30-second deadline, and shared cancellation policy across Ollama, OpenAI-compatible, and Anthropic-compatible
 wire formats.
 A separate Rust-only web-search boundary now normalizes bounded queries and inert result metadata behind a pluggable
-provider contract. Its first Brave Search adapter uses a fixed HTTPS endpoint, disables redirects, keeps the
-subscription token in a sensitive request header, caps response bytes, and accepts only absolute HTTP(S) result URLs.
-Settings now stores or removes the Brave key through the operating-system credential vault and can test the fixed
-route with one bounded native probe without returning results or the key to the WebView. A separate closed
+provider contract. Fixed Brave Search and Exa Search adapters use provider-owned HTTPS endpoints, disable redirects,
+keep API keys in sensitive request headers, cap response bytes, and accept only absolute HTTP(S) result URLs. Settings
+stores the two keys independently through the operating-system credential vault, can test either fixed route with one
+bounded native probe, and persists one secret-free active search-engine choice without returning results or keys to the
+WebView. A separate closed
 provider-independent `web_search` definition now validates day/week/month/year freshness, bounded include/exclude DNS
-filters, and result limits before a safe native dispatcher can execute the selected provider. Brave maps those filters
-only onto its fixed route and rechecks returned hosts. A session-only Web toggle is available for tool-capable Ollama,
+filters, and result limits before a safe native dispatcher can execute the selected provider. Brave maps freshness and
+domain policy to its query API; Exa maps domains to native arrays and freshness to an absolute publication-date lower
+bound. Both adapters recheck returned hosts. A session-only Web toggle is available for tool-capable Ollama,
 OpenAI-compatible, and Anthropic-compatible models. When enabled, each mapped provider can call the closed definition
 through Bottie's existing bounded native loop; every call and exact result is checkpointed before provider reuse.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
@@ -49,7 +51,7 @@ After a successful native startup, an app-private background rotation also creat
 reports corruption at startup, Bottie opens a restricted recovery screen instead of mutating the damaged store. Users
 can restore the newest verified automatic snapshot or choose a manual backup; Rust preserves the damaged database
 bundle in app-private storage before replacement.
-Remote inference and Brave Search API keys stay in the operating-system credential vault and are never returned to
+Remote inference, Brave Search, and Exa Search API keys stay in the operating-system credential vault and never return to
 the WebView. On macOS, Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. The native attachment picker now streams up
 to eight selected files into application-private, SHA-256-addressed storage with a 25 MiB per-file ceiling,
@@ -85,10 +87,10 @@ are explicitly safe inside that Memory-enabled request; unknown tools fail close
 call must consume a Rust-owned grant over its exact provider call ID, name, and arguments. No approval UI or
 approval-required tool is registered yet. oMLX tool mapping, other office formats, and direct document delivery remain
 unimplemented. A separate Web toggle is off by default and available for tool-capable Ollama, OpenAI-compatible, and
-Anthropic-compatible models. It requires a Brave Search credential from the native vault and sends only model-selected
-bounded search queries and filters to Brave; Ollama prompts stay on loopback, while cloud-model prompts continue over
-their already-visible provider route. The privacy indicator changes from `Local only` to `Local + web` for the local
-route and keeps the additional Brave hop visible for a cloud route.
+Anthropic-compatible models. It requires the selected search engine's credential from the native vault and sends only
+model-selected bounded search queries and filters to that fixed route; Ollama prompts stay on loopback, while
+cloud-model prompts continue over their already-visible provider route. Privacy and activity surfaces identify the
+selected Brave Search or Exa Search hop whenever Web is enabled.
 
 ## Development
 
