@@ -5,7 +5,13 @@ import type { Attachment } from "./presentation";
 import Composer from "./Composer.svelte";
 
 /** Renders the composer with inert callbacks and the requested interaction eligibility. */
-function renderedComposer(canCompose: boolean, canSend: boolean, attachments: Attachment[] = []): string {
+function renderedComposer(
+  canCompose: boolean,
+  canSend: boolean,
+  attachments: Attachment[] = [],
+  memoryAvailable = false,
+  memoryEnabled = false,
+): string {
   return render(Composer, {
     props: {
       attachments,
@@ -15,6 +21,8 @@ function renderedComposer(canCompose: boolean, canSend: boolean, attachments: At
       canSend,
       attachmentNote: "Wait for image normalization to finish before sending.",
       providerStatus: "available",
+      memoryAvailable,
+      memoryEnabled,
       onprompt: vi.fn(),
       oninput: vi.fn(),
       onkeydown: vi.fn(),
@@ -22,6 +30,7 @@ function renderedComposer(canCompose: boolean, canSend: boolean, attachments: At
       onadd: vi.fn(),
       onfiles: vi.fn(),
       onremove: vi.fn(),
+      ontogglememory: vi.fn(),
       oncomposerready: vi.fn(),
       onattachmentinputready: vi.fn(),
     },
@@ -64,5 +73,13 @@ describe("Composer", () => {
     expect(html).toContain('class="attachment-chip failed"');
     expect(html).toContain("Image could not be decoded");
     expect(html).toContain("cannot preview or send this image");
+  });
+
+  it("exposes explicit pressed state only for a tool-capable Ollama selection", () => {
+    const enabled = renderedComposer(true, true, [], true, true);
+    const unavailable = renderedComposer(true, true);
+
+    expect(enabled).toMatch(/aria-label="Disable memory tools"[^>]*aria-pressed="true"/);
+    expect(unavailable).toMatch(/aria-label="Memory tools require a tool-capable Ollama model"[^>]* disabled/);
   });
 });

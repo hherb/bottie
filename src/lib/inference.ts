@@ -33,6 +33,7 @@ export type ChatRequest = {
   providerId: string;
   modelId: string;
   messages: ChatTurn[];
+  memoryEnabled?: boolean;
   settings?: {
     temperature?: number;
     maxOutputTokens?: number;

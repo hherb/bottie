@@ -13,8 +13,48 @@ use self::protocol::{
     NdjsonDecoder, OllamaChatRequest, OllamaErrorResponse, OllamaShowRequest, OllamaShowResponse,
     decode_model_list, decode_running_models, decode_stream_line, model_info, normalize_usage,
 };
+use crate::tool_contract::memory_tool_definitions;
 
 mod protocol;
+
+pub(crate) use protocol::{OllamaToolCall, OllamaToolResult};
+
+/// One provider-native Ollama request history spanning repeated memory-tool rounds.
+pub(crate) struct OllamaToolSession {
+    request: OllamaChatRequest,
+}
+
+impl OllamaToolSession {
+    /// Starts a session with Bottie's complete closed native memory-tool definition set.
+    pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
+        validate_request(&request)?;
+        Ok(Self {
+            request: OllamaChatRequest::with_tools(request, memory_tool_definitions()),
+        })
+    }
+
+    /// Appends one accumulated assistant call batch and the exact ordered native results.
+    pub(crate) fn append_results(
+        &mut self,
+        round: OllamaToolRound,
+        results: Vec<OllamaToolResult>,
+    ) -> Result<(), ProviderError> {
+        self.request
+            .append_tool_exchange(round.thinking, round.content, round.tool_calls, results)
+    }
+}
+
+/// One complete streamed Ollama assistant round before optional native tool execution.
+pub(crate) struct OllamaToolRound {
+    /// Accumulated assistant reasoning required in the next provider request.
+    pub(crate) thinking: String,
+    /// Accumulated assistant answer text required in the next provider request.
+    pub(crate) content: String,
+    /// Ordered complete function calls accumulated across stream chunks.
+    pub(crate) tool_calls: Vec<OllamaToolCall>,
+    /// Provider-reported usage for this chat request.
+    pub(crate) usage: Option<Usage>,
+}
 
 const PROVIDER_ID: &str = "ollama";
 const PROVIDER_NAME: &str = "Ollama";
@@ -109,6 +149,60 @@ impl OllamaProvider {
             )
         })
     }
+
+    /// Streams one Ollama tool-capable assistant round without exposing provider JSON.
+    pub(crate) async fn stream_tool_round(
+        &self,
+        session: &OllamaToolSession,
+        sink: impl StreamSink + Send + Sync,
+    ) -> Result<OllamaToolRound, ProviderError> {
+        self.stream_request(&session.request, sink, false).await
+    }
+
+    /// Streams one concrete request while accumulating fields required by a tool follow-up.
+    async fn stream_request(
+        &self,
+        request: &OllamaChatRequest,
+        sink: impl StreamSink + Send + Sync,
+        emit_usage: bool,
+    ) -> Result<OllamaToolRound, ProviderError> {
+        let response = self
+            .client
+            .post(self.endpoint("api/chat")?)
+            .json(request)
+            .send()
+            .await
+            .map_err(map_request_error)?;
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+
+        let mut bytes = response.bytes_stream();
+        let mut decoder = NdjsonDecoder::default();
+        let mut round = OllamaToolRound {
+            thinking: String::new(),
+            content: String::new(),
+            tool_calls: Vec::new(),
+            usage: None,
+        };
+        while let Some(chunk) = bytes.next().await {
+            let chunk = chunk.map_err(map_request_error)?;
+            for line in decoder.push(&chunk)? {
+                if process_stream_line(&line, &sink, &mut round, emit_usage)? {
+                    return Ok(round);
+                }
+            }
+        }
+        for line in decoder.finish()? {
+            if process_stream_line(&line, &sink, &mut round, emit_usage)? {
+                return Ok(round);
+            }
+        }
+        Err(ProviderError::malformed(
+            "Ollama ended the response before completion.",
+            Some("NDJSON stream did not contain a completed event".into()),
+        ))
+    }
 }
 
 impl InferenceProvider for OllamaProvider {
@@ -177,59 +271,37 @@ impl InferenceProvider for OllamaProvider {
         sink: impl StreamSink + Send + Sync,
     ) -> Result<Option<Usage>, ProviderError> {
         validate_request(&request)?;
-        let response = self
-            .client
-            .post(self.endpoint("api/chat")?)
-            .json(&OllamaChatRequest::from(request))
-            .send()
+        self.stream_request(&OllamaChatRequest::from(request), sink, true)
             .await
-            .map_err(map_request_error)?;
-        if !response.status().is_success() {
-            return Err(response_error(response).await);
-        }
-
-        let mut bytes = response.bytes_stream();
-        let mut decoder = NdjsonDecoder::default();
-        while let Some(chunk) = bytes.next().await {
-            let chunk = chunk.map_err(map_request_error)?;
-            for line in decoder.push(&chunk)? {
-                if let Some(usage) = process_stream_line(&line, &sink)? {
-                    return Ok(usage);
-                }
-            }
-        }
-        for line in decoder.finish()? {
-            if let Some(usage) = process_stream_line(&line, &sink)? {
-                return Ok(usage);
-            }
-        }
-        Err(ProviderError::malformed(
-            "Ollama ended the response before completion.",
-            Some("NDJSON stream did not contain a completed event".into()),
-        ))
+            .map(|round| round.usage)
     }
 }
 
-/// Applies one decoded stream event and returns completion usage when finished.
+/// Applies one decoded stream event and accumulates fields needed for a tool follow-up request.
 fn process_stream_line(
     line: &str,
     sink: &(impl StreamSink + Send + Sync),
-) -> Result<Option<Option<Usage>>, ProviderError> {
+    round: &mut OllamaToolRound,
+    emit_usage: bool,
+) -> Result<bool, ProviderError> {
     let event = decode_stream_line(line)?;
     if !event.reasoning_delta.is_empty() {
+        round.thinking.push_str(&event.reasoning_delta);
         sink.reasoning_delta(event.reasoning_delta)?;
     }
     if !event.text_delta.is_empty() {
+        round.content.push_str(&event.text_delta);
         sink.text_delta(event.text_delta)?;
     }
+    round.tool_calls.extend(event.tool_calls);
     if !event.done {
-        return Ok(None);
+        return Ok(false);
     }
-    let usage = normalize_usage(event.prompt_eval_count, event.eval_count);
-    if let Some(usage) = &usage {
+    round.usage = normalize_usage(event.prompt_eval_count, event.eval_count);
+    if emit_usage && let Some(usage) = &round.usage {
         sink.usage_updated(usage.clone())?;
     }
-    Ok(Some(usage))
+    Ok(true)
 }
 
 /// Validates the provider-neutral request invariants required by Ollama.

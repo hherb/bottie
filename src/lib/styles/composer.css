@@ -142,6 +142,11 @@ textarea:disabled {
   padding: 0 8px !important;
   font-size: 9px;
 }
+.tool-toggle[aria-pressed="true"] {
+  background: rgba(122, 105, 216, 0.18);
+  color: #c8bfff;
+  box-shadow: inset 0 0 0 1px rgba(139, 120, 240, 0.35);
+}
 .send-button {
   display: grid;
   place-items: center;

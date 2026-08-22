@@ -79,6 +79,15 @@ pub(crate) struct ToolLoopError {
     pub(crate) message: &'static str,
 }
 
+/// One exceptional round outcome separated into loop policy or caller-owned execution failure.
+#[derive(Debug)]
+pub(crate) enum ToolRoundError<E> {
+    /// Bottie's shared recursion, call, output, deadline, cancellation, or lifecycle policy stopped the round.
+    Policy(ToolLoopError),
+    /// The caller could not safely execute or durably checkpoint one accepted call.
+    Execution(E),
+}
+
 /// Cloneable cancellation signal shared with future provider-loop orchestration.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ToolLoopCancellation {
@@ -146,45 +155,80 @@ impl ToolLoopState {
         &mut self,
         calls: Vec<NativeToolCall>,
         cancellation: &ToolLoopCancellation,
-        mut now: impl FnMut() -> Instant,
+        now: impl FnMut() -> Instant,
         mut execute: impl FnMut(&NativeToolCall) -> MemoryToolExecution,
     ) -> Result<Vec<NativeToolResult>, ToolLoopError> {
-        self.require_active()?;
-        self.require_live(cancellation, now())?;
+        match self.execute_round_try_with(calls, cancellation, now, |call| {
+            Ok::<_, std::convert::Infallible>(execute(call))
+        }) {
+            Ok(results) => Ok(results),
+            Err(ToolRoundError::Policy(error)) => Err(error),
+            Err(ToolRoundError::Execution(error)) => match error {},
+        }
+    }
+
+    /// Executes one recursion round while allowing durable orchestration to stop on checkpoint failure.
+    pub(crate) fn execute_round_try_with<E>(
+        &mut self,
+        calls: Vec<NativeToolCall>,
+        cancellation: &ToolLoopCancellation,
+        mut now: impl FnMut() -> Instant,
+        mut execute: impl FnMut(&NativeToolCall) -> Result<MemoryToolExecution, E>,
+    ) -> Result<Vec<NativeToolResult>, ToolRoundError<E>> {
+        self.require_active().map_err(ToolRoundError::Policy)?;
+        self.require_live(cancellation, now())
+            .map_err(ToolRoundError::Policy)?;
         if self.round_count >= MAX_TOOL_LOOP_ROUNDS {
-            return Err(self.fail(ToolLoopErrorCode::RecursionLimitExceeded));
+            return Err(ToolRoundError::Policy(
+                self.fail(ToolLoopErrorCode::RecursionLimitExceeded),
+            ));
         }
         if calls.is_empty() {
-            return Err(self.fail(ToolLoopErrorCode::InvalidState));
+            return Err(ToolRoundError::Policy(
+                self.fail(ToolLoopErrorCode::InvalidState),
+            ));
         }
         if self
             .call_count
             .checked_add(calls.len())
             .is_none_or(|count| count > MAX_TOOL_LOOP_CALLS)
         {
-            return Err(self.fail(ToolLoopErrorCode::CallLimitExceeded));
+            return Err(ToolRoundError::Policy(
+                self.fail(ToolLoopErrorCode::CallLimitExceeded),
+            ));
         }
 
         self.round_count += 1;
         let mut results = Vec::with_capacity(calls.len());
         for call in calls {
-            self.require_live(cancellation, now())?;
+            self.require_live(cancellation, now())
+                .map_err(ToolRoundError::Policy)?;
             self.call_count += 1;
             let result = NativeToolResult {
                 call_id: call.call_id.clone(),
-                execution: execute(&call),
+                execution: execute(&call).map_err(|error| {
+                    self.status = ToolLoopStatus::Failed;
+                    ToolRoundError::Execution(error)
+                })?,
             };
-            self.require_live(cancellation, now())?;
+            self.require_live(cancellation, now())
+                .map_err(ToolRoundError::Policy)?;
             let output_bytes = serde_json::to_vec(&result)
-                .map_err(|_| self.fail(ToolLoopErrorCode::AggregateOutputExceeded))?
+                .map_err(|_| {
+                    ToolRoundError::Policy(self.fail(ToolLoopErrorCode::AggregateOutputExceeded))
+                })?
                 .len();
             let Some(aggregate_output_bytes) =
                 self.aggregate_output_bytes.checked_add(output_bytes)
             else {
-                return Err(self.fail(ToolLoopErrorCode::AggregateOutputExceeded));
+                return Err(ToolRoundError::Policy(
+                    self.fail(ToolLoopErrorCode::AggregateOutputExceeded),
+                ));
             };
             if aggregate_output_bytes > MAX_TOOL_LOOP_OUTPUT_BYTES {
-                return Err(self.fail(ToolLoopErrorCode::AggregateOutputExceeded));
+                return Err(ToolRoundError::Policy(
+                    self.fail(ToolLoopErrorCode::AggregateOutputExceeded),
+                ));
             }
             self.aggregate_output_bytes = aggregate_output_bytes;
             results.push(result);

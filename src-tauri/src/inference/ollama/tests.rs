@@ -3,13 +3,14 @@ use std::sync::{Arc, Mutex};
 use futures_util::{FutureExt, future::Abortable};
 
 use super::protocol::{
-    NdjsonDecoder, OllamaShowResponse, capability_map, decode_model_list, decode_stream_line,
-    model_info,
+    NdjsonDecoder, OllamaChatRequest, OllamaShowResponse, OllamaToolResult, capability_map,
+    decode_model_list, decode_stream_line, model_info,
 };
 use super::*;
 use crate::inference::types::{
     ChatRole, ChatSettings, ChatTurn, ContentBlock, ImageMediaType, ModelLoadState, ReasoningEffort,
 };
+use crate::tool_contract::memory_tool_definitions;
 
 #[derive(Clone, Default)]
 struct RecordingSink {
@@ -47,6 +48,7 @@ fn live_request(model_id: String, prompt: &str) -> ChatRequest {
                 text: prompt.into(),
             }],
         }],
+        memory_enabled: false,
         settings: ChatSettings {
             temperature: Some(0.0),
             max_output_tokens: Some(80),
@@ -179,6 +181,66 @@ fn sends_normalized_image_bytes_only_on_the_owning_ollama_turn() {
         serde_json::json!(["bm9ybWFsaXplZC1wbmc="])
     );
     assert!(body["messages"][1].get("images").is_none());
+}
+
+#[test]
+fn maps_closed_native_memory_definitions_into_ollama_tools() {
+    let body = serde_json::to_value(OllamaChatRequest::with_tools(
+        live_request("tool-model".into(), "find the release note"),
+        memory_tool_definitions(),
+    ))
+    .unwrap();
+
+    assert_eq!(body["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(body["tools"][0]["type"], "function");
+    assert_eq!(body["tools"][0]["function"]["name"], "search_memory");
+    assert_eq!(
+        body["tools"][0]["function"]["parameters"]["additionalProperties"],
+        false
+    );
+}
+
+#[test]
+fn decodes_streamed_calls_and_maps_ordered_results_into_follow_up_messages() {
+    let event = decode_stream_line(
+        r#"{"message":{"thinking":"checking memory","content":"","tool_calls":[{"type":"function","function":{"index":0,"name":"search_memory","arguments":{"query":"release"}}},{"type":"function","function":{"index":1,"name":"search_attached_files","arguments":{"query":"checklist"}}}]},"done":true}"#,
+    )
+    .unwrap();
+    assert_eq!(event.tool_calls.len(), 2);
+    assert_eq!(event.tool_calls[0].tool_name(), "search_memory");
+
+    let mut request = OllamaChatRequest::with_tools(
+        live_request("tool-model".into(), "find the release note"),
+        memory_tool_definitions(),
+    );
+    request
+        .append_tool_exchange(
+            event.reasoning_delta,
+            event.text_delta,
+            event.tool_calls,
+            vec![
+                OllamaToolResult {
+                    tool_name: "search_memory".into(),
+                    content: r#"{"ok":true,"result":{"matches":[]}}"#.into(),
+                },
+                OllamaToolResult {
+                    tool_name: "search_attached_files".into(),
+                    content: r#"{"ok":false,"error":{"code":"unavailable"}}"#.into(),
+                },
+            ],
+        )
+        .expect("matching results should append");
+    let body = serde_json::to_value(request).unwrap();
+
+    assert_eq!(body["messages"][1]["role"], "assistant");
+    assert_eq!(body["messages"][1]["thinking"], "checking memory");
+    assert_eq!(
+        body["messages"][1]["tool_calls"].as_array().map(Vec::len),
+        Some(2)
+    );
+    assert_eq!(body["messages"][2]["role"], "tool");
+    assert_eq!(body["messages"][2]["tool_name"], "search_memory");
+    assert_eq!(body["messages"][3]["tool_name"], "search_attached_files");
 }
 
 #[test]

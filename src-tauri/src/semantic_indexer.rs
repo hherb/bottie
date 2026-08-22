@@ -24,11 +24,21 @@ pub(crate) struct SemanticIndexer {
     sender: Sender<WorkerCommand>,
 }
 
+/// Synchronous embedding proxy serviced by Bottie's single model-owning worker thread.
+#[derive(Clone)]
+pub(crate) struct SemanticQueryEmbedder {
+    sender: Sender<WorkerCommand>,
+}
+
 /// Commands serialized by the single native worker thread.
 enum WorkerCommand {
     Wake,
     Pause(Sender<()>),
     Resume,
+    Embed {
+        texts: Vec<String>,
+        response: Sender<Result<Vec<Vec<f32>>, String>>,
+    },
 }
 
 /// Scope guard that resumes semantic indexing even when restore returns an error.
@@ -70,6 +80,20 @@ impl SemanticEmbedder for FastEmbedder {
     }
 }
 
+impl SemanticEmbedder for SemanticQueryEmbedder {
+    /// Sends one bounded query batch to the process-lifetime model owner and waits for its result.
+    fn embed(&mut self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+        let (response, result) = channel();
+        self.sender
+            .send(WorkerCommand::Embed {
+                texts: texts.to_vec(),
+                response,
+            })
+            .map_err(|_| "embedding_worker".to_owned())?;
+        result.recv().map_err(|_| "embedding_worker".to_owned())?
+    }
+}
+
 impl SemanticIndexer {
     /// Starts one process-lifetime worker without loading or downloading the model inline.
     pub(crate) fn start(
@@ -88,6 +112,13 @@ impl SemanticIndexer {
     /// Wakes the worker after startup, source changes, or a completed store restore.
     pub(crate) fn wake(&self) {
         let _ = self.sender.send(WorkerCommand::Wake);
+    }
+
+    /// Returns a cheap proxy for query embeddings through the existing model-owning worker.
+    pub(crate) fn query_embedder(&self) -> SemanticQueryEmbedder {
+        SemanticQueryEmbedder {
+            sender: self.sender.clone(),
+        }
     }
 
     /// Waits for any current batch to finish, then pauses work for one store replacement.
@@ -114,7 +145,13 @@ fn run_worker(
     let mut embedder = None;
     loop {
         while let Ok(command) = receiver.try_recv() {
-            apply_command(command, &mut wake_requested, &mut paused);
+            handle_command(
+                command,
+                &cache_dir,
+                &mut embedder,
+                &mut wake_requested,
+                &mut paused,
+            );
         }
         if !paused && wake_requested {
             match process_requested_work(&cache_dir, &conversations, &diagnostics, &mut embedder) {
@@ -125,7 +162,13 @@ fn run_worker(
         let Ok(command) = receiver.recv() else {
             break;
         };
-        apply_command(command, &mut wake_requested, &mut paused);
+        handle_command(
+            command,
+            &cache_dir,
+            &mut embedder,
+            &mut wake_requested,
+            &mut paused,
+        );
     }
 }
 
@@ -195,6 +238,36 @@ fn apply_command(command: WorkerCommand, wake_requested: &mut bool, paused: &mut
             let _ = acknowledge.send(());
         }
         WorkerCommand::Resume => *paused = false,
+        WorkerCommand::Embed { response, .. } => {
+            let _ = response.send(Err("embedding_worker".into()));
+        }
+    }
+}
+
+/// Applies control commands or services one query embedding through the worker-owned runtime.
+fn handle_command(
+    command: WorkerCommand,
+    cache_dir: &PathBuf,
+    embedder: &mut Option<FastEmbedder>,
+    wake_requested: &mut bool,
+    paused: &mut bool,
+) {
+    match command {
+        WorkerCommand::Embed { texts, response } => {
+            let result = if *paused {
+                Err("embedding_paused".into())
+            } else {
+                if embedder.is_none() {
+                    *embedder = FastEmbedder::load(cache_dir.clone()).ok();
+                }
+                embedder
+                    .as_mut()
+                    .ok_or_else(|| "model_runtime".to_owned())
+                    .and_then(|embedder| embedder.embed(&texts))
+            };
+            let _ = response.send(result);
+        }
+        control => apply_command(control, wake_requested, paused),
     }
 }
 

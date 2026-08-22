@@ -12,6 +12,8 @@
     canSend: boolean;
     attachmentNote: string;
     providerStatus: ProviderStatus;
+    memoryAvailable: boolean;
+    memoryEnabled: boolean;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -19,6 +21,7 @@
     onadd: () => void;
     onfiles: (event: Event) => void;
     onremove: (id: string) => void;
+    ontogglememory: () => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -31,6 +34,8 @@
     canSend,
     attachmentNote,
     providerStatus,
+    memoryAvailable,
+    memoryEnabled,
     onprompt,
     oninput,
     onkeydown,
@@ -38,6 +43,7 @@
     onadd,
     onfiles,
     onremove,
+    ontogglememory,
     oncomposerready,
     onattachmentinputready,
   }: Props = $props();
@@ -105,7 +111,17 @@
         <button aria-label="Attach files" onclick={onadd}>
           <Icon name="paperclip" size={18} />
         </button>
-        <button class="tool-toggle" aria-label="Memory search is not available yet" disabled>
+        <button
+          class="tool-toggle"
+          aria-label={memoryAvailable
+            ? memoryEnabled
+              ? "Disable memory tools"
+              : "Enable memory tools"
+            : "Memory tools require a tool-capable Ollama model"}
+          aria-pressed={memoryAvailable && memoryEnabled}
+          disabled={!memoryAvailable || isGenerating}
+          onclick={ontogglememory}
+        >
           <Icon name="brain" size={17} /><span>Memory</span>
         </button>
         <button class="tool-toggle" aria-label="Web search is not available yet" disabled>

@@ -8,6 +8,7 @@ mod command_types;
 mod credentials;
 mod diagnostics;
 mod generation;
+mod generation_tools;
 mod inference;
 mod provider_registry;
 mod semantic_indexer;
@@ -18,6 +19,8 @@ mod tool_contract;
 mod tool_dispatch;
 mod tool_loop;
 
+#[cfg(test)]
+mod generation_tools_tests;
 #[cfg(test)]
 mod tool_contract_tests;
 #[cfg(test)]
@@ -55,8 +58,15 @@ use storage_commands::{
     select_conversation_branch, set_conversation_archived,
 };
 use tauri::{Manager, State};
+use tool_loop::ToolLoopCancellation;
 
-type ActiveRuns = Arc<tauri::async_runtime::Mutex<HashMap<String, AbortHandle>>>;
+/// Cancellation handles shared by provider I/O and native tool work for one accepted generation.
+struct ActiveRun {
+    abort_handle: AbortHandle,
+    tool_cancellation: ToolLoopCancellation,
+}
+
+type ActiveRuns = Arc<tauri::async_runtime::Mutex<HashMap<String, ActiveRun>>>;
 struct AppState {
     providers: tauri::async_runtime::RwLock<ProviderSet>,
     settings_path: PathBuf,

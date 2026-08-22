@@ -4,18 +4,20 @@ use futures_util::future::{AbortHandle, Abortable};
 use tauri::{State, ipc::Channel};
 
 use crate::{
-    AppState,
+    ActiveRun, AppState,
     diagnostics::{record_diagnostic, sanitized},
+    generation_tools::stream_ollama_memory_tools,
     inference::{
         ChatRequest, ChatRole, ChatRun, ChatTurn, ContentBlock, ImageMediaType, ProviderError,
         ReasoningEffort, StreamEvent, Usage,
     },
-    provider_registry::routed_provider,
+    provider_registry::{RoutedProvider, routed_provider},
     storage::{
         ConversationStore, NewProviderRun, ProviderAttachmentContext, ProviderImageFormat,
         ProviderRunContext, ProviderRunState, StoredReasoningEffort, StoredRole, StoredUsage,
     },
     stream_channel::ChannelSink,
+    tool_loop::ToolLoopCancellation,
 };
 
 #[tauri::command]
@@ -64,12 +66,13 @@ pub(crate) async fn start_chat(
         .messages
         .iter()
         .any(|message| !message.images.is_empty());
-    let supports_vision = if has_images {
+    let needs_model_capabilities = has_images || matches!(&provider, RoutedProvider::Ollama(_));
+    let model_capabilities = if needs_model_capabilities {
         match provider.discover_models().await {
             Ok(models) => models
                 .iter()
                 .find(|model| model.model_id == request.model_id)
-                .is_some_and(|model| model.capabilities.vision),
+                .map(|model| model.capabilities.clone()),
             Err(error) => {
                 let error = sanitized(error);
                 finish_provider_run(
@@ -83,8 +86,18 @@ pub(crate) async fn start_chat(
             }
         }
     } else {
-        false
+        None
     };
+    let supports_vision = model_capabilities
+        .as_ref()
+        .is_some_and(|capabilities| capabilities.vision);
+    let supports_tools = memory_tools_enabled(
+        request.memory_enabled,
+        provider.provider_id(),
+        model_capabilities
+            .as_ref()
+            .is_some_and(|capabilities| capabilities.tools),
+    );
     let attachment_context = if supports_vision {
         state
             .conversations
@@ -109,7 +122,14 @@ pub(crate) async fn start_chat(
         }
     };
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
-    state.runs.lock().await.insert(run_id.clone(), abort_handle);
+    let tool_cancellation = ToolLoopCancellation::default();
+    state.runs.lock().await.insert(
+        run_id.clone(),
+        ActiveRun {
+            abort_handle,
+            tool_cancellation: tool_cancellation.clone(),
+        },
+    );
 
     let runs = state.runs.clone();
     let diagnostics = state.diagnostics.clone();
@@ -135,7 +155,25 @@ pub(crate) async fn start_chat(
             channel: on_event.clone(),
             conversations: conversations.clone(),
         };
-        match Abortable::new(provider.stream_chat(request, sink), abort_registration).await {
+        let query_embedder = semantic_indexing.query_embedder();
+        let generation = async {
+            match &provider {
+                RoutedProvider::Ollama(ollama) if supports_tools => {
+                    stream_ollama_memory_tools(
+                        ollama.clone(),
+                        request,
+                        sink,
+                        conversations.clone(),
+                        task_run_id.clone(),
+                        query_embedder,
+                        tool_cancellation,
+                    )
+                    .await
+                }
+                _ => provider.stream_chat(request, sink).await,
+            }
+        };
+        match Abortable::new(generation, abort_registration).await {
             Ok(Ok(usage)) => {
                 let event = match finish_provider_run(
                     &conversations,
@@ -299,14 +337,24 @@ fn chat_role(role: StoredRole) -> ChatRole {
     }
 }
 
+/// Requires explicit user intent plus Ollama's native per-model tool capability.
+fn memory_tools_enabled(
+    memory_enabled: bool,
+    provider_id: &str,
+    model_supports_tools: bool,
+) -> bool {
+    memory_enabled && provider_id == "ollama" && model_supports_tools
+}
+
 #[tauri::command]
 /// Cancels an active generation by its opaque run identity.
 pub(crate) async fn cancel_chat(
     run_id: String,
     state: State<'_, AppState>,
 ) -> Result<bool, ProviderError> {
-    if let Some(handle) = state.runs.lock().await.remove(&run_id) {
-        handle.abort();
+    if let Some(run) = state.runs.lock().await.remove(&run_id) {
+        run.tool_cancellation.cancel();
+        run.abort_handle.abort();
         Ok(true)
     } else {
         Ok(false)
@@ -432,5 +480,13 @@ mod tests {
                 .expect_err("stale WebView context must be rejected");
 
         assert_eq!(error.code.as_str(), "invalid_request");
+    }
+
+    #[test]
+    fn enables_memory_tools_only_for_explicit_tool_capable_ollama_requests() {
+        assert!(memory_tools_enabled(true, "ollama", true));
+        assert!(!memory_tools_enabled(false, "ollama", true));
+        assert!(!memory_tools_enabled(true, "ollama", false));
+        assert!(!memory_tools_enabled(true, "openai", true));
     }
 }

@@ -68,6 +68,7 @@ export class PageState {
   providerError = $state<ProviderError | null>(null);
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
+  memoryEnabled = $state(false);
   providerSettings = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
   recovery = new RecoveryState();
   history = new ConversationState();
@@ -97,6 +98,10 @@ export class PageState {
   /** Whether the selected route keeps prompt traffic on this device. */
   get isLocalRoute(): boolean {
     return !isCloudProvider(this.selectedProviderId);
+  }
+  /** Whether the selected local provider/model pair can accept Bottie's native memory tools. */
+  get memoryAvailable(): boolean {
+    return this.selectedModel?.providerId === "ollama" && this.selectedModel.capabilities.tools;
   }
   /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {
@@ -175,6 +180,7 @@ export class PageState {
       this.models = resolved.models;
       const currentSelectionAvailable = this.models.some((model) => modelKey(model) === this.selectedModelKey);
       if (!currentSelectionAvailable) this.selectedModelKey = resolved.selectedModelKey;
+      if (!this.memoryAvailable) this.memoryEnabled = false;
       this.providerStatus = this.models.length > 0 ? "available" : "offline";
       if (this.models.length === 0) {
         this.providerError = {
@@ -195,6 +201,7 @@ export class PageState {
 
   /** Switches provider and refreshes only that provider's model list. */
   async changeProvider(providerId: ProviderId): Promise<void> {
+    this.memoryEnabled = false;
     this.selectedProviderId = providerId;
     this.models = [];
     this.selectedModelKey = "";
@@ -204,7 +211,13 @@ export class PageState {
   /** Applies and persists a model selection from the toolbar. */
   async changeModel(selectedModelKey: string): Promise<void> {
     this.selectedModelKey = selectedModelKey;
+    if (!this.memoryAvailable) this.memoryEnabled = false;
     await this.rememberCurrentSelection();
+  }
+
+  /** Toggles explicit native memory-tool availability for the next compatible Ollama request. */
+  toggleMemory(): void {
+    if (this.memoryAvailable && !this.isGenerating) this.memoryEnabled = !this.memoryEnabled;
   }
 
   /** Applies saved provider settings and rediscovers models. */
@@ -357,6 +370,7 @@ export class PageState {
           providerId: model!.providerId,
           modelId: model!.modelId,
           messages: requestMessages,
+          memoryEnabled: this.memoryEnabled,
           settings: { reasoningEffort: this.reasoningEffort },
         },
         runContext,
