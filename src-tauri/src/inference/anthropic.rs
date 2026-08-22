@@ -2,23 +2,56 @@
 
 use futures_util::StreamExt;
 use reqwest::{Client, StatusCode};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use url::Url;
 
 use super::{
     InferenceProvider, StreamSink,
-    multimodal::{AnthropicContent, anthropic_content, text_content},
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_remote_base_url},
     sse::SseDecoder,
     types::{
-        ChatRequest, ChatRole, ModelInfo, ModelLoadState, ProviderCapabilities, ProviderError,
-        ProviderErrorCode, ReasoningEffort, Usage,
+        ChatRequest, ModelInfo, ModelLoadState, ProviderCapabilities, ProviderError,
+        ProviderErrorCode, Usage,
     },
 };
+use crate::tool_contract::memory_tool_definitions;
+
+use self::protocol::{
+    AnthropicChatRequest, AnthropicResponseAccumulator, AnthropicToolRound, DecodedEvent,
+    decode_stream_payload,
+};
+
+mod protocol;
+
+pub(crate) use protocol::{AnthropicToolCall, AnthropicToolResult};
 
 const PROVIDER_ID: &str = "anthropic";
 const PROVIDER_NAME: &str = "Anthropic-compatible";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
+
+/// One provider-native Messages history spanning repeated memory-tool rounds.
+pub(crate) struct AnthropicToolSession {
+    request: AnthropicChatRequest,
+}
+
+impl AnthropicToolSession {
+    /// Starts a session with Bottie's complete closed native memory-tool definition set.
+    pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
+        validate_request(&request)?;
+        Ok(Self {
+            request: AnthropicChatRequest::with_tools(request, memory_tool_definitions()),
+        })
+    }
+
+    /// Appends one accumulated assistant block sequence and its exact correlated native results.
+    pub(crate) fn append_results(
+        &mut self,
+        round: AnthropicToolRound,
+        results: Vec<AnthropicToolResult>,
+    ) -> Result<(), ProviderError> {
+        self.request.append_tool_exchange(round, results)
+    }
+}
 
 /// Rust-owned adapter for Anthropic's Messages protocol.
 #[derive(Clone)]
@@ -55,6 +88,23 @@ impl AnthropicProvider {
         })
     }
 
+    #[cfg(test)]
+    /// Builds a test-only adapter for an isolated loopback HTTP fixture.
+    pub(crate) fn for_loopback_fixture(base_url: &str) -> Result<Self, ProviderError> {
+        let base_url = Url::parse(base_url).map_err(|_| {
+            ProviderError::internal("Could not construct the Anthropic test endpoint.", None)
+        })?;
+        let client = Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|_| ProviderError::internal("Could not initialize Anthropic tests.", None))?;
+        Ok(Self {
+            client,
+            base_url,
+            api_key: "fixture-secret".into(),
+        })
+    }
+
     /// Returns the normalized HTTPS API root without credential material.
     pub(crate) fn base_url(&self) -> &str {
         self.base_url.as_str()
@@ -73,6 +123,64 @@ impl AnthropicProvider {
         request
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", ANTHROPIC_VERSION)
+    }
+
+    /// Streams one tool-capable Messages round without exposing provider JSON.
+    pub(crate) async fn stream_tool_round(
+        &self,
+        session: &AnthropicToolSession,
+        sink: impl StreamSink + Send + Sync,
+    ) -> Result<AnthropicToolRound, ProviderError> {
+        self.stream_request(&session.request, sink, false).await
+    }
+
+    /// Streams one concrete request while reconstructing blocks required by a tool follow-up.
+    async fn stream_request(
+        &self,
+        request: &AnthropicChatRequest,
+        sink: impl StreamSink + Send + Sync,
+        emit_usage: bool,
+    ) -> Result<AnthropicToolRound, ProviderError> {
+        let request = self.client.post(self.endpoint("messages")?).json(request);
+        let response = self
+            .authenticated(request)
+            .send()
+            .await
+            .map_err(map_request_error)?;
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+
+        let mut bytes = response.bytes_stream();
+        let mut decoder = SseDecoder::default();
+        let mut round = AnthropicResponseAccumulator::default();
+        while let Some(chunk) = bytes.next().await {
+            let chunk = chunk.map_err(map_request_error)?;
+            for payload in decoder.push(&chunk)? {
+                if process_stream_event(
+                    decode_stream_payload(&payload)?,
+                    &sink,
+                    &mut round,
+                    emit_usage,
+                )? {
+                    return round.finish();
+                }
+            }
+        }
+        for payload in decoder.finish()? {
+            if process_stream_event(
+                decode_stream_payload(&payload)?,
+                &sink,
+                &mut round,
+                emit_usage,
+            )? {
+                return round.finish();
+            }
+        }
+        Err(ProviderError::malformed(
+            "The Anthropic-compatible response ended before completion.",
+            Some("SSE stream did not contain a message_stop event".into()),
+        ))
     }
 }
 
@@ -99,70 +207,34 @@ impl InferenceProvider for AnthropicProvider {
         sink: impl StreamSink + Send + Sync,
     ) -> Result<Option<Usage>, ProviderError> {
         validate_request(&request)?;
-        let request = self
-            .client
-            .post(self.endpoint("messages")?)
-            .json(&AnthropicChatRequest::from(request));
-        let response = self
-            .authenticated(request)
-            .send()
+        self.stream_request(&AnthropicChatRequest::from(request), sink, true)
             .await
-            .map_err(map_request_error)?;
-        if !response.status().is_success() {
-            return Err(response_error(response).await);
-        }
-
-        let mut bytes = response.bytes_stream();
-        let mut decoder = SseDecoder::default();
-        let mut usage = Usage::default();
-        let mut saw_usage = false;
-        let mut completed = false;
-        while let Some(chunk) = bytes.next().await {
-            let chunk = chunk.map_err(map_request_error)?;
-            for payload in decoder.push(&chunk)? {
-                process_payload(&payload, &sink, &mut usage, &mut saw_usage, &mut completed)?;
-            }
-        }
-        for payload in decoder.finish()? {
-            process_payload(&payload, &sink, &mut usage, &mut saw_usage, &mut completed)?;
-        }
-        if !completed {
-            return Err(ProviderError::malformed(
-                "The Anthropic-compatible response ended before completion.",
-                Some("SSE stream did not contain a message_stop event".into()),
-            ));
-        }
-        Ok(saw_usage.then_some(usage))
+            .map(|round| round.usage)
     }
 }
 
-fn process_payload(
-    payload: &str,
+/// Applies one decoded stream event and emits only normalized visible deltas and usage.
+fn process_stream_event(
+    event: DecodedEvent,
     sink: &(impl StreamSink + Send + Sync),
-    usage: &mut Usage,
-    saw_usage: &mut bool,
-    completed: &mut bool,
-) -> Result<(), ProviderError> {
-    match decode_stream_payload(payload)? {
-        DecodedEvent::Text(delta) if !delta.is_empty() => sink.text_delta(delta)?,
-        DecodedEvent::Reasoning(delta) if !delta.is_empty() => sink.reasoning_delta(delta)?,
-        DecodedEvent::Usage(updated) => {
-            if updated.input_tokens.is_some() {
-                usage.input_tokens = updated.input_tokens;
-            }
-            if updated.output_tokens.is_some() {
-                usage.output_tokens = updated.output_tokens;
-            }
-            if updated.cost_usd.is_some() {
-                usage.cost_usd = updated.cost_usd;
-            }
-            *saw_usage = true;
-            sink.usage_updated(usage.clone())?;
-        }
-        DecodedEvent::Done => *completed = true,
-        DecodedEvent::Ignored | DecodedEvent::Text(_) | DecodedEvent::Reasoning(_) => {}
+    round: &mut AnthropicResponseAccumulator,
+    emit_usage: bool,
+) -> Result<bool, ProviderError> {
+    if let Some(delta) = event.text_delta().filter(|delta| !delta.is_empty()) {
+        sink.text_delta(delta.into())?;
     }
-    Ok(())
+    if let Some(delta) = event.reasoning_delta().filter(|delta| !delta.is_empty()) {
+        sink.reasoning_delta(delta.into())?;
+    }
+    let usage_changed = event.has_usage();
+    round.apply(event)?;
+    if emit_usage
+        && usage_changed
+        && let Some(usage) = round.usage()
+    {
+        sink.usage_updated(usage)?;
+    }
+    Ok(round.is_complete())
 }
 
 fn validate_request(request: &ChatRequest) -> Result<(), ProviderError> {
@@ -263,6 +335,10 @@ fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
                     text: true,
                     streaming: true,
                     vision,
+                    tools: model
+                        .capabilities
+                        .iter()
+                        .any(|capability| capability == "tools"),
                     ..Default::default()
                 },
             }
@@ -278,76 +354,6 @@ fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
     }
 }
 
-#[derive(Serialize)]
-struct AnthropicChatRequest {
-    model: String,
-    messages: Vec<AnthropicTurn>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    system: Option<String>,
-    max_tokens: u32,
-    stream: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    temperature: Option<f32>,
-    thinking: ThinkingConfig,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    output_config: Option<OutputConfig>,
-}
-
-#[derive(Serialize)]
-struct AnthropicTurn {
-    role: &'static str,
-    content: AnthropicContent,
-}
-
-#[derive(Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum ThinkingConfig {
-    Disabled,
-    Adaptive,
-}
-
-#[derive(Serialize)]
-struct OutputConfig {
-    effort: &'static str,
-}
-
-impl From<ChatRequest> for AnthropicChatRequest {
-    fn from(request: ChatRequest) -> Self {
-        let reasoning_enabled = request.settings.reasoning_effort == ReasoningEffort::Low;
-        let mut system = Vec::new();
-        let mut messages = Vec::new();
-        for turn in request.messages {
-            match turn.role {
-                ChatRole::System => system.push(text_content(turn.content)),
-                ChatRole::User => messages.push(AnthropicTurn {
-                    role: "user",
-                    content: anthropic_content(turn.content),
-                }),
-                ChatRole::Assistant => messages.push(AnthropicTurn {
-                    role: "assistant",
-                    content: anthropic_content(turn.content),
-                }),
-            }
-        }
-        Self {
-            model: request.model_id,
-            messages,
-            system: (!system.is_empty()).then(|| system.join("\n\n")),
-            max_tokens: request.settings.max_output_tokens.unwrap_or(4_096),
-            stream: true,
-            temperature: (!reasoning_enabled)
-                .then_some(request.settings.temperature)
-                .flatten(),
-            thinking: if reasoning_enabled {
-                ThinkingConfig::Adaptive
-            } else {
-                ThinkingConfig::Disabled
-            },
-            output_config: reasoning_enabled.then_some(OutputConfig { effort: "low" }),
-        }
-    }
-}
-
 #[derive(Deserialize)]
 struct AnthropicErrorResponse {
     error: AnthropicError,
@@ -356,94 +362,6 @@ struct AnthropicErrorResponse {
 #[derive(Deserialize)]
 struct AnthropicError {
     message: String,
-}
-
-#[derive(Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum StreamPayload {
-    MessageStart {
-        message: StartMessage,
-    },
-    ContentBlockDelta {
-        delta: ContentDelta,
-    },
-    MessageDelta {
-        usage: WireUsage,
-    },
-    MessageStop,
-    Error {
-        error: AnthropicError,
-    },
-    #[serde(other)]
-    Unknown,
-}
-
-#[derive(Deserialize)]
-struct StartMessage {
-    usage: WireUsage,
-}
-
-#[derive(Default, Deserialize)]
-struct WireUsage {
-    input_tokens: Option<u64>,
-    output_tokens: Option<u64>,
-    cost_usd: Option<f64>,
-}
-
-#[derive(Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum ContentDelta {
-    TextDelta {
-        text: String,
-    },
-    ThinkingDelta {
-        thinking: String,
-    },
-    #[serde(other)]
-    Unknown,
-}
-
-enum DecodedEvent {
-    Text(String),
-    Reasoning(String),
-    Usage(Usage),
-    Done,
-    Ignored,
-}
-
-fn decode_stream_payload(payload: &str) -> Result<DecodedEvent, ProviderError> {
-    let event: StreamPayload = serde_json::from_str(payload).map_err(|error| {
-        ProviderError::malformed(
-            "The Anthropic-compatible provider sent a malformed stream event.",
-            Some(error.to_string()),
-        )
-    })?;
-    match event {
-        StreamPayload::MessageStart { message } => Ok(DecodedEvent::Usage(message.usage.into())),
-        StreamPayload::MessageDelta { usage } => Ok(DecodedEvent::Usage(usage.into())),
-        StreamPayload::ContentBlockDelta {
-            delta: ContentDelta::TextDelta { text },
-        } => Ok(DecodedEvent::Text(text)),
-        StreamPayload::ContentBlockDelta {
-            delta: ContentDelta::ThinkingDelta { thinking },
-        } => Ok(DecodedEvent::Reasoning(thinking)),
-        StreamPayload::MessageStop => Ok(DecodedEvent::Done),
-        StreamPayload::Error { error } => Err(ProviderError::server(error.message, None)),
-        StreamPayload::Unknown
-        | StreamPayload::ContentBlockDelta {
-            delta: ContentDelta::Unknown,
-        } => Ok(DecodedEvent::Ignored),
-    }
-}
-
-impl From<WireUsage> for Usage {
-    fn from(value: WireUsage) -> Self {
-        Self {
-            input_tokens: value.input_tokens,
-            output_tokens: value.output_tokens,
-            cost_usd: value.cost_usd,
-        }
-    }
 }
 
 #[cfg(test)]

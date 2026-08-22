@@ -40,9 +40,9 @@ guided screen can restore the newest verified automatic snapshot or a manually s
 the damaged database bundle and prior attachment tree in app-private storage. Native provider runs now also retain
 ordered structured tool calls
 and one append-only result per call; reopened tool activity is inspectable and portable without exposing native or
-provider call identities. An explicit Memory composer toggle now lets tool-capable Ollama and OpenAI-compatible models
-use the three native memory tools through their distinct function wire shapes, Bottie's bounded multi-round state
-machine, and those durable tool records. Anthropic-shaped and oMLX tool loops remain absent. Native attachment
+provider call identities. An explicit Memory composer toggle now lets tool-capable Ollama, OpenAI-compatible, and
+Anthropic-compatible models use the three native memory tools through their distinct function wire shapes, Bottie's
+bounded multi-round state machine, and those durable tool records. oMLX tool loops remain absent. Native attachment
 selection now streams chosen local files into application-private content-addressed storage with SHA-256 identities,
 content-based MIME
 sniffing, safe display names, a 25 MiB per-file limit, an eight-file selection limit, and cross-session duplicate
@@ -71,8 +71,9 @@ memory construction, not provider delivery. Up to eight retained
 files can now be kept in durable conversation scope independently of any branch or message. The interface distinguishes
 next-message, conversation, and message associations and supports narrow removal without deleting retained content.
 Conversation-scoped normalized images apply to every current request, require explicit vision capability, and are
-deduplicated when the same file is also linked to a message; explicitly enabled tool-capable Ollama or OpenAI-compatible
-requests may retrieve bounded document excerpts. Portable backups now retain every original blob and ready normalized
+deduplicated when the same file is also linked to a message; explicitly enabled tool-capable Ollama,
+OpenAI-compatible, or Anthropic-compatible requests may retrieve bounded document excerpts. Portable backups now
+retain every original blob and ready normalized
 derivative, while selected and batch exports bundle only referenced originals
 with versioned path-free manifests. Each successful non-recovery startup now removes attachment catalog rows older
 than a 24-hour safety window with no message or conversation reference, then sweeps equally old strict untracked
@@ -105,7 +106,8 @@ details. A matching Rust-owned `open_memory` contract now resolves that opaque p
 own immutable branch lineage without changing the selected branch. It returns at most three final text turns on each
 side, caps each turn at 2,000 Unicode scalars, retains Archived conversations, excludes Trash and non-final responses,
 and omits reasoning, provider details, attachments, and native paths. Automatic retrieval injection remains absent;
-only an explicitly enabled tool-capable Ollama or OpenAI-compatible request may call the native memory tools. A
+only an explicitly enabled tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible request may call the native
+memory tools. A
 matching Rust-owned `search_attached_files` contract now applies hybrid retrieval only to
 ready extracted documents with durable active or Archived conversation/message associations. It returns bounded
 excerpts with safe file metadata and optional exact chunk offsets while omitting hashes, paths, scores, embeddings,
@@ -119,12 +121,12 @@ structured success/error envelope. Successful envelopes have a 64 KiB serialized
 forwarding query, argument, embedding, storage, or path details. A provider-neutral native state machine now executes
 repeated batches through that dispatcher while correlating opaque call identities. One generation is bounded to eight
 calls, four tool rounds, 256 KiB of aggregate serialized output, and 30 seconds; cancellation and deadline checks run
-before and after every native call, and every exceptional outcome closes the loop. Ollama and OpenAI Chat Completions
-now map the three closed definitions, accumulate streamed calls, execute and durably checkpoint ordered results, then
-continue generation with cumulative usage and shared cancellation. The next bounded implementation slice is
-Anthropic-compatible Messages definition/call/result mapping plus explicit generation-loop wiring for models that
-advertise tools; do not bundle oMLX mapping, automatic retrieval injection, memory-card replacement, model-cache
-deletion, broad retention controls, document opening, or attachment retry controls.
+before and after every native call, and every exceptional outcome closes the loop. Ollama, OpenAI Chat Completions,
+and Anthropic Messages now map the three closed definitions, accumulate streamed calls, execute and durably checkpoint
+ordered results, then continue generation with cumulative usage and shared cancellation. The next bounded
+implementation slice is visible, removable path-free memory provenance in the Context panel sourced from successful
+native memory-tool activity; do not bundle oMLX mapping, automatic retrieval injection, model-cache deletion, broad
+retention controls, document opening, web tools, or attachment retry controls.
 
 Read these files first:
 
@@ -138,7 +140,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/openai-tool-loop`.
+branch `codex/anthropic-tool-loop`.
 
 ## Current implementation
 
@@ -256,9 +258,9 @@ name/argument validation, and conversion into exact typed native arguments witho
 success/error envelope without provider wire policy,
 `src-tauri/src/tool_loop.rs` owns provider-neutral multi-call correlation, recursion/call/output/deadline policy, and
 shared cancellation checks used by mapped provider generation,
-`src-tauri/src/generation_tools.rs` owns Ollama/OpenAI call correlation, durable call/result checkpoints, cumulative
-usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or embedding
-details,
+`src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
+cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
+embedding details,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker and its synchronous query-embedding proxy,
@@ -367,17 +369,18 @@ Do not mistake visual fixtures for implemented backend behavior:
   does not survive restart;
 - plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain outside automatic provider
   context; their indexable state feeds native FTS5, deterministic chunk, and semantic-vector indexes. An explicitly
-  enabled tool-capable Ollama or OpenAI-compatible model can request bounded document excerpts through
-  `search_attached_files`;
+  enabled tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible model can request bounded document excerpts
+  through `search_attached_files`;
   JPEG/PNG
   derivatives remain application-private and are read only for capability-confirmed vision requests; portable SQLite
   backups embed originals and ready derivatives, while selected/batch exports bundle referenced originals;
-- Ollama and OpenAI Chat Completions now emit and execute durable native memory-tool records when Memory is explicitly
-  enabled; Anthropic/oMLX provider tool activity plus browser-preview tool activity remain absent or fixtures;
+- Ollama, OpenAI Chat Completions, and Anthropic Messages now emit and execute durable native memory-tool records when
+  Memory is explicitly enabled; oMLX provider tool activity plus browser-preview tool activity remain absent or
+  fixtures;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- the native lexical, semantic KNN, fused search, and provenance-opening contracts now have Ollama and OpenAI-compatible
-  consumers through the bounded dispatcher and loop, while visible/removable citation cards and real context-panel
-  memory replacement remain absent;
+- the native lexical, semantic KNN, fused search, and provenance-opening contracts now have Ollama, OpenAI-compatible,
+  and Anthropic-compatible consumers through the bounded dispatcher and loop, while visible/removable citation cards
+  and real context-panel memory replacement remain absent;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
   pure presentation and Markdown-policy helpers have frontend unit coverage.
@@ -418,7 +421,65 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 533 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Explicit OpenAI Chat Completions native memory-tool loop
+## Most recently completed product slice: Explicit Anthropic Messages native memory-tool loop
+
+### Goal
+
+Map Bottie's three closed native memory tools into Anthropic-compatible Messages and run repeated explicitly enabled
+calls through the existing bounded dispatcher, state machine, durable tool records, provider stream, and shared
+cancellation path, without adding oMLX mapping, automatic retrieval injection, citation cards, context-panel
+replacement, or a schema migration.
+
+### Implemented shape
+
+1. The session-only Memory toggle is now available for Ollama, OpenAI-compatible, or Anthropic-compatible models that
+   explicitly advertise tool capability. Native generation rechecks the selected model through provider discovery
+   before definitions are sent; the flag remains off by default and clears for an unmapped or non-tool-capable model.
+2. Anthropic request mapping preserves the exact three native names, descriptions, and closed `input_schema` objects.
+   Streamed `tool_use` blocks retain provider order and reconstruct bounded object arguments from indexed
+   `input_json_delta` fragments only when each content block closes.
+3. Follow-up requests append the exact ordered assistant content blocks, including unmodified `thinking` signatures
+   and opaque `redacted_thinking` data, then an immediately following `role: user` message containing correlated
+   `tool_result` blocks. Native structured failures additionally set Anthropic's `is_error` signal.
+4. Anthropic's provider call identity becomes the provider-neutral loop identity and durable correlation key. It
+   remains Rust/SQLite-only and is returned unchanged only on the provider wire; reopened UI state and exports continue
+   to omit native and provider call identities.
+5. Every accepted invocation and exact bounded success/error envelope commits before provider reuse. Anthropic rounds
+   use the same blocking native dispatcher boundary, process-lifetime query embedder, four-round/eight-call/30-second
+   policy, aggregate-output ceiling, HTTP abort handle, and native cancellation signal as the other mapped providers.
+6. Input tokens, output tokens, and optional provider-reported cost are accumulated across every Messages request in
+   one logical generation and checkpointed through the existing usage path.
+
+### Acceptance criteria
+
+- Memory tools remain off by default and unavailable for oMLX or any model that does not advertise tools.
+- The first Anthropic request contains exactly the three closed definitions; a follow-up contains the exact assistant
+  tool-use block sequence and an immediately following user message with correlated tool results.
+- Thinking and redacted-thinking blocks required by Anthropic's multi-round protocol are retained unchanged without
+  entering provider-neutral reasoning text, durable tool output, exports, or WebView-visible call identity.
+- Calls and exact structured success/error results survive reopen through the existing append-only provider-run
+  records before any result is reused by the provider.
+- Multiple rounds preserve cumulative usage/cost and shared cancellation while retaining the existing four-round,
+  eight-call, 64 KiB per-result, 256 KiB aggregate-output, and 30-second ceilings.
+- oMLX tool mapping, automatic injection, citation/context-panel replacement, persistent memory controls, document
+  opening, web tools, and attachment retry remain outside this slice.
+
+### Verification completed
+
+Focused TDD first failed on missing Anthropic definition/call/result mapping, streamed block reconstruction, durable
+round execution, and composer availability. Pure tests cover explicit capability discovery, closed definition mapping,
+bounded fragmented object arguments, malformed non-object rejection, exact result correlation, signed thinking-block
+preservation, reasoning/multimodal request preservation, and provider gating. A real schema-18 store test confirms that
+the Anthropic provider identity and exact result persist before reuse. A signed host-loopback two-request SSE fixture
+confirms that the second request contains the durable correlated result and produces the final answer with cumulative
+token and cost usage. Prettier, `svelte-check`, all 60 frontend tests, the production build, Cargo formatting, Cargo
+check, and all 222 default Rust tests pass; seven opt-in tests remain ignored by default. The native development build
+compiled, reached the AppKit event loop, remained active, and stopped on request. Immutable live-store inspection
+reported schema version 18, `quick_check=ok`, and no running provider records. No visual structure changed, so a
+separate responsive layout review was not required. No live third-party Anthropic-compatible account or API key was
+exercised, so the real credential/model/tool-call UI flow remains unverified.
+
+## Prior completed product slice: Explicit OpenAI Chat Completions native memory-tool loop
 
 ### Goal
 

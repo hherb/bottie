@@ -1,34 +1,146 @@
 //! Anthropic protocol and request-shape tests.
 
 use super::*;
-use crate::inference::{ContentBlock, ImageMediaType};
+use crate::{
+    inference::{ContentBlock, ImageMediaType},
+    tool_contract::memory_tool_definitions,
+};
 
 #[test]
 fn decodes_text_thinking_usage_and_completion() {
-    let models =
-        decode_model_list(br#"{"data":[{"id":"claude-example","capabilities":["vision"]}]}"#)
-            .unwrap();
+    let models = decode_model_list(
+        br#"{"data":[{"id":"claude-example","capabilities":["vision","tools"]}]}"#,
+    )
+    .unwrap();
     assert!(models[0].capabilities.vision);
-    assert!(matches!(
-        decode_stream_payload(concat!(
-            r#"{"type":"content_block_delta","index":0,"delta":{"#,
-            r#""type":"text_delta","text":"Hi"}}"#,
-        ))
-        .unwrap(),
-        DecodedEvent::Text(value) if value == "Hi"
-    ));
-    assert!(matches!(
-        decode_stream_payload(concat!(
-            r#"{"type":"content_block_delta","index":0,"delta":{"#,
-            r#""type":"thinking_delta","thinking":"Check"}}"#,
-        ))
-        .unwrap(),
-        DecodedEvent::Reasoning(value) if value == "Check"
-    ));
+    assert!(models[0].capabilities.tools);
+    let text = decode_stream_payload(concat!(
+        r#"{"type":"content_block_delta","index":0,"delta":{"#,
+        r#""type":"text_delta","text":"Hi"}}"#,
+    ))
+    .unwrap();
+    assert_eq!(text.text_delta(), Some("Hi"));
+    let reasoning = decode_stream_payload(concat!(
+        r#"{"type":"content_block_delta","index":0,"delta":{"#,
+        r#""type":"thinking_delta","thinking":"Check"}}"#,
+    ))
+    .unwrap();
+    assert_eq!(reasoning.reasoning_delta(), Some("Check"));
     assert!(matches!(
         decode_stream_payload(r#"{"type":"message_stop"}"#).unwrap(),
         DecodedEvent::Done
     ));
+}
+
+#[test]
+fn maps_closed_tools_and_fragmented_calls_into_correlated_messages() {
+    let mut request = AnthropicChatRequest::with_tools(
+        text_request("Recall the release note"),
+        memory_tool_definitions(),
+    );
+    let initial = serde_json::to_value(&request).unwrap();
+    assert_eq!(initial["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(initial["tools"][0]["name"], "search_memory");
+    assert_eq!(
+        initial["tools"][0]["input_schema"]["additionalProperties"],
+        false
+    );
+
+    let round = fragmented_tool_round();
+    assert_eq!(round.tool_calls.len(), 1);
+    assert_eq!(round.tool_calls[0].call_id(), "toolu_1");
+    assert_eq!(round.tool_calls[0].tool_name(), "search_memory");
+    assert_eq!(round.tool_calls[0].arguments()["query"], "release");
+
+    request
+        .append_tool_exchange(
+            round,
+            vec![AnthropicToolResult {
+                tool_use_id: "toolu_1".into(),
+                content: r#"{"ok":true}"#.into(),
+                is_error: false,
+            }],
+        )
+        .unwrap();
+    let follow_up = serde_json::to_value(request).unwrap();
+    assert_eq!(follow_up["messages"][1]["role"], "assistant");
+    assert_eq!(follow_up["messages"][1]["content"][0]["type"], "thinking");
+    assert_eq!(
+        follow_up["messages"][1]["content"][0]["signature"],
+        "opaque-signature"
+    );
+    assert_eq!(follow_up["messages"][1]["content"][1]["type"], "tool_use");
+    assert_eq!(follow_up["messages"][2]["role"], "user");
+    assert_eq!(
+        follow_up["messages"][2]["content"][0]["type"],
+        "tool_result"
+    );
+    assert_eq!(
+        follow_up["messages"][2]["content"][0]["tool_use_id"],
+        "toolu_1"
+    );
+}
+
+#[test]
+fn rejects_non_object_arguments_and_mismatched_result_identity() {
+    let mut malformed = AnthropicResponseAccumulator::default();
+    for payload in [
+        r#"{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_1","name":"search_memory","input":{}}}"#,
+        r#"{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"[]"}}"#,
+    ] {
+        malformed
+            .apply(decode_stream_payload(payload).unwrap())
+            .unwrap();
+    }
+    let error = malformed
+        .apply(decode_stream_payload(r#"{"type":"content_block_stop","index":0}"#).unwrap())
+        .expect_err("non-object arguments must fail");
+    assert_eq!(error.code.as_str(), "malformed_response");
+
+    let mut request = AnthropicChatRequest::from(text_request("Recall the release note"));
+    let error = request
+        .append_tool_exchange(
+            fragmented_tool_round(),
+            vec![AnthropicToolResult {
+                tool_use_id: "different_call".into(),
+                content: r#"{"ok":true}"#.into(),
+                is_error: false,
+            }],
+        )
+        .expect_err("mismatched provider identity must fail");
+    assert_eq!(error.code.as_str(), "internal");
+}
+
+/// Reconstructs one signed-thinking plus fragmented-tool-use response round.
+fn fragmented_tool_round() -> AnthropicToolRound {
+    let mut response = AnthropicResponseAccumulator::default();
+    for payload in [
+        r#"{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}}"#,
+        r#"{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"checking"}}"#,
+        r#"{"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"opaque-signature"}}"#,
+        r#"{"type":"content_block_stop","index":0}"#,
+        r#"{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"search_memory","input":{}}}"#,
+        r#"{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"query\":"}}"#,
+        r#"{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"\"release\"}"}}"#,
+        r#"{"type":"content_block_stop","index":1}"#,
+        r#"{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":7}}"#,
+        r#"{"type":"message_stop"}"#,
+    ] {
+        response
+            .apply(decode_stream_payload(payload).unwrap())
+            .unwrap();
+    }
+    response.finish().unwrap()
+}
+
+/// Builds one text-only Anthropic request for pure request-shape tests.
+fn text_request(text: &str) -> ChatRequest {
+    serde_json::from_value(serde_json::json!({
+        "providerId": "anthropic",
+        "modelId": "claude-example",
+        "messages": [{"role": "user", "content": [{"type": "text", "text": text}]}]
+    }))
+    .unwrap()
 }
 
 #[test]

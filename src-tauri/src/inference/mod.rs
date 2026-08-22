@@ -11,6 +11,7 @@ mod sse;
 mod types;
 
 pub use anthropic::AnthropicProvider;
+pub(crate) use anthropic::{AnthropicToolCall, AnthropicToolResult, AnthropicToolSession};
 pub use ollama::OllamaProvider;
 pub(crate) use ollama::{OllamaToolCall, OllamaToolResult, OllamaToolSession};
 pub use omlx::OmlxProvider;
