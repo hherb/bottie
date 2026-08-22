@@ -36,8 +36,8 @@ describe("page presentation", () => {
 
     expect(memoryToolsAvailable(model("ollama", true))).toBe(true);
     expect(memoryToolsAvailable(model("openai", true))).toBe(true);
+    expect(memoryToolsAvailable(model("anthropic", true))).toBe(true);
     expect(memoryToolsAvailable(model("openai", false))).toBe(false);
-    expect(memoryToolsAvailable(model("anthropic", true))).toBe(false);
     expect(memoryToolsAvailable(model("omlx", true))).toBe(false);
     expect(memoryToolsAvailable(undefined)).toBe(false);
   });

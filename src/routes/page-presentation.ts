@@ -20,7 +20,10 @@ export function nextRequestAttachments(draft: Attachment[], conversation: Attach
 
 /** Confirms that Bottie maps native memory tools for the selected advertised capability. */
 export function memoryToolsAvailable(model: ModelInfo | undefined): boolean {
-  return Boolean(model?.capabilities.tools && (model.providerId === "ollama" || model.providerId === "openai"));
+  return Boolean(
+    model?.capabilities.tools &&
+    (model.providerId === "ollama" || model.providerId === "openai" || model.providerId === "anthropic"),
+  );
 }
 
 /** Selects the compact endpoint label for the active provider. */

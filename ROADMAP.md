@@ -186,7 +186,8 @@ Status: in progress
 - [x] provider-neutral single-call dispatch with a bounded structured result/error envelope;
 - [x] explicit Ollama native memory-tool definition/call/result mapping and bounded generation-loop integration;
 - [x] explicit OpenAI Chat Completions definition/call/result mapping and bounded generation-loop integration;
-- [ ] Anthropic-shaped tool-loop integration plus visible and removable memory citations in the context panel;
+- [x] explicit Anthropic Messages definition/call/result mapping and bounded generation-loop integration;
+- [ ] visible and removable memory citations in the context panel;
 - [ ] exclude-from-memory, forget, and retention controls (explicit derived-only reindex is complete).
 
 Do not silently inject arbitrary long-term memories into every prompt. Recent conversation context may be automatic; long-term recall should be explicit and inspectable.
@@ -205,7 +206,7 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] provider-neutral cancellation signal with checks before and after every native call;
 - [x] Ollama native definition/call/result mapping and generation-loop wiring;
 - [x] OpenAI Chat Completions definition/call/result mapping and generation-loop wiring;
-- Anthropic Messages definition/call/result mapping and generation-loop wiring;
+- [x] Anthropic Messages definition/call/result mapping and generation-loop wiring;
 - [x] active-generation cancellation propagation through mapped providers and native tool work;
 - safe versus approval-required tool policy;
 - structured audit records and expandable activity UI;

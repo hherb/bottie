@@ -80,8 +80,6 @@ describe("Composer", () => {
     const unavailable = renderedComposer(true, true);
 
     expect(enabled).toMatch(/aria-label="Disable memory tools"[^>]*aria-pressed="true"/);
-    expect(unavailable).toMatch(
-      /aria-label="Memory tools require a tool-capable Ollama or OpenAI-compatible model"[^>]* disabled/,
-    );
+    expect(unavailable).toMatch(/aria-label="Memory tools require a supported tool-capable model"[^>]* disabled/);
   });
 });

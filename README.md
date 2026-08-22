@@ -65,10 +65,10 @@ omit older image associations; documents remain excluded from automatic provider
 the selected durable
 lineage, reads at most eight normalized images and 50 MiB per request, and emits provider-native Ollama, OpenAI-shaped,
 or Anthropic-shaped image blocks without exposing bytes to JavaScript. An explicit session-only Memory toggle is
-available for Ollama and OpenAI-compatible models that advertise tools. Those requests may execute bounded native
-conversation or retained-document retrieval and return path-free excerpts through the provider's native tool shape;
-no document is injected automatically, and Anthropic/oMLX tool mapping, approvals, other office formats, and direct
-document delivery remain unimplemented.
+available for Ollama, OpenAI-compatible, and Anthropic-compatible models that advertise tools. Those requests may
+execute bounded native conversation or retained-document retrieval and return path-free excerpts through the
+provider's native tool shape; no document is injected automatically, and oMLX tool mapping, approvals, other office
+formats, and direct document delivery remain unimplemented.
 
 ## Development
 
@@ -207,7 +207,8 @@ files, never extracted SQLite text or normalized derivatives. Ready JPEG/PNG der
 capability-confirmed vision requests, with
 an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from automatic message content.
 Other office formats are not extracted. Indexed document text stays native until an explicitly enabled
-`search_attached_files` call returns a bounded path-free excerpt to a mapped Ollama or OpenAI-compatible model.
+`search_attached_files` call returns a bounded path-free excerpt to a mapped Ollama, OpenAI-compatible, or
+Anthropic-compatible model.
 Ready
 images also receive a
 metadata-free thumbnail capped to 320 pixels on either axis. The WebView requests that thumbnail through a private
@@ -291,6 +292,6 @@ extracted documents that retain an active or Archived association, returning saf
 chunk offsets without paths, hashes, scores, or full extracted text. Provider-independent definitions expose only
 those three tools through closed schemas: required and optional fields, JSON types, Unicode-scalar identity/query
 ceilings, result/window bounds, and unknown-field rejection are enforced before typed dispatch. Provider invocation
-and executable dispatch are available only through explicitly enabled, tool-capable Ollama and OpenAI-compatible
-requests. Anthropic/oMLX mapping, automatic prompt injection, document opening, and memory citations remain
-unavailable; Settings exposes only path-free progress and the derived-only reindex control.
+and executable dispatch are available only through explicitly enabled, tool-capable Ollama, OpenAI-compatible, and
+Anthropic-compatible requests. oMLX mapping, automatic prompt injection, document opening, and memory citations
+remain unavailable; Settings exposes only path-free progress and the derived-only reindex control.

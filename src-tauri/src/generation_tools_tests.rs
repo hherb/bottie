@@ -34,11 +34,11 @@ use crate::{
 fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
     assert!(memory_tools_enabled(true, "ollama", true));
     assert!(memory_tools_enabled(true, "openai", true));
+    assert!(memory_tools_enabled(true, "anthropic", true));
     assert!(!memory_tools_enabled(false, "ollama", true));
     assert!(!memory_tools_enabled(false, "openai", true));
     assert!(!memory_tools_enabled(true, "ollama", false));
     assert!(!memory_tools_enabled(true, "openai", false));
-    assert!(!memory_tools_enabled(true, "anthropic", true));
     assert!(!memory_tools_enabled(true, "omlx", true));
 }
 
@@ -493,3 +493,5 @@ fn read_json_request(stream: &mut TcpStream) -> serde_json::Value {
         }
     }
 }
+
+mod anthropic;

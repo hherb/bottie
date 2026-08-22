@@ -70,7 +70,9 @@ pub(crate) async fn start_chat(
         || (request.memory_enabled
             && matches!(
                 &provider,
-                RoutedProvider::Ollama(_) | RoutedProvider::OpenAi(_)
+                RoutedProvider::Ollama(_)
+                    | RoutedProvider::OpenAi(_)
+                    | RoutedProvider::Anthropic(_)
             ));
     let model_capabilities = if needs_model_capabilities {
         match provider.discover_models().await {
