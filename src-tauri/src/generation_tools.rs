@@ -1,10 +1,12 @@
-//! Durable Ollama memory-tool execution inside Bottie's provider-neutral loop policy.
+//! Durable mapped-provider memory-tool execution inside Bottie's provider-neutral loop policy.
 
 use crate::{
     inference::{
         ChatRequest, OllamaProvider, OllamaToolCall, OllamaToolResult, OllamaToolSession,
-        ProviderError, ProviderErrorCode, StreamSink, Usage,
+        OpenAiProvider, OpenAiToolCall, OpenAiToolResult, OpenAiToolSession, ProviderError,
+        ProviderErrorCode, StreamSink, Usage,
     },
+    provider_registry::RoutedProvider,
     semantic_indexer::SemanticQueryEmbedder,
     storage::{
         ConversationStore, NewToolInvocation, NewToolResult, SemanticEmbedder, StorageError,
@@ -15,6 +17,109 @@ use crate::{
         ToolRoundError,
     },
 };
+
+/// Confirms explicit intent plus a mapped provider's discovered per-model tool capability.
+pub(crate) fn memory_tools_enabled(
+    memory_enabled: bool,
+    provider_id: &str,
+    model_supports_tools: bool,
+) -> bool {
+    memory_enabled && matches!(provider_id, "ollama" | "openai") && model_supports_tools
+}
+
+/// Routes one explicitly enabled generation into its provider-native memory-tool loop.
+pub(crate) async fn stream_memory_tools(
+    provider: RoutedProvider,
+    request: ChatRequest,
+    sink: impl StreamSink + Clone + Send + Sync + 'static,
+    store: ConversationStore,
+    provider_run_id: String,
+    query_embedder: SemanticQueryEmbedder,
+    cancellation: ToolLoopCancellation,
+) -> Result<Option<Usage>, ProviderError> {
+    match provider {
+        RoutedProvider::Ollama(provider) => {
+            stream_ollama_memory_tools(
+                provider,
+                request,
+                sink,
+                store,
+                provider_run_id,
+                query_embedder,
+                cancellation,
+            )
+            .await
+        }
+        RoutedProvider::OpenAi(provider) => {
+            stream_openai_memory_tools(
+                provider,
+                request,
+                sink,
+                store,
+                provider_run_id,
+                query_embedder,
+                cancellation,
+            )
+            .await
+        }
+        RoutedProvider::Omlx(_) | RoutedProvider::Anthropic(_) => Err(ProviderError::internal(
+            "The selected provider does not map Bottie's native memory tools.",
+            None,
+        )),
+    }
+}
+
+/// Runs repeated OpenAI Chat Completions tool rounds through shared durable loop policy.
+pub(crate) async fn stream_openai_memory_tools(
+    provider: OpenAiProvider,
+    request: ChatRequest,
+    sink: impl StreamSink + Clone + Send + Sync + 'static,
+    store: ConversationStore,
+    provider_run_id: String,
+    query_embedder: SemanticQueryEmbedder,
+    cancellation: ToolLoopCancellation,
+) -> Result<Option<Usage>, ProviderError> {
+    let mut session = OpenAiToolSession::new(request)?;
+    let mut loop_state: Option<ToolLoopState> = None;
+    let mut cumulative_usage = None;
+    loop {
+        let round = provider.stream_tool_round(&session, sink.clone()).await?;
+        cumulative_usage = merge_usage(cumulative_usage, round.usage.clone());
+        if let Some(usage) = &cumulative_usage {
+            sink.usage_updated(usage.clone())?;
+        }
+        if round.tool_calls.is_empty() {
+            if let Some(state) = &mut loop_state {
+                state.complete(&cancellation).map_err(tool_loop_error)?;
+            }
+            return Ok(cumulative_usage);
+        }
+
+        let mut state = loop_state.unwrap_or_else(|| ToolLoopState::new(std::time::Instant::now()));
+        let calls = round.tool_calls.clone();
+        let round_store = store.clone();
+        let round_run_id = provider_run_id.clone();
+        let mut round_embedder = query_embedder.clone();
+        let round_cancellation = cancellation.clone();
+        let (returned_state, results) = tauri::async_runtime::spawn_blocking(move || {
+            let results = execute_openai_memory_round(
+                &round_store,
+                &round_run_id,
+                &mut round_embedder,
+                &mut state,
+                calls,
+                &round_cancellation,
+            );
+            (state, results)
+        })
+        .await
+        .map_err(|_| {
+            ProviderError::internal("The native memory-tool worker stopped unexpectedly.", None)
+        })?;
+        loop_state = Some(returned_state);
+        session.append_results(round, results?)?;
+    }
+}
 
 /// Runs repeated Ollama chat/tool rounds through one durable provider run and shared policy state.
 pub(crate) async fn stream_ollama_memory_tools(
@@ -68,7 +173,7 @@ pub(crate) async fn stream_ollama_memory_tools(
     }
 }
 
-/// Adds provider-reported usage across Ollama requests in one logical generation.
+/// Adds provider-reported usage and cost across requests in one logical generation.
 fn merge_usage(current: Option<Usage>, next: Option<Usage>) -> Option<Usage> {
     match (current, next) {
         (None, None) => None,
@@ -78,9 +183,17 @@ fn merge_usage(current: Option<Usage>, next: Option<Usage>) -> Option<Usage> {
             Some(Usage {
                 input_tokens: merge_count(current.input_tokens, next.input_tokens),
                 output_tokens: merge_count(current.output_tokens, next.output_tokens),
-                cost_usd: None,
+                cost_usd: merge_cost(current.cost_usd, next.cost_usd),
             })
         }
+    }
+}
+
+/// Adds optional provider costs without inventing a value when both rounds omitted it.
+fn merge_cost(current: Option<f64>, next: Option<f64>) -> Option<f64> {
+    match (current, next) {
+        (None, None) => None,
+        (current, next) => Some(current.unwrap_or_default() + next.unwrap_or_default()),
     }
 }
 
@@ -134,6 +247,44 @@ pub(crate) fn execute_ollama_memory_round(
                 ProviderError::internal("The native tool result could not be serialized.", None)
             })?;
             Ok(OllamaToolResult { tool_name, content })
+        })
+        .collect()
+}
+
+/// Executes one OpenAI-emitted call batch while preserving provider identities exactly.
+pub(crate) fn execute_openai_memory_round(
+    store: &ConversationStore,
+    provider_run_id: &str,
+    embedder: &mut impl SemanticEmbedder,
+    state: &mut ToolLoopState,
+    calls: Vec<OpenAiToolCall>,
+    cancellation: &ToolLoopCancellation,
+) -> Result<Vec<OpenAiToolResult>, ProviderError> {
+    let native_calls = calls
+        .into_iter()
+        .map(|call| NativeToolCall {
+            call_id: call.call_id().to_owned(),
+            tool_name: call.tool_name().to_owned(),
+            arguments: call.arguments().clone(),
+        })
+        .collect();
+    state
+        .execute_round_try_with(
+            native_calls,
+            cancellation,
+            std::time::Instant::now,
+            |call| execute_and_checkpoint(store, provider_run_id, embedder, call),
+        )
+        .map_err(round_error)?
+        .into_iter()
+        .map(|result| {
+            let content = serde_json::to_string(&result.execution).map_err(|_| {
+                ProviderError::internal("The native tool result could not be serialized.", None)
+            })?;
+            Ok(OpenAiToolResult {
+                tool_call_id: result.call_id,
+                content,
+            })
         })
         .collect()
 }

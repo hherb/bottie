@@ -4,6 +4,7 @@ import type { Attachment, Message } from "$lib/presentation";
 
 import {
   inferenceStages,
+  memoryToolsAvailable,
   messageAttachmentAssociations,
   nextRequestAttachments,
   selectedProviderEndpoint,
@@ -22,6 +23,25 @@ const attachment: Attachment = {
 };
 
 describe("page presentation", () => {
+  it("offers native memory tools only on mapped providers that advertise tools", () => {
+    const model = (providerId: "ollama" | "openai" | "anthropic" | "omlx", tools: boolean) => ({
+      providerId,
+      providerName: providerId,
+      modelId: "model",
+      displayName: "Model",
+      maxContextTokens: null,
+      loadState: "unknown" as const,
+      capabilities: { text: true, streaming: true, tools, vision: false, embeddings: false },
+    });
+
+    expect(memoryToolsAvailable(model("ollama", true))).toBe(true);
+    expect(memoryToolsAvailable(model("openai", true))).toBe(true);
+    expect(memoryToolsAvailable(model("openai", false))).toBe(false);
+    expect(memoryToolsAvailable(model("anthropic", true))).toBe(false);
+    expect(memoryToolsAvailable(model("omlx", true))).toBe(false);
+    expect(memoryToolsAvailable(undefined)).toBe(false);
+  });
+
   it("keeps draft, conversation, and message scope identities explicit", () => {
     const messages: Message[] = [
       { id: 1, storageId: "message-1", role: "user", content: "Use context", attachments: [attachment] },

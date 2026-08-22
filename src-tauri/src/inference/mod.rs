@@ -15,6 +15,7 @@ pub use ollama::OllamaProvider;
 pub(crate) use ollama::{OllamaToolCall, OllamaToolResult, OllamaToolSession};
 pub use omlx::OmlxProvider;
 pub use openai::OpenAiProvider;
+pub(crate) use openai::{OpenAiToolCall, OpenAiToolResult, OpenAiToolSession};
 pub use provider::{InferenceProvider, StreamSink};
 pub use settings::{
     ProviderSettings, load_provider_settings, redact_diagnostic, save_provider_settings,

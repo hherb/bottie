@@ -2,22 +2,67 @@
 
 use futures_util::StreamExt;
 use reqwest::{Client, StatusCode};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use url::Url;
 
 use super::{
     InferenceProvider, StreamSink,
-    multimodal::{OpenAiContent, openai_content},
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_remote_base_url},
     sse::SseDecoder,
-    types::{
-        ChatRequest, ChatRole, ModelInfo, ModelLoadState, ProviderCapabilities, ProviderError,
-        ProviderErrorCode, ReasoningEffort, Usage,
-    },
+    types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
 };
+use crate::tool_contract::memory_tool_definitions;
+
+use self::protocol::{
+    DecodedStreamEvent, OpenAiChatRequest, OpenAiToolCallAccumulator, decode_stream_payload,
+};
+
+mod discovery;
+mod protocol;
+
+use discovery::decode_model_list;
+
+pub(crate) use protocol::{OpenAiToolCall, OpenAiToolResult};
 
 const PROVIDER_ID: &str = "openai";
 const PROVIDER_NAME: &str = "OpenAI-compatible";
+
+/// One provider-native Chat Completions history spanning repeated memory-tool rounds.
+pub(crate) struct OpenAiToolSession {
+    request: OpenAiChatRequest,
+}
+
+impl OpenAiToolSession {
+    /// Starts a session with Bottie's complete closed native memory-tool definition set.
+    pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
+        validate_request(&request)?;
+        Ok(Self {
+            request: OpenAiChatRequest::with_tools(request, memory_tool_definitions()),
+        })
+    }
+
+    /// Appends one accumulated assistant call batch and its exact correlated native results.
+    pub(crate) fn append_results(
+        &mut self,
+        round: OpenAiToolRound,
+        results: Vec<OpenAiToolResult>,
+    ) -> Result<(), ProviderError> {
+        self.request
+            .append_tool_exchange(round.reasoning, round.content, round.tool_calls, results)
+    }
+}
+
+/// One complete streamed Chat Completions assistant round before optional native execution.
+pub(crate) struct OpenAiToolRound {
+    /// Accumulated separate reasoning required in the next provider request when reported.
+    pub(crate) reasoning: String,
+    /// Accumulated assistant answer text required in the next provider request.
+    pub(crate) content: String,
+    /// Ordered complete function calls reconstructed from streamed fragments.
+    pub(crate) tool_calls: Vec<OpenAiToolCall>,
+    /// Provider-reported usage for this Chat Completions request.
+    pub(crate) usage: Option<Usage>,
+}
 
 /// Rust-owned adapter for OpenAI's chat-completion protocol.
 #[derive(Clone)]
@@ -51,6 +96,23 @@ impl OpenAiProvider {
         })
     }
 
+    #[cfg(test)]
+    /// Builds a test-only adapter for an isolated loopback HTTP fixture.
+    pub(crate) fn for_loopback_fixture(base_url: &str) -> Result<Self, ProviderError> {
+        let base_url = Url::parse(base_url).map_err(|_| {
+            ProviderError::internal("Could not construct the OpenAI test endpoint.", None)
+        })?;
+        let client = Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|_| ProviderError::internal("Could not initialize OpenAI tests.", None))?;
+        Ok(Self {
+            client,
+            base_url,
+            api_key: "fixture-secret".into(),
+        })
+    }
+
     /// Returns the normalized HTTPS API root without credential material.
     pub(crate) fn base_url(&self) -> &str {
         self.base_url.as_str()
@@ -60,6 +122,74 @@ impl OpenAiProvider {
         self.base_url.join(path).map_err(|_| {
             ProviderError::internal("Could not construct the OpenAI-compatible endpoint.", None)
         })
+    }
+
+    /// Streams one tool-capable Chat Completions round without exposing provider JSON.
+    pub(crate) async fn stream_tool_round(
+        &self,
+        session: &OpenAiToolSession,
+        sink: impl StreamSink + Send + Sync,
+    ) -> Result<OpenAiToolRound, ProviderError> {
+        self.stream_request(&session.request, sink, false).await
+    }
+
+    /// Streams one concrete request while accumulating fields required by a tool follow-up.
+    async fn stream_request(
+        &self,
+        request: &OpenAiChatRequest,
+        sink: impl StreamSink + Send + Sync,
+        emit_usage: bool,
+    ) -> Result<OpenAiToolRound, ProviderError> {
+        let response = self
+            .client
+            .post(self.endpoint("chat/completions")?)
+            .bearer_auth(&self.api_key)
+            .json(request)
+            .send()
+            .await
+            .map_err(map_request_error)?;
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+
+        let mut bytes = response.bytes_stream();
+        let mut decoder = SseDecoder::default();
+        let mut calls = OpenAiToolCallAccumulator::default();
+        let mut round = OpenAiToolRound {
+            reasoning: String::new(),
+            content: String::new(),
+            tool_calls: Vec::new(),
+            usage: None,
+        };
+        while let Some(chunk) = bytes.next().await {
+            let chunk = chunk.map_err(map_request_error)?;
+            for payload in decoder.push(&chunk)? {
+                if process_stream_event(
+                    decode_stream_payload(&payload)?,
+                    &sink,
+                    &mut round,
+                    &mut calls,
+                    emit_usage,
+                )? {
+                    return Ok(round);
+                }
+            }
+        }
+        for payload in decoder.finish()? {
+            if process_stream_event(
+                decode_stream_payload(&payload)?,
+                &sink,
+                &mut round,
+                &mut calls,
+                emit_usage,
+            )? {
+                return Ok(round);
+            }
+        }
+        Err(ProviderError::malformed(
+            "The OpenAI-compatible response ended before completion.",
+            Some("SSE stream did not contain data: [DONE]".into()),
+        ))
     }
 }
 
@@ -85,58 +215,39 @@ impl InferenceProvider for OpenAiProvider {
         sink: impl StreamSink + Send + Sync,
     ) -> Result<Option<Usage>, ProviderError> {
         validate_request(&request)?;
-        let response = self
-            .client
-            .post(self.endpoint("chat/completions")?)
-            .bearer_auth(&self.api_key)
-            .json(&OpenAiChatRequest::from(request))
-            .send()
+        self.stream_request(&OpenAiChatRequest::from(request), sink, true)
             .await
-            .map_err(map_request_error)?;
-        if !response.status().is_success() {
-            return Err(response_error(response).await);
-        }
-
-        let mut bytes = response.bytes_stream();
-        let mut decoder = SseDecoder::default();
-        let mut usage = None;
-        let mut completed = false;
-        while let Some(chunk) = bytes.next().await {
-            let chunk = chunk.map_err(map_request_error)?;
-            for payload in decoder.push(&chunk)? {
-                process_payload(&payload, &sink, &mut usage, &mut completed)?;
-            }
-        }
-        for payload in decoder.finish()? {
-            process_payload(&payload, &sink, &mut usage, &mut completed)?;
-        }
-        if !completed {
-            return Err(ProviderError::malformed(
-                "The OpenAI-compatible response ended before completion.",
-                Some("SSE stream did not contain data: [DONE]".into()),
-            ));
-        }
-        Ok(usage)
+            .map(|round| round.usage)
     }
 }
 
-fn process_payload(
-    payload: &str,
+/// Applies one decoded event and accumulates provider fields needed for a follow-up request.
+fn process_stream_event(
+    event: DecodedStreamEvent,
     sink: &(impl StreamSink + Send + Sync),
-    usage: &mut Option<Usage>,
-    completed: &mut bool,
-) -> Result<(), ProviderError> {
-    match decode_stream_payload(payload)? {
-        DecodedEvent::Text(delta) if !delta.is_empty() => sink.text_delta(delta)?,
-        DecodedEvent::Reasoning(delta) if !delta.is_empty() => sink.reasoning_delta(delta)?,
-        DecodedEvent::Usage(updated) => {
-            sink.usage_updated(updated.clone())?;
-            *usage = Some(updated);
-        }
-        DecodedEvent::Done => *completed = true,
-        DecodedEvent::Text(_) | DecodedEvent::Reasoning(_) => {}
+    round: &mut OpenAiToolRound,
+    calls: &mut OpenAiToolCallAccumulator,
+    emit_usage: bool,
+) -> Result<bool, ProviderError> {
+    if !event.reasoning_delta.is_empty() {
+        round.reasoning.push_str(&event.reasoning_delta);
+        sink.reasoning_delta(event.reasoning_delta)?;
     }
-    Ok(())
+    if !event.text_delta.is_empty() {
+        round.content.push_str(&event.text_delta);
+        sink.text_delta(event.text_delta)?;
+    }
+    calls.extend(event.tool_call_deltas)?;
+    if let Some(usage) = event.usage {
+        if emit_usage {
+            sink.usage_updated(usage.clone())?;
+        }
+        round.usage = Some(usage);
+    }
+    if event.done {
+        round.tool_calls = std::mem::take(calls).finish()?;
+    }
+    Ok(event.done)
 }
 
 fn validate_request(request: &ChatRequest) -> Result<(), ProviderError> {
@@ -196,136 +307,6 @@ fn normalize_response_error(status: StatusCode, body: &str) -> ProviderError {
 }
 
 #[derive(Deserialize)]
-struct ModelList {
-    data: Vec<ModelRecord>,
-}
-
-#[derive(Deserialize)]
-struct ModelRecord {
-    id: String,
-    #[serde(default)]
-    capabilities: Vec<String>,
-}
-
-fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
-    let response: ModelList = serde_json::from_slice(bytes).map_err(|error| {
-        ProviderError::malformed(
-            "The OpenAI-compatible provider returned an invalid model list.",
-            Some(error.to_string()),
-        )
-    })?;
-    let models = response
-        .data
-        .into_iter()
-        .filter(|model| !model.id.trim().is_empty())
-        .map(|model| {
-            let vision = model
-                .capabilities
-                .iter()
-                .any(|capability| capability == "vision");
-            ModelInfo {
-                provider_id: PROVIDER_ID.into(),
-                provider_name: PROVIDER_NAME.into(),
-                display_name: model.id.clone(),
-                model_id: model.id,
-                max_context_tokens: None,
-                load_state: ModelLoadState::Unknown,
-                capabilities: ProviderCapabilities {
-                    text: true,
-                    streaming: true,
-                    vision,
-                    ..Default::default()
-                },
-            }
-        })
-        .collect::<Vec<_>>();
-    if models.is_empty() {
-        Err(ProviderError::unavailable(
-            "The OpenAI-compatible provider reported no models.",
-            None,
-        ))
-    } else {
-        Ok(models)
-    }
-}
-
-#[derive(Serialize)]
-struct OpenAiChatRequest {
-    model: String,
-    messages: Vec<OpenAiTurn>,
-    stream: bool,
-    stream_options: OpenAiStreamOptions,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    max_completion_tokens: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reasoning_effort: Option<&'static str>,
-}
-
-#[derive(Serialize)]
-struct OpenAiStreamOptions {
-    include_usage: bool,
-}
-
-#[derive(Serialize)]
-struct OpenAiTurn {
-    role: &'static str,
-    content: OpenAiContent,
-}
-
-impl From<ChatRequest> for OpenAiChatRequest {
-    fn from(request: ChatRequest) -> Self {
-        Self {
-            model: request.model_id,
-            messages: request
-                .messages
-                .into_iter()
-                .map(|turn| OpenAiTurn {
-                    role: match turn.role {
-                        ChatRole::System => "system",
-                        ChatRole::User => "user",
-                        ChatRole::Assistant => "assistant",
-                    },
-                    content: openai_content(turn.content),
-                })
-                .collect(),
-            stream: true,
-            stream_options: OpenAiStreamOptions {
-                include_usage: true,
-            },
-            max_completion_tokens: request.settings.max_output_tokens,
-            reasoning_effort: (request.settings.reasoning_effort == ReasoningEffort::Low)
-                .then_some("low"),
-        }
-    }
-}
-
-#[derive(Deserialize)]
-struct StreamChunk {
-    #[serde(default)]
-    choices: Vec<Choice>,
-    usage: Option<WireUsage>,
-}
-
-#[derive(Deserialize)]
-struct Choice {
-    delta: Delta,
-}
-
-#[derive(Default, Deserialize)]
-struct Delta {
-    content: Option<String>,
-    reasoning_content: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct WireUsage {
-    prompt_tokens: Option<u64>,
-    completion_tokens: Option<u64>,
-    #[serde(alias = "cost")]
-    cost_usd: Option<f64>,
-}
-
-#[derive(Deserialize)]
 struct OpenAiErrorResponse {
     error: OpenAiError,
 }
@@ -335,66 +316,30 @@ struct OpenAiError {
     message: String,
 }
 
-enum DecodedEvent {
-    Text(String),
-    Reasoning(String),
-    Usage(Usage),
-    Done,
-}
-
-fn decode_stream_payload(payload: &str) -> Result<DecodedEvent, ProviderError> {
-    if payload.trim() == "[DONE]" {
-        return Ok(DecodedEvent::Done);
-    }
-    let chunk: StreamChunk = serde_json::from_str(payload).map_err(|error| {
-        ProviderError::malformed(
-            "The OpenAI-compatible provider sent a malformed stream event.",
-            Some(error.to_string()),
-        )
-    })?;
-    if let Some(usage) = chunk.usage {
-        return Ok(DecodedEvent::Usage(Usage {
-            input_tokens: usage.prompt_tokens,
-            output_tokens: usage.completion_tokens,
-            cost_usd: usage.cost_usd,
-        }));
-    }
-    let delta = chunk
-        .choices
-        .into_iter()
-        .next()
-        .map(|choice| choice.delta)
-        .unwrap_or_default();
-    if let Some(reasoning) = delta.reasoning_content {
-        Ok(DecodedEvent::Reasoning(reasoning))
-    } else {
-        Ok(DecodedEvent::Text(delta.content.unwrap_or_default()))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::inference::ContentBlock;
+    use crate::tool_contract::memory_tool_definitions;
 
     #[test]
     fn decodes_models_usage_cost_and_reasoning() {
-        let models =
-            decode_model_list(br#"{"data":[{"id":"gpt-example","capabilities":["vision"]}]}"#)
-                .unwrap();
+        let models = decode_model_list(
+            br#"{"data":[{"id":"gpt-example","capabilities":["vision","tools"]}]}"#,
+        )
+        .unwrap();
         assert_eq!(models[0].provider_id, "openai");
         assert!(models[0].capabilities.vision);
+        assert!(models[0].capabilities.tools);
         let usage = decode_stream_payload(
             r#"{"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":7,"cost":0.004}}"#,
         )
         .unwrap();
-        assert!(
-            matches!(usage, DecodedEvent::Usage(Usage { cost_usd: Some(cost), .. }) if cost == 0.004)
-        );
+        assert_eq!(usage.usage.and_then(|usage| usage.cost_usd), Some(0.004));
         let reasoning =
             decode_stream_payload(r#"{"choices":[{"delta":{"reasoning_content":"checking"}}]}"#)
                 .unwrap();
-        assert!(matches!(reasoning, DecodedEvent::Reasoning(value) if value == "checking"));
+        assert_eq!(reasoning.reasoning_delta, "checking");
     }
 
     #[test]
@@ -432,5 +377,77 @@ mod tests {
             body["messages"][0]["content"][1]["image_url"]["url"],
             "data:image/png;base64,bm9ybWFsaXplZC1wbmc="
         );
+    }
+
+    #[test]
+    fn request_maps_closed_native_memory_definitions_into_openai_tools() {
+        let request: ChatRequest = serde_json::from_value(serde_json::json!({
+            "providerId": "openai",
+            "modelId": "gpt-example",
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "recall this"}]}]
+        }))
+        .unwrap();
+
+        let body = serde_json::to_value(OpenAiChatRequest::with_tools(
+            request,
+            memory_tool_definitions(),
+        ))
+        .unwrap();
+
+        assert_eq!(body["tools"].as_array().map(Vec::len), Some(3));
+        assert_eq!(body["tools"][0]["type"], "function");
+        assert_eq!(body["tools"][0]["function"]["name"], "search_memory");
+        assert_eq!(
+            body["tools"][0]["function"]["parameters"]["additionalProperties"],
+            false
+        );
+    }
+
+    #[test]
+    fn reconstructs_fragmented_openai_calls_and_correlates_follow_up_results() {
+        let mut calls = OpenAiToolCallAccumulator::default();
+        for payload in [
+            r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"search_memory","arguments":"{\"query\":"}}]}}]}"#,
+            r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"release\"}"}}]}}]}"#,
+        ] {
+            let event = decode_stream_payload(payload).unwrap();
+            calls.extend(event.tool_call_deltas).unwrap();
+        }
+        let calls = calls.finish().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].call_id(), "call_1");
+        assert_eq!(calls[0].tool_name(), "search_memory");
+        assert_eq!(
+            calls[0].arguments(),
+            &serde_json::json!({"query": "release"})
+        );
+
+        let mut request: ChatRequest = serde_json::from_value(serde_json::json!({
+            "providerId": "openai",
+            "modelId": "gpt-example",
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "recall this"}]}]
+        }))
+        .unwrap();
+        request.memory_enabled = true;
+        let mut session = OpenAiToolSession::new(request).unwrap();
+        session
+            .append_results(
+                OpenAiToolRound {
+                    reasoning: String::new(),
+                    content: String::new(),
+                    tool_calls: calls,
+                    usage: None,
+                },
+                vec![OpenAiToolResult {
+                    tool_call_id: "call_1".into(),
+                    content: r#"{"ok":true,"result":{}}"#.into(),
+                }],
+            )
+            .unwrap();
+        let body = serde_json::to_value(&session.request).unwrap();
+        assert_eq!(body["messages"][1]["role"], "assistant");
+        assert_eq!(body["messages"][1]["tool_calls"][0]["id"], "call_1");
+        assert_eq!(body["messages"][2]["role"], "tool");
+        assert_eq!(body["messages"][2]["tool_call_id"], "call_1");
     }
 }

@@ -43,6 +43,7 @@ import {
 import { ConversationState } from "./conversation-state.svelte";
 import { AttachmentState } from "./attachment-state.svelte";
 import { RecoveryState } from "./recovery-state.svelte";
+import { memoryToolsAvailable } from "./page-presentation";
 
 const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
@@ -99,9 +100,9 @@ export class PageState {
   get isLocalRoute(): boolean {
     return !isCloudProvider(this.selectedProviderId);
   }
-  /** Whether the selected local provider/model pair can accept Bottie's native memory tools. */
+  /** Whether the selected mapped provider/model pair can accept Bottie's native memory tools. */
   get memoryAvailable(): boolean {
-    return this.selectedModel?.providerId === "ollama" && this.selectedModel.capabilities.tools;
+    return memoryToolsAvailable(this.selectedModel);
   }
   /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {
@@ -215,7 +216,7 @@ export class PageState {
     await this.rememberCurrentSelection();
   }
 
-  /** Toggles explicit native memory-tool availability for the next compatible Ollama request. */
+  /** Toggles explicit native memory-tool availability for the next compatible provider request. */
   toggleMemory(): void {
     if (this.memoryAvailable && !this.isGenerating) this.memoryEnabled = !this.memoryEnabled;
   }
@@ -476,13 +477,11 @@ export class PageState {
     if (reply) reply.meta = "Stopping · saving partial response";
     if (runId) void cancelChat(runId);
   }
-
   /** Sends the draft or cancels the current stream according to generation state. */
   handleSendButton(): void {
     if (this.isGenerating) this.stopGenerating();
     else void this.sendMessage();
   }
-
   /** Clears the active thread; its first submitted prompt creates durable storage. */
   async startNewChat(): Promise<void> {
     if (this.activeRunId) void cancelChat(this.activeRunId);

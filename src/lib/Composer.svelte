@@ -117,7 +117,7 @@
             ? memoryEnabled
               ? "Disable memory tools"
               : "Enable memory tools"
-            : "Memory tools require a tool-capable Ollama model"}
+            : "Memory tools require a tool-capable Ollama or OpenAI-compatible model"}
           aria-pressed={memoryAvailable && memoryEnabled}
           disabled={!memoryAvailable || isGenerating}
           onclick={ontogglememory}
