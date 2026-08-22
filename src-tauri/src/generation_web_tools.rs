@@ -28,6 +28,11 @@ pub(crate) fn web_tools_enabled(
     web_enabled && matches!(provider_id, "ollama" | "openai" | "anthropic") && model_supports_tools
 }
 
+/// Confirms that an already-enabled Web request has an explicit provider-native fetch mapping.
+pub(crate) fn web_fetch_enabled(web_tools_enabled: bool, provider_id: &str) -> bool {
+    web_tools_enabled && matches!(provider_id, "ollama" | "openai")
+}
+
 /// Confirms explicit Memory intent plus a mapped provider's discovered per-model tool capability.
 pub(crate) fn memory_tools_enabled(
     memory_enabled: bool,
@@ -162,6 +167,15 @@ mod tests {
     /// Secret-free fixture with no configured native credential.
     struct CredentialFixture {
         fail_read: bool,
+    }
+
+    #[test]
+    fn enables_web_fetch_only_for_explicitly_mapped_web_tool_routes() {
+        assert!(web_fetch_enabled(true, "ollama"));
+        assert!(web_fetch_enabled(true, "openai"));
+        assert!(!web_fetch_enabled(false, "openai"));
+        assert!(!web_fetch_enabled(true, "anthropic"));
+        assert!(!web_fetch_enabled(true, "omlx"));
     }
 
     impl CredentialStore for CredentialFixture {
