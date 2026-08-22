@@ -227,9 +227,10 @@ candidates, groups them by source, and combines one rank per engine with recipro
 semantic chunk supplies exact excerpt offsets while lexical-only sources retain bounded FTS5 snippets. Reindex
 controls are now explicit in Settings: the WebView receives only durable state, completed/total counts, and a stable
 failure category. Reindexing serializes with restore, pauses the worker, atomically removes only derived vectors,
-retains chunks and the application-owned model cache, then resumes bounded background work. Memory tools and retrieval
-injection remain unimplemented, and no query, fused result, chunk, vector, source identity, cache path, or model failure
-detail crosses IPC.
+retains chunks and the application-owned model cache, then resumes bounded background work. Native-only
+`search_memory` and `open_memory` contracts provide bounded message excerpts and surrounding final turns for a future
+tool runtime. Executable tools and retrieval injection remain unimplemented, and no query, fused result, chunk,
+vector, source identity, cache path, or model failure detail crosses IPC.
 
 Run the layout-only browser preview:
 
@@ -264,5 +265,7 @@ The native memory subsystem uses FastEmbed 6 with Q4 EmbeddingGemma 300M as its 
 Bottie owns the model cache, durable acquisition/index progress, semantic-query prompting, and embedding/index
 versions; users do not configure a second inference provider merely to enable local memory indexing. A native-only
 `search_memory` contract now returns at most ten hybrid-ranked final-message excerpts with path-free conversation and
-message provenance for a future tool runtime. Provider invocation, automatic prompt injection, document search, and
-memory citations remain unavailable; Settings exposes only path-free progress and the derived-only reindex control.
+message provenance for a future tool runtime. A matching native-only `open_memory` contract resolves exact provenance
+into the matched message's immutable branch lineage, returning at most three final text turns on either side without
+changing the selected branch. Provider invocation, automatic prompt injection, document search, and memory citations
+remain unavailable; Settings exposes only path-free progress and the derived-only reindex control.
