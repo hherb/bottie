@@ -37,6 +37,11 @@ domain policy to its query API; Exa maps domains to native arrays and freshness 
 bound. Both adapters recheck returned hosts. A session-only Web toggle is available for tool-capable Ollama,
 OpenAI-compatible, and Anthropic-compatible models. When enabled, each mapped provider can call the closed definition
 through Bottie's existing bounded native loop; every call and exact result is checkpointed before provider reuse.
+A separate closed `web_fetch` foundation validates one absolute public HTTP(S) URL, blocks IP literals, special-use
+names, non-default ports, and any non-public DNS answer, pins accepted addresses per hop, and revalidates at most three
+redirects under one 15-second deadline. It accepts at most 48 KiB of valid UTF-8 HTML, XHTML, or plain page source and
+marks it untrusted inside the existing 64 KiB dispatcher envelope. No model adapter advertises `web_fetch` yet, so the
+Web toggle's current user-visible behavior remains search-only.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -82,8 +87,8 @@ or Anthropic-shaped image blocks without exposing bytes to JavaScript. An explic
 available for Ollama, OpenAI-compatible, and Anthropic-compatible models that advertise tools. Those requests may
 execute bounded native conversation or retained-document retrieval and return path-free excerpts through the
 provider's native tool shape; no document is injected automatically. The native dispatcher classifies every
-registered tool as safe or approval-required before validation or execution. The three bounded read-only memory tools
-are explicitly safe inside that Memory-enabled request; unknown tools fail closed, and any future approval-required
+registered tool as safe or approval-required before validation or execution. The bounded read-only memory and Web
+contracts have explicit safe entries; unknown tools fail closed, and any future approval-required
 call must consume a Rust-owned grant over its exact provider call ID, name, and arguments. No approval UI or
 approval-required tool is registered yet. oMLX tool mapping, other office formats, and direct document delivery remain
 unimplemented. A separate Web toggle is off by default and available for tool-capable Ollama, OpenAI-compatible, and
@@ -313,12 +318,13 @@ message provenance for the mapped tool runtime. A matching native-only `open_mem
 into the matched message's immutable branch lineage, returning at most three final text turns on either side without
 changing the selected branch. Native-only `search_attached_files` applies the same bounded hybrid policy to ready
 extracted documents that retain an active or Archived association, returning safe file metadata and optional exact
-chunk offsets without paths, hashes, scores, or full extracted text. Provider-independent definitions expose only
-those three tools through closed schemas: required and optional fields, JSON types, Unicode-scalar identity/query
-ceilings, result/window bounds, and unknown-field rejection are enforced before typed dispatch. Provider invocation
-and executable dispatch are available only through explicitly enabled, tool-capable Ollama, OpenAI-compatible, and
-Anthropic-compatible requests. The common dispatcher additionally applies an explicit native execution policy before
-argument validation: current bounded read-only memory tools are safe, unknown tools fail closed, and future
+chunk offsets without paths, hashes, scores, or full extracted text. Provider-independent definitions expose those
+three memory tools plus `web_search` and the not-yet-mapped `web_fetch` through closed schemas. Required and optional
+fields, JSON types, Unicode-scalar identity/query/URL ceilings, result/window bounds, public-network policy, and
+unknown-field rejection are enforced before typed dispatch. Memory and web-search provider invocation is available
+only through explicitly enabled, tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. The common
+dispatcher additionally applies an explicit native execution policy before argument validation: current bounded
+read-only memory and Web tools are safe, unknown tools fail closed, and future
 approval-required tools cannot run without an exact Rust-owned call grant. Providers and WebView arguments cannot
 grant approval, and grants are consumed rather than reusable. Successful selected-lineage results appear as path-free
 removable Context-panel
@@ -332,9 +338,10 @@ attachment links, and message-derived lexical/chunk/vector rows in one transacti
 shared elsewhere remain; newly unreferenced originals, extraction text, and derivatives keep the existing 24-hour
 cross-process safety window before startup garbage collection removes them. Existing exports, manual backups, and
 automatic recovery snapshots are not rewritten and must be managed separately. The application-owned embedding-model
-cache is not conversation data and is retained. oMLX mapping, automatic prompt injection, document opening,
-web tools, and attachment retry remain unavailable. Settings also exposes opt-in Trash retention: keep until manual
-forget (the default), 30 days, 90 days, or one year from the time a conversation enters Trash. Rust stores only that
+cache is not conversation data and is retained. `web_fetch` provider mapping, oMLX tool mapping, automatic prompt
+injection, document opening, and attachment retry remain unavailable. Settings also exposes opt-in Trash retention:
+keep until manual forget (the default), 30 days, 90 days, or one year from the time a conversation enters Trash. Rust
+stores only that
 bounded period and permanently removes expired Trash on the next healthy app launch through the same live-store
 cascades as explicit forget. Active and Archived conversations are never affected. Unshared attachments retain the
 existing 24-hour safety window; exports, backup snapshots, and the application-owned embedding-model cache are not

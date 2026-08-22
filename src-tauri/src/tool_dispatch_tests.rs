@@ -8,9 +8,14 @@ use crate::{
     storage::{ConversationStore, MessageState, NewStoredMessage, SemanticEmbedder, StoredRole},
     tool_dispatch::{
         MAX_MEMORY_TOOL_OUTPUT_BYTES, MemoryToolExecution, MemoryToolExecutionErrorCode,
-        bounded_memory_tool_success, dispatch_memory_tool, dispatch_web_search_tool,
+        bounded_memory_tool_success, dispatch_memory_tool, dispatch_web_fetch_tool,
+        dispatch_web_search_tool,
     },
     tool_loop::NativeToolCall,
+    web_fetch::{
+        WebFetchError, WebFetchProvider, WebFetchRequest, WebFetchResponse,
+        fixture_web_fetch_response,
+    },
     web_search::{
         WebSearchError, WebSearchProvider, WebSearchRequest, WebSearchResponse,
         fixture_web_search_response,
@@ -32,6 +37,20 @@ struct DispatchEmbedder {
 struct DispatchSearchProvider {
     requests: Arc<Mutex<Vec<WebSearchRequest>>>,
     result: Result<WebSearchResponse, WebSearchError>,
+}
+
+/// Deterministic native web-fetch fixture that records validated requests.
+#[derive(Clone)]
+struct DispatchFetchProvider {
+    requests: Arc<Mutex<Vec<WebFetchRequest>>>,
+    result: Result<WebFetchResponse, WebFetchError>,
+}
+
+impl WebFetchProvider for DispatchFetchProvider {
+    async fn fetch(&self, request: WebFetchRequest) -> Result<WebFetchResponse, WebFetchError> {
+        self.requests.lock().unwrap().push(request);
+        self.result.clone()
+    }
 }
 
 impl WebSearchProvider for DispatchSearchProvider {
@@ -310,4 +329,63 @@ fn rejects_invalid_web_search_before_network_work_and_redacts_provider_failures(
     assert_eq!(error.code, MemoryToolExecutionErrorCode::Unavailable);
     assert!(!error.message.contains("private"));
     assert!(!error.message.contains("provider body"));
+}
+
+#[test]
+fn dispatches_validated_web_fetch_through_the_bounded_native_boundary() {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let provider = DispatchFetchProvider {
+        requests: requests.clone(),
+        result: Ok(fixture_web_fetch_response()),
+    };
+    let call = NativeToolCall {
+        call_id: "provider-call".into(),
+        tool_name: "web_fetch".into(),
+        arguments: json!({"url": "https://www.iana.org/release#notes"}),
+    };
+
+    let execution = tauri::async_runtime::block_on(dispatch_web_fetch_tool(&provider, &call, None));
+    let result = success_result(execution);
+    assert_eq!(result["finalUrl"], json!("https://www.iana.org/release"));
+    assert_eq!(result["contentType"], json!("text/html"));
+    assert_eq!(result["content"], json!("<p>Bounded fixture page.</p>"));
+    assert_eq!(result["untrusted"], json!(true));
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].url(), "https://www.iana.org/release");
+}
+
+#[test]
+fn rejects_invalid_web_fetch_before_network_work_and_redacts_failures() {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let provider = DispatchFetchProvider {
+        requests: requests.clone(),
+        result: Err(WebFetchError::unavailable()),
+    };
+    let invalid_call = NativeToolCall {
+        call_id: "provider-call".into(),
+        tool_name: "web_fetch".into(),
+        arguments: json!({"url": "http://127.0.0.1/private"}),
+    };
+    let invalid =
+        tauri::async_runtime::block_on(dispatch_web_fetch_tool(&provider, &invalid_call, None));
+    let MemoryToolExecution::Error { error } = invalid else {
+        panic!("invalid fetch should return an error envelope");
+    };
+    assert_eq!(error.code, MemoryToolExecutionErrorCode::InvalidArguments);
+    assert!(requests.lock().unwrap().is_empty());
+
+    let failed_call = NativeToolCall {
+        call_id: "provider-call".into(),
+        tool_name: "web_fetch".into(),
+        arguments: json!({"url": "https://www.iana.org/private"}),
+    };
+    let failed =
+        tauri::async_runtime::block_on(dispatch_web_fetch_tool(&provider, &failed_call, None));
+    let MemoryToolExecution::Error { error } = failed else {
+        panic!("fetch failure should return an error envelope");
+    };
+    assert_eq!(error.code, MemoryToolExecutionErrorCode::Unavailable);
+    assert!(!error.message.contains("private"));
 }

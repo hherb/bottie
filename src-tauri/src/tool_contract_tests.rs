@@ -6,9 +6,10 @@ use crate::{
     storage::{OpenMemoryArguments, SearchAttachedFilesArguments, SearchMemoryArguments},
     tool_contract::{
         MemoryToolArguments, ToolContractErrorCode, memory_tool_definitions,
-        validate_memory_tool_arguments, validate_web_search_tool_arguments,
-        web_search_tool_definition,
+        validate_memory_tool_arguments, validate_web_fetch_tool_arguments,
+        validate_web_search_tool_arguments, web_fetch_tool_definition, web_search_tool_definition,
     },
+    web_fetch::WebFetchArguments,
     web_search::{WebSearchArguments, WebSearchFreshness},
 };
 
@@ -19,6 +20,64 @@ fn definition(name: &str) -> Value {
         .find(|definition| definition.name == name)
         .map(|definition| serde_json::to_value(definition).expect("definition should serialize"))
         .expect("named memory tool should exist")
+}
+
+#[test]
+fn publishes_one_closed_provider_independent_web_fetch_schema() {
+    let definition = serde_json::to_value(web_fetch_tool_definition())
+        .expect("web-fetch definition should serialize");
+
+    assert_eq!(definition["name"], json!("web_fetch"));
+    assert_eq!(definition["inputSchema"]["type"], json!("object"));
+    assert_eq!(
+        definition["inputSchema"]["additionalProperties"],
+        json!(false)
+    );
+    assert_eq!(definition["inputSchema"]["required"], json!(["url"]));
+    assert_eq!(
+        definition["inputSchema"]["properties"]["url"]["maxLength"],
+        json!(4096)
+    );
+}
+
+#[test]
+fn validates_web_fetch_into_an_exact_public_url_argument() {
+    let arguments = validate_web_fetch_tool_arguments(
+        "web_fetch",
+        &json!({"url": "https://www.iana.org/release#notes"}),
+    )
+    .expect("web-fetch arguments should validate");
+
+    assert_eq!(
+        arguments,
+        WebFetchArguments {
+            url: "https://www.iana.org/release#notes".into(),
+        }
+    );
+}
+
+#[test]
+fn rejects_invalid_web_fetch_shapes_without_reflecting_arguments() {
+    for (tool_name, arguments) in [
+        ("web_search", json!({"url": "https://www.iana.org"})),
+        ("web_fetch", json!([])),
+        ("web_fetch", json!({})),
+        ("web_fetch", json!({"url": null})),
+        ("web_fetch", json!({"url": "file:///private/secret"})),
+        ("web_fetch", json!({"url": "http://127.0.0.1/private"})),
+        (
+            "web_fetch",
+            json!({"url": "https://user:secret@www.iana.org"}),
+        ),
+        (
+            "web_fetch",
+            json!({"url": "https://www.iana.org", "headers": {}}),
+        ),
+    ] {
+        let error = validate_web_fetch_tool_arguments(tool_name, &arguments)
+            .expect_err("invalid web-fetch arguments should fail");
+        assert!(!error.message.contains(&arguments.to_string()));
+    }
 }
 
 #[test]

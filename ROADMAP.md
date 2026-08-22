@@ -224,11 +224,13 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] explicit OpenAI Chat Completions definition/call/result mapping and generation-loop integration for
   `web_search`;
 - [x] explicit Anthropic Messages definition/call/result mapping and generation-loop integration for `web_search`;
-- `web_fetch` with redirects, size limits, content-type checks, and timeouts;
+- [x] provider-independent `web_fetch` contract and native public-network client/dispatcher with explicit redirects,
+  DNS/address pinning, size limits, UTF-8 content-type checks, and one shared timeout;
+- explicit Ollama, OpenAI-compatible, and Anthropic-compatible generation-loop mapping for `web_fetch`;
 - extraction to inert text with source URL, title, and publication metadata;
 - citations connected to claims and retained with the conversation;
 - prompt-injection labeling for untrusted retrieved content;
-- domain and network policy controls.
+- user-configurable domain and network policy controls.
 
 MCP interoperability can follow after bottie's own tool contract and policy model are stable.
 

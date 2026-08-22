@@ -3,7 +3,9 @@
 use serde_json::json;
 
 use crate::{
-    tool_contract::{memory_tool_definitions, web_search_tool_definition},
+    tool_contract::{
+        memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
+    },
     tool_dispatch::{MemoryToolExecution, MemoryToolExecutionErrorCode, policy_error},
     tool_loop::NativeToolCall,
     tool_policy::{
@@ -47,6 +49,21 @@ fn classifies_the_explicit_web_search_contract_as_safe() {
         "provider-call",
         definition.name,
         json!({"query": "current Bottie release"}),
+    );
+    assert!(authorize_tool_call(&call, None).is_ok());
+}
+
+#[test]
+fn classifies_the_bounded_public_web_fetch_contract_as_safe() {
+    let definition = web_fetch_tool_definition();
+    assert_eq!(
+        tool_execution_policy(definition.name),
+        Some(ToolExecutionPolicy::Safe)
+    );
+    let call = call(
+        "provider-call",
+        definition.name,
+        json!({"url": "https://www.iana.org/release"}),
     );
     assert!(authorize_tool_call(&call, None).is_ok());
 }

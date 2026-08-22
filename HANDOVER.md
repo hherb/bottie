@@ -141,8 +141,9 @@ also complete. Schema version 20 stores one optional built-in-profile Trash peri
 applied only during a healthy app startup; active and Archived conversations are never eligible. Automatic forget uses
 the same live-store cascade, attachment safety window, and external-copy/model-cache boundary as explicit forget. The
 native tool runtime now applies one fail-closed execution policy before validation or dispatch. The three explicitly
-enabled, bounded, read-only memory tools are classified safe; any future approval-required tool needs a one-use trusted
-native grant bound to the exact provider call identity, tool name, and arguments. Provider calls cannot create
+enabled, bounded, read-only memory tools plus the closed `web_search` and `web_fetch` contracts are classified safe;
+any future approval-required tool needs a one-use trusted native grant bound to the exact provider call identity, tool
+name, and arguments. Provider calls cannot create
 approvals, and unknown or mismatched calls return fixed redacted errors through the existing durable result path. No
 approval UI or approval-required tool is registered yet. Schema version 21 now adds native execution classification,
 stable terminal outcome, and native-work duration to each append-only tool record. Historical rows remain explicitly
@@ -160,8 +161,15 @@ native dispatcher executes the typed contract through the selected search provid
 existing 64 KiB redacted envelope. A session-only Web toggle now
 advertises that definition only to explicitly enabled, tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible
 models. All three mapped providers execute calls through the same bounded native loop, durable audit, cancellation,
-and common result envelope used by memory tools. The next bounded implementation slice is native `web_fetch` with
-redirect, size, content-type, and timeout policy; do not bundle another search provider, oMLX mapping, automatic
+and common result envelope used by memory tools. A separate closed provider-independent `web_fetch` definition now
+accepts one absolute public HTTP(S) URL. Its native client strips fragments, rejects embedded credentials, IP literals,
+special-use DNS names, non-default ports, and any DNS answer outside a fail-closed public-address policy. Every
+redirect is resolved and revalidated explicitly, the client disables ambient proxies and automatic redirects, pins
+the accepted DNS answers for each hop, and shares one 15-second deadline across at most three redirects. Successful
+responses are limited to 48 KiB of valid UTF-8 HTML, XHTML, or plain page source and enter the existing 64 KiB common
+envelope with an explicit untrusted marker. No model adapter advertises or executes `web_fetch` yet. The next bounded
+implementation slice is explicit Ollama `web_fetch` mapping through the existing durable Web loop; do not bundle
+OpenAI-compatible, Anthropic-compatible, or oMLX mapping, HTML-to-inert-text extraction, citation cards, automatic
 retrieval injection, model-cache deletion, document opening, or attachment retry controls.
 
 Read these files first:
@@ -176,7 +184,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/openai-web-search-tool`.
+branch `codex/web-fetch`.
 
 ## Current implementation
 
@@ -296,10 +304,12 @@ conversation/message results over hybrid retrieval,
 reconstruction without changing conversation selection,
 `src-tauri/src/storage/memory_file_tool.rs` owns typed bounded `search_attached_files` arguments and ranked path-free
 ready-document results over hybrid retrieval,
-`src-tauri/src/tool_contract.rs` owns the provider-independent memory and web-search definitions, closed JSON schemas,
-raw name/argument validation, and conversion into exact typed native arguments without executing them,
-`src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of typed memory tools and the provider-selected web
-search plus the bounded common success/error envelope without model wire policy, while `src-tauri/src/tool_policy.rs`
+`src-tauri/src/tool_contract.rs` and `src-tauri/src/tool_contract/` own the provider-independent memory, web-search,
+and web-fetch definitions, closed JSON schemas, raw name/argument validation, and conversion into exact typed native
+arguments without executing them,
+`src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of typed memory tools, provider-selected web search,
+and bounded public web fetch plus the common success/error envelope without model wire policy, while
+`src-tauri/src/tool_policy.rs`
 owns the explicit safe or approval-required classification and exact-call native approval binding applied before
 dispatch,
 `src-tauri/src/tool_loop.rs` owns provider-neutral multi-call correlation, recursion/call/output/deadline policy, and
@@ -307,6 +317,9 @@ shared cancellation checks used by mapped provider generation,
 `src-tauri/src/web_search/` owns typed provider-neutral arguments, freshness and domain policy, the pluggable
 query/result/error contract, and fixed-endpoint Brave Search and Exa Search adapters with strict request/response
 bounds, safe result-URL policy, and redacted provider failures,
+`src-tauri/src/web_fetch/` owns the closed public-URL contract, fail-closed DNS/address policy, pinned per-hop
+resolution, explicit redirects, shared timeout, accepted UTF-8 media types, response byte ceiling, untrusted page-source
+result, and redacted failures,
 `src-tauri/src/storage/tool_audit_migration.rs` owns schema-21 audit columns and honest legacy backfill,
 `src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
@@ -438,8 +451,10 @@ Do not mistake visual fixtures for implemented backend behavior:
   records or exclude a source from later retrieval;
 - the closed native `web_search` contract is explicitly available only to tool-capable Ollama, OpenAI-compatible, or
   Anthropic-compatible models after the user enables Web. Brave calls and exact common results enter the durable audit
-  before provider reuse. Successful results do not yet create dedicated Context-panel web-source cards, and no
-  `web_fetch` contract exists;
+  before provider reuse. Successful results do not yet create dedicated Context-panel web-source cards;
+- the closed native `web_fetch` contract, public-network client, and common dispatcher exist, but no model adapter
+  advertises or executes it yet. HTML-to-inert-text extraction, source metadata, citations, and prompt-injection
+  presentation remain absent;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -479,7 +494,59 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Exa Search provider and search-engine settings
+## Most recently completed product slice: Provider-independent native web fetch
+
+### Goal
+
+Define and execute one closed bounded `web_fetch` contract through Rust-owned public-network policy without exposing a
+generic HTTP client, advertising it to a model, changing IPC, or weakening Bottie's common tool limits.
+
+### Implemented shape
+
+1. `web_fetch_tool_definition` publishes one closed object schema with exactly one required URL string capped at 4,096
+   Unicode scalars. Validation accepts only absolute HTTP(S) public DNS names, strips fragments for execution, rejects
+   embedded credentials, IP literals, special-use names, non-default ports, nulls, unknown fields, and other schemes,
+   and never reflects rejected arguments.
+2. `NativeWebFetch` performs credential-free GET requests without cookies, provider headers, model-supplied headers,
+   ambient proxies, or automatic redirects. Each hostname is resolved once per hop; any empty or non-public DNS answer
+   rejects the whole call, while accepted addresses are pinned into that hop's redirect-disabled client to close
+   DNS-rebinding gaps.
+3. Redirects are limited to HTTP 301, 302, 303, 307, and 308. Relative locations are resolved against the current URL,
+   fragments are removed, the complete URL and DNS policy reruns before every hop, and at most three redirects share
+   one 15-second operation deadline with a 3-second connection ceiling.
+4. Only `text/html`, `application/xhtml+xml`, and `text/plain` with absent or UTF-8 charset are accepted. Declared and
+   streamed response bytes are capped at 48 KiB, decoded strictly as UTF-8, and returned with the final normalized URL,
+   media type, page source, and `untrusted: true` before the existing 64 KiB common-envelope check.
+5. `web_fetch` has an explicit safe/read-only policy entry and one executable provider-neutral dispatcher path. Stable
+   invalid-argument, unavailable, execution-failed, and output-too-large results do not include URLs, DNS answers,
+   statuses, TLS/proxy detail, or response material.
+
+### Acceptance criteria
+
+- Private, loopback, link-local, carrier, documentation, transition, multicast, reserved, mapped, and special-use
+  destinations cannot pass the production request path or a redirect.
+- Every redirect, timeout, media type, charset, content-length, streamed byte, and common-envelope boundary is explicit
+  and bounded; no Authorization, Cookie, Referer, provider credential, arbitrary request header, or body is accepted.
+- Page source and URLs stay Rust/provider-tool-result-only; no filesystem path, credential, database value, page bytes,
+  or new command crosses Tauri IPC.
+- No schema migration, settings change, search-provider change, provider wire mapping, UI state, or automatic retrieval
+  is added.
+- HTML-to-inert-text extraction, title/publication metadata, dedicated web citation cards, and prompt-injection UX
+  remain deferred.
+
+### Verification completed
+
+Focused TDD first failed because the definition, typed arguments, native fetch boundary, safe policy entry, and
+dispatcher were absent. Contract, dispatcher, policy, URL, IP-range, redirect, timeout, content-type, charset, byte,
+UTF-8, and redaction coverage now passes. Three loopback-only policy tests passed outside the restricted sandbox, and
+one read-only production-policy HTTPS fetch of IANA's example-domains help page passed with DNS pinning, TLS,
+media-type, size,
+and timeout policy active. The full standard checks pass: Prettier, Svelte diagnostics with zero errors or warnings,
+all 76 frontend tests, the production build, Cargo formatting/check, and 278 Rust tests with 17 explicit opt-in tests
+ignored. `git diff --check` is clean. No browser or native-app review is required because this slice changes no UI,
+IPC, startup, persistence, provider request shape, or advertised generation behavior.
+
+## Prior completed product slice: Exa Search provider and search-engine settings
 
 ### Goal
 

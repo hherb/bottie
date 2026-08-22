@@ -5,6 +5,8 @@
     reason = "provider adapter mapping and execution are intentionally deferred"
 )]
 
+mod web_fetch;
+
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
@@ -19,6 +21,12 @@ use crate::web_search::{
     MAX_WEB_SEARCH_DOMAIN_CHARS, MAX_WEB_SEARCH_FILTER_DOMAINS, MAX_WEB_SEARCH_QUERY_CHARS,
     MAX_WEB_SEARCH_TOOL_RESULTS, WEB_SEARCH_TOOL_NAME, WebSearchArguments,
 };
+
+#[allow(
+    unused_imports,
+    reason = "provider adapter advertisement is the next bounded slice"
+)]
+pub(crate) use web_fetch::{validate_web_fetch_tool_arguments, web_fetch_tool_definition};
 
 /// Provider-neutral definition of one Rust-owned tool and its closed JSON input schema.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -326,12 +334,12 @@ fn validate_open_arguments(arguments: &Value) -> Result<(), ToolContractError> {
 }
 
 /// Requires one JSON object before any field-level inspection.
-fn argument_object(arguments: &Value) -> Result<&Map<String, Value>, ToolContractError> {
+pub(super) fn argument_object(arguments: &Value) -> Result<&Map<String, Value>, ToolContractError> {
     arguments.as_object().ok_or_else(invalid_arguments)
 }
 
 /// Rejects every field outside the selected definition's closed property set.
-fn require_only_fields(
+pub(super) fn require_only_fields(
     object: &Map<String, Value>,
     allowed: &[&str],
 ) -> Result<(), ToolContractError> {
@@ -343,7 +351,7 @@ fn require_only_fields(
 }
 
 /// Requires a present, non-blank string within one Unicode-scalar ceiling.
-fn require_bounded_string(
+pub(super) fn require_bounded_string(
     object: &Map<String, Value>,
     field: &str,
     maximum_characters: usize,
@@ -442,7 +450,7 @@ fn optional_usize(
 }
 
 /// Deserializes a structurally validated object without leaking serde details to callers.
-fn deserialize<T>(arguments: &Value) -> Result<T, ToolContractError>
+pub(super) fn deserialize<T>(arguments: &Value) -> Result<T, ToolContractError>
 where
     T: serde::de::DeserializeOwned,
 {
@@ -450,7 +458,7 @@ where
 }
 
 /// Builds one stable redacted schema failure.
-fn invalid_arguments() -> ToolContractError {
+pub(super) fn invalid_arguments() -> ToolContractError {
     ToolContractError {
         code: ToolContractErrorCode::InvalidArguments,
         message: "The provider supplied invalid native tool arguments.",
