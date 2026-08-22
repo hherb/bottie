@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::{
     diagnostics::{Diagnostics, record_diagnostic},
+    semantic_indexer::SemanticIndexer,
     storage::ConversationStore,
 };
 
@@ -46,11 +47,12 @@ impl AttachmentProcessor {
         app: AppHandle,
         conversations: ConversationStore,
         diagnostics: Diagnostics,
+        semantic_indexing: SemanticIndexer,
     ) -> Self {
         let (sender, receiver) = channel();
         thread::Builder::new()
             .name(WORKER_THREAD_NAME.into())
-            .spawn(move || run_worker(receiver, app, conversations, diagnostics))
+            .spawn(move || run_worker(receiver, app, conversations, diagnostics, semantic_indexing))
             .expect("the attachment processing worker must start");
         Self { sender }
     }
@@ -78,6 +80,7 @@ fn run_worker(
     app: AppHandle,
     conversations: ConversationStore,
     diagnostics: Diagnostics,
+    semantic_indexing: SemanticIndexer,
 ) {
     let mut wake_requested = false;
     let mut paused = false;
@@ -89,6 +92,7 @@ fn run_worker(
             match conversations.process_next_pending_attachment() {
                 Ok(Some(attachment)) => {
                     let _ = app.emit(ATTACHMENT_PROCESSING_EVENT, attachment);
+                    semantic_indexing.wake();
                     continue;
                 }
                 Ok(None) => wake_requested = false,

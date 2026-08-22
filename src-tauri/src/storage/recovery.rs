@@ -60,6 +60,7 @@ pub(crate) struct StorageRecoveryStatus {
 impl ConversationStore {
     /// Initializes healthy data or returns a restricted store when SQLite identifies corruption.
     pub(crate) fn initialize_for_app(path: PathBuf) -> Result<StorageStartup, StorageError> {
+        super::memory_semantic::register_sqlite_vec()?;
         if existing_store_is_corrupt(&path)? {
             return Ok(StorageStartup {
                 store: Self {

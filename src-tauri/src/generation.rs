@@ -114,6 +114,7 @@ pub(crate) async fn start_chat(
     let runs = state.runs.clone();
     let diagnostics = state.diagnostics.clone();
     let conversations = state.conversations.clone();
+    let semantic_indexing = state.semantic_indexing.clone();
     let task_run_id = run_id.clone();
     tauri::async_runtime::spawn(async move {
         record_diagnostic(
@@ -213,6 +214,7 @@ pub(crate) async fn start_chat(
                 .await;
             }
         }
+        semantic_indexing.wake();
         runs.lock().await.remove(&task_run_id);
     });
 

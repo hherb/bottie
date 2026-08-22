@@ -53,8 +53,9 @@ content-addressed derivatives. Ingestion commits durable pending state and retur
 decoding; one native background worker resumes pending work after startup, selection, or restore. The WebView receives
 path-free live extraction, indexing-readiness, or normalization updates, dimensions, counts, and sizes but never
 extracted text, derivative identities, bytes, or paths. Extracted text becomes explicitly indexable in the same
-resumable worker; unsupported and failed extraction become terminal unsupported or blocked readiness. This does not
-send document content to providers or expose derived FTS/chunk state, vectors, embeddings, or retrieval. A current
+resumable worker; unsupported and failed extraction become terminal unsupported or blocked readiness. A second native
+worker now derives resumable local EmbeddingGemma vectors from eligible message and document chunks, but this does not
+send document content to providers or expose FTS/chunk/vector state, embeddings, or retrieval. A current
 normalized JPEG or PNG can be sent only after native
 discovery confirms that the
 selected model advertises vision support. Text-only selections block a current image with an explicit explanation and
@@ -182,7 +183,7 @@ original/derivative files absent from the surviving catalog and clears old inter
 Recoverable Trash references, recent cross-process drafts, and shared derivatives remain live; unexpected files are
 left untouched. Cleanup commits catalog changes before file sweeping and holds a SQLite write lock during the sweep so
 interruption can leave only harmless untracked bytes for the next pass. Recent diagnostics receives counts and
-reclaimed bytes without paths or content identities. Current schema-version-17 stores retain up to 2 MiB of UTF-8
+reclaimed bytes without paths or content identities. Current schema-version-18 stores retain up to 2 MiB of UTF-8
 plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
 and expose only path-free state to the interface. Each attachment also retains waiting-for-extraction, indexable,
@@ -215,8 +216,11 @@ conversation, and date filters while excluding Trash and unassociated drafts. Th
 feature: no FTS query, excerpt, source identity, or extracted document content crosses IPC or enters a provider request.
 Schema version 17 derives the same eligible text into deterministic, versioned, Unicode-safe chunks. Version 1 keeps
 exact source offsets and stable SHA-256 identities, prefers whitespace boundaries at up to 1,200 characters, and uses
-approximately 200 characters of overlap. sqlite-vec, embeddings, reindex controls, memory tools, and retrieval
-injection remain unimplemented, and no chunk content or identity crosses IPC.
+approximately 200 characters of overlap. Schema version 18 statically registers sqlite-vec and resumably maps those
+chunks to 768-dimensional cosine vectors using FastEmbed 6 and Q4 EmbeddingGemma 300M. The single native worker owns
+the application-data model cache, eight-chunk transactions, durable progress/failure state, and restore pause/resume.
+Semantic queries, reindex controls, fusion, memory tools, and retrieval injection remain unimplemented, and no chunk,
+vector, cache path, or model failure detail crosses IPC.
 
 Run the layout-only browser preview:
 
@@ -247,4 +251,7 @@ The WebView owns presentation state. The Rust application core will own:
 The provider layer normalizes OpenAI, Anthropic, Ollama, and oMLX responses into a capability-aware internal event
 stream rather than assuming every compatible endpoint behaves identically.
 
-For the planned memory subsystem, bottie will use FastEmbed inside Rust with the quantized EmbeddingGemma 300M model as its single built-in embedding default. The application will own model download/cache UX and embedding-version metadata; users will not need to configure a second inference provider merely to enable local memory search.
+The native memory subsystem uses FastEmbed 6 with Q4 EmbeddingGemma 300M as its single built-in embedding model.
+Bottie owns the model cache, durable acquisition/index progress, and embedding/index versions; users do not configure a
+second inference provider merely to enable local memory indexing. Retrieval remains unavailable until a later bounded
+semantic-query and hybrid-ranking slice.

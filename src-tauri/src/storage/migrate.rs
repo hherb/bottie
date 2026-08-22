@@ -8,6 +8,7 @@ use super::{
     memory_chunks::backfill_memory_chunks,
     memory_chunks_migration::MIGRATION_17,
     memory_lexical_migration::MIGRATION_16,
+    memory_semantic_migration::MIGRATION_18,
     migrations::{
         MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
         MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_12, MIGRATION_13,
@@ -101,6 +102,14 @@ impl ConversationStore {
         }
         if version < 17 {
             apply_memory_chunk_migration(connection)?;
+        }
+        if version < 18 {
+            apply_migration(
+                connection,
+                MIGRATION_18,
+                18,
+                "resumable sqlite-vec semantic index",
+            )?;
         }
         Ok(())
     }

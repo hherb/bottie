@@ -95,11 +95,14 @@ fn migration_backfills_final_messages_and_ready_documents_without_reasoning() {
     process_pending_attachments(&store);
     let connection = store.open().expect("store should open");
     connection
+        .execute_batch(super::memory_semantic::REMOVE_MEMORY_SEMANTIC_SCHEMA_FOR_TEST)
+        .expect("semantic schema should be removable in the fixture");
+    connection
         .execute_batch(super::memory_chunks::REMOVE_MEMORY_CHUNK_SCHEMA_FOR_TEST)
         .expect("chunk schema should be removable in the fixture");
     connection
-        .execute("DELETE FROM schema_migrations WHERE version = 17", [])
-        .expect("chunk migration record should be removable");
+        .execute("DELETE FROM schema_migrations WHERE version >= 17", [])
+        .expect("chunk and later migration records should be removable");
     connection
         .pragma_update(None, "user_version", 16)
         .expect("fixture version should rewind");
@@ -139,7 +142,7 @@ fn migration_backfills_final_messages_and_ready_documents_without_reasoning() {
             .status()
             .expect("status should load")
             .schema_version,
-        17
+        18
     );
     assert!(message_chunks.len() > 1);
     assert!(attachment_chunks.len() > 1);
