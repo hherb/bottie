@@ -112,6 +112,10 @@ impl ConversationStore {
                  WHERE conversations.id = ?1 AND messages.id = ?2
                    AND conversations.profile_id = ?3
                    AND conversations.deleted_at_ms IS NULL
+                   AND NOT EXISTS (
+                       SELECT 1 FROM conversation_memory_preferences
+                       WHERE conversation_id = conversations.id AND excluded = 1
+                   )
                    AND messages.state = 'final'
                    AND EXISTS (
                        SELECT 1 FROM message_blocks

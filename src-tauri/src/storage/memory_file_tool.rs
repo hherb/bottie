@@ -156,6 +156,10 @@ impl ConversationStore {
                                WHERE conversation_attachments.attachment_id = attachments.id
                                  AND conversations.profile_id = ?2
                                  AND conversations.deleted_at_ms IS NULL
+                                 AND NOT EXISTS (
+                                     SELECT 1 FROM conversation_memory_preferences
+                                     WHERE conversation_id = conversations.id AND excluded = 1
+                                 )
                                  AND (?3 IS NULL OR conversations.id = ?3)
                            )
                            OR EXISTS (
@@ -165,6 +169,10 @@ impl ConversationStore {
                                WHERE message_attachments.attachment_id = attachments.id
                                  AND conversations.profile_id = ?2
                                  AND conversations.deleted_at_ms IS NULL
+                                 AND NOT EXISTS (
+                                     SELECT 1 FROM conversation_memory_preferences
+                                     WHERE conversation_id = conversations.id AND excluded = 1
+                                 )
                                  AND (?3 IS NULL OR conversations.id = ?3)
                            )
                        )",

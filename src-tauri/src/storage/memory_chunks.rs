@@ -110,7 +110,7 @@ pub(super) fn backfill_memory_chunks(transaction: &Transaction<'_>) -> Result<()
         "SELECT id FROM messages WHERE state = 'final' ORDER BY id",
     )?;
     for message_id in message_ids {
-        refresh_message_chunks(transaction, &message_id)?;
+        refresh_message_chunks_before_exclusion_preferences(transaction, &message_id)?;
     }
     let attachment_ids = source_ids(
         transaction,
@@ -127,10 +127,27 @@ pub(super) fn refresh_message_chunks(
     transaction: &Transaction<'_>,
     message_id: &str,
 ) -> Result<(), StorageError> {
+    refresh_message_chunks_with_policy(transaction, message_id, true)
+}
+
+/// Rebuilds one message during schema-17 backfill, before schema-19 preferences exist.
+fn refresh_message_chunks_before_exclusion_preferences(
+    transaction: &Transaction<'_>,
+    message_id: &str,
+) -> Result<(), StorageError> {
+    refresh_message_chunks_with_policy(transaction, message_id, false)
+}
+
+/// Replaces one message's chunks under the schema version available to the caller.
+fn refresh_message_chunks_with_policy(
+    transaction: &Transaction<'_>,
+    message_id: &str,
+    enforce_exclusion: bool,
+) -> Result<(), StorageError> {
     delete_source_chunks(transaction, MemoryChunkSourceKind::Message, message_id)?;
     let source = transaction
         .query_row(
-            "SELECT conversations.profile_id, messages.created_at_ms,
+            "SELECT conversations.profile_id, conversations.id, messages.created_at_ms,
                     (SELECT group_concat(ordered_blocks.text_content, '')
                      FROM (
                          SELECT text_content FROM message_blocks
@@ -149,13 +166,17 @@ pub(super) fn refresh_message_chunks(
             |row| {
                 Ok((
                     row.get::<_, String>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, String>(3)?,
                 ))
             },
         )
         .optional()?;
-    if let Some((profile_id, created_at_ms, text)) = source {
+    if let Some((profile_id, conversation_id, created_at_ms, text)) = source {
+        if enforce_exclusion && conversation_memory_is_excluded(transaction, &conversation_id)? {
+            return Ok(());
+        }
         insert_source_chunks(
             transaction,
             MemoryChunkSourceKind::Message,
@@ -166,6 +187,23 @@ pub(super) fn refresh_message_chunks(
         )?;
     }
     Ok(())
+}
+
+/// Reads the schema-19 preference only for current-runtime chunk refreshes.
+fn conversation_memory_is_excluded(
+    transaction: &Transaction<'_>,
+    conversation_id: &str,
+) -> Result<bool, StorageError> {
+    transaction
+        .query_row(
+            "SELECT EXISTS (
+                 SELECT 1 FROM conversation_memory_preferences
+                 WHERE conversation_id = ?1 AND excluded = 1
+             )",
+            [conversation_id],
+            |row| row.get(0),
+        )
+        .map_err(Into::into)
 }
 
 /// Atomically replaces the derived chunks for one ready extracted document.

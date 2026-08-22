@@ -76,6 +76,10 @@ impl ConversationStore {
                        WHERE messages.id = memory_lexical_index.source_id
                          AND conversations.profile_id = ?3
                          AND conversations.deleted_at_ms IS NULL
+                         AND NOT EXISTS (
+                             SELECT 1 FROM conversation_memory_preferences
+                             WHERE conversation_id = conversations.id AND excluded = 1
+                         )
                          AND (?7 IS NULL OR conversations.id = ?7)
                    ))
                    OR
@@ -87,6 +91,10 @@ impl ConversationStore {
                            WHERE conversation_attachments.attachment_id = memory_lexical_index.source_id
                              AND conversations.profile_id = ?3
                              AND conversations.deleted_at_ms IS NULL
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM conversation_memory_preferences
+                                 WHERE conversation_id = conversations.id AND excluded = 1
+                             )
                              AND (?7 IS NULL OR conversations.id = ?7)
                        )
                        OR EXISTS (
@@ -96,6 +104,10 @@ impl ConversationStore {
                            WHERE message_attachments.attachment_id = memory_lexical_index.source_id
                              AND conversations.profile_id = ?3
                              AND conversations.deleted_at_ms IS NULL
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM conversation_memory_preferences
+                                 WHERE conversation_id = conversations.id AND excluded = 1
+                             )
                              AND (?7 IS NULL OR conversations.id = ?7)
                        )
                    ))

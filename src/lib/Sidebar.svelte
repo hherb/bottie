@@ -25,6 +25,7 @@
     onselectsearchresult: (result: ConversationSearchResult) => void;
     onrenameconversation: (conversationId: string, title: string) => void;
     onarchiveconversation: (conversationId: string, archived: boolean) => void;
+    onmemoryexclusion: (conversationId: string, excluded: boolean) => void;
     ondeleteconversation: (conversationId: string) => void;
     onrestoreconversation: (conversationId: string) => void;
     onopensettings: () => void;
@@ -47,6 +48,7 @@
     onselectsearchresult,
     onrenameconversation,
     onarchiveconversation,
+    onmemoryexclusion,
     ondeleteconversation,
     onrestoreconversation,
     onopensettings,
@@ -145,6 +147,7 @@
           onselect={onselectconversation}
           onrename={onrenameconversation}
           onarchive={onarchiveconversation}
+          {onmemoryexclusion}
           ondelete={ondeleteconversation}
           onrestore={onrestoreconversation}
         />
@@ -158,6 +161,7 @@
           onselect={onselectconversation}
           onrename={onrenameconversation}
           onarchive={onarchiveconversation}
+          {onmemoryexclusion}
           ondelete={ondeleteconversation}
           onrestore={onrestoreconversation}
         />
@@ -171,6 +175,7 @@
           onselect={onselectconversation}
           onrename={onrenameconversation}
           onarchive={onarchiveconversation}
+          {onmemoryexclusion}
           ondelete={ondeleteconversation}
           onrestore={onrestoreconversation}
         />
@@ -184,6 +189,7 @@
           onselect={onselectconversation}
           onrename={onrenameconversation}
           onarchive={onarchiveconversation}
+          {onmemoryexclusion}
           ondelete={ondeleteconversation}
           onrestore={onrestoreconversation}
         />

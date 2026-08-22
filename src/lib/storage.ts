@@ -7,6 +7,7 @@ import type { Attachment } from "./presentation";
 import type { BackupOutcome, ConversationExportOutcome, RestoreOutcome } from "./storage-transfer";
 
 export { conversationExportFeedback } from "./storage-transfer";
+export { storageErrorFromUnknown } from "./storage-error";
 export type {
   BackupOutcome,
   ConversationExportFormat,
@@ -126,6 +127,7 @@ export type ConversationSummary = {
   title: string;
   updatedAtMs: number;
   lifecycle: ConversationLifecycle;
+  memoryExcluded: boolean;
 };
 
 /** One native-ranked conversation search result that opens the branch containing its match. */
@@ -483,18 +485,4 @@ function dateGroupLabel(ageDays: number): ConversationDateGroup["label"] {
   if (ageDays === 1) return "Yesterday";
   if (ageDays <= PREVIOUS_DAYS_LIMIT) return "Previous 7 days";
   return "Older";
-}
-
-/** Converts an unknown native error into Bottie's stable storage error shape. */
-export function storageErrorFromUnknown(error: unknown): StorageError {
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const candidate = error as Partial<StorageError>;
-    if (typeof candidate.message === "string") {
-      return { code: candidate.code ?? "internal", message: candidate.message };
-    }
-  }
-  return {
-    code: "internal",
-    message: typeof error === "string" ? error : "Bottie could not access local conversation history.",
-  };
 }

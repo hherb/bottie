@@ -32,6 +32,7 @@ mod image_normalization;
 mod lifecycle;
 mod memory_chunks;
 mod memory_chunks_migration;
+mod memory_exclusion_migration;
 mod memory_file_tool;
 mod memory_filters;
 mod memory_hybrid;
@@ -94,7 +95,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 18;
+const CURRENT_SCHEMA_VERSION: i64 = 19;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -440,6 +441,8 @@ mod extraction_tests;
 mod image_normalization_tests;
 #[cfg(test)]
 mod memory_chunks_tests;
+#[cfg(test)]
+mod memory_exclusion_tests;
 #[cfg(test)]
 mod memory_file_tool_tests;
 #[cfg(test)]

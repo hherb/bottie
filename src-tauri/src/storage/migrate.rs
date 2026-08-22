@@ -7,6 +7,7 @@ use super::{
     StorageError,
     memory_chunks::backfill_memory_chunks,
     memory_chunks_migration::MIGRATION_17,
+    memory_exclusion_migration::MIGRATION_19,
     memory_lexical_migration::MIGRATION_16,
     memory_semantic_migration::MIGRATION_18,
     migrations::{
@@ -109,6 +110,14 @@ impl ConversationStore {
                 MIGRATION_18,
                 18,
                 "resumable sqlite-vec semantic index",
+            )?;
+        }
+        if version < 19 {
+            apply_migration(
+                connection,
+                MIGRATION_19,
+                19,
+                "per-conversation memory exclusion",
             )?;
         }
         Ok(())

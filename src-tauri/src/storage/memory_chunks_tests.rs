@@ -101,6 +101,9 @@ fn migration_backfills_final_messages_and_ready_documents_without_reasoning() {
         .execute_batch(super::memory_chunks::REMOVE_MEMORY_CHUNK_SCHEMA_FOR_TEST)
         .expect("chunk schema should be removable in the fixture");
     connection
+        .execute_batch("DROP TABLE conversation_memory_preferences")
+        .expect("later memory preference schema should be removable in the fixture");
+    connection
         .execute("DELETE FROM schema_migrations WHERE version >= 17", [])
         .expect("chunk and later migration records should be removable");
     connection
@@ -142,7 +145,7 @@ fn migration_backfills_final_messages_and_ready_documents_without_reasoning() {
             .status()
             .expect("status should load")
             .schema_version,
-        18
+        19
     );
     assert!(message_chunks.len() > 1);
     assert!(attachment_chunks.len() > 1);

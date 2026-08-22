@@ -135,7 +135,11 @@ impl ConversationStore {
                      JOIN conversations ON conversations.id = messages.conversation_id
                      WHERE messages.id = ?1 AND messages.state = 'final'
                        AND conversations.profile_id = ?2
-                       AND conversations.deleted_at_ms IS NULL",
+                       AND conversations.deleted_at_ms IS NULL
+                       AND NOT EXISTS (
+                           SELECT 1 FROM conversation_memory_preferences
+                           WHERE conversation_id = conversations.id AND excluded = 1
+                       )",
                     params![&hit.source_id, DEFAULT_PROFILE_ID],
                     |row| {
                         Ok((

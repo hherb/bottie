@@ -55,7 +55,7 @@ use storage_commands::{
     rate_conversation_response, reindex_semantic_memory, remove_conversation_attachment,
     remove_conversation_message_attachment, rename_conversation, restore_conversation,
     restore_conversation_store, restore_latest_automatic_backup, search_conversations,
-    select_conversation_branch, set_conversation_archived,
+    select_conversation_branch, set_conversation_archived, set_conversation_memory_excluded,
 };
 use tauri::{Manager, State};
 use tool_loop::ToolLoopCancellation;
@@ -522,6 +522,7 @@ pub fn run() {
             rate_conversation_response,
             rename_conversation,
             set_conversation_archived,
+            set_conversation_memory_excluded,
             delete_conversation,
             restore_conversation,
             discover_models,

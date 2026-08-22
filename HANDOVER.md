@@ -126,8 +126,12 @@ and Anthropic Messages now map the three closed definitions, accumulate streamed
 ordered results, then continue generation with cumulative usage and shared cancellation. Successful selected-lineage
 `search_memory`, `open_memory`, and `search_attached_files` results now produce deduplicated, path-free conversation or
 file citation cards in the Context panel. Removing a card is session-local presentation state and deliberately leaves
-the append-only tool audit untouched. The next bounded implementation slice is one durable per-conversation
-exclude-from-memory control enforced by lexical, chunk, semantic, and tool retrieval; do not bundle source deletion,
+the append-only tool audit untouched. Every active or Archived conversation now also has one durable reversible
+exclude-from-memory control. Schema version 19 retains the preference without deleting source content; excluded
+message chunks and vectors are removed and rebuilt on re-inclusion, while lexical, semantic, hybrid, `search_memory`,
+`open_memory`, and `search_attached_files` paths recheck the preference before returning data. Shared documents remain
+eligible only through another non-excluded conversation association. The next bounded implementation slice is one
+explicit per-conversation forget workflow with a separately documented source/derived-data policy; do not bundle
 time-based retention, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, web tools,
 or attachment retry controls.
 
@@ -143,7 +147,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/memory-provenance-context`.
+branch `codex/conversation-memory-exclusion`.
 
 ## Current implementation
 
@@ -180,6 +184,7 @@ branch `codex/memory-provenance-context`.
 - crash-safe partial answer/reasoning checkpoints and visibly interrupted-run recovery;
 - real Today, Yesterday, Previous 7 days, Archived, and Trash navigation groups;
 - inline conversation rename plus archive, unarchive, recoverable trash, and restore actions;
+- durable reversible conversation memory exclusion with a compact `Memory off` navigation label;
 - inline user-message editing, assistant-response regeneration, and preserved branch switching;
 - native conversation search with snippets, archived-result labels, matching-branch selection, and keyboard focus and
   clear behavior;
@@ -243,6 +248,7 @@ sweeping, interrupted temporary cleanup, and shared-derivative preservation,
 `src-tauri/src/storage/memory_lexical_migration.rs` owns the derived FTS5 schema, backfill, and synchronization triggers,
 `src-tauri/src/storage/memory_filters.rs` owns the shared query bounds plus source, conversation, and inclusive-date
 filter contract, `src-tauri/src/storage/memory_hybrid.rs` owns bounded source-level reciprocal-rank fusion,
+`src-tauri/src/storage/memory_exclusion_migration.rs` owns schema-19 durable per-conversation exclusion preferences,
 `src-tauri/src/storage/memory_chunks.rs` owns versioned Unicode-safe deterministic chunking plus transactional source
 replacement, while `src-tauri/src/storage/memory_chunks_migration.rs` owns catalog metadata and stale-row cleanup,
 `src-tauri/src/storage/memory_semantic.rs` owns static sqlite-vec registration, version-contract validation, bounded
@@ -284,7 +290,8 @@ native-discovered vision policy, and closes each native run before its terminal 
 attachment append, visible message-attachment removal, explicit branch, response-rating, selected-lineage Markdown/JSON
 and non-trashed batch JSON export, whole-store
 backup/restore,
-recovery-status/latest-snapshot restore, path-free semantic progress/derived-only reindex, and lifecycle commands. The
+recovery-status/latest-snapshot restore, path-free semantic progress/derived-only reindex, lifecycle commands, and the
+per-conversation memory exclusion command. The
 database lives in the OS application-data
 directory; the WebView never receives a database or attachment path, SQL, or generic filesystem/database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
@@ -424,10 +431,64 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
 The cohesively touched product modules remain below 500 lines. The crate composition root `src-tauri/src/lib.rs` is an
-existing practical-limit exception at 533 lines; the remaining known indivisible long lines are SVG path values in
+existing practical-limit exception at 534 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Visible removable native memory provenance
+## Most recently completed product slice: Durable per-conversation memory exclusion
+
+### Goal
+
+Add one reversible active/Archived conversation control that prevents native long-term memory retrieval without
+deleting the conversation, attachments, exports, selected branch, provider records, tool audit, or model cache.
+
+### Implemented shape
+
+1. Schema version 19 adds `conversation_memory_preferences`, keyed by the native conversation identity. Navigation
+   summaries serialize only the path-free boolean `memoryExcluded`; the new narrow command rejects missing, foreign,
+   trashed, or actively generating targets and never accepts SQL, paths, source text, or derived identities from the
+   WebView.
+2. `set_conversation_memory_excluded` updates the preference and refreshes every message source in one immediate
+   transaction. Excluding removes the conversation's deterministic message chunks and cascaded vector mappings;
+   re-including rebuilds the same versioned chunks and wakes the existing bounded semantic worker.
+3. Lexical and semantic retrieval exclude message sources owned by an excluded conversation. Document retrieval
+   ignores its conversation- and message-scoped associations; a content-deduplicated file remains eligible when at
+   least one other active or Archived non-excluded conversation still references it.
+4. `search_memory` and `search_attached_files` recheck provenance after hybrid ranking, and `open_memory` refuses stale
+   exact provenance after its conversation becomes excluded. This defense remains native even if indexes or tool
+   calls were created before the preference changed.
+5. Active and Archived conversation menus expose `Exclude from memory` or `Include in memory`. Excluded summaries show
+   a compact `Memory off` label in navigation. Trash has no control; delete/restore preserves an existing preference
+   because neither action claims to forget retained content.
+
+### Acceptance criteria
+
+- The preference survives restart and is reversible without source-content loss or branch/lifecycle changes.
+- Excluded message text produces no lexical, semantic, hybrid, `search_memory`, or `open_memory` result; its chunks and
+  vectors are absent until re-inclusion rebuilds them.
+- Documents associated only through the excluded conversation produce no lexical, semantic, hybrid, or
+  `search_attached_files` result. A shared document remains eligible only through a separate non-excluded association.
+- The WebView receives only conversation summaries and the requested boolean; no source text, path, hash, score,
+  embedding, chunk/vector identity, database detail, or model-cache detail is added to IPC.
+- No source deletion, time-based retention, provider mapping, automatic retrieval injection, model-cache deletion,
+  document opening, web tool, or attachment retry behavior is added.
+
+### Verification completed
+
+Focused TDD first failed on the absent native mutation/summary field and missing conversation-menu presentation. New
+path-backed Rust tests cover durable exclude/reopen/re-include behavior, source preservation, message-chunk removal and
+rebuild, lexical and semantic suppression, `search_memory`, stale `open_memory`, conversation-scoped file suppression,
+and shared-file eligibility through a second conversation. Server-rendered frontend coverage checks the compact state
+label and exact reversible action copy.
+
+Prettier, `svelte-check`, all 65 frontend tests, the production build, Cargo formatting, Cargo check, and all 225
+default Rust tests pass; seven opt-in live provider/loopback tests remain ignored by default because provider protocol
+behavior did not change. The browser preview was inspected at 1320 x 820 and 900 x 800 with no console warnings or
+errors. The native app launched successfully against the real store; immutable SQLite inspection reported schema 19,
+`quick_check=ok`, an empty preference table before user action, and semantic progress `ready` at 86 of 86 chunks.
+macOS coordinate automation was not reliable enough to toggle a live conversation safely, so no manual live-data
+mutation is claimed; the reversible native path is covered by isolated persistent-store tests.
+
+## Prior completed product slice: Visible removable native memory provenance
 
 ### Goal
 
@@ -477,7 +538,8 @@ The browser preview was inspected at the default desktop viewport and at 900 x 8
 contained in both the fixed panel and responsive overlay, its remove control changed `Memories 1` to the explicit
 empty state, and the browser console reported no errors. No schema, IPC, Rust, provider, credential, filesystem, or
 native-window behavior changed, so this slice did not claim a fresh provider call or native persistence interaction.
-Citation dismissals reset on frontend reload by design; durable exclude/forget controls remain future work.
+Citation dismissals reset on frontend reload by design; conversation exclusion is now durable, while explicit forget
+and time-based retention remain future work.
 
 ## Prior completed product slice: Explicit Anthropic Messages native memory-tool loop
 

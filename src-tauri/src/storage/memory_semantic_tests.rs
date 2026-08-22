@@ -67,8 +67,11 @@ fn migration_registers_static_vec_and_records_versioned_empty_index() {
         .execute_batch(REMOVE_MEMORY_SEMANTIC_SCHEMA_FOR_TEST)
         .expect("semantic schema should be removable in the fixture");
     connection
-        .execute("DELETE FROM schema_migrations WHERE version = 18", [])
-        .expect("semantic migration record should be removable");
+        .execute_batch("DROP TABLE conversation_memory_preferences")
+        .expect("later memory preference schema should be removable in the fixture");
+    connection
+        .execute("DELETE FROM schema_migrations WHERE version >= 18", [])
+        .expect("semantic and later migration records should be removable");
     connection
         .pragma_update(None, "user_version", 17)
         .expect("fixture version should rewind");
@@ -108,7 +111,7 @@ fn migration_registers_static_vec_and_records_versioned_empty_index() {
             .status()
             .expect("status should load")
             .schema_version,
-        18
+        19
     );
     assert_eq!(
         metadata,

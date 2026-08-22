@@ -88,6 +88,7 @@
           if (closed) void state.startNewChat();
         });
       }}
+      onmemoryexclusion={(conversationId, excluded) => void state.history.setMemoryExcluded(conversationId, excluded)}
       ondeleteconversation={(conversationId) => {
         void state.history.delete(conversationId).then((closed) => {
           if (closed) void state.startNewChat();
