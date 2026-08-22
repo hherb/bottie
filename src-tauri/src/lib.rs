@@ -21,6 +21,7 @@ mod tool_contract;
 mod tool_dispatch;
 mod tool_loop;
 mod tool_policy;
+mod web_fetch;
 pub mod web_search;
 mod web_search_commands;
 

@@ -7,10 +7,12 @@ use crate::{
     storage::{ConversationStore, SemanticEmbedder, StorageError},
     tool_contract::{
         MemoryToolArguments, ToolContractError, ToolContractErrorCode,
-        validate_memory_tool_arguments, validate_web_search_tool_arguments,
+        validate_memory_tool_arguments, validate_web_fetch_tool_arguments,
+        validate_web_search_tool_arguments,
     },
     tool_loop::NativeToolCall,
     tool_policy::{ApprovedToolCall, ToolPolicyError, ToolPolicyErrorCode, authorize_tool_call},
+    web_fetch::{WebFetchError, WebFetchErrorCode, WebFetchProvider},
     web_search::{WebSearchError, WebSearchErrorCode, WebSearchProvider},
 };
 
@@ -147,6 +149,41 @@ pub(crate) async fn dispatch_web_search_tool(
     }
 }
 
+/// Validates and executes one raw provider-style web-fetch call through native network policy.
+#[allow(
+    dead_code,
+    reason = "provider adapter execution is the next bounded slice"
+)]
+pub(crate) async fn dispatch_web_fetch_tool(
+    provider: &impl WebFetchProvider,
+    call: &NativeToolCall,
+    approval: Option<ApprovedToolCall>,
+) -> MemoryToolExecution {
+    let authorized = match authorize_tool_call(call, approval) {
+        Ok(authorized) => authorized,
+        Err(error) => return policy_error(error),
+    };
+    let call = authorized.call();
+    let arguments = match validate_web_fetch_tool_arguments(&call.tool_name, &call.arguments) {
+        Ok(arguments) => arguments,
+        Err(error) => return contract_error(error),
+    };
+    let request = match arguments.into_request() {
+        Ok(request) => request,
+        Err(error) => return web_fetch_error(error),
+    };
+    match provider.fetch(request).await {
+        Ok(response) => match serde_json::to_value(response) {
+            Ok(result) => bounded_memory_tool_success(result),
+            Err(_) => execution_error(
+                MemoryToolExecutionErrorCode::ExecutionFailed,
+                "Bottie could not serialize the native web-fetch result.",
+            ),
+        },
+        Err(error) => web_fetch_error(error),
+    }
+}
+
 /// Maps fail-closed execution-policy failures without reflecting provider-controlled call data.
 pub(crate) fn policy_error(error: ToolPolicyError) -> MemoryToolExecution {
     let code = match error.code {
@@ -221,6 +258,33 @@ fn web_search_error(error: WebSearchError) -> MemoryToolExecution {
         WebSearchErrorCode::MalformedResponse | WebSearchErrorCode::Internal => execution_error(
             MemoryToolExecutionErrorCode::ExecutionFailed,
             "Bottie could not execute the native web-search tool.",
+        ),
+    }
+}
+
+/// Maps native web-fetch failures into stable common dispatcher categories.
+#[allow(
+    dead_code,
+    reason = "provider adapter execution is the next bounded slice"
+)]
+fn web_fetch_error(error: WebFetchError) -> MemoryToolExecution {
+    match error.code {
+        WebFetchErrorCode::InvalidRequest
+        | WebFetchErrorCode::BlockedAddress
+        | WebFetchErrorCode::RedirectRejected => execution_error(
+            MemoryToolExecutionErrorCode::InvalidArguments,
+            "The native web-fetch tool could not accept that public URL.",
+        ),
+        WebFetchErrorCode::Timeout | WebFetchErrorCode::Unavailable => execution_error(
+            MemoryToolExecutionErrorCode::Unavailable,
+            "The native web destination is unavailable.",
+        ),
+        WebFetchErrorCode::UnsupportedContentType
+        | WebFetchErrorCode::ResponseTooLarge
+        | WebFetchErrorCode::MalformedResponse
+        | WebFetchErrorCode::Internal => execution_error(
+            MemoryToolExecutionErrorCode::ExecutionFailed,
+            "Bottie could not execute the native web-fetch tool.",
         ),
     }
 }
