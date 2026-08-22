@@ -19,8 +19,10 @@ document includes labelled Reasoning and Response sections. Interrupted, cancell
 can be retried on a preserved alternative branch without overwriting the original attempt. Durable Good and Poor
 ratings can be set, changed, or cleared on each preserved assistant response and survive restart and branch switching.
 Native provider runs can also retain ordered structured tool calls and one append-only result per call. Reopened tool
-activity is visible in a calm expandable panel, even though provider tool loops and execution remain intentionally
-deferred.
+activity is visible in a calm expandable panel. A Rust-only provider-neutral state machine can now execute repeated
+native memory-tool batches through the strict dispatcher while enforcing an eight-call, four-round, 256 KiB aggregate
+output, 30-second deadline, and shared cancellation policy. Provider wire-format mapping and generation-loop wiring
+remain intentionally deferred.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -61,9 +63,9 @@ discovery confirms that the
 selected model advertises vision support. Text-only selections block a current image with an explicit explanation and
 omit older image associations; document content remains local-only. Native delivery reconstructs the selected durable
 lineage, reads at most eight normalized images and 50 MiB per request, and emits provider-native Ollama, OpenAI-shaped,
-or Anthropic-shaped image blocks without exposing bytes to JavaScript. Document delivery, other office formats, memory
-retrieval, provider tool loops, approvals, and tool execution are not implemented yet; those surfaces remain disabled
-or explicitly labelled.
+or Anthropic-shaped image blocks without exposing bytes to JavaScript. Document delivery, other office formats,
+provider-facing memory retrieval, approvals, and provider tool execution are not implemented yet; those surfaces
+remain disabled or explicitly labelled.
 
 ## Development
 
@@ -233,8 +235,10 @@ final turns, and ready-document excerpts with path-free provenance for a future 
 definition set now advertises closed JSON schemas for those three tools and strictly validates raw names and arguments
 into their typed native contracts. A Rust-only provider-neutral dispatcher executes one validated call and returns an
 exclusive structured success/error envelope capped at 64 KiB, with stable redacted failure categories. Provider
-mapping, multi-call tool loops, and retrieval injection remain unimplemented, and no query, fused result, chunk,
-vector, source identity, cache path, or model failure detail crosses IPC.
+independent loop state now correlates repeated calls and results across at most four rounds, eight calls, 256 KiB of
+aggregate serialized output, and 30 seconds while checking a shared cancellation signal before and after every native
+call. Provider mapping, generation-loop wiring, and retrieval injection remain unimplemented, and no query, fused
+result, chunk, vector, source identity, cache path, or model failure detail crosses IPC.
 
 Run the layout-only browser preview:
 
