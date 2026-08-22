@@ -1,10 +1,5 @@
 //! Provider-independent native memory-tool definitions and strict raw-argument validation.
 
-#![allow(
-    dead_code,
-    reason = "provider adapter mapping and execution are intentionally deferred"
-)]
-
 mod web_fetch;
 
 use serde::Serialize;
@@ -22,10 +17,6 @@ use crate::web_search::{
     MAX_WEB_SEARCH_TOOL_RESULTS, WEB_SEARCH_TOOL_NAME, WebSearchArguments,
 };
 
-#[allow(
-    unused_imports,
-    reason = "provider adapter advertisement is the next bounded slice"
-)]
 pub(crate) use web_fetch::{validate_web_fetch_tool_arguments, web_fetch_tool_definition};
 
 /// Provider-neutral definition of one Rust-owned tool and its closed JSON input schema.

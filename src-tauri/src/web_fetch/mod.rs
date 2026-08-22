@@ -1,10 +1,5 @@
 //! Bounded native retrieval of public UTF-8 web page source.
 
-#![allow(
-    dead_code,
-    reason = "provider adapter advertisement and execution are the next bounded slice"
-)]
-
 mod errors;
 #[cfg(test)]
 mod tests;
@@ -68,7 +63,8 @@ impl WebFetchRequest {
         normalize_public_url(&value.into()).map(|url| Self { url })
     }
 
-    /// Returns the normalized URL retained only for native network work and the result envelope.
+    #[cfg(test)]
+    /// Returns the normalized URL retained only for native network work and dispatcher fixtures.
     pub(crate) fn url(&self) -> &str {
         self.url.as_str()
     }
@@ -125,10 +121,6 @@ impl Default for NativeWebFetch {
 
 impl NativeWebFetch {
     /// Creates a public-network-only fetcher with no credentials, cookies, proxy, or redirects.
-    #[allow(
-        dead_code,
-        reason = "provider adapter mapping is the next bounded slice"
-    )]
     pub(crate) fn new() -> Self {
         Self::default()
     }

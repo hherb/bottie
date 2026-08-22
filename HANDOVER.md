@@ -1,6 +1,6 @@
 # bottie handover
 
-Last verified: 2026-08-22
+Last verified: 2026-08-23
 
 ## Start here
 
@@ -167,10 +167,13 @@ special-use DNS names, non-default ports, and any DNS answer outside a fail-clos
 redirect is resolved and revalidated explicitly, the client disables ambient proxies and automatic redirects, pins
 the accepted DNS answers for each hop, and shares one 15-second deadline across at most three redirects. Successful
 responses are limited to 48 KiB of valid UTF-8 HTML, XHTML, or plain page source and enter the existing 64 KiB common
-envelope with an explicit untrusted marker. No model adapter advertises or executes `web_fetch` yet. The next bounded
-implementation slice is explicit Ollama `web_fetch` mapping through the existing durable Web loop; do not bundle
-OpenAI-compatible, Anthropic-compatible, or oMLX mapping, HTML-to-inert-text extraction, citation cards, automatic
-retrieval injection, model-cache deletion, document opening, or attachment retry controls.
+envelope with an explicit untrusted marker. Explicitly enabled tool-capable Ollama requests now advertise `web_fetch`
+after `web_search`, execute it through the same safe dispatcher, checkpoint the exact bounded result, and append that
+result to the next Ollama request through the existing durable Web loop. OpenAI-compatible and Anthropic-compatible
+Web requests remain search-only. The next bounded implementation slice is explicit OpenAI-compatible `web_fetch`
+mapping through the existing durable Web loop; do not bundle Anthropic-compatible or oMLX mapping, HTML-to-inert-text
+extraction, citation cards, automatic retrieval injection, model-cache deletion, document opening, or attachment
+retry controls.
 
 Read these files first:
 
@@ -452,9 +455,9 @@ Do not mistake visual fixtures for implemented backend behavior:
 - the closed native `web_search` contract is explicitly available only to tool-capable Ollama, OpenAI-compatible, or
   Anthropic-compatible models after the user enables Web. Brave calls and exact common results enter the durable audit
   before provider reuse. Successful results do not yet create dedicated Context-panel web-source cards;
-- the closed native `web_fetch` contract, public-network client, and common dispatcher exist, but no model adapter
-  advertises or executes it yet. HTML-to-inert-text extraction, source metadata, citations, and prompt-injection
-  presentation remain absent;
+- the closed native `web_fetch` contract, public-network client, and common dispatcher are mapped only to explicitly
+  enabled tool-capable Ollama requests. OpenAI-compatible and Anthropic-compatible Web requests remain search-only;
+  HTML-to-inert-text extraction, source metadata, citations, and prompt-injection presentation remain absent;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -490,11 +493,69 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Rust crate documentation is enforced with `#![deny(missing_docs)]`, and TypeScript exports and functions carry JSDoc;
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
-The cohesively touched product modules remain below 500 lines. The crate composition root `src-tauri/src/lib.rs` is an
-existing practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
+The cohesively touched product modules remain below 500 lines except the existing generation composition root
+`src-tauri/src/generation.rs` at 516 lines. The crate composition root `src-tauri/src/lib.rs` is another existing
+practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Provider-independent native web fetch
+## Most recently completed product slice: Ollama web-fetch generation mapping
+
+### Goal
+
+Advertise and execute the closed native `web_fetch` contract through Ollama's existing durable Web loop without
+changing the other provider mappings, WebView IPC, settings, storage schema, or page-source representation.
+
+### Implemented shape
+
+1. `OllamaToolSession` now appends the closed `web_fetch` definition immediately after `web_search` only when Web is
+   explicitly enabled. Memory definitions retain their existing order, and Web-disabled requests advertise neither
+   Web tool.
+2. Native generation constructs the credential-free public-network fetch executor only for an explicitly Web-enabled,
+   discovered tool-capable Ollama model. The existing selected search provider and credential remain required by the
+   Web flow; no fetch credential, endpoint, setting, command, or WebView state was added.
+3. The generation-only dispatcher accepts `web_fetch` only when that Ollama-scoped executor is present, then reuses
+   the closed argument validator, safe execution policy, DNS/address-pinned `NativeWebFetch`, and common 64 KiB result
+   envelope. OpenAI-compatible and Anthropic-compatible loops pass no fetch executor and continue advertising only
+   `web_search`.
+4. Ollama calls retain generated opaque identities, exact typed arguments, safe audit policy, terminal outcome,
+   native-work duration, and the exact bounded result before provider reuse. The follow-up remains one ordered
+   `role: tool` message under the existing eight-call, four-round, 256 KiB aggregate, 30-second, and cancellation
+   limits.
+
+### Acceptance criteria
+
+- Web-disabled requests and models without explicit tool capability cannot advertise or execute `web_fetch`.
+- Ollama receives the existing closed schema and exact untrusted result envelope; URLs and page source remain inside
+  Rust/provider tool traffic and the durable audit rather than crossing a new Tauri command.
+- OpenAI-compatible, Anthropic-compatible, and oMLX mapping remain absent. A provider-emitted unadvertised fetch call
+  closes through the fixed redacted `unsupported_tool` result when no fetch executor is present.
+- No migration, frontend state, settings, search-provider behavior, extraction, source card, citation, or automatic
+  retrieval behavior is added.
+
+### Verification completed
+
+Focused TDD first failed because the Ollama fetch executor boundary did not exist. The new socket-free tests prove
+successful execution, durable safe audit/result reopen, and fixed redacted rejection when the executor is absent.
+Ollama protocol coverage proves the closed search/fetch definition order, while existing OpenAI-compatible and
+Anthropic-compatible tests explicitly retain search-only Web definitions. Both host-local two-request Ollama fixtures
+pass: one protects existing `web_search`; the other verifies `web_fetch` definition, streamed call accumulation,
+durable execution, ordered `role: tool` reuse, explicit `untrusted: true`, final answer streaming, and cumulative usage.
+
+The full standard checks pass: Prettier, Svelte diagnostics with zero errors or warnings, all 76 frontend tests, the
+production build, Cargo formatting/check, and 280 Rust tests with 18 explicit opt-in tests skipped. Both exact live
+Ollama streaming/cancellation tests and both exact live oMLX tests pass against the host-local providers. The broad
+`live_` filter also selected the unrelated Brave and Exa credential probes; those two refused to run because the
+explicit throwaway-key environment variables were absent, so no live search request or credential read was attempted.
+
+The signed native development app compiled and launched successfully. Immutable read-only inspection of the live
+store reported schema version 21, `quick_check=ok`, 22 provider runs, and no retained `web_fetch` call; no migration was
+added. The production-policy IANA HTTPS smoke returned the stable `unavailable` category in the direct proxy-disabled
+client even though host `curl` could reach that URL, so current environment egress did not provide fresh live-public
+fetch evidence. Existing production-policy coverage, the socket-free durable tests, and both host-local two-request
+Ollama fixtures pass. No browser presentation review was repeated because this slice changes no frontend surface. No
+manual model-initiated `web_fetch` interaction was claimed.
+
+## Prior completed product slice: Provider-independent native web fetch
 
 ### Goal
 

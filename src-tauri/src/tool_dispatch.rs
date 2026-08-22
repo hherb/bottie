@@ -150,10 +150,6 @@ pub(crate) async fn dispatch_web_search_tool(
 }
 
 /// Validates and executes one raw provider-style web-fetch call through native network policy.
-#[allow(
-    dead_code,
-    reason = "provider adapter execution is the next bounded slice"
-)]
 pub(crate) async fn dispatch_web_fetch_tool(
     provider: &impl WebFetchProvider,
     call: &NativeToolCall,
@@ -263,10 +259,6 @@ fn web_search_error(error: WebSearchError) -> MemoryToolExecution {
 }
 
 /// Maps native web-fetch failures into stable common dispatcher categories.
-#[allow(
-    dead_code,
-    reason = "provider adapter execution is the next bounded slice"
-)]
 fn web_fetch_error(error: WebFetchError) -> MemoryToolExecution {
     match error.code {
         WebFetchErrorCode::InvalidRequest
