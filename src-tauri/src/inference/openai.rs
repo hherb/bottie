@@ -11,7 +11,9 @@ use super::{
     sse::SseDecoder,
     types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
 };
-use crate::tool_contract::{memory_tool_definitions, web_search_tool_definition};
+use crate::tool_contract::{
+    memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
+};
 
 use self::protocol::{
     DecodedStreamEvent, OpenAiChatRequest, OpenAiToolCallAccumulator, decode_stream_payload,
@@ -44,6 +46,7 @@ impl OpenAiToolSession {
             .collect::<Vec<_>>();
         if request.web_enabled {
             definitions.push(web_search_tool_definition());
+            definitions.push(web_fetch_tool_definition());
         }
         Ok(Self {
             request: OpenAiChatRequest::with_tools(request, definitions),
@@ -413,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    fn request_maps_only_web_search_after_memory_when_explicitly_enabled() {
+    fn request_maps_web_tools_after_memory_when_explicitly_enabled() {
         let mut request: ChatRequest = serde_json::from_value(serde_json::json!({
             "providerId": "openai",
             "modelId": "gpt-example",
@@ -425,15 +428,15 @@ mod tests {
 
         let body = serde_json::to_value(OpenAiToolSession::new(request).unwrap().request).unwrap();
 
-        assert_eq!(body["tools"].as_array().map(Vec::len), Some(4));
+        assert_eq!(body["tools"].as_array().map(Vec::len), Some(5));
         assert_eq!(body["tools"][3]["function"]["name"], "web_search");
-        assert!(body["tools"].as_array().is_some_and(|tools| {
-            tools
-                .iter()
-                .all(|tool| tool["function"]["name"] != "web_fetch")
-        }));
+        assert_eq!(body["tools"][4]["function"]["name"], "web_fetch");
         assert_eq!(
             body["tools"][3]["function"]["parameters"]["additionalProperties"],
+            false
+        );
+        assert_eq!(
+            body["tools"][4]["function"]["parameters"]["additionalProperties"],
             false
         );
     }

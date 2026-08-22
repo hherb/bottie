@@ -227,7 +227,8 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] provider-independent `web_fetch` contract and native public-network client/dispatcher with explicit redirects,
   DNS/address pinning, size limits, UTF-8 content-type checks, and one shared timeout;
 - [x] explicit Ollama generation-loop mapping for `web_fetch`;
-- explicit OpenAI-compatible and Anthropic-compatible generation-loop mapping for `web_fetch`;
+- [x] explicit OpenAI-compatible generation-loop mapping for `web_fetch`;
+- explicit Anthropic-compatible generation-loop mapping for `web_fetch`;
 - extraction to inert text with source URL, title, and publication metadata;
 - citations connected to claims and retained with the conversation;
 - prompt-injection labeling for untrusted retrieved content;

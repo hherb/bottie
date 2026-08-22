@@ -40,9 +40,9 @@ through Bottie's existing bounded native loop; every call and exact result is ch
 A separate closed `web_fetch` foundation validates one absolute public HTTP(S) URL, blocks IP literals, special-use
 names, non-default ports, and any non-public DNS answer, pins accepted addresses per hop, and revalidates at most three
 redirects under one 15-second deadline. It accepts at most 48 KiB of valid UTF-8 HTML, XHTML, or plain page source and
-marks it untrusted inside the existing 64 KiB dispatcher envelope. Explicitly enabled tool-capable Ollama requests now
-advertise it after `web_search`, execute it through the same durable bounded loop, and checkpoint the exact result
-before provider reuse. OpenAI-compatible and Anthropic-compatible Web requests remain search-only.
+marks it untrusted inside the existing 64 KiB dispatcher envelope. Explicitly enabled tool-capable Ollama and
+OpenAI-compatible requests now advertise it after `web_search`, execute it through the same durable bounded loop, and
+checkpoint the exact result before provider reuse. Anthropic-compatible Web requests remain search-only.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -324,7 +324,8 @@ three memory tools plus `web_search` and `web_fetch` through closed schemas. Req
 fields, JSON types, Unicode-scalar identity/query/URL ceilings, result/window bounds, public-network policy, and
 unknown-field rejection are enforced before typed dispatch. Memory and web-search provider invocation is available
 only through explicitly enabled, tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. Native
-`web_fetch` invocation is currently mapped only for explicitly enabled, tool-capable Ollama requests. The common
+`web_fetch` invocation is currently mapped only for explicitly enabled, tool-capable Ollama and OpenAI-compatible
+requests. The common
 dispatcher additionally applies an explicit native execution policy before argument validation: current bounded
 read-only memory and Web tools are safe, unknown tools fail closed, and future
 approval-required tools cannot run without an exact Rust-owned call grant. Providers and WebView arguments cannot
@@ -340,7 +341,7 @@ attachment links, and message-derived lexical/chunk/vector rows in one transacti
 shared elsewhere remain; newly unreferenced originals, extraction text, and derivatives keep the existing 24-hour
 cross-process safety window before startup garbage collection removes them. Existing exports, manual backups, and
 automatic recovery snapshots are not rewritten and must be managed separately. The application-owned embedding-model
-cache is not conversation data and is retained. OpenAI-compatible, Anthropic-compatible, and oMLX `web_fetch`
+cache is not conversation data and is retained. Anthropic-compatible and oMLX `web_fetch`
 mapping, automatic prompt injection, document opening, and attachment retry remain unavailable. Settings also exposes
 opt-in Trash retention:
 keep until manual forget (the default), 30 days, 90 days, or one year from the time a conversation enters Trash. Rust
