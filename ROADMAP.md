@@ -179,7 +179,7 @@ Status: in progress
 ### Memory tools
 
 - [x] Rust-owned `search_memory` contract for ranked message excerpts with bounded path-free provenance;
-- [ ] `open_memory` for surrounding turns and provenance;
+- [x] `open_memory` for bounded surrounding final turns on the matched message's immutable branch lineage;
 - [ ] `search_attached_files` for indexed document chunks;
 - [x] structured `search_memory` results with conversation/message identifiers and optional exact chunk offsets;
 - [ ] provider tool-loop integration plus visible and removable memory citations in the context panel;

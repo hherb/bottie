@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use rusqlite::{Connection, OptionalExtension, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
 mod attachment_delivery;
 mod attachment_garbage_collection;
@@ -36,10 +36,12 @@ mod memory_filters;
 mod memory_hybrid;
 mod memory_lexical;
 mod memory_lexical_migration;
+mod memory_open;
 mod memory_semantic;
 mod memory_semantic_migration;
 mod memory_semantic_query;
 pub(crate) mod memory_tool;
+mod message_content;
 mod migrate;
 mod migrations;
 mod portable_backup;
@@ -65,6 +67,7 @@ pub(crate) use extraction::{AttachmentExtractionFormat, AttachmentExtractionStat
 pub(crate) use image_normalization::StoredImageNormalization;
 pub(crate) use memory_semantic::DEFAULT_SEMANTIC_BATCH_SIZE;
 pub(crate) use memory_semantic::{SemanticEmbedder, SemanticIndexProgress, SemanticIndexState};
+use message_content::{insert_blocks, load_blocks};
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use portable_export::ConversationFileExport;
@@ -384,58 +387,6 @@ fn load_conversation_from_connection(
     })
 }
 
-/// Inserts non-empty text and reasoning as independently ordered content blocks.
-fn insert_blocks(
-    transaction: &Transaction<'_>,
-    message: &StoredMessage,
-) -> Result<(), StorageError> {
-    let mut ordinal = 0_i64;
-    for (block_type, content) in [
-        ("text", Some(&message.text)),
-        ("reasoning", message.reasoning.as_ref()),
-    ] {
-        if let Some(content) = content.filter(|content| !content.is_empty()) {
-            transaction.execute(
-                "INSERT INTO message_blocks (id, message_id, ordinal, block_type, text_content)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![
-                    uuid::Uuid::new_v4().to_string(),
-                    message.id,
-                    ordinal,
-                    block_type,
-                    content
-                ],
-            )?;
-            ordinal += 1;
-        }
-    }
-    Ok(())
-}
-
-/// Reconstructs text and optional reasoning from ordered content blocks.
-fn load_blocks(
-    connection: &Connection,
-    message_id: &str,
-) -> Result<(String, Option<String>), StorageError> {
-    let mut statement = connection.prepare(
-        "SELECT block_type, text_content FROM message_blocks WHERE message_id = ?1 ORDER BY ordinal",
-    )?;
-    let rows = statement.query_map([message_id], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-    })?;
-    let mut text = String::new();
-    let mut reasoning = None;
-    for row in rows {
-        let (block_type, content) = row?;
-        match block_type.as_str() {
-            "text" => text.push_str(&content),
-            "reasoning" => reasoning.get_or_insert_with(String::new).push_str(&content),
-            _ => return Err(StorageError::internal()),
-        }
-    }
-    Ok((text, reasoning))
-}
-
 /// Normalizes and bounds a conversation title without cutting inside a Unicode scalar value.
 fn normalized_title(title: &str) -> Result<String, StorageError> {
     let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -478,6 +429,8 @@ mod memory_chunks_tests;
 mod memory_hybrid_tests;
 #[cfg(test)]
 mod memory_lexical_tests;
+#[cfg(test)]
+mod memory_open_tests;
 #[cfg(test)]
 mod memory_semantic_query_tests;
 #[cfg(test)]

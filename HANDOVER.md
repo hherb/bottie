@@ -96,10 +96,13 @@ retains source chunks and the application-owned model cache, then resumes the ex
 `search_memory` contract now applies hybrid retrieval to final conversation messages.
 It accepts bounded query, conversation, inclusive-date, and result-limit arguments, returns ranked excerpts with
 path-free conversation/message provenance and optional exact chunk offsets, and hides engine scores and embedding
-details. Provider tool loops and automatic retrieval injection remain absent. The next bounded implementation slice is
-a Rust-owned `open_memory` contract for surrounding retained turns and provenance; do not bundle provider tool loops,
-automatic retrieval injection, memory-card replacement, model-cache deletion, broad retention controls, document
-search, or attachment retry controls.
+details. A matching Rust-owned `open_memory` contract now resolves that opaque provenance into the matched message's
+own immutable branch lineage without changing the selected branch. It returns at most three final text turns on each
+side, caps each turn at 2,000 Unicode scalars, retains Archived conversations, excludes Trash and non-final responses,
+and omits reasoning, provider details, attachments, and native paths. Provider tool loops and automatic retrieval
+injection remain absent. The next bounded implementation slice is a Rust-owned `search_attached_files` contract over
+indexed document chunks; do not bundle provider tool loops, automatic retrieval injection, memory-card replacement,
+model-cache deletion, broad retention controls, document opening, or attachment retry controls.
 
 Read these files first:
 
@@ -113,7 +116,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/semantic-reindex-control`.
+branch `codex/open-memory-contract`.
 
 ## Current implementation
 
@@ -221,6 +224,9 @@ embedding batches, atomic chunk/vector mappings, durable progress, and derived-o
 bounded chunk provenance, and current-generation validation,
 `src-tauri/src/storage/memory_tool.rs` owns typed bounded `search_memory` arguments and ranked path-free
 conversation/message results over hybrid retrieval,
+`src-tauri/src/storage/memory_open.rs` owns typed bounded `open_memory` provenance and branch-correct final-turn
+reconstruction without changing conversation selection,
+`src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
@@ -322,15 +328,16 @@ Do not mistake visual fixtures for implemented backend behavior:
   for native garbage collection after the 24-hour safety window and a later successful startup because the draft itself
   does not survive restart;
 - plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; their indexable state
-  feeds native FTS5, deterministic chunk, and semantic-vector indexes, but no memory tool or provider retrieval exists;
+  feeds native FTS5, deterministic chunk, and semantic-vector indexes, but no document-memory tool or provider
+  retrieval exists;
   JPEG/PNG
   derivatives remain application-private and are read only for capability-confirmed vision requests; portable SQLite
   backups embed originals and ready derivatives, while selected/batch exports bundle referenced originals;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- the native lexical, semantic KNN, and fused memory queries have no IPC, tool, citation, context-panel, or
-  provider-injection consumer yet;
+- the native lexical, semantic KNN, fused search, and provenance-opening contracts have no executable tool loop, IPC,
+  citation, context-panel, or provider-injection consumer yet;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
   pure presentation and Markdown-policy helpers have frontend unit coverage.
@@ -370,7 +377,58 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Native `search_memory` contract
+## Most recently completed product slice: Native `open_memory` contract
+
+### Goal
+
+Resolve exact `search_memory` conversation/message provenance into a small surrounding retained-turn window without
+adding provider tool loops, automatic retrieval injection, document search/opening, UI/IPC exposure, a schema
+migration, or broad memory controls.
+
+### Implemented shape
+
+1. `OpenMemoryArguments` accepts the exact conversation and message identities returned by `search_memory`, plus
+   optional before/after turn counts. Blank or more-than-128-character identities fail before database work, unknown
+   serialized fields are rejected, and each side is capped at three final text turns with two as the default.
+2. `execute_open_memory` reconstructs the matched message's own immutable owning-branch lineage, rather than the
+   conversation's currently selected branch, and never changes selection. Shared ancestors and branch-local
+   descendants stay ordered while sibling branches remain absent.
+3. Results carry stable message-source provenance, the bounded conversation title, exact conversation/message
+   identities, and ordered message identity, role, creation time, match marker, and answer text. Each answer is capped
+   at 2,000 Unicode scalars with a visible truncation marker.
+4. Only final, non-empty message answer text is eligible. Archived conversations remain available; Trash, failed,
+   cancelled, partial, missing, mismatched, cross-profile, and reasoning-only targets are unavailable. Separate
+   reasoning, provider/model metadata, attachments, hashes, scores, vectors, and native paths do not serialize.
+
+### Acceptance criteria
+
+- Exact provenance opens a bounded ordered context window around one final text message without changing the selected
+  branch or admitting an alternative sibling lineage.
+- At most three retained turns appear on either side and each returned answer stays within 2,000 Unicode scalars;
+  unknown fields and invalid identities fail under native policy.
+- Archived conversation memory remains openable, while Trash and non-final message states do not appear as targets or
+  surrounding turns.
+- The result is path-free and answer-only: reasoning, provider/model data, attachments, native storage details, search
+  scores, embeddings, and vector/chunk implementation metadata remain absent.
+- Provider execution loops, automatic prompt injection, document search/opening, citations UI, memory-card
+  replacement, reindex/cache behavior, retention/forget controls, and attachment behavior remain outside the slice.
+
+### Verification completed
+
+Focused TDD first failed against the absent module and execution method. Five native tests now cover exact path-free
+serialization, Archived/Trash policy, final-only answer text, unknown and invalid arguments, Unicode/window bounds,
+branch-owned lineage independent of current selection, sibling exclusion, and selection preservation. The complete
+Rust suite reports 190 passed with four opt-in live-provider checks intentionally ignored. Prettier, `svelte-check`,
+all 58 frontend tests, the production build, Cargo formatting, Cargo check, and `git diff --check` pass without
+warnings.
+
+Immutable read-only inspection of the unchanged schema-18 live store reported `quick_check=ok`, ready semantic
+progress at 84/84 chunks, 84 current mappings, and no running provider records. A fresh native development build
+started under the signed Tauri runner, remained active while the same store integrity/progress checks passed, and was
+then stopped with the development runner interrupt. This slice has no UI or IPC entry point, so no interactive feature
+or layout verification is claimed; migration and live-provider checks were not applicable.
+
+## Prior completed product slice: Native `search_memory` contract
 
 ### Goal
 
