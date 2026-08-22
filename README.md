@@ -225,8 +225,11 @@ source, conversation, association, lifecycle, and inclusive-date policy. Queries
 characters and 50 chunks. A Rust-only hybrid query applies that shared filter contract to lexical and semantic
 candidates, groups them by source, and combines one rank per engine with reciprocal-rank fusion (`k = 60`). The best
 semantic chunk supplies exact excerpt offsets while lexical-only sources retain bounded FTS5 snippets. Reindex
-controls, memory tools, and retrieval injection remain unimplemented, and no query, fused result, chunk, vector, cache
-path, or model failure detail crosses IPC.
+controls are now explicit in Settings: the WebView receives only durable state, completed/total counts, and a stable
+failure category. Reindexing serializes with restore, pauses the worker, atomically removes only derived vectors,
+retains chunks and the application-owned model cache, then resumes bounded background work. Memory tools and retrieval
+injection remain unimplemented, and no query, fused result, chunk, vector, source identity, cache path, or model failure
+detail crosses IPC.
 
 Run the layout-only browser preview:
 
@@ -260,4 +263,5 @@ stream rather than assuming every compatible endpoint behaves identically.
 The native memory subsystem uses FastEmbed 6 with Q4 EmbeddingGemma 300M as its single built-in embedding model.
 Bottie owns the model cache, durable acquisition/index progress, semantic-query prompting, and embedding/index
 versions; users do not configure a second inference provider merely to enable local memory indexing. Retrieval remains
-unavailable to tools, providers, and the interface until later bounded hybrid-ranking and memory-tool slices.
+unavailable to tools and providers until later bounded memory-tool slices; Settings exposes only path-free progress
+and the derived-only reindex control.

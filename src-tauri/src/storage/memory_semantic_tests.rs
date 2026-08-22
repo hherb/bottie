@@ -261,3 +261,74 @@ fn deleting_a_chunk_cascades_its_semantic_vector() {
 
     assert_eq!(counts, (0, 0));
 }
+
+#[test]
+fn explicit_reindex_clears_only_derived_vectors_and_resets_durable_progress() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let conversation = store
+        .create_conversation("Semantic rebuild")
+        .expect("conversation should create");
+    append_chunked_message(&store, &conversation.id);
+    let mut embedder = FixtureEmbedder::new(EMBEDDING_DIMENSIONS);
+    store
+        .process_next_semantic_batch(&mut embedder, 1)
+        .expect("semantic batch should succeed")
+        .expect("one semantic batch should exist");
+
+    let reset = store
+        .reset_semantic_index()
+        .expect("semantic reindex should reset derived rows");
+    let connection = store.open().expect("store should open");
+    let counts: (i64, i64, i64) = connection
+        .query_row(
+            "SELECT
+                (SELECT COUNT(*) FROM memory_chunks),
+                (SELECT COUNT(*) FROM memory_embedding_records),
+                (SELECT COUNT(*) FROM memory_vector_index)",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .expect("semantic rows should count");
+
+    assert_eq!(reset.state, SemanticIndexState::Pending);
+    assert_eq!(reset.completed_chunks, 0);
+    assert_eq!(reset.total_chunks as i64, counts.0);
+    assert_eq!(reset.error_code, None);
+    assert!(counts.0 > 0);
+    assert_eq!((counts.1, counts.2), (0, 0));
+    assert_eq!(
+        serde_json::to_value(&reset).expect("path-free progress should serialize"),
+        serde_json::json!({
+            "state": "pending",
+            "completedChunks": 0,
+            "totalChunks": counts.0,
+            "errorCode": null,
+        })
+    );
+    drop(connection);
+    drop(store);
+
+    let reopened = ConversationStore::initialize(path).expect("storage should reopen");
+    assert_eq!(
+        reopened
+            .semantic_index_status_for_test()
+            .expect("reset progress should survive reopen"),
+        reset
+    );
+}
+
+#[test]
+fn explicit_reindex_keeps_an_empty_index_ready() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+
+    let reset = store
+        .reset_semantic_index()
+        .expect("empty semantic reindex should succeed");
+
+    assert_eq!(reset.state, SemanticIndexState::Ready);
+    assert_eq!(reset.completed_chunks, 0);
+    assert_eq!(reset.total_chunks, 0);
+    assert_eq!(reset.error_code, None);
+}

@@ -2,6 +2,7 @@
   import { isTauri } from "@tauri-apps/api/core";
 
   import Icon from "$lib/Icon.svelte";
+  import MemoryIndexControl from "$lib/MemoryIndexControl.svelte";
   import { DEFAULT_PROVIDER_SETTINGS } from "$lib/presentation";
   import {
     getDiagnostics,
@@ -169,7 +170,7 @@
     <header class="settings-header">
       <div>
         <span class="eyebrow">Rust-owned configuration</span>
-        <h2 id="provider-settings-title">Inference providers</h2>
+        <h2 id="provider-settings-title">Settings</h2>
       </div>
       <button class="icon-button" aria-label="Close provider settings" onclick={close}>
         <Icon name="x" size={18} />
@@ -260,6 +261,8 @@
         <Icon name="shield" size={15} />
         <span><strong>Connection policy</strong><small>{CONNECTION_POLICY}</small></span>
       </div>
+
+      <MemoryIndexControl disabled={isGenerating || settingsSaving} />
 
       <section class="diagnostics" aria-label="Recent native diagnostics">
         <div class="diagnostics-heading">
