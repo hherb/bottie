@@ -178,12 +178,12 @@ Status: in progress
 
 ### Memory tools
 
-- `search_memory` for ranked excerpts;
-- `open_memory` for surrounding turns and provenance;
-- `search_attached_files` for indexed document chunks;
-- structured tool results with conversation/message identifiers;
-- visible and removable memory citations in the context panel;
-- exclude-from-memory, forget, retention, and reindex controls.
+- [x] Rust-owned `search_memory` contract for ranked message excerpts with bounded path-free provenance;
+- [ ] `open_memory` for surrounding turns and provenance;
+- [ ] `search_attached_files` for indexed document chunks;
+- [x] structured `search_memory` results with conversation/message identifiers and optional exact chunk offsets;
+- [ ] provider tool-loop integration plus visible and removable memory citations in the context panel;
+- [ ] exclude-from-memory, forget, and retention controls (explicit derived-only reindex is complete).
 
 Do not silently inject arbitrary long-term memories into every prompt. Recent conversation context may be automatic; long-term recall should be explicit and inspectable.
 

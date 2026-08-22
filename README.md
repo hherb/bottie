@@ -262,6 +262,7 @@ stream rather than assuming every compatible endpoint behaves identically.
 
 The native memory subsystem uses FastEmbed 6 with Q4 EmbeddingGemma 300M as its single built-in embedding model.
 Bottie owns the model cache, durable acquisition/index progress, semantic-query prompting, and embedding/index
-versions; users do not configure a second inference provider merely to enable local memory indexing. Retrieval remains
-unavailable to tools and providers until later bounded memory-tool slices; Settings exposes only path-free progress
-and the derived-only reindex control.
+versions; users do not configure a second inference provider merely to enable local memory indexing. A native-only
+`search_memory` contract now returns at most ten hybrid-ranked final-message excerpts with path-free conversation and
+message provenance for a future tool runtime. Provider invocation, automatic prompt injection, document search, and
+memory citations remain unavailable; Settings exposes only path-free progress and the derived-only reindex control.

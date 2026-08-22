@@ -39,6 +39,7 @@ mod memory_lexical_migration;
 mod memory_semantic;
 mod memory_semantic_migration;
 mod memory_semantic_query;
+pub(crate) mod memory_tool;
 mod migrate;
 mod migrations;
 mod portable_backup;
@@ -481,6 +482,8 @@ mod memory_lexical_tests;
 mod memory_semantic_query_tests;
 #[cfg(test)]
 mod memory_semantic_tests;
+#[cfg(test)]
+mod memory_tool_tests;
 #[cfg(test)]
 mod portable_export_tests;
 #[cfg(test)]
