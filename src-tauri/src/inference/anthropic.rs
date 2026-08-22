@@ -14,7 +14,9 @@ use super::{
         ProviderErrorCode, Usage,
     },
 };
-use crate::tool_contract::{memory_tool_definitions, web_search_tool_definition};
+use crate::tool_contract::{
+    memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
+};
 
 use self::protocol::{
     AnthropicChatRequest, AnthropicResponseAccumulator, AnthropicToolRound, DecodedEvent,
@@ -46,6 +48,7 @@ impl AnthropicToolSession {
             .collect::<Vec<_>>();
         if request.web_enabled {
             definitions.push(web_search_tool_definition());
+            definitions.push(web_fetch_tool_definition());
         }
         Ok(Self {
             request: AnthropicChatRequest::with_tools(request, definitions),

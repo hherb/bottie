@@ -3,7 +3,9 @@
 use super::*;
 use crate::{
     inference::{ContentBlock, ImageMediaType},
-    tool_contract::{memory_tool_definitions, web_search_tool_definition},
+    tool_contract::{
+        memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
+    },
 };
 
 #[test]
@@ -82,21 +84,21 @@ fn maps_closed_tools_and_fragmented_calls_into_correlated_messages() {
 }
 
 #[test]
-fn maps_only_web_search_after_memory_when_explicitly_enabled() {
+fn maps_web_tools_after_memory_when_explicitly_enabled() {
     let mut web_only = text_request("Find the current release");
     web_only.web_enabled = true;
     let web_only =
         serde_json::to_value(AnthropicToolSession::new(web_only).unwrap().request).unwrap();
-    assert_eq!(web_only["tools"].as_array().map(Vec::len), Some(1));
+    assert_eq!(web_only["tools"].as_array().map(Vec::len), Some(2));
     assert_eq!(web_only["tools"][0]["name"], "web_search");
-    assert!(
-        web_only["tools"]
-            .as_array()
-            .is_some_and(|tools| tools.iter().all(|tool| tool["name"] != "web_fetch"))
-    );
+    assert_eq!(web_only["tools"][1]["name"], "web_fetch");
     assert_eq!(
         web_only["tools"][0]["input_schema"],
         web_search_tool_definition().input_schema
+    );
+    assert_eq!(
+        web_only["tools"][1]["input_schema"],
+        web_fetch_tool_definition().input_schema
     );
 
     let mut combined = text_request("Recall context and check the web");
@@ -104,9 +106,10 @@ fn maps_only_web_search_after_memory_when_explicitly_enabled() {
     combined.web_enabled = true;
     let combined =
         serde_json::to_value(AnthropicToolSession::new(combined).unwrap().request).unwrap();
-    assert_eq!(combined["tools"].as_array().map(Vec::len), Some(4));
+    assert_eq!(combined["tools"].as_array().map(Vec::len), Some(5));
     assert_eq!(combined["tools"][0]["name"], "search_memory");
     assert_eq!(combined["tools"][3]["name"], "web_search");
+    assert_eq!(combined["tools"][4]["name"], "web_fetch");
 }
 
 #[test]

@@ -167,13 +167,12 @@ special-use DNS names, non-default ports, and any DNS answer outside a fail-clos
 redirect is resolved and revalidated explicitly, the client disables ambient proxies and automatic redirects, pins
 the accepted DNS answers for each hop, and shares one 15-second deadline across at most three redirects. Successful
 responses are limited to 48 KiB of valid UTF-8 HTML, XHTML, or plain page source and enter the existing 64 KiB common
-envelope with an explicit untrusted marker. Explicitly enabled tool-capable Ollama and OpenAI-compatible requests now
-advertise `web_fetch` after `web_search`, execute it through the same safe dispatcher, checkpoint the exact bounded
-result, and append that result to the next provider request through the existing durable Web loop.
-Anthropic-compatible Web requests remain search-only. The next bounded implementation slice is explicit
-Anthropic-compatible `web_fetch` mapping through the existing durable Web loop; do not bundle oMLX mapping,
-HTML-to-inert-text extraction, citation cards, automatic retrieval injection, model-cache deletion, document opening,
-or attachment retry controls.
+envelope with an explicit untrusted marker. Explicitly enabled tool-capable Ollama, OpenAI-compatible, and
+Anthropic-compatible requests now advertise `web_fetch` after `web_search`, execute it through the same safe
+dispatcher, checkpoint the exact bounded result, and append that result to the next provider request through the
+existing durable Web loop. The next bounded implementation slice is native HTML/XHTML page-source extraction into
+bounded inert text with source URL, title, and optional publication metadata; do not bundle oMLX mapping, citation
+cards, automatic retrieval injection, model-cache deletion, document opening, or attachment retry controls.
 
 Read these files first:
 
@@ -187,7 +186,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/openai-web-fetch`.
+branch `codex/anthropic-web-fetch`.
 
 ## Current implementation
 
@@ -455,9 +454,9 @@ Do not mistake visual fixtures for implemented backend behavior:
 - the closed native `web_search` contract is explicitly available only to tool-capable Ollama, OpenAI-compatible, or
   Anthropic-compatible models after the user enables Web. Brave calls and exact common results enter the durable audit
   before provider reuse. Successful results do not yet create dedicated Context-panel web-source cards;
-- the closed native `web_fetch` contract, public-network client, and common dispatcher are mapped only to explicitly
-  enabled tool-capable Ollama and OpenAI-compatible requests. Anthropic-compatible Web requests remain search-only;
-  HTML-to-inert-text extraction, source metadata, citations, and prompt-injection presentation remain absent;
+- the closed native `web_fetch` contract, public-network client, and common dispatcher are mapped to explicitly enabled
+  tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. HTML-to-inert-text extraction, source
+  metadata, citations, and prompt-injection presentation remain absent;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -498,7 +497,59 @@ The cohesively touched product modules remain below 500 lines except the existin
 practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: OpenAI-compatible web-fetch generation mapping
+## Most recently completed product slice: Anthropic-compatible web-fetch generation mapping
+
+### Goal
+
+Advertise and execute the closed native `web_fetch` contract through Anthropic Messages' existing durable Web loop
+without changing oMLX mapping, WebView IPC, settings, storage schema, or page-source representation.
+
+### Implemented shape
+
+1. `AnthropicToolSession` now appends the closed `web_fetch` definition immediately after `web_search` only when Web
+   is explicitly enabled. Memory definitions retain their existing order, and Web-disabled requests advertise neither
+   Web tool.
+2. Native generation constructs the credential-free public-network fetch executor for explicitly Web-enabled,
+   discovered tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible models. The existing selected search
+   provider and credential remain required by the Web flow; no fetch credential, endpoint, setting, command, or
+   WebView state was added.
+3. Anthropic calls retain their exact provider `tool_use` identities, typed arguments, safe audit policy, terminal
+   outcome, native-work duration, and bounded result before reuse. The provider follow-up contains the accumulated
+   assistant blocks followed by the exactly correlated user `tool_result` block; native structured failures retain
+   Anthropic's `is_error` signal.
+4. The mapped path reuses the closed URL validator, safe execution policy, DNS/address-pinned `NativeWebFetch`, common
+   64 KiB result envelope, cumulative provider usage, and existing eight-call, four-round, 256 KiB aggregate,
+   30-second, and cancellation limits.
+
+### Acceptance criteria
+
+- Web-disabled requests and models without explicit tool capability cannot advertise or execute `web_fetch`.
+- Anthropic-compatible requests receive the existing closed search/fetch schemas and exact untrusted result envelope;
+  URLs and page source remain inside Rust/provider tool traffic and the durable audit rather than crossing a new Tauri
+  command.
+- oMLX mapping remains absent. A provider-emitted unadvertised fetch call closes through the fixed redacted
+  `unsupported_tool` result when no fetch executor is present.
+- No migration, frontend state, settings, search-provider behavior, extraction, source card, citation, or automatic
+  retrieval behavior is added.
+
+### Verification completed
+
+Focused TDD first failed on the Anthropic definition order, provider fetch gate, and executor boundary. Socket-free
+coverage now proves successful fetch execution, exact `tool_use` identity correlation, durable safe audit/result
+reopen, and the explicit mapped-provider-versus-oMLX boundary. Protocol coverage proves closed
+memory/search/fetch definition order. All three host-local two-request Anthropic SSE fixtures pass, covering existing
+memory and search reuse plus the new fetch path's streamed call accumulation, exactly correlated `tool_result` reuse,
+explicit `untrusted: true`, final answer streaming, and cumulative usage. The sandboxed fetch-fixture run was blocked
+from binding its local socket; the authorized host-local retry passed.
+
+The full standard checks pass: Prettier, Svelte diagnostics with zero errors or warnings, all 76 frontend tests, the
+production build, Cargo formatting/check, and 284 Rust tests with 20 explicit opt-in tests skipped. The signed native
+development app compiled and launched successfully. Immutable live-store inspection reported schema version 21,
+`quick_check=ok`, 22 provider runs, and no retained `web_fetch` call; no migration was added. No browser presentation
+review was repeated because this slice changes no frontend surface. No live remote Anthropic-compatible credential,
+public-fetch interaction, or manual model-initiated `web_fetch` interaction is claimed.
+
+## Prior completed product slice: OpenAI-compatible web-fetch generation mapping
 
 ### Goal
 
