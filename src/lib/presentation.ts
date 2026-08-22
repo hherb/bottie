@@ -1,4 +1,4 @@
-import type { ProviderId, ProviderSettings } from "./inference";
+import type { ProviderId, ProviderSettings, WebSearchProviderId } from "./inference";
 import type {
   AttachmentExtraction,
   AttachmentIndexing,
@@ -8,6 +8,11 @@ import type {
 } from "./storage";
 
 let messageSequence = Date.now();
+
+/** Returns the disclosure name for one fixed native search route. */
+export function webSearchProviderName(providerId: WebSearchProviderId): string {
+  return providerId === "exa" ? "Exa Search" : "Brave Search";
+}
 
 /** Returns a process-unique numeric key for ephemeral message presentation. */
 export function nextMessageId(): number {
@@ -88,6 +93,7 @@ export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {
   ollamaBaseUrl: "http://127.0.0.1:11434/",
   openaiBaseUrl: "https://api.openai.com/v1/",
   anthropicBaseUrl: "https://api.anthropic.com/v1/",
+  webSearchProviderId: "brave",
   lastProviderId: null,
   lastModelId: null,
 };

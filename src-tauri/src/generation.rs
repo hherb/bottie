@@ -114,7 +114,10 @@ pub(crate) async fn start_chat(
             .is_some_and(|capabilities| capabilities.tools),
     );
     let web_search = if supports_web_tools {
-        match configured_web_search(state.credentials.as_ref()) {
+        match configured_web_search(
+            &providers.settings().web_search_provider_id,
+            state.credentials.as_ref(),
+        ) {
             Ok(provider) => Some(provider),
             Err(error) => {
                 finish_provider_run(

@@ -68,19 +68,20 @@ describe("page presentation", () => {
       ollamaBaseUrl: "http://127.0.0.1:11434/",
       openaiBaseUrl: "https://api.openai.com/v1/",
       anthropicBaseUrl: "https://api.anthropic.com/v1/",
+      webSearchProviderId: "brave",
       lastProviderId: null,
       lastModelId: null,
     } as const;
 
     expect(selectedProviderEndpoint("ollama", settings)).toBe("127.0.0.1:11434");
-    expect(inferenceStages(false, false, "Cloud provider", "low")).toEqual([
+    expect(inferenceStages(false, false, "Cloud provider", "Brave Search", "low")).toEqual([
       { icon: "shield", label: "Cloud route confirmed", detail: "Rust → Cloud provider" },
       { icon: "sparkles", label: "Streaming response", detail: "Low reasoning" },
     ]);
-    expect(inferenceStages(true, true, "Ollama", "off")[0]).toEqual({
+    expect(inferenceStages(true, true, "Ollama", "Exa Search", "off")[0]).toEqual({
       icon: "shield",
       label: "Local model with web access",
-      detail: "Rust → Ollama + Brave Search",
+      detail: "Rust → Ollama + Exa Search",
     });
   });
 });

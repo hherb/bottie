@@ -217,8 +217,8 @@ Outcome: bottie can use host-managed tools consistently across providers.
 
 ### Web tools
 
-- [x] pluggable native search-provider interface with one bounded fixed-endpoint Brave Search adapter;
-- [x] native Brave Search credential-vault configuration and fixed-route connection testing;
+- [x] pluggable native search-provider interface with bounded fixed-endpoint Brave Search and Exa Search adapters;
+- [x] independent native search-engine credentials, fixed-route connection tests, and a saved active-engine choice;
 - [x] provider-independent `web_search` contract and native dispatcher with freshness and domain filters;
 - [x] explicit Ollama definition/call/result mapping and generation-loop integration for `web_search`;
 - [x] explicit OpenAI Chat Completions definition/call/result mapping and generation-loop integration for

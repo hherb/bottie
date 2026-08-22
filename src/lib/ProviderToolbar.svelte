@@ -14,6 +14,7 @@
     showContext: boolean;
     isLocalRoute: boolean;
     webEnabled: boolean;
+    webSearchProviderName?: string;
     canExport: boolean;
     canBatchExport: boolean;
     canBackup: boolean;
@@ -47,6 +48,7 @@
     showContext,
     isLocalRoute,
     webEnabled,
+    webSearchProviderName = "Brave Search",
     canExport,
     canBatchExport,
     canBackup,
@@ -146,9 +148,11 @@
       class="privacy-pill"
       title={isLocalRoute
         ? webEnabled
-          ? "Model prompts stay local; enabled web-search queries go to Brave Search"
+          ? `Model prompts stay local; enabled web-search queries go to ${webSearchProviderName}`
           : "Messages stay on this device"
-        : "Messages are sent to the selected cloud endpoint"}
+        : webEnabled
+          ? `Messages go to the selected cloud model; web-search queries go to ${webSearchProviderName}`
+          : "Messages are sent to the selected cloud endpoint"}
     >
       <Icon name="shield" size={14} />
       <span>{isLocalRoute ? (webEnabled ? "Local + web" : "Local only") : "Cloud route"}</span>

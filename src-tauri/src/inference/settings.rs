@@ -13,6 +13,8 @@ pub const DEFAULT_OLLAMA_BASE_URL: &str = "http://127.0.0.1:11434/";
 pub const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com/v1/";
 /// Built-in Anthropic API root.
 pub const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com/v1/";
+/// Built-in fixed web-search provider retained for existing settings files.
+pub const DEFAULT_WEB_SEARCH_PROVIDER_ID: &str = "brave";
 /// Maximum time allowed to establish a provider connection.
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 /// Maximum time allowed for model discovery and connection tests.
@@ -34,6 +36,9 @@ pub struct ProviderSettings {
     /// Normalized Anthropic-compatible HTTPS API root.
     #[serde(default = "default_anthropic_base_url")]
     pub anthropic_base_url: String,
+    /// Fixed native search adapter used by explicitly enabled Web calls.
+    #[serde(default = "default_web_search_provider_id")]
+    pub web_search_provider_id: String,
     #[serde(default)]
     /// Last successfully selected provider.
     pub last_provider_id: Option<String>,
@@ -49,6 +54,7 @@ impl Default for ProviderSettings {
             ollama_base_url: DEFAULT_OLLAMA_BASE_URL.into(),
             openai_base_url: DEFAULT_OPENAI_BASE_URL.into(),
             anthropic_base_url: DEFAULT_ANTHROPIC_BASE_URL.into(),
+            web_search_provider_id: DEFAULT_WEB_SEARCH_PROVIDER_ID.into(),
             last_provider_id: None,
             last_model_id: None,
         }
@@ -68,9 +74,21 @@ impl ProviderSettings {
                 &self.anthropic_base_url,
             )?
             .to_string(),
+            web_search_provider_id: normalize_web_search_provider_id(&self.web_search_provider_id)?,
             last_provider_id: normalize_provider_id(self.last_provider_id)?,
             last_model_id: normalize_model_id(self.last_model_id)?,
         })
+    }
+}
+
+/// Accepts only Bottie's fixed native web-search adapters.
+fn normalize_web_search_provider_id(value: &str) -> Result<String, ProviderError> {
+    match value.trim() {
+        "brave" => Ok("brave".into()),
+        "exa" => Ok("exa".into()),
+        _ => Err(ProviderError::invalid_request(
+            "Choose a supported web search engine.",
+        )),
     }
 }
 
@@ -122,6 +140,10 @@ fn default_openai_base_url() -> String {
 
 fn default_anthropic_base_url() -> String {
     DEFAULT_ANTHROPIC_BASE_URL.into()
+}
+
+fn default_web_search_provider_id() -> String {
+    DEFAULT_WEB_SEARCH_PROVIDER_ID.into()
 }
 
 /// Normalizes and bounds an optional remembered model identity.
@@ -347,6 +369,22 @@ mod tests {
         assert_eq!(settings.last_model_id, None);
         assert_eq!(settings.openai_base_url, DEFAULT_OPENAI_BASE_URL);
         assert_eq!(settings.anthropic_base_url, DEFAULT_ANTHROPIC_BASE_URL);
+        assert_eq!(settings.web_search_provider_id, "brave");
+    }
+
+    #[test]
+    fn accepts_only_fixed_web_search_provider_identities() {
+        let exa = ProviderSettings {
+            web_search_provider_id: "exa".into(),
+            ..ProviderSettings::default()
+        };
+        assert_eq!(exa.normalized().unwrap().web_search_provider_id, "exa");
+
+        let unsupported = ProviderSettings {
+            web_search_provider_id: "custom".into(),
+            ..ProviderSettings::default()
+        };
+        assert!(unsupported.normalized().is_err());
     }
 
     #[test]

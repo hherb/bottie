@@ -73,18 +73,22 @@ export type ChatRun = { runId: string };
 /** Inference providers currently supported by the native shell. */
 export type ProviderId = "omlx" | "ollama" | "openai" | "anthropic";
 
+/** Fixed native web-search adapters available for explicit selection. */
+export type WebSearchProviderId = "brave" | "exa";
+
 /** Persisted non-secret provider configuration. */
 export type ProviderSettings = {
   omlxBaseUrl: string;
   ollamaBaseUrl: string;
   openaiBaseUrl: string;
   anthropicBaseUrl: string;
+  webSearchProviderId: WebSearchProviderId;
   lastProviderId: ProviderId | null;
   lastModelId: string | null;
 };
 
 /** Stable native provider identities allowed to own an OS-vault credential. */
-export type CredentialProviderId = "openai" | "anthropic" | "brave";
+export type CredentialProviderId = "openai" | "anthropic" | WebSearchProviderId;
 
 /** Secret-free availability for one native provider credential. */
 export type ProviderCredentialStatus = {
@@ -105,7 +109,7 @@ export type ProviderConnectionTest = {
 
 /** Result of testing the fixed native web-search provider route. */
 export type WebSearchConnectionTest = {
-  providerId: "brave";
+  providerId: WebSearchProviderId;
   elapsedMs: number;
   message: string;
 };
@@ -184,11 +188,14 @@ export async function updateProviderCredential(
   });
 }
 
-/** Tests the fixed Brave Search route with a draft or saved OS-vault credential. */
-export async function testWebSearchConnection(apiKey?: string): Promise<WebSearchConnectionTest> {
+/** Tests one fixed search route with a draft or saved OS-vault credential. */
+export async function testWebSearchConnection(
+  providerId: WebSearchProviderId,
+  apiKey?: string,
+): Promise<WebSearchConnectionTest> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<WebSearchConnectionTest>("test_web_search_connection", {
-    draft: { providerId: "brave", apiKey: apiKey || null },
+    draft: { providerId, apiKey: apiKey || null },
   });
 }
 

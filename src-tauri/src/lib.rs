@@ -205,9 +205,9 @@ async fn update_provider_settings(
     record_diagnostic(
         &state.diagnostics,
         "info",
-        "Local provider settings saved",
+        "Provider settings saved",
         None,
-        Some("Loopback endpoints updated; no credentials stored"),
+        Some("Inference endpoints and the fixed web-search route were updated; no credentials stored"),
     )
     .await;
     Ok(settings)

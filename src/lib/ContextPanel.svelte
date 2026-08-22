@@ -18,6 +18,7 @@
     providerStatus: ProviderStatus;
     isLocalRoute: boolean;
     webEnabled: boolean;
+    webSearchProviderName?: string;
     isAddingAttachments: boolean;
     attachmentFeedback: string | null;
     attachmentFailed: boolean;
@@ -43,6 +44,7 @@
     providerStatus,
     isLocalRoute,
     webEnabled,
+    webSearchProviderName = "Brave Search",
     isAddingAttachments,
     attachmentFeedback,
     attachmentFailed,
@@ -243,10 +245,10 @@
         {providerStatus === "available"
           ? isLocalRoute
             ? webEnabled
-              ? "Loopback model · Brave Search enabled"
+              ? `Loopback model · ${webSearchProviderName} enabled`
               : "Connected over loopback"
             : webEnabled
-              ? "Cloud model · Brave Search enabled"
+              ? `Cloud model · ${webSearchProviderName} enabled`
               : "Cloud transmission enabled"
           : "Provider disconnected"}
       </div>

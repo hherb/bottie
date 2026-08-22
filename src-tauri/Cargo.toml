@@ -40,6 +40,7 @@ quick-xml = "0.41"
 zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
 base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 fastembed = { version = "6", default-features = false, features = [
   "hf-hub-rustls-tls",
   "ort-download-binaries-rustls-tls",

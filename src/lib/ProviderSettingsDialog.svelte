@@ -18,6 +18,7 @@
     type ProviderCredentialStatus,
     type ProviderId,
     type ProviderSettings,
+    type WebSearchProviderId,
   } from "$lib/inference";
 
   type ConnectionTestState = {
@@ -52,6 +53,14 @@
     "15 s web test",
     "120 s stream idle",
   ].join(" · ");
+  const SEARCH_PROVIDER_SETTINGS: Array<{
+    id: WebSearchProviderId;
+    name: string;
+    hostname: string;
+  }> = [
+    { id: "brave", name: "Brave Search", hostname: "api.search.brave.com" },
+    { id: "exa", name: "Exa Search", hostname: "api.exa.ai" },
+  ];
 
   let { settings, isGenerating, onclose, onsaved }: Props = $props();
   let settingsDraft = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
@@ -65,17 +74,27 @@
     openai: { status: "idle", message: "" },
     anthropic: { status: "idle", message: "" },
   });
-  let webSearchTest = $state<ConnectionTestState>({ status: "idle", message: "" });
+  let webSearchTests = $state<Record<WebSearchProviderId, ConnectionTestState>>({
+    brave: { status: "idle", message: "" },
+    exa: { status: "idle", message: "" },
+  });
   let credentialStatus = $state<Record<CredentialProviderId, ProviderCredentialStatus>>({
     openai: { providerId: "openai", configured: false, unlocked: false, biometricProtected: false },
     anthropic: { providerId: "anthropic", configured: false, unlocked: false, biometricProtected: false },
     brave: { providerId: "brave", configured: false, unlocked: false, biometricProtected: false },
+    exa: { providerId: "exa", configured: false, unlocked: false, biometricProtected: false },
   });
-  let credentialDrafts = $state<Record<CredentialProviderId, string>>({ openai: "", anthropic: "", brave: "" });
+  let credentialDrafts = $state<Record<CredentialProviderId, string>>({
+    openai: "",
+    anthropic: "",
+    brave: "",
+    exa: "",
+  });
   let removeCredentials = $state<Record<CredentialProviderId, boolean>>({
     openai: false,
     anthropic: false,
     brave: false,
+    exa: false,
   });
 
   $effect(() => {
@@ -147,19 +166,19 @@
     await refreshDiagnostics();
   }
 
-  /** Tests the fixed Brave Search route without saving or returning provider results. */
-  async function testBraveConnection(): Promise<void> {
-    webSearchTest = { status: "testing", message: "Testing connection…" };
+  /** Tests one fixed search route without saving or returning provider results. */
+  async function testSearchConnection(providerId: WebSearchProviderId): Promise<void> {
+    webSearchTests[providerId] = { status: "testing", message: "Testing connection…" };
     settingsError = "";
     try {
-      const result = await testWebSearchConnection(credentialDrafts.brave);
-      webSearchTest = {
+      const result = await testWebSearchConnection(providerId, credentialDrafts[providerId]);
+      webSearchTests[providerId] = {
         status: "success",
         message: `${result.message} ${result.elapsedMs} ms.`,
       };
     } catch (error) {
       const normalized = providerErrorFromUnknown(error);
-      webSearchTest = { status: "error", message: normalized.message };
+      webSearchTests[providerId] = { status: "error", message: normalized.message };
     }
     await refreshDiagnostics();
   }
@@ -172,7 +191,7 @@
     settingsError = "";
     try {
       const saved = await updateProviderSettings({ ...settingsDraft });
-      for (const providerId of ["openai", "anthropic", "brave"] as const) {
+      for (const providerId of ["openai", "anthropic", "brave", "exa"] as const) {
         const apiKey = credentialDrafts[providerId].trim();
         if (apiKey || removeCredentials[providerId]) {
           const status = await updateProviderCredential(providerId, apiKey || null, removeCredentials[providerId]);
@@ -286,71 +305,94 @@
 
       <div class="provider-setting">
         <div class="provider-setting-heading">
-          <span><strong>Brave Search</strong><small>Fixed native HTTPS search route</small></span>
+          <span><strong>Web search engine</strong><small>Used only when Web is explicitly enabled</small></span>
           <span class="local-badge cloud">
             <Icon name="shield" size={12} />
             Cloud
           </span>
         </div>
-        <label for="brave-api-key">API key</label>
-        <div class="credential-row">
-          <input
-            id="brave-api-key"
-            type="password"
-            value={credentialDrafts.brave}
-            placeholder={credentialStatus.brave.configured ? "Stored in OS credential vault" : "Enter API key"}
-            oninput={(event) => {
-              credentialDrafts.brave = event.currentTarget.value;
-              removeCredentials.brave = false;
-            }}
-            disabled={!isTauri() || settingsSaving}
-            autocomplete="new-password"
-            spellcheck="false"
-          />
-          <button
-            type="button"
-            class:pending={removeCredentials.brave}
-            disabled={!credentialStatus.brave.configured || settingsSaving}
-            onclick={() => (removeCredentials.brave = !removeCredentials.brave)}
-            >{removeCredentials.brave ? "Keep" : "Remove"}</button
-          >
-        </div>
+        <label for="web-search-provider">Search engine</label>
+        <select
+          id="web-search-provider"
+          aria-label="Choose web search engine"
+          value={settingsDraft.webSearchProviderId}
+          disabled={!isTauri() || settingsSaving}
+          onchange={(event) => (settingsDraft.webSearchProviderId = event.currentTarget.value as WebSearchProviderId)}
+        >
+          {#each SEARCH_PROVIDER_SETTINGS as provider}
+            <option value={provider.id}>{provider.name}</option>
+          {/each}
+        </select>
         <p class="credential-status">
-          {removeCredentials.brave
-            ? "Credential will be removed when saved."
-            : credentialDrafts.brave
-              ? "Replacement key will be stored securely when saved."
-              : credentialStatus.brave.configured &&
-                  credentialStatus.brave.biometricProtected &&
-                  credentialStatus.brave.unlocked
-                ? "Touch ID verified; credential unlocked for this Bottie session."
-                : credentialStatus.brave.configured && credentialStatus.brave.biometricProtected
-                  ? "Protected by Touch ID; unlocks on first use this session."
-                  : credentialStatus.brave.configured
-                    ? "Credential configured in the OS vault."
-                    : "No credential configured."}
+          Keys are stored independently, so changing engines does not remove either credential.
         </p>
-        <div class="fixed-route-row">
-          <span>api.search.brave.com</span>
-          <button
-            type="button"
-            disabled={!isTauri() || settingsSaving || webSearchTest.status === "testing"}
-            onclick={testBraveConnection}>Test</button
-          >
-        </div>
-        <p class="credential-status">
-          Connection test sends one fixed bounded probe and does not expose search results.
-        </p>
-        {#if webSearchTest.message}
-          <p
-            class:error={webSearchTest.status === "error"}
-            class:success={webSearchTest.status === "success"}
-            class="test-result"
-          >
-            {webSearchTest.message}
-          </p>
-        {/if}
       </div>
+
+      {#each SEARCH_PROVIDER_SETTINGS as provider}
+        {@const credential = credentialStatus[provider.id]}
+        {@const test = webSearchTests[provider.id]}
+        <div class="provider-setting">
+          <div class="provider-setting-heading">
+            <span><strong>{provider.name}</strong><small>Fixed native HTTPS search route</small></span>
+            <span class="local-badge cloud">
+              <Icon name="shield" size={12} />
+              Cloud
+            </span>
+          </div>
+          <label for={`${provider.id}-api-key`}>API key</label>
+          <div class="credential-row">
+            <input
+              id={`${provider.id}-api-key`}
+              type="password"
+              value={credentialDrafts[provider.id]}
+              placeholder={credential.configured ? "Stored in OS credential vault" : "Enter API key"}
+              oninput={(event) => {
+                credentialDrafts[provider.id] = event.currentTarget.value;
+                removeCredentials[provider.id] = false;
+              }}
+              disabled={!isTauri() || settingsSaving}
+              autocomplete="new-password"
+              spellcheck="false"
+            />
+            <button
+              type="button"
+              class:pending={removeCredentials[provider.id]}
+              disabled={!credential.configured || settingsSaving}
+              onclick={() => (removeCredentials[provider.id] = !removeCredentials[provider.id])}
+              >{removeCredentials[provider.id] ? "Keep" : "Remove"}</button
+            >
+          </div>
+          <p class="credential-status">
+            {removeCredentials[provider.id]
+              ? "Credential will be removed when saved."
+              : credentialDrafts[provider.id]
+                ? "Replacement key will be stored securely when saved."
+                : credential.configured && credential.biometricProtected && credential.unlocked
+                  ? "Touch ID verified; credential unlocked for this Bottie session."
+                  : credential.configured && credential.biometricProtected
+                    ? "Protected by Touch ID; unlocks on first use this session."
+                    : credential.configured
+                      ? "Credential configured in the OS vault."
+                      : "No credential configured."}
+          </p>
+          <div class="fixed-route-row">
+            <span>{provider.hostname}</span>
+            <button
+              type="button"
+              disabled={!isTauri() || settingsSaving || test.status === "testing"}
+              onclick={() => testSearchConnection(provider.id)}>Test</button
+            >
+          </div>
+          <p class="credential-status">
+            Connection test sends one fixed bounded probe and does not expose search results.
+          </p>
+          {#if test.message}
+            <p class:error={test.status === "error"} class:success={test.status === "success"} class="test-result">
+              {test.message}
+            </p>
+          {/if}
+        </div>
+      {/each}
 
       <div class="settings-policy">
         <Icon name="shield" size={15} />
