@@ -8,6 +8,7 @@ use super::brave::{decode_fixture_response, map_fixture_status};
 use super::{
     BraveSearchProvider, MAX_WEB_SEARCH_QUERY_CHARS, MAX_WEB_SEARCH_QUERY_WORDS,
     MAX_WEB_SEARCH_RESULTS, WebSearchErrorCode, WebSearchProvider, WebSearchRequest,
+    connection_test_request,
 };
 
 #[test]
@@ -74,6 +75,14 @@ fn brave_production_adapter_owns_the_fixed_https_endpoint() {
     assert_eq!(request.url().scheme(), "https");
     assert_eq!(request.url().host_str(), Some("api.search.brave.com"));
     assert_eq!(request.url().path(), "/res/v1/web/search");
+}
+
+#[test]
+fn connection_test_uses_one_fixed_bounded_probe() {
+    let request = connection_test_request();
+
+    assert_eq!(request.query(), "Bottie connection test");
+    assert_eq!(request.result_limit(), 1);
 }
 
 #[test]

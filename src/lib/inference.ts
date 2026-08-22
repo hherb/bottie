@@ -82,9 +82,12 @@ export type ProviderSettings = {
   lastModelId: string | null;
 };
 
-/** Secret-free availability for one remote provider credential. */
+/** Stable native provider identities allowed to own an OS-vault credential. */
+export type CredentialProviderId = "openai" | "anthropic" | "brave";
+
+/** Secret-free availability for one native provider credential. */
 export type ProviderCredentialStatus = {
-  providerId: "openai" | "anthropic";
+  providerId: CredentialProviderId;
   configured: boolean;
   unlocked: boolean;
   biometricProtected: boolean;
@@ -95,6 +98,13 @@ export type ProviderConnectionTest = {
   providerId: string;
   baseUrl: string;
   modelCount: number;
+  elapsedMs: number;
+  message: string;
+};
+
+/** Result of testing the fixed native web-search provider route. */
+export type WebSearchConnectionTest = {
+  providerId: "brave";
   elapsedMs: number;
   message: string;
 };
@@ -155,21 +165,29 @@ export async function testProviderConnection(
   });
 }
 
-/** Reads secret-free remote credential availability from the native vault. */
+/** Reads secret-free native-provider credential availability from the native vault. */
 export async function getProviderCredentialStatus(): Promise<ProviderCredentialStatus[]> {
   if (!isTauri()) return [];
   return invoke<ProviderCredentialStatus[]>("get_provider_credential_status");
 }
 
-/** Stores, retains, or removes one remote key without returning its value. */
+/** Stores, retains, or removes one native provider key without returning its value. */
 export async function updateProviderCredential(
-  providerId: "openai" | "anthropic",
+  providerId: CredentialProviderId,
   apiKey: string | null,
   remove = false,
 ): Promise<ProviderCredentialStatus> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ProviderCredentialStatus>("update_provider_credential", {
     update: { providerId, apiKey, remove },
+  });
+}
+
+/** Tests the fixed Brave Search route with a draft or saved OS-vault credential. */
+export async function testWebSearchConnection(apiKey?: string): Promise<WebSearchConnectionTest> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<WebSearchConnectionTest>("test_web_search_connection", {
+    draft: { providerId: "brave", apiKey: apiKey || null },
   });
 }
 

@@ -28,7 +28,9 @@ wire formats.
 A separate Rust-only web-search boundary now normalizes bounded queries and inert result metadata behind a pluggable
 provider contract. Its first Brave Search adapter uses a fixed HTTPS endpoint, disables redirects, keeps the
 subscription token in a sensitive request header, caps response bytes, and accepts only absolute HTTP(S) result URLs.
-It is foundation code only: no Brave credential/settings flow or model-visible `web_search` tool is registered yet.
+Settings now stores or removes the Brave key through the operating-system credential vault and can test the fixed
+route with one bounded native probe without returning results or the key to the WebView. No model-visible `web_search`
+tool is registered yet.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -43,8 +45,8 @@ After a successful native startup, an app-private background rotation also creat
 reports corruption at startup, Bottie opens a restricted recovery screen instead of mutating the damaged store. Users
 can restore the newest verified automatic snapshot or choose a manual backup; Rust preserves the damaged database
 bundle in app-private storage before replacement.
-Remote API keys stay in the operating-system credential vault and are never returned to the WebView. On macOS,
-Touch ID gates the first read of each saved cloud credential
+Remote inference and Brave Search API keys stay in the operating-system credential vault and are never returned to
+the WebView. On macOS, Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. The native attachment picker now streams up
 to eight selected files into application-private, SHA-256-addressed storage with a 25 MiB per-file ceiling,
 content-based MIME detection, safe display names, and duplicate reuse. The WebView receives no filesystem path,

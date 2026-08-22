@@ -1,4 +1,4 @@
-//! Operating-system credential-vault access for remote provider API keys.
+//! Operating-system credential-vault access for native provider API keys.
 
 use std::{
     collections::HashMap,
@@ -16,8 +16,8 @@ const CONFIGURED_MARKER: &str = "configured";
 const AUTHENTICATION_REASON: &str = "unlock cloud provider credentials";
 const AUTHENTICATION_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// Stable remote provider identities allowed to own credential-vault entries.
-pub(crate) const REMOTE_PROVIDER_IDS: [&str; 2] = ["openai", "anthropic"];
+/// Stable native provider identities allowed to own credential-vault entries.
+pub(crate) const NATIVE_CREDENTIAL_IDS: [&str; 3] = ["openai", "anthropic", "brave"];
 
 /// Narrow secret-store contract used by native provider orchestration.
 pub(crate) trait CredentialStore: Send + Sync {
@@ -49,7 +49,7 @@ pub(crate) struct SystemCredentialStore {
 impl SystemCredentialStore {
     /// Builds a native keyring entry without exposing its contents.
     fn entry(service: &str, provider_id: &str) -> Result<Entry, ProviderError> {
-        validate_remote_provider(provider_id)?;
+        validate_native_credential_provider(provider_id)?;
         Entry::new(service, provider_id).map_err(vault_error)
     }
 
@@ -98,7 +98,7 @@ impl SystemCredentialStore {
 
 impl CredentialStore for SystemCredentialStore {
     fn configured(&self, provider_id: &str) -> Result<bool, ProviderError> {
-        validate_remote_provider(provider_id)?;
+        validate_native_credential_provider(provider_id)?;
         if self.cache()?.contains_key(provider_id) {
             return Ok(true);
         }
@@ -106,7 +106,7 @@ impl CredentialStore for SystemCredentialStore {
     }
 
     fn unlocked(&self, provider_id: &str) -> Result<bool, ProviderError> {
-        validate_remote_provider(provider_id)?;
+        validate_native_credential_provider(provider_id)?;
         Ok(self.cache()?.contains_key(provider_id))
     }
 
@@ -115,7 +115,7 @@ impl CredentialStore for SystemCredentialStore {
     }
 
     fn get(&self, provider_id: &str) -> Result<Option<String>, ProviderError> {
-        validate_remote_provider(provider_id)?;
+        validate_native_credential_provider(provider_id)?;
         if let Some(secret) = self.cache()?.get(provider_id).cloned() {
             return Ok(Some(secret));
         }
@@ -131,7 +131,7 @@ impl CredentialStore for SystemCredentialStore {
     }
 
     fn set(&self, provider_id: &str, api_key: &str) -> Result<(), ProviderError> {
-        validate_remote_provider(provider_id)?;
+        validate_native_credential_provider(provider_id)?;
         let api_key = api_key.trim();
         if api_key.is_empty() {
             return Err(ProviderError::invalid_request("API keys cannot be empty."));
@@ -152,7 +152,7 @@ impl CredentialStore for SystemCredentialStore {
     }
 
     fn delete(&self, provider_id: &str) -> Result<(), ProviderError> {
-        validate_remote_provider(provider_id)?;
+        validate_native_credential_provider(provider_id)?;
         let configured = Self::configured_in_vault(provider_id)?;
         let unlocked = self.cache()?.contains_key(provider_id);
         if requires_authentication(configured, unlocked) {
@@ -179,12 +179,12 @@ fn delete_entry(service: &str, provider_id: &str) -> Result<(), ProviderError> {
 }
 
 /// Rejects local and unknown identities before they can address the credential vault.
-fn validate_remote_provider(provider_id: &str) -> Result<(), ProviderError> {
-    if REMOTE_PROVIDER_IDS.contains(&provider_id) {
+fn validate_native_credential_provider(provider_id: &str) -> Result<(), ProviderError> {
+    if NATIVE_CREDENTIAL_IDS.contains(&provider_id) {
         Ok(())
     } else {
         Err(ProviderError::invalid_request(
-            "Choose a supported remote provider credential.",
+            "Choose a supported native provider credential.",
         ))
     }
 }
@@ -253,11 +253,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn credential_accounts_are_limited_to_remote_providers() {
-        assert!(validate_remote_provider("openai").is_ok());
-        assert!(validate_remote_provider("anthropic").is_ok());
-        assert!(validate_remote_provider("ollama").is_err());
-        assert!(validate_remote_provider("").is_err());
+    fn credential_accounts_are_limited_to_native_providers() {
+        assert!(validate_native_credential_provider("openai").is_ok());
+        assert!(validate_native_credential_provider("anthropic").is_ok());
+        assert!(validate_native_credential_provider("brave").is_ok());
+        assert!(validate_native_credential_provider("ollama").is_err());
+        assert!(validate_native_credential_provider("").is_err());
     }
 
     #[test]

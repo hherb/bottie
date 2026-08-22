@@ -149,9 +149,11 @@ stable terminal outcome, and native-work duration to each append-only tool recor
 legacy. Reopened responses show a calm call summary and one expandable audit record per call, with raw arguments and
 results behind nested disclosures. A provider-neutral native web-search boundary now has one concrete Brave Search
 adapter. Rust validates bounded queries, keeps the subscription token in a sensitive header, disables redirects, caps
-response bytes, and normalizes only inert HTTP(S) result metadata. The adapter is not registered as a model tool and
-has no settings or credential-vault flow yet. The next bounded implementation slice is native Brave Search credential
-configuration and connection testing; do not bundle `web_search` tool registration, a second search provider,
+response bytes, and normalizes only inert HTTP(S) result metadata. Settings now stores or removes the Brave key through
+the operating-system credential vault and can test the fixed route with one bounded native probe. Credential material,
+probe results, provider bodies, and arbitrary endpoints never cross IPC. The adapter is still not registered as a model
+tool. The next bounded implementation slice is the provider-independent `web_search` tool contract and native
+dispatcher registration with freshness/domain filters; do not bundle provider wire mapping, a second search provider,
 `web_fetch`, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, or attachment retry
 controls.
 
@@ -167,7 +169,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/web-search-provider-boundary`.
+branch `codex/brave-search-credentials`.
 
 ## Current implementation
 
@@ -423,8 +425,8 @@ Do not mistake visual fixtures for implemented backend behavior:
   and Anthropic-compatible consumers through the bounded dispatcher and loop. Their successful retained results now
   produce real selected-lineage citation cards; dismissals reset with the frontend session and do not delete tool
   records or exclude a source from later retrieval;
-- no web search or fetch tool exists; the Rust-only Brave adapter has no credential/settings surface and is not
-  registered with provider tool definitions or generation;
+- no web search or fetch tool exists; the Rust-only Brave adapter has native credential/settings and connection-test
+  surfaces but is not registered with provider tool definitions, the native dispatcher, or generation;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -464,52 +466,66 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 542 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Pluggable native web-search provider boundary
+## Most recently completed product slice: Brave Search credential configuration and connection testing
 
 ### Goal
 
-Establish one provider-neutral native contract and one real search adapter without exposing credentials or provider
-payloads to the WebView and without prematurely registering a model-visible web tool.
+Let users securely configure and verify the fixed Brave Search route without exposing credentials, provider results,
+or arbitrary native networking to the WebView and without prematurely registering a model-visible web tool.
 
 ### Implemented shape
 
-1. `src-tauri/src/web_search/mod.rs` defines a documented provider trait plus bounded query, response, result, and
-   stable redacted error types. Queries collapse whitespace, allow at most 400 Unicode scalars and 50 terms, and request
-   between one and twenty results.
-2. `BraveSearchProvider` is the first concrete adapter. Production construction owns the fixed HTTPS Brave Web Search
-   endpoint, a no-redirect client, 3-second connection and 15-second request limits, and a sensitive
-   `X-Subscription-Token` header; credentials never enter a URL, serialized result, error, or WebView command.
-3. Requests ask only for standard web results, strict SafeSearch, undecorated text, and the provider-neutral result
-   limit. Responses must be JSON and stay within a 2 MiB aggregate ceiling before decoding.
-4. Provider results retain only bounded whitespace-normalized title, snippet, optional publication metadata, and an
-   absolute HTTP(S) URL without embedded credentials or fragments. Unsafe schemes, blank titles, and overlong URLs are
-   dropped; provider response bodies, queries, credentials, and request-layer details are never reflected in errors.
-5. This foundation adds no Tauri command, settings field, credential persistence, provider definition, dispatcher
-   registration, generation change, database migration, or frontend state. The existing Web affordance remains inert.
+1. The existing operating-system credential store now accepts the stable `brave` provider identity while continuing to
+   return only configured, process-unlocked, and biometric-policy state to the WebView. The key is never serialized or
+   persisted in provider settings.
+2. Settings adds one Brave Search cloud section with password-style draft entry, explicit saved-key removal, fixed
+   endpoint disclosure, session unlock state, and a connection Test action. Browser preview keeps all mutation and test
+   controls disabled.
+3. `test_web_search_connection` accepts only the `brave` identity, prefers an unsaved trimmed draft key for that one
+   test, otherwise reads the saved vault entry under the existing session biometric policy, and constructs only the
+   production fixed-endpoint adapter.
+4. The connection test sends the constant `Bottie connection test` query with a one-result ceiling, runs through the
+   adapter's existing no-redirect, timeout, response-size, URL, and redaction policy, then discards normalized results.
+   IPC receives only provider identity, elapsed milliseconds, and a fixed success message.
+5. Success/failure diagnostics remain secret-redacted. This slice adds no persisted endpoint, model-visible tool,
+   dispatcher registration, provider wire mapping, database migration, second provider, or generic HTTP capability.
 
 ### Acceptance criteria
 
-- The provider-neutral request rejects blank, overlong, over-worded, zero-limit, and over-limit searches before I/O.
-- One concrete adapter implements the common native trait without a second provider or provider-specific types leaking
-  into future tool contracts.
-- Brave credentials remain header-only and sensitive; production endpoint choice stays fixed to HTTPS and redirects
-  are disabled.
-- Response reads and result fields are bounded, unsafe source URLs are removed, and HTTP/request/JSON failures use only
-  stable redacted categories.
-- No search reaches a model, provider tool request, durable audit row, WebView state, or settings file in this slice.
+- A Brave key can be added, replaced, retained, or removed through the existing OS-vault boundary without being read
+  back into JavaScript.
+- Draft keys can be tested without saving; an empty draft falls back to the saved key and a missing key fails before
+  provider I/O.
+- Connection testing can reach only the fixed HTTPS Brave endpoint and returns no query, credential, provider body, or
+  search result to the WebView.
+- Credential rejection, rate limiting, timeout, unavailability, and malformed responses retain fixed redacted errors
+  and secret-redacted diagnostic records.
+- No search reaches a model, provider tool request, dispatcher, durable audit row, conversation, or database.
 
 ### Verification completed
 
-Focused TDD first failed because the Brave fixture constructor and adapter behavior were absent. Six socket-free tests
-cover query normalization and limits, credential rejection, provider URL/query/header construction, safe result
-normalization, and stable HTTP-status mapping. Two opt-in loopback tests confirm the complete native GET/header/JSON
-path plus rate-limit redaction; both pass with host-local socket access.
+Focused TDD first failed because the `brave` vault identity, fixed connection-probe request, and Settings presentation
+were absent. Focused Rust coverage verifies native credential allowlisting, the constant one-result probe, and redacted
+adapter-error mapping. One server-rendered frontend test verifies the fixed-route disclosure and absence of a
+model-tool claim.
 
-Cargo formatting, Cargo check, and the default Rust suite pass with 241 tests and nine opt-in network tests skipped.
-The frontend format check, `svelte-check`, all 74 frontend tests, and the production build also pass unchanged. No
-browser or native-app presentation review was required because this slice adds no IPC, settings, storage, startup, or
-frontend behavior. No live Brave request was made because Bottie does not yet configure a Brave credential; the fixed
-wire contract is covered by the isolated loopback adapter tests.
+The standard frontend format check, `svelte-check`, all 75 frontend tests, and the production build pass. Cargo
+formatting, Cargo check, and the default Rust suite pass with 243 tests and nine opt-in network tests skipped. The two
+isolated Brave loopback tests also pass with host-local socket access, covering the complete header-authenticated
+request/JSON path and stable rate-limit redaction.
+
+The browser preview was visually checked at the desktop viewport and the 720 x 620 native minimum. The Brave card,
+fixed endpoint, vault-only disclosure, disabled browser controls, and connection-test explanation remain contained
+without horizontal overflow or console warnings. The native app compiled, development-signed, and launched against the
+existing store with the new command registered. No actual credential was entered, saved, removed, unlocked, or sent;
+therefore the real OS-vault mutation, Touch ID prompt, and live Brave endpoint remain manually unverified. The fixed
+wire path is covered by the isolated loopback tests.
+
+## Prior completed product slice: Pluggable native web-search provider boundary
+
+The preceding slice established the provider-neutral query/result/error contract and fixed-endpoint Brave adapter.
+Six socket-free protocol tests plus two opt-in loopback tests cover request bounds, header-only authentication,
+no-redirect fixed routing, safe result normalization, response ceilings, and redacted provider failures.
 
 ## Prior completed product slice: Structured tool audit and expandable activity
 

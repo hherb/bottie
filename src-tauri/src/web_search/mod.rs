@@ -15,6 +15,11 @@ pub const MAX_WEB_SEARCH_QUERY_CHARS: usize = 400;
 pub const MAX_WEB_SEARCH_QUERY_WORDS: usize = 50;
 /// Maximum number of normalized web results accepted from one provider call.
 pub const MAX_WEB_SEARCH_RESULTS: usize = 20;
+/// Stable identity of the first configured native web-search provider.
+pub const BRAVE_SEARCH_PROVIDER_ID: &str = "brave";
+
+const CONNECTION_TEST_QUERY: &str = "Bottie connection test";
+const CONNECTION_TEST_RESULT_LIMIT: usize = 1;
 
 /// One validated provider-neutral web-search request.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -236,6 +241,12 @@ impl WebSearchError {
 /// Collapses provider-neutral query whitespace without changing non-whitespace content.
 fn normalize_whitespace(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Builds the fixed bounded request used to verify Brave connectivity without exposing results.
+pub(crate) fn connection_test_request() -> WebSearchRequest {
+    WebSearchRequest::new(CONNECTION_TEST_QUERY, CONNECTION_TEST_RESULT_LIMIT)
+        .expect("the fixed web-search connection probe must remain valid")
 }
 
 /// Pluggable native contract implemented by each concrete web-search provider.

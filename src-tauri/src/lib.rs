@@ -20,6 +20,7 @@ mod tool_dispatch;
 mod tool_loop;
 mod tool_policy;
 pub mod web_search;
+mod web_search_commands;
 
 #[cfg(test)]
 mod generation_tools_tests;
@@ -39,7 +40,7 @@ use command_types::{
     AppInfo, ProviderConnectionDraft, ProviderConnectionTest, ProviderCredentialStatus,
     ProviderCredentialUpdate, ProviderSelection,
 };
-use credentials::{CredentialStore, REMOTE_PROVIDER_IDS, SystemCredentialStore};
+use credentials::{CredentialStore, NATIVE_CREDENTIAL_IDS, SystemCredentialStore};
 use diagnostics::{DiagnosticEntry, Diagnostics, record_diagnostic, sanitized};
 use futures_util::future::AbortHandle;
 use generation::{cancel_chat, start_chat};
@@ -65,6 +66,7 @@ use storage_commands::{
 };
 use tauri::{Manager, State};
 use tool_loop::ToolLoopCancellation;
+use web_search_commands::test_web_search_connection;
 
 /// Cancellation handles shared by provider I/O and native tool work for one accepted generation.
 struct ActiveRun {
@@ -138,11 +140,11 @@ async fn get_provider_settings(
 }
 
 #[tauri::command]
-/// Returns secret-free availability for each remote provider credential.
+/// Returns secret-free availability for each native provider credential.
 async fn get_provider_credential_status(
     state: State<'_, AppState>,
 ) -> Result<Vec<ProviderCredentialStatus>, ProviderError> {
-    REMOTE_PROVIDER_IDS
+    NATIVE_CREDENTIAL_IDS
         .into_iter()
         .map(|provider_id| {
             Ok(ProviderCredentialStatus {
@@ -156,7 +158,7 @@ async fn get_provider_credential_status(
 }
 
 #[tauri::command]
-/// Stores or removes one remote API key in the operating-system credential vault.
+/// Stores or removes one native provider API key in the operating-system credential vault.
 async fn update_provider_credential(
     update: ProviderCredentialUpdate,
     state: State<'_, AppState>,
@@ -502,6 +504,7 @@ pub fn run() {
             update_provider_settings,
             remember_provider_selection,
             test_provider_connection,
+            test_web_search_connection,
             get_diagnostics,
             get_storage_recovery_status,
             get_conversation_retention_policy,
