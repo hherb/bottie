@@ -19,6 +19,7 @@ mod tool_contract;
 mod tool_dispatch;
 mod tool_loop;
 mod tool_policy;
+pub mod web_search;
 
 #[cfg(test)]
 mod generation_tools_tests;

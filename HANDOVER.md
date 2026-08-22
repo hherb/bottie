@@ -147,9 +147,13 @@ approvals, and unknown or mismatched calls return fixed redacted errors through 
 approval UI or approval-required tool is registered yet. Schema version 21 now adds native execution classification,
 stable terminal outcome, and native-work duration to each append-only tool record. Historical rows remain explicitly
 legacy. Reopened responses show a calm call summary and one expandable audit record per call, with raw arguments and
-results behind nested disclosures. The next bounded implementation slice is the pluggable native web-search provider
-boundary; do not bundle a second search provider, `web_fetch`, oMLX mapping, automatic retrieval injection,
-model-cache deletion, document opening, or attachment retry controls.
+results behind nested disclosures. A provider-neutral native web-search boundary now has one concrete Brave Search
+adapter. Rust validates bounded queries, keeps the subscription token in a sensitive header, disables redirects, caps
+response bytes, and normalizes only inert HTTP(S) result metadata. The adapter is not registered as a model tool and
+has no settings or credential-vault flow yet. The next bounded implementation slice is native Brave Search credential
+configuration and connection testing; do not bundle `web_search` tool registration, a second search provider,
+`web_fetch`, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, or attachment retry
+controls.
 
 Read these files first:
 
@@ -163,7 +167,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/tool-audit-activity`.
+branch `codex/web-search-provider-boundary`.
 
 ## Current implementation
 
@@ -290,6 +294,8 @@ success/error envelope without provider wire policy, while `src-tauri/src/tool_p
 approval-required classification and exact-call native approval binding applied before dispatch,
 `src-tauri/src/tool_loop.rs` owns provider-neutral multi-call correlation, recursion/call/output/deadline policy, and
 shared cancellation checks used by mapped provider generation,
+`src-tauri/src/web_search/` owns the pluggable provider-neutral query/result/error contract plus the fixed-endpoint
+Brave Search adapter, strict native request/response bounds, safe result-URL policy, and redacted provider failures,
 `src-tauri/src/storage/tool_audit_migration.rs` owns schema-21 audit columns and honest legacy backfill,
 `src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
@@ -417,7 +423,8 @@ Do not mistake visual fixtures for implemented backend behavior:
   and Anthropic-compatible consumers through the bounded dispatcher and loop. Their successful retained results now
   produce real selected-lineage citation cards; dismissals reset with the frontend session and do not delete tool
   records or exclude a source from later retrieval;
-- no web search or fetch tool exists;
+- no web search or fetch tool exists; the Rust-only Brave adapter has no credential/settings surface and is not
+  registered with provider tool definitions or generation;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -457,7 +464,54 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 542 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Structured tool audit and expandable activity
+## Most recently completed product slice: Pluggable native web-search provider boundary
+
+### Goal
+
+Establish one provider-neutral native contract and one real search adapter without exposing credentials or provider
+payloads to the WebView and without prematurely registering a model-visible web tool.
+
+### Implemented shape
+
+1. `src-tauri/src/web_search/mod.rs` defines a documented provider trait plus bounded query, response, result, and
+   stable redacted error types. Queries collapse whitespace, allow at most 400 Unicode scalars and 50 terms, and request
+   between one and twenty results.
+2. `BraveSearchProvider` is the first concrete adapter. Production construction owns the fixed HTTPS Brave Web Search
+   endpoint, a no-redirect client, 3-second connection and 15-second request limits, and a sensitive
+   `X-Subscription-Token` header; credentials never enter a URL, serialized result, error, or WebView command.
+3. Requests ask only for standard web results, strict SafeSearch, undecorated text, and the provider-neutral result
+   limit. Responses must be JSON and stay within a 2 MiB aggregate ceiling before decoding.
+4. Provider results retain only bounded whitespace-normalized title, snippet, optional publication metadata, and an
+   absolute HTTP(S) URL without embedded credentials or fragments. Unsafe schemes, blank titles, and overlong URLs are
+   dropped; provider response bodies, queries, credentials, and request-layer details are never reflected in errors.
+5. This foundation adds no Tauri command, settings field, credential persistence, provider definition, dispatcher
+   registration, generation change, database migration, or frontend state. The existing Web affordance remains inert.
+
+### Acceptance criteria
+
+- The provider-neutral request rejects blank, overlong, over-worded, zero-limit, and over-limit searches before I/O.
+- One concrete adapter implements the common native trait without a second provider or provider-specific types leaking
+  into future tool contracts.
+- Brave credentials remain header-only and sensitive; production endpoint choice stays fixed to HTTPS and redirects
+  are disabled.
+- Response reads and result fields are bounded, unsafe source URLs are removed, and HTTP/request/JSON failures use only
+  stable redacted categories.
+- No search reaches a model, provider tool request, durable audit row, WebView state, or settings file in this slice.
+
+### Verification completed
+
+Focused TDD first failed because the Brave fixture constructor and adapter behavior were absent. Six socket-free tests
+cover query normalization and limits, credential rejection, provider URL/query/header construction, safe result
+normalization, and stable HTTP-status mapping. Two opt-in loopback tests confirm the complete native GET/header/JSON
+path plus rate-limit redaction; both pass with host-local socket access.
+
+Cargo formatting, Cargo check, and the default Rust suite pass with 241 tests and nine opt-in network tests skipped.
+The frontend format check, `svelte-check`, all 74 frontend tests, and the production build also pass unchanged. No
+browser or native-app presentation review was required because this slice adds no IPC, settings, storage, startup, or
+frontend behavior. No live Brave request was made because Bottie does not yet configure a Brave credential; the fixed
+wire contract is covered by the isolated loopback adapter tests.
+
+## Prior completed product slice: Structured tool audit and expandable activity
 
 ### Goal
 
