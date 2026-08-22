@@ -39,12 +39,14 @@ describe("ContextPanel", () => {
         attachmentFeedback: null,
         attachmentFailed: false,
         attachmentActionsDisabled: false,
+        memoryCitations: [],
         onclose: vi.fn(),
         onadd: vi.fn(),
         onremove: vi.fn(),
         onkeep: vi.fn(),
         onremoveconversation: vi.fn(),
         onremovemessage: vi.fn(),
+        onremovememory: vi.fn(),
       },
     }).body;
 
@@ -106,12 +108,14 @@ describe("ContextPanel", () => {
         attachmentFeedback: null,
         attachmentFailed: false,
         attachmentActionsDisabled: false,
+        memoryCitations: [],
         onclose: vi.fn(),
         onadd: vi.fn(),
         onremove: vi.fn(),
         onkeep: vi.fn(),
         onremoveconversation: vi.fn(),
         onremovemessage: vi.fn(),
+        onremovememory: vi.fn(),
       },
     }).body;
 
@@ -119,5 +123,52 @@ describe("ContextPanel", () => {
     expect(html).toContain("PDF has no extractable text");
     expect(html).toContain("its text is unavailable for later indexing");
     expect(html).toContain('class="attachment-row failed"');
+  });
+
+  it("renders removable path-free memory provenance without fixture scores", () => {
+    const html = render(ContextPanel, {
+      props: {
+        open: true,
+        attachments: [],
+        conversationAttachments: [],
+        messageAttachments: [],
+        canKeepInConversation: false,
+        selectedModel: undefined,
+        selectedProviderEndpoint: "127.0.0.1:11434",
+        providerStatus: "available",
+        isLocalRoute: true,
+        isAddingAttachments: false,
+        attachmentFeedback: null,
+        attachmentFailed: false,
+        attachmentActionsDisabled: false,
+        memoryCitations: [
+          {
+            id: "message:conversation-source:message-source",
+            kind: "conversation",
+            label: "Conversation memory",
+            title: "Architecture notes",
+            excerpt: "Keep provider traffic inside the Rust core.",
+            createdAtMs: 1_776_000_000_000,
+          },
+        ],
+        onclose: vi.fn(),
+        onadd: vi.fn(),
+        onremove: vi.fn(),
+        onkeep: vi.fn(),
+        onremoveconversation: vi.fn(),
+        onremovemessage: vi.fn(),
+        onremovememory: vi.fn(),
+      },
+    }).body;
+
+    expect(html).toContain("Memories <span>1</span>");
+    expect(html).toContain("Conversation memory");
+    expect(html).toContain("Keep provider traffic inside the Rust core.");
+    expect(html).toContain("Architecture notes");
+    expect(html).toContain('aria-label="Remove Architecture notes from context"');
+    expect(html).not.toContain("92%");
+    expect(html).not.toContain("fixtures");
+    expect(html).not.toContain("conversation-source");
+    expect(html).not.toContain("message-source");
   });
 });

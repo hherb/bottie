@@ -4,6 +4,7 @@
   import type { ModelInfo } from "$lib/inference";
   import { attachmentFailure, attachmentStatusLabel } from "$lib/attachment";
   import { attachmentDeliveryLabel } from "$lib/chat";
+  import type { MemoryCitation } from "$lib/memory-provenance";
   import type { Attachment, MessageAttachment, ProviderStatus } from "$lib/presentation";
 
   type Props = {
@@ -20,12 +21,14 @@
     attachmentFeedback: string | null;
     attachmentFailed: boolean;
     attachmentActionsDisabled: boolean;
+    memoryCitations: MemoryCitation[];
     onclose: () => void;
     onadd: () => void;
     onremove: (id: string) => void;
     onkeep: (attachmentId: string) => void;
     onremoveconversation: (attachmentId: string) => void;
     onremovemessage: (messageId: string, attachmentId: string) => void;
+    onremovememory: (citationId: string) => void;
   };
 
   let {
@@ -42,13 +45,20 @@
     attachmentFeedback,
     attachmentFailed,
     attachmentActionsDisabled,
+    memoryCitations,
     onclose,
     onadd,
     onremove,
     onkeep,
     onremoveconversation,
     onremovemessage,
+    onremovememory,
   }: Props = $props();
+
+  /** Formats trusted native timestamps without exposing any source identity. */
+  function citationDate(createdAtMs: number): string {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(createdAtMs);
+  }
 </script>
 
 <aside class:closed={!open} class="context-panel" aria-label="Conversation context">
@@ -168,24 +178,33 @@
 
   <section class="context-section memory-section">
     <div class="section-heading">
-      <h3>Preview memories <span>3 fixtures</span></h3>
-      <button disabled>Not active</button>
+      <h3>Memories <span>{memoryCitations.length}</span></h3>
+      <small class="section-note">Tool-sourced</small>
     </div>
-    <div class="memory-card cyan">
-      <div class="memory-meta"><Icon name="brain" size={14} /> Architecture discussion <span>92%</span></div>
-      <p>Keep secrets, storage, provider calls, and tool execution inside the Rust core.</p>
-      <small>Today · Bottie architecture</small>
-    </div>
-    <div class="memory-card violet">
-      <div class="memory-meta"><Icon name="brain" size={14} /> Search design <span>86%</span></div>
-      <p>Combine SQLite full-text and vector results with reciprocal-rank fusion.</p>
-      <small>Yesterday · SQLite search notes</small>
-    </div>
-    <div class="memory-card amber">
-      <div class="memory-meta"><Icon name="brain" size={14} /> Interface preference <span>79%</span></div>
-      <p>Tool activity should be visible, calm, and expandable when details matter.</p>
-      <small>Today · Bottie architecture</small>
-    </div>
+    {#each memoryCitations as citation (citation.id)}
+      <div
+        class:violet={citation.kind === "conversation"}
+        class:cyan={citation.kind === "attachment"}
+        class="memory-card"
+      >
+        <div class="memory-meta">
+          <Icon name={citation.kind === "conversation" ? "brain" : "file"} size={14} />
+          <span class="memory-kind">{citation.label}</span>
+          <button aria-label={`Remove ${citation.title} from context`} onclick={() => onremovememory(citation.id)}>
+            <Icon name="x" size={13} />
+          </button>
+        </div>
+        <p>{citation.excerpt}</p>
+        <small>{citationDate(citation.createdAtMs)} · {citation.title}</small>
+      </div>
+    {:else}
+      <div class="empty-memories">
+        <Icon name="brain" size={18} />
+        <span
+          ><strong>No recalled context</strong><small>Successful native memory tools add citations here.</small></span
+        >
+      </div>
+    {/each}
   </section>
 
   <section class="context-section route-section">
