@@ -50,12 +50,13 @@ use storage_commands::{
     add_conversation_attachments, append_conversation_message, backup_conversation_store,
     branch_conversation_message, clear_last_open_conversation, create_conversation,
     delete_conversation, export_conversation_batch_json, export_conversation_json,
-    export_conversation_markdown, get_semantic_index_progress, get_storage_recovery_status,
-    ingest_attachments, list_conversations, load_conversation, load_last_open_conversation,
-    rate_conversation_response, reindex_semantic_memory, remove_conversation_attachment,
-    remove_conversation_message_attachment, rename_conversation, restore_conversation,
-    restore_conversation_store, restore_latest_automatic_backup, search_conversations,
-    select_conversation_branch, set_conversation_archived, set_conversation_memory_excluded,
+    export_conversation_markdown, forget_conversation, get_semantic_index_progress,
+    get_storage_recovery_status, ingest_attachments, list_conversations, load_conversation,
+    load_last_open_conversation, rate_conversation_response, reindex_semantic_memory,
+    remove_conversation_attachment, remove_conversation_message_attachment, rename_conversation,
+    restore_conversation, restore_conversation_store, restore_latest_automatic_backup,
+    search_conversations, select_conversation_branch, set_conversation_archived,
+    set_conversation_memory_excluded,
 };
 use tauri::{Manager, State};
 use tool_loop::ToolLoopCancellation;
@@ -525,6 +526,7 @@ pub fn run() {
             set_conversation_memory_excluded,
             delete_conversation,
             restore_conversation,
+            forget_conversation,
             discover_models,
             start_chat,
             cancel_chat

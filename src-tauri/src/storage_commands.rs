@@ -490,3 +490,14 @@ pub(crate) fn restore_conversation(
 ) -> Result<ConversationSummary, StorageError> {
     state.conversations.restore_conversation(&conversation_id)
 }
+
+#[tauri::command]
+/// Permanently deletes one trashed conversation and its conversation-owned records.
+pub(crate) fn forget_conversation(
+    conversation_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), StorageError> {
+    state.conversations.forget_conversation(&conversation_id)?;
+    state.semantic_indexing.wake();
+    Ok(())
+}

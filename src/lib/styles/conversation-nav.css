@@ -158,6 +158,23 @@
 .conversation-menu button.danger {
   color: #d99891;
 }
+.conversation-menu.forget-open {
+  width: 200px;
+}
+.forget-confirmation {
+  padding: 7px;
+}
+.forget-confirmation p {
+  margin: 0 0 8px;
+  color: var(--muted-strong);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.forget-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
 .conversation-rename {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 28px 28px;

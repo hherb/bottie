@@ -27,6 +27,8 @@ mod docx;
 mod error;
 mod export;
 pub(crate) mod extraction;
+#[cfg(test)]
+mod forget_tests;
 mod image_codec;
 mod image_normalization;
 mod lifecycle;
