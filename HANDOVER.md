@@ -105,9 +105,13 @@ ready extracted documents with durable active or Archived conversation/message a
 excerpts with safe file metadata and optional exact chunk offsets while omitting hashes, paths, scores, embeddings,
 full extracted text, and association internals. The next bounded implementation slice is provider-independent memory
 tool definitions plus strict argument-schema validation for `search_memory`, `open_memory`, and
-`search_attached_files`; do not bundle provider execution loops, adapter mapping, automatic retrieval injection,
-memory-card replacement, model-cache deletion, broad retention controls, document opening, or attachment retry
-controls.
+`search_attached_files`. A single native definition set now exposes only those three stable names with closed JSON
+schemas and converts raw provider-style JSON into exact typed arguments. It rejects unsupported names, non-objects,
+missing or unknown fields, JSON null/type mismatches, blank or overlong strings, contradictory date ranges, and
+out-of-range result/window counts without reflecting raw arguments in errors. The next bounded implementation slice is
+a provider-neutral memory-tool execution dispatcher with a bounded structured result/error envelope; do not bundle
+provider execution loops, adapter mapping, automatic retrieval injection, memory-card replacement, model-cache
+deletion, broad retention controls, document opening, or attachment retry controls.
 
 Read these files first:
 
@@ -121,7 +125,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/search-attached-files`.
+branch `codex/memory-tool-definitions`.
 
 ## Current implementation
 
@@ -233,6 +237,8 @@ conversation/message results over hybrid retrieval,
 reconstruction without changing conversation selection,
 `src-tauri/src/storage/memory_file_tool.rs` owns typed bounded `search_attached_files` arguments and ranked path-free
 ready-document results over hybrid retrieval,
+`src-tauri/src/tool_contract.rs` owns the provider-independent memory-tool definition set, closed JSON schemas, raw
+name/argument validation, and conversion into exact typed native arguments without executing them,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker,
@@ -384,7 +390,60 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Native `search_attached_files` contract
+## Most recently completed product slice: Provider-independent memory tool definitions
+
+### Goal
+
+Publish one provider-neutral native definition set and strictly validate raw JSON arguments for `search_memory`,
+`open_memory`, and `search_attached_files`, without adding an executor, provider adapter mapping, provider tool loops,
+automatic retrieval injection, UI/IPC exposure, a schema migration, or broad memory controls.
+
+### Implemented shape
+
+1. `memory_tool_definitions` returns the three stable native names, bounded model-facing descriptions, and provider-
+   neutral closed object schemas. Search schemas require `query`; opening requires exact `conversationId` and
+   `messageId` provenance. Optional conversation/date/result and surrounding-turn properties declare their exact JSON
+   types and native bounds, and every schema sets `additionalProperties` to false.
+2. `validate_memory_tool_arguments` accepts only one advertised name and a JSON object matching that definition. It
+   rejects missing/extra fields, JSON null or type mismatches, blank or overlong query/identity strings, contradictory
+   inclusive dates, search limits outside 1-10, and surrounding-turn counts outside 0-3 before producing a typed enum.
+3. Errors distinguish unsupported names from invalid arguments while returning only stable redacted messages. Raw
+   provider-controlled JSON is never echoed into errors or diagnostics.
+4. The existing hybrid executors remain unchanged except that direct conversation filters now share the definition's
+   128-Unicode-scalar identity ceiling. No definition is mapped into an Ollama, OpenAI-shaped, Anthropic-shaped, or
+   oMLX request, and no tool is executed or exposed through Tauri/WebView state in this slice.
+
+### Acceptance criteria
+
+- Exactly the three native memory tools are advertised through provider-neutral definitions with closed schemas,
+  required fields, declared JSON types, and the existing native query/result/window ceilings.
+- Valid raw JSON becomes the matching `SearchMemoryArguments`, `OpenMemoryArguments`, or
+  `SearchAttachedFilesArguments` variant without stringly typed downstream dispatch.
+- Unsupported names, non-object payloads, missing/unknown fields, nulls, incorrect number/string types, blank or
+  overlong strings, contradictory dates, and out-of-range counts fail before any database or embedding work.
+- Validation failures do not repeat raw argument data; schemas and serialized definitions expose no filesystem,
+  database, hash, embedding, score, credential, or automatic-injection capability.
+- Provider adapter mapping, provider execution loops, tool execution, prompt/retrieval injection, citations UI,
+  document opening, retention/forget controls, cache deletion, and attachment retry behavior remain outside the slice.
+
+### Verification completed
+
+Focused TDD first failed because the shared definition/validation module and storage re-exports did not exist. Four
+native tests now cover the exact advertised set and schema shape, valid typed conversion for all three tools,
+unsupported names, non-object/missing/unknown/null/wrong-type inputs, semantic string/date/count limits, schema/result
+ceiling parity, redacted errors, and omission of sensitive or unimplemented capabilities. Existing search-memory and
+file-search validation tests also cover the shared 128-character conversation-identity ceiling.
+
+The complete Rust suite reports 199 passed with four opt-in live-provider checks intentionally ignored. Prettier,
+`svelte-check`, all 58 frontend tests, the production build, Cargo formatting, Cargo check, and `git diff --check` pass
+without warnings. The host-native development command built, signed, and started Bottie; macOS WebKit logs confirmed
+the page completed loading. While it remained active, immutable read-only inspection of the unchanged schema-18 live
+store reported `quick_check=ok`, ready semantic progress at 84/84 chunks, 84 current embedding mappings, 84 sqlite-vec
+row identities, 768 dimensions, index generation 1, and no running provider records. The development runner was then
+stopped and no Bottie development process remained. This slice has no UI, IPC, provider request, migration, or
+executable tool entry point, so no interactive feature, provider-call, or layout behavior is claimed.
+
+## Prior completed product slice: Native `search_attached_files` contract
 
 ### Goal
 

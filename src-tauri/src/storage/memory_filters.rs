@@ -2,7 +2,9 @@
 
 use super::StorageError;
 
-pub(super) const MAX_MEMORY_QUERY_CHARACTERS: usize = 200;
+pub(crate) const MAX_MEMORY_QUERY_CHARACTERS: usize = 200;
+/// Maximum accepted size of an opaque conversation filter identity.
+pub(crate) const MAX_MEMORY_CONVERSATION_ID_CHARACTERS: usize = 128;
 pub(super) const MAX_MEMORY_RESULTS: usize = 50;
 const DEFAULT_MEMORY_RESULTS: usize = MAX_MEMORY_RESULTS;
 
@@ -55,10 +57,13 @@ impl MemorySearchFilters {
         if self
             .conversation_id
             .as_deref()
-            .is_some_and(|conversation_id| conversation_id.trim().is_empty())
+            .is_some_and(|conversation_id| {
+                conversation_id.trim().is_empty()
+                    || conversation_id.chars().count() > MAX_MEMORY_CONVERSATION_ID_CHARACTERS
+            })
         {
             return Err(StorageError::invalid(
-                "A memory conversation filter cannot be empty.",
+                "A memory conversation filter requires a bounded identity.",
             ));
         }
         if self

@@ -66,8 +66,21 @@ pub(crate) use error::StorageError;
 pub(crate) use extraction::StoredAttachmentExtraction;
 pub(crate) use extraction::{AttachmentExtractionFormat, AttachmentExtractionState};
 pub(crate) use image_normalization::StoredImageNormalization;
+pub(crate) use memory_file_tool::{
+    MAX_SEARCH_ATTACHED_FILE_RESULTS, SEARCH_ATTACHED_FILES_TOOL_NAME, SearchAttachedFilesArguments,
+};
+pub(crate) use memory_filters::{
+    MAX_MEMORY_CONVERSATION_ID_CHARACTERS, MAX_MEMORY_QUERY_CHARACTERS,
+};
+pub(crate) use memory_open::{
+    MAX_OPEN_MEMORY_ID_CHARACTERS, MAX_OPEN_MEMORY_SURROUNDING_TURNS, OPEN_MEMORY_TOOL_NAME,
+    OpenMemoryArguments,
+};
 pub(crate) use memory_semantic::DEFAULT_SEMANTIC_BATCH_SIZE;
 pub(crate) use memory_semantic::{SemanticEmbedder, SemanticIndexProgress, SemanticIndexState};
+pub(crate) use memory_tool::{
+    MAX_SEARCH_MEMORY_RESULTS, SEARCH_MEMORY_TOOL_NAME, SearchMemoryArguments,
+};
 use message_content::{insert_blocks, load_blocks};
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};

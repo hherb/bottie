@@ -14,6 +14,10 @@ mod semantic_indexer;
 mod storage;
 mod storage_commands;
 mod stream_channel;
+mod tool_contract;
+
+#[cfg(test)]
+mod tool_contract_tests;
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
 

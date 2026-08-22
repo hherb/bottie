@@ -19,7 +19,7 @@ pub(crate) const MAX_OPEN_MEMORY_SURROUNDING_TURNS: usize = 3;
 /// Maximum Unicode-scalar length of one returned turn.
 pub(crate) const MAX_OPEN_MEMORY_TURN_CHARACTERS: usize = 2_000;
 /// Maximum Unicode-scalar length accepted for either opaque durable identity.
-const MAX_OPEN_MEMORY_ID_CHARACTERS: usize = 128;
+pub(crate) const MAX_OPEN_MEMORY_ID_CHARACTERS: usize = 128;
 
 /// Typed provenance accepted by Bottie's future provider-independent `open_memory` executor.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]

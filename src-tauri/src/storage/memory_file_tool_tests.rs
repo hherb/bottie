@@ -243,6 +243,11 @@ fn rejects_invalid_arguments_before_embedding_and_denies_unknown_fields() {
         },
         SearchAttachedFilesArguments {
             query: "north".into(),
+            conversation_id: Some("x".repeat(129)),
+            ..SearchAttachedFilesArguments::default()
+        },
+        SearchAttachedFilesArguments {
+            query: "north".into(),
             created_after_ms: Some(2),
             created_before_ms: Some(1),
             ..SearchAttachedFilesArguments::default()
