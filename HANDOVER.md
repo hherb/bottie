@@ -92,10 +92,14 @@ a shared filter and bound contract to both retrieval paths and combines their so
 Each source contributes at most once per list; an overlapping source retains its strongest semantic chunk's exact
 excerpt and offsets. Settings now exposes durable path-free semantic-index progress and one explicit reindex action.
 The native command serializes with restore, pauses the worker before atomically removing only derived vector mappings,
-retains source chunks and the application-owned model cache, then resumes the existing bounded worker. The next
-bounded implementation slice is a Rust-owned `search_memory` tool contract over the hybrid query with bounded
-path-free provenance; do not bundle provider tool loops, automatic retrieval injection, memory-card replacement,
-model-cache deletion, broad retention controls, or attachment retry controls.
+retains source chunks and the application-owned model cache, then resumes the existing bounded worker. A typed native
+`search_memory` contract now applies hybrid retrieval to final conversation messages.
+It accepts bounded query, conversation, inclusive-date, and result-limit arguments, returns ranked excerpts with
+path-free conversation/message provenance and optional exact chunk offsets, and hides engine scores and embedding
+details. Provider tool loops and automatic retrieval injection remain absent. The next bounded implementation slice is
+a Rust-owned `open_memory` contract for surrounding retained turns and provenance; do not bundle provider tool loops,
+automatic retrieval injection, memory-card replacement, model-cache deletion, broad retention controls, document
+search, or attachment retry controls.
 
 Read these files first:
 
@@ -215,6 +219,8 @@ embedding batches, atomic chunk/vector mappings, durable progress, and derived-o
 `src-tauri/src/storage/memory_semantic_migration.rs` owns schema-18 model/index metadata and vector cleanup triggers,
 `src-tauri/src/storage/memory_semantic_query.rs` owns normalized EmbeddingGemma retrieval queries, exact filtered KNN,
 bounded chunk provenance, and current-generation validation,
+`src-tauri/src/storage/memory_tool.rs` owns typed bounded `search_memory` arguments and ranked path-free
+conversation/message results over hybrid retrieval,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
@@ -364,7 +370,58 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Explicit semantic reindex control
+## Most recently completed product slice: Native `search_memory` contract
+
+### Goal
+
+Expose one provider-independent Rust contract for ranked conversation-memory excerpts with inspectable path-free
+provenance, without adding provider tool loops, automatic retrieval injection, document search, UI/IPC exposure, a
+schema migration, or broad memory controls.
+
+### Implemented shape
+
+1. `SearchMemoryArguments` accepts a natively normalized 200-character query plus optional conversation, inclusive
+   creation-time, and result-limit filters. Unknown fields and zero limits fail before embedding work; empty queries
+   return an empty result without loading the model.
+2. `execute_search_memory` fixes the source category to final conversation messages, caps tool output at ten matches,
+   and reuses the existing built-in-profile, Archived/Trash, filter, hybrid-query, and reciprocal-rank policy. Ready
+   extracted documents remain reserved for the later `search_attached_files` contract.
+3. Each result contains a one-based fused order and an excerpt capped at 1,200 Unicode scalars. Provenance includes
+   only the durable conversation ID/title, message ID, author role, creation time, and optional exact semantic chunk
+   ordinal/offsets. Lexical-only results omit chunk location rather than inventing it.
+4. The serialized contract omits query text, lexical/semantic ranks, fused scores, cosine distances, vectors,
+   embeddings, hashes, and filesystem/database/model/cache paths. No Tauri command, WebView state, provider request,
+   export field, tool loop, or schema change was added.
+
+### Acceptance criteria
+
+- Returned matches are final message answers only, preserve fused order, remain capped at ten results and 1,200
+  Unicode scalars per excerpt, and carry enough opaque path-free provenance for a later `open_memory` contract.
+- Conversation and inclusive-date filters share the native hybrid policy; Archived remains eligible, while Trash and
+  non-message sources do not appear.
+- Invalid query/filter/limit contracts fail before embedding; empty search remains a no-work empty result; unknown
+  serialized arguments are rejected.
+- Semantic matches retain exact current-generation chunk offsets, lexical fallback remains usable without indexed
+  vectors and omits nonexistent offsets, and retrieval scores or implementation details never enter the result.
+- Provider execution loops, automatic prompt injection, document search, citations UI, memory-card replacement,
+  reindex/cache behavior, retention/forget controls, and attachment behavior remain outside the slice.
+
+### Verification completed
+
+Focused TDD first failed against the absent module and execution method. Five native tests now cover typed/path-free
+serialization, exact semantic provenance, conversation/date filtering, the narrower result and excerpt ceilings,
+invalid and unknown arguments before embedding, empty-query no-work behavior, lexical fallback, and Archived/Trash
+lifecycle policy. The complete Rust suite reports 185 passed with four opt-in live-provider checks intentionally
+ignored. Prettier, `svelte-check`, all 58 frontend tests, the production build, Cargo formatting, Cargo check, and
+`git diff --check` pass without warnings.
+
+Immutable read-only inspection of the unchanged schema-18 live store reported `quick_check=ok`, ready semantic
+progress at 84/84 chunks, 84 current-contract mappings, no contract mismatches, no mapping orphans, and no running
+provider records. Two native-launch attempts did not reach process creation because the host approval review timed out;
+therefore no fresh app-window interaction is claimed. No UI, IPC, schema, picker, export, or provider behavior changed,
+so browser layout, migration, and live-provider checks were not applicable to this slice.
+
+## Prior completed product slice: Explicit semantic reindex control
 
 ### Goal
 
