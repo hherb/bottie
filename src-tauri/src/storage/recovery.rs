@@ -70,8 +70,10 @@ impl ConversationStore {
                 recovery_required: true,
             });
         }
+        let store = Self::initialize(path)?;
+        store.apply_conversation_retention()?;
         Ok(StorageStartup {
-            store: Self::initialize(path)?,
+            store,
             recovery_required: false,
         })
     }

@@ -135,9 +135,13 @@ forget action. The native command accepts only a trashed local-profile conversat
 transactionally deletes its conversation-owned source records and message-derived lexical, chunk, and vector data.
 Shared content-addressed attachments remain available; newly unreferenced attachment sources and derivatives retain
 the existing 24-hour cross-process safety window before startup garbage collection. Existing exports and backup
-snapshots are not rewritten, and the application-owned embedding-model cache is retained. The next bounded
-implementation slice is explicit time-based conversation retention; do not bundle oMLX mapping, automatic retrieval
-injection, model-cache deletion, document opening, web tools, or attachment retry controls.
+snapshots are not rewritten, and the application-owned embedding-model cache is retained. Time-based retention is now
+also complete. Schema version 20 stores one optional built-in-profile Trash period: 30 days,
+90 days, or one year, with manual retention as the default. Expiry is measured from the durable deletion timestamp and
+applied only during a healthy app startup; active and Archived conversations are never eligible. Automatic forget uses
+the same live-store cascade, attachment safety window, and external-copy/model-cache boundary as explicit forget. The
+next bounded implementation slice is safe-versus-approval-required native tool policy; do not bundle oMLX mapping,
+automatic retrieval injection, model-cache deletion, document opening, web tools, or attachment retry controls.
 
 Read these files first:
 
@@ -151,7 +155,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/conversation-forget`.
+branch `codex/conversation-retention`.
 
 ## Current implementation
 
@@ -190,6 +194,8 @@ branch `codex/conversation-forget`.
 - inline conversation rename plus archive, unarchive, recoverable trash, and restore actions;
 - durable reversible conversation memory exclusion with a compact `Memory off` navigation label;
 - separately confirmed permanent conversation forgetting from Trash with source/derived-data retention disclosure;
+- opt-in 30-day, 90-day, or one-year Trash retention in Settings, with manual retention as the default and explicit
+  healthy-startup/external-copy disclosure;
 - inline user-message editing, assistant-response regeneration, and preserved branch switching;
 - native conversation search with snippets, archived-result labels, matching-branch selection, and keyboard focus and
   clear behavior;
@@ -254,6 +260,8 @@ sweeping, interrupted temporary cleanup, and shared-derivative preservation,
 `src-tauri/src/storage/memory_filters.rs` owns the shared query bounds plus source, conversation, and inclusive-date
 filter contract, `src-tauri/src/storage/memory_hybrid.rs` owns bounded source-level reciprocal-rank fusion,
 `src-tauri/src/storage/memory_exclusion_migration.rs` owns schema-19 durable per-conversation exclusion preferences,
+`src-tauri/src/storage/retention.rs` owns the bounded built-in-profile Trash policy and healthy-startup expiry, while
+`src-tauri/src/storage/retention_migration.rs` owns its schema-20 optional preference row,
 `src-tauri/src/storage/memory_chunks.rs` owns versioned Unicode-safe deterministic chunking plus transactional source
 replacement, while `src-tauri/src/storage/memory_chunks_migration.rs` owns catalog metadata and stale-row cleanup,
 `src-tauri/src/storage/memory_semantic.rs` owns static sqlite-vec registration, version-contract validation, bounded
@@ -295,8 +303,8 @@ native-discovered vision policy, and closes each native run before its terminal 
 attachment append, visible message-attachment removal, explicit branch, response-rating, selected-lineage Markdown/JSON
 and non-trashed batch JSON export, whole-store
 backup/restore,
-recovery-status/latest-snapshot restore, path-free semantic progress/derived-only reindex, lifecycle commands, the
-per-conversation memory exclusion command, and the Trash-only permanent forget command. The
+recovery-status/latest-snapshot restore, path-free semantic progress/derived-only reindex, lifecycle commands,
+per-conversation memory exclusion, Trash-only permanent forget, and bounded Trash-retention get/set commands. The
 database lives in the OS application-data
 directory; the WebView never receives a database or attachment path, SQL, or generic filesystem/database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
@@ -436,10 +444,66 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
 The cohesively touched product modules remain below 500 lines. The crate composition root `src-tauri/src/lib.rs` is an
-existing practical-limit exception at 536 lines; the remaining known indivisible long lines are SVG path values in
+existing practical-limit exception at 539 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Explicit per-conversation forget
+## Most recently completed product slice: Opt-in time-based Trash retention
+
+### Goal
+
+Add one durable, explicit policy for forgetting conversations after time in Trash without applying age-based deletion
+to active or Archived conversations or changing the established attachment, backup, export, and model-cache boundary.
+
+### Implemented shape
+
+1. Schema version 20 adds one optional `conversation_retention_policies` row for the built-in local profile. No row
+   means keep Trash until manual forget; the only stored alternatives are 30 days, 90 days, or one year.
+2. Settings exposes those four exact choices through a separate native control. Saving a period changes policy only;
+   it does not delete content in the current process. Copy states that already-old Trash may expire on the next healthy
+   app launch and that external exports/backups plus the application-owned embedding-model cache remain unchanged.
+3. Healthy startup applies the saved period after migration and interrupted-run recovery but before attachment garbage
+   collection. The inclusive cutoff uses `deleted_at_ms`, so restore and a later move back to Trash restart the clock.
+4. One immediate transaction deletes only built-in-profile conversations already in Trash at or before the cutoff.
+   Active and Archived conversations are ineligible, and the query defensively skips any conversation that still owns
+   a running provider response.
+5. Expired deletion uses the same foreign-key and derived-memory cascades as explicit forget. Shared attachments remain;
+   newly unreferenced files follow the existing 24-hour safety window and strict startup garbage collector. Restore
+   staging uses migration-only initialization, so validating a backup cannot trigger its saved retention policy.
+6. IPC accepts and returns only the bounded period enum. No deletion time, source text, path, hash, score, embedding,
+   chunk/vector identity, database detail, backup path, or model-cache detail is added to the WebView contract.
+
+### Acceptance criteria
+
+- Manual retention is the migration and product default, survives restart, and can be restored after any timed period.
+- Thirty-day, ninety-day, and one-year policies use the conversation's durable Trash timestamp and an inclusive cutoff.
+- A healthy app startup forgets only expired Trash; active, Archived, recent Trash, recovery-restricted stores, and
+  defensive active-run rows are not deleted by the policy.
+- The Settings copy distinguishes a saved future-startup policy from immediate deletion and names already-old Trash,
+  the attachment safety window, unchanged external copies, and the retained model cache.
+- Automatic forget removes the same live source/derived data as manual forget and does not add provider behavior,
+  automatic retrieval injection, document opening, web tools, model-cache deletion, or attachment retry controls.
+
+### Verification completed
+
+Focused TDD first failed on the absent Rust policy/types and frontend modules. Three path-backed Rust tests cover the
+manual default, every supported persisted period, disabling the policy again, exact inclusive cutoff behavior,
+active/Archived/recent-Trash preservation, and healthy-startup enforcement. Frontend module and server-rendered
+component tests cover the closed option set, native-only disabled preview, and destructive/external-copy disclosure.
+
+Prettier, `svelte-check`, all 69 frontend tests, the production build, Cargo formatting, Cargo check, and all 230
+default Rust tests pass; seven opt-in live provider/loopback tests remain ignored because provider behavior did not
+change. The first full Rust pass exposed old-version fixtures that still retained the new table while rewinding
+`user_version`; those fixtures now remove schema-20 state and assert the current version before the final clean run.
+
+An interactive browser preview was attempted, but the sandbox denied the local port bind and the follow-up host-local
+approval could not be granted, so this slice makes no desktop or responsive visual-interaction claim beyond clean
+server-rendered component coverage, `svelte-check`, and the production build. The native app was not launched against
+the real store. Immutable read-only inspection found the real store still at schema 19 with `quick_check=ok`, nine
+conversations including one Trash item, no memory-exclusion rows, and semantic progress `ready` at 86 of 86 chunks.
+No live policy was saved and no real conversation was deleted; migration, persistence, and destructive startup behavior
+are verified against isolated path-backed stores.
+
+## Prior completed product slice: Explicit per-conversation forget
 
 ### Goal
 

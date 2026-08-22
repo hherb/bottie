@@ -25,6 +25,7 @@
     | "sparkles"
     | "thumbs-down"
     | "thumbs-up"
+    | "trash"
     | "x";
 
   let {
@@ -136,6 +137,8 @@
     <path
       d="M7 20V9H4a2 2 0 0 0-2 2v6a3 3 0 0 0 3 3zM7 10l4-7 1.5.8a3 3 0 0 1 1.4 3.6L13.3 9H19a2 2 0 0 1 2 2.4l-1 6A3 3 0 0 1 17 20H7"
     />
+  {:else if name === "trash"}
+    <path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6" />
   {:else if name === "x"}
     <path d="m6 6 12 12M18 6 6 18" />
   {/if}

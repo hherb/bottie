@@ -58,7 +58,10 @@ fn migration_backfills_final_message_text_without_reasoning() {
         .execute_batch(super::memory_lexical::REMOVE_LEXICAL_SCHEMA_FOR_TEST)
         .expect("lexical schema should be removable in the fixture");
     connection
-        .execute_batch("DROP TABLE conversation_memory_preferences")
+        .execute_batch(
+            "DROP TABLE conversation_retention_policies;
+             DROP TABLE conversation_memory_preferences;",
+        )
         .expect("later memory preference schema should be removable in the fixture");
     connection
         .execute("DELETE FROM schema_migrations WHERE version >= 16", [])
@@ -83,7 +86,7 @@ fn migration_backfills_final_message_text_without_reasoning() {
             .status()
             .expect("status should load")
             .schema_version,
-        19
+        20
     );
     assert_eq!(visible.len(), 1);
     assert_eq!(visible[0].source_kind, MemorySourceKind::Message);

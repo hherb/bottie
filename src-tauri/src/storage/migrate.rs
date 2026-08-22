@@ -16,6 +16,7 @@ use super::{
         MIGRATION_14, MIGRATION_15,
     },
     now_ms,
+    retention_migration::MIGRATION_20,
 };
 
 impl ConversationStore {
@@ -119,6 +120,9 @@ impl ConversationStore {
                 19,
                 "per-conversation memory exclusion",
             )?;
+        }
+        if version < 20 {
+            apply_migration(connection, MIGRATION_20, 20, "time-based Trash retention")?;
         }
         Ok(())
     }
