@@ -23,6 +23,7 @@ fn rejects_memory_calls_when_only_web_was_explicitly_enabled() {
         &cancellation,
         false,
         Some(&web_search),
+        None,
     )
     .expect("disabled memory call should close through the bounded result envelope");
 

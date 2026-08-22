@@ -158,6 +158,7 @@ fn executes_and_persists_an_ollama_tool_round_before_returning_results() {
         &cancellation,
         true,
         None,
+        None,
     )
     .expect("tool round should execute");
 
@@ -210,6 +211,7 @@ fn audits_unregistered_provider_calls_as_rejected_without_reflecting_the_name_in
         )],
         &cancellation,
         true,
+        None,
         None,
     )
     .expect("unsupported call should close through the bounded result envelope");
@@ -276,6 +278,7 @@ fn executes_and_persists_an_ollama_web_search_before_returning_the_result() {
         &cancellation,
         false,
         Some(&web_search),
+        None,
     )
     .expect("web-search round should execute");
 
@@ -365,6 +368,7 @@ fn streams_an_ollama_tool_call_result_and_final_answer_across_two_requests() {
         semantic_indexer.query_embedder(),
         ToolLoopCancellation::default(),
         Some(Arc::new(GenerationWebSearchExecutor)),
+        None,
     ))
     .expect("two-round Ollama generation should complete")
     .expect("fixture reports usage");
@@ -375,8 +379,9 @@ fn streams_an_ollama_tool_call_result_and_final_answer_across_two_requests() {
     assert_eq!(usage.output_tokens, Some(5));
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
-    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(1));
+    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(2));
     assert_eq!(requests[0]["tools"][0]["function"]["name"], "web_search");
+    assert_eq!(requests[0]["tools"][1]["function"]["name"], "web_fetch");
     assert_eq!(requests[1]["messages"][1]["role"], "assistant");
     assert_eq!(requests[1]["messages"][2]["role"], "tool");
     assert_eq!(requests[1]["messages"][2]["tool_name"], "web_search");
@@ -479,4 +484,5 @@ fn read_json_request(stream: &mut TcpStream) -> serde_json::Value {
 
 mod anthropic;
 mod ollama_gating;
+mod ollama_web_fetch;
 mod openai;

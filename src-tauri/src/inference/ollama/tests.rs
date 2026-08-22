@@ -10,7 +10,9 @@ use super::*;
 use crate::inference::types::{
     ChatRole, ChatSettings, ChatTurn, ContentBlock, ImageMediaType, ModelLoadState, ReasoningEffort,
 };
-use crate::tool_contract::{memory_tool_definitions, web_search_tool_definition};
+use crate::tool_contract::{
+    memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
+};
 
 #[derive(Clone, Default)]
 struct RecordingSink {
@@ -202,10 +204,10 @@ fn maps_closed_native_memory_definitions_into_ollama_tools() {
 }
 
 #[test]
-fn maps_the_closed_web_search_definition_after_memory_when_explicitly_enabled() {
+fn maps_the_closed_web_definitions_after_memory_when_explicitly_enabled() {
     let definitions = memory_tool_definitions()
         .into_iter()
-        .chain([web_search_tool_definition()])
+        .chain([web_search_tool_definition(), web_fetch_tool_definition()])
         .collect::<Vec<_>>();
     let body = serde_json::to_value(OllamaChatRequest::with_tools(
         live_request("tool-model".into(), "find today's release note"),
@@ -213,10 +215,15 @@ fn maps_the_closed_web_search_definition_after_memory_when_explicitly_enabled() 
     ))
     .unwrap();
 
-    assert_eq!(body["tools"].as_array().map(Vec::len), Some(4));
+    assert_eq!(body["tools"].as_array().map(Vec::len), Some(5));
     assert_eq!(body["tools"][3]["function"]["name"], "web_search");
     assert_eq!(
         body["tools"][3]["function"]["parameters"]["additionalProperties"],
+        false
+    );
+    assert_eq!(body["tools"][4]["function"]["name"], "web_fetch");
+    assert_eq!(
+        body["tools"][4]["function"]["parameters"]["additionalProperties"],
         false
     );
 }

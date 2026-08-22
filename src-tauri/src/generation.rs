@@ -7,7 +7,9 @@ use crate::{
     ActiveRun, AppState,
     diagnostics::{record_diagnostic, sanitized},
     generation_tools::stream_native_tools,
-    generation_web_tools::{configured_web_search, memory_tools_enabled, web_tools_enabled},
+    generation_web_tools::{
+        configured_web_fetch, configured_web_search, memory_tools_enabled, web_tools_enabled,
+    },
     inference::{
         ChatRequest, ChatRole, ChatRun, ChatTurn, ContentBlock, ImageMediaType, ProviderError,
         ReasoningEffort, StreamEvent, Usage,
@@ -133,6 +135,8 @@ pub(crate) async fn start_chat(
     } else {
         None
     };
+    let web_fetch = (supports_web_tools && matches!(&provider, RoutedProvider::Ollama(_)))
+        .then(configured_web_fetch);
     let supports_tools = supports_memory_tools || supports_web_tools;
     let attachment_context = if supports_vision {
         state
@@ -203,6 +207,7 @@ pub(crate) async fn start_chat(
                     query_embedder,
                     tool_cancellation,
                     web_search,
+                    web_fetch,
                 )
                 .await
             } else {
