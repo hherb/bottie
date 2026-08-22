@@ -83,10 +83,13 @@ eligible sources. Unicode-safe, whitespace-aware chunks retain exact source offs
 and maps those chunks to durable 768-dimensional cosine vectors through a resumable native worker. Rust owns the Q4
 EmbeddingGemma 300M FastEmbed runtime, application-data cache, bounded batches, model/index versions, progress, and
 stable failure categories. Reasoning and non-final responses never enter any derived layer. No memory query, vector,
-chunk identity, cache path, or extracted content crosses IPC or enters provider context. The next bounded
-implementation slice is a Rust-only semantic KNN query contract over the current vector generation with the same
-profile, lifecycle, association, source, conversation, and date policy as lexical retrieval; do not bundle
-reciprocal-rank fusion, retrieval injection, memory tools/UI, reindex controls, or attachment retry controls.
+chunk identity, cache path, or extracted content crosses IPC or enters provider context. A bounded Rust-only semantic
+KNN contract now embeds normalized queries with EmbeddingGemma's versioned retrieval prompt, validates vectors, and
+returns exact deterministic chunks from the current generation. sqlite-vec prefilters eligible row identities before
+ranking, so profile, lifecycle, durable attachment association, source, conversation, and inclusive date policy match
+lexical retrieval without consuming the result limit on ineligible nearer vectors. The next bounded implementation
+slice is Rust-only reciprocal-rank fusion of lexical and semantic results under one shared filter contract; do not
+bundle retrieval injection, memory tools/UI, reindex controls, provider changes, or attachment retry controls.
 
 Read these files first:
 
@@ -100,7 +103,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/resumable-semantic-index`.
+branch `codex/semantic-memory-knn`.
 
 ## Current implementation
 
@@ -202,6 +205,8 @@ replacement, while `src-tauri/src/storage/memory_chunks_migration.rs` owns catal
 `src-tauri/src/storage/memory_semantic.rs` owns static sqlite-vec registration, version-contract validation, bounded
 embedding batches, atomic chunk/vector mappings, and native-only progress, while
 `src-tauri/src/storage/memory_semantic_migration.rs` owns schema-18 model/index metadata and vector cleanup triggers,
+`src-tauri/src/storage/memory_semantic_query.rs` owns normalized EmbeddingGemma retrieval queries, exact filtered KNN,
+bounded chunk provenance, and current-generation validation,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
@@ -309,8 +314,8 @@ Do not mistake visual fixtures for implemented backend behavior:
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- the native FTS5 memory query and sqlite-vec chunk vectors have no IPC, tool, citation, context-panel, or provider-
-  injection consumer yet, and no semantic KNN query contract exists;
+- the native FTS5 and semantic KNN memory queries have no IPC, tool, citation, context-panel, fused-ranking, or
+  provider-injection consumer yet;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
   pure presentation and Markdown-policy helpers have frontend unit coverage.
@@ -350,7 +355,54 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Resumable sqlite-vec semantic index
+## Most recently completed product slice: Filtered semantic KNN retrieval
+
+### Goal
+
+Add a bounded Rust-only semantic query contract over the current sqlite-vec generation with lexical-equivalent policy,
+without adding fused ranking, retrieval injection, memory tools/UI, reindex controls, or WebView exposure.
+
+### Implemented shape
+
+1. Native queries normalize whitespace, reject more than 200 Unicode characters, prepend EmbeddingGemma's versioned
+   `task: search result | query:` retrieval prompt, and require exactly one finite 768-dimensional vector. Empty queries
+   and zero-result requests return without initializing the embedding boundary.
+2. Exact cosine KNN returns at most 50 deterministic chunks with opaque source identity, source kind, ordinal, exact
+   Unicode offsets, bounded text, source creation time, and distance. It reads only mappings whose embedding, model,
+   dimensions, chunking, and index generation match the compiled current contract.
+3. sqlite-vec receives an exact `rowid IN` candidate subquery before distance ranking. The prefilter always enforces the
+   built-in profile, excludes Trash, retains Archived, and rejects unassociated documents; source, conversation, and
+   inclusive date filters run inside the same native candidate policy.
+4. Query text, vectors, distances, chunk provenance, and extracted document content remain Rust/SQLite-only. No schema,
+   migration, command, IPC type, Svelte state, provider request, export, memory tool, or model-cache behavior changed.
+
+### Acceptance criteria
+
+- A nearer unassociated or trashed vector cannot consume the requested KNN limit ahead of an eligible result.
+- Message and associated-document chunks share lexical retrieval's profile, lifecycle, association, source,
+  conversation, and inclusive-date rules; Archived remains eligible and Trash does not.
+- Query text and result counts are bounded, malformed filters fail before embedding, and wrong vector counts,
+  dimensions, or non-finite values never reach sqlite-vec.
+- Semantic queries, chunk excerpts, opaque identities, distances, and embedding inputs remain absent from IPC,
+  provider context, exports, and the interface.
+- Reciprocal-rank fusion, retrieval injection, memory tools/UI, reindex controls, provider changes, and attachment retry
+  remain outside this slice.
+
+### Verification completed
+
+Focused TDD coverage first failed against the absent semantic-query module and method. Four query tests now cover the
+versioned retrieval prompt, cosine ordering and bounded chunk provenance, exact candidate prefiltering, document
+association, Archived/Trash lifecycle, source/conversation/inclusive-date filters, malformed filters, the 50-result and
+200-character ceilings, and wrong-count, wrong-dimension, and non-finite embedding rejection. The complete Rust suite
+reports 174 passed with four opt-in live-provider checks intentionally ignored. Prettier, `svelte-check`, all 53
+frontend tests, the production build, Cargo formatting, Cargo check, and `git diff --check` pass without warnings. A
+fresh signed native launch reopened the unchanged schema-18 live store and remained available until stopped after
+verification. Immutable read-only inspection reported `quick_check=ok`, `ready` semantic progress at 84/84 chunks, 84
+unique current-generation mappings, 84 sqlite-vec row identities, 768 dimensions, index generation 1, and no running
+provider records. No schema, UI, or provider behavior changed, so migration, browser layout, picker/provider
+interaction, and live-provider tests were not applicable.
+
+## Prior completed product slice: Resumable sqlite-vec semantic index
 
 ### Goal
 

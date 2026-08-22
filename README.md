@@ -219,8 +219,11 @@ exact source offsets and stable SHA-256 identities, prefers whitespace boundarie
 approximately 200 characters of overlap. Schema version 18 statically registers sqlite-vec and resumably maps those
 chunks to 768-dimensional cosine vectors using FastEmbed 6 and Q4 EmbeddingGemma 300M. The single native worker owns
 the application-data model cache, eight-chunk transactions, durable progress/failure state, and restore pause/resume.
-Semantic queries, reindex controls, fusion, memory tools, and retrieval injection remain unimplemented, and no chunk,
-vector, cache path, or model failure detail crosses IPC.
+A bounded Rust-only semantic query contract applies EmbeddingGemma's retrieval prompt, validates one 768-dimensional
+query vector, and runs exact cosine KNN against only current-generation row identities that satisfy the same profile,
+source, conversation, association, lifecycle, and inclusive-date policy. Queries and results are capped at 200
+characters and 50 chunks. Fusion, reindex controls, memory tools, and retrieval injection remain unimplemented, and no
+query, chunk, vector, cache path, or model failure detail crosses IPC.
 
 Run the layout-only browser preview:
 
@@ -252,6 +255,6 @@ The provider layer normalizes OpenAI, Anthropic, Ollama, and oMLX responses into
 stream rather than assuming every compatible endpoint behaves identically.
 
 The native memory subsystem uses FastEmbed 6 with Q4 EmbeddingGemma 300M as its single built-in embedding model.
-Bottie owns the model cache, durable acquisition/index progress, and embedding/index versions; users do not configure a
-second inference provider merely to enable local memory indexing. Retrieval remains unavailable until a later bounded
-semantic-query and hybrid-ranking slice.
+Bottie owns the model cache, durable acquisition/index progress, semantic-query prompting, and embedding/index
+versions; users do not configure a second inference provider merely to enable local memory indexing. Retrieval remains
+unavailable to tools, providers, and the interface until later bounded hybrid-ranking and memory-tool slices.

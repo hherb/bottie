@@ -171,9 +171,10 @@ Status: in progress
 - [x] application-owned model cache progress and versioned embedding metadata, without an embedding-provider picker;
 - [x] embedding model, dimensions, chunking version, input contract, and index-generation metadata;
 - [x] resumable bounded background indexing;
+- [x] bounded current-generation semantic KNN retrieval with EmbeddingGemma query prompting and lifecycle-safe
+  profile, source, conversation, association, and date filters;
 - complete reindex controls;
 - reciprocal-rank fusion of lexical and vector results;
-- profile, source, conversation, and date filters.
 
 ### Memory tools
 
