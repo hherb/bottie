@@ -157,12 +157,11 @@ bounded include/exclude domain filters. Native validation rejects malformed DNS 
 queries that exceed its complete query limits; the Brave adapter maps those filters and rechecks normalized result
 hosts before returning them. The safe read-only native dispatcher now executes the typed contract through a selected
 search provider and maps all failures into the existing 64 KiB redacted envelope. A session-only Web toggle now
-advertises that definition only to explicitly enabled, tool-capable Ollama and OpenAI-compatible models. Both mapped
-providers execute calls through the same bounded native loop, durable audit, cancellation, and common result envelope
-used by memory tools. The next bounded implementation slice is explicit Anthropic-compatible `web_search`
-definition/call/result mapping and generation-loop wiring behind the same Web affordance; do not bundle a second search
-provider, `web_fetch`, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, or
-attachment retry controls.
+advertises that definition only to explicitly enabled, tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible
+models. All three mapped providers execute calls through the same bounded native loop, durable audit, cancellation,
+and common result envelope used by memory tools. The next bounded implementation slice is native `web_fetch` with
+redirect, size, content-type, and timeout policy; do not bundle a second search provider, oMLX mapping, automatic
+retrieval injection, model-cache deletion, document opening, or attachment retry controls.
 
 Read these files first:
 
@@ -436,10 +435,10 @@ Do not mistake visual fixtures for implemented backend behavior:
   and Anthropic-compatible consumers through the bounded dispatcher and loop. Their successful retained results now
   produce real selected-lineage citation cards; dismissals reset with the frontend session and do not delete tool
   records or exclude a source from later retrieval;
-- the closed native `web_search` contract is explicitly available only to tool-capable Ollama or OpenAI-compatible
-  models after the user enables Web. Brave calls and exact common results enter the durable audit before provider
-  reuse. Successful results do not yet create dedicated Context-panel web-source cards, Anthropic-compatible providers
-  do not map the definition, and no `web_fetch` contract exists;
+- the closed native `web_search` contract is explicitly available only to tool-capable Ollama, OpenAI-compatible, or
+  Anthropic-compatible models after the user enables Web. Brave calls and exact common results enter the durable audit
+  before provider reuse. Successful results do not yet create dedicated Context-panel web-source cards, and no
+  `web_fetch` contract exists;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -479,7 +478,71 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Explicit OpenAI-compatible native web-search tool loop
+## Most recently completed product slice: Explicit Anthropic-compatible native web-search tool loop
+
+### Goal
+
+Map Bottie's closed `web_search` contract into Anthropic-compatible Messages and run explicitly enabled calls through
+the existing Brave dispatcher, bounded native loop, durable tool records, provider stream, cumulative usage, and
+shared cancellation path without adding oMLX mapping, web-source cards, `web_fetch`, or a migration.
+
+### Implemented shape
+
+1. The composer Web toggle remains session-only and off by default. It is now available for an Ollama, OpenAI-
+   compatible, or Anthropic-compatible model that advertises tool capability. Native discovery rechecks that
+   capability before resolving the Brave credential or advertising any web definition.
+2. Anthropic-compatible requests receive exactly the enabled closed definitions. Web alone advertises one
+   `web_search` client tool; Memory alone retains the three memory tools; enabling both preserves memory-definition
+   order and appends Web. oMLX requests still cannot advertise Web.
+3. Streamed Anthropic `tool_use` blocks retain their exact bounded provider identities and object inputs. Results
+   return through correlated user `tool_result` blocks after the common safe dispatcher, four-round/eight-call/
+   30-second loop, 64 KiB per-result and 256 KiB aggregate-output limits, shared cancellation, and cumulative
+   usage/cost handling. Native structured failures set Anthropic's `is_error` signal.
+4. Each accepted call and its exact bounded success/error envelope commit to the existing append-only provider-run
+   record before provider reuse. Credential, query, provider-body, path, embedding, and provider/native call identities
+   remain outside WebView IPC and portable presentation.
+5. The disabled Web-control explanation now uses one provider-neutral supported-model label. Existing local/cloud
+   privacy surfaces continue to identify the selected inference route and additional Brave Search hop when Web is
+   enabled.
+
+### Acceptance criteria
+
+- Web remains off by default and unavailable for oMLX or non-tool-capable models; missing Brave configuration fails
+  with the fixed Settings prompt before a web definition can be sent.
+- Memory and Web independently restrict the executable tool set. Anthropic Web-only requests advertise only the
+  closed `web_search` schema, while combined requests retain the three memory tools first and Web last.
+- Fragmented Anthropic calls preserve the exact `tool_use` identity and complete object input. The follow-up request
+  carries the correlated assistant call plus inert bounded `tool_result` without credentials, paths, or provider
+  bodies.
+- Calls, results, execution policy, stable outcome, and native-work duration survive reopen through the existing tool
+  audit before any result is reused by Anthropic.
+- The shared loop, cancellation, output, deadline, and cumulative usage/cost policy remains unchanged for existing
+  mapped memory- and web-tool routes.
+- oMLX Web mapping, web-source cards, a second search provider, `web_fetch`, automatic retrieval, approval UI, and
+  schema changes remain outside this slice.
+
+### Verification completed
+
+Focused TDD first failed on Anthropic Web availability, enabled-definition mapping, generation dispatch, and durable
+result persistence. Pure, storage-backed, component, and provider fixture tests now cover provider/capability gating,
+closed definition ordering, exact Anthropic call correlation, safe audit metadata, request-disabled memory behavior,
+cumulative two-round completion, and provider-neutral disabled-control copy.
+
+Prettier, `svelte-check`, all 76 frontend tests, the production build, Cargo formatting, and warning-free Cargo check
+pass. The 274-test default Rust suite passes with 263 tests executed and 11 opt-in loopback/live-network tests skipped.
+The new Anthropic Web loop also passes explicitly against a host-loopback two-request SSE fixture: the first request
+advertises only `web_search`, the second returns the exact provider `tool_use` identity and bounded result, and final
+answer plus cumulative usage complete normally.
+
+The browser preview was inspected at 1,320 x 820 and 900 x 800. The provider-neutral disabled Web label and composer
+controls remained contained, the responsive viewport had no horizontal overflow, and the console reported no warnings
+or errors for Bottie. The signed native development build compiled, launched, remained active, and stopped on request.
+Immutable read-only inspection reported schema version 21, `quick_check=ok`, 20 completed runs, two cancelled runs, one
+retained `search_memory` call, and no retained `web_search` call; no migration was added. No live third-party
+Anthropic-compatible account, Brave credential, or model-selected Web call was exercised, so that real
+credential/provider UI flow remains unverified.
+
+## Prior completed product slice: Explicit OpenAI-compatible native web-search tool loop
 
 ### Goal
 

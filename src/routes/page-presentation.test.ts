@@ -43,7 +43,7 @@ describe("page presentation", () => {
     expect(memoryToolsAvailable(undefined)).toBe(false);
     expect(webToolsAvailable(model("ollama", true))).toBe(true);
     expect(webToolsAvailable(model("openai", true))).toBe(true);
-    expect(webToolsAvailable(model("anthropic", true))).toBe(false);
+    expect(webToolsAvailable(model("anthropic", true))).toBe(true);
     expect(webToolsAvailable(model("openai", false))).toBe(false);
     expect(webToolsAvailable(model("ollama", false))).toBe(false);
     expect(webToolsAvailable(undefined)).toBe(false);

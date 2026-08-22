@@ -20,7 +20,7 @@ pub(crate) fn web_tools_enabled(
     provider_id: &str,
     model_supports_tools: bool,
 ) -> bool {
-    web_enabled && matches!(provider_id, "ollama" | "openai") && model_supports_tools
+    web_enabled && matches!(provider_id, "ollama" | "openai" | "anthropic") && model_supports_tools
 }
 
 /// Confirms explicit Memory intent plus a mapped provider's discovered per-model tool capability.

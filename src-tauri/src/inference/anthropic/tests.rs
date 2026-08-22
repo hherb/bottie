@@ -3,7 +3,7 @@
 use super::*;
 use crate::{
     inference::{ContentBlock, ImageMediaType},
-    tool_contract::memory_tool_definitions,
+    tool_contract::{memory_tool_definitions, web_search_tool_definition},
 };
 
 #[test]
@@ -36,7 +36,7 @@ fn decodes_text_thinking_usage_and_completion() {
 fn maps_closed_tools_and_fragmented_calls_into_correlated_messages() {
     let mut request = AnthropicChatRequest::with_tools(
         text_request("Recall the release note"),
-        memory_tool_definitions(),
+        memory_tool_definitions().into(),
     );
     let initial = serde_json::to_value(&request).unwrap();
     assert_eq!(initial["tools"].as_array().map(Vec::len), Some(3));
@@ -79,6 +79,29 @@ fn maps_closed_tools_and_fragmented_calls_into_correlated_messages() {
         follow_up["messages"][2]["content"][0]["tool_use_id"],
         "toolu_1"
     );
+}
+
+#[test]
+fn maps_web_search_after_memory_only_when_explicitly_enabled() {
+    let mut web_only = text_request("Find the current release");
+    web_only.web_enabled = true;
+    let web_only =
+        serde_json::to_value(AnthropicToolSession::new(web_only).unwrap().request).unwrap();
+    assert_eq!(web_only["tools"].as_array().map(Vec::len), Some(1));
+    assert_eq!(web_only["tools"][0]["name"], "web_search");
+    assert_eq!(
+        web_only["tools"][0]["input_schema"],
+        web_search_tool_definition().input_schema
+    );
+
+    let mut combined = text_request("Recall context and check the web");
+    combined.memory_enabled = true;
+    combined.web_enabled = true;
+    let combined =
+        serde_json::to_value(AnthropicToolSession::new(combined).unwrap().request).unwrap();
+    assert_eq!(combined["tools"].as_array().map(Vec::len), Some(4));
+    assert_eq!(combined["tools"][0]["name"], "search_memory");
+    assert_eq!(combined["tools"][3]["name"], "web_search");
 }
 
 #[test]

@@ -223,7 +223,7 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] explicit Ollama definition/call/result mapping and generation-loop integration for `web_search`;
 - [x] explicit OpenAI Chat Completions definition/call/result mapping and generation-loop integration for
   `web_search`;
-- Anthropic-compatible mapping for `web_search`;
+- [x] explicit Anthropic Messages definition/call/result mapping and generation-loop integration for `web_search`;
 - `web_fetch` with redirects, size limits, content-type checks, and timeouts;
 - extraction to inert text with source URL, title, and publication metadata;
 - citations connected to claims and retained with the conversation;
