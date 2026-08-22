@@ -211,7 +211,7 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] OpenAI Chat Completions definition/call/result mapping and generation-loop wiring;
 - [x] Anthropic Messages definition/call/result mapping and generation-loop wiring;
 - [x] active-generation cancellation propagation through mapped providers and native tool work;
-- safe versus approval-required tool policy;
+- [x] safe versus approval-required tool policy;
 - structured audit records and expandable activity UI;
 - protection against malformed or unsupported tool calls.
 

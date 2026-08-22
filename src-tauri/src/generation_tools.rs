@@ -409,7 +409,7 @@ fn execute_and_checkpoint(
         tool_name: call.tool_name.clone(),
         arguments: call.arguments.clone(),
     })?;
-    let execution = dispatch_memory_tool(store, embedder, &call.tool_name, &call.arguments);
+    let execution = dispatch_memory_tool(store, embedder, call, None);
     let output = serde_json::to_value(&execution).map_err(|_| StorageError::internal())?;
     store.checkpoint_tool_result(NewToolResult {
         provider_run_id: provider_run_id.into(),

@@ -140,8 +140,13 @@ also complete. Schema version 20 stores one optional built-in-profile Trash peri
 90 days, or one year, with manual retention as the default. Expiry is measured from the durable deletion timestamp and
 applied only during a healthy app startup; active and Archived conversations are never eligible. Automatic forget uses
 the same live-store cascade, attachment safety window, and external-copy/model-cache boundary as explicit forget. The
-next bounded implementation slice is safe-versus-approval-required native tool policy; do not bundle oMLX mapping,
-automatic retrieval injection, model-cache deletion, document opening, web tools, or attachment retry controls.
+native tool runtime now applies one fail-closed execution policy before validation or dispatch. The three explicitly
+enabled, bounded, read-only memory tools are classified safe; any future approval-required tool needs a one-use trusted
+native grant bound to the exact provider call identity, tool name, and arguments. Provider calls cannot create
+approvals, and unknown or mismatched calls return fixed redacted errors through the existing durable result path. No
+approval UI or approval-required tool is registered yet. The next bounded implementation slice is structured tool
+audit records and expandable activity UI; do not bundle oMLX mapping, automatic retrieval injection, model-cache
+deletion, document opening, web tools, or attachment retry controls.
 
 Read these files first:
 
@@ -155,7 +160,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/conversation-retention`.
+branch `codex/tool-approval-policy`.
 
 ## Current implementation
 
@@ -278,7 +283,8 @@ ready-document results over hybrid retrieval,
 `src-tauri/src/tool_contract.rs` owns the provider-independent memory-tool definition set, closed JSON schemas, raw
 name/argument validation, and conversion into exact typed native arguments without executing them,
 `src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of those typed memory tools plus the bounded common
-success/error envelope without provider wire policy,
+success/error envelope without provider wire policy, while `src-tauri/src/tool_policy.rs` owns the explicit safe or
+approval-required classification and exact-call native approval binding applied before dispatch,
 `src-tauri/src/tool_loop.rs` owns provider-neutral multi-call correlation, recursion/call/output/deadline policy, and
 shared cancellation checks used by mapped provider generation,
 `src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
@@ -444,10 +450,69 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
 The cohesively touched product modules remain below 500 lines. The crate composition root `src-tauri/src/lib.rs` is an
-existing practical-limit exception at 539 lines; the remaining known indivisible long lines are SVG path values in
+existing practical-limit exception at 542 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Opt-in time-based Trash retention
+## Most recently completed product slice: Safe versus approval-required native tool policy
+
+### Goal
+
+Establish one provider-independent execution policy before Bottie adds tools that can affect external or sensitive
+state, while preserving the existing explicitly enabled read-only memory-tool behavior.
+
+### Implemented shape
+
+1. `src-tauri/src/tool_policy.rs` owns the only native classification table. Every currently advertised tool must map
+   explicitly to `Safe` or `ApprovalRequired`; unknown names fail closed before argument validation, storage access,
+   embedding work, or any other tool side effect.
+2. `search_memory`, `open_memory`, and `search_attached_files` are explicitly safe because they are bounded read-only
+   retrieval, are advertised only after the user enables Memory for a tool-capable request, and already recheck native
+   profile, lifecycle, association, and exclusion policy. This does not make arbitrary future read operations safe.
+3. The common dispatcher now accepts the complete provider-neutral call plus an optional Rust-owned approval grant and
+   requires policy authorization before the existing closed-schema validation and typed execution boundary. All
+   Ollama, OpenAI-compatible, and Anthropic-compatible generation paths continue through that same dispatcher.
+4. A non-cloneable, consumed approval grant captures the exact provider call ID, tool name, and structured arguments.
+   Supplying a grant after any of those provider-controlled values changes returns the same fixed `approval_required`
+   error as a missing grant; neither the name nor arguments are reflected in the error.
+5. Current provider orchestration supplies no approval grant. That is sufficient for the three safe memory tools and
+   deliberately prevents a future approval-required tool from running until a trusted native approval flow passes the
+   exact grant. No WebView boolean, provider argument, persisted preference, or implicit approval path was added.
+6. Policy denials use the existing bounded provider-neutral error envelope and append-only invocation/result
+   checkpoint path. This slice adds no schema, IPC, settings, provider wire shape, tool UI, web access, or side effect.
+
+### Acceptance criteria
+
+- Every advertised native tool has an explicit execution classification; an unregistered name is unsupported rather
+  than inheriting a permissive default.
+- The three current memory tools execute without a per-call prompt only inside the existing explicit Memory-enabled
+  request path, and their validation, result limits, cancellation, and durable checkpoint behavior remain unchanged.
+- Approval-required policy never executes without a matching native grant, and a changed call ID, name, or argument
+  payload invalidates an earlier grant.
+- Policy failures are bounded, redacted, machine-readable `unsupported_tool` or `approval_required` envelopes and do
+  not expose provider-controlled input or native details.
+- No approval surface, approval-required tool, audit-schema/UI expansion, oMLX mapping, automatic retrieval injection,
+  document opening, web tool, model-cache deletion, or attachment retry behavior is added.
+
+### Verification completed
+
+Focused TDD first failed because the policy module and mandatory dispatch boundary were absent. Three policy tests
+cover the complete current safe-tool registry, fail-closed unknown tools, missing grants, successful exact grants, and
+grant rejection after call-ID, name, or argument changes. Existing dispatcher and mapped-generation tests confirm
+that all three safe memory tools still run through bounded envelopes and that durable Ollama checkpoints are unchanged.
+
+Prettier, `svelte-check`, all 69 frontend tests, the production build, Cargo formatting, Cargo check, and all 233
+default Rust tests pass; seven opt-in network tests remain ignored by the default suite. The three local Ollama,
+OpenAI-compatible, and Anthropic-compatible multi-round fixture tests initially could not bind inside the sandbox, then
+all passed with host-local loopback access. The remaining four ignored tests require live oMLX or Ollama services and
+were not required because this slice does not change provider networking or wire formats.
+
+No browser review was required because the slice adds no frontend state or presentation. The native app was not
+launched because there is no migration, IPC, startup, or UI change; avoiding a launch also avoids applying an unrelated
+saved Trash-retention policy to the user's live store. Immutable inspection returned schema version 19,
+`quick_check=ok`, nine conversations, one tool invocation, and one matching tool result. This slice changed none of
+those values and requires no schema bump.
+
+## Prior completed product slice: Opt-in time-based Trash retention
 
 ### Goal
 
