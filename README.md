@@ -33,9 +33,9 @@ route with one bounded native probe without returning results or the key to the 
 provider-independent `web_search` definition now validates day/week/month/year freshness, bounded include/exclude DNS
 filters, and result limits before a safe native dispatcher can execute the selected provider. Brave maps those filters
 only onto its fixed route and rechecks returned hosts. A session-only Web toggle is available for tool-capable Ollama
-models. When enabled, Ollama can call the closed definition through Bottie's existing bounded native loop; every call
-and exact result is checkpointed before provider reuse. OpenAI-compatible and Anthropic-compatible mapping remain
-absent.
+and OpenAI-compatible models. When enabled, either mapped provider can call the closed definition through Bottie's
+existing bounded native loop; every call and exact result is checkpointed before provider reuse. Anthropic-compatible
+mapping remains absent.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -85,10 +85,11 @@ registered tool as safe or approval-required before validation or execution. The
 are explicitly safe inside that Memory-enabled request; unknown tools fail closed, and any future approval-required
 call must consume a Rust-owned grant over its exact provider call ID, name, and arguments. No approval UI or
 approval-required tool is registered yet. oMLX tool mapping, other office formats, and direct document delivery remain
-unimplemented. A separate Web toggle is off by default and available only for tool-capable Ollama models. It requires
-a Brave Search credential from the native vault, keeps the Ollama prompt on loopback, and sends only model-selected
-bounded search queries and filters to Brave. The privacy indicator changes from `Local only` to `Local + web` while
-that route is enabled.
+unimplemented. A separate Web toggle is off by default and available for tool-capable Ollama and OpenAI-compatible
+models. It requires a Brave Search credential from the native vault and sends only model-selected bounded search
+queries and filters to Brave; Ollama prompts stay on loopback, while OpenAI-compatible prompts continue over their
+already-visible cloud route. The privacy indicator changes from `Local only` to `Local + web` for the local route and
+keeps the additional Brave hop visible for the cloud route.
 
 ## Development
 

@@ -14,13 +14,13 @@ use crate::{
     web_search::{BRAVE_SEARCH_PROVIDER_ID, BraveSearchProvider, WEB_SEARCH_TOOL_NAME},
 };
 
-/// Confirms explicit Web intent plus Ollama's discovered per-model tool capability.
+/// Confirms explicit Web intent plus a mapped provider's discovered per-model tool capability.
 pub(crate) fn web_tools_enabled(
     web_enabled: bool,
     provider_id: &str,
     model_supports_tools: bool,
 ) -> bool {
-    web_enabled && provider_id == "ollama" && model_supports_tools
+    web_enabled && matches!(provider_id, "ollama" | "openai") && model_supports_tools
 }
 
 /// Confirms explicit Memory intent plus a mapped provider's discovered per-model tool capability.

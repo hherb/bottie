@@ -224,7 +224,9 @@
               ? webEnabled
                 ? "Model prompt local; search queries leave device"
                 : "Conversation stays local"
-              : "Prompt leaves device"}</small
+              : webEnabled
+                ? "Prompt and search queries leave device"
+                : "Prompt leaves device"}</small
           ></span
         >
         <span>
@@ -243,7 +245,9 @@
             ? webEnabled
               ? "Loopback model · Brave Search enabled"
               : "Connected over loopback"
-            : "Cloud transmission enabled"
+            : webEnabled
+              ? "Cloud model · Brave Search enabled"
+              : "Cloud transmission enabled"
           : "Provider disconnected"}
       </div>
     </div>

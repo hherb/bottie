@@ -87,6 +87,6 @@ describe("Composer", () => {
     expect(enabled).toMatch(/aria-label="Disable memory tools"[^>]*aria-pressed="true"/);
     expect(enabled).toMatch(/aria-label="Disable web search"[^>]*aria-pressed="true"/);
     expect(unavailable).toMatch(/aria-label="Memory tools require a supported tool-capable model"[^>]* disabled/);
-    expect(unavailable).toMatch(/aria-label="Web search requires a tool-capable Ollama model"[^>]* disabled/);
+    expect(unavailable).toMatch(/aria-label="Web search requires a tool-capable Ollama or OpenAI model"[^>]* disabled/);
   });
 });

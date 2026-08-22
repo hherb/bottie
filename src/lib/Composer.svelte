@@ -136,7 +136,7 @@
             ? webEnabled
               ? "Disable web search"
               : "Enable web search"
-            : "Web search requires a tool-capable Ollama model"}
+            : "Web search requires a tool-capable Ollama or OpenAI model"}
           aria-pressed={webAvailable && webEnabled}
           disabled={!webAvailable || isGenerating}
           onclick={ontoggleweb}

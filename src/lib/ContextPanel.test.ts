@@ -176,4 +176,36 @@ describe("ContextPanel", () => {
     expect(html).toContain("Model prompt local; search queries leave device");
     expect(html).toContain("Loopback model · Brave Search enabled");
   });
+
+  it("identifies the additional Brave hop on a cloud web route", () => {
+    const html = render(ContextPanel, {
+      props: {
+        open: true,
+        attachments: [],
+        conversationAttachments: [],
+        messageAttachments: [],
+        canKeepInConversation: false,
+        selectedModel: undefined,
+        selectedProviderEndpoint: "api.openai.com",
+        providerStatus: "available",
+        isLocalRoute: false,
+        webEnabled: true,
+        isAddingAttachments: false,
+        attachmentFeedback: null,
+        attachmentFailed: false,
+        attachmentActionsDisabled: false,
+        memoryCitations: [],
+        onclose: vi.fn(),
+        onadd: vi.fn(),
+        onremove: vi.fn(),
+        onkeep: vi.fn(),
+        onremoveconversation: vi.fn(),
+        onremovemessage: vi.fn(),
+        onremovememory: vi.fn(),
+      },
+    }).body;
+
+    expect(html).toContain("Prompt and search queries leave device");
+    expect(html).toContain("Cloud model · Brave Search enabled");
+  });
 });

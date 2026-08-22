@@ -14,8 +14,8 @@ use serde_json::json;
 use crate::{
     diagnostics::Diagnostics,
     generation_tools::{
-        execute_ollama_tool_round, execute_openai_memory_round, stream_ollama_tools,
-        stream_openai_memory_tools,
+        execute_ollama_tool_round, execute_openai_tool_round, stream_ollama_tools,
+        stream_openai_tools,
     },
     generation_web_tools::{NativeWebSearchExecutor, memory_tools_enabled, web_tools_enabled},
     inference::{
@@ -43,9 +43,11 @@ fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
     assert!(!memory_tools_enabled(true, "openai", false));
     assert!(!memory_tools_enabled(true, "omlx", true));
     assert!(web_tools_enabled(true, "ollama", true));
+    assert!(web_tools_enabled(true, "openai", true));
     assert!(!web_tools_enabled(false, "ollama", true));
+    assert!(!web_tools_enabled(false, "openai", true));
     assert!(!web_tools_enabled(true, "ollama", false));
-    assert!(!web_tools_enabled(true, "openai", true));
+    assert!(!web_tools_enabled(true, "openai", false));
     assert!(!web_tools_enabled(true, "anthropic", true));
     assert!(!web_tools_enabled(true, "omlx", true));
 }
