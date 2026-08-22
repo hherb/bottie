@@ -4,11 +4,11 @@ use std::{
     thread,
 };
 
-use super::brave::{decode_fixture_response, map_fixture_status};
+use super::brave::{decode_filtered_fixture_response, decode_fixture_response, map_fixture_status};
 use super::{
     BraveSearchProvider, MAX_WEB_SEARCH_QUERY_CHARS, MAX_WEB_SEARCH_QUERY_WORDS,
-    MAX_WEB_SEARCH_RESULTS, WebSearchErrorCode, WebSearchProvider, WebSearchRequest,
-    connection_test_request,
+    MAX_WEB_SEARCH_RESULTS, WebSearchErrorCode, WebSearchFreshness, WebSearchProvider,
+    WebSearchRequest, connection_test_request,
 };
 
 #[test]
@@ -62,6 +62,75 @@ fn brave_builds_a_bounded_web_only_request_with_header_authentication() {
             .get("x-subscription-token")
             .unwrap()
             .is_sensitive()
+    );
+}
+
+#[test]
+fn brave_maps_provider_independent_freshness_and_domain_filters() {
+    let provider =
+        BraveSearchProvider::for_loopback_fixture("http://127.0.0.1:9/", "fixture-secret").unwrap();
+    let request = provider
+        .fixture_request(
+            &WebSearchRequest::with_filters(
+                "rust async",
+                5,
+                Some(WebSearchFreshness::Week),
+                vec!["Docs.RS".into(), "rust-lang.org".into()],
+                vec!["forum.example".into()],
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    let query = request
+        .url()
+        .query_pairs()
+        .collect::<std::collections::HashMap<_, _>>();
+
+    assert_eq!(
+        query.get("freshness").map(|value| value.as_ref()),
+        Some("pw")
+    );
+    assert_eq!(
+        query.get("q").map(|value| value.as_ref()),
+        Some("rust async (site:docs.rs OR site:rust-lang.org) NOT site:forum.example")
+    );
+}
+
+#[test]
+fn web_search_rejects_unsafe_or_conflicting_domain_filters() {
+    for domain in [
+        "https://example.com/private",
+        "example.com:443",
+        "*.example.com",
+        "127.0.0.1",
+        "localhost",
+    ] {
+        assert!(
+            WebSearchRequest::with_filters("bounded", 5, None, vec![domain.into()], Vec::new(),)
+                .is_err(),
+            "unsafe domain unexpectedly passed: {domain}"
+        );
+    }
+
+    assert!(
+        WebSearchRequest::with_filters(
+            "bounded",
+            5,
+            None,
+            vec!["example.com".into()],
+            vec!["EXAMPLE.COM".into()],
+        )
+        .is_err()
+    );
+    assert!(
+        WebSearchRequest::with_filters(
+            "x".repeat(MAX_WEB_SEARCH_QUERY_CHARS),
+            5,
+            None,
+            vec!["example.com".into()],
+            Vec::new(),
+        )
+        .is_err()
     );
 }
 
@@ -120,6 +189,47 @@ fn brave_decodes_only_bounded_safe_web_results() {
     assert_eq!(
         response.results()[0].published_at(),
         Some("2026-08-22T00:00:00Z")
+    );
+}
+
+#[test]
+fn brave_rechecks_normalized_result_hosts_against_domain_filters() {
+    let response_body = serde_json::json!({
+        "web": {
+            "results": [
+                {
+                    "title": "Allowed subdomain",
+                    "url": "https://docs.rust-lang.org/book/",
+                    "description": "Keep this result."
+                },
+                {
+                    "title": "Blocked child domain",
+                    "url": "https://ads.rust-lang.org/tracker",
+                    "description": "Drop this result."
+                },
+                {
+                    "title": "Outside allowlist",
+                    "url": "https://example.com/private",
+                    "description": "Drop this result too."
+                }
+            ]
+        }
+    })
+    .to_string();
+    let request = WebSearchRequest::with_filters(
+        "rust",
+        5,
+        None,
+        vec!["rust-lang.org".into()],
+        vec!["ads.rust-lang.org".into()],
+    )
+    .unwrap();
+    let response = decode_filtered_fixture_response(response_body.as_bytes(), &request).unwrap();
+
+    assert_eq!(response.results().len(), 1);
+    assert_eq!(
+        response.results()[0].url(),
+        "https://docs.rust-lang.org/book/"
     );
 }
 

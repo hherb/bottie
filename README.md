@@ -29,8 +29,11 @@ A separate Rust-only web-search boundary now normalizes bounded queries and iner
 provider contract. Its first Brave Search adapter uses a fixed HTTPS endpoint, disables redirects, keeps the
 subscription token in a sensitive request header, caps response bytes, and accepts only absolute HTTP(S) result URLs.
 Settings now stores or removes the Brave key through the operating-system credential vault and can test the fixed
-route with one bounded native probe without returning results or the key to the WebView. No model-visible `web_search`
-tool is registered yet.
+route with one bounded native probe without returning results or the key to the WebView. A separate closed
+provider-independent `web_search` definition now validates day/week/month/year freshness, bounded include/exclude DNS
+filters, and result limits before a safe native dispatcher can execute the selected provider. Brave maps those filters
+only onto its fixed route and rechecks returned hosts. No model provider advertises or maps the definition yet, so
+generation and durable audit still cannot trigger web search.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust

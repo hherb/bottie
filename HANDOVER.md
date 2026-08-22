@@ -152,8 +152,14 @@ adapter. Rust validates bounded queries, keeps the subscription token in a sensi
 response bytes, and normalizes only inert HTTP(S) result metadata. Settings now stores or removes the Brave key through
 the operating-system credential vault and can test the fixed route with one bounded native probe. Credential material,
 probe results, provider bodies, and arbitrary endpoints never cross IPC. The adapter is still not registered as a model
-tool. The next bounded implementation slice is the provider-independent `web_search` tool contract and native
-dispatcher registration with freshness/domain filters; do not bundle provider wire mapping, a second search provider,
+tool. One closed provider-independent `web_search` definition now adds optional day, week, month, or year freshness and
+bounded include/exclude domain filters. Native validation rejects malformed DNS names, conflicts, and effective Brave
+queries that exceed its complete query limits; the Brave adapter maps those filters and rechecks normalized result
+hosts before returning them. The safe read-only native dispatcher now executes the typed contract through a selected
+search provider and maps all failures into the existing 64 KiB redacted envelope. The definition is deliberately not
+advertised to any model provider yet, so no generation or durable audit path can call it. The next bounded
+implementation slice is explicit Ollama `web_search` definition/call/result mapping and generation-loop wiring behind
+the existing Web affordance; do not bundle OpenAI-compatible or Anthropic-compatible mapping, a second search provider,
 `web_fetch`, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, or attachment retry
 controls.
 
@@ -169,7 +175,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/brave-search-credentials`.
+branch `codex/web-search-tool-contract`.
 
 ## Current implementation
 
@@ -289,15 +295,17 @@ conversation/message results over hybrid retrieval,
 reconstruction without changing conversation selection,
 `src-tauri/src/storage/memory_file_tool.rs` owns typed bounded `search_attached_files` arguments and ranked path-free
 ready-document results over hybrid retrieval,
-`src-tauri/src/tool_contract.rs` owns the provider-independent memory-tool definition set, closed JSON schemas, raw
-name/argument validation, and conversion into exact typed native arguments without executing them,
-`src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of those typed memory tools plus the bounded common
-success/error envelope without provider wire policy, while `src-tauri/src/tool_policy.rs` owns the explicit safe or
-approval-required classification and exact-call native approval binding applied before dispatch,
+`src-tauri/src/tool_contract.rs` owns the provider-independent memory and web-search definitions, closed JSON schemas,
+raw name/argument validation, and conversion into exact typed native arguments without executing them,
+`src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of typed memory tools and the provider-selected web
+search plus the bounded common success/error envelope without model wire policy, while `src-tauri/src/tool_policy.rs`
+owns the explicit safe or approval-required classification and exact-call native approval binding applied before
+dispatch,
 `src-tauri/src/tool_loop.rs` owns provider-neutral multi-call correlation, recursion/call/output/deadline policy, and
 shared cancellation checks used by mapped provider generation,
-`src-tauri/src/web_search/` owns the pluggable provider-neutral query/result/error contract plus the fixed-endpoint
-Brave Search adapter, strict native request/response bounds, safe result-URL policy, and redacted provider failures,
+`src-tauri/src/web_search/` owns typed provider-neutral arguments, freshness and domain policy, the pluggable
+query/result/error contract, and the fixed-endpoint Brave Search adapter with strict request/response bounds, safe
+result-URL policy, and redacted provider failures,
 `src-tauri/src/storage/tool_audit_migration.rs` owns schema-21 audit columns and honest legacy backfill,
 `src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
@@ -425,8 +433,9 @@ Do not mistake visual fixtures for implemented backend behavior:
   and Anthropic-compatible consumers through the bounded dispatcher and loop. Their successful retained results now
   produce real selected-lineage citation cards; dismissals reset with the frontend session and do not delete tool
   records or exclude a source from later retrieval;
-- no web search or fetch tool exists; the Rust-only Brave adapter has native credential/settings and connection-test
-  surfaces but is not registered with provider tool definitions, the native dispatcher, or generation;
+- the closed native `web_search` contract and dispatcher exist, but no provider advertises or maps the definition and
+  the Web affordance remains disabled; no web search can reach generation, durable audit, or conversation state yet,
+  and no `web_fetch` contract exists;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -466,7 +475,58 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 542 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Brave Search credential configuration and connection testing
+## Most recently completed product slice: Provider-independent web-search tool contract and dispatcher
+
+### Goal
+
+Define and execute one closed, bounded `web_search` contract with useful freshness and domain controls while keeping
+model-provider wire formats, generation, credentials, and the WebView outside this slice.
+
+### Implemented shape
+
+1. `web_search_tool_definition` publishes one closed object schema with a required query, optional
+   `day`/`week`/`month`/`year` freshness, up to five combined include/exclude domains, and a one-to-ten result ceiling.
+   It remains separate from the three provider-advertised memory definitions.
+2. Raw calls reject non-objects, unknown or missing fields, null/type mismatches, unsupported freshness, empty or
+   oversized lists, duplicate/conflicting filters, URLs, wildcards, IP addresses, single-label hosts, and invalid DNS
+   labels before provider work.
+3. `WebSearchRequest` normalizes domain case, maps multiple includes through explicit `site:`/`OR` operators and
+   exclusions through `NOT site:`, and rechecks the complete generated query against Brave's 400-character/50-term
+   ceiling. The Brave adapter maps freshness to its fixed `pd`/`pw`/`pm`/`py` values.
+4. The Brave response path rechecks every normalized URL host against the native include/exclude policy. Exact domains
+   and subdomains are accepted; blocked or outside-allowlist results are removed even if provider operator behavior is
+   incomplete.
+5. `dispatch_web_search_tool` applies the same explicit safe/read-only policy gate used by memory tools, executes only
+   typed requests through the pluggable provider trait, enforces the existing 64 KiB result envelope, and maps invalid,
+   unavailable, credential, rate-limit, timeout, malformed, and internal failures without reflecting the query,
+   domains, provider body, credential, or implementation detail.
+
+### Acceptance criteria
+
+- The native definition is closed, provider-independent, and not mixed into the three definitions currently
+  advertised by Ollama, OpenAI-compatible, or Anthropic-compatible generation.
+- Freshness and domain filters are strictly typed, bounded before I/O, mapped to the fixed Brave route, and reapplied
+  to normalized output hosts.
+- Invalid calls cannot reach the provider; provider failures return only stable common dispatcher categories.
+- `web_search` has an explicit safe policy entry and one executable native dispatcher path, but no model, generation,
+  audit, conversation, IPC, or UI path can invoke it yet.
+- No schema migration, second search provider, generic HTTP capability, or `web_fetch` behavior is added.
+
+### Verification completed
+
+Focused TDD first failed because the web definition, typed arguments, filter-aware request, safe policy entry, and
+dispatcher were absent. New contract tests cover the closed schema, exact typed conversion, unknown/null/type errors,
+freshness, domain, conflict, and result limits. Provider tests cover Brave query/freshness mapping, complete-query
+bounds, strict DNS filtering, and defense-in-depth output-host enforcement. Dispatcher tests prove invalid calls stop
+before provider work, successful normalized results use the common bounded envelope, and provider detail is redacted.
+
+Cargo formatting and the default Rust suite pass with 252 tests and nine opt-in network tests skipped. The standard
+frontend checks and build also pass unchanged. The two isolated Brave loopback tests pass with host-local socket
+access, covering the existing fixed header-authenticated request/response path. No browser or native presentation
+review was required because this slice changes no IPC, startup, storage, or frontend behavior. No live Brave credential
+was read and no live Brave API request was made; provider mapping and generation remain intentionally absent.
+
+## Prior completed product slice: Brave Search credential configuration and connection testing
 
 ### Goal
 

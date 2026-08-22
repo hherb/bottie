@@ -5,7 +5,8 @@ mod brave;
 #[cfg(test)]
 mod tests;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use url::{Host, Url};
 
 pub use brave::BraveSearchProvider;
 
@@ -15,22 +16,91 @@ pub const MAX_WEB_SEARCH_QUERY_CHARS: usize = 400;
 pub const MAX_WEB_SEARCH_QUERY_WORDS: usize = 50;
 /// Maximum number of normalized web results accepted from one provider call.
 pub const MAX_WEB_SEARCH_RESULTS: usize = 20;
+/// Default result ceiling used by the model-visible web-search tool.
+pub(crate) const DEFAULT_WEB_SEARCH_TOOL_RESULTS: usize = 5;
+/// Maximum results returned by one model-visible web-search tool call.
+pub(crate) const MAX_WEB_SEARCH_TOOL_RESULTS: usize = 10;
+/// Maximum combined allowlisted and blocklisted domain filters per search.
+pub(crate) const MAX_WEB_SEARCH_FILTER_DOMAINS: usize = 5;
+/// Maximum Unicode-scalar length accepted for one normalized domain filter.
+pub(crate) const MAX_WEB_SEARCH_DOMAIN_CHARS: usize = 253;
 /// Stable identity of the first configured native web-search provider.
 pub const BRAVE_SEARCH_PROVIDER_ID: &str = "brave";
+/// Stable name of the provider-independent web-search tool contract.
+pub(crate) const WEB_SEARCH_TOOL_NAME: &str = "web_search";
 
 const CONNECTION_TEST_QUERY: &str = "Bottie connection test";
 const CONNECTION_TEST_RESULT_LIMIT: usize = 1;
+
+/// Provider-independent recency windows exposed by the native tool contract.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum WebSearchFreshness {
+    /// Limit results to roughly the previous 24 hours.
+    Day,
+    /// Limit results to roughly the previous seven days.
+    Week,
+    /// Limit results to roughly the previous month.
+    Month,
+    /// Limit results to roughly the previous year.
+    Year,
+}
+
+/// Exact typed arguments accepted by Bottie's provider-independent web-search tool.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WebSearchArguments {
+    /// Natural-language terms sent only to the configured native search provider.
+    pub(crate) query: String,
+    /// Optional provider-independent recency window.
+    pub(crate) freshness: Option<WebSearchFreshness>,
+    /// Optional exact domains or parent domains allowed in returned URLs.
+    #[serde(default)]
+    pub(crate) include_domains: Vec<String>,
+    /// Optional exact domains or parent domains removed from returned URLs.
+    #[serde(default)]
+    pub(crate) exclude_domains: Vec<String>,
+    /// Optional model-selected result ceiling.
+    pub(crate) limit: Option<usize>,
+}
+
+impl WebSearchArguments {
+    /// Converts validated typed arguments into the native provider request contract.
+    pub(crate) fn into_request(self) -> Result<WebSearchRequest, WebSearchError> {
+        WebSearchRequest::with_filters(
+            self.query,
+            self.limit.unwrap_or(DEFAULT_WEB_SEARCH_TOOL_RESULTS),
+            self.freshness,
+            self.include_domains,
+            self.exclude_domains,
+        )
+    }
+}
 
 /// One validated provider-neutral web-search request.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WebSearchRequest {
     query: String,
     result_limit: usize,
+    freshness: Option<WebSearchFreshness>,
+    include_domains: Vec<String>,
+    exclude_domains: Vec<String>,
 }
 
 impl WebSearchRequest {
     /// Validates and normalizes one query and result limit before provider routing.
     pub fn new(query: impl Into<String>, result_limit: usize) -> Result<Self, WebSearchError> {
+        Self::with_filters(query, result_limit, None, Vec::new(), Vec::new())
+    }
+
+    /// Validates one query plus provider-independent freshness and domain filters.
+    pub(crate) fn with_filters(
+        query: impl Into<String>,
+        result_limit: usize,
+        freshness: Option<WebSearchFreshness>,
+        include_domains: Vec<String>,
+        exclude_domains: Vec<String>,
+    ) -> Result<Self, WebSearchError> {
         let query = normalize_whitespace(&query.into());
         if query.is_empty() {
             return Err(WebSearchError::invalid_request(
@@ -52,10 +122,27 @@ impl WebSearchRequest {
                 "Web-search result limits must be between 1 and {MAX_WEB_SEARCH_RESULTS}."
             )));
         }
-        Ok(Self {
+        let include_domains = normalize_domains(include_domains)?;
+        let exclude_domains = normalize_domains(exclude_domains)?;
+        if include_domains.len().saturating_add(exclude_domains.len())
+            > MAX_WEB_SEARCH_FILTER_DOMAINS
+            || include_domains
+                .iter()
+                .any(|domain| exclude_domains.contains(domain))
+        {
+            return Err(WebSearchError::invalid_request(
+                "Web-search domain filters conflict or exceed their limit.",
+            ));
+        }
+        let request = Self {
             query,
             result_limit,
-        })
+            freshness,
+            include_domains,
+            exclude_domains,
+        };
+        request.validate_provider_query()?;
+        Ok(request)
     }
 
     /// Returns the normalized query retained only inside native provider work.
@@ -67,6 +154,142 @@ impl WebSearchRequest {
     pub fn result_limit(&self) -> usize {
         self.result_limit
     }
+
+    /// Returns the optional provider-independent recency window.
+    pub(crate) fn freshness(&self) -> Option<WebSearchFreshness> {
+        self.freshness
+    }
+
+    /// Returns normalized exact or parent domains allowed in result URLs.
+    #[cfg(test)]
+    pub(crate) fn include_domains(&self) -> &[String] {
+        &self.include_domains
+    }
+
+    /// Returns normalized exact or parent domains removed from result URLs.
+    #[cfg(test)]
+    pub(crate) fn exclude_domains(&self) -> &[String] {
+        &self.exclude_domains
+    }
+
+    /// Builds the bounded provider query with model arguments separated from native operators.
+    pub(crate) fn provider_query(&self) -> String {
+        let mut parts = vec![self.query.clone()];
+        if self.include_domains.len() == 1 {
+            parts.push(format!("site:{}", self.include_domains[0]));
+        } else if !self.include_domains.is_empty() {
+            let alternatives = self
+                .include_domains
+                .iter()
+                .map(|domain| format!("site:{domain}"))
+                .collect::<Vec<_>>()
+                .join(" OR ");
+            parts.push(format!("({alternatives})"));
+        }
+        parts.extend(
+            self.exclude_domains
+                .iter()
+                .map(|domain| format!("NOT site:{domain}")),
+        );
+        parts.join(" ")
+    }
+
+    /// Rechecks provider output against native include and exclude domain policy.
+    pub(crate) fn allows_result_url(&self, value: &str) -> bool {
+        let Some(host) = Url::parse(value)
+            .ok()
+            .and_then(|url| url.host_str().map(str::to_owned))
+        else {
+            return false;
+        };
+        let included = self.include_domains.is_empty()
+            || self
+                .include_domains
+                .iter()
+                .any(|domain| domain_matches(&host, domain));
+        included
+            && !self
+                .exclude_domains
+                .iter()
+                .any(|domain| domain_matches(&host, domain))
+    }
+
+    /// Ensures native-added operators stay within the provider's complete query limits.
+    fn validate_provider_query(&self) -> Result<(), WebSearchError> {
+        let query = self.provider_query();
+        if query.chars().count() > MAX_WEB_SEARCH_QUERY_CHARS
+            || query.split_whitespace().count() > MAX_WEB_SEARCH_QUERY_WORDS
+        {
+            Err(WebSearchError::invalid_request(
+                "The web-search query and filters exceed the provider request limit.",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+/// Normalizes and validates exact public DNS domain filters without accepting URLs or IP addresses.
+fn normalize_domains(domains: Vec<String>) -> Result<Vec<String>, WebSearchError> {
+    let mut normalized = Vec::with_capacity(domains.len());
+    for domain in domains {
+        let domain = domain.trim().trim_end_matches('.');
+        if domain.is_empty()
+            || domain.chars().count() > MAX_WEB_SEARCH_DOMAIN_CHARS
+            || !domain.contains('.')
+        {
+            return Err(WebSearchError::invalid_request(
+                "Use bounded public DNS names for web-search domain filters.",
+            ));
+        }
+        let Host::Domain(domain) = Host::parse(domain).map_err(|_| {
+            WebSearchError::invalid_request(
+                "Use bounded public DNS names for web-search domain filters.",
+            )
+        })?
+        else {
+            return Err(WebSearchError::invalid_request(
+                "Use bounded public DNS names for web-search domain filters.",
+            ));
+        };
+        let domain = domain.to_ascii_lowercase();
+        if !domain.split('.').all(valid_domain_label) {
+            return Err(WebSearchError::invalid_request(
+                "Use bounded public DNS names for web-search domain filters.",
+            ));
+        }
+        if normalized.contains(&domain) {
+            return Err(WebSearchError::invalid_request(
+                "Web-search domain filters must be unique.",
+            ));
+        }
+        normalized.push(domain);
+    }
+    Ok(normalized)
+}
+
+/// Applies the DNS hostname label subset accepted by Bottie's model-visible filter contract.
+fn valid_domain_label(label: &str) -> bool {
+    !label.is_empty()
+        && label
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        && label
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
+        && label
+            .as_bytes()
+            .last()
+            .is_some_and(u8::is_ascii_alphanumeric)
+}
+
+/// Returns whether one result host is the selected domain or one of its subdomains.
+fn domain_matches(host: &str, domain: &str) -> bool {
+    host.eq_ignore_ascii_case(domain)
+        || host
+            .strip_suffix(domain)
+            .is_some_and(|prefix| prefix.ends_with('.'))
 }
 
 /// One normalized search result retained behind the native boundary.
@@ -118,6 +341,20 @@ impl WebSearchResponse {
     /// Returns the ordered bounded normalized web results.
     pub fn results(&self) -> &[WebSearchResult] {
         &self.results
+    }
+}
+
+#[cfg(test)]
+/// Builds one bounded provider-neutral result for dispatcher fixtures.
+pub(crate) fn fixture_web_search_response() -> WebSearchResponse {
+    WebSearchResponse {
+        provider_id: "fixture".into(),
+        results: vec![WebSearchResult {
+            title: "Fixture result".into(),
+            url: "https://example.com/result".into(),
+            snippet: "Bounded fixture content.".into(),
+            published_at: None,
+        }],
     }
 }
 

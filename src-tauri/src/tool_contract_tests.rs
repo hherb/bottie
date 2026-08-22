@@ -6,8 +6,10 @@ use crate::{
     storage::{OpenMemoryArguments, SearchAttachedFilesArguments, SearchMemoryArguments},
     tool_contract::{
         MemoryToolArguments, ToolContractErrorCode, memory_tool_definitions,
-        validate_memory_tool_arguments,
+        validate_memory_tool_arguments, validate_web_search_tool_arguments,
+        web_search_tool_definition,
     },
+    web_search::{WebSearchArguments, WebSearchFreshness},
 };
 
 /// Returns the definition with one stable native name.
@@ -129,6 +131,113 @@ fn validates_raw_json_into_exact_typed_memory_arguments() {
             ..SearchAttachedFilesArguments::default()
         })
     );
+}
+
+#[test]
+fn publishes_one_closed_provider_independent_web_search_schema() {
+    let definition = serde_json::to_value(web_search_tool_definition())
+        .expect("web-search definition should serialize");
+
+    assert_eq!(definition["name"], json!("web_search"));
+    assert_eq!(definition["inputSchema"]["type"], json!("object"));
+    assert_eq!(
+        definition["inputSchema"]["additionalProperties"],
+        json!(false)
+    );
+    assert_eq!(definition["inputSchema"]["required"], json!(["query"]));
+    assert_eq!(
+        definition["inputSchema"]["properties"]["freshness"]["enum"],
+        json!(["day", "week", "month", "year"])
+    );
+    assert_eq!(
+        definition["inputSchema"]["properties"]["includeDomains"]["maxItems"],
+        json!(5)
+    );
+    assert_eq!(
+        definition["inputSchema"]["properties"]["excludeDomains"]["maxItems"],
+        json!(5)
+    );
+    assert_eq!(
+        definition["inputSchema"]["properties"]["limit"]["maximum"],
+        json!(10)
+    );
+
+    let memory_names = memory_tool_definitions()
+        .into_iter()
+        .map(|definition| definition.name)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        memory_names,
+        ["search_memory", "open_memory", "search_attached_files"]
+    );
+}
+
+#[test]
+fn validates_web_search_freshness_and_domain_filters_into_exact_arguments() {
+    let arguments = validate_web_search_tool_arguments(
+        "web_search",
+        &json!({
+            "query": "native Rust boundaries",
+            "freshness": "week",
+            "includeDomains": ["docs.rs", "rust-lang.org"],
+            "excludeDomains": ["forum.example"],
+            "limit": 7
+        }),
+    )
+    .expect("web-search arguments should validate");
+
+    assert_eq!(
+        arguments,
+        WebSearchArguments {
+            query: "native Rust boundaries".into(),
+            freshness: Some(WebSearchFreshness::Week),
+            include_domains: vec!["docs.rs".into(), "rust-lang.org".into()],
+            exclude_domains: vec!["forum.example".into()],
+            limit: Some(7),
+        }
+    );
+}
+
+#[test]
+fn rejects_invalid_web_search_shapes_without_reflecting_arguments() {
+    let cases = [
+        ("web_fetch", json!({"query": "private"})),
+        ("web_search", json!([])),
+        ("web_search", json!({})),
+        ("web_search", json!({"query": "private", "freshness": null})),
+        (
+            "web_search",
+            json!({"query": "private", "freshness": "hour"}),
+        ),
+        (
+            "web_search",
+            json!({"query": "private", "includeDomains": []}),
+        ),
+        (
+            "web_search",
+            json!({"query": "private", "includeDomains": ["https://example.com/private"]}),
+        ),
+        (
+            "web_search",
+            json!({"query": "private", "excludeDomains": ["example.com", "EXAMPLE.com"]}),
+        ),
+        (
+            "web_search",
+            json!({"query": "private", "includeDomains": ["example.com"], "excludeDomains": ["example.com"]}),
+        ),
+        ("web_search", json!({"query": "private", "limit": 0})),
+        ("web_search", json!({"query": "private", "limit": 11})),
+        (
+            "web_search",
+            json!({"query": "private", "unknown": "secret"}),
+        ),
+    ];
+
+    for (tool_name, arguments) in cases {
+        let error = validate_web_search_tool_arguments(tool_name, &arguments)
+            .expect_err("invalid web-search arguments should fail");
+        assert!(!error.message.contains(&arguments.to_string()));
+    }
 }
 
 #[test]
