@@ -39,11 +39,11 @@ import {
   type ProviderStatus,
   type RuntimeInfo,
 } from "$lib/presentation";
-
 import { ConversationState } from "./conversation-state.svelte";
 import { AttachmentState } from "./attachment-state.svelte";
 import { RecoveryState } from "./recovery-state.svelte";
 import { memoryToolsAvailable } from "./page-presentation";
+import { MemoryContextState } from "./memory-context-state.svelte";
 
 const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
@@ -69,7 +69,7 @@ export class PageState {
   providerError = $state<ProviderError | null>(null);
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
-  memoryEnabled = $state(false);
+  memory = new MemoryContextState();
   providerSettings = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
   recovery = new RecoveryState();
   history = new ConversationState();
@@ -181,7 +181,7 @@ export class PageState {
       this.models = resolved.models;
       const currentSelectionAvailable = this.models.some((model) => modelKey(model) === this.selectedModelKey);
       if (!currentSelectionAvailable) this.selectedModelKey = resolved.selectedModelKey;
-      if (!this.memoryAvailable) this.memoryEnabled = false;
+      if (!this.memoryAvailable) this.memory.disable();
       this.providerStatus = this.models.length > 0 ? "available" : "offline";
       if (this.models.length === 0) {
         this.providerError = {
@@ -202,7 +202,7 @@ export class PageState {
 
   /** Switches provider and refreshes only that provider's model list. */
   async changeProvider(providerId: ProviderId): Promise<void> {
-    this.memoryEnabled = false;
+    this.memory.disable();
     this.selectedProviderId = providerId;
     this.models = [];
     this.selectedModelKey = "";
@@ -212,13 +212,13 @@ export class PageState {
   /** Applies and persists a model selection from the toolbar. */
   async changeModel(selectedModelKey: string): Promise<void> {
     this.selectedModelKey = selectedModelKey;
-    if (!this.memoryAvailable) this.memoryEnabled = false;
+    if (!this.memoryAvailable) this.memory.disable();
     await this.rememberCurrentSelection();
   }
 
   /** Toggles explicit native memory-tool availability for the next compatible provider request. */
   toggleMemory(): void {
-    if (this.memoryAvailable && !this.isGenerating) this.memoryEnabled = !this.memoryEnabled;
+    this.memory.toggle(this.memoryAvailable, this.isGenerating);
   }
 
   /** Applies saved provider settings and rediscovers models. */
@@ -371,7 +371,7 @@ export class PageState {
           providerId: model!.providerId,
           modelId: model!.modelId,
           messages: requestMessages,
-          memoryEnabled: this.memoryEnabled,
+          memoryEnabled: this.memory.enabled,
           settings: { reasoningEffort: this.reasoningEffort },
         },
         runContext,

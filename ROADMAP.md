@@ -187,7 +187,7 @@ Status: in progress
 - [x] explicit Ollama native memory-tool definition/call/result mapping and bounded generation-loop integration;
 - [x] explicit OpenAI Chat Completions definition/call/result mapping and bounded generation-loop integration;
 - [x] explicit Anthropic Messages definition/call/result mapping and bounded generation-loop integration;
-- [ ] visible and removable memory citations in the context panel;
+- [x] visible and removable memory citations in the context panel;
 - [ ] exclude-from-memory, forget, and retention controls (explicit derived-only reindex is complete).
 
 Do not silently inject arbitrary long-term memories into every prompt. Recent conversation context may be automatic; long-term recall should be explicit and inspectable.

@@ -245,12 +245,14 @@ into their typed native contracts. A Rust-only provider-neutral dispatcher execu
 exclusive structured success/error envelope capped at 64 KiB, with stable redacted failure categories. Provider
 independent loop state now correlates repeated calls and results across at most four rounds, eight calls, 256 KiB of
 aggregate serialized output, and 30 seconds while checking a shared cancellation signal before and after every native
-call. Tool-capable Ollama and OpenAI-compatible models now receive those definitions only after the user enables
-Memory. Rust accumulates streamed calls, checkpoints each call/result under the active provider run, reuses the
-process-lifetime EmbeddingGemma worker for semantic queries, appends provider-native correlated tool-result messages,
-and aggregates usage and optional cost across follow-up requests. Tool activity is inspectable and portable; paths,
-hashes, scores, vectors, embeddings, cache details, and provider/native call identities remain excluded.
-Anthropic-shaped and oMLX mapping, automatic retrieval injection, and real memory citation cards remain unimplemented.
+call. Tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible models receive those definitions only after the
+user enables Memory. Rust accumulates streamed calls, checkpoints each call/result under the active provider run,
+reuses the process-lifetime EmbeddingGemma worker for semantic queries, appends provider-native correlated tool-result
+messages, and aggregates usage and optional cost across follow-up requests. Tool activity is inspectable and portable;
+paths, hashes, scores, vectors, embeddings, cache details, and provider/native call identities remain excluded.
+Successful selected-lineage tool results also produce deduplicated conversation or retained-file citation cards in the
+Context panel. Removing a card is session-local presentation state and does not delete the append-only audit record or
+exclude the source from later retrieval. oMLX mapping and automatic retrieval injection remain unimplemented.
 
 Run the layout-only browser preview:
 
@@ -293,5 +295,6 @@ chunk offsets without paths, hashes, scores, or full extracted text. Provider-in
 those three tools through closed schemas: required and optional fields, JSON types, Unicode-scalar identity/query
 ceilings, result/window bounds, and unknown-field rejection are enforced before typed dispatch. Provider invocation
 and executable dispatch are available only through explicitly enabled, tool-capable Ollama, OpenAI-compatible, and
-Anthropic-compatible requests. oMLX mapping, automatic prompt injection, document opening, and memory citations
-remain unavailable; Settings exposes only path-free progress and the derived-only reindex control.
+Anthropic-compatible requests. Successful selected-lineage results appear as path-free removable Context-panel
+citations. oMLX mapping, automatic prompt injection, document opening, and durable exclude/forget controls remain
+unavailable; Settings exposes only path-free progress and the derived-only reindex control.

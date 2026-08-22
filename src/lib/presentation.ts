@@ -140,7 +140,25 @@ export const INITIAL_MESSAGES: Message[] = [
         toolName: "search_memory",
         arguments: { query: "bottie architecture boundary" },
         result: {
-          output: { matches: 2, source: "Local conversation memory" },
+          output: {
+            ok: true,
+            result: {
+              matches: [
+                {
+                  rank: 1,
+                  excerpt: "Keep secrets, storage, provider calls, and tool execution inside the Rust core.",
+                  provenance: {
+                    sourceKind: "message",
+                    conversationId: "preview-conversation",
+                    conversationTitle: "Bottie architecture",
+                    messageId: "preview-message",
+                    role: "assistant",
+                    createdAtMs: 1_776_000_000_000,
+                  },
+                },
+              ],
+            },
+          },
           isError: false,
           createdAtMs: 2,
         },

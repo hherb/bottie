@@ -123,10 +123,13 @@ repeated batches through that dispatcher while correlating opaque call identitie
 calls, four tool rounds, 256 KiB of aggregate serialized output, and 30 seconds; cancellation and deadline checks run
 before and after every native call, and every exceptional outcome closes the loop. Ollama, OpenAI Chat Completions,
 and Anthropic Messages now map the three closed definitions, accumulate streamed calls, execute and durably checkpoint
-ordered results, then continue generation with cumulative usage and shared cancellation. The next bounded
-implementation slice is visible, removable path-free memory provenance in the Context panel sourced from successful
-native memory-tool activity; do not bundle oMLX mapping, automatic retrieval injection, model-cache deletion, broad
-retention controls, document opening, web tools, or attachment retry controls.
+ordered results, then continue generation with cumulative usage and shared cancellation. Successful selected-lineage
+`search_memory`, `open_memory`, and `search_attached_files` results now produce deduplicated, path-free conversation or
+file citation cards in the Context panel. Removing a card is session-local presentation state and deliberately leaves
+the append-only tool audit untouched. The next bounded implementation slice is one durable per-conversation
+exclude-from-memory control enforced by lexical, chunk, semantic, and tool retrieval; do not bundle source deletion,
+time-based retention, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, web tools,
+or attachment retry controls.
 
 Read these files first:
 
@@ -140,7 +143,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/anthropic-tool-loop`.
+branch `codex/memory-provenance-context`.
 
 ## Current implementation
 
@@ -161,7 +164,7 @@ branch `codex/anthropic-tool-loop`.
 - separate provider and model selectors, provider-specific refresh, connection/offline state, retry action,
   loaded/on-demand state, and an explicit local/cloud privacy indicator;
 - user and assistant message presentation;
-- a context inspector containing attachments, recalled memories, privacy routing, and a token meter;
+- a context inspector containing attachments, real tool-sourced memory provenance, privacy routing, and a token meter;
 - native attachment selection, application-private ingestion, durable selected-lineage message and branch-independent
   conversation associations, explicit scope labels, narrow removal, and path-redacted outcome feedback;
 - durable background plain-text, Markdown, page-aware PDF, DOCX, JPEG, and PNG processing with live path-free labels;
@@ -196,8 +199,9 @@ branch `codex/anthropic-tool-loop`.
 - reduced-motion and keyboard-focus support.
 
 `src/lib/chat.ts` contains tested pure presentation helpers, `src/lib/presentation.ts` owns typed fixtures and named UI
-constants, and `src/lib/styles/` keeps cohesive stylesheets below the project file-size limit. `src/lib/Icon.svelte` is
-the dependency-free local icon set used by the shell.
+constants, `src/lib/memory-provenance.ts` strictly derives path-free cards from successful durable native tool
+envelopes, and `src/lib/styles/` keeps cohesive stylesheets below the project file-size limit. `src/lib/Icon.svelte`
+is the dependency-free local icon set used by the shell.
 
 ### Native boundary
 
@@ -360,9 +364,10 @@ The native application configuration has:
 
 Do not mistake visual fixtures for implemented backend behavior:
 
-- memory cards and relevance scores are fixtures;
-- context-panel usage and tool sources are fixtures; response elapsed time and provider-reported token/cost usage are
-  real and survive conversation reopen;
+- the browser preview's one memory card is a fixture shaped like a successful native result; in the native app,
+  Context-panel citations derive from real selected-lineage durable tool activity and expose no relevance score;
+- context-panel token usage remains a fixture; response elapsed time and provider-reported token/cost usage are real
+  and survive conversation reopen;
 - current next-message attachment selection is session-only until it commits atomically with a submitted user message
   or is explicitly promoted into an existing conversation's durable context; an unassociated selection is eligible
   for native garbage collection after the 24-hour safety window and a later successful startup because the draft itself
@@ -379,11 +384,12 @@ Do not mistake visual fixtures for implemented backend behavior:
   fixtures;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
 - the native lexical, semantic KNN, fused search, and provenance-opening contracts now have Ollama, OpenAI-compatible,
-  and Anthropic-compatible consumers through the bounded dispatcher and loop, while visible/removable citation cards
-  and real context-panel memory replacement remain absent;
+  and Anthropic-compatible consumers through the bounded dispatcher and loop. Their successful retained results now
+  produce real selected-lineage citation cards; dismissals reset with the frontend session and do not delete tool
+  records or exclude a source from later retrieval;
 - no web search or fetch tool exists;
-- there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
-  pure presentation and Markdown-policy helpers have frontend unit coverage.
+- there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
+  component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
 The browser preview intentionally reports `Browser preview`; only the native Tauri runtime can invoke `app_info`.
 
@@ -421,7 +427,59 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 533 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Explicit Anthropic Messages native memory-tool loop
+## Most recently completed product slice: Visible removable native memory provenance
+
+### Goal
+
+Replace the Context panel's scored memory fixtures with visible, removable, path-free provenance derived only from
+successful native memory-tool activity, without changing SQLite, IPC, provider requests, append-only tool audit data,
+or source-retention policy.
+
+### Implemented shape
+
+1. `memoryCitationsForMessages` reads only selected-lineage assistant tool records already reconstructed by the native
+   conversation load. It accepts exact successful dispatcher envelopes for `search_memory`, `open_memory`, and
+   `search_attached_files`; failed, pending, unsupported, or malformed activity produces no card.
+2. Conversation results show the bounded excerpt, durable conversation title, and creation date. Retained-document
+   results show the bounded excerpt, native-sanitized display name, and creation date. Raw tool arguments, opaque
+   identities, ranks, scores, hashes, paths, embeddings, full documents, and unknown result fields are never rendered.
+3. Repeated search/open results deduplicate by native message or attachment provenance. The newest selected-lineage
+   assistant activity is considered first while provider order remains stable within each response.
+4. Each card has an accessible remove control and the empty state explains that successful native memory tools add
+   citations. Removal is deliberately session-local and presentation-only: it cannot rewrite append-only provider-run
+   tool records or imply that the source has been forgotten.
+5. A focused `MemoryContextState` owns the existing explicit Memory toggle plus dismissed citation identities, keeping
+   the central page controller at its 500-line practical limit. The browser-preview tool fixture now uses the exact
+   common success envelope for layout review.
+
+### Acceptance criteria
+
+- Only non-error results with `{ ok: true, result: ... }` from the three supported native memory tools produce cards.
+- Conversation and retained-file cards expose useful excerpt/title/date attribution without paths, scores, raw
+  arguments, hashes, embeddings, full source text, or opaque identities in rendered markup.
+- Duplicate provenance appears once and removal immediately replaces the last card with an explicit empty state.
+- Selected branch changes and conversation reopen naturally rebuild cards from that visible lineage's durable tool
+  records; session-local dismissals do not mutate storage or claim durable forget behavior.
+- No migration, Tauri command, provider mapping, automatic injection, oMLX tool support, source deletion, retention
+  policy, document opening, web tool, model-cache deletion, or attachment retry is added.
+
+### Verification completed
+
+Focused TDD first failed on the absent provenance adapter and the three scored Context-panel fixtures. New pure tests
+cover exact conversation and attached-file results, `open_memory` matched-turn fallback, source deduplication,
+dismissals, and rejection of failed, unsupported, or malformed activity. Server-rendered component coverage confirms
+the accessible remove label, empty fixture-score removal, and absence of opaque identities from Context-panel markup.
+Prettier, `svelte-check`, all 64 frontend tests, the production build, Cargo formatting, Cargo check, and all 222
+default Rust tests pass; seven opt-in provider/loopback tests remain ignored by default because provider and native
+protocol behavior did not change.
+
+The browser preview was inspected at the default desktop viewport and at 900 x 800. The citation-card layout remained
+contained in both the fixed panel and responsive overlay, its remove control changed `Memories 1` to the explicit
+empty state, and the browser console reported no errors. No schema, IPC, Rust, provider, credential, filesystem, or
+native-window behavior changed, so this slice did not claim a fresh provider call or native persistence interaction.
+Citation dismissals reset on frontend reload by design; durable exclude/forget controls remain future work.
+
+## Prior completed product slice: Explicit Anthropic Messages native memory-tool loop
 
 ### Goal
 
