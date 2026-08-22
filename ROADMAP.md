@@ -173,7 +173,7 @@ Status: in progress
 - [x] resumable bounded background indexing;
 - [x] bounded current-generation semantic KNN retrieval with EmbeddingGemma query prompting and lifecycle-safe
   profile, source, conversation, association, and date filters;
-- complete reindex controls;
+- [x] explicit derived-only reindex control with durable path-free progress and restore-safe worker coordination;
 - [x] bounded source-level reciprocal-rank fusion of lexical and vector results under one shared filter contract;
 
 ### Memory tools

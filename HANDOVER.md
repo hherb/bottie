@@ -90,9 +90,12 @@ ranking, so profile, lifecycle, durable attachment association, source, conversa
 lexical retrieval without consuming the result limit on ineligible nearer vectors. One native hybrid query now applies
 a shared filter and bound contract to both retrieval paths and combines their source ranks with reciprocal-rank fusion.
 Each source contributes at most once per list; an overlapping source retains its strongest semantic chunk's exact
-excerpt and offsets. The next bounded implementation slice is one explicit path-free semantic reindex control with
-durable progress and restore-safe worker coordination; do not bundle memory tools, retrieval injection, provider
-changes, model-cache deletion, or attachment retry controls.
+excerpt and offsets. Settings now exposes durable path-free semantic-index progress and one explicit reindex action.
+The native command serializes with restore, pauses the worker before atomically removing only derived vector mappings,
+retains source chunks and the application-owned model cache, then resumes the existing bounded worker. The next
+bounded implementation slice is a Rust-owned `search_memory` tool contract over the hybrid query with bounded
+path-free provenance; do not bundle provider tool loops, automatic retrieval injection, memory-card replacement,
+model-cache deletion, broad retention controls, or attachment retry controls.
 
 Read these files first:
 
@@ -106,7 +109,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/semantic-memory-knn`.
+branch `codex/semantic-reindex-control`.
 
 ## Current implementation
 
@@ -208,7 +211,7 @@ filter contract, `src-tauri/src/storage/memory_hybrid.rs` owns bounded source-le
 `src-tauri/src/storage/memory_chunks.rs` owns versioned Unicode-safe deterministic chunking plus transactional source
 replacement, while `src-tauri/src/storage/memory_chunks_migration.rs` owns catalog metadata and stale-row cleanup,
 `src-tauri/src/storage/memory_semantic.rs` owns static sqlite-vec registration, version-contract validation, bounded
-embedding batches, atomic chunk/vector mappings, and native-only progress, while
+embedding batches, atomic chunk/vector mappings, durable progress, and derived-only reset, while
 `src-tauri/src/storage/memory_semantic_migration.rs` owns schema-18 model/index metadata and vector cleanup triggers,
 `src-tauri/src/storage/memory_semantic_query.rs` owns normalized EmbeddingGemma retrieval queries, exact filtered KNN,
 bounded chunk provenance, and current-generation validation,
@@ -230,7 +233,8 @@ native-discovered vision policy, and closes each native run before its terminal 
 attachment append, visible message-attachment removal, explicit branch, response-rating, selected-lineage Markdown/JSON
 and non-trashed batch JSON export, whole-store
 backup/restore,
-recovery-status/latest-snapshot restore, and lifecycle commands. The database lives in the OS application-data
+recovery-status/latest-snapshot restore, path-free semantic progress/derived-only reindex, and lifecycle commands. The
+database lives in the OS application-data
 directory; the WebView never receives a database or attachment path, SQL, or generic filesystem/database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
 a selected branch, and every message stores a branch-local append sequence plus independently ordered text/reasoning
@@ -360,7 +364,62 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Native reciprocal-rank fusion
+## Most recently completed product slice: Explicit semantic reindex control
+
+### Goal
+
+Expose one user-controlled semantic rebuild with durable path-free progress and restore-safe native coordination,
+without deleting sources or model files and without adding memory tools, retrieval injection, provider changes, a
+schema migration, or attachment retry behavior.
+
+### Implemented shape
+
+1. `SemanticIndexProgress` is the narrow serialized contract: lifecycle state, completed chunks, total chunks, and a
+   stable failure category. Chunks, vectors, source identities, embedding inputs, model paths, and cache paths remain
+   native-only.
+2. `reset_semantic_index` uses one immediate transaction to delete derived embedding records and their triggered
+   sqlite-vec rows, recount eligible deterministic chunks, clear the prior failure, and persist either pending `0/N`
+   or ready `0/0` progress. It does not change schema version 18, chunks, source content, or cached model files.
+3. `reindex_semantic_memory` shares the storage-management mutex with restore, waits for the current bounded batch,
+   pauses the single semantic worker through its RAII guard, commits the reset, resumes on every return path, and
+   explicitly wakes the worker. Restore therefore cannot replace the store during the reset.
+4. Settings polls durable progress only while pending, loading, or indexing; it renders a bounded progress bar, honest
+   ready/loading/indexing/failed copy, and one disabled-while-active `Reindex memory` action. Browser preview keeps the
+   native-only action visibly unavailable.
+
+### Acceptance criteria
+
+- Reindexing removes every derived mapping/vector while retaining deterministic chunks, source content, and the
+  application-owned model cache; an empty index stays ready.
+- Reset state and counts survive reopening the SQLite store, and the existing bounded worker resumes from `0/N`
+  without a second worker or an in-memory-only progress claim.
+- Reindex and restore serialize through the same native management boundary; reset waits for a current semantic batch
+  and the RAII pause resumes even when reset fails.
+- The WebView receives only state, two counts, and a stable path-free error category. No query, excerpt, opaque source
+  identity, vector, embedding, model/cache path, database detail, or generic storage capability crosses IPC.
+- No schema, provider request, export format, memory tool, retrieval injection, model-cache deletion, or attachment
+  behavior changes.
+
+### Verification completed
+
+Focused TDD first failed against the absent storage reset and frontend contract. Two native tests now cover
+derived-only reset, vector-trigger cleanup, durable reopen state, and the empty-index case; five frontend tests cover
+state copy, active polling policy, percentages, stable failures, the retained-source/cache explanation, disabled
+browser behavior, and path-free presentation. The complete Rust suite reports 180 passed with four opt-in
+live-provider checks intentionally ignored. Prettier, `svelte-check`, all 58 frontend tests, the production build,
+Cargo formatting, Cargo check, and `git diff --check` pass without warnings.
+
+The browser preview was inspected at the default desktop viewport and a 600-pixel responsive viewport: the Settings
+dialog, semantic card, native-only disabled action, diagnostics, and footer remain readable without overlap or
+horizontal clipping. A fresh signed native launch reopened the unchanged schema-18 live store with `quick_check=ok`,
+`ready` progress at 84/84 chunks, 84 current-contract mappings, no contract mismatches, no mapping orphans, and no
+running provider records. The real native Settings tree exposed `Ready · 84 of 84 chunks` and an enabled reindex
+action. Activating it produced durable `indexing` progress at 8/84, then 56/84, and returned both SQLite and the UI to
+`Ready · 84 of 84 chunks`; final `quick_check` remained `ok` with zero mismatches and zero orphans. A restore was not
+performed during verification because it would replace the user's live store; restore serialization is enforced by
+the shared management lock and worker-pause boundary exercised by the reset path.
+
+## Prior completed product slice: Native reciprocal-rank fusion
 
 ### Goal
 

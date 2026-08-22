@@ -63,7 +63,7 @@ pub(crate) use extraction::StoredAttachmentExtraction;
 pub(crate) use extraction::{AttachmentExtractionFormat, AttachmentExtractionState};
 pub(crate) use image_normalization::StoredImageNormalization;
 pub(crate) use memory_semantic::DEFAULT_SEMANTIC_BATCH_SIZE;
-pub(crate) use memory_semantic::{SemanticEmbedder, SemanticIndexState};
+pub(crate) use memory_semantic::{SemanticEmbedder, SemanticIndexProgress, SemanticIndexState};
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use portable_export::ConversationFileExport;

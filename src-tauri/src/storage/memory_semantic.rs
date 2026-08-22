@@ -131,8 +131,9 @@ impl SemanticIndexState {
     }
 }
 
-/// Path-free progress for diagnostics and native scheduling.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Path-free progress for diagnostics, narrow IPC, and native scheduling.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct SemanticIndexProgress {
     /// Current durable lifecycle state.
     pub(crate) state: SemanticIndexState,
@@ -190,6 +191,28 @@ impl ConversationStore {
                     error_code,
                 })
             })
+    }
+
+    /// Clears derived vectors and resets durable progress without deleting chunks or model files.
+    pub(crate) fn reset_semantic_index(&self) -> Result<SemanticIndexProgress, StorageError> {
+        let mut connection = self.open()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        transaction.execute("DELETE FROM memory_embedding_records", [])?;
+        transaction.execute(
+            "UPDATE memory_semantic_metadata
+             SET state = CASE
+                     WHEN (SELECT COUNT(*) FROM memory_chunks) = 0 THEN 'ready'
+                     ELSE 'pending'
+                 END,
+                 completed_chunks = 0,
+                 total_chunks = (SELECT COUNT(*) FROM memory_chunks),
+                 error_code = NULL,
+                 updated_at_ms = ?1
+             WHERE singleton = 1",
+            [now_ms()?],
+        )?;
+        transaction.commit()?;
+        self.semantic_index_progress()
     }
 
     /// Embeds and atomically commits one bounded batch, returning no item when fully current.

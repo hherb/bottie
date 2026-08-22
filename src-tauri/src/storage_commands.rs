@@ -8,8 +8,8 @@ use crate::{
     AppState,
     storage::{
         ConversationSearchResult, ConversationSummary, ForkedConversation, MessageState,
-        NewStoredMessage, ResponseRating, StorageError, StorageRecoveryStatus, StoredAttachment,
-        StoredConversation, StoredMessage, StoredRole,
+        NewStoredMessage, ResponseRating, SemanticIndexProgress, StorageError,
+        StorageRecoveryStatus, StoredAttachment, StoredConversation, StoredMessage, StoredRole,
     },
 };
 
@@ -73,6 +73,32 @@ pub(crate) fn get_storage_recovery_status(
     state: State<'_, AppState>,
 ) -> Result<StorageRecoveryStatus, StorageError> {
     state.conversations.recovery_status()
+}
+
+#[tauri::command]
+/// Returns durable path-free progress for Bottie's built-in semantic memory index.
+pub(crate) fn get_semantic_index_progress(
+    state: State<'_, AppState>,
+) -> Result<SemanticIndexProgress, StorageError> {
+    state.conversations.semantic_index_progress()
+}
+
+#[tauri::command]
+/// Resets only derived vectors under restore-safe worker coordination, then resumes indexing.
+pub(crate) async fn reindex_semantic_memory(
+    state: State<'_, AppState>,
+) -> Result<SemanticIndexProgress, StorageError> {
+    let _management = state.storage_management.lock().await;
+    let conversations = state.conversations.clone();
+    let semantic_indexing = state.semantic_indexing.clone();
+    let progress = tauri::async_runtime::spawn_blocking(move || {
+        let _semantic_pause = semantic_indexing.pause();
+        conversations.reset_semantic_index()
+    })
+    .await
+    .map_err(|_| StorageError::internal())??;
+    state.semantic_indexing.wake();
+    Ok(progress)
 }
 
 #[tauri::command]
