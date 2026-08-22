@@ -18,11 +18,13 @@ copied as Markdown without generated HTML or response metadata. When separate re
 document includes labelled Reasoning and Response sections. Interrupted, cancelled, and transiently failed responses
 can be retried on a preserved alternative branch without overwriting the original attempt. Durable Good and Poor
 ratings can be set, changed, or cleared on each preserved assistant response and survive restart and branch switching.
-Native provider runs can also retain ordered structured tool calls and one append-only result per call. Reopened tool
-activity is visible in a calm expandable panel. A Rust-only provider-neutral state machine can now execute repeated
+Native provider runs retain ordered structured tool calls and one append-only result per call. Each call records its
+native execution classification, stable outcome, and native-work duration; historical calls remain labelled legacy.
+Reopened and just-completed tool activity is visible in a calm expandable audit panel, with raw payloads nested below
+the audit summary. A Rust-only provider-neutral state machine can now execute repeated
 native memory-tool batches through the strict dispatcher while enforcing an eight-call, four-round, 256 KiB aggregate
-output, 30-second deadline, and shared cancellation policy. Provider wire-format mapping and generation-loop wiring
-remain intentionally deferred.
+output, 30-second deadline, and shared cancellation policy across Ollama, OpenAI-compatible, and Anthropic-compatible
+wire formats.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -151,11 +153,11 @@ context. Good and Poor rating controls
 write only the exact visible assistant response through a narrow native command. Selecting the active choice clears it;
 ratings stay local, survive restart, and remain attached to their preserved branch response. The toolbar's Markdown
 and JSON export actions reconstruct only the selected lineage and ask Rust to show a format-filtered native Save
-dialog. JSON uses version 3 of the `bottie-conversation` contract and retains ordered text, separate reasoning, message
+dialog. JSON uses version 4 of the `bottie-conversation` contract and retains ordered text, separate reasoning, message
 state, provider/model provenance, local rating, creation time, and provider-reported generation metadata without
 opaque storage identifiers. Conversation- and message-scoped attachment entries include safe display metadata, hashes,
 and archive-relative members. Retained tool arguments/results are included without native run or provider call IDs. A
-separate global JSON action writes every active and archived conversation's selected lineage through version 3 of the
+separate global JSON action writes every active and archived conversation's selected lineage through version 4 of the
 `bottie-conversation-batch` contract while excluding Trash and hidden branch siblings. Exports with referenced files
 are ZIP bundles containing the UTF-8 document and one hash-deduplicated original blob; otherwise their historical plain
 file shape is unchanged. The WebView receives only a saved/cancelled outcome and leaf filename, never the chosen
@@ -193,7 +195,7 @@ original/derivative files absent from the surviving catalog and clears old inter
 Recoverable Trash references, recent cross-process drafts, and shared derivatives remain live; unexpected files are
 left untouched. Cleanup commits catalog changes before file sweeping and holds a SQLite write lock during the sweep so
 interruption can leave only harmless untracked bytes for the next pass. Recent diagnostics receives counts and
-reclaimed bytes without paths or content identities. Current schema-version-19 stores retain up to 2 MiB of UTF-8
+reclaimed bytes without paths or content identities. Current schema-version-21 stores retain up to 2 MiB of UTF-8
 plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
 and expose only path-free state to the interface. Each attachment also retains waiting-for-extraction, indexable,

@@ -57,6 +57,7 @@ mod retention_migration;
 mod runs;
 mod search;
 mod selection;
+mod tool_audit_migration;
 mod tools;
 mod types;
 
@@ -92,7 +93,7 @@ use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use portable_export::ConversationFileExport;
 pub(crate) use recovery::StorageRecoveryStatus;
 pub(crate) use retention::{ConversationRetentionPeriod, ConversationRetentionPolicy};
-pub(crate) use tools::{NewToolInvocation, NewToolResult};
+pub(crate) use tools::{NewToolInvocation, NewToolResult, ToolAuditOutcome, ToolAuditPolicy};
 pub(crate) use types::{
     ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
     ForkedConversation, MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext,
@@ -100,7 +101,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 20;
+const CURRENT_SCHEMA_VERSION: i64 = 21;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";

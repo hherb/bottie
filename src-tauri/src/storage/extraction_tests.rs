@@ -187,6 +187,9 @@ fn upgrades_version_eleven_docx_state_and_extracts_retained_content() {
     );
     let connection = store.open().expect("database should open");
     connection
+        .execute_batch(super::tools::REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST)
+        .expect("tool audit columns should be removable in the fixture");
+    connection
         .execute_batch("DROP TABLE attachment_extractions;")
         .expect("version twelve extraction table should be removable");
     connection
@@ -371,6 +374,9 @@ fn upgrades_version_ten_pdf_state_and_extracts_retained_content() {
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let pdf = ingest_pdf(&store, "migrated.pdf", &["Existing PDF"]);
     let connection = store.open().expect("database should open");
+    connection
+        .execute_batch(super::tools::REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST)
+        .expect("tool audit columns should be removable in the fixture");
     connection
         .execute_batch("DROP TABLE attachment_extractions;")
         .expect("version eleven extraction table should be removable");

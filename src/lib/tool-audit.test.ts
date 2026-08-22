@@ -1,0 +1,79 @@
+import { describe, expect, it } from "vitest";
+
+import { toolActivitySummary, toolAuditPresentation, toolDisplayName } from "./tool-audit";
+import type { StoredToolInvocation } from "./storage";
+
+/** Builds one durable tool record for pure audit-presentation tests. */
+function tool(overrides: Partial<StoredToolInvocation> = {}): StoredToolInvocation {
+  return {
+    ordinal: 0,
+    toolName: "search_memory",
+    arguments: { query: "release" },
+    result: {
+      output: { ok: true, result: { matches: [] } },
+      isError: false,
+      createdAtMs: 1_030,
+    },
+    audit: {
+      policy: "safe",
+      outcome: "success",
+      durationMs: 30,
+    },
+    createdAtMs: 1_000,
+    ...overrides,
+  };
+}
+
+describe("tool audit presentation", () => {
+  it("uses calm product labels for the closed native memory tools", () => {
+    expect(toolDisplayName("search_memory")).toBe("Search conversations");
+    expect(toolDisplayName("open_memory")).toBe("Open conversation context");
+    expect(toolDisplayName("search_attached_files")).toBe("Search attached files");
+    expect(toolDisplayName("future_tool")).toBe("future_tool");
+  });
+
+  it("presents successful read-only execution without exposing engine detail", () => {
+    expect(toolAuditPresentation(tool())).toEqual({
+      status: "complete",
+      statusLabel: "Complete",
+      policyLabel: "Read-only",
+      outcomeLabel: "Succeeded",
+      durationLabel: "30 ms",
+    });
+  });
+
+  it("distinguishes blocked, failed, legacy, and pending records", () => {
+    expect(
+      toolAuditPresentation(
+        tool({
+          result: { output: { ok: false }, isError: true, createdAtMs: 2 },
+          audit: { policy: "approval_required", outcome: "approval_required", durationMs: 0 },
+        }),
+      ),
+    ).toMatchObject({ status: "blocked", statusLabel: "Blocked", policyLabel: "Approval required" });
+    expect(
+      toolAuditPresentation(
+        tool({
+          result: { output: { ok: false }, isError: true, createdAtMs: 2 },
+          audit: { policy: "safe", outcome: "execution_failed", durationMs: 1_250 },
+        }),
+      ),
+    ).toMatchObject({ status: "error", outcomeLabel: "Execution failed", durationLabel: "1.3 s" });
+    expect(
+      toolAuditPresentation(tool({ audit: { policy: "legacy", outcome: "legacy_error", durationMs: null } })),
+    ).toMatchObject({ policyLabel: "Legacy record", outcomeLabel: "Legacy error", durationLabel: null });
+    expect(
+      toolAuditPresentation(tool({ result: null, audit: { policy: "safe", outcome: null, durationMs: null } })),
+    ).toMatchObject({ status: "pending", statusLabel: "Pending", outcomeLabel: "Awaiting result" });
+  });
+
+  it("summarizes the call count and exceptional outcomes", () => {
+    const failed = tool({
+      ordinal: 1,
+      result: { output: { ok: false }, isError: true, createdAtMs: 2 },
+      audit: { policy: "safe", outcome: "unavailable", durationMs: 4 },
+    });
+    expect(toolActivitySummary([tool(), failed])).toBe("2 calls · 1 needs attention");
+    expect(toolActivitySummary([tool()])).toBe("1 call");
+  });
+});

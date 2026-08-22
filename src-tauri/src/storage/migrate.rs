@@ -17,6 +17,7 @@ use super::{
     },
     now_ms,
     retention_migration::MIGRATION_20,
+    tool_audit_migration::MIGRATION_21,
 };
 
 impl ConversationStore {
@@ -123,6 +124,14 @@ impl ConversationStore {
         }
         if version < 20 {
             apply_migration(connection, MIGRATION_20, 20, "time-based Trash retention")?;
+        }
+        if version < 21 {
+            apply_migration(
+                connection,
+                MIGRATION_21,
+                21,
+                "structured tool execution audit",
+            )?;
         }
         Ok(())
     }

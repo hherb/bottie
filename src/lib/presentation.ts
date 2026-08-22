@@ -162,6 +162,11 @@ export const INITIAL_MESSAGES: Message[] = [
           isError: false,
           createdAtMs: 2,
         },
+        audit: {
+          policy: "safe",
+          outcome: "success",
+          durationMs: 18,
+        },
         createdAtMs: 1,
       },
     ],

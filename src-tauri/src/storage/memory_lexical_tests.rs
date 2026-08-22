@@ -49,6 +49,9 @@ fn migration_backfills_final_message_text_without_reasoning() {
     );
     let connection = store.open().expect("store should open");
     connection
+        .execute_batch(super::tools::REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST)
+        .expect("tool audit columns should be removable in the fixture");
+    connection
         .execute_batch(super::memory_semantic::REMOVE_MEMORY_SEMANTIC_SCHEMA_FOR_TEST)
         .expect("semantic schema should be removable in the fixture");
     connection
@@ -86,7 +89,7 @@ fn migration_backfills_final_message_text_without_reasoning() {
             .status()
             .expect("status should load")
             .schema_version,
-        20
+        21
     );
     assert_eq!(visible.len(), 1);
     assert_eq!(visible[0].source_kind, MemorySourceKind::Message);

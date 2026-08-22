@@ -34,6 +34,9 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("database should open");
     connection
+        .execute_batch(super::tools::REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST)
+        .expect("tool audit columns should be removable in the fixture");
+    connection
         .execute_batch(
             "DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
@@ -69,7 +72,7 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
             .status()
             .expect("status should load")
             .schema_version,
-        20
+        21
     );
     assert_eq!(table_count, 1);
 }
@@ -79,6 +82,9 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
     let path = test_database_path();
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("database should open");
+    connection
+        .execute_batch(super::tools::REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST)
+        .expect("tool audit columns should be removable in the fixture");
     connection
         .execute_batch(
             "DROP TABLE conversation_retention_policies;
@@ -114,7 +120,7 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
             .status()
             .expect("status should load")
             .schema_version,
-        20
+        21
     );
     assert_eq!(table_count, 1);
 }
@@ -125,6 +131,9 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let attachment = ingest_fixture(&store, "migration.md", b"# Existing attachment");
     let connection = store.open().expect("database should open");
+    connection
+        .execute_batch(super::tools::REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST)
+        .expect("tool audit columns should be removable in the fixture");
     connection
         .execute_batch(
             "DROP TABLE conversation_retention_policies;
@@ -156,7 +165,7 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
             .status()
             .expect("status should load")
             .schema_version,
-        20
+        21
     );
     assert_eq!(stored.extraction.state, AttachmentExtractionState::Ready);
     assert_eq!(
@@ -177,6 +186,9 @@ fn upgrades_version_fourteen_stores_with_empty_conversation_scope() {
     let path = test_database_path();
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("database should open");
+    connection
+        .execute_batch(super::tools::REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST)
+        .expect("tool audit columns should be removable in the fixture");
     connection
         .execute_batch(
             "DROP TABLE conversation_retention_policies;
@@ -210,7 +222,7 @@ fn upgrades_version_fourteen_stores_with_empty_conversation_scope() {
             .status()
             .expect("status should load")
             .schema_version,
-        20
+        21
     );
     assert_eq!(table_count, 1);
 }

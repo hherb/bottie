@@ -201,6 +201,9 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
     let attachment = ingest_fixture(&store, "migration.png", &png_fixture(3, 2));
     let connection = store.open().expect("database should open");
     connection
+        .execute_batch(super::tools::REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST)
+        .expect("tool audit columns should be removable in the fixture");
+    connection
         .execute_batch(
             "DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
@@ -231,7 +234,7 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
             .status()
             .expect("status should load")
             .schema_version,
-        20
+        21
     );
     assert_eq!(
         stored.normalization.state,
