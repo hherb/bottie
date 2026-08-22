@@ -11,6 +11,12 @@ use crate::inference::types::{
     ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
     ProviderError, ReasoningEffort, Usage,
 };
+use crate::tool_contract::ToolDefinition;
+
+mod tools;
+
+use tools::OllamaToolDefinition;
+pub(crate) use tools::{OllamaToolCall, OllamaToolResult};
 
 #[derive(Deserialize)]
 /// Top-level installed-model response.
@@ -177,6 +183,8 @@ pub(super) struct OllamaChatRequest {
     messages: Vec<OllamaChatTurn>,
     stream: bool,
     think: OllamaThinkValue,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    tools: Vec<OllamaToolDefinition>,
     #[serde(skip_serializing_if = "Option::is_none")]
     options: Option<OllamaOptions>,
 }
@@ -195,8 +203,14 @@ enum OllamaThinkValue {
 struct OllamaChatTurn {
     role: &'static str,
     content: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    thinking: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     images: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    tool_calls: Vec<OllamaToolCall>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_name: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -238,7 +252,10 @@ impl From<ChatRequest> for OllamaChatRequest {
                     OllamaChatTurn {
                         role,
                         content: text_content(turn.content),
+                        thinking: String::new(),
                         images,
+                        tool_calls: Vec::new(),
+                        tool_name: None,
                     }
                 })
                 .collect(),
@@ -247,8 +264,60 @@ impl From<ChatRequest> for OllamaChatRequest {
                 ReasoningEffort::Off => OllamaThinkValue::Enabled(false),
                 ReasoningEffort::Low => OllamaThinkValue::Level("low"),
             },
+            tools: Vec::new(),
             options,
         }
+    }
+}
+
+impl OllamaChatRequest {
+    /// Adds Bottie's complete native memory-tool definitions to one Ollama request session.
+    pub(super) fn with_tools(request: ChatRequest, definitions: [ToolDefinition; 3]) -> Self {
+        let mut request = Self::from(request);
+        request.tools = definitions
+            .into_iter()
+            .map(OllamaToolDefinition::from)
+            .collect();
+        request
+    }
+
+    /// Appends one accumulated assistant call batch and its ordered correlated tool results.
+    pub(super) fn append_tool_exchange(
+        &mut self,
+        thinking: String,
+        content: String,
+        tool_calls: Vec<OllamaToolCall>,
+        results: Vec<OllamaToolResult>,
+    ) -> Result<(), ProviderError> {
+        if tool_calls.len() != results.len()
+            || tool_calls
+                .iter()
+                .zip(&results)
+                .any(|(call, result)| call.tool_name() != result.tool_name)
+        {
+            return Err(ProviderError::internal(
+                "Ollama tool results could not be correlated safely.",
+                None,
+            ));
+        }
+        self.messages.push(OllamaChatTurn {
+            role: "assistant",
+            content,
+            thinking,
+            images: Vec::new(),
+            tool_calls,
+            tool_name: None,
+        });
+        self.messages
+            .extend(results.into_iter().map(|result| OllamaChatTurn {
+                role: "tool",
+                content: result.content,
+                thinking: String::new(),
+                images: Vec::new(),
+                tool_calls: Vec::new(),
+                tool_name: Some(result.tool_name),
+            }));
+        Ok(())
     }
 }
 
@@ -268,6 +337,8 @@ struct OllamaStreamMessage {
     content: String,
     #[serde(default)]
     thinking: String,
+    #[serde(default)]
+    tool_calls: Vec<OllamaToolCall>,
 }
 
 #[derive(Debug)]
@@ -277,6 +348,8 @@ pub(super) struct DecodedStreamEvent {
     pub(super) text_delta: String,
     /// Newly generated reasoning text.
     pub(super) reasoning_delta: String,
+    /// Complete tool calls emitted in this stream chunk, in provider order.
+    pub(super) tool_calls: Vec<OllamaToolCall>,
     /// Whether the provider marked the stream complete.
     pub(super) done: bool,
     /// Provider-reported prompt token count.
@@ -299,6 +372,17 @@ pub(super) fn decode_stream_line(line: &str) -> Result<DecodedStreamEvent, Provi
             Some("Ollama stream error".into()),
         ));
     }
+    let tool_calls = chunk
+        .message
+        .as_ref()
+        .map(|message| message.tool_calls.clone())
+        .unwrap_or_default();
+    if tool_calls.iter().any(|call| !call.is_valid()) {
+        return Err(ProviderError::malformed(
+            "Ollama sent an invalid native tool call.",
+            Some("tool call name or arguments did not match the Ollama API shape".into()),
+        ));
+    }
     Ok(DecodedStreamEvent {
         text_delta: chunk
             .message
@@ -307,8 +391,10 @@ pub(super) fn decode_stream_line(line: &str) -> Result<DecodedStreamEvent, Provi
             .unwrap_or_default(),
         reasoning_delta: chunk
             .message
-            .map(|message| message.thinking)
+            .as_ref()
+            .map(|message| message.thinking.clone())
             .unwrap_or_default(),
+        tool_calls,
         done: chunk.done,
         prompt_eval_count: chunk.prompt_eval_count,
         eval_count: chunk.eval_count,

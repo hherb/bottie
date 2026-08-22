@@ -86,6 +86,7 @@ use message_content::{insert_blocks, load_blocks};
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use portable_export::ConversationFileExport;
 pub(crate) use recovery::StorageRecoveryStatus;
+pub(crate) use tools::{NewToolInvocation, NewToolResult};
 pub(crate) use types::{
     ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
     ForkedConversation, MessageState, NewProviderRun, NewStoredMessage, ProviderRunContext,

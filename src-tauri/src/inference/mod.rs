@@ -12,13 +12,16 @@ mod types;
 
 pub use anthropic::AnthropicProvider;
 pub use ollama::OllamaProvider;
+pub(crate) use ollama::{OllamaToolCall, OllamaToolResult, OllamaToolSession};
 pub use omlx::OmlxProvider;
 pub use openai::OpenAiProvider;
 pub use provider::{InferenceProvider, StreamSink};
 pub use settings::{
     ProviderSettings, load_provider_settings, redact_diagnostic, save_provider_settings,
 };
+#[cfg(test)]
+pub(crate) use types::ChatSettings;
 pub use types::{
     ChatRequest, ChatRole, ChatRun, ChatTurn, ContentBlock, ImageMediaType, ModelInfo,
-    ProviderError, ReasoningEffort, StreamEvent, Usage,
+    ProviderError, ProviderErrorCode, ReasoningEffort, StreamEvent, Usage,
 };

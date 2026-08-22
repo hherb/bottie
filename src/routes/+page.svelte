@@ -169,6 +169,8 @@
           state.selectedModel,
         )}
         providerStatus={state.providerStatus}
+        memoryAvailable={state.memoryAvailable}
+        memoryEnabled={state.memoryEnabled}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.resizeComposer()}
         onkeydown={(event) => state.handleComposerKeydown(event)}
@@ -176,6 +178,7 @@
         onadd={() => void state.attachment.openPicker()}
         onfiles={(event) => state.attachment.addBrowserFiles(event)}
         onremove={(id) => state.attachment.remove(id)}
+        ontogglememory={() => state.toggleMemory()}
         oncomposerready={(element) => state.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />

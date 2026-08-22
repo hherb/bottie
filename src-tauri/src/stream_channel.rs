@@ -8,6 +8,7 @@ use crate::{
 };
 
 /// Forwards one native generation's normalized events to its WebView channel.
+#[derive(Clone)]
 pub(crate) struct ChannelSink {
     pub(crate) run_id: String,
     pub(crate) channel: Channel<StreamEvent>,

@@ -56,16 +56,19 @@ decoding; one native background worker resumes pending work after startup, selec
 path-free live extraction, indexing-readiness, or normalization updates, dimensions, counts, and sizes but never
 extracted text, derivative identities, bytes, or paths. Extracted text becomes explicitly indexable in the same
 resumable worker; unsupported and failed extraction become terminal unsupported or blocked readiness. A second native
-worker now derives resumable local EmbeddingGemma vectors from eligible message and document chunks, but this does not
-send document content to providers or expose FTS/chunk/vector state, embeddings, or retrieval. A current
+worker now derives resumable local EmbeddingGemma vectors from eligible message and document chunks without exposing
+FTS/chunk/vector state or embeddings. A current
 normalized JPEG or PNG can be sent only after native
 discovery confirms that the
 selected model advertises vision support. Text-only selections block a current image with an explicit explanation and
-omit older image associations; document content remains local-only. Native delivery reconstructs the selected durable
+omit older image associations; documents remain excluded from automatic provider context. Native delivery reconstructs
+the selected durable
 lineage, reads at most eight normalized images and 50 MiB per request, and emits provider-native Ollama, OpenAI-shaped,
-or Anthropic-shaped image blocks without exposing bytes to JavaScript. Document delivery, other office formats,
-provider-facing memory retrieval, approvals, and provider tool execution are not implemented yet; those surfaces
-remain disabled or explicitly labelled.
+or Anthropic-shaped image blocks without exposing bytes to JavaScript. An explicit session-only Memory toggle is
+available for Ollama models that advertise tools. Those requests may execute bounded native conversation or retained
+document retrieval and return path-free excerpts through Ollama's local loopback API; no document is injected
+automatically, and cloud-provider tool mapping, approvals, other office formats, and direct document delivery remain
+unimplemented.
 
 ## Development
 
@@ -178,7 +181,8 @@ and regenerated request branches inherit the source request's associations. Deta
 messages while generation is idle and retains the catalog row and blob for deduplication. Conversation-scoped
 associations apply on every branch and future request;
 ready images are treated as current vision context and deduplicated when the same file is message-linked, while
-documents remain local-only. Before drafts or background processing begin on each successful non-recovery startup,
+documents remain excluded from automatic context and cloud routes. Before drafts or background processing begin on
+each successful non-recovery startup,
 Rust deletes catalog entries older than a 24-hour safety window with no message or conversation association, including
 their extraction and normalization metadata. It then removes only equally old, strict hash-addressed
 original/derivative files absent from the surviving catalog and clears old interrupted attachment temporary files.
@@ -201,8 +205,10 @@ content-addressed derivatives. Portable manual, automatic, and pre-restore SQLit
 ready normalized derivatives in verified backup-only tables. Conversation exports include selected-scope original
 files, never extracted SQLite text or normalized derivatives. Ready JPEG/PNG derivatives are read only by Rust for
 capability-confirmed vision requests, with
-an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from provider requests. Other
-office formats are not extracted, and indexed document text remains native-only and unavailable to providers. Ready
+an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from automatic message content.
+Other office formats are not extracted. Indexed document text stays native until an explicitly enabled
+`search_attached_files` call returns a bounded path-free excerpt to local Ollama; cloud routes cannot use the tool.
+Ready
 images also receive a
 metadata-free thumbnail capped to 320 pixels on either axis. The WebView requests that thumbnail through a private
 `bottie-attachment` protocol using only the opaque attachment ID; Rust rejects non-GET, malformed, missing, pending,
@@ -237,8 +243,12 @@ into their typed native contracts. A Rust-only provider-neutral dispatcher execu
 exclusive structured success/error envelope capped at 64 KiB, with stable redacted failure categories. Provider
 independent loop state now correlates repeated calls and results across at most four rounds, eight calls, 256 KiB of
 aggregate serialized output, and 30 seconds while checking a shared cancellation signal before and after every native
-call. Provider mapping, generation-loop wiring, and retrieval injection remain unimplemented, and no query, fused
-result, chunk, vector, source identity, cache path, or model failure detail crosses IPC.
+call. Tool-capable Ollama models now receive those definitions only after the user enables Memory. Rust accumulates
+streamed calls, checkpoints each call/result under the active provider run, reuses the process-lifetime EmbeddingGemma
+worker for semantic queries, appends ordered Ollama tool-result messages, and aggregates usage across follow-up rounds.
+Tool activity is inspectable and portable; paths, hashes, scores, vectors, embeddings, cache details, and provider/native
+call identities remain excluded. OpenAI-shaped and Anthropic-shaped mapping, automatic retrieval injection, and real
+memory citation cards remain unimplemented.
 
 Run the layout-only browser preview:
 
