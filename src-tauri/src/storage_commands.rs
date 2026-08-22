@@ -460,6 +460,20 @@ pub(crate) fn set_conversation_archived(
 }
 
 #[tauri::command]
+/// Excludes or restores one active or archived conversation in native long-term memory.
+pub(crate) fn set_conversation_memory_excluded(
+    conversation_id: String,
+    excluded: bool,
+    state: State<'_, AppState>,
+) -> Result<ConversationSummary, StorageError> {
+    let summary = state
+        .conversations
+        .set_conversation_memory_excluded(&conversation_id, excluded)?;
+    state.semantic_indexing.wake();
+    Ok(summary)
+}
+
+#[tauri::command]
 /// Moves one conversation to recoverable trash.
 pub(crate) fn delete_conversation(
     conversation_id: String,

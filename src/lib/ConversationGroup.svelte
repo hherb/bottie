@@ -2,6 +2,7 @@
   import { tick } from "svelte";
 
   import Icon from "$lib/Icon.svelte";
+  import { conversationMemoryActionLabel } from "$lib/conversation-memory";
   import type { ConversationSummary } from "$lib/storage";
 
   type Props = {
@@ -13,6 +14,7 @@
     onselect: (conversationId: string) => void;
     onrename: (conversationId: string, title: string) => void;
     onarchive: (conversationId: string, archived: boolean) => void;
+    onmemoryexclusion: (conversationId: string, excluded: boolean) => void;
     ondelete: (conversationId: string) => void;
     onrestore: (conversationId: string) => void;
   };
@@ -26,6 +28,7 @@
     onselect,
     onrename,
     onarchive,
+    onmemoryexclusion,
     ondelete,
     onrestore,
   }: Props = $props();
@@ -103,6 +106,7 @@
           onclick={() => onselect(conversation.id)}
         >
           <span>{conversation.title}</span>
+          {#if conversation.memoryExcluded}<small class="memory-excluded">Memory off</small>{/if}
         </button>
         <button
           class="conversation-more"
@@ -127,6 +131,12 @@
               onclick={() => runAction(() => onarchive(conversation.id, conversation.lifecycle !== "archived"))}
             >
               {conversation.lifecycle === "archived" ? "Unarchive" : "Archive"}
+            </button>
+            <button
+              onkeydown={handleActionKeydown}
+              onclick={() => runAction(() => onmemoryexclusion(conversation.id, !conversation.memoryExcluded))}
+            >
+              {conversationMemoryActionLabel(conversation)}
             </button>
             <button
               class="danger"

@@ -294,6 +294,8 @@ pub(crate) struct ConversationSummary {
     pub(crate) updated_at_ms: i64,
     /// Current soft lifecycle state.
     pub(crate) lifecycle: ConversationLifecycle,
+    /// Whether native long-term memory retrieval excludes this conversation and its associations.
+    pub(crate) memory_excluded: bool,
 }
 
 /// One native-ranked conversation search result with enough context to reveal its match.

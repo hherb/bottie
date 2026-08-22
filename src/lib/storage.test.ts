@@ -20,9 +20,9 @@ import {
 } from "./attachment";
 
 const conversations: ConversationSummary[] = [
-  { id: "active", title: "Active", updatedAtMs: 3, lifecycle: "active" },
-  { id: "archived", title: "Archived", updatedAtMs: 2, lifecycle: "archived" },
-  { id: "deleted", title: "Deleted", updatedAtMs: 1, lifecycle: "deleted" },
+  { id: "active", title: "Active", updatedAtMs: 3, lifecycle: "active", memoryExcluded: false },
+  { id: "archived", title: "Archived", updatedAtMs: 2, lifecycle: "archived", memoryExcluded: false },
+  { id: "deleted", title: "Deleted", updatedAtMs: 1, lifecycle: "deleted", memoryExcluded: false },
 ];
 
 describe("conversation storage presentation helpers", () => {
@@ -41,10 +41,34 @@ describe("conversation storage presentation helpers", () => {
     const now = new Date(2026, 7, 19, 12).getTime();
     const atLocalNoon = (daysAgo: number) => new Date(2026, 7, 19 - daysAgo, 12).getTime();
     const active = [
-      { id: "today", title: "Today", updatedAtMs: atLocalNoon(0), lifecycle: "active" as const },
-      { id: "yesterday", title: "Yesterday", updatedAtMs: atLocalNoon(1), lifecycle: "active" as const },
-      { id: "week", title: "This week", updatedAtMs: atLocalNoon(6), lifecycle: "active" as const },
-      { id: "older", title: "Older", updatedAtMs: atLocalNoon(8), lifecycle: "active" as const },
+      {
+        id: "today",
+        title: "Today",
+        updatedAtMs: atLocalNoon(0),
+        lifecycle: "active" as const,
+        memoryExcluded: false,
+      },
+      {
+        id: "yesterday",
+        title: "Yesterday",
+        updatedAtMs: atLocalNoon(1),
+        lifecycle: "active" as const,
+        memoryExcluded: false,
+      },
+      {
+        id: "week",
+        title: "This week",
+        updatedAtMs: atLocalNoon(6),
+        lifecycle: "active" as const,
+        memoryExcluded: false,
+      },
+      {
+        id: "older",
+        title: "Older",
+        updatedAtMs: atLocalNoon(8),
+        lifecycle: "active" as const,
+        memoryExcluded: false,
+      },
     ];
 
     expect(activeConversationDateGroups([...active, conversations[1]], now)).toEqual([

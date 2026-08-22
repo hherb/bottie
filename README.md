@@ -189,7 +189,7 @@ original/derivative files absent from the surviving catalog and clears old inter
 Recoverable Trash references, recent cross-process drafts, and shared derivatives remain live; unexpected files are
 left untouched. Cleanup commits catalog changes before file sweeping and holds a SQLite write lock during the sweep so
 interruption can leave only harmless untracked bytes for the next pass. Recent diagnostics receives counts and
-reclaimed bytes without paths or content identities. Current schema-version-18 stores retain up to 2 MiB of UTF-8
+reclaimed bytes without paths or content identities. Current schema-version-19 stores retain up to 2 MiB of UTF-8
 plain-text,
 Markdown, derived PDF text, or derived DOCX text inside SQLite, resume pending work after migration or interruption,
 and expose only path-free state to the interface. Each attachment also retains waiting-for-extraction, indexable,
@@ -296,5 +296,9 @@ those three tools through closed schemas: required and optional fields, JSON typ
 ceilings, result/window bounds, and unknown-field rejection are enforced before typed dispatch. Provider invocation
 and executable dispatch are available only through explicitly enabled, tool-capable Ollama, OpenAI-compatible, and
 Anthropic-compatible requests. Successful selected-lineage results appear as path-free removable Context-panel
-citations. oMLX mapping, automatic prompt injection, document opening, and durable exclude/forget controls remain
-unavailable; Settings exposes only path-free progress and the derived-only reindex control.
+citations. Each active or Archived conversation also has a durable reversible exclude-from-memory action in its
+navigation menu. Excluded conversations remain readable and exportable, but their messages and attachment
+associations are unavailable to lexical, semantic, `search_memory`, `open_memory`, and `search_attached_files`
+retrieval; a shared file remains eligible only through another non-excluded association. oMLX mapping, automatic
+prompt injection, document opening, source deletion, explicit forget, and time-based retention remain unavailable;
+Settings exposes only path-free progress and the derived-only reindex control.

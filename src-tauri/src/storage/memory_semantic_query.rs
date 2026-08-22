@@ -107,6 +107,10 @@ impl ConversationStore {
                              WHERE messages.id = eligible_chunks.source_id
                                AND conversations.profile_id = ?3
                                AND conversations.deleted_at_ms IS NULL
+                               AND NOT EXISTS (
+                                   SELECT 1 FROM conversation_memory_preferences
+                                   WHERE conversation_id = conversations.id AND excluded = 1
+                               )
                                AND (?12 IS NULL OR conversations.id = ?12)
                          ))
                          OR
@@ -118,6 +122,10 @@ impl ConversationStore {
                                  WHERE conversation_attachments.attachment_id = eligible_chunks.source_id
                                    AND conversations.profile_id = ?3
                                    AND conversations.deleted_at_ms IS NULL
+                                   AND NOT EXISTS (
+                                       SELECT 1 FROM conversation_memory_preferences
+                                       WHERE conversation_id = conversations.id AND excluded = 1
+                                   )
                                    AND (?12 IS NULL OR conversations.id = ?12)
                              )
                              OR EXISTS (
@@ -127,6 +135,10 @@ impl ConversationStore {
                                  WHERE message_attachments.attachment_id = eligible_chunks.source_id
                                    AND conversations.profile_id = ?3
                                    AND conversations.deleted_at_ms IS NULL
+                                   AND NOT EXISTS (
+                                       SELECT 1 FROM conversation_memory_preferences
+                                       WHERE conversation_id = conversations.id AND excluded = 1
+                                   )
                                    AND (?12 IS NULL OR conversations.id = ?12)
                              )
                          ))

@@ -3,6 +3,7 @@
 import { conversationTitle, nextResponseRating } from "$lib/chat";
 import type { Message } from "$lib/presentation";
 import { applyAttachmentProcessingUpdate } from "$lib/attachment";
+import { setConversationMemoryExcluded } from "$lib/conversation-memory";
 import {
   addConversationAttachments,
   appendConversationMessage,
@@ -435,6 +436,11 @@ export class ConversationState {
     const succeeded = await this.performLifecycleAction(() => setConversationArchived(conversationId, archived));
     if (succeeded && wasActive) this.activeConversationId = null;
     return succeeded && wasActive;
+  }
+
+  /** Excludes or restores one conversation in native long-term memory without closing it. */
+  async setMemoryExcluded(conversationId: string, excluded: boolean): Promise<boolean> {
+    return this.performLifecycleAction(() => setConversationMemoryExcluded(conversationId, excluded));
   }
 
   /** Moves one conversation to recoverable trash and reports whether the open thread closed. */

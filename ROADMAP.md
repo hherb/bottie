@@ -188,7 +188,8 @@ Status: in progress
 - [x] explicit OpenAI Chat Completions definition/call/result mapping and bounded generation-loop integration;
 - [x] explicit Anthropic Messages definition/call/result mapping and bounded generation-loop integration;
 - [x] visible and removable memory citations in the context panel;
-- [ ] exclude-from-memory, forget, and retention controls (explicit derived-only reindex is complete).
+- [x] reversible per-conversation exclude-from-memory control enforced across native indexes and memory tools;
+- [ ] explicit forget and time-based retention controls (explicit derived-only reindex is complete).
 
 Do not silently inject arbitrary long-term memories into every prompt. Recent conversation context may be automatic; long-term recall should be explicit and inspectable.
 
