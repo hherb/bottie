@@ -180,7 +180,7 @@ Status: in progress
 
 - [x] Rust-owned `search_memory` contract for ranked message excerpts with bounded path-free provenance;
 - [x] `open_memory` for bounded surrounding final turns on the matched message's immutable branch lineage;
-- [ ] `search_attached_files` for indexed document chunks;
+- [x] `search_attached_files` for indexed document chunks with bounded path-free file provenance;
 - [x] structured `search_memory` results with conversation/message identifiers and optional exact chunk offsets;
 - [ ] provider tool-loop integration plus visible and removable memory citations in the context panel;
 - [ ] exclude-from-memory, forget, and retention controls (explicit derived-only reindex is complete).

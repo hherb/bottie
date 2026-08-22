@@ -228,9 +228,10 @@ semantic chunk supplies exact excerpt offsets while lexical-only sources retain 
 controls are now explicit in Settings: the WebView receives only durable state, completed/total counts, and a stable
 failure category. Reindexing serializes with restore, pauses the worker, atomically removes only derived vectors,
 retains chunks and the application-owned model cache, then resumes bounded background work. Native-only
-`search_memory` and `open_memory` contracts provide bounded message excerpts and surrounding final turns for a future
-tool runtime. Executable tools and retrieval injection remain unimplemented, and no query, fused result, chunk,
-vector, source identity, cache path, or model failure detail crosses IPC.
+`search_memory`, `open_memory`, and `search_attached_files` contracts provide bounded message excerpts, surrounding
+final turns, and ready-document excerpts with path-free provenance for a future tool runtime. Executable tools and
+retrieval injection remain unimplemented, and no query, fused result, chunk, vector, source identity, cache path, or
+model failure detail crosses IPC.
 
 Run the layout-only browser preview:
 
@@ -267,5 +268,8 @@ versions; users do not configure a second inference provider merely to enable lo
 `search_memory` contract now returns at most ten hybrid-ranked final-message excerpts with path-free conversation and
 message provenance for a future tool runtime. A matching native-only `open_memory` contract resolves exact provenance
 into the matched message's immutable branch lineage, returning at most three final text turns on either side without
-changing the selected branch. Provider invocation, automatic prompt injection, document search, and memory citations
-remain unavailable; Settings exposes only path-free progress and the derived-only reindex control.
+changing the selected branch. Native-only `search_attached_files` applies the same bounded hybrid policy to ready
+extracted documents that retain an active or Archived association, returning safe file metadata and optional exact
+chunk offsets without paths, hashes, scores, or full extracted text. Provider invocation, automatic prompt injection,
+document opening, and memory citations remain unavailable; Settings exposes only path-free progress and the
+derived-only reindex control.
