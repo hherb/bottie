@@ -4,12 +4,16 @@
 
 use rusqlite::params;
 
-use super::{ConversationStore, DEFAULT_PROFILE_ID, StorageError};
+use super::{
+    ConversationStore, DEFAULT_PROFILE_ID, StorageError,
+    memory_filters::{MAX_MEMORY_RESULTS, MemorySearchFilters, normalized_memory_query},
+};
 
-const MAX_LEXICAL_QUERY_CHARACTERS: usize = 200;
-const MAX_LEXICAL_RESULTS: usize = 50;
-const DEFAULT_LEXICAL_RESULTS: usize = MAX_LEXICAL_RESULTS;
 const SNIPPET_TOKEN_COUNT: usize = 24;
+
+pub(crate) use super::memory_filters::MemorySourceKind;
+/// Shared memory filter contract used by focused lexical callers and tests.
+pub(crate) type MemoryLexicalFilters = MemorySearchFilters;
 
 /// Removes the derived index and its source-table triggers for migration fixtures.
 #[cfg(test)]
@@ -24,61 +28,6 @@ DROP TRIGGER IF EXISTS memory_extractions_after_update;
 DROP TRIGGER IF EXISTS memory_extractions_after_delete;
 DROP TABLE IF EXISTS memory_lexical_index;
 "#;
-
-/// Native source category retained by the lexical index without crossing IPC.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum MemorySourceKind {
-    /// One complete final user or assistant message answer, excluding reasoning.
-    Message,
-    /// One complete ready extracted attachment document.
-    Attachment,
-}
-
-impl MemorySourceKind {
-    /// Returns the stable derived-index representation.
-    pub(super) fn as_str(self) -> &'static str {
-        match self {
-            Self::Message => "message",
-            Self::Attachment => "attachment",
-        }
-    }
-
-    /// Parses a trusted source kind constrained by migration-owned triggers.
-    pub(super) fn from_database(value: &str) -> Result<Self, StorageError> {
-        match value {
-            "message" => Ok(Self::Message),
-            "attachment" => Ok(Self::Attachment),
-            _ => Err(StorageError::internal()),
-        }
-    }
-}
-
-/// Native filters for lexical retrieval before any memory tool or WebView exposure exists.
-#[derive(Clone, Debug)]
-pub(crate) struct MemoryLexicalFilters {
-    /// Optional source-category restriction.
-    pub(crate) source_kind: Option<MemorySourceKind>,
-    /// Optional conversation scope resolved through native durable associations.
-    pub(crate) conversation_id: Option<String>,
-    /// Optional inclusive source creation-time floor.
-    pub(crate) created_after_ms: Option<i64>,
-    /// Optional inclusive source creation-time ceiling.
-    pub(crate) created_before_ms: Option<i64>,
-    /// Requested result count, capped by native policy.
-    pub(crate) limit: usize,
-}
-
-impl Default for MemoryLexicalFilters {
-    fn default() -> Self {
-        Self {
-            source_kind: None,
-            conversation_id: None,
-            created_after_ms: None,
-            created_before_ms: None,
-            limit: DEFAULT_LEXICAL_RESULTS,
-        }
-    }
-}
 
 /// One native lexical match with opaque provenance and no content outside its bounded excerpt.
 #[derive(Clone, Debug, PartialEq)]
@@ -100,15 +49,15 @@ impl ConversationStore {
     pub(crate) fn search_memory_lexically(
         &self,
         query: &str,
-        filters: MemoryLexicalFilters,
+        filters: MemorySearchFilters,
     ) -> Result<Vec<MemoryLexicalHit>, StorageError> {
         let query = normalized_fts_query(query)?;
+        filters.validate()?;
         if query.is_empty() || filters.limit == 0 {
             return Ok(Vec::new());
         }
-        validate_filters(&filters)?;
         let source_kind = filters.source_kind.map(MemorySourceKind::as_str);
-        let limit = filters.limit.min(MAX_LEXICAL_RESULTS) as i64;
+        let limit = filters.limit.min(MAX_MEMORY_RESULTS) as i64;
         let connection = self.open()?;
         let mut statement = connection.prepare(
             "SELECT source_kind, source_id,
@@ -191,12 +140,7 @@ impl ConversationStore {
 
 /// Converts user text into an AND query containing only quoted tokenizer-safe terms.
 fn normalized_fts_query(value: &str) -> Result<String, StorageError> {
-    let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.chars().count() > MAX_LEXICAL_QUERY_CHARACTERS {
-        return Err(StorageError::invalid(format!(
-            "Memory search is limited to {MAX_LEXICAL_QUERY_CHARACTERS} characters."
-        )));
-    }
+    let normalized = normalized_memory_query(value)?;
     let mut terms = Vec::new();
     let mut term = String::new();
     for character in normalized.chars() {
@@ -214,27 +158,4 @@ fn normalized_fts_query(value: &str) -> Result<String, StorageError> {
         .map(|term| format!("\"{term}\""))
         .collect::<Vec<_>>()
         .join(" AND "))
-}
-
-/// Rejects contradictory or malformed native filter values before querying SQLite.
-fn validate_filters(filters: &MemoryLexicalFilters) -> Result<(), StorageError> {
-    if filters
-        .conversation_id
-        .as_deref()
-        .is_some_and(|conversation_id| conversation_id.trim().is_empty())
-    {
-        return Err(StorageError::invalid(
-            "A memory conversation filter cannot be empty.",
-        ));
-    }
-    if filters
-        .created_after_ms
-        .zip(filters.created_before_ms)
-        .is_some_and(|(after, before)| after > before)
-    {
-        return Err(StorageError::invalid(
-            "The memory date filter has an invalid range.",
-        ));
-    }
-    Ok(())
 }

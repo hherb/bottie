@@ -7,45 +7,20 @@ use rusqlite::params;
 use super::{
     ConversationStore, DEFAULT_PROFILE_ID, StorageError,
     memory_chunks::CHUNKING_VERSION,
-    memory_lexical::MemorySourceKind,
+    memory_filters::{
+        MAX_MEMORY_RESULTS, MemorySearchFilters, MemorySourceKind, normalized_memory_query,
+    },
     memory_semantic::{
         EMBEDDING_DIMENSIONS, EMBEDDING_MODEL_VARIANT, EMBEDDING_VERSION, INDEX_GENERATION,
         SemanticEmbedder,
     },
 };
 
-const MAX_SEMANTIC_QUERY_CHARACTERS: usize = 200;
-const MAX_SEMANTIC_RESULTS: usize = 50;
-const DEFAULT_SEMANTIC_RESULTS: usize = MAX_SEMANTIC_RESULTS;
 /// Stable retrieval-query prefix recommended by the EmbeddingGemma contract.
 pub(super) const QUERY_INPUT_PREFIX: &str = "task: search result | query: ";
 
-/// Native filters for semantic retrieval before any memory tool or WebView exposure exists.
-#[derive(Clone, Debug)]
-pub(crate) struct MemorySemanticFilters {
-    /// Optional source-category restriction.
-    pub(crate) source_kind: Option<MemorySourceKind>,
-    /// Optional conversation scope resolved through native durable associations.
-    pub(crate) conversation_id: Option<String>,
-    /// Optional inclusive source creation-time floor.
-    pub(crate) created_after_ms: Option<i64>,
-    /// Optional inclusive source creation-time ceiling.
-    pub(crate) created_before_ms: Option<i64>,
-    /// Requested result count, capped by native policy.
-    pub(crate) limit: usize,
-}
-
-impl Default for MemorySemanticFilters {
-    fn default() -> Self {
-        Self {
-            source_kind: None,
-            conversation_id: None,
-            created_after_ms: None,
-            created_before_ms: None,
-            limit: DEFAULT_SEMANTIC_RESULTS,
-        }
-    }
-}
+/// Shared memory filter contract used by focused semantic callers and tests.
+pub(crate) type MemorySemanticFilters = MemorySearchFilters;
 
 /// One native semantic chunk match with bounded text and opaque source provenance.
 #[derive(Clone, Debug, PartialEq)]
@@ -74,13 +49,13 @@ impl ConversationStore {
         &self,
         query: &str,
         embedder: &mut impl SemanticEmbedder,
-        filters: MemorySemanticFilters,
+        filters: MemorySearchFilters,
     ) -> Result<Vec<MemorySemanticHit>, StorageError> {
         let query = normalized_semantic_query(query)?;
+        filters.validate()?;
         if query.is_empty() || filters.limit == 0 {
             return Ok(Vec::new());
         }
-        validate_filters(&filters)?;
         let embeddings = embedder
             .embed(&[format!("{QUERY_INPUT_PREFIX}{query}")])
             .map_err(|_| StorageError::internal())?;
@@ -95,11 +70,11 @@ impl ConversationStore {
     fn query_semantic_index(
         &self,
         embedding: &[f32],
-        filters: MemorySemanticFilters,
+        filters: MemorySearchFilters,
     ) -> Result<Vec<MemorySemanticHit>, StorageError> {
         let connection = self.open()?;
         let source_kind = filters.source_kind.map(MemorySourceKind::as_str);
-        let limit = filters.limit.min(MAX_SEMANTIC_RESULTS) as i64;
+        let limit = filters.limit.min(MAX_MEMORY_RESULTS) as i64;
         let mut statement = connection.prepare(
             "SELECT memory_chunks.source_kind, memory_chunks.source_id,
                     memory_chunks.ordinal, memory_chunks.start_character,
@@ -208,42 +183,13 @@ impl ConversationStore {
 
 /// Normalizes whitespace while preserving literal query text for native embedding.
 fn normalized_semantic_query(value: &str) -> Result<String, StorageError> {
-    let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.chars().count() > MAX_SEMANTIC_QUERY_CHARACTERS {
-        return Err(StorageError::invalid(format!(
-            "Memory search is limited to {MAX_SEMANTIC_QUERY_CHARACTERS} characters."
-        )));
-    }
-    Ok(normalized)
+    normalized_memory_query(value)
 }
 
 /// Rejects vectors that cannot match the compiled sqlite-vec contract.
 fn validate_query_embedding(embedding: &[f32]) -> Result<(), StorageError> {
     if embedding.len() != EMBEDDING_DIMENSIONS || embedding.iter().any(|value| !value.is_finite()) {
         return Err(StorageError::internal());
-    }
-    Ok(())
-}
-
-/// Rejects contradictory or malformed native filter values before model or SQLite work.
-fn validate_filters(filters: &MemorySemanticFilters) -> Result<(), StorageError> {
-    if filters
-        .conversation_id
-        .as_deref()
-        .is_some_and(|conversation_id| conversation_id.trim().is_empty())
-    {
-        return Err(StorageError::invalid(
-            "A memory conversation filter cannot be empty.",
-        ));
-    }
-    if filters
-        .created_after_ms
-        .zip(filters.created_before_ms)
-        .is_some_and(|(after, before)| after > before)
-    {
-        return Err(StorageError::invalid(
-            "The memory date filter has an invalid range.",
-        ));
     }
     Ok(())
 }

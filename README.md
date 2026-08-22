@@ -222,8 +222,11 @@ the application-data model cache, eight-chunk transactions, durable progress/fai
 A bounded Rust-only semantic query contract applies EmbeddingGemma's retrieval prompt, validates one 768-dimensional
 query vector, and runs exact cosine KNN against only current-generation row identities that satisfy the same profile,
 source, conversation, association, lifecycle, and inclusive-date policy. Queries and results are capped at 200
-characters and 50 chunks. Fusion, reindex controls, memory tools, and retrieval injection remain unimplemented, and no
-query, chunk, vector, cache path, or model failure detail crosses IPC.
+characters and 50 chunks. A Rust-only hybrid query applies that shared filter contract to lexical and semantic
+candidates, groups them by source, and combines one rank per engine with reciprocal-rank fusion (`k = 60`). The best
+semantic chunk supplies exact excerpt offsets while lexical-only sources retain bounded FTS5 snippets. Reindex
+controls, memory tools, and retrieval injection remain unimplemented, and no query, fused result, chunk, vector, cache
+path, or model failure detail crosses IPC.
 
 Run the layout-only browser preview:
 
