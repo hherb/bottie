@@ -35,11 +35,11 @@ pub(crate) struct ProviderSelection {
     pub(crate) model_id: String,
 }
 
-/// One remote-provider credential update submitted to the native vault.
+/// One native-provider credential update submitted to the native vault.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ProviderCredentialUpdate {
-    /// Stable remote-provider identity.
+    /// Stable native-provider identity.
     pub(crate) provider_id: String,
     /// Replacement key, or `None` to retain the current key.
     pub(crate) api_key: Option<String>,
@@ -47,11 +47,11 @@ pub(crate) struct ProviderCredentialUpdate {
     pub(crate) remove: bool,
 }
 
-/// Secret-free credential availability reported to the WebView.
+/// Secret-free native-provider credential availability reported to the WebView.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ProviderCredentialStatus {
-    /// Stable remote-provider identity.
+    /// Stable native-provider identity.
     pub(crate) provider_id: String,
     /// Whether the operating-system vault contains a key.
     pub(crate) configured: bool,
@@ -74,5 +74,27 @@ pub(crate) struct ProviderConnectionTest {
     /// End-to-end connection-test duration in milliseconds.
     pub(crate) elapsed_ms: u64,
     /// User-readable connection summary.
+    pub(crate) message: String,
+}
+
+/// Draft credential used only for one fixed native web-search connection probe.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WebSearchConnectionDraft {
+    /// Stable web-search provider identity.
+    pub(crate) provider_id: String,
+    /// Optional unsaved API key used only for this connection test.
+    pub(crate) api_key: Option<String>,
+}
+
+/// Successful result of one fixed native web-search provider connection test.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WebSearchConnectionTest {
+    /// Stable web-search provider identity.
+    pub(crate) provider_id: String,
+    /// End-to-end connection-test duration in milliseconds.
+    pub(crate) elapsed_ms: u64,
+    /// User-readable connection summary without provider results.
     pub(crate) message: String,
 }
