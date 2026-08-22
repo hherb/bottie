@@ -83,8 +83,8 @@ impl From<ChatRequest> for OpenAiChatRequest {
 }
 
 impl OpenAiChatRequest {
-    /// Adds Bottie's complete closed native memory-tool definition set.
-    pub(super) fn with_tools(request: ChatRequest, definitions: [ToolDefinition; 3]) -> Self {
+    /// Adds exactly the closed native tool definitions enabled for this request.
+    pub(super) fn with_tools(request: ChatRequest, definitions: Vec<ToolDefinition>) -> Self {
         let mut request = Self::from(request);
         request.tools = definitions
             .into_iter()

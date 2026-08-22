@@ -106,7 +106,7 @@ export class PageState {
   get memoryAvailable(): boolean {
     return memoryToolsAvailable(this.selectedModel);
   }
-  /** Whether the selected Ollama model can accept Bottie's native web-search tool. */
+  /** Whether the selected mapped provider/model can accept Bottie's native web-search tool. */
   get webAvailable(): boolean {
     return webToolsAvailable(this.selectedModel);
   }

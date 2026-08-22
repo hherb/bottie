@@ -11,7 +11,7 @@ use super::{
     sse::SseDecoder,
     types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
 };
-use crate::tool_contract::memory_tool_definitions;
+use crate::tool_contract::{memory_tool_definitions, web_search_tool_definition};
 
 use self::protocol::{
     DecodedStreamEvent, OpenAiChatRequest, OpenAiToolCallAccumulator, decode_stream_payload,
@@ -27,17 +27,26 @@ pub(crate) use protocol::{OpenAiToolCall, OpenAiToolResult};
 const PROVIDER_ID: &str = "openai";
 const PROVIDER_NAME: &str = "OpenAI-compatible";
 
-/// One provider-native Chat Completions history spanning repeated memory-tool rounds.
+/// One provider-native Chat Completions history spanning repeated native-tool rounds.
 pub(crate) struct OpenAiToolSession {
     request: OpenAiChatRequest,
 }
 
 impl OpenAiToolSession {
-    /// Starts a session with Bottie's complete closed native memory-tool definition set.
+    /// Starts a session with exactly the closed native tools enabled for this request.
     pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
         validate_request(&request)?;
+        let mut definitions = request
+            .memory_enabled
+            .then(memory_tool_definitions)
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        if request.web_enabled {
+            definitions.push(web_search_tool_definition());
+        }
         Ok(Self {
-            request: OpenAiChatRequest::with_tools(request, memory_tool_definitions()),
+            request: OpenAiChatRequest::with_tools(request, definitions),
         })
     }
 
@@ -390,7 +399,7 @@ mod tests {
 
         let body = serde_json::to_value(OpenAiChatRequest::with_tools(
             request,
-            memory_tool_definitions(),
+            memory_tool_definitions().into(),
         ))
         .unwrap();
 
@@ -399,6 +408,27 @@ mod tests {
         assert_eq!(body["tools"][0]["function"]["name"], "search_memory");
         assert_eq!(
             body["tools"][0]["function"]["parameters"]["additionalProperties"],
+            false
+        );
+    }
+
+    #[test]
+    fn request_maps_web_search_after_memory_only_when_explicitly_enabled() {
+        let mut request: ChatRequest = serde_json::from_value(serde_json::json!({
+            "providerId": "openai",
+            "modelId": "gpt-example",
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "search"}]}]
+        }))
+        .unwrap();
+        request.memory_enabled = true;
+        request.web_enabled = true;
+
+        let body = serde_json::to_value(OpenAiToolSession::new(request).unwrap().request).unwrap();
+
+        assert_eq!(body["tools"].as_array().map(Vec::len), Some(4));
+        assert_eq!(body["tools"][3]["function"]["name"], "web_search");
+        assert_eq!(
+            body["tools"][3]["function"]["parameters"]["additionalProperties"],
             false
         );
     }
