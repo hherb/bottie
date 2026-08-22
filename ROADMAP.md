@@ -217,7 +217,7 @@ Outcome: bottie can use host-managed tools consistently across providers.
 
 ### Web tools
 
-- pluggable search provider interface;
+- [x] pluggable native search-provider interface with one bounded fixed-endpoint Brave Search adapter;
 - `web_search` with freshness and domain filters;
 - `web_fetch` with redirects, size limits, content-type checks, and timeouts;
 - extraction to inert text with source URL, title, and publication metadata;

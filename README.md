@@ -25,6 +25,10 @@ the audit summary. A Rust-only provider-neutral state machine can now execute re
 native memory-tool batches through the strict dispatcher while enforcing an eight-call, four-round, 256 KiB aggregate
 output, 30-second deadline, and shared cancellation policy across Ollama, OpenAI-compatible, and Anthropic-compatible
 wire formats.
+A separate Rust-only web-search boundary now normalizes bounded queries and inert result metadata behind a pluggable
+provider contract. Its first Brave Search adapter uses a fixed HTTPS endpoint, disables redirects, keeps the
+subscription token in a sensitive request header, caps response bytes, and accepts only absolute HTTP(S) result URLs.
+It is foundation code only: no Brave credential/settings flow or model-visible `web_search` tool is registered yet.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
