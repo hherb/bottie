@@ -21,6 +21,7 @@ mod attachment_processing;
 pub(crate) mod attachments;
 mod backup;
 mod branching;
+mod clock;
 mod conversation_attachments;
 mod docx;
 mod error;
@@ -35,6 +36,7 @@ mod memory_lexical;
 mod memory_lexical_migration;
 mod memory_semantic;
 mod memory_semantic_migration;
+mod memory_semantic_query;
 mod migrate;
 mod migrations;
 mod portable_backup;
@@ -53,6 +55,7 @@ pub(crate) use attachment_delivery::{ProviderContextImage, ProviderContextMessag
 pub(crate) use attachment_garbage_collection::AttachmentGarbageCollection;
 pub(crate) use attachment_indexing::{AttachmentIndexingState, StoredAttachmentIndexing};
 pub(crate) use attachments::{IngestedAttachment, MAX_ATTACHMENT_SELECTION_COUNT};
+use clock::now_ms;
 pub(crate) use error::StorageError;
 pub(crate) use extraction::{
     AttachmentExtractionFormat, AttachmentExtractionState, StoredAttachmentExtraction,
@@ -446,14 +449,6 @@ fn normalized_title(title: &str) -> Result<String, StorageError> {
         .collect())
 }
 
-/// Returns the current Unix epoch timestamp in milliseconds.
-fn now_ms() -> Result<i64, StorageError> {
-    let elapsed = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|_| StorageError::internal())?;
-    i64::try_from(elapsed.as_millis()).map_err(|_| StorageError::internal())
-}
-
 #[cfg(test)]
 mod attachment_delivery_tests;
 #[cfg(test)]
@@ -480,6 +475,8 @@ mod image_normalization_tests;
 mod memory_chunks_tests;
 #[cfg(test)]
 mod memory_lexical_tests;
+#[cfg(test)]
+mod memory_semantic_query_tests;
 #[cfg(test)]
 mod memory_semantic_tests;
 #[cfg(test)]

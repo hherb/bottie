@@ -36,7 +36,7 @@ pub(crate) enum MemorySourceKind {
 
 impl MemorySourceKind {
     /// Returns the stable derived-index representation.
-    fn as_str(self) -> &'static str {
+    pub(super) fn as_str(self) -> &'static str {
         match self {
             Self::Message => "message",
             Self::Attachment => "attachment",
@@ -44,7 +44,7 @@ impl MemorySourceKind {
     }
 
     /// Parses a trusted source kind constrained by migration-owned triggers.
-    fn from_database(value: &str) -> Result<Self, StorageError> {
+    pub(super) fn from_database(value: &str) -> Result<Self, StorageError> {
         match value {
             "message" => Ok(Self::Message),
             "attachment" => Ok(Self::Attachment),
