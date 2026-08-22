@@ -14,6 +14,8 @@ use crate::{
         MemoryToolArguments, ToolContractError, ToolContractErrorCode,
         validate_memory_tool_arguments,
     },
+    tool_loop::NativeToolCall,
+    tool_policy::{ApprovedToolCall, ToolPolicyError, ToolPolicyErrorCode, authorize_tool_call},
 };
 
 /// Maximum serialized size of one complete successful native memory-tool envelope.
@@ -65,6 +67,8 @@ pub(crate) enum MemoryToolExecutionErrorCode {
     UnsupportedTool,
     /// Raw arguments failed the selected tool's closed native schema.
     InvalidArguments,
+    /// The requested tool needs an exact trusted native approval grant.
+    ApprovalRequired,
     /// Valid provenance no longer resolves under profile or lifecycle policy.
     Unavailable,
     /// Native storage or embedding work failed without exposing implementation details.
@@ -87,10 +91,15 @@ pub(crate) struct MemoryToolExecutionError {
 pub(crate) fn dispatch_memory_tool(
     store: &ConversationStore,
     embedder: &mut impl SemanticEmbedder,
-    tool_name: &str,
-    arguments: &Value,
+    call: &NativeToolCall,
+    approval: Option<ApprovedToolCall>,
 ) -> MemoryToolExecution {
-    let arguments = match validate_memory_tool_arguments(tool_name, arguments) {
+    let authorized = match authorize_tool_call(call, approval) {
+        Ok(authorized) => authorized,
+        Err(error) => return policy_error(error),
+    };
+    let call = authorized.call();
+    let arguments = match validate_memory_tool_arguments(&call.tool_name, &call.arguments) {
         Ok(arguments) => arguments,
         Err(error) => return contract_error(error),
     };
@@ -109,6 +118,15 @@ pub(crate) fn dispatch_memory_tool(
         Ok(result) => bounded_memory_tool_success(result),
         Err(error) => storage_error(error),
     }
+}
+
+/// Maps fail-closed execution-policy failures without reflecting provider-controlled call data.
+pub(crate) fn policy_error(error: ToolPolicyError) -> MemoryToolExecution {
+    let code = match error.code {
+        ToolPolicyErrorCode::UnsupportedTool => MemoryToolExecutionErrorCode::UnsupportedTool,
+        ToolPolicyErrorCode::ApprovalRequired => MemoryToolExecutionErrorCode::ApprovalRequired,
+    };
+    execution_error(code, error.message)
 }
 
 /// Converts one serializable tool result into JSON without exposing serializer internals.

@@ -8,6 +8,7 @@ use crate::{
         MAX_MEMORY_TOOL_OUTPUT_BYTES, MemoryToolExecution, MemoryToolExecutionErrorCode,
         bounded_memory_tool_success, dispatch_memory_tool,
     },
+    tool_loop::NativeToolCall,
 };
 
 /// Embedding dimensions fixed by Bottie's active EmbeddingGemma contract.
@@ -58,6 +59,25 @@ fn success_result(execution: MemoryToolExecution) -> Value {
     serialized["result"].clone()
 }
 
+/// Runs one unapproved provider call through the mandatory native policy boundary.
+fn dispatch(
+    store: &ConversationStore,
+    embedder: &mut impl SemanticEmbedder,
+    tool_name: &str,
+    arguments: Value,
+) -> MemoryToolExecution {
+    dispatch_memory_tool(
+        store,
+        embedder,
+        &NativeToolCall {
+            call_id: "provider-call".into(),
+            tool_name: tool_name.into(),
+            arguments,
+        },
+        None,
+    )
+}
+
 #[test]
 fn dispatches_all_three_validated_memory_tools_into_one_success_envelope() {
     let store = test_store();
@@ -80,19 +100,19 @@ fn dispatches_all_three_validated_memory_tools_into_one_success_envelope() {
         .expect("fixture message should append");
     let mut embedder = DispatchEmbedder::default();
 
-    let search = success_result(dispatch_memory_tool(
+    let search = success_result(dispatch(
         &store,
         &mut embedder,
         "search_memory",
-        &json!({"query": "missing phrase", "limit": 1}),
+        json!({"query": "missing phrase", "limit": 1}),
     ));
     assert_eq!(search["matches"], json!([]));
 
-    let opened = success_result(dispatch_memory_tool(
+    let opened = success_result(dispatch(
         &store,
         &mut embedder,
         "open_memory",
-        &json!({
+        json!({
             "conversationId": conversation.id,
             "messageId": message.id,
             "before": 0,
@@ -105,11 +125,11 @@ fn dispatches_all_three_validated_memory_tools_into_one_success_envelope() {
         json!("Keep native memory bounded.")
     );
 
-    let files = success_result(dispatch_memory_tool(
+    let files = success_result(dispatch(
         &store,
         &mut embedder,
         "search_attached_files",
-        &json!({"query": "missing file", "limit": 1}),
+        json!({"query": "missing file", "limit": 1}),
     ));
     assert_eq!(files["matches"], json!([]));
     assert_eq!(embedder.inputs.len(), 2);
@@ -132,7 +152,7 @@ fn rejects_names_and_arguments_before_storage_or_embedding_work() {
             MemoryToolExecutionErrorCode::InvalidArguments,
         ),
     ] {
-        let execution = dispatch_memory_tool(&store, &mut embedder, name, &arguments);
+        let execution = dispatch(&store, &mut embedder, name, arguments.clone());
         let serialized = serde_json::to_value(&execution).expect("error should serialize");
         assert_eq!(serialized["ok"], json!(false));
         assert!(serialized.get("result").is_none());
@@ -153,11 +173,11 @@ fn rejects_names_and_arguments_before_storage_or_embedding_work() {
 fn redacts_storage_and_embedding_failures_into_stable_categories() {
     let store = test_store();
     let mut embedder = DispatchEmbedder::default();
-    let missing = dispatch_memory_tool(
+    let missing = dispatch(
         &store,
         &mut embedder,
         "open_memory",
-        &json!({"conversationId": "missing", "messageId": "missing"}),
+        json!({"conversationId": "missing", "messageId": "missing"}),
     );
     let MemoryToolExecution::Error { error } = missing else {
         panic!("missing provenance should return an error envelope");
@@ -166,11 +186,11 @@ fn redacts_storage_and_embedding_failures_into_stable_categories() {
     assert!(!error.message.contains("missing"));
 
     embedder.fail = true;
-    let failed = dispatch_memory_tool(
+    let failed = dispatch(
         &store,
         &mut embedder,
         "search_memory",
-        &json!({"query": "north"}),
+        json!({"query": "north"}),
     );
     let MemoryToolExecution::Error { error } = failed else {
         panic!("embedding failure should return an error envelope");

@@ -146,7 +146,7 @@ impl ToolLoopState {
         cancellation: &ToolLoopCancellation,
     ) -> Result<Vec<NativeToolResult>, ToolLoopError> {
         self.execute_round_with(calls, cancellation, Instant::now, |call| {
-            dispatch_memory_tool(store, embedder, &call.tool_name, &call.arguments)
+            dispatch_memory_tool(store, embedder, call, None)
         })
     }
 

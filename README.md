@@ -67,8 +67,12 @@ lineage, reads at most eight normalized images and 50 MiB per request, and emits
 or Anthropic-shaped image blocks without exposing bytes to JavaScript. An explicit session-only Memory toggle is
 available for Ollama, OpenAI-compatible, and Anthropic-compatible models that advertise tools. Those requests may
 execute bounded native conversation or retained-document retrieval and return path-free excerpts through the
-provider's native tool shape; no document is injected automatically, and oMLX tool mapping, approvals, other office
-formats, and direct document delivery remain unimplemented.
+provider's native tool shape; no document is injected automatically. The native dispatcher classifies every
+registered tool as safe or approval-required before validation or execution. The three bounded read-only memory tools
+are explicitly safe inside that Memory-enabled request; unknown tools fail closed, and any future approval-required
+call must consume a Rust-owned grant over its exact provider call ID, name, and arguments. No approval UI or
+approval-required tool is registered yet. oMLX tool mapping, other office formats, and direct document delivery remain
+unimplemented.
 
 ## Development
 
@@ -295,7 +299,11 @@ chunk offsets without paths, hashes, scores, or full extracted text. Provider-in
 those three tools through closed schemas: required and optional fields, JSON types, Unicode-scalar identity/query
 ceilings, result/window bounds, and unknown-field rejection are enforced before typed dispatch. Provider invocation
 and executable dispatch are available only through explicitly enabled, tool-capable Ollama, OpenAI-compatible, and
-Anthropic-compatible requests. Successful selected-lineage results appear as path-free removable Context-panel
+Anthropic-compatible requests. The common dispatcher additionally applies an explicit native execution policy before
+argument validation: current bounded read-only memory tools are safe, unknown tools fail closed, and future
+approval-required tools cannot run without an exact Rust-owned call grant. Providers and WebView arguments cannot
+grant approval, and grants are consumed rather than reusable. Successful selected-lineage results appear as path-free
+removable Context-panel
 citations. Each active or Archived conversation also has a durable reversible exclude-from-memory action in its
 navigation menu. Excluded conversations remain readable and exportable, but their messages and attachment
 associations are unavailable to lexical, semantic, `search_memory`, `open_memory`, and `search_attached_files`
