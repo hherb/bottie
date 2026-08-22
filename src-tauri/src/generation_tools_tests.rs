@@ -483,6 +483,7 @@ fn read_json_request(stream: &mut TcpStream) -> serde_json::Value {
 }
 
 mod anthropic;
+mod anthropic_web_fetch;
 mod ollama_gating;
 mod ollama_web_fetch;
 mod openai;

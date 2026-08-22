@@ -82,6 +82,7 @@ pub(crate) async fn stream_native_tools(
                 query_embedder,
                 cancellation,
                 web_search,
+                web_fetch,
             )
             .await
         }

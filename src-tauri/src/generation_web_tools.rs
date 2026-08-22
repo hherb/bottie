@@ -30,7 +30,7 @@ pub(crate) fn web_tools_enabled(
 
 /// Confirms that an already-enabled Web request has an explicit provider-native fetch mapping.
 pub(crate) fn web_fetch_enabled(web_tools_enabled: bool, provider_id: &str) -> bool {
-    web_tools_enabled && matches!(provider_id, "ollama" | "openai")
+    web_tools_enabled && matches!(provider_id, "ollama" | "openai" | "anthropic")
 }
 
 /// Confirms explicit Memory intent plus a mapped provider's discovered per-model tool capability.
@@ -173,8 +173,8 @@ mod tests {
     fn enables_web_fetch_only_for_explicitly_mapped_web_tool_routes() {
         assert!(web_fetch_enabled(true, "ollama"));
         assert!(web_fetch_enabled(true, "openai"));
+        assert!(web_fetch_enabled(true, "anthropic"));
         assert!(!web_fetch_enabled(false, "openai"));
-        assert!(!web_fetch_enabled(true, "anthropic"));
         assert!(!web_fetch_enabled(true, "omlx"));
     }
 
