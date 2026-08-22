@@ -87,9 +87,12 @@ chunk identity, cache path, or extracted content crosses IPC or enters provider 
 KNN contract now embeds normalized queries with EmbeddingGemma's versioned retrieval prompt, validates vectors, and
 returns exact deterministic chunks from the current generation. sqlite-vec prefilters eligible row identities before
 ranking, so profile, lifecycle, durable attachment association, source, conversation, and inclusive date policy match
-lexical retrieval without consuming the result limit on ineligible nearer vectors. The next bounded implementation
-slice is Rust-only reciprocal-rank fusion of lexical and semantic results under one shared filter contract; do not
-bundle retrieval injection, memory tools/UI, reindex controls, provider changes, or attachment retry controls.
+lexical retrieval without consuming the result limit on ineligible nearer vectors. One native hybrid query now applies
+a shared filter and bound contract to both retrieval paths and combines their source ranks with reciprocal-rank fusion.
+Each source contributes at most once per list; an overlapping source retains its strongest semantic chunk's exact
+excerpt and offsets. The next bounded implementation slice is one explicit path-free semantic reindex control with
+durable progress and restore-safe worker coordination; do not bundle memory tools, retrieval injection, provider
+changes, model-cache deletion, or attachment retry controls.
 
 Read these files first:
 
@@ -200,6 +203,8 @@ attachment ID,
 sweeping, interrupted temporary cleanup, and shared-derivative preservation,
 `src-tauri/src/storage/memory_lexical.rs` owns bounded native BM25 queries and lifecycle/association filters, while
 `src-tauri/src/storage/memory_lexical_migration.rs` owns the derived FTS5 schema, backfill, and synchronization triggers,
+`src-tauri/src/storage/memory_filters.rs` owns the shared query bounds plus source, conversation, and inclusive-date
+filter contract, `src-tauri/src/storage/memory_hybrid.rs` owns bounded source-level reciprocal-rank fusion,
 `src-tauri/src/storage/memory_chunks.rs` owns versioned Unicode-safe deterministic chunking plus transactional source
 replacement, while `src-tauri/src/storage/memory_chunks_migration.rs` owns catalog metadata and stale-row cleanup,
 `src-tauri/src/storage/memory_semantic.rs` owns static sqlite-vec registration, version-contract validation, bounded
@@ -307,14 +312,14 @@ Do not mistake visual fixtures for implemented backend behavior:
   for native garbage collection after the 24-hour safety window and a later successful startup because the draft itself
   does not survive restart;
 - plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; their indexable state
-  feeds a whole-source native FTS5 index and deterministic native chunk catalog, but no vector, embedding, tool, or
-  provider retrieval exists; JPEG/PNG
+  feeds native FTS5, deterministic chunk, and semantic-vector indexes, but no memory tool or provider retrieval exists;
+  JPEG/PNG
   derivatives remain application-private and are read only for capability-confirmed vision requests; portable SQLite
   backups embed originals and ready derivatives, while selected/batch exports bundle referenced originals;
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- the native FTS5 and semantic KNN memory queries have no IPC, tool, citation, context-panel, fused-ranking, or
+- the native lexical, semantic KNN, and fused memory queries have no IPC, tool, citation, context-panel, or
   provider-injection consumer yet;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
@@ -355,7 +360,51 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Filtered semantic KNN retrieval
+## Most recently completed product slice: Native reciprocal-rank fusion
+
+### Goal
+
+Combine bounded lexical and semantic memory rankings under one native filter contract without adding a schema change,
+reindex control, memory tool/UI, retrieval injection, provider change, or WebView exposure.
+
+### Implemented shape
+
+1. `MemorySearchFilters` now owns the shared 200-character query ceiling, 50-result ceiling, source kind, conversation,
+   and inclusive date policy used by lexical, semantic, and hybrid retrieval. Invalid filters fail before embedding.
+2. The hybrid query retrieves at most 50 candidates from each native engine, groups them by source kind plus opaque
+   source identity, and sums one reciprocal contribution per result list using the named rank constant `k = 60`.
+3. Multiple semantic chunks from one source cannot inflate its score. The strongest semantic chunk supplies the fused
+   result's exact excerpt, ordinal, and Unicode offsets; lexical-only sources retain their bounded FTS5 snippet.
+4. Fused results are capped at 50 and use fused score, strongest rank, source creation time, source kind, and opaque
+   source identity for deterministic ordering. Query text, rankings, excerpts, and identities remain Rust-only.
+
+### Acceptance criteria
+
+- A source found by both engines gains both reciprocal contributions and ranks ahead of equivalent single-list hits.
+- A source contributes no more than once per list even when semantic search returns several of its chunks.
+- Both engines receive the same profile, lifecycle, attachment-association, source, conversation, and inclusive-date
+  policy; Archived remains eligible, Trash and unassociated documents do not.
+- Empty and zero-limit queries avoid embedding, malformed filters and overlong queries fail before model work, and
+  fused results never exceed 50.
+- Fusion adds no migration, command, IPC type, Svelte state, provider request, export field, memory tool, or cache
+  behavior.
+
+### Verification completed
+
+Focused TDD coverage first failed against the absent shared-filter and hybrid-query modules. Four fusion tests now
+cover overlap scoring, duplicate semantic chunks, exact semantic provenance, lexical fallback excerpts, deterministic
+ties, the 50-result ceiling, shared filtering, Trash exclusion, and pre-embedding validation. The adjacent 21-test
+memory suite passes. The complete Rust suite reports 178 passed with four opt-in live-provider checks intentionally
+ignored. Prettier, `svelte-check`, all 53 frontend tests, the production build, Cargo formatting, Cargo check, and
+`git diff --check` pass without warnings. A fresh signed native launch reopened the unchanged schema-18 live store and
+remained available until stopped after verification. Immutable read-only inspection reported `quick_check=ok`,
+`ready` semantic progress at 84/84 chunks, 84 unique current-generation mappings, 84 sqlite-vec shadow row identities,
+768 dimensions, index generation 1, no mapping orphans, and no running provider records. The standalone SQLite CLI
+cannot load Bottie's statically linked `vec0` module, so verification counted its durable row-identity shadow table
+instead of querying the virtual table directly. No schema, UI, IPC, or provider behavior changed, so migration,
+browser layout, picker/provider interaction, and live-provider tests were not applicable.
+
+## Prior completed product slice: Filtered semantic KNN retrieval
 
 ### Goal
 

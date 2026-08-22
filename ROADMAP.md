@@ -174,7 +174,7 @@ Status: in progress
 - [x] bounded current-generation semantic KNN retrieval with EmbeddingGemma query prompting and lifecycle-safe
   profile, source, conversation, association, and date filters;
 - complete reindex controls;
-- reciprocal-rank fusion of lexical and vector results;
+- [x] bounded source-level reciprocal-rank fusion of lexical and vector results under one shared filter contract;
 
 ### Memory tools
 

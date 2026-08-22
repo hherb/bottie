@@ -32,6 +32,8 @@ mod image_normalization;
 mod lifecycle;
 mod memory_chunks;
 mod memory_chunks_migration;
+mod memory_filters;
+mod memory_hybrid;
 mod memory_lexical;
 mod memory_lexical_migration;
 mod memory_semantic;
@@ -57,13 +59,11 @@ pub(crate) use attachment_indexing::{AttachmentIndexingState, StoredAttachmentIn
 pub(crate) use attachments::{IngestedAttachment, MAX_ATTACHMENT_SELECTION_COUNT};
 use clock::now_ms;
 pub(crate) use error::StorageError;
-pub(crate) use extraction::{
-    AttachmentExtractionFormat, AttachmentExtractionState, StoredAttachmentExtraction,
-};
+pub(crate) use extraction::StoredAttachmentExtraction;
+pub(crate) use extraction::{AttachmentExtractionFormat, AttachmentExtractionState};
 pub(crate) use image_normalization::StoredImageNormalization;
-pub(crate) use memory_semantic::{
-    DEFAULT_SEMANTIC_BATCH_SIZE, SemanticEmbedder, SemanticIndexState,
-};
+pub(crate) use memory_semantic::DEFAULT_SEMANTIC_BATCH_SIZE;
+pub(crate) use memory_semantic::{SemanticEmbedder, SemanticIndexState};
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use portable_export::ConversationFileExport;
@@ -473,6 +473,8 @@ mod extraction_tests;
 mod image_normalization_tests;
 #[cfg(test)]
 mod memory_chunks_tests;
+#[cfg(test)]
+mod memory_hybrid_tests;
 #[cfg(test)]
 mod memory_lexical_tests;
 #[cfg(test)]
