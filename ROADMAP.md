@@ -189,7 +189,8 @@ Status: in progress
 - [x] explicit Anthropic Messages definition/call/result mapping and bounded generation-loop integration;
 - [x] visible and removable memory citations in the context panel;
 - [x] reversible per-conversation exclude-from-memory control enforced across native indexes and memory tools;
-- [ ] explicit forget and time-based retention controls (explicit derived-only reindex is complete).
+- [x] explicit per-conversation forget from Trash with documented source, derived-data, attachment, and backup policy;
+- [ ] time-based retention controls (explicit derived-only reindex is complete).
 
 Do not silently inject arbitrary long-term memories into every prompt. Recent conversation context may be automatic; long-term recall should be explicit and inspectable.
 

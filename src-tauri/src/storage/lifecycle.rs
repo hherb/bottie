@@ -163,6 +163,47 @@ impl ConversationStore {
         require_change(changed)?;
         load_summary(&connection, conversation_id)
     }
+
+    /// Permanently deletes one trashed conversation and all conversation-owned source records.
+    pub(crate) fn forget_conversation(&self, conversation_id: &str) -> Result<(), StorageError> {
+        let mut connection = self.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let deleted = transaction
+            .query_row(
+                "SELECT deleted_at_ms IS NOT NULL FROM conversations
+                 WHERE id = ?1 AND profile_id = ?2",
+                params![conversation_id, DEFAULT_PROFILE_ID],
+                |row| row.get::<_, bool>(0),
+            )
+            .optional()?
+            .ok_or_else(missing_conversation)?;
+        if !deleted {
+            return Err(StorageError::invalid(
+                "Move the conversation to Trash before forgetting it permanently.",
+            ));
+        }
+        let has_active_run = transaction.query_row(
+            "SELECT EXISTS (
+                 SELECT 1 FROM provider_runs WHERE conversation_id = ?1 AND state = 'running'
+             )",
+            [conversation_id],
+            |row| row.get::<_, bool>(0),
+        )?;
+        if has_active_run {
+            return Err(StorageError::invalid(
+                "Wait for the active response to finish before forgetting this conversation.",
+            ));
+        }
+        let changed = transaction.execute(
+            "DELETE FROM conversations
+             WHERE id = ?1 AND profile_id = ?2 AND deleted_at_ms IS NOT NULL",
+            params![conversation_id, DEFAULT_PROFILE_ID],
+        )?;
+        require_change(changed)?;
+        transaction.commit()?;
+        Ok(())
+    }
 }
 
 /// Raw summary tuple decoded before mapping the lifecycle string.

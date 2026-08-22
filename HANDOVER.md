@@ -130,10 +130,14 @@ the append-only tool audit untouched. Every active or Archived conversation now 
 exclude-from-memory control. Schema version 19 retains the preference without deleting source content; excluded
 message chunks and vectors are removed and rebuilt on re-inclusion, while lexical, semantic, hybrid, `search_memory`,
 `open_memory`, and `search_attached_files` paths recheck the preference before returning data. Shared documents remain
-eligible only through another non-excluded conversation association. The next bounded implementation slice is one
-explicit per-conversation forget workflow with a separately documented source/derived-data policy; do not bundle
-time-based retention, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, web tools,
-or attachment retry controls.
+eligible only through another non-excluded conversation association. Trash now adds one separately confirmed permanent
+forget action. The native command accepts only a trashed local-profile conversation without an active response, then
+transactionally deletes its conversation-owned source records and message-derived lexical, chunk, and vector data.
+Shared content-addressed attachments remain available; newly unreferenced attachment sources and derivatives retain
+the existing 24-hour cross-process safety window before startup garbage collection. Existing exports and backup
+snapshots are not rewritten, and the application-owned embedding-model cache is retained. The next bounded
+implementation slice is explicit time-based conversation retention; do not bundle oMLX mapping, automatic retrieval
+injection, model-cache deletion, document opening, web tools, or attachment retry controls.
 
 Read these files first:
 
@@ -147,7 +151,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/conversation-memory-exclusion`.
+branch `codex/conversation-forget`.
 
 ## Current implementation
 
@@ -185,6 +189,7 @@ branch `codex/conversation-memory-exclusion`.
 - real Today, Yesterday, Previous 7 days, Archived, and Trash navigation groups;
 - inline conversation rename plus archive, unarchive, recoverable trash, and restore actions;
 - durable reversible conversation memory exclusion with a compact `Memory off` navigation label;
+- separately confirmed permanent conversation forgetting from Trash with source/derived-data retention disclosure;
 - inline user-message editing, assistant-response regeneration, and preserved branch switching;
 - native conversation search with snippets, archived-result labels, matching-branch selection, and keyboard focus and
   clear behavior;
@@ -290,8 +295,8 @@ native-discovered vision policy, and closes each native run before its terminal 
 attachment append, visible message-attachment removal, explicit branch, response-rating, selected-lineage Markdown/JSON
 and non-trashed batch JSON export, whole-store
 backup/restore,
-recovery-status/latest-snapshot restore, path-free semantic progress/derived-only reindex, lifecycle commands, and the
-per-conversation memory exclusion command. The
+recovery-status/latest-snapshot restore, path-free semantic progress/derived-only reindex, lifecycle commands, the
+per-conversation memory exclusion command, and the Trash-only permanent forget command. The
 database lives in the OS application-data
 directory; the WebView never receives a database or attachment path, SQL, or generic filesystem/database
 capability. One built-in `local` profile represents the current OS account. Every conversation has
@@ -431,10 +436,69 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
 The cohesively touched product modules remain below 500 lines. The crate composition root `src-tauri/src/lib.rs` is an
-existing practical-limit exception at 534 lines; the remaining known indivisible long lines are SVG path values in
+existing practical-limit exception at 536 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Durable per-conversation memory exclusion
+## Most recently completed product slice: Explicit per-conversation forget
+
+### Goal
+
+Add one explicit irreversible workflow that removes a trashed conversation's live source and derived memory while
+stating exactly which deduplicated attachment bytes and external copies are retained.
+
+### Implemented shape
+
+1. Trash exposes `Forget permanently` separately from `Restore`. A second inline confirmation names message-memory and
+   file-link deletion, the 24-hour unshared-file safety window, and unchanged exports/backups before `Forget forever`
+   can invoke native storage.
+2. The narrow `forget_conversation` command accepts only one opaque conversation ID. Rust requires the built-in local
+   profile, an existing trashed lifecycle state, and no running provider response; active/Archived/missing/active-run
+   targets fail with stable path- and database-redacted errors.
+3. One immediate transaction deletes the conversation row. Existing foreign-key ownership and cleanup triggers remove
+   branches, messages and reasoning, provider runs/usage, tool calls/results, ratings, attachment associations, the
+   memory preference, lexical message rows, deterministic message chunks, and cascaded vector mappings. No migration
+   or WebView source/derived identity was added.
+4. Content-addressed attachments are global rather than conversation-owned. Shared files and derived rows remain
+   available through their other references. Files made unreferenced by forgetting retain the established 24-hour
+   cross-process safety window; startup garbage collection then removes their catalog, extraction/normalization rows,
+   attachment chunks/vectors, original bytes, and derivatives.
+5. Forget changes the live store only. Existing Markdown/JSON/ZIP exports, manual backups, pre-restore safety copies,
+   automatic recovery snapshots, and copies outside Bottie's managed data remain unchanged and must be removed or
+   rotated separately. The shared embedding-model cache is application runtime data and is not deleted.
+
+### Acceptance criteria
+
+- Only a trashed, locally owned conversation without an active response can be permanently forgotten.
+- After success the conversation is absent from navigation, cannot load or restore after restart, and contributes no
+  message source, lexical row, deterministic chunk, vector mapping, provider/tool audit, rating, or attachment link.
+- Shared attachment content survives. Newly unreferenced content follows the already documented 24-hour safety window
+  and established strict managed-file garbage collection rather than unsafe in-command filesystem deletion.
+- The confirmation and documentation distinguish live-store deletion from retained external exports/backups and the
+  non-conversation embedding-model cache.
+- IPC remains an opaque conversation ID with an empty success response; source text, paths, hashes, scores, embedding,
+  chunk/vector identities, backup paths, and model-cache details do not cross into the WebView.
+- No time-based retention, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, web
+  tool, or attachment retry behavior is added.
+
+### Verification completed
+
+Focused TDD first failed on the absent native mutation and frontend policy module. Two new path-backed Rust tests cover
+active/Archived/missing rejection, active-run exclusion, permanent deletion after Trash, provider-run cascade, restart
+absence, lexical and chunk removal, immediate association removal, the attachment safety window, shared-file
+preservation, and strict later orphan collection. Frontend coverage checks the exact irreversible action and disclosure
+copy.
+
+Prettier, `svelte-check`, all 66 frontend tests, the production build, Cargo formatting, Cargo check, and all 227
+default Rust tests pass; seven opt-in live provider/loopback tests remain ignored by default because provider protocol
+behavior did not change. The browser-only Trash fixture was inspected and then removed at 1320 x 820 and 900 x 800.
+The first pass exposed fixed-menu overflow and the compact pass exposed a left-edge clip; both were corrected, and the
+final confirmation has complete visible copy/actions with no console warnings or errors at either viewport. The native
+app launched successfully against the real store. Immutable SQLite inspection reported schema 19, `quick_check=ok`,
+nine conversations including one Trash item, no memory-preference rows, and semantic progress `ready` at 86 of 86
+chunks. No live conversation was forgotten: the destructive mutation is verified only against isolated persistent
+stores, so no claim is made that the real Trash item was manually changed.
+
+## Prior completed product slice: Durable per-conversation memory exclusion
 
 ### Goal
 

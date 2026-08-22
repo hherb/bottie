@@ -28,6 +28,7 @@
     onmemoryexclusion: (conversationId: string, excluded: boolean) => void;
     ondeleteconversation: (conversationId: string) => void;
     onrestoreconversation: (conversationId: string) => void;
+    onforgetconversation: (conversationId: string) => void;
     onopensettings: () => void;
   };
 
@@ -51,6 +52,7 @@
     onmemoryexclusion,
     ondeleteconversation,
     onrestoreconversation,
+    onforgetconversation,
     onopensettings,
   }: Props = $props();
 
@@ -150,6 +152,7 @@
           {onmemoryexclusion}
           ondelete={ondeleteconversation}
           onrestore={onrestoreconversation}
+          onforget={onforgetconversation}
         />
       {:else}
         <ConversationGroup
@@ -164,6 +167,7 @@
           {onmemoryexclusion}
           ondelete={ondeleteconversation}
           onrestore={onrestoreconversation}
+          onforget={onforgetconversation}
         />
       {/each}
       {#if archivedConversations.length > 0}
@@ -178,6 +182,7 @@
           {onmemoryexclusion}
           ondelete={ondeleteconversation}
           onrestore={onrestoreconversation}
+          onforget={onforgetconversation}
         />
       {/if}
       {#if deletedConversations.length > 0}
@@ -192,6 +197,7 @@
           {onmemoryexclusion}
           ondelete={ondeleteconversation}
           onrestore={onrestoreconversation}
+          onforget={onforgetconversation}
         />
       {/if}
     {/if}

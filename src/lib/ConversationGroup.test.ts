@@ -19,6 +19,7 @@ function renderedGroup(conversation: ConversationSummary): string {
       onmemoryexclusion: vi.fn(),
       ondelete: vi.fn(),
       onrestore: vi.fn(),
+      onforget: vi.fn(),
     },
   }).body;
 }

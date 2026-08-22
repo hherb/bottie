@@ -4,6 +4,7 @@ import { conversationTitle, nextResponseRating } from "$lib/chat";
 import type { Message } from "$lib/presentation";
 import { applyAttachmentProcessingUpdate } from "$lib/attachment";
 import { setConversationMemoryExcluded } from "$lib/conversation-memory";
+import { forgetConversation } from "$lib/conversation-forget";
 import {
   addConversationAttachments,
   appendConversationMessage,
@@ -456,6 +457,11 @@ export class ConversationState {
     return this.performLifecycleAction(() => restoreConversation(conversationId));
   }
 
+  /** Permanently forgets one confirmed trashed conversation. */
+  async forget(conversationId: string): Promise<boolean> {
+    return this.performLifecycleAction(() => forgetConversation(conversationId));
+  }
+
   /** Refreshes durable navigation without changing the open conversation. */
   private async refresh(): Promise<void> {
     try {
@@ -468,7 +474,7 @@ export class ConversationState {
   }
 
   /** Runs one narrow lifecycle command and keeps failures in the existing storage-error surface. */
-  private async performLifecycleAction(action: () => Promise<ConversationSummary>): Promise<boolean> {
+  private async performLifecycleAction(action: () => Promise<unknown>): Promise<boolean> {
     if (this.isManaging) return false;
     this.isManaging = true;
     try {

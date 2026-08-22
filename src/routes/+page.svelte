@@ -95,6 +95,7 @@
         });
       }}
       onrestoreconversation={(conversationId) => void state.history.restore(conversationId)}
+      onforgetconversation={(conversationId) => void state.history.forget(conversationId)}
       onopensettings={() => {
         state.showSettings = true;
         state.showSidebar = false;

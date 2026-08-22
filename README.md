@@ -299,6 +299,13 @@ Anthropic-compatible requests. Successful selected-lineage results appear as pat
 citations. Each active or Archived conversation also has a durable reversible exclude-from-memory action in its
 navigation menu. Excluded conversations remain readable and exportable, but their messages and attachment
 associations are unavailable to lexical, semantic, `search_memory`, `open_memory`, and `search_attached_files`
-retrieval; a shared file remains eligible only through another non-excluded association. oMLX mapping, automatic
-prompt injection, document opening, source deletion, explicit forget, and time-based retention remain unavailable;
-Settings exposes only path-free progress and the derived-only reindex control.
+retrieval; a shared file remains eligible only through another non-excluded association. Trash adds a separately
+confirmed `Forget permanently` action. Rust accepts only a trashed local-profile conversation with no active response,
+then deletes its branches, messages and reasoning, provider/usage records, tool audit, ratings, memory preference,
+attachment links, and message-derived lexical/chunk/vector rows in one transaction. Content-addressed attachments
+shared elsewhere remain; newly unreferenced originals, extraction text, and derivatives keep the existing 24-hour
+cross-process safety window before startup garbage collection removes them. Existing exports, manual backups, and
+automatic recovery snapshots are not rewritten and must be managed separately. The application-owned embedding-model
+cache is not conversation data and is retained. oMLX mapping, automatic prompt injection, document opening,
+time-based retention, web tools, and attachment retry remain unavailable; Settings exposes only path-free progress and
+the derived-only reindex control.
