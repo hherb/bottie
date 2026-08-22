@@ -66,6 +66,9 @@ pub struct ChatRequest {
     /// Whether this request may advertise Bottie's native memory tools to a compatible local provider.
     pub memory_enabled: bool,
     #[serde(default)]
+    /// Whether this request may advertise Bottie's native web-search tool to a compatible local provider.
+    pub web_enabled: bool,
+    #[serde(default)]
     /// Optional provider-neutral generation settings.
     pub settings: ChatSettings,
 }
@@ -357,7 +360,7 @@ mod tests {
     }
 
     #[test]
-    fn memory_tools_require_an_explicit_request_flag() {
+    fn native_tools_require_explicit_request_flags() {
         let disabled: ChatRequest = serde_json::from_value(serde_json::json!({
             "providerId": "ollama",
             "modelId": "tool-model",
@@ -368,11 +371,14 @@ mod tests {
             "providerId": "ollama",
             "modelId": "tool-model",
             "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}],
-            "memoryEnabled": true
+            "memoryEnabled": true,
+            "webEnabled": true
         }))
         .expect("explicit memory request should deserialize");
 
         assert!(!disabled.memory_enabled);
+        assert!(!disabled.web_enabled);
         assert!(enabled.memory_enabled);
+        assert!(enabled.web_enabled);
     }
 }

@@ -8,6 +8,7 @@ import {
   messageAttachmentAssociations,
   nextRequestAttachments,
   selectedProviderEndpoint,
+  webToolsAvailable,
 } from "./page-presentation";
 
 const attachment: Attachment = {
@@ -40,6 +41,11 @@ describe("page presentation", () => {
     expect(memoryToolsAvailable(model("openai", false))).toBe(false);
     expect(memoryToolsAvailable(model("omlx", true))).toBe(false);
     expect(memoryToolsAvailable(undefined)).toBe(false);
+    expect(webToolsAvailable(model("ollama", true))).toBe(true);
+    expect(webToolsAvailable(model("openai", true))).toBe(false);
+    expect(webToolsAvailable(model("anthropic", true))).toBe(false);
+    expect(webToolsAvailable(model("ollama", false))).toBe(false);
+    expect(webToolsAvailable(undefined)).toBe(false);
   });
 
   it("keeps draft, conversation, and message scope identities explicit", () => {
@@ -66,9 +72,14 @@ describe("page presentation", () => {
     } as const;
 
     expect(selectedProviderEndpoint("ollama", settings)).toBe("127.0.0.1:11434");
-    expect(inferenceStages(false, "Cloud provider", "low")).toEqual([
+    expect(inferenceStages(false, false, "Cloud provider", "low")).toEqual([
       { icon: "shield", label: "Cloud route confirmed", detail: "Rust → Cloud provider" },
       { icon: "sparkles", label: "Streaming response", detail: "Low reasoning" },
     ]);
+    expect(inferenceStages(true, true, "Ollama", "off")[0]).toEqual({
+      icon: "shield",
+      label: "Local model with web access",
+      detail: "Rust → Ollama + Brave Search",
+    });
   });
 });

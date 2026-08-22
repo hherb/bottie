@@ -11,6 +11,8 @@ function renderedComposer(
   attachments: Attachment[] = [],
   memoryAvailable = false,
   memoryEnabled = false,
+  webAvailable = false,
+  webEnabled = false,
 ): string {
   return render(Composer, {
     props: {
@@ -23,6 +25,8 @@ function renderedComposer(
       providerStatus: "available",
       memoryAvailable,
       memoryEnabled,
+      webAvailable,
+      webEnabled,
       onprompt: vi.fn(),
       oninput: vi.fn(),
       onkeydown: vi.fn(),
@@ -31,6 +35,7 @@ function renderedComposer(
       onfiles: vi.fn(),
       onremove: vi.fn(),
       ontogglememory: vi.fn(),
+      ontoggleweb: vi.fn(),
       oncomposerready: vi.fn(),
       onattachmentinputready: vi.fn(),
     },
@@ -76,10 +81,12 @@ describe("Composer", () => {
   });
 
   it("exposes explicit pressed state only for a mapped tool-capable selection", () => {
-    const enabled = renderedComposer(true, true, [], true, true);
+    const enabled = renderedComposer(true, true, [], true, true, true, true);
     const unavailable = renderedComposer(true, true);
 
     expect(enabled).toMatch(/aria-label="Disable memory tools"[^>]*aria-pressed="true"/);
+    expect(enabled).toMatch(/aria-label="Disable web search"[^>]*aria-pressed="true"/);
     expect(unavailable).toMatch(/aria-label="Memory tools require a supported tool-capable model"[^>]* disabled/);
+    expect(unavailable).toMatch(/aria-label="Web search requires a tool-capable Ollama model"[^>]* disabled/);
   });
 });

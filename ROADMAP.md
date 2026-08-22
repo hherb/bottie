@@ -220,7 +220,8 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] pluggable native search-provider interface with one bounded fixed-endpoint Brave Search adapter;
 - [x] native Brave Search credential-vault configuration and fixed-route connection testing;
 - [x] provider-independent `web_search` contract and native dispatcher with freshness and domain filters;
-- model-provider mapping and generation-loop integration for `web_search`;
+- [x] explicit Ollama definition/call/result mapping and generation-loop integration for `web_search`;
+- OpenAI-compatible and Anthropic-compatible mapping for `web_search`;
 - `web_fetch` with redirects, size limits, content-type checks, and timeouts;
 - extraction to inert text with source URL, title, and publication metadata;
 - citations connected to claims and retained with the conversation;

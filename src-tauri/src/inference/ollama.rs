@@ -13,23 +13,32 @@ use self::protocol::{
     NdjsonDecoder, OllamaChatRequest, OllamaErrorResponse, OllamaShowRequest, OllamaShowResponse,
     decode_model_list, decode_running_models, decode_stream_line, model_info, normalize_usage,
 };
-use crate::tool_contract::memory_tool_definitions;
+use crate::tool_contract::{memory_tool_definitions, web_search_tool_definition};
 
 mod protocol;
 
 pub(crate) use protocol::{OllamaToolCall, OllamaToolResult};
 
-/// One provider-native Ollama request history spanning repeated memory-tool rounds.
+/// One provider-native Ollama request history spanning repeated native-tool rounds.
 pub(crate) struct OllamaToolSession {
     request: OllamaChatRequest,
 }
 
 impl OllamaToolSession {
-    /// Starts a session with Bottie's complete closed native memory-tool definition set.
+    /// Starts a session with exactly the closed native tools enabled for this request.
     pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
         validate_request(&request)?;
+        let mut definitions = request
+            .memory_enabled
+            .then(memory_tool_definitions)
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        if request.web_enabled {
+            definitions.push(web_search_tool_definition());
+        }
         Ok(Self {
-            request: OllamaChatRequest::with_tools(request, memory_tool_definitions()),
+            request: OllamaChatRequest::with_tools(request, definitions),
         })
     }
 

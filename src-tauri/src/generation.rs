@@ -6,7 +6,8 @@ use tauri::{State, ipc::Channel};
 use crate::{
     ActiveRun, AppState,
     diagnostics::{record_diagnostic, sanitized},
-    generation_tools::{memory_tools_enabled, stream_memory_tools},
+    generation_tools::stream_native_tools,
+    generation_web_tools::{configured_web_search, memory_tools_enabled, web_tools_enabled},
     inference::{
         ChatRequest, ChatRole, ChatRun, ChatTurn, ContentBlock, ImageMediaType, ProviderError,
         ReasoningEffort, StreamEvent, Usage,
@@ -67,7 +68,7 @@ pub(crate) async fn start_chat(
         .iter()
         .any(|message| !message.images.is_empty());
     let needs_model_capabilities = has_images
-        || (request.memory_enabled
+        || ((request.memory_enabled || request.web_enabled)
             && matches!(
                 &provider,
                 RoutedProvider::Ollama(_)
@@ -98,13 +99,38 @@ pub(crate) async fn start_chat(
     let supports_vision = model_capabilities
         .as_ref()
         .is_some_and(|capabilities| capabilities.vision);
-    let supports_tools = memory_tools_enabled(
+    let supports_memory_tools = memory_tools_enabled(
         request.memory_enabled,
         provider.provider_id(),
         model_capabilities
             .as_ref()
             .is_some_and(|capabilities| capabilities.tools),
     );
+    let supports_web_tools = web_tools_enabled(
+        request.web_enabled,
+        provider.provider_id(),
+        model_capabilities
+            .as_ref()
+            .is_some_and(|capabilities| capabilities.tools),
+    );
+    let web_search = if supports_web_tools {
+        match configured_web_search(state.credentials.as_ref()) {
+            Ok(provider) => Some(provider),
+            Err(error) => {
+                finish_provider_run(
+                    &state.conversations,
+                    &run_id,
+                    ProviderRunState::Failed,
+                    Some(error.code.as_str()),
+                    None,
+                )?;
+                return Err(error);
+            }
+        }
+    } else {
+        None
+    };
+    let supports_tools = supports_memory_tools || supports_web_tools;
     let attachment_context = if supports_vision {
         state
             .conversations
@@ -165,7 +191,7 @@ pub(crate) async fn start_chat(
         let query_embedder = semantic_indexing.query_embedder();
         let generation = async {
             if supports_tools {
-                stream_memory_tools(
+                stream_native_tools(
                     provider.clone(),
                     request,
                     sink,
@@ -173,6 +199,7 @@ pub(crate) async fn start_chat(
                     task_run_id.clone(),
                     query_embedder,
                     tool_cancellation,
+                    web_search,
                 )
                 .await
             } else {

@@ -26,6 +26,11 @@ export function memoryToolsAvailable(model: ModelInfo | undefined): boolean {
   );
 }
 
+/** Confirms that Bottie maps native web search only for a tool-capable Ollama selection. */
+export function webToolsAvailable(model: ModelInfo | undefined): boolean {
+  return Boolean(model?.providerId === "ollama" && model.capabilities.tools);
+}
+
 /** Selects the compact endpoint label for the active provider. */
 export function selectedProviderEndpoint(providerId: ProviderId | "", settings: ProviderSettings): string {
   const baseUrl = {
@@ -40,14 +45,19 @@ export function selectedProviderEndpoint(providerId: ProviderId | "", settings: 
 /** Builds normalized activity stages for the current privacy route and reasoning policy. */
 export function inferenceStages(
   isLocalRoute: boolean,
+  webEnabled: boolean,
   providerName: string | undefined,
   reasoningEffort: ReasoningEffort,
 ): InferenceStage[] {
   return [
     {
       icon: "shield",
-      label: isLocalRoute ? "Connected locally" : "Cloud route confirmed",
-      detail: `Rust → ${providerName ?? "provider"}`,
+      label: isLocalRoute
+        ? webEnabled
+          ? "Local model with web access"
+          : "Connected locally"
+        : "Cloud route confirmed",
+      detail: `Rust → ${providerName ?? "provider"}${webEnabled ? " + Brave Search" : ""}`,
     },
     {
       icon: "sparkles",

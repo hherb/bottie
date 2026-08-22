@@ -17,6 +17,7 @@
     selectedProviderEndpoint: string;
     providerStatus: ProviderStatus;
     isLocalRoute: boolean;
+    webEnabled: boolean;
     isAddingAttachments: boolean;
     attachmentFeedback: string | null;
     attachmentFailed: boolean;
@@ -41,6 +42,7 @@
     selectedProviderEndpoint,
     providerStatus,
     isLocalRoute,
+    webEnabled,
     isAddingAttachments,
     attachmentFeedback,
     attachmentFailed,
@@ -217,7 +219,12 @@
       </div>
       <div class="route-labels">
         <span
-          ><strong>This Mac</strong><small>{isLocalRoute ? "Conversation stays local" : "Prompt leaves device"}</small
+          ><strong>This Mac</strong><small
+            >{isLocalRoute
+              ? webEnabled
+                ? "Model prompt local; search queries leave device"
+                : "Conversation stays local"
+              : "Prompt leaves device"}</small
           ></span
         >
         <span>
@@ -225,11 +232,17 @@
           <small>{selectedProviderEndpoint}</small>
         </span>
       </div>
-      <div class:cloud={!isLocalRoute} class:offline={providerStatus !== "available"} class="route-status">
+      <div
+        class:cloud={!isLocalRoute || webEnabled}
+        class:offline={providerStatus !== "available"}
+        class="route-status"
+      >
         <span></span>
         {providerStatus === "available"
           ? isLocalRoute
-            ? "Connected over loopback"
+            ? webEnabled
+              ? "Loopback model · Brave Search enabled"
+              : "Connected over loopback"
             : "Cloud transmission enabled"
           : "Provider disconnected"}
       </div>

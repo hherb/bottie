@@ -42,8 +42,9 @@ import {
 import { ConversationState } from "./conversation-state.svelte";
 import { AttachmentState } from "./attachment-state.svelte";
 import { RecoveryState } from "./recovery-state.svelte";
-import { memoryToolsAvailable } from "./page-presentation";
+import { memoryToolsAvailable, webToolsAvailable } from "./page-presentation";
 import { MemoryContextState } from "./memory-context-state.svelte";
+import { WebToolState } from "./web-tool-state.svelte";
 
 const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
@@ -70,6 +71,7 @@ export class PageState {
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
   memory = new MemoryContextState();
+  web = new WebToolState();
   providerSettings = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
   recovery = new RecoveryState();
   history = new ConversationState();
@@ -104,6 +106,10 @@ export class PageState {
   get memoryAvailable(): boolean {
     return memoryToolsAvailable(this.selectedModel);
   }
+  /** Whether the selected Ollama model can accept Bottie's native web-search tool. */
+  get webAvailable(): boolean {
+    return webToolsAvailable(this.selectedModel);
+  }
   /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {
     if (!isTauri()) {
@@ -136,12 +142,10 @@ export class PageState {
     const [messages] = await Promise.all([this.history.initialize(), this.refreshModels()]);
     this.messages = messages;
   }
-
   /** Releases native event listeners when the page is unmounted. */
   dispose(): void {
     this.attachment.dispose();
   }
-
   /** Opens one persisted conversation from the sidebar. */
   async openConversation(conversationId: string): Promise<void> {
     if (this.isGenerating) return;
@@ -152,7 +156,6 @@ export class PageState {
       await this.scrollToBottom("auto");
     }
   }
-
   /** Opens the preserved branch selected from native conversation-search results. */
   async openSearchResult(result: import("$lib/storage").ConversationSearchResult): Promise<void> {
     if (this.isGenerating) return;
@@ -163,7 +166,6 @@ export class PageState {
       await this.scrollToBottom("auto");
     }
   }
-
   /** Discovers streaming text models for one provider and resolves a stable selection. */
   async refreshModels(providerId: ProviderId | "" = this.selectedProviderId): Promise<void> {
     if (!isTauri()) return;
@@ -182,6 +184,7 @@ export class PageState {
       const currentSelectionAvailable = this.models.some((model) => modelKey(model) === this.selectedModelKey);
       if (!currentSelectionAvailable) this.selectedModelKey = resolved.selectedModelKey;
       if (!this.memoryAvailable) this.memory.disable();
+      if (!this.webAvailable) this.web.disable();
       this.providerStatus = this.models.length > 0 ? "available" : "offline";
       if (this.models.length === 0) {
         this.providerError = {
@@ -199,10 +202,10 @@ export class PageState {
       this.providerError = providerErrorFromUnknown(error);
     }
   }
-
   /** Switches provider and refreshes only that provider's model list. */
   async changeProvider(providerId: ProviderId): Promise<void> {
     this.memory.disable();
+    this.web.disable();
     this.selectedProviderId = providerId;
     this.models = [];
     this.selectedModelKey = "";
@@ -213,12 +216,8 @@ export class PageState {
   async changeModel(selectedModelKey: string): Promise<void> {
     this.selectedModelKey = selectedModelKey;
     if (!this.memoryAvailable) this.memory.disable();
+    if (!this.webAvailable) this.web.disable();
     await this.rememberCurrentSelection();
-  }
-
-  /** Toggles explicit native memory-tool availability for the next compatible provider request. */
-  toggleMemory(): void {
-    this.memory.toggle(this.memoryAvailable, this.isGenerating);
   }
 
   /** Applies saved provider settings and rediscovers models. */
@@ -372,6 +371,7 @@ export class PageState {
           modelId: model!.modelId,
           messages: requestMessages,
           memoryEnabled: this.memory.enabled,
+          webEnabled: this.web.enabled,
           settings: { reasoningEffort: this.reasoningEffort },
         },
         runContext,

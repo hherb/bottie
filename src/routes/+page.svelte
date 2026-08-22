@@ -112,6 +112,7 @@
         reasoningEffort={state.reasoningEffort}
         showContext={state.showContext}
         isLocalRoute={state.isLocalRoute}
+        webEnabled={state.web.enabled}
         canExport={Boolean(state.history.activeConversationId)}
         canBatchExport={canBatchExportConversations(state.history.conversations)}
         canBackup={state.runtime.version !== "preview"}
@@ -145,7 +146,12 @@
         providerError={state.providerError}
         selectedModel={state.selectedModel}
         activeStage={state.activeStage}
-        inferenceStages={inferenceStages(state.isLocalRoute, state.selectedModel?.providerName, state.reasoningEffort)}
+        inferenceStages={inferenceStages(
+          state.isLocalRoute,
+          state.web.enabled,
+          state.selectedModel?.providerName,
+          state.reasoningEffort,
+        )}
         isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
         canGenerate={state.canSend && state.conversationAttachmentsCanSubmit}
         branches={state.history.branches}
@@ -173,6 +179,8 @@
         providerStatus={state.providerStatus}
         memoryAvailable={state.memoryAvailable}
         memoryEnabled={state.memory.enabled}
+        webAvailable={state.webAvailable}
+        webEnabled={state.web.enabled}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.resizeComposer()}
         onkeydown={(event) => state.handleComposerKeydown(event)}
@@ -180,7 +188,8 @@
         onadd={() => void state.attachment.openPicker()}
         onfiles={(event) => state.attachment.addBrowserFiles(event)}
         onremove={(id) => state.attachment.remove(id)}
-        ontogglememory={() => state.toggleMemory()}
+        ontogglememory={() => state.memory.toggle(state.memoryAvailable, state.isGenerating)}
+        ontoggleweb={() => state.web.toggle(state.webAvailable, state.isGenerating)}
         oncomposerready={(element) => state.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />
@@ -196,6 +205,7 @@
       selectedProviderEndpoint={selectedProviderEndpoint(state.selectedProviderId, state.providerSettings)}
       providerStatus={state.providerStatus}
       isLocalRoute={state.isLocalRoute}
+      webEnabled={state.web.enabled}
       isAddingAttachments={state.attachment.isIngesting}
       attachmentFeedback={state.attachment.feedback}
       attachmentFailed={state.attachment.failed}
