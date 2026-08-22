@@ -307,5 +307,9 @@ shared elsewhere remain; newly unreferenced originals, extraction text, and deri
 cross-process safety window before startup garbage collection removes them. Existing exports, manual backups, and
 automatic recovery snapshots are not rewritten and must be managed separately. The application-owned embedding-model
 cache is not conversation data and is retained. oMLX mapping, automatic prompt injection, document opening,
-time-based retention, web tools, and attachment retry remain unavailable; Settings exposes only path-free progress and
-the derived-only reindex control.
+web tools, and attachment retry remain unavailable. Settings also exposes opt-in Trash retention: keep until manual
+forget (the default), 30 days, 90 days, or one year from the time a conversation enters Trash. Rust stores only that
+bounded period and permanently removes expired Trash on the next healthy app launch through the same live-store
+cascades as explicit forget. Active and Archived conversations are never affected. Unshared attachments retain the
+existing 24-hour safety window; exports, backup snapshots, and the application-owned embedding-model cache are not
+rewritten or deleted by retention.

@@ -35,7 +35,8 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE conversation_memory_preferences;
+            "DROP TABLE conversation_retention_policies;
+             DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;
              DROP TABLE attachment_text_indexing;
              DROP TABLE attachment_image_normalizations;
@@ -68,7 +69,7 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
             .status()
             .expect("status should load")
             .schema_version,
-        19
+        20
     );
     assert_eq!(table_count, 1);
 }
@@ -80,7 +81,8 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE conversation_memory_preferences;
+            "DROP TABLE conversation_retention_policies;
+             DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;
              DROP TABLE attachment_text_indexing;
              DROP TABLE attachment_image_normalizations;
@@ -112,7 +114,7 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
             .status()
             .expect("status should load")
             .schema_version,
-        19
+        20
     );
     assert_eq!(table_count, 1);
 }
@@ -125,7 +127,8 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE conversation_memory_preferences;
+            "DROP TABLE conversation_retention_policies;
+             DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;
              DROP TABLE attachment_text_indexing;
              DROP TABLE attachment_image_normalizations;
@@ -153,7 +156,7 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
             .status()
             .expect("status should load")
             .schema_version,
-        19
+        20
     );
     assert_eq!(stored.extraction.state, AttachmentExtractionState::Ready);
     assert_eq!(
@@ -176,7 +179,8 @@ fn upgrades_version_fourteen_stores_with_empty_conversation_scope() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE conversation_memory_preferences;
+            "DROP TABLE conversation_retention_policies;
+             DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;",
         )
         .expect("conversation attachment table should be removable");
@@ -206,7 +210,7 @@ fn upgrades_version_fourteen_stores_with_empty_conversation_scope() {
             .status()
             .expect("status should load")
             .schema_version,
-        19
+        20
     );
     assert_eq!(table_count, 1);
 }

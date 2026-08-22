@@ -159,7 +159,7 @@ Raw local filesystem paths must never be forwarded to a provider.
 
 Outcome: models can retrieve relevant past conversations with visible provenance and user control.
 
-Status: in progress
+Status: complete
 
 ### Search foundation
 
@@ -190,7 +190,8 @@ Status: in progress
 - [x] visible and removable memory citations in the context panel;
 - [x] reversible per-conversation exclude-from-memory control enforced across native indexes and memory tools;
 - [x] explicit per-conversation forget from Trash with documented source, derived-data, attachment, and backup policy;
-- [ ] time-based retention controls (explicit derived-only reindex is complete).
+- [x] opt-in 30-day, 90-day, or one-year Trash retention with manual retention as the default and healthy-startup
+  enforcement through the explicit-forget data policy (explicit derived-only reindex is complete).
 
 Do not silently inject arbitrary long-term memories into every prompt. Recent conversation context may be automatic; long-term recall should be explicit and inspectable.
 

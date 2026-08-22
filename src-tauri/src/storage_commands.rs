@@ -7,9 +7,10 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use crate::{
     AppState,
     storage::{
-        ConversationSearchResult, ConversationSummary, ForkedConversation, MessageState,
-        NewStoredMessage, ResponseRating, SemanticIndexProgress, StorageError,
-        StorageRecoveryStatus, StoredAttachment, StoredConversation, StoredMessage, StoredRole,
+        ConversationRetentionPeriod, ConversationRetentionPolicy, ConversationSearchResult,
+        ConversationSummary, ForkedConversation, MessageState, NewStoredMessage, ResponseRating,
+        SemanticIndexProgress, StorageError, StorageRecoveryStatus, StoredAttachment,
+        StoredConversation, StoredMessage, StoredRole,
     },
 };
 
@@ -81,6 +82,25 @@ pub(crate) fn get_semantic_index_progress(
     state: State<'_, AppState>,
 ) -> Result<SemanticIndexProgress, StorageError> {
     state.conversations.semantic_index_progress()
+}
+
+#[tauri::command]
+/// Returns the built-in local profile's durable Trash retention policy.
+pub(crate) fn get_conversation_retention_policy(
+    state: State<'_, AppState>,
+) -> Result<ConversationRetentionPolicy, StorageError> {
+    state.conversations.conversation_retention_policy()
+}
+
+#[tauri::command]
+/// Saves one bounded Trash retention period for enforcement on a later healthy startup.
+pub(crate) fn set_conversation_retention_period(
+    period: ConversationRetentionPeriod,
+    state: State<'_, AppState>,
+) -> Result<ConversationRetentionPolicy, StorageError> {
+    state
+        .conversations
+        .set_conversation_retention_period(period)
 }
 
 #[tauri::command]

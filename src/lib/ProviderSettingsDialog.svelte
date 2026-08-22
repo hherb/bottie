@@ -3,6 +3,7 @@
 
   import Icon from "$lib/Icon.svelte";
   import MemoryIndexControl from "$lib/MemoryIndexControl.svelte";
+  import ConversationRetentionControl from "$lib/ConversationRetentionControl.svelte";
   import { DEFAULT_PROVIDER_SETTINGS } from "$lib/presentation";
   import {
     getDiagnostics,
@@ -263,6 +264,8 @@
       </div>
 
       <MemoryIndexControl disabled={isGenerating || settingsSaving} />
+
+      <ConversationRetentionControl disabled={isGenerating || settingsSaving} />
 
       <section class="diagnostics" aria-label="Recent native diagnostics">
         <div class="diagnostics-heading">

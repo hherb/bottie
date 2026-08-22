@@ -52,6 +52,8 @@ mod portable_backup;
 mod portable_export;
 mod ratings;
 mod recovery;
+mod retention;
+mod retention_migration;
 mod runs;
 mod search;
 mod selection;
@@ -89,6 +91,7 @@ use message_content::{insert_blocks, load_blocks};
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use portable_export::ConversationFileExport;
 pub(crate) use recovery::StorageRecoveryStatus;
+pub(crate) use retention::{ConversationRetentionPeriod, ConversationRetentionPolicy};
 pub(crate) use tools::{NewToolInvocation, NewToolResult};
 pub(crate) use types::{
     ConversationBranch, ConversationLifecycle, ConversationSearchResult, ConversationSummary,
@@ -97,7 +100,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 19;
+const CURRENT_SCHEMA_VERSION: i64 = 20;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -465,6 +468,8 @@ mod portable_export_tests;
 mod rating_tests;
 #[cfg(test)]
 mod recovery_tests;
+#[cfg(test)]
+mod retention_tests;
 #[cfg(test)]
 mod run_tests;
 #[cfg(test)]
