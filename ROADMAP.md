@@ -182,6 +182,7 @@ Status: in progress
 - [x] `open_memory` for bounded surrounding final turns on the matched message's immutable branch lineage;
 - [x] `search_attached_files` for indexed document chunks with bounded path-free file provenance;
 - [x] structured `search_memory` results with conversation/message identifiers and optional exact chunk offsets;
+- [x] provider-independent definitions and strict closed argument schemas for the three native memory tools;
 - [ ] provider tool-loop integration plus visible and removable memory citations in the context panel;
 - [ ] exclude-from-memory, forget, and retention controls (explicit derived-only reindex is complete).
 
@@ -193,8 +194,9 @@ Outcome: bottie can use host-managed tools consistently across providers.
 
 ### Tool orchestration
 
-- provider-independent tool definitions and execution loop;
-- JSON-schema argument validation;
+- [x] provider-independent definitions for the native memory tool set;
+- provider-independent execution loop;
+- [x] strict JSON-schema argument validation for the native memory tool set;
 - recursion, call-count, output-size, and timeout limits;
 - cancellation propagation;
 - safe versus approval-required tool policy;

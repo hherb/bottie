@@ -229,9 +229,11 @@ controls are now explicit in Settings: the WebView receives only durable state, 
 failure category. Reindexing serializes with restore, pauses the worker, atomically removes only derived vectors,
 retains chunks and the application-owned model cache, then resumes bounded background work. Native-only
 `search_memory`, `open_memory`, and `search_attached_files` contracts provide bounded message excerpts, surrounding
-final turns, and ready-document excerpts with path-free provenance for a future tool runtime. Executable tools and
-retrieval injection remain unimplemented, and no query, fused result, chunk, vector, source identity, cache path, or
-model failure detail crosses IPC.
+final turns, and ready-document excerpts with path-free provenance for a future tool runtime. One provider-independent
+definition set now advertises closed JSON schemas for those three tools and strictly validates raw names and arguments
+into their typed native contracts. Executable dispatch, provider mapping, tool loops, and retrieval injection remain
+unimplemented, and no query, fused result, chunk, vector, source identity, cache path, or model failure detail crosses
+IPC.
 
 Run the layout-only browser preview:
 
@@ -270,6 +272,8 @@ message provenance for a future tool runtime. A matching native-only `open_memor
 into the matched message's immutable branch lineage, returning at most three final text turns on either side without
 changing the selected branch. Native-only `search_attached_files` applies the same bounded hybrid policy to ready
 extracted documents that retain an active or Archived association, returning safe file metadata and optional exact
-chunk offsets without paths, hashes, scores, or full extracted text. Provider invocation, automatic prompt injection,
-document opening, and memory citations remain unavailable; Settings exposes only path-free progress and the
-derived-only reindex control.
+chunk offsets without paths, hashes, scores, or full extracted text. Provider-independent definitions expose only
+those three tools through closed schemas: required and optional fields, JSON types, Unicode-scalar identity/query
+ceilings, result/window bounds, and unknown-field rejection are enforced before typed dispatch. Provider invocation,
+executable dispatch, automatic prompt injection, document opening, and memory citations remain unavailable; Settings
+exposes only path-free progress and the derived-only reindex control.
