@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{
     generation_usage::merge_usage,
-    generation_web_tools::{NativeWebSearchExecutor, dispatch_native_tool},
+    generation_web_tools::{NativeWebFetchExecutor, NativeWebSearchExecutor, dispatch_native_tool},
     inference::{
         AnthropicProvider, AnthropicToolCall, AnthropicToolResult, AnthropicToolSession,
         ChatRequest, OllamaProvider, OllamaToolCall, OllamaToolResult, OllamaToolSession,
@@ -41,6 +41,7 @@ pub(crate) async fn stream_native_tools(
     query_embedder: SemanticQueryEmbedder,
     cancellation: ToolLoopCancellation,
     web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
+    web_fetch: Option<Arc<dyn NativeWebFetchExecutor>>,
 ) -> Result<Option<Usage>, ProviderError> {
     match provider {
         RoutedProvider::Ollama(provider) => {
@@ -53,6 +54,7 @@ pub(crate) async fn stream_native_tools(
                 query_embedder,
                 cancellation,
                 web_search,
+                web_fetch,
             )
             .await
         }
@@ -156,6 +158,7 @@ pub(crate) async fn stream_ollama_tools(
     query_embedder: SemanticQueryEmbedder,
     cancellation: ToolLoopCancellation,
     web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
+    web_fetch: Option<Arc<dyn NativeWebFetchExecutor>>,
 ) -> Result<Option<Usage>, ProviderError> {
     let memory_enabled = request.memory_enabled;
     let mut session = OllamaToolSession::new(request)?;
@@ -181,6 +184,7 @@ pub(crate) async fn stream_ollama_tools(
         let mut round_embedder = query_embedder.clone();
         let round_cancellation = cancellation.clone();
         let round_web_search = web_search.clone();
+        let round_web_fetch = web_fetch.clone();
         let (returned_state, results) = tauri::async_runtime::spawn_blocking(move || {
             let results = execute_ollama_tool_round(
                 &round_store,
@@ -191,6 +195,7 @@ pub(crate) async fn stream_ollama_tools(
                 &round_cancellation,
                 memory_enabled,
                 round_web_search.as_ref().map(Arc::as_ref),
+                round_web_fetch.as_ref().map(Arc::as_ref),
             );
             (state, results)
         })
@@ -213,6 +218,7 @@ pub(crate) fn execute_ollama_tool_round(
     cancellation: &ToolLoopCancellation,
     memory_enabled: bool,
     web_search: Option<&dyn NativeWebSearchExecutor>,
+    web_fetch: Option<&dyn NativeWebFetchExecutor>,
 ) -> Result<Vec<OllamaToolResult>, ProviderError> {
     let tool_names = calls
         .iter()
@@ -239,6 +245,7 @@ pub(crate) fn execute_ollama_tool_round(
                     call,
                     memory_enabled,
                     web_search,
+                    web_fetch,
                 )
             },
         )
@@ -288,6 +295,7 @@ pub(crate) fn execute_openai_tool_round(
                     call,
                     memory_enabled,
                     web_search,
+                    None,
                 )
             },
         )
@@ -313,6 +321,7 @@ fn execute_and_checkpoint(
     call: &NativeToolCall,
     memory_enabled: bool,
     web_search: Option<&dyn NativeWebSearchExecutor>,
+    web_fetch: Option<&dyn NativeWebFetchExecutor>,
 ) -> Result<MemoryToolExecution, StorageError> {
     let audit_policy = match tool_execution_policy(&call.tool_name) {
         Some(ToolExecutionPolicy::Safe) => ToolAuditPolicy::Safe,
@@ -327,7 +336,8 @@ fn execute_and_checkpoint(
         audit_policy,
     })?;
     let started = std::time::Instant::now();
-    let execution = dispatch_native_tool(store, embedder, call, memory_enabled, web_search);
+    let execution =
+        dispatch_native_tool(store, embedder, call, memory_enabled, web_search, web_fetch);
     let audit_outcome = audit_outcome(&execution);
     let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let output = serde_json::to_value(&execution).map_err(|_| StorageError::internal())?;

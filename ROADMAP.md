@@ -226,7 +226,8 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] explicit Anthropic Messages definition/call/result mapping and generation-loop integration for `web_search`;
 - [x] provider-independent `web_fetch` contract and native public-network client/dispatcher with explicit redirects,
   DNS/address pinning, size limits, UTF-8 content-type checks, and one shared timeout;
-- explicit Ollama, OpenAI-compatible, and Anthropic-compatible generation-loop mapping for `web_fetch`;
+- [x] explicit Ollama generation-loop mapping for `web_fetch`;
+- explicit OpenAI-compatible and Anthropic-compatible generation-loop mapping for `web_fetch`;
 - extraction to inert text with source URL, title, and publication metadata;
 - citations connected to claims and retained with the conversation;
 - prompt-injection labeling for untrusted retrieved content;

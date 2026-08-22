@@ -91,6 +91,7 @@ pub(crate) fn execute_anthropic_tool_round(
                     call,
                     memory_enabled,
                     web_search,
+                    None,
                 )
             },
         )

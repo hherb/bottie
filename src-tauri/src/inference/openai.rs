@@ -413,7 +413,7 @@ mod tests {
     }
 
     #[test]
-    fn request_maps_web_search_after_memory_only_when_explicitly_enabled() {
+    fn request_maps_only_web_search_after_memory_when_explicitly_enabled() {
         let mut request: ChatRequest = serde_json::from_value(serde_json::json!({
             "providerId": "openai",
             "modelId": "gpt-example",
@@ -427,6 +427,11 @@ mod tests {
 
         assert_eq!(body["tools"].as_array().map(Vec::len), Some(4));
         assert_eq!(body["tools"][3]["function"]["name"], "web_search");
+        assert!(body["tools"].as_array().is_some_and(|tools| {
+            tools
+                .iter()
+                .all(|tool| tool["function"]["name"] != "web_fetch")
+        }));
         assert_eq!(
             body["tools"][3]["function"]["parameters"]["additionalProperties"],
             false

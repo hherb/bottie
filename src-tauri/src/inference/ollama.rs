@@ -13,7 +13,9 @@ use self::protocol::{
     NdjsonDecoder, OllamaChatRequest, OllamaErrorResponse, OllamaShowRequest, OllamaShowResponse,
     decode_model_list, decode_running_models, decode_stream_line, model_info, normalize_usage,
 };
-use crate::tool_contract::{memory_tool_definitions, web_search_tool_definition};
+use crate::tool_contract::{
+    memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
+};
 
 mod protocol;
 
@@ -36,6 +38,7 @@ impl OllamaToolSession {
             .collect::<Vec<_>>();
         if request.web_enabled {
             definitions.push(web_search_tool_definition());
+            definitions.push(web_fetch_tool_definition());
         }
         Ok(Self {
             request: OllamaChatRequest::with_tools(request, definitions),

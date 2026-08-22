@@ -1,4 +1,4 @@
-//! Generation-only web-search selection and dispatch behind the native credential boundary.
+//! Generation-only Web tool selection and dispatch behind native trust boundaries.
 
 use std::sync::Arc;
 
@@ -7,10 +7,12 @@ use crate::{
     inference::ProviderError,
     storage::{ConversationStore, SemanticEmbedder},
     tool_dispatch::{
-        MemoryToolExecution, dispatch_memory_tool, dispatch_web_search_tool, policy_error,
+        MemoryToolExecution, dispatch_memory_tool, dispatch_web_fetch_tool,
+        dispatch_web_search_tool, policy_error,
     },
     tool_loop::NativeToolCall,
     tool_policy::{ToolPolicyError, ToolPolicyErrorCode},
+    web_fetch::{NativeWebFetch, WEB_FETCH_TOOL_NAME},
     web_search::{
         BRAVE_SEARCH_PROVIDER_ID, BraveSearchProvider, EXA_SEARCH_PROVIDER_ID, ExaSearchProvider,
         WEB_SEARCH_TOOL_NAME,
@@ -74,6 +76,11 @@ pub(crate) fn configured_web_search(
     })
 }
 
+/// Constructs the credential-free public-network fetcher for an explicitly mapped request.
+pub(crate) fn configured_web_fetch() -> Arc<dyn NativeWebFetchExecutor> {
+    Arc::new(NativeWebFetch::new())
+}
+
 /// Returns the user action for a missing selected search credential.
 fn missing_credential_message(provider_id: &str) -> &'static str {
     match provider_id {
@@ -100,6 +107,18 @@ impl NativeWebSearchExecutor for ExaSearchProvider {
     }
 }
 
+/// Synchronous generation-loop boundary implemented by the asynchronous native fetcher.
+pub(crate) trait NativeWebFetchExecutor: Send + Sync {
+    /// Executes one already-correlated raw call through the strict native web-fetch dispatcher.
+    fn execute(&self, call: &NativeToolCall) -> MemoryToolExecution;
+}
+
+impl NativeWebFetchExecutor for NativeWebFetch {
+    fn execute(&self, call: &NativeToolCall) -> MemoryToolExecution {
+        tauri::async_runtime::block_on(dispatch_web_fetch_tool(self, call, None))
+    }
+}
+
 /// Selects the web or memory dispatcher without giving providers a generic native execution path.
 pub(crate) fn dispatch_native_tool(
     store: &ConversationStore,
@@ -107,10 +126,17 @@ pub(crate) fn dispatch_native_tool(
     call: &NativeToolCall,
     memory_enabled: bool,
     web_search: Option<&dyn NativeWebSearchExecutor>,
+    web_fetch: Option<&dyn NativeWebFetchExecutor>,
 ) -> MemoryToolExecution {
     if call.tool_name == WEB_SEARCH_TOOL_NAME {
         if let Some(web_search) = web_search {
             return web_search.execute(call);
+        }
+        return disabled_tool_error();
+    }
+    if call.tool_name == WEB_FETCH_TOOL_NAME {
+        if let Some(web_fetch) = web_fetch {
+            return web_fetch.execute(call);
         }
         return disabled_tool_error();
     }
