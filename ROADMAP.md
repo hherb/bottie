@@ -197,10 +197,12 @@ Outcome: bottie can use host-managed tools consistently across providers.
 
 - [x] provider-independent definitions for the native memory tool set;
 - [x] provider-neutral single-call execution dispatcher with a 64 KiB serialized output ceiling;
-- provider-independent multi-call execution loop;
+- [x] provider-independent multi-call execution state machine;
 - [x] strict JSON-schema argument validation for the native memory tool set;
-- recursion, call-count, aggregate-output, and timeout limits;
-- cancellation propagation;
+- [x] recursion, call-count, aggregate-output, and overall-deadline limits;
+- [x] provider-neutral cancellation signal with checks before and after every native call;
+- provider adapter definition/call/result mapping and generation-loop wiring;
+- active-generation cancellation propagation through provider and tool work;
 - safe versus approval-required tool policy;
 - structured audit records and expandable activity UI;
 - protection against malformed or unsupported tool calls.

@@ -110,10 +110,14 @@ blank or overlong strings, contradictory date ranges, and out-of-range result/wi
 arguments in errors. A provider-neutral native dispatcher now validates and executes those three contracts through one
 structured success/error envelope. Successful envelopes have a 64 KiB serialized ceiling; failures use stable
 `unsupported_tool`, `invalid_arguments`, `unavailable`, `execution_failed`, or `output_too_large` categories without
-forwarding query, argument, embedding, storage, or path details. The next bounded implementation slice is a
-provider-neutral tool-loop policy and state machine with explicit call-count, recursion, timeout, and cancellation
-bounds; do not bundle provider adapter mapping, automatic retrieval injection, memory-card replacement, model-cache
-deletion, broad retention controls, document opening, or attachment retry controls.
+forwarding query, argument, embedding, storage, or path details. A provider-neutral native state machine now executes
+repeated batches through that dispatcher while correlating opaque call identities. One generation is bounded to eight
+calls, four tool rounds, 256 KiB of aggregate serialized output, and 30 seconds; cancellation and deadline checks run
+before and after every native call, and every exceptional outcome closes the loop. The next bounded implementation
+slice is Ollama definition/call/result wire mapping plus generation-loop wiring through this existing state machine and
+durable tool records; do not bundle OpenAI-shaped or Anthropic-shaped mapping, automatic retrieval injection,
+memory-card replacement, model-cache deletion, broad retention controls, document opening, or attachment retry
+controls.
 
 Read these files first:
 
@@ -127,7 +131,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/memory-tool-dispatcher`.
+branch `codex/provider-neutral-tool-loop`.
 
 ## Current implementation
 
@@ -243,6 +247,8 @@ ready-document results over hybrid retrieval,
 name/argument validation, and conversion into exact typed native arguments without executing them,
 `src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of those typed memory tools plus the bounded common
 success/error envelope without provider mapping or loop policy,
+`src-tauri/src/tool_loop.rs` owns provider-neutral multi-call correlation, recursion/call/output/deadline policy, and
+shared cancellation checks without provider wire mapping or generation integration,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker,
@@ -353,8 +359,9 @@ Do not mistake visual fixtures for implemented backend behavior:
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- the native lexical, semantic KNN, fused search, and provenance-opening contracts have a Rust-only single-call
-  dispatcher but no provider tool loop, IPC, citation, context-panel, or provider-injection consumer yet;
+- the native lexical, semantic KNN, fused search, and provenance-opening contracts have a Rust-only dispatcher plus a
+  bounded multi-round state machine, but no provider mapping, generation-loop, IPC, citation, context-panel, or
+  provider-injection consumer yet;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
   pure presentation and Markdown-policy helpers have frontend unit coverage.
@@ -394,7 +401,56 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Provider-neutral memory tool dispatcher
+## Most recently completed product slice: Provider-neutral bounded tool-loop state machine
+
+### Goal
+
+Execute repeated provider-neutral native memory-tool batches through the existing strict dispatcher while enforcing
+one shared call-count, recursion, aggregate-output, deadline, cancellation, and terminal-state policy, without adding
+provider wire mapping, generation integration, automatic retrieval injection, UI/IPC exposure, or a schema migration.
+
+### Implemented shape
+
+1. `ToolLoopState` accepts ordered batches of provider-neutral `NativeToolCall` values, preserves each opaque call
+   identity on its correlated `NativeToolResult`, and routes the raw name/arguments through the existing strict
+   dispatcher. One state instance spans every provider-to-tool recursion round in a future generation.
+2. One loop accepts at most eight total calls and four non-empty tool rounds. A round that would exceed either ceiling
+   fails before any call in that round executes; completed, cancelled, timed-out, and policy-failed state never reopens.
+3. Complete correlated result serialization is accumulated under a 256 KiB generation-wide ceiling in addition to
+   the dispatcher's existing 64 KiB per-result ceiling. The result that would exceed the aggregate limit is not
+   returned to the future provider adapter, and later calls do not execute.
+4. One 30-second deadline covers the state-machine lifetime. A cloneable native cancellation signal and the deadline
+   are checked before and after every dispatcher call and before normal completion, so cancellation or expiry prevents
+   subsequent tool work and becomes terminal.
+5. Loop failures use fixed redacted `call_limit_exceeded`, `recursion_limit_exceeded`,
+   `aggregate_output_exceeded`, `timed_out`, `cancelled`, or `invalid_state` categories. Provider-controlled names,
+   arguments, identities, queries, outputs, embedding details, storage failures, and paths are never reflected.
+
+### Acceptance criteria
+
+- Repeated calls execute in order through the existing validated dispatcher and retain exact opaque call correlation.
+- Total calls, recursion rounds, aggregate correlated output, and overall elapsed time have named native ceilings.
+- Cancellation and deadline checks occur on both sides of every native call and before completion; any exceptional
+  terminal state rejects later work.
+- Calls or rounds rejected by a pre-execution limit perform no dispatcher, storage, or embedding work.
+- No provider adapter mapping, generation-loop entry point, Tauri command, WebView state, persistence/schema change,
+  automatic retrieval injection, citation UI, document opening, retention control, or attachment retry is added.
+
+### Verification completed
+
+Focused TDD first failed because the `tool_loop` module did not exist. Six native tests now cover two real dispatcher
+rounds, exact call/result correlation, call and recursion ceilings before excess execution, aggregate serialization,
+deadline and cancellation boundaries, normal completion, and terminal-state closure. The full verification results and
+native smoke evidence for this slice are recorded in the pull request handoff. Prettier, `svelte-check`, all 58
+frontend tests, the production build, Cargo formatting, Cargo check, and all 209 non-live Rust tests pass; four opt-in
+live-provider checks remain intentionally ignored because this slice changes no provider request or stream protocol.
+The host-native development command built, signed, and kept Bottie running while immutable read-only inspection of the
+unchanged schema-18 live store reported `quick_check=ok`, ready semantic progress at 84/84 chunks, and no running
+provider records. The development runner was then stopped and port 1420 had no listener. This slice has no UI, IPC,
+provider request, migration, or live generation-loop entry point, so no interactive tool behavior or layout change is
+claimed.
+
+## Prior completed product slice: Provider-neutral memory tool dispatcher
 
 ### Goal
 
