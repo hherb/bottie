@@ -25,6 +25,12 @@ use crate::{
     tool_policy::{ToolExecutionPolicy, tool_execution_policy},
 };
 
+mod anthropic;
+
+#[cfg(test)]
+pub(crate) use anthropic::execute_anthropic_tool_round;
+pub(crate) use anthropic::stream_anthropic_tools;
+
 /// Routes one explicitly enabled generation into its provider-native tool loop.
 pub(crate) async fn stream_native_tools(
     provider: RoutedProvider,
@@ -64,7 +70,7 @@ pub(crate) async fn stream_native_tools(
             .await
         }
         RoutedProvider::Anthropic(provider) => {
-            stream_anthropic_memory_tools(
+            stream_anthropic_tools(
                 provider,
                 request,
                 sink,
@@ -72,6 +78,7 @@ pub(crate) async fn stream_native_tools(
                 provider_run_id,
                 query_embedder,
                 cancellation,
+                web_search,
             )
             .await
         }
@@ -79,58 +86,6 @@ pub(crate) async fn stream_native_tools(
             "The selected provider does not map Bottie's native tools.",
             None,
         )),
-    }
-}
-
-/// Runs repeated Anthropic Messages tool rounds through shared durable loop policy.
-pub(crate) async fn stream_anthropic_memory_tools(
-    provider: AnthropicProvider,
-    request: ChatRequest,
-    sink: impl StreamSink + Clone + Send + Sync + 'static,
-    store: ConversationStore,
-    provider_run_id: String,
-    query_embedder: SemanticQueryEmbedder,
-    cancellation: ToolLoopCancellation,
-) -> Result<Option<Usage>, ProviderError> {
-    let mut session = AnthropicToolSession::new(request)?;
-    let mut loop_state: Option<ToolLoopState> = None;
-    let mut cumulative_usage = None;
-    loop {
-        let round = provider.stream_tool_round(&session, sink.clone()).await?;
-        cumulative_usage = merge_usage(cumulative_usage, round.usage.clone());
-        if let Some(usage) = &cumulative_usage {
-            sink.usage_updated(usage.clone())?;
-        }
-        if round.tool_calls.is_empty() {
-            if let Some(state) = &mut loop_state {
-                state.complete(&cancellation).map_err(tool_loop_error)?;
-            }
-            return Ok(cumulative_usage);
-        }
-
-        let mut state = loop_state.unwrap_or_else(|| ToolLoopState::new(std::time::Instant::now()));
-        let calls = round.tool_calls.clone();
-        let round_store = store.clone();
-        let round_run_id = provider_run_id.clone();
-        let mut round_embedder = query_embedder.clone();
-        let round_cancellation = cancellation.clone();
-        let (returned_state, results) = tauri::async_runtime::spawn_blocking(move || {
-            let results = execute_anthropic_memory_round(
-                &round_store,
-                &round_run_id,
-                &mut round_embedder,
-                &mut state,
-                calls,
-                &round_cancellation,
-            );
-            (state, results)
-        })
-        .await
-        .map_err(|_| {
-            ProviderError::internal("The native memory-tool worker stopped unexpectedly.", None)
-        })?;
-        loop_state = Some(returned_state);
-        session.append_results(round, results?)?;
     }
 }
 
@@ -345,46 +300,6 @@ pub(crate) fn execute_openai_tool_round(
             Ok(OpenAiToolResult {
                 tool_call_id: result.call_id,
                 content,
-            })
-        })
-        .collect()
-}
-
-/// Executes one Anthropic-emitted call batch while preserving provider identities exactly.
-pub(crate) fn execute_anthropic_memory_round(
-    store: &ConversationStore,
-    provider_run_id: &str,
-    embedder: &mut impl SemanticEmbedder,
-    state: &mut ToolLoopState,
-    calls: Vec<AnthropicToolCall>,
-    cancellation: &ToolLoopCancellation,
-) -> Result<Vec<AnthropicToolResult>, ProviderError> {
-    let native_calls = calls
-        .into_iter()
-        .map(|call| NativeToolCall {
-            call_id: call.call_id().to_owned(),
-            tool_name: call.tool_name().to_owned(),
-            arguments: call.arguments().clone(),
-        })
-        .collect();
-    state
-        .execute_round_try_with(
-            native_calls,
-            cancellation,
-            std::time::Instant::now,
-            |call| execute_and_checkpoint(store, provider_run_id, embedder, call, true, None),
-        )
-        .map_err(round_error)?
-        .into_iter()
-        .map(|result| {
-            let is_error = matches!(result.execution, MemoryToolExecution::Error { .. });
-            let content = serde_json::to_string(&result.execution).map_err(|_| {
-                ProviderError::internal("The native tool result could not be serialized.", None)
-            })?;
-            Ok(AnthropicToolResult {
-                tool_use_id: result.call_id,
-                content,
-                is_error,
             })
         })
         .collect()

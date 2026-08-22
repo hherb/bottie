@@ -14,7 +14,7 @@ use super::{
         ProviderErrorCode, Usage,
     },
 };
-use crate::tool_contract::memory_tool_definitions;
+use crate::tool_contract::{memory_tool_definitions, web_search_tool_definition};
 
 use self::protocol::{
     AnthropicChatRequest, AnthropicResponseAccumulator, AnthropicToolRound, DecodedEvent,
@@ -35,11 +35,20 @@ pub(crate) struct AnthropicToolSession {
 }
 
 impl AnthropicToolSession {
-    /// Starts a session with Bottie's complete closed native memory-tool definition set.
+    /// Starts a session with exactly the closed native tools enabled for this request.
     pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
         validate_request(&request)?;
+        let mut definitions = request
+            .memory_enabled
+            .then(memory_tool_definitions)
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        if request.web_enabled {
+            definitions.push(web_search_tool_definition());
+        }
         Ok(Self {
-            request: AnthropicChatRequest::with_tools(request, memory_tool_definitions()),
+            request: AnthropicChatRequest::with_tools(request, definitions),
         })
     }
 

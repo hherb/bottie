@@ -48,7 +48,7 @@ fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
     assert!(!web_tools_enabled(false, "openai", true));
     assert!(!web_tools_enabled(true, "ollama", false));
     assert!(!web_tools_enabled(true, "openai", false));
-    assert!(!web_tools_enabled(true, "anthropic", true));
+    assert!(web_tools_enabled(true, "anthropic", true));
     assert!(!web_tools_enabled(true, "omlx", true));
 }
 

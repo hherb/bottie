@@ -26,9 +26,12 @@ export function memoryToolsAvailable(model: ModelInfo | undefined): boolean {
   );
 }
 
-/** Confirms that Bottie maps native web search for a tool-capable Ollama or OpenAI selection. */
+/** Confirms that Bottie maps native web search for the selected advertised capability. */
 export function webToolsAvailable(model: ModelInfo | undefined): boolean {
-  return Boolean(model?.capabilities.tools && (model.providerId === "ollama" || model.providerId === "openai"));
+  return Boolean(
+    model?.capabilities.tools &&
+    (model.providerId === "ollama" || model.providerId === "openai" || model.providerId === "anthropic"),
+  );
 }
 
 /** Selects the compact endpoint label for the active provider. */
