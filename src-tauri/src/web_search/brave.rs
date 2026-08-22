@@ -11,8 +11,8 @@ use serde::Deserialize;
 use url::Url;
 
 use super::{
-    MAX_WEB_SEARCH_RESULTS, WebSearchError, WebSearchProvider, WebSearchRequest, WebSearchResponse,
-    WebSearchResult,
+    MAX_WEB_SEARCH_RESULTS, WebSearchError, WebSearchFreshness, WebSearchProvider,
+    WebSearchRequest, WebSearchResponse, WebSearchResult,
 };
 
 const PROVIDER_ID: &str = "brave";
@@ -92,7 +92,7 @@ impl WebSearchProvider for BraveSearchProvider {
         }
         validate_content_type(&response)?;
         let bytes = read_bounded_body(response).await?;
-        decode_response(&bytes, request.result_limit())
+        decode_response(&bytes, &request)
     }
 }
 
@@ -123,12 +123,27 @@ fn search_endpoint(base: &Url, request: &WebSearchRequest) -> Url {
     let mut endpoint = base.clone();
     endpoint
         .query_pairs_mut()
-        .append_pair("q", request.query())
+        .append_pair("q", &request.provider_query())
         .append_pair("count", &request.result_limit().to_string())
         .append_pair("result_filter", "web")
         .append_pair("safesearch", "strict")
         .append_pair("text_decorations", "false");
+    if let Some(freshness) = request.freshness() {
+        endpoint
+            .query_pairs_mut()
+            .append_pair("freshness", brave_freshness(freshness));
+    }
     endpoint
+}
+
+/// Maps Bottie's provider-independent recency windows to Brave's fixed parameter values.
+fn brave_freshness(freshness: WebSearchFreshness) -> &'static str {
+    match freshness {
+        WebSearchFreshness::Day => "pd",
+        WebSearchFreshness::Week => "pw",
+        WebSearchFreshness::Month => "pm",
+        WebSearchFreshness::Year => "py",
+    }
 }
 
 /// Minimal response envelope required to normalize standard web results.
@@ -189,7 +204,10 @@ async fn read_bounded_body(response: Response) -> Result<Vec<u8>, WebSearchError
 }
 
 /// Decodes and bounds provider JSON while dropping unsafe result URLs.
-fn decode_response(bytes: &[u8], result_limit: usize) -> Result<WebSearchResponse, WebSearchError> {
+fn decode_response(
+    bytes: &[u8],
+    request: &WebSearchRequest,
+) -> Result<WebSearchResponse, WebSearchError> {
     let decoded: BraveSearchResponse =
         serde_json::from_slice(bytes).map_err(|_| WebSearchError::malformed_response())?;
     let results = decoded
@@ -198,7 +216,8 @@ fn decode_response(bytes: &[u8], result_limit: usize) -> Result<WebSearchRespons
         .unwrap_or_default()
         .into_iter()
         .filter_map(normalize_result)
-        .take(result_limit.min(MAX_WEB_SEARCH_RESULTS))
+        .filter(|result| request.allows_result_url(result.url()))
+        .take(request.result_limit().min(MAX_WEB_SEARCH_RESULTS))
         .collect();
     Ok(WebSearchResponse {
         provider_id: PROVIDER_ID.into(),
@@ -280,7 +299,17 @@ pub(super) fn decode_fixture_response(
     bytes: &[u8],
     result_limit: usize,
 ) -> Result<WebSearchResponse, WebSearchError> {
-    decode_response(bytes, result_limit)
+    let request = WebSearchRequest::new("fixture", result_limit)?;
+    decode_response(bytes, &request)
+}
+
+#[cfg(test)]
+/// Decodes provider JSON against one filtered request for policy fixtures.
+pub(super) fn decode_filtered_fixture_response(
+    bytes: &[u8],
+    request: &WebSearchRequest,
+) -> Result<WebSearchResponse, WebSearchError> {
+    decode_response(bytes, request)
 }
 
 #[cfg(test)]

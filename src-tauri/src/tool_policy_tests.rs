@@ -3,7 +3,7 @@
 use serde_json::json;
 
 use crate::{
-    tool_contract::memory_tool_definitions,
+    tool_contract::{memory_tool_definitions, web_search_tool_definition},
     tool_dispatch::{MemoryToolExecution, MemoryToolExecutionErrorCode, policy_error},
     tool_loop::NativeToolCall,
     tool_policy::{
@@ -34,6 +34,21 @@ fn explicitly_classifies_every_advertised_memory_tool_as_safe() {
         let authorized = authorize_tool_call(&call, None).expect("safe tool should not prompt");
         assert_eq!(authorized.call(), &call);
     }
+}
+
+#[test]
+fn classifies_the_explicit_web_search_contract_as_safe() {
+    let definition = web_search_tool_definition();
+    assert_eq!(
+        tool_execution_policy(definition.name),
+        Some(ToolExecutionPolicy::Safe)
+    );
+    let call = call(
+        "provider-call",
+        definition.name,
+        json!({"query": "current Bottie release"}),
+    );
+    assert!(authorize_tool_call(&call, None).is_ok());
 }
 
 #[test]

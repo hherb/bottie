@@ -1,14 +1,20 @@
 //! Provider-neutral native memory-tool dispatcher tests.
 
+use std::sync::{Arc, Mutex};
+
 use serde_json::{Value, json};
 
 use crate::{
     storage::{ConversationStore, MessageState, NewStoredMessage, SemanticEmbedder, StoredRole},
     tool_dispatch::{
         MAX_MEMORY_TOOL_OUTPUT_BYTES, MemoryToolExecution, MemoryToolExecutionErrorCode,
-        bounded_memory_tool_success, dispatch_memory_tool,
+        bounded_memory_tool_success, dispatch_memory_tool, dispatch_web_search_tool,
     },
     tool_loop::NativeToolCall,
+    web_search::{
+        WebSearchError, WebSearchProvider, WebSearchRequest, WebSearchResponse,
+        fixture_web_search_response,
+    },
 };
 
 /// Embedding dimensions fixed by Bottie's active EmbeddingGemma contract.
@@ -19,6 +25,26 @@ const TEST_EMBEDDING_DIMENSIONS: usize = 768;
 struct DispatchEmbedder {
     inputs: Vec<String>,
     fail: bool,
+}
+
+/// Deterministic provider-neutral web-search fixture that records validated requests.
+#[derive(Clone)]
+struct DispatchSearchProvider {
+    requests: Arc<Mutex<Vec<WebSearchRequest>>>,
+    result: Result<WebSearchResponse, WebSearchError>,
+}
+
+impl WebSearchProvider for DispatchSearchProvider {
+    /// Uses a stable fixture identity without depending on the concrete Brave adapter.
+    fn provider_id(&self) -> &'static str {
+        "fixture"
+    }
+
+    /// Records the native request and returns the configured bounded outcome.
+    async fn search(&self, request: WebSearchRequest) -> Result<WebSearchResponse, WebSearchError> {
+        self.requests.lock().unwrap().push(request);
+        self.result.clone()
+    }
 }
 
 impl SemanticEmbedder for DispatchEmbedder {
@@ -210,4 +236,78 @@ fn enforces_the_serialized_result_ceiling_before_returning_success() {
 
     let serialized = serde_json::to_vec(&execution).expect("bounded error should serialize");
     assert!(serialized.len() < MAX_MEMORY_TOOL_OUTPUT_BYTES);
+}
+
+#[test]
+fn dispatches_validated_web_search_through_the_provider_neutral_boundary() {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let provider = DispatchSearchProvider {
+        requests: requests.clone(),
+        result: Ok(fixture_web_search_response()),
+    };
+    let call = NativeToolCall {
+        call_id: "provider-call".into(),
+        tool_name: "web_search".into(),
+        arguments: json!({
+            "query": "current Rust release",
+            "freshness": "month",
+            "includeDomains": ["rust-lang.org"],
+            "limit": 3
+        }),
+    };
+
+    let execution =
+        tauri::async_runtime::block_on(dispatch_web_search_tool(&provider, &call, None));
+    let result = success_result(execution);
+    assert_eq!(result["providerId"], json!("fixture"));
+    assert_eq!(
+        result["results"][0]["url"],
+        json!("https://example.com/result")
+    );
+
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0].query(), "current Rust release");
+    assert_eq!(requests[0].result_limit(), 3);
+    assert_eq!(requests[0].include_domains(), &["rust-lang.org"]);
+    assert!(requests[0].exclude_domains().is_empty());
+}
+
+#[test]
+fn rejects_invalid_web_search_before_network_work_and_redacts_provider_failures() {
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let provider = DispatchSearchProvider {
+        requests: requests.clone(),
+        result: Err(WebSearchError {
+            code: crate::web_search::WebSearchErrorCode::Unavailable,
+            message: "provider body private query".into(),
+            retryable: true,
+        }),
+    };
+    let invalid_call = NativeToolCall {
+        call_id: "provider-call".into(),
+        tool_name: "web_search".into(),
+        arguments: json!({"query": "private query", "includeDomains": ["https://invalid"]}),
+    };
+    let invalid =
+        tauri::async_runtime::block_on(dispatch_web_search_tool(&provider, &invalid_call, None));
+    let MemoryToolExecution::Error { error } = invalid else {
+        panic!("invalid search should return an error envelope");
+    };
+    assert_eq!(error.code, MemoryToolExecutionErrorCode::InvalidArguments);
+    assert!(requests.lock().unwrap().is_empty());
+
+    let failed_call = NativeToolCall {
+        call_id: "provider-call".into(),
+        tool_name: "web_search".into(),
+        arguments: json!({"query": "private query"}),
+    };
+    let failed =
+        tauri::async_runtime::block_on(dispatch_web_search_tool(&provider, &failed_call, None));
+    let MemoryToolExecution::Error { error } = failed else {
+        panic!("provider failure should return an error envelope");
+    };
+    assert_eq!(error.code, MemoryToolExecutionErrorCode::Unavailable);
+    assert!(!error.message.contains("private"));
+    assert!(!error.message.contains("provider body"));
 }

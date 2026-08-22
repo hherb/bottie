@@ -5,6 +5,7 @@ use serde_json::Value;
 use crate::{
     storage::{OPEN_MEMORY_TOOL_NAME, SEARCH_ATTACHED_FILES_TOOL_NAME, SEARCH_MEMORY_TOOL_NAME},
     tool_loop::NativeToolCall,
+    web_search::WEB_SEARCH_TOOL_NAME,
 };
 
 /// Native user-consent requirement applied before argument validation or tool execution.
@@ -84,9 +85,10 @@ pub(crate) struct ToolPolicyError {
 /// Returns the explicit policy for one registered native tool, or none for an unknown name.
 pub(crate) fn tool_execution_policy(tool_name: &str) -> Option<ToolExecutionPolicy> {
     match tool_name {
-        SEARCH_MEMORY_TOOL_NAME | OPEN_MEMORY_TOOL_NAME | SEARCH_ATTACHED_FILES_TOOL_NAME => {
-            Some(ToolExecutionPolicy::Safe)
-        }
+        SEARCH_MEMORY_TOOL_NAME
+        | OPEN_MEMORY_TOOL_NAME
+        | SEARCH_ATTACHED_FILES_TOOL_NAME
+        | WEB_SEARCH_TOOL_NAME => Some(ToolExecutionPolicy::Safe),
         _ => None,
     }
 }

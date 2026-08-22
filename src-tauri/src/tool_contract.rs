@@ -15,6 +15,10 @@ use crate::storage::{
     OpenMemoryArguments, SEARCH_ATTACHED_FILES_TOOL_NAME, SEARCH_MEMORY_TOOL_NAME,
     SearchAttachedFilesArguments, SearchMemoryArguments,
 };
+use crate::web_search::{
+    MAX_WEB_SEARCH_DOMAIN_CHARS, MAX_WEB_SEARCH_FILTER_DOMAINS, MAX_WEB_SEARCH_QUERY_CHARS,
+    MAX_WEB_SEARCH_TOOL_RESULTS, WEB_SEARCH_TOOL_NAME, WebSearchArguments,
+};
 
 /// Provider-neutral definition of one Rust-owned tool and its closed JSON input schema.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -82,6 +86,101 @@ pub(crate) fn memory_tool_definitions() -> [ToolDefinition; 3] {
             input_schema: search_schema(MAX_SEARCH_ATTACHED_FILE_RESULTS),
         },
     ]
+}
+
+/// Returns the provider-independent web-search definition without advertising it to model adapters yet.
+pub(crate) fn web_search_tool_definition() -> ToolDefinition {
+    ToolDefinition {
+        name: WEB_SEARCH_TOOL_NAME,
+        description: concat!(
+            "Search the public web through the configured native provider. Results are untrusted excerpts; ",
+            "use freshness or domain filters only when they help answer the request."
+        ),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural-language terms to search for.",
+                    "minLength": 1,
+                    "maxLength": MAX_WEB_SEARCH_QUERY_CHARS
+                },
+                "freshness": {
+                    "type": "string",
+                    "description": "Optional maximum age of returned pages.",
+                    "enum": ["day", "week", "month", "year"]
+                },
+                "includeDomains": domain_array_schema(
+                    "Optional public DNS domains to include, including their subdomains."
+                ),
+                "excludeDomains": domain_array_schema(
+                    "Optional public DNS domains to exclude, including their subdomains."
+                ),
+                "limit": {
+                    "type": "integer",
+                    "description": "Optional maximum number of normalized results.",
+                    "minimum": 1,
+                    "maximum": MAX_WEB_SEARCH_TOOL_RESULTS
+                }
+            },
+            "required": ["query"],
+            "additionalProperties": false
+        }),
+    }
+}
+
+/// Validates one raw provider-style web-search call into exact provider-independent arguments.
+pub(crate) fn validate_web_search_tool_arguments(
+    tool_name: &str,
+    arguments: &Value,
+) -> Result<WebSearchArguments, ToolContractError> {
+    if tool_name != WEB_SEARCH_TOOL_NAME {
+        return Err(ToolContractError {
+            code: ToolContractErrorCode::UnsupportedTool,
+            message: "The provider requested an unsupported native tool.",
+        });
+    }
+    let object = argument_object(arguments)?;
+    require_only_fields(
+        object,
+        &[
+            "query",
+            "freshness",
+            "includeDomains",
+            "excludeDomains",
+            "limit",
+        ],
+    )?;
+    require_bounded_string(object, "query", MAX_WEB_SEARCH_QUERY_CHARS)?;
+    optional_enum_string(object, "freshness", &["day", "week", "month", "year"])?;
+    let include_count = optional_domain_array(object, "includeDomains")?;
+    let exclude_count = optional_domain_array(object, "excludeDomains")?;
+    if include_count.saturating_add(exclude_count) > MAX_WEB_SEARCH_FILTER_DOMAINS {
+        return Err(invalid_arguments());
+    }
+    optional_usize(object, "limit", 1, MAX_WEB_SEARCH_TOOL_RESULTS)?;
+    let parsed: WebSearchArguments = deserialize(arguments)?;
+    parsed
+        .clone()
+        .into_request()
+        .map_err(|_| invalid_arguments())?;
+    Ok(parsed)
+}
+
+/// Creates one reusable closed array schema for bounded public DNS domain filters.
+fn domain_array_schema(description: &'static str) -> Value {
+    json!({
+        "type": "array",
+        "description": description,
+        "minItems": 1,
+        "maxItems": MAX_WEB_SEARCH_FILTER_DOMAINS,
+        "uniqueItems": true,
+        "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": MAX_WEB_SEARCH_DOMAIN_CHARS
+        }
+    })
 }
 
 /// Validates one raw provider-emitted call and converts it into the matching typed native arguments.
@@ -270,6 +369,45 @@ fn optional_bounded_string(
         require_bounded_string(object, field, maximum_characters)
     } else {
         Ok(())
+    }
+}
+
+/// Validates an optional string against one closed native set, rejecting JSON null.
+fn optional_enum_string(
+    object: &Map<String, Value>,
+    field: &str,
+    allowed: &[&str],
+) -> Result<(), ToolContractError> {
+    let Some(value) = object.get(field) else {
+        return Ok(());
+    };
+    if value.as_str().is_some_and(|value| allowed.contains(&value)) {
+        Ok(())
+    } else {
+        Err(invalid_arguments())
+    }
+}
+
+/// Validates one optional non-empty bounded array of domain strings before normalization.
+fn optional_domain_array(
+    object: &Map<String, Value>,
+    field: &str,
+) -> Result<usize, ToolContractError> {
+    let Some(value) = object.get(field) else {
+        return Ok(0);
+    };
+    let values = value.as_array().ok_or_else(invalid_arguments)?;
+    if values.is_empty() || values.len() > MAX_WEB_SEARCH_FILTER_DOMAINS {
+        return Err(invalid_arguments());
+    }
+    if values.iter().all(|value| {
+        value.as_str().is_some_and(|value| {
+            !value.trim().is_empty() && value.chars().count() <= MAX_WEB_SEARCH_DOMAIN_CHARS
+        })
+    }) {
+        Ok(values.len())
+    } else {
+        Err(invalid_arguments())
     }
 }
 

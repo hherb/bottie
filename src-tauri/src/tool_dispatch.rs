@@ -1,4 +1,4 @@
-//! Provider-neutral execution and bounded result envelopes for Bottie's native memory tools.
+//! Provider-neutral execution and bounded result envelopes for Bottie's native tools.
 
 #![allow(
     dead_code,
@@ -12,16 +12,17 @@ use crate::{
     storage::{ConversationStore, SemanticEmbedder, StorageError},
     tool_contract::{
         MemoryToolArguments, ToolContractError, ToolContractErrorCode,
-        validate_memory_tool_arguments,
+        validate_memory_tool_arguments, validate_web_search_tool_arguments,
     },
     tool_loop::NativeToolCall,
     tool_policy::{ApprovedToolCall, ToolPolicyError, ToolPolicyErrorCode, authorize_tool_call},
+    web_search::{WebSearchError, WebSearchErrorCode, WebSearchProvider},
 };
 
-/// Maximum serialized size of one complete successful native memory-tool envelope.
+/// Maximum serialized size of one complete successful native tool envelope.
 pub(crate) const MAX_MEMORY_TOOL_OUTPUT_BYTES: usize = 64 * 1_024;
 
-/// Provider-neutral outcome of one validated native memory-tool execution.
+/// Provider-neutral outcome of one validated native tool execution.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum MemoryToolExecution {
     /// One bounded, path-free tool result.
@@ -59,11 +60,11 @@ impl Serialize for MemoryToolExecution {
     }
 }
 
-/// Stable provider-neutral memory-tool failure categories.
+/// Stable provider-neutral native-tool failure categories.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum MemoryToolExecutionErrorCode {
-    /// The requested name is outside Bottie's advertised native memory-tool set.
+    /// The requested name is outside Bottie's advertised native tool set.
     UnsupportedTool,
     /// Raw arguments failed the selected tool's closed native schema.
     InvalidArguments,
@@ -120,6 +121,37 @@ pub(crate) fn dispatch_memory_tool(
     }
 }
 
+/// Validates and executes one raw provider-style web-search call through a selected native provider.
+pub(crate) async fn dispatch_web_search_tool(
+    provider: &impl WebSearchProvider,
+    call: &NativeToolCall,
+    approval: Option<ApprovedToolCall>,
+) -> MemoryToolExecution {
+    let authorized = match authorize_tool_call(call, approval) {
+        Ok(authorized) => authorized,
+        Err(error) => return policy_error(error),
+    };
+    let call = authorized.call();
+    let arguments = match validate_web_search_tool_arguments(&call.tool_name, &call.arguments) {
+        Ok(arguments) => arguments,
+        Err(error) => return contract_error(error),
+    };
+    let request = match arguments.into_request() {
+        Ok(request) => request,
+        Err(error) => return web_search_error(error),
+    };
+    match provider.search(request).await {
+        Ok(response) => match serde_json::to_value(response) {
+            Ok(result) => bounded_memory_tool_success(result),
+            Err(_) => execution_error(
+                MemoryToolExecutionErrorCode::ExecutionFailed,
+                "Bottie could not serialize the native web-search result.",
+            ),
+        },
+        Err(error) => web_search_error(error),
+    }
+}
+
 /// Maps fail-closed execution-policy failures without reflecting provider-controlled call data.
 pub(crate) fn policy_error(error: ToolPolicyError) -> MemoryToolExecution {
     let code = match error.code {
@@ -134,7 +166,7 @@ fn serialized_result<T: Serialize>(result: T) -> Result<Value, StorageError> {
     serde_json::to_value(result).map_err(|_| StorageError::internal())
 }
 
-/// Enforces the common serialized envelope ceiling before returning success.
+/// Enforces the common serialized native-tool envelope ceiling before returning success.
 pub(crate) fn bounded_memory_tool_success(result: Value) -> MemoryToolExecution {
     let execution = MemoryToolExecution::Success { result };
     if serde_json::to_vec(&execution)
@@ -144,7 +176,7 @@ pub(crate) fn bounded_memory_tool_success(result: Value) -> MemoryToolExecution 
     } else {
         execution_error(
             MemoryToolExecutionErrorCode::OutputTooLarge,
-            "The native memory-tool result exceeded its output limit.",
+            "The native tool result exceeded its output limit.",
         )
     }
 }
@@ -172,6 +204,28 @@ fn storage_error(error: StorageError) -> MemoryToolExecution {
         _ => execution_error(
             MemoryToolExecutionErrorCode::ExecutionFailed,
             "Bottie could not execute the native memory tool.",
+        ),
+    }
+}
+
+/// Maps native web-search failures into the common redacted dispatcher categories.
+fn web_search_error(error: WebSearchError) -> MemoryToolExecution {
+    match error.code {
+        WebSearchErrorCode::InvalidRequest => execution_error(
+            MemoryToolExecutionErrorCode::InvalidArguments,
+            "The native web-search tool could not accept those arguments.",
+        ),
+        WebSearchErrorCode::CredentialRequired
+        | WebSearchErrorCode::CredentialRejected
+        | WebSearchErrorCode::RateLimited
+        | WebSearchErrorCode::Timeout
+        | WebSearchErrorCode::Unavailable => execution_error(
+            MemoryToolExecutionErrorCode::Unavailable,
+            "The native web-search provider is unavailable.",
+        ),
+        WebSearchErrorCode::MalformedResponse | WebSearchErrorCode::Internal => execution_error(
+            MemoryToolExecutionErrorCode::ExecutionFailed,
+            "Bottie could not execute the native web-search tool.",
         ),
     }
 }
