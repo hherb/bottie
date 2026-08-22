@@ -15,9 +15,12 @@ mod storage;
 mod storage_commands;
 mod stream_channel;
 mod tool_contract;
+mod tool_dispatch;
 
 #[cfg(test)]
 mod tool_contract_tests;
+#[cfg(test)]
+mod tool_dispatch_tests;
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
 

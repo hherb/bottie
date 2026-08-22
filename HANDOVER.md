@@ -103,14 +103,16 @@ and omits reasoning, provider details, attachments, and native paths. Provider t
 injection remain absent. A matching Rust-owned `search_attached_files` contract now applies hybrid retrieval only to
 ready extracted documents with durable active or Archived conversation/message associations. It returns bounded
 excerpts with safe file metadata and optional exact chunk offsets while omitting hashes, paths, scores, embeddings,
-full extracted text, and association internals. The next bounded implementation slice is provider-independent memory
-tool definitions plus strict argument-schema validation for `search_memory`, `open_memory`, and
-`search_attached_files`. A single native definition set now exposes only those three stable names with closed JSON
-schemas and converts raw provider-style JSON into exact typed arguments. It rejects unsupported names, non-objects,
-missing or unknown fields, JSON null/type mismatches, blank or overlong strings, contradictory date ranges, and
-out-of-range result/window counts without reflecting raw arguments in errors. The next bounded implementation slice is
-a provider-neutral memory-tool execution dispatcher with a bounded structured result/error envelope; do not bundle
-provider execution loops, adapter mapping, automatic retrieval injection, memory-card replacement, model-cache
+full extracted text, and association internals. A single native definition set now exposes only `search_memory`,
+`open_memory`, and `search_attached_files` with closed JSON schemas and converts raw provider-style JSON into exact
+typed arguments. It rejects unsupported names, non-objects, missing or unknown fields, JSON null/type mismatches,
+blank or overlong strings, contradictory date ranges, and out-of-range result/window counts without reflecting raw
+arguments in errors. A provider-neutral native dispatcher now validates and executes those three contracts through one
+structured success/error envelope. Successful envelopes have a 64 KiB serialized ceiling; failures use stable
+`unsupported_tool`, `invalid_arguments`, `unavailable`, `execution_failed`, or `output_too_large` categories without
+forwarding query, argument, embedding, storage, or path details. The next bounded implementation slice is a
+provider-neutral tool-loop policy and state machine with explicit call-count, recursion, timeout, and cancellation
+bounds; do not bundle provider adapter mapping, automatic retrieval injection, memory-card replacement, model-cache
 deletion, broad retention controls, document opening, or attachment retry controls.
 
 Read these files first:
@@ -125,7 +127,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/memory-tool-definitions`.
+branch `codex/memory-tool-dispatcher`.
 
 ## Current implementation
 
@@ -239,6 +241,8 @@ reconstruction without changing conversation selection,
 ready-document results over hybrid retrieval,
 `src-tauri/src/tool_contract.rs` owns the provider-independent memory-tool definition set, closed JSON schemas, raw
 name/argument validation, and conversion into exact typed native arguments without executing them,
+`src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of those typed memory tools plus the bounded common
+success/error envelope without provider mapping or loop policy,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker,
@@ -349,8 +353,8 @@ Do not mistake visual fixtures for implemented backend behavior:
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- the native lexical, semantic KNN, fused search, and provenance-opening contracts have no executable tool loop, IPC,
-  citation, context-panel, or provider-injection consumer yet;
+- the native lexical, semantic KNN, fused search, and provenance-opening contracts have a Rust-only single-call
+  dispatcher but no provider tool loop, IPC, citation, context-panel, or provider-injection consumer yet;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
   pure presentation and Markdown-policy helpers have frontend unit coverage.
@@ -390,7 +394,56 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Provider-independent memory tool definitions
+## Most recently completed product slice: Provider-neutral memory tool dispatcher
+
+### Goal
+
+Execute the three validated native memory-tool contracts through one bounded structured success/error envelope,
+without adding a provider execution loop, adapter mapping, automatic retrieval injection, UI/IPC exposure, a schema
+migration, or broad memory controls.
+
+### Implemented shape
+
+1. `dispatch_memory_tool` validates the raw name and JSON through the existing closed definition contract, then routes
+   the typed variant directly to `execute_search_memory`, `execute_open_memory`, or
+   `execute_search_attached_files`. Unsupported or malformed calls stop before storage or embedding work.
+2. Every successful call returns `{ "ok": true, "result": ... }`; every failure returns
+   `{ "ok": false, "error": { "code", "message" } }`. The two shapes are exclusive and provider-neutral so later
+   adapters do not need to infer success from tool-specific payloads.
+3. Complete serialized success envelopes are capped at 64 KiB. Oversized or unserializable output becomes a small
+   `output_too_large` error instead of crossing the execution boundary.
+4. Contract, unavailable-provenance, storage, and embedding failures map to stable `unsupported_tool`,
+   `invalid_arguments`, `unavailable`, `execution_failed`, or `output_too_large` categories with fixed safe messages.
+   Raw names, arguments, queries, model errors, database details, and filesystem paths are not forwarded.
+5. The dispatcher accepts Bottie's existing `SemanticEmbedder` boundary and remains Rust-only. It does not load a
+   second model, expose a Tauri command, map provider wire formats, persist tool activity, or run multiple calls.
+
+### Acceptance criteria
+
+- All three advertised names route through their exact typed native executor and retain the existing profile,
+  lifecycle, branch, association, result-count, excerpt, and provenance policies.
+- Unsupported names and invalid JSON fail before database or embedding work; unavailable provenance and execution
+  failures use distinct, redacted structured categories.
+- Successful envelopes contain only `ok` plus structured `result`; failures contain only `ok` plus structured `error`.
+  Complete success serialization cannot exceed 64 KiB.
+- No provider adapter mapping, provider execution loop, recursion/call-count/timeout/cancellation state machine,
+  prompt injection, citations UI, document opening, retention control, cache deletion, or attachment retry is added.
+
+### Verification completed
+
+Focused TDD first failed against the absent dispatcher module. Four native tests now cover successful routing for all
+three tools, exclusive common-envelope serialization, validation before storage/embedding, redacted unavailable and
+embedding failure mapping, and the serialized output ceiling. The complete Rust suite reports 203 passed with four
+opt-in live-provider checks intentionally ignored. Prettier, `svelte-check`, all 58 frontend tests, the production
+build, Cargo formatting, Cargo check, and `git diff --check` pass without warnings.
+
+The host-native development command built, signed, and started Bottie; macOS WebKit logs confirmed the page completed
+loading. While it remained active, immutable read-only inspection of the unchanged schema-18 live store reported
+`quick_check=ok`, ready semantic progress at 84/84 chunks, and no running provider records. The development runner was
+then stopped and port 1420 had no listener. This slice has no UI, IPC, provider request, migration, or provider-loop
+entry point, so no interactive tool behavior or layout change is claimed.
+
+## Prior completed product slice: Provider-independent memory tool definitions
 
 ### Goal
 

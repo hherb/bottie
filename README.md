@@ -231,9 +231,10 @@ retains chunks and the application-owned model cache, then resumes bounded backg
 `search_memory`, `open_memory`, and `search_attached_files` contracts provide bounded message excerpts, surrounding
 final turns, and ready-document excerpts with path-free provenance for a future tool runtime. One provider-independent
 definition set now advertises closed JSON schemas for those three tools and strictly validates raw names and arguments
-into their typed native contracts. Executable dispatch, provider mapping, tool loops, and retrieval injection remain
-unimplemented, and no query, fused result, chunk, vector, source identity, cache path, or model failure detail crosses
-IPC.
+into their typed native contracts. A Rust-only provider-neutral dispatcher executes one validated call and returns an
+exclusive structured success/error envelope capped at 64 KiB, with stable redacted failure categories. Provider
+mapping, multi-call tool loops, and retrieval injection remain unimplemented, and no query, fused result, chunk,
+vector, source identity, cache path, or model failure detail crosses IPC.
 
 Run the layout-only browser preview:
 
