@@ -49,6 +49,12 @@ fn migration_backfills_final_message_text_without_reasoning() {
     );
     let connection = store.open().expect("store should open");
     connection
+        .execute_batch(super::memory_semantic::REMOVE_MEMORY_SEMANTIC_SCHEMA_FOR_TEST)
+        .expect("semantic schema should be removable in the fixture");
+    connection
+        .execute_batch(super::memory_chunks::REMOVE_MEMORY_CHUNK_SCHEMA_FOR_TEST)
+        .expect("chunk schema should be removable in the fixture");
+    connection
         .execute_batch(super::memory_lexical::REMOVE_LEXICAL_SCHEMA_FOR_TEST)
         .expect("lexical schema should be removable in the fixture");
     connection
@@ -74,7 +80,7 @@ fn migration_backfills_final_message_text_without_reasoning() {
             .status()
             .expect("status should load")
             .schema_version,
-        17
+        18
     );
     assert_eq!(visible.len(), 1);
     assert_eq!(visible[0].source_kind, MemorySourceKind::Message);

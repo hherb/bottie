@@ -79,11 +79,14 @@ remain explicitly local and show a specific accessible consequence without addin
 work now includes a native derived SQLite FTS5 index and bounded BM25 query layer over complete final message answers
 and ready extracted documents. Schema version 17 also derives a versioned deterministic chunk catalog from those same
 eligible sources. Unicode-safe, whitespace-aware chunks retain exact source offsets, stable SHA-256 identities, and a
-1,200-character ceiling with approximately 200 characters of overlap. Reasoning and non-final responses never enter
-either derived layer. No memory query, chunk, identity, or extracted content crosses IPC or enters provider context.
-The next bounded implementation slice is the first resumable semantic-index consumer over this catalog, combining
-statically linked sqlite-vec with Rust-owned EmbeddingGemma/FastEmbed acquisition, versioned embedding/index metadata,
-and application-owned cache progress; do not bundle retrieval injection, memory tools/UI, or attachment retry controls.
+1,200-character ceiling with approximately 200 characters of overlap. Schema version 18 statically links sqlite-vec
+and maps those chunks to durable 768-dimensional cosine vectors through a resumable native worker. Rust owns the Q4
+EmbeddingGemma 300M FastEmbed runtime, application-data cache, bounded batches, model/index versions, progress, and
+stable failure categories. Reasoning and non-final responses never enter any derived layer. No memory query, vector,
+chunk identity, cache path, or extracted content crosses IPC or enters provider context. The next bounded
+implementation slice is a Rust-only semantic KNN query contract over the current vector generation with the same
+profile, lifecycle, association, source, conversation, and date policy as lexical retrieval; do not bundle
+reciprocal-rank fusion, retrieval injection, memory tools/UI, reindex controls, or attachment retry controls.
 
 Read these files first:
 
@@ -97,7 +100,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/versioned-memory-chunks`.
+branch `codex/resumable-semantic-index`.
 
 ## Current implementation
 
@@ -196,6 +199,11 @@ sweeping, interrupted temporary cleanup, and shared-derivative preservation,
 `src-tauri/src/storage/memory_lexical_migration.rs` owns the derived FTS5 schema, backfill, and synchronization triggers,
 `src-tauri/src/storage/memory_chunks.rs` owns versioned Unicode-safe deterministic chunking plus transactional source
 replacement, while `src-tauri/src/storage/memory_chunks_migration.rs` owns catalog metadata and stale-row cleanup,
+`src-tauri/src/storage/memory_semantic.rs` owns static sqlite-vec registration, version-contract validation, bounded
+embedding batches, atomic chunk/vector mappings, and native-only progress, while
+`src-tauri/src/storage/memory_semantic_migration.rs` owns schema-18 model/index metadata and vector cleanup triggers,
+`src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
+EmbeddingGemma worker,
 `src-tauri/src/attachment_processor.rs` owns the single process-lifetime worker, path-free completion events, and
 restore pause/resume coordination,
 and `src-tauri/src/storage/export.rs` owns
@@ -301,8 +309,8 @@ Do not mistake visual fixtures for implemented backend behavior:
 - provider adapters and orchestration do not yet emit or execute the persisted tool records; browser-preview tool
   activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- the native FTS5 memory query has no IPC, tool, citation, context-panel, or provider-injection consumer yet, and no
-  chunk or vector query surface exists;
+- the native FTS5 memory query and sqlite-vec chunk vectors have no IPC, tool, citation, context-panel, or provider-
+  injection consumer yet, and no semantic KNN query contract exists;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
   pure presentation and Markdown-policy helpers have frontend unit coverage.
@@ -319,7 +327,9 @@ The browser preview intentionally reports `Browser preview`; only the native Tau
 6. Represent future messages as content blocks rather than assuming all content is one text string. Planned blocks include text, image, document, audio, tool calls, tool results, citations, and reasoning summaries.
 7. Bottie should own its tool loop so memory and web tools behave consistently across providers.
 8. Preserve cancellation throughout the stack: UI control, Tauri command, Rust task, and HTTP stream.
-9. The memory milestone has settled on Rust-owned FastEmbed with quantized EmbeddingGemma 300M as one built-in default. Do not add a user-facing embedding-provider picker. Model download/cache UX and versioned index metadata must land with the first real embedding consumer, not as a dormant dependency in inference-provider work.
+9. Persistent memory uses Rust-owned FastEmbed with Q4 EmbeddingGemma 300M as one built-in default. Keep its cache,
+   progress, model/index metadata, and vectors native; do not add an embedding-provider picker or silently inject
+   retrieved memory into provider requests.
 
 ## Engineering rules and housekeeping
 
@@ -340,7 +350,60 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Versioned deterministic memory chunks
+## Most recently completed product slice: Resumable sqlite-vec semantic index
+
+### Goal
+
+Turn the deterministic chunk catalog into a durable native vector index with one built-in local embedding runtime,
+without adding semantic queries, hybrid ranking, retrieval injection, memory tools/UI, or WebView exposure.
+
+### Implemented shape
+
+1. Schema version 18 registers the statically linked `sqlite-vec` C extension and adds a 768-dimensional cosine
+   `vec0` table plus relational chunk mappings. Mapping deletion removes the matching vector, while chunk insertion or
+   deletion updates durable progress and never leaves a stale retrievable vector.
+2. Singleton metadata fixes embedding contract version 1 to FastEmbed 6, Q4 EmbeddingGemma 300M, 768 dimensions,
+   chunking version 1, document-prefix contract 1, and index generation 1. Startup rejects metadata that does not match
+   the compiled Rust contract instead of interpreting incompatible vectors.
+3. A single native worker lazily checks or populates an application-data model cache, embeds at most eight chunks per
+   batch, and commits mapping plus vector rows atomically. It wakes after startup, user-message append, branch creation,
+   provider completion, and ready attachment extraction, and pauses with attachment processing around store restore.
+4. Model acquisition, indexing, ready, and failed states plus completed/total counts survive restart. A failed batch
+   retains prior vectors and a stable path-free error code; the next worker wake retries pending work. Model, cache,
+   chunk, vector, and runtime failure details remain Rust-only.
+5. The worker uses FastEmbed's `EmbeddingGemma300MQ4` variant with the versioned `title: none | text:` document input.
+   No Tauri command, IPC type, Svelte state, provider request, export, semantic query, or retrieval consumer was added.
+
+### Acceptance criteria
+
+- Schema-17 stores migrate transactionally with sqlite-vec available on every Bottie SQLite connection.
+- Versioned model, runtime, dimension, chunking, input, and index-generation metadata match the compiled contract.
+- Bounded successful batches survive reopen and resume without duplicate rows; wrong counts, dimensions, or non-finite
+  values fail without partial vector commits.
+- Removing or replacing a deterministic chunk removes its relational mapping and sqlite-vec row before it can become
+  stale memory.
+- The production worker owns model acquisition/cache and restore coordination, while ordinary tests use a deterministic
+  fake embedder and never download model files.
+- Semantic queries, fusion, reindex controls, retrieval injection, memory tools/UI, and attachment retry remain outside
+  this slice.
+
+### Verification completed
+
+Focused TDD coverage verifies static extension registration, schema-17 migration, exact metadata, stable document
+input, bounded batch persistence, restart resume, duplicate prevention, cosine-query viability, dimension rejection,
+atomic failure behavior, chunk/vector cleanup, and pause/resume scheduling. The complete Rust suite reports 170 passed
+with four opt-in live-provider checks intentionally ignored. Prettier, `svelte-check`, all 53 frontend tests, the
+production build, Cargo formatting, Cargo check, and `git diff --check` pass without warnings. A fresh signed native
+launch migrated the live store from schema 17 to 18 while the window remained available, populated the
+application-data EmbeddingGemma cache to 215 MiB, and moved durable progress from `loading_model` through indexing to
+`ready`. Immutable read-only inspection reported `quick_check=ok`, 84/84 completed chunks, 84 unique relational
+mappings, 84 sqlite-vec row identities, 768 dimensions, chunking version 1, index generation 1, and no running provider
+records. A second fresh-process launch reopened `ready` immediately with the same cache size, no partial download file,
+and unchanged vector counts. A desktop screen review confirmed the native conversation and context surfaces remained
+visually healthy. No WebView behavior or provider networking changed, so browser responsive review, provider
+interaction, and the four live-provider tests were not applicable.
+
+## Prior completed product slice: Versioned deterministic memory chunks
 
 ### Goal
 

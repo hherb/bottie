@@ -201,16 +201,19 @@ pub(crate) async fn restore_conversation_store(
     }
     let conversations = state.conversations.clone();
     let attachment_processing = state.attachment_processing.clone();
+    let semantic_indexing = state.semantic_indexing.clone();
     let safety_path = conversations.restore_preservation_path()?;
     let restore_path = path.clone();
     let worker_safety_path = safety_path.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _processing_pause = attachment_processing.pause();
+        let _semantic_pause = semantic_indexing.pause();
         conversations.restore_from(&restore_path, &worker_safety_path)
     })
     .await
     .map_err(|_| StorageError::restore())??;
     state.attachment_processing.wake();
+    state.semantic_indexing.wake();
     let preserved_copy_name = safety_path
         .file_name()
         .and_then(|name| name.to_str())
@@ -257,15 +260,18 @@ pub(crate) async fn restore_latest_automatic_backup(
     }
     let conversations = state.conversations.clone();
     let attachment_processing = state.attachment_processing.clone();
+    let semantic_indexing = state.semantic_indexing.clone();
     let preservation = conversations.restore_preservation_path()?;
     let worker_preservation = preservation.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let _processing_pause = attachment_processing.pause();
+        let _semantic_pause = semantic_indexing.pause();
         conversations.restore_latest_automatic_backup(&worker_preservation)
     })
     .await
     .map_err(|_| StorageError::restore())??;
     state.attachment_processing.wake();
+    state.semantic_indexing.wake();
     let preserved_copy_name = preservation
         .file_name()
         .and_then(|name| name.to_str())
@@ -309,7 +315,7 @@ pub(crate) fn append_conversation_message(
     attachment_ids: Vec<String>,
     state: State<'_, AppState>,
 ) -> Result<StoredMessage, StorageError> {
-    state.conversations.append_message_with_attachments(
+    let stored = state.conversations.append_message_with_attachments(
         NewStoredMessage {
             conversation_id,
             role: StoredRole::User,
@@ -320,7 +326,9 @@ pub(crate) fn append_conversation_message(
             model_id: None,
         },
         &attachment_ids,
-    )
+    )?;
+    state.semantic_indexing.wake();
+    Ok(stored)
 }
 
 #[tauri::command]
@@ -368,9 +376,12 @@ pub(crate) fn branch_conversation_message(
     text: String,
     state: State<'_, AppState>,
 ) -> Result<ForkedConversation, StorageError> {
-    state
-        .conversations
-        .fork_from_user_message(&conversation_id, &message_id, &text)
+    let forked =
+        state
+            .conversations
+            .fork_from_user_message(&conversation_id, &message_id, &text)?;
+    state.semantic_indexing.wake();
+    Ok(forked)
 }
 
 #[tauri::command]

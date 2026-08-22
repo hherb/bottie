@@ -10,6 +10,7 @@ mod diagnostics;
 mod generation;
 mod inference;
 mod provider_registry;
+mod semantic_indexer;
 mod storage;
 mod storage_commands;
 mod stream_channel;
@@ -30,6 +31,7 @@ use inference::{
     ProviderError, ProviderSettings, load_provider_settings, save_provider_settings,
 };
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
+use semantic_indexer::SemanticIndexer;
 use storage::ConversationStore;
 use storage_commands::{
     add_conversation_attachments, append_conversation_message, backup_conversation_store,
@@ -52,6 +54,7 @@ struct AppState {
     credentials: Arc<dyn CredentialStore>,
     conversations: ConversationStore,
     attachment_processing: AttachmentProcessor,
+    semantic_indexing: SemanticIndexer,
     storage_management: tauri::async_runtime::Mutex<()>,
 }
 
@@ -405,6 +408,7 @@ pub fn run() {
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("providers.json");
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
+            let embedding_cache_path = app.path().app_data_dir()?.join("embedding-models");
             let startup = ConversationStore::initialize_for_app(database_path)
                 .map_err(|error| std::io::Error::other(error.message))?;
             let diagnostics = Diagnostics::default();
@@ -415,10 +419,16 @@ pub fn run() {
                     diagnostics.clone(),
                 );
             }
+            let semantic_indexing = SemanticIndexer::start(
+                embedding_cache_path,
+                conversations.clone(),
+                diagnostics.clone(),
+            );
             let attachment_processing = AttachmentProcessor::start(
                 app.handle().clone(),
                 conversations.clone(),
                 diagnostics.clone(),
+                semantic_indexing.clone(),
             );
             if startup.recovery_required {
                 let recovery_diagnostics = diagnostics.clone();
@@ -435,6 +445,7 @@ pub fn run() {
             } else {
                 schedule_automatic_backup(conversations.clone(), diagnostics.clone());
                 attachment_processing.wake();
+                semantic_indexing.wake();
             }
             let settings = load_provider_settings(&settings_path).unwrap_or_default();
             let providers = ProviderSet::from_settings(&settings).unwrap_or_else(|_| ProviderSet {
@@ -451,6 +462,7 @@ pub fn run() {
                 credentials: Arc::new(SystemCredentialStore::default()),
                 conversations,
                 attachment_processing,
+                semantic_indexing,
                 storage_management: tauri::async_runtime::Mutex::new(()),
             });
             Ok(())

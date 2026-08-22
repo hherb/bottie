@@ -33,6 +33,8 @@ mod memory_chunks;
 mod memory_chunks_migration;
 mod memory_lexical;
 mod memory_lexical_migration;
+mod memory_semantic;
+mod memory_semantic_migration;
 mod migrate;
 mod migrations;
 mod portable_backup;
@@ -56,6 +58,9 @@ pub(crate) use extraction::{
     AttachmentExtractionFormat, AttachmentExtractionState, StoredAttachmentExtraction,
 };
 pub(crate) use image_normalization::StoredImageNormalization;
+pub(crate) use memory_semantic::{
+    DEFAULT_SEMANTIC_BATCH_SIZE, SemanticEmbedder, SemanticIndexState,
+};
 #[cfg(test)]
 use migrations::{MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4};
 pub(crate) use portable_export::ConversationFileExport;
@@ -67,7 +72,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 17;
+const CURRENT_SCHEMA_VERSION: i64 = 18;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -84,6 +89,7 @@ pub(crate) struct ConversationStore {
 impl ConversationStore {
     /// Creates the application directory, applies migrations, and verifies integrity.
     pub(crate) fn initialize(path: PathBuf) -> Result<Self, StorageError> {
+        memory_semantic::register_sqlite_vec()?;
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -93,6 +99,7 @@ impl ConversationStore {
         };
         let mut connection = store.open()?;
         store.migrate(&mut connection)?;
+        memory_semantic::validate_semantic_contract(&connection)?;
         if store.integrity_check(&connection)? != "ok" {
             return Err(StorageError::internal());
         }
@@ -473,6 +480,8 @@ mod image_normalization_tests;
 mod memory_chunks_tests;
 #[cfg(test)]
 mod memory_lexical_tests;
+#[cfg(test)]
+mod memory_semantic_tests;
 #[cfg(test)]
 mod portable_export_tests;
 #[cfg(test)]
