@@ -32,6 +32,7 @@ mod image_normalization;
 mod lifecycle;
 mod memory_chunks;
 mod memory_chunks_migration;
+mod memory_file_tool;
 mod memory_filters;
 mod memory_hybrid;
 mod memory_lexical;
@@ -425,6 +426,8 @@ mod extraction_tests;
 mod image_normalization_tests;
 #[cfg(test)]
 mod memory_chunks_tests;
+#[cfg(test)]
+mod memory_file_tool_tests;
 #[cfg(test)]
 mod memory_hybrid_tests;
 #[cfg(test)]

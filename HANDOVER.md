@@ -100,9 +100,14 @@ details. A matching Rust-owned `open_memory` contract now resolves that opaque p
 own immutable branch lineage without changing the selected branch. It returns at most three final text turns on each
 side, caps each turn at 2,000 Unicode scalars, retains Archived conversations, excludes Trash and non-final responses,
 and omits reasoning, provider details, attachments, and native paths. Provider tool loops and automatic retrieval
-injection remain absent. The next bounded implementation slice is a Rust-owned `search_attached_files` contract over
-indexed document chunks; do not bundle provider tool loops, automatic retrieval injection, memory-card replacement,
-model-cache deletion, broad retention controls, document opening, or attachment retry controls.
+injection remain absent. A matching Rust-owned `search_attached_files` contract now applies hybrid retrieval only to
+ready extracted documents with durable active or Archived conversation/message associations. It returns bounded
+excerpts with safe file metadata and optional exact chunk offsets while omitting hashes, paths, scores, embeddings,
+full extracted text, and association internals. The next bounded implementation slice is provider-independent memory
+tool definitions plus strict argument-schema validation for `search_memory`, `open_memory`, and
+`search_attached_files`; do not bundle provider execution loops, adapter mapping, automatic retrieval injection,
+memory-card replacement, model-cache deletion, broad retention controls, document opening, or attachment retry
+controls.
 
 Read these files first:
 
@@ -116,7 +121,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/open-memory-contract`.
+branch `codex/search-attached-files`.
 
 ## Current implementation
 
@@ -226,6 +231,8 @@ bounded chunk provenance, and current-generation validation,
 conversation/message results over hybrid retrieval,
 `src-tauri/src/storage/memory_open.rs` owns typed bounded `open_memory` provenance and branch-correct final-turn
 reconstruction without changing conversation selection,
+`src-tauri/src/storage/memory_file_tool.rs` owns typed bounded `search_attached_files` arguments and ranked path-free
+ready-document results over hybrid retrieval,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker,
@@ -377,7 +384,61 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 All handwritten Rust, TypeScript, Svelte, and CSS files are now below 500 lines. The remaining lines over 120 characters
 are four indivisible SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Native `open_memory` contract
+## Most recently completed product slice: Native `search_attached_files` contract
+
+### Goal
+
+Expose one provider-independent Rust contract for ranked retained-document excerpts with inspectable path-free file
+provenance, without adding provider tool loops, automatic retrieval injection, document opening, UI/IPC exposure, a
+schema migration, or broad memory controls.
+
+### Implemented shape
+
+1. `SearchAttachedFilesArguments` accepts a natively normalized 200-character query plus optional conversation,
+   inclusive attachment-creation-time, and result-limit filters. Unknown fields and zero limits fail before embedding
+   work; empty queries return an empty result without loading the model.
+2. `execute_search_attached_files` fixes the source category to ready extracted attachments, caps tool output at ten
+   matches, and reuses the existing built-in-profile, active/Archived association, Trash exclusion, hybrid-query, and
+   reciprocal-rank policy. Final message answers cannot appear.
+3. Each result contains a one-based fused order and an excerpt capped at 1,200 Unicode scalars. Provenance includes
+   only the opaque attachment ID, safe display name, sniffed MIME type, original byte count, extraction format and
+   character/page counts, creation time, and optional exact semantic chunk ordinal/offsets. Lexical-only results omit
+   chunk location rather than inventing it.
+4. The serialized contract omits query text, full extracted text, association identities, content/derivative hashes,
+   lexical/semantic ranks, fused scores, cosine distances, vectors, embeddings, and filesystem/database/model/cache
+   paths. No Tauri command, WebView state, provider request, export field, tool loop, or schema change was added.
+
+### Acceptance criteria
+
+- Returned matches are ready extracted documents only, preserve fused order, remain capped at ten results and 1,200
+  Unicode scalars per excerpt, and carry bounded safe metadata plus opaque path-free attachment provenance.
+- Conversation and inclusive attachment-date filters share the native hybrid policy; active and Archived associations
+  remain eligible, while unassociated files, Trash-only files, and message sources do not appear.
+- Invalid query/filter/limit contracts fail before embedding; empty search remains a no-work empty result; unknown
+  serialized arguments are rejected.
+- Semantic matches retain exact current-generation chunk offsets, lexical fallback remains usable without indexed
+  vectors and omits nonexistent offsets, and retrieval scores or implementation details never enter the result.
+- Provider execution loops, adapter mapping, automatic prompt injection, document opening, citations UI, memory-card
+  replacement, reindex/cache behavior, retention/forget controls, and attachment retry behavior remain outside the
+  slice.
+
+### Verification completed
+
+Focused TDD first failed against the absent module and execution method. Five native tests now cover typed/path-free
+serialization, exact semantic provenance, conversation/date filtering, attachment-only and association eligibility,
+the narrower result and excerpt ceilings, invalid and unknown arguments before embedding, empty-query no-work
+behavior, lexical fallback, and Archived/Trash lifecycle policy. The complete Rust suite reports 195 passed with four
+opt-in live-provider checks intentionally ignored. Prettier, `svelte-check`, all 58 frontend tests, the production
+build, Cargo formatting, Cargo check, and `git diff --check` pass without warnings.
+
+The sandboxed native launch first failed at the loopback development-server bind with `EPERM`; the host retry built,
+signed, and started the Tauri development app successfully. While it remained active, immutable read-only inspection
+of the unchanged schema-18 live store reported `quick_check=ok`, ready semantic progress at 84/84 chunks, 84 current
+mappings, 84 sqlite-vec shadow row identities, 768 dimensions, index generation 1, and no running provider records.
+The development runner was then stopped. This slice has no UI or IPC entry point, so no interactive feature or layout
+verification is claimed; migration and live-provider checks were not applicable.
+
+## Prior completed product slice: Native `open_memory` contract
 
 ### Goal
 
