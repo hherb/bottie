@@ -13,6 +13,7 @@
     reasoningEffort: ReasoningEffort;
     showContext: boolean;
     isLocalRoute: boolean;
+    webEnabled: boolean;
     canExport: boolean;
     canBatchExport: boolean;
     canBackup: boolean;
@@ -45,6 +46,7 @@
     reasoningEffort,
     showContext,
     isLocalRoute,
+    webEnabled,
     canExport,
     canBatchExport,
     canBackup,
@@ -140,12 +142,16 @@
 
   <div class="topbar-actions">
     <div
-      class:cloud={!isLocalRoute}
+      class:cloud={!isLocalRoute || webEnabled}
       class="privacy-pill"
-      title={isLocalRoute ? "Messages stay on this device" : "Messages are sent to the selected cloud endpoint"}
+      title={isLocalRoute
+        ? webEnabled
+          ? "Model prompts stay local; enabled web-search queries go to Brave Search"
+          : "Messages stay on this device"
+        : "Messages are sent to the selected cloud endpoint"}
     >
       <Icon name="shield" size={14} />
-      <span>{isLocalRoute ? "Local only" : "Cloud route"}</span>
+      <span>{isLocalRoute ? (webEnabled ? "Local + web" : "Local only") : "Cloud route"}</span>
     </div>
     <button
       class:active={showContext}

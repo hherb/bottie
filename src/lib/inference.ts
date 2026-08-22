@@ -34,6 +34,7 @@ export type ChatRequest = {
   modelId: string;
   messages: ChatTurn[];
   memoryEnabled?: boolean;
+  webEnabled?: boolean;
   settings?: {
     temperature?: number;
     maxOutputTokens?: number;

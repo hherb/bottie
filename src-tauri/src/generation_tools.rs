@@ -1,6 +1,10 @@
-//! Durable mapped-provider memory-tool execution inside Bottie's provider-neutral loop policy.
+//! Durable mapped-provider native-tool execution inside Bottie's provider-neutral loop policy.
+
+use std::sync::Arc;
 
 use crate::{
+    generation_usage::merge_usage,
+    generation_web_tools::{NativeWebSearchExecutor, dispatch_native_tool},
     inference::{
         AnthropicProvider, AnthropicToolCall, AnthropicToolResult, AnthropicToolSession,
         ChatRequest, OllamaProvider, OllamaToolCall, OllamaToolResult, OllamaToolSession,
@@ -13,7 +17,7 @@ use crate::{
         ConversationStore, NewToolInvocation, NewToolResult, SemanticEmbedder, StorageError,
         ToolAuditOutcome, ToolAuditPolicy,
     },
-    tool_dispatch::{MemoryToolExecution, MemoryToolExecutionErrorCode, dispatch_memory_tool},
+    tool_dispatch::{MemoryToolExecution, MemoryToolExecutionErrorCode},
     tool_loop::{
         NativeToolCall, ToolLoopCancellation, ToolLoopError, ToolLoopErrorCode, ToolLoopState,
         ToolRoundError,
@@ -21,19 +25,8 @@ use crate::{
     tool_policy::{ToolExecutionPolicy, tool_execution_policy},
 };
 
-/// Confirms explicit intent plus a mapped provider's discovered per-model tool capability.
-pub(crate) fn memory_tools_enabled(
-    memory_enabled: bool,
-    provider_id: &str,
-    model_supports_tools: bool,
-) -> bool {
-    memory_enabled
-        && matches!(provider_id, "ollama" | "openai" | "anthropic")
-        && model_supports_tools
-}
-
-/// Routes one explicitly enabled generation into its provider-native memory-tool loop.
-pub(crate) async fn stream_memory_tools(
+/// Routes one explicitly enabled generation into its provider-native tool loop.
+pub(crate) async fn stream_native_tools(
     provider: RoutedProvider,
     request: ChatRequest,
     sink: impl StreamSink + Clone + Send + Sync + 'static,
@@ -41,10 +34,11 @@ pub(crate) async fn stream_memory_tools(
     provider_run_id: String,
     query_embedder: SemanticQueryEmbedder,
     cancellation: ToolLoopCancellation,
+    web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
 ) -> Result<Option<Usage>, ProviderError> {
     match provider {
         RoutedProvider::Ollama(provider) => {
-            stream_ollama_memory_tools(
+            stream_ollama_tools(
                 provider,
                 request,
                 sink,
@@ -52,6 +46,7 @@ pub(crate) async fn stream_memory_tools(
                 provider_run_id,
                 query_embedder,
                 cancellation,
+                web_search,
             )
             .await
         }
@@ -80,7 +75,7 @@ pub(crate) async fn stream_memory_tools(
             .await
         }
         RoutedProvider::Omlx(_) => Err(ProviderError::internal(
-            "The selected provider does not map Bottie's native memory tools.",
+            "The selected provider does not map Bottie's native tools.",
             None,
         )),
     }
@@ -191,7 +186,7 @@ pub(crate) async fn stream_openai_memory_tools(
 }
 
 /// Runs repeated Ollama chat/tool rounds through one durable provider run and shared policy state.
-pub(crate) async fn stream_ollama_memory_tools(
+pub(crate) async fn stream_ollama_tools(
     provider: OllamaProvider,
     request: ChatRequest,
     sink: impl StreamSink + Clone + Send + Sync + 'static,
@@ -199,7 +194,9 @@ pub(crate) async fn stream_ollama_memory_tools(
     provider_run_id: String,
     query_embedder: SemanticQueryEmbedder,
     cancellation: ToolLoopCancellation,
+    web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
 ) -> Result<Option<Usage>, ProviderError> {
+    let memory_enabled = request.memory_enabled;
     let mut session = OllamaToolSession::new(request)?;
     let mut loop_state: Option<ToolLoopState> = None;
     let mut cumulative_usage = None;
@@ -222,70 +219,39 @@ pub(crate) async fn stream_ollama_memory_tools(
         let round_run_id = provider_run_id.clone();
         let mut round_embedder = query_embedder.clone();
         let round_cancellation = cancellation.clone();
+        let round_web_search = web_search.clone();
         let (returned_state, results) = tauri::async_runtime::spawn_blocking(move || {
-            let results = execute_ollama_memory_round(
+            let results = execute_ollama_tool_round(
                 &round_store,
                 &round_run_id,
                 &mut round_embedder,
                 &mut state,
                 calls,
                 &round_cancellation,
+                memory_enabled,
+                round_web_search.as_ref().map(Arc::as_ref),
             );
             (state, results)
         })
         .await
         .map_err(|_| {
-            ProviderError::internal("The native memory-tool worker stopped unexpectedly.", None)
+            ProviderError::internal("The native tool worker stopped unexpectedly.", None)
         })?;
         loop_state = Some(returned_state);
         session.append_results(round, results?)?;
     }
 }
 
-/// Adds provider-reported usage and cost across requests in one logical generation.
-fn merge_usage(current: Option<Usage>, next: Option<Usage>) -> Option<Usage> {
-    match (current, next) {
-        (None, None) => None,
-        (current, next) => {
-            let current = current.unwrap_or_default();
-            let next = next.unwrap_or_default();
-            Some(Usage {
-                input_tokens: merge_count(current.input_tokens, next.input_tokens),
-                output_tokens: merge_count(current.output_tokens, next.output_tokens),
-                cost_usd: merge_cost(current.cost_usd, next.cost_usd),
-            })
-        }
-    }
-}
-
-/// Adds optional provider costs without inventing a value when both rounds omitted it.
-fn merge_cost(current: Option<f64>, next: Option<f64>) -> Option<f64> {
-    match (current, next) {
-        (None, None) => None,
-        (current, next) => Some(current.unwrap_or_default() + next.unwrap_or_default()),
-    }
-}
-
-/// Saturating-adds optional provider counts without inventing a value both rounds omitted.
-fn merge_count(current: Option<u64>, next: Option<u64>) -> Option<u64> {
-    match (current, next) {
-        (None, None) => None,
-        (current, next) => Some(
-            current
-                .unwrap_or_default()
-                .saturating_add(next.unwrap_or_default()),
-        ),
-    }
-}
-
 /// Executes one Ollama-emitted call batch with durable call/result checkpoints before provider reuse.
-pub(crate) fn execute_ollama_memory_round(
+pub(crate) fn execute_ollama_tool_round(
     store: &ConversationStore,
     provider_run_id: &str,
     embedder: &mut impl SemanticEmbedder,
     state: &mut ToolLoopState,
     calls: Vec<OllamaToolCall>,
     cancellation: &ToolLoopCancellation,
+    memory_enabled: bool,
+    web_search: Option<&dyn NativeWebSearchExecutor>,
 ) -> Result<Vec<OllamaToolResult>, ProviderError> {
     let tool_names = calls
         .iter()
@@ -304,7 +270,16 @@ pub(crate) fn execute_ollama_memory_round(
             native_calls,
             cancellation,
             std::time::Instant::now,
-            |call| execute_and_checkpoint(store, provider_run_id, embedder, call),
+            |call| {
+                execute_and_checkpoint(
+                    store,
+                    provider_run_id,
+                    embedder,
+                    call,
+                    memory_enabled,
+                    web_search,
+                )
+            },
         )
         .map_err(round_error)?;
 
@@ -342,7 +317,7 @@ pub(crate) fn execute_openai_memory_round(
             native_calls,
             cancellation,
             std::time::Instant::now,
-            |call| execute_and_checkpoint(store, provider_run_id, embedder, call),
+            |call| execute_and_checkpoint(store, provider_run_id, embedder, call, true, None),
         )
         .map_err(round_error)?
         .into_iter()
@@ -380,7 +355,7 @@ pub(crate) fn execute_anthropic_memory_round(
             native_calls,
             cancellation,
             std::time::Instant::now,
-            |call| execute_and_checkpoint(store, provider_run_id, embedder, call),
+            |call| execute_and_checkpoint(store, provider_run_id, embedder, call, true, None),
         )
         .map_err(round_error)?
         .into_iter()
@@ -404,6 +379,8 @@ fn execute_and_checkpoint(
     provider_run_id: &str,
     embedder: &mut impl SemanticEmbedder,
     call: &NativeToolCall,
+    memory_enabled: bool,
+    web_search: Option<&dyn NativeWebSearchExecutor>,
 ) -> Result<MemoryToolExecution, StorageError> {
     let audit_policy = match tool_execution_policy(&call.tool_name) {
         Some(ToolExecutionPolicy::Safe) => ToolAuditPolicy::Safe,
@@ -418,7 +395,7 @@ fn execute_and_checkpoint(
         audit_policy,
     })?;
     let started = std::time::Instant::now();
-    let execution = dispatch_memory_tool(store, embedder, call, None);
+    let execution = dispatch_native_tool(store, embedder, call, memory_enabled, web_search);
     let audit_outcome = audit_outcome(&execution);
     let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let output = serde_json::to_value(&execution).map_err(|_| StorageError::internal())?;
@@ -487,6 +464,6 @@ fn storage_error(error: StorageError) -> ProviderError {
             "Bottie could not retain the native tool activity safely.",
             None,
         ),
-        _ => ProviderError::internal("Bottie could not execute the native memory tool.", None),
+        _ => ProviderError::internal("Bottie could not execute the native tool.", None),
     }
 }

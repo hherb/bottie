@@ -1,10 +1,5 @@
 //! Provider-neutral execution and bounded result envelopes for Bottie's native tools.
 
-#![allow(
-    dead_code,
-    reason = "provider execution loops are intentionally deferred"
-)]
-
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 use serde_json::Value;
 

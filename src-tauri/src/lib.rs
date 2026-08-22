@@ -9,6 +9,8 @@ mod credentials;
 mod diagnostics;
 mod generation;
 mod generation_tools;
+mod generation_usage;
+mod generation_web_tools;
 mod inference;
 mod provider_registry;
 mod semantic_indexer;

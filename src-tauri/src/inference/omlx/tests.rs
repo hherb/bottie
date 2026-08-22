@@ -42,6 +42,7 @@ fn live_request(model_id: String, prompt: &str) -> ChatRequest {
             }],
         }],
         memory_enabled: false,
+        web_enabled: false,
         settings: ChatSettings {
             temperature: Some(0.0),
             max_output_tokens: Some(80),

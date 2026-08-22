@@ -271,8 +271,11 @@ impl From<ChatRequest> for OllamaChatRequest {
 }
 
 impl OllamaChatRequest {
-    /// Adds Bottie's complete native memory-tool definitions to one Ollama request session.
-    pub(super) fn with_tools(request: ChatRequest, definitions: [ToolDefinition; 3]) -> Self {
+    /// Adds Bottie's explicitly enabled closed native definitions to one Ollama request session.
+    pub(super) fn with_tools(
+        request: ChatRequest,
+        definitions: impl IntoIterator<Item = ToolDefinition>,
+    ) -> Self {
         let mut request = Self::from(request);
         request.tools = definitions
             .into_iter()

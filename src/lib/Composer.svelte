@@ -14,6 +14,8 @@
     providerStatus: ProviderStatus;
     memoryAvailable: boolean;
     memoryEnabled: boolean;
+    webAvailable: boolean;
+    webEnabled: boolean;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -22,6 +24,7 @@
     onfiles: (event: Event) => void;
     onremove: (id: string) => void;
     ontogglememory: () => void;
+    ontoggleweb: () => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -36,6 +39,8 @@
     providerStatus,
     memoryAvailable,
     memoryEnabled,
+    webAvailable,
+    webEnabled,
     onprompt,
     oninput,
     onkeydown,
@@ -44,6 +49,7 @@
     onfiles,
     onremove,
     ontogglememory,
+    ontoggleweb,
     oncomposerready,
     onattachmentinputready,
   }: Props = $props();
@@ -124,7 +130,17 @@
         >
           <Icon name="brain" size={17} /><span>Memory</span>
         </button>
-        <button class="tool-toggle" aria-label="Web search is not available yet" disabled>
+        <button
+          class="tool-toggle"
+          aria-label={webAvailable
+            ? webEnabled
+              ? "Disable web search"
+              : "Enable web search"
+            : "Web search requires a tool-capable Ollama model"}
+          aria-pressed={webAvailable && webEnabled}
+          disabled={!webAvailable || isGenerating}
+          onclick={ontoggleweb}
+        >
           <Icon name="globe" size={17} /><span>Web</span>
         </button>
       </div>

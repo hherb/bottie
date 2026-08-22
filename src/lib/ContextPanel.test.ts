@@ -35,6 +35,7 @@ describe("ContextPanel", () => {
         selectedProviderEndpoint: "127.0.0.1:11434",
         providerStatus: "available",
         isLocalRoute: true,
+        webEnabled: false,
         isAddingAttachments: false,
         attachmentFeedback: null,
         attachmentFailed: false,
@@ -104,6 +105,7 @@ describe("ContextPanel", () => {
         selectedProviderEndpoint: "127.0.0.1:11434",
         providerStatus: "available",
         isLocalRoute: true,
+        webEnabled: false,
         isAddingAttachments: false,
         attachmentFeedback: null,
         attachmentFailed: false,
@@ -137,6 +139,7 @@ describe("ContextPanel", () => {
         selectedProviderEndpoint: "127.0.0.1:11434",
         providerStatus: "available",
         isLocalRoute: true,
+        webEnabled: true,
         isAddingAttachments: false,
         attachmentFeedback: null,
         attachmentFailed: false,
@@ -170,5 +173,7 @@ describe("ContextPanel", () => {
     expect(html).not.toContain("fixtures");
     expect(html).not.toContain("conversation-source");
     expect(html).not.toContain("message-source");
+    expect(html).toContain("Model prompt local; search queries leave device");
+    expect(html).toContain("Loopback model · Brave Search enabled");
   });
 });

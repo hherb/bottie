@@ -156,10 +156,11 @@ tool. One closed provider-independent `web_search` definition now adds optional 
 bounded include/exclude domain filters. Native validation rejects malformed DNS names, conflicts, and effective Brave
 queries that exceed its complete query limits; the Brave adapter maps those filters and rechecks normalized result
 hosts before returning them. The safe read-only native dispatcher now executes the typed contract through a selected
-search provider and maps all failures into the existing 64 KiB redacted envelope. The definition is deliberately not
-advertised to any model provider yet, so no generation or durable audit path can call it. The next bounded
-implementation slice is explicit Ollama `web_search` definition/call/result mapping and generation-loop wiring behind
-the existing Web affordance; do not bundle OpenAI-compatible or Anthropic-compatible mapping, a second search provider,
+search provider and maps all failures into the existing 64 KiB redacted envelope. A session-only Web toggle now
+advertises that definition only to explicitly enabled, tool-capable Ollama models. Ollama calls execute through the
+same bounded native loop, durable audit, cancellation, and common result envelope used by memory tools. The next bounded
+implementation slice is explicit OpenAI-compatible `web_search` definition/call/result mapping and generation-loop
+wiring behind the same Web affordance; do not bundle Anthropic-compatible mapping, a second search provider,
 `web_fetch`, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, or attachment retry
 controls.
 
@@ -175,7 +176,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/web-search-tool-contract`.
+branch `codex/ollama-web-search-tool`.
 
 ## Current implementation
 
@@ -309,7 +310,9 @@ result-URL policy, and redacted provider failures,
 `src-tauri/src/storage/tool_audit_migration.rs` owns schema-21 audit columns and honest legacy backfill,
 `src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
-embedding details,
+embedding details, while `src-tauri/src/generation_web_tools.rs` selects Ollama-only Web availability, resolves the
+native Brave credential, and routes accepted web calls into the strict provider-independent dispatcher,
+`src-tauri/src/generation_usage.rs` owns provider-neutral usage and cost accumulation across repeated tool rounds,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker and its synchronous query-embedding proxy,
@@ -433,9 +436,10 @@ Do not mistake visual fixtures for implemented backend behavior:
   and Anthropic-compatible consumers through the bounded dispatcher and loop. Their successful retained results now
   produce real selected-lineage citation cards; dismissals reset with the frontend session and do not delete tool
   records or exclude a source from later retrieval;
-- the closed native `web_search` contract and dispatcher exist, but no provider advertises or maps the definition and
-  the Web affordance remains disabled; no web search can reach generation, durable audit, or conversation state yet,
-  and no `web_fetch` contract exists;
+- the closed native `web_search` contract is explicitly available only to tool-capable Ollama models after the user
+  enables Web. Brave calls and exact common results enter the durable audit before Ollama reuse. Successful results do
+  not yet create dedicated Context-panel web-source cards, OpenAI-compatible and Anthropic-compatible providers do not
+  map the definition, and no `web_fetch` contract exists;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -472,10 +476,69 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
 The cohesively touched product modules remain below 500 lines. The crate composition root `src-tauri/src/lib.rs` is an
-existing practical-limit exception at 542 lines; the remaining known indivisible long lines are SVG path values in
+existing practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Provider-independent web-search tool contract and dispatcher
+## Most recently completed product slice: Explicit Ollama native web-search tool loop
+
+### Goal
+
+Map Bottie's closed `web_search` contract into Ollama's function wire format and run explicitly enabled calls through
+the existing Brave dispatcher, bounded native loop, durable tool records, provider stream, and shared cancellation
+path without adding OpenAI-compatible or Anthropic-compatible mapping, web-source cards, `web_fetch`, or a migration.
+
+### Implemented shape
+
+1. The composer Web toggle is session-only, off by default, and available only for an Ollama model that advertises
+   tool capability. The typed request defaults `webEnabled` off for older callers, native discovery rechecks the route,
+   and the enabled request resolves the Brave key only through the operating-system credential vault.
+2. Ollama receives exactly the explicitly enabled closed definitions: Web alone advertises one `web_search` function;
+   enabling Memory as well retains the three memory definitions first and appends Web. OpenAI-compatible, Anthropic-
+   compatible, and oMLX requests cannot advertise Web.
+3. Ollama's ordered calls reuse the existing opaque native identities, four-round/eight-call/30-second state machine,
+   64 KiB per-result and 256 KiB aggregate-output limits, cumulative usage, HTTP abort handle, and before/after native
+   cancellation checks.
+4. Each accepted `web_search` invocation commits before the existing strict provider-independent dispatcher runs. Its
+   exact bounded success/error envelope, safe execution policy, stable outcome, and native-work duration commit before
+   the inert result is returned to Ollama. Credential, query, provider-body, path, and call identities stay native.
+5. The privacy presentation no longer says `Local only` while Web is enabled. It shows `Local + web` and explains that
+   the model prompt stays on Ollama's loopback route while model-selected bounded search queries go to Brave Search.
+
+### Acceptance criteria
+
+- Web remains off by default and unavailable for non-Ollama or non-tool-capable models; missing Brave configuration
+  fails with a fixed Settings prompt before a web definition can be sent.
+- Memory and Web independently restrict the executable tool set; an Ollama call for a registered but request-disabled
+  tool returns the fixed unsupported envelope without executing storage, embedding, credential, or network work.
+- The first Web-only Ollama request contains exactly the closed `web_search` definition, and a follow-up contains the
+  ordered assistant call plus tool-name/result message without native IDs, credentials, paths, or provider bodies.
+- Calls and exact common results survive reopen through the existing append-only provider-run records before any
+  result is reused by Ollama.
+- Multiple rounds retain the shared loop, output, deadline, usage, and cancellation policy without changing memory-tool
+  behavior for Ollama, OpenAI-compatible, or Anthropic-compatible routes.
+- OpenAI-compatible, Anthropic-compatible, and oMLX web mapping, web-source cards, a second search provider,
+  `web_fetch`, automatic retrieval, approval UI, and schema changes remain outside this slice.
+
+### Verification completed
+
+Focused TDD first failed on the absent Web request flag, Ollama-only availability helper, enabled composer control,
+closed definition mapping, native search executor, and durable Web round. Pure and storage-backed tests now cover
+off-by-default request compatibility, provider/capability gating, closed definition ordering, missing-credential
+failure, exact success persistence, safe audit metadata, privacy copy, and unchanged unavailable states. A host-loopback
+two-request Ollama fixture confirms the first request carries only `web_search`, the second carries the exact bounded
+result, and the final answer plus cumulative usage complete normally.
+
+Prettier, `svelte-check`, all 75 frontend tests, the production build, Cargo formatting, and Cargo check pass. The
+266-test default Rust suite passes with nine opt-in loopback/live-network tests skipped. The focused host-loopback
+Ollama Web fixture also passes explicitly. The browser preview was inspected at its default desktop viewport and at
+900 x 800: the unavailable Web control stayed labelled and contained, the responsive context overlay remained usable,
+and the console reported no warnings or errors. The native development command built, signed, and launched one
+1,321 x 821 Bottie window and remained live until stopped cleanly. macOS accessibility exposed only the native window
+chrome rather than WebView controls, so no synthetic click or live Brave/model call is claimed. Immutable read-only
+inspection reported schema version 21, `quick_check=ok`, 20 completed runs, two cancelled runs, and no retained
+`web_search` row in the existing live store; no migration was added by this slice.
+
+## Prior completed product slice: Provider-independent web-search tool contract and dispatcher
 
 ### Goal
 
