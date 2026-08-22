@@ -45,37 +45,96 @@
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.12);
 }
-.tool-record header {
+.tool-record > summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 9px;
+  padding: 9px;
+  cursor: pointer;
+  list-style: none;
 }
-.tool-record header code {
-  overflow: hidden;
+.tool-record > summary::-webkit-details-marker {
+  display: none;
+}
+.tool-record > summary::after {
+  color: #596360;
+  content: "+";
+  font-size: 12px;
+}
+.tool-record[open] > summary::after {
+  content: "−";
+}
+.tool-record-title {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.tool-record-title strong {
   color: #b4d5ce;
   font-size: 9px;
+  font-weight: 650;
+}
+.tool-record-title code {
+  overflow: hidden;
+  color: #697572;
+  font-size: 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tool-record header span,
-.tool-record > span,
-.tool-record > p {
+.tool-record-status {
+  margin-left: auto;
   color: #747d7b;
-  font-size: 7.5px;
-}
-.tool-record header span.error-result {
-  color: #d49a91;
-}
-.tool-record > span {
-  display: block;
-  margin: 8px 0 4px;
+  font-size: 7px;
   font-weight: 650;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.tool-record pre {
+.tool-record-status.attention {
+  color: #d49a91;
+}
+.tool-record-body {
+  padding: 0 9px 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+}
+.tool-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+  gap: 6px;
+  margin: 9px 0;
+}
+.tool-audit-grid div {
+  min-width: 0;
+  padding: 7px;
+  border-radius: 6px;
+  background: rgba(91, 184, 167, 0.035);
+}
+.tool-audit-grid dt {
+  color: #626d6a;
+  font-size: 6.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.tool-audit-grid dd {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: #9ca7a4;
+  font-size: 7.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tool-payload {
+  margin-top: 6px;
+}
+.tool-payload > summary {
+  padding: 5px 0;
+  color: #747d7b;
+  cursor: pointer;
+  font-size: 7.5px;
+  font-weight: 650;
+}
+.tool-payload pre {
   max-height: 180px;
   padding: 7px 8px;
   margin: 0;
@@ -90,6 +149,8 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
-.tool-record > p {
-  margin: 0;
+.tool-pending-note {
+  margin: 8px 0 0;
+  color: #747d7b;
+  font-size: 7.5px;
 }

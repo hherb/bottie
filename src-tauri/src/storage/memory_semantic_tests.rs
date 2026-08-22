@@ -64,6 +64,9 @@ fn migration_registers_static_vec_and_records_versioned_empty_index() {
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("store should open");
     connection
+        .execute_batch(super::tools::REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST)
+        .expect("tool audit columns should be removable in the fixture");
+    connection
         .execute_batch(REMOVE_MEMORY_SEMANTIC_SCHEMA_FOR_TEST)
         .expect("semantic schema should be removable in the fixture");
     connection
@@ -114,7 +117,7 @@ fn migration_registers_static_vec_and_records_versioned_empty_index() {
             .status()
             .expect("status should load")
             .schema_version,
-        20
+        21
     );
     assert_eq!(
         metadata,

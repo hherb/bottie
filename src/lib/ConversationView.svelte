@@ -4,8 +4,9 @@
   import { copyAssistantResponse } from "$lib/clipboard";
   import Icon from "$lib/Icon.svelte";
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
+  import ToolActivity from "$lib/ToolActivity.svelte";
   import { renderAssistantMarkdown } from "$lib/markdown";
-  import { formatToolPayload, type ConversationBranch } from "$lib/storage";
+  import type { ConversationBranch } from "$lib/storage";
   import { attachmentFailure, attachmentStatusLabel } from "$lib/attachment";
   import { attachmentDeliveryLabel } from "$lib/chat";
   import type { ResponseRating } from "$lib/storage";
@@ -205,35 +206,7 @@
           {/if}
 
           {#if message.toolInvocations?.length}
-            <details class="tool-activity-block">
-              <summary>
-                <span>Tool activity</span>
-                <small>
-                  {message.toolInvocations.length}
-                  {message.toolInvocations.length === 1 ? "call" : "calls"}
-                </small>
-              </summary>
-              <div class="tool-activity-list">
-                {#each message.toolInvocations as tool (tool.ordinal)}
-                  <section class="tool-record">
-                    <header>
-                      <code>{tool.toolName}</code>
-                      <span class:error-result={tool.result?.isError}>
-                        {tool.result ? (tool.result.isError ? "Error" : "Complete") : "Pending"}
-                      </span>
-                    </header>
-                    <span>Arguments</span>
-                    <pre>{formatToolPayload(tool.arguments)}</pre>
-                    <span>{tool.result?.isError ? "Error result" : "Result"}</span>
-                    {#if tool.result}
-                      <pre>{formatToolPayload(tool.result.output)}</pre>
-                    {:else}
-                      <p>Pending</p>
-                    {/if}
-                  </section>
-                {/each}
-              </div>
-            </details>
+            <ToolActivity tools={message.toolInvocations} />
           {/if}
 
           {#if message.featured}

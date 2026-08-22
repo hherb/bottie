@@ -3,14 +3,23 @@ import { describe, expect, it } from "vitest";
 import type { Message } from "./presentation";
 import { memoryCitationsForMessages } from "./memory-provenance";
 
+type ToolFixture = Omit<NonNullable<Message["toolInvocations"]>[number], "audit">;
+
 /** Builds one assistant message with durable native tool activity. */
-function assistantWithTools(toolInvocations: Message["toolInvocations"]): Message {
+function assistantWithTools(tools: ToolFixture[]): Message {
   return {
     id: 7,
     storageId: "assistant-7",
     role: "assistant",
     content: "A response grounded in retained context.",
-    toolInvocations,
+    toolInvocations: tools.map((tool) => ({
+      ...tool,
+      audit: {
+        policy: tool.toolName === "web_search" ? "unregistered" : "safe",
+        outcome: tool.result?.isError ? "unavailable" : tool.result ? "success" : null,
+        durationMs: tool.result ? Math.max(0, tool.result.createdAtMs - tool.createdAtMs) : null,
+      },
+    })),
   };
 }
 

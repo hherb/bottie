@@ -19,10 +19,10 @@ const EXPORT_FILENAME_PREFIX: &str = "bottie-";
 const MARKDOWN_FILENAME_EXTENSION: &str = ".md";
 const JSON_FILENAME_EXTENSION: &str = ".json";
 const JSON_EXPORT_FORMAT: &str = "bottie-conversation";
-const JSON_EXPORT_VERSION: u8 = 3;
+const JSON_EXPORT_VERSION: u8 = 4;
 const BATCH_JSON_EXPORT_FILE_NAME: &str = "bottie-conversations.json";
 const BATCH_JSON_EXPORT_FORMAT: &str = "bottie-conversation-batch";
-const BATCH_JSON_EXPORT_VERSION: u8 = 3;
+const BATCH_JSON_EXPORT_VERSION: u8 = 4;
 
 impl ConversationStore {
     /// Prepares the current visible lineage without changing the profile's open-conversation selection.
@@ -408,6 +408,7 @@ fn write_tool_activity(markdown: &mut String, tools: &[super::tools::StoredToolI
     for tool in tools {
         writeln!(markdown, "#### {}\n", inline_code(&tool.tool_name))
             .expect("writing to a string cannot fail");
+        write_tool_audit(markdown, &tool.audit);
         markdown.push_str("**Arguments**\n\n");
         write_json_fence(markdown, &tool.arguments);
         match &tool.result {
@@ -422,6 +423,33 @@ fn write_tool_activity(markdown: &mut String, tools: &[super::tools::StoredToolI
             None => markdown.push_str("**Result:** Pending\n\n"),
         }
     }
+}
+
+/// Writes one compact provider-neutral audit summary without opaque call identity.
+fn write_tool_audit(markdown: &mut String, audit: &super::tools::StoredToolAudit) {
+    let policy = match audit.policy {
+        super::tools::ToolAuditPolicy::Legacy => "Legacy record",
+        super::tools::ToolAuditPolicy::Safe => "Read-only",
+        super::tools::ToolAuditPolicy::ApprovalRequired => "Approval required",
+        super::tools::ToolAuditPolicy::Unregistered => "Unregistered",
+    };
+    let outcome = match audit.outcome {
+        None => "Pending",
+        Some(super::tools::ToolAuditOutcome::Success) => "Succeeded",
+        Some(super::tools::ToolAuditOutcome::UnsupportedTool) => "Unsupported tool",
+        Some(super::tools::ToolAuditOutcome::InvalidArguments) => "Invalid arguments",
+        Some(super::tools::ToolAuditOutcome::ApprovalRequired) => "Approval required",
+        Some(super::tools::ToolAuditOutcome::Unavailable) => "Source unavailable",
+        Some(super::tools::ToolAuditOutcome::ExecutionFailed) => "Execution failed",
+        Some(super::tools::ToolAuditOutcome::OutputTooLarge) => "Output too large",
+        Some(super::tools::ToolAuditOutcome::LegacyError) => "Legacy error",
+    };
+    writeln!(markdown, "**Audit:** {policy} · {outcome}").expect("writing to a string cannot fail");
+    if let Some(duration_ms) = audit.duration_ms {
+        writeln!(markdown, "**Native execution:** {duration_ms} ms")
+            .expect("writing to a string cannot fail");
+    }
+    markdown.push('\n');
 }
 
 /// Writes deterministic pretty JSON inside a Markdown fence safe for embedded backticks.

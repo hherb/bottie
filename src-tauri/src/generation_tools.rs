@@ -11,12 +11,14 @@ use crate::{
     semantic_indexer::SemanticQueryEmbedder,
     storage::{
         ConversationStore, NewToolInvocation, NewToolResult, SemanticEmbedder, StorageError,
+        ToolAuditOutcome, ToolAuditPolicy,
     },
-    tool_dispatch::{MemoryToolExecution, dispatch_memory_tool},
+    tool_dispatch::{MemoryToolExecution, MemoryToolExecutionErrorCode, dispatch_memory_tool},
     tool_loop::{
         NativeToolCall, ToolLoopCancellation, ToolLoopError, ToolLoopErrorCode, ToolLoopState,
         ToolRoundError,
     },
+    tool_policy::{ToolExecutionPolicy, tool_execution_policy},
 };
 
 /// Confirms explicit intent plus a mapped provider's discovered per-model tool capability.
@@ -403,21 +405,47 @@ fn execute_and_checkpoint(
     embedder: &mut impl SemanticEmbedder,
     call: &NativeToolCall,
 ) -> Result<MemoryToolExecution, StorageError> {
+    let audit_policy = match tool_execution_policy(&call.tool_name) {
+        Some(ToolExecutionPolicy::Safe) => ToolAuditPolicy::Safe,
+        Some(ToolExecutionPolicy::ApprovalRequired) => ToolAuditPolicy::ApprovalRequired,
+        None => ToolAuditPolicy::Unregistered,
+    };
     store.checkpoint_tool_invocation(NewToolInvocation {
         provider_run_id: provider_run_id.into(),
         provider_call_id: call.call_id.clone(),
         tool_name: call.tool_name.clone(),
         arguments: call.arguments.clone(),
+        audit_policy,
     })?;
+    let started = std::time::Instant::now();
     let execution = dispatch_memory_tool(store, embedder, call, None);
+    let audit_outcome = audit_outcome(&execution);
+    let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let output = serde_json::to_value(&execution).map_err(|_| StorageError::internal())?;
     store.checkpoint_tool_result(NewToolResult {
         provider_run_id: provider_run_id.into(),
         provider_call_id: call.call_id.clone(),
         output,
         is_error: matches!(execution, MemoryToolExecution::Error { .. }),
+        audit_outcome,
+        duration_ms,
     })?;
     Ok(execution)
+}
+
+/// Maps the bounded dispatcher envelope into its durable path-free audit category.
+fn audit_outcome(execution: &MemoryToolExecution) -> ToolAuditOutcome {
+    let MemoryToolExecution::Error { error } = execution else {
+        return ToolAuditOutcome::Success;
+    };
+    match error.code {
+        MemoryToolExecutionErrorCode::UnsupportedTool => ToolAuditOutcome::UnsupportedTool,
+        MemoryToolExecutionErrorCode::InvalidArguments => ToolAuditOutcome::InvalidArguments,
+        MemoryToolExecutionErrorCode::ApprovalRequired => ToolAuditOutcome::ApprovalRequired,
+        MemoryToolExecutionErrorCode::Unavailable => ToolAuditOutcome::Unavailable,
+        MemoryToolExecutionErrorCode::ExecutionFailed => ToolAuditOutcome::ExecutionFailed,
+        MemoryToolExecutionErrorCode::OutputTooLarge => ToolAuditOutcome::OutputTooLarge,
+    }
 }
 
 /// Converts loop policy or secret-free checkpoint failures into the existing generation surface.

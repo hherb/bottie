@@ -25,7 +25,7 @@ use crate::{
     semantic_indexer::SemanticIndexer,
     storage::{
         ConversationStore, MessageState, NewProviderRun, NewStoredMessage, ProviderRunState,
-        SemanticEmbedder, StoredReasoningEffort, StoredRole,
+        SemanticEmbedder, StoredReasoningEffort, StoredRole, ToolAuditOutcome, ToolAuditPolicy,
     },
     tool_loop::{ToolLoopCancellation, ToolLoopState},
 };
@@ -167,6 +167,9 @@ fn executes_and_persists_an_ollama_tool_round_before_returning_results() {
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0].tool_name, "open_memory");
     assert_eq!(tools[0].arguments["messageId"], message_id);
+    assert_eq!(tools[0].audit.policy, ToolAuditPolicy::Safe);
+    assert_eq!(tools[0].audit.outcome, Some(ToolAuditOutcome::Success));
+    assert!(tools[0].audit.duration_ms.is_some());
     assert!(
         tools[0]
             .result
@@ -174,6 +177,50 @@ fn executes_and_persists_an_ollama_tool_round_before_returning_results() {
             .is_some_and(|result| !result.is_error)
     );
     assert_eq!(state.call_count(), 1);
+}
+
+#[test]
+fn audits_unregistered_provider_calls_as_rejected_without_reflecting_the_name_in_the_result() {
+    let (store, conversation_id, _message_id, run_id) = active_run("ollama");
+    let mut state = ToolLoopState::new(Instant::now());
+    let cancellation = ToolLoopCancellation::default();
+    let mut embedder = GenerationToolEmbedder;
+
+    let results = execute_ollama_memory_round(
+        &store,
+        &run_id,
+        &mut embedder,
+        &mut state,
+        vec![OllamaToolCall::fixture(
+            0,
+            "provider_supplied_unknown_tool",
+            json!({"secret": "/private/path"}),
+        )],
+        &cancellation,
+    )
+    .expect("unsupported call should close through the bounded result envelope");
+
+    assert!(results[0].content.contains(r#""code":"unsupported_tool""#));
+    assert!(
+        !results[0]
+            .content
+            .contains("provider_supplied_unknown_tool")
+    );
+    assert!(!results[0].content.contains("/private/path"));
+    store
+        .finish_provider_run(&run_id, ProviderRunState::Completed, None, None)
+        .expect("run should complete");
+    let conversation = store
+        .load_conversation(&conversation_id)
+        .expect("conversation should reload");
+    let audit = &conversation.messages[1]
+        .provider_run
+        .as_ref()
+        .expect("response should retain its run")
+        .tool_invocations[0]
+        .audit;
+    assert_eq!(audit.policy, ToolAuditPolicy::Unregistered);
+    assert_eq!(audit.outcome, Some(ToolAuditOutcome::UnsupportedTool));
 }
 
 #[test]

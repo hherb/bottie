@@ -44,8 +44,25 @@ export type StoredToolInvocation = {
   ordinal: number;
   toolName: string;
   arguments: unknown;
+  audit: StoredToolAudit;
   result: StoredToolResult | null;
   createdAtMs: number;
+};
+
+/** Native-owned execution classification and terminal summary for one tool call. */
+export type StoredToolAudit = {
+  policy: "legacy" | "safe" | "approval_required" | "unregistered";
+  outcome:
+    | "success"
+    | "unsupported_tool"
+    | "invalid_arguments"
+    | "approval_required"
+    | "unavailable"
+    | "execution_failed"
+    | "output_too_large"
+    | "legacy_error"
+    | null;
+  durationMs: number | null;
 };
 
 /** One structured tool outcome linked to a retained call. */

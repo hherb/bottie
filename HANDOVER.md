@@ -144,9 +144,12 @@ native tool runtime now applies one fail-closed execution policy before validati
 enabled, bounded, read-only memory tools are classified safe; any future approval-required tool needs a one-use trusted
 native grant bound to the exact provider call identity, tool name, and arguments. Provider calls cannot create
 approvals, and unknown or mismatched calls return fixed redacted errors through the existing durable result path. No
-approval UI or approval-required tool is registered yet. The next bounded implementation slice is structured tool
-audit records and expandable activity UI; do not bundle oMLX mapping, automatic retrieval injection, model-cache
-deletion, document opening, web tools, or attachment retry controls.
+approval UI or approval-required tool is registered yet. Schema version 21 now adds native execution classification,
+stable terminal outcome, and native-work duration to each append-only tool record. Historical rows remain explicitly
+legacy. Reopened responses show a calm call summary and one expandable audit record per call, with raw arguments and
+results behind nested disclosures. The next bounded implementation slice is the pluggable native web-search provider
+boundary; do not bundle a second search provider, `web_fetch`, oMLX mapping, automatic retrieval injection,
+model-cache deletion, document opening, or attachment retry controls.
 
 Read these files first:
 
@@ -160,7 +163,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/tool-approval-policy`.
+branch `codex/tool-audit-activity`.
 
 ## Current implementation
 
@@ -208,7 +211,7 @@ branch `codex/tool-approval-policy`.
 - assistant-response and reasoning copying as labelled Markdown with visible and screen-reader-readable feedback;
 - response retry for interrupted, cancelled, and retryable failed attempts, preserving the original branch;
 - durable Good/Poor response ratings with accessible pressed state, replacement, and clearing;
-- expandable persisted tool-call arguments and pending/success/error results on reopened assistant responses;
+- expandable persisted tool audit summaries with policy, outcome, timing, and nested inert argument/result payloads;
 - selected-lineage Markdown/JSON and non-trashed batch JSON export through native Save dialogs with compact feedback;
 - complete manual SQLite backup creation through a native Save dialog with compact saved/error feedback;
 - confirmed manual restore from validated Bottie backups with a named pre-restore safety copy;
@@ -287,6 +290,7 @@ success/error envelope without provider wire policy, while `src-tauri/src/tool_p
 approval-required classification and exact-call native approval binding applied before dispatch,
 `src-tauri/src/tool_loop.rs` owns provider-neutral multi-call correlation, recursion/call/output/deadline policy, and
 shared cancellation checks used by mapped provider generation,
+`src-tauri/src/storage/tool_audit_migration.rs` owns schema-21 audit columns and honest legacy backfill,
 `src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
 embedding details,
@@ -453,7 +457,73 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 542 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Safe versus approval-required native tool policy
+## Most recently completed product slice: Structured tool audit and expandable activity
+
+### Goal
+
+Turn provider tool calls into calm, durable, provider-neutral audit records that explain what Bottie allowed and what
+happened without exposing opaque call identities or forcing users to scan raw JSON.
+
+### Implemented shape
+
+1. Schema version 21 adds one immutable execution-policy classification to each existing tool invocation plus a stable
+   terminal outcome and native execution duration to its append-only result. New writes enforce agreement between the
+   result error flag and outcome; historical success/error rows migrate as honest `legacy` audit records with no
+   invented duration.
+2. Mapped Ollama, OpenAI-compatible, and Anthropic-compatible execution snapshots the native policy classification
+   before dispatch and maps only the bounded provider-neutral result categories after dispatch. Unregistered provider
+   names are retained as unregistered/rejected audit state while the result remains redacted.
+3. Reopened and just-completed selected responses now show a compact Tool activity summary. Each call expands into its
+   requested/finished times, policy, outcome, and native-work duration; argument and result JSON remain inert text
+   behind separate nested disclosures.
+4. Known memory tools receive calm product labels while the exact registered name remains visible. Pure presentation
+   helpers own policy/outcome/duration labels, and a focused `ToolActivity.svelte` component keeps the conversation
+   renderer below its practical size limit.
+5. Selected and batch JSON exports advance to version 4 and retain the structured audit object without native run or
+   provider call IDs. Markdown exports add the same policy, outcome, and optional duration ahead of existing inert
+   argument/result payloads.
+
+### Acceptance criteria
+
+- Existing schema-20 stores migrate without rewriting tool arguments/results; legacy records never claim a policy or
+  duration that Bottie did not record at execution time.
+- Every new accepted call records `safe`, `approval_required`, or `unregistered` before dispatch and one stable
+  success/rejection/failure category plus native duration when a result is appended.
+- Unknown and malformed provider calls remain bounded and redacted while their audit state explains the rejection;
+  result status and audit outcome cannot disagree at the storage boundary.
+- The activity summary identifies calls needing attention without opening raw payloads, and each call is independently
+  keyboard-expandable with structured audit fields before arguments/results.
+- IPC and portable exports still omit provider call IDs, native run IDs, paths, hashes, embeddings, scores, and storage
+  details. No web tool, provider wire change, approval UI, or approval-required execution is added.
+
+### Verification completed
+
+Focused TDD first failed on the absent audit types/schema and absent presentation helper. Five storage tests cover
+schema-20 legacy backfill, ordered pending/success/error reconstruction, mismatch rejection, linkage, duplicates, and
+terminal-run constraints. Mapped-generation coverage confirms safe success metadata and unregistered-call rejection
+without reflecting provider-controlled names or path-shaped arguments. Export tests cover version-4 JSON plus Markdown
+audit summaries without opaque identities. Five frontend tests cover tool naming, policy/outcome/status/duration
+presentation, attention counts, and server-rendered disclosure structure.
+
+Prettier, `svelte-check`, all 74 frontend tests, the production build, Cargo formatting, Cargo check, and all 235
+default Rust tests pass; seven opt-in network tests remain ignored by the default suite. The first full Rust pass
+exposed older-version migration fixtures that retained schema-21 columns while rewinding `user_version`; those fixtures
+now remove only the audit columns before exercising their historical migration paths, and the clean full rerun passed.
+
+The browser preview was visually checked at 1320 x 820 and the 720 x 620 native minimum with both the activity group
+and its call record expanded. The audit grid remained inside its container at both sizes; an explicit responsive DOM
+check found document width equal to the 720-pixel viewport and no activity element with horizontal overflow. The
+browser console contained no warnings or errors. The disclosures use native `details`/`summary` semantics and the
+server-rendered accessibility structure is covered, but automated keyboard presses did not change disclosure state in
+the browser harness, so this run does not claim a separate keyboard-interaction confirmation.
+
+The native app compiled and launched against the existing store without terminal errors. Immutable read-only
+inspection after launch returned schema version 21, `quick_check=ok`, nine conversations, one tool invocation, and one
+matching result. That historical call migrated with `execution_policy=legacy`, as required; no real provider tool call
+was generated during this verification, so fresh non-legacy native UI presentation remains covered by mapped-provider
+path tests and the browser fixture rather than a live model response.
+
+## Prior completed product slice: Safe versus approval-required native tool policy
 
 ### Goal
 

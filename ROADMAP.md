@@ -212,8 +212,8 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] Anthropic Messages definition/call/result mapping and generation-loop wiring;
 - [x] active-generation cancellation propagation through mapped providers and native tool work;
 - [x] safe versus approval-required tool policy;
-- structured audit records and expandable activity UI;
-- protection against malformed or unsupported tool calls.
+- [x] structured audit records and expandable activity UI;
+- [x] protection against malformed or unsupported tool calls.
 
 ### Web tools
 
