@@ -1,4 +1,4 @@
-//! Ollama generation-tool persistence and correlation tests.
+//! Mapped-provider generation-tool persistence and correlation tests.
 
 use std::{
     collections::VecDeque,
@@ -13,10 +13,14 @@ use serde_json::json;
 
 use crate::{
     diagnostics::Diagnostics,
-    generation_tools::{execute_ollama_memory_round, stream_ollama_memory_tools},
+    generation_tools::{
+        execute_ollama_memory_round, execute_openai_memory_round, memory_tools_enabled,
+        stream_ollama_memory_tools, stream_openai_memory_tools,
+    },
     inference::{
         ChatRequest, ChatRole, ChatSettings, ChatTurn, ContentBlock, OllamaProvider,
-        OllamaToolCall, ProviderError, ReasoningEffort, StreamSink, Usage,
+        OllamaToolCall, OpenAiProvider, OpenAiToolCall, ProviderError, ReasoningEffort, StreamSink,
+        Usage,
     },
     semantic_indexer::SemanticIndexer,
     storage::{
@@ -25,6 +29,18 @@ use crate::{
     },
     tool_loop::{ToolLoopCancellation, ToolLoopState},
 };
+
+#[test]
+fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
+    assert!(memory_tools_enabled(true, "ollama", true));
+    assert!(memory_tools_enabled(true, "openai", true));
+    assert!(!memory_tools_enabled(false, "ollama", true));
+    assert!(!memory_tools_enabled(false, "openai", true));
+    assert!(!memory_tools_enabled(true, "ollama", false));
+    assert!(!memory_tools_enabled(true, "openai", false));
+    assert!(!memory_tools_enabled(true, "anthropic", true));
+    assert!(!memory_tools_enabled(true, "omlx", true));
+}
 
 /// Fixed dimensions required by the semantic query boundary when a search tool is exercised.
 const TEST_EMBEDDING_DIMENSIONS: usize = 768;
@@ -68,8 +84,8 @@ impl StreamSink for RecordingSink {
     }
 }
 
-/// Creates one active Ollama provider run that can retain tool checkpoints.
-fn active_run() -> (ConversationStore, String, String, String) {
+/// Creates one active mapped-provider run that can retain tool checkpoints.
+fn active_run(provider_id: &str) -> (ConversationStore, String, String, String) {
     let path = std::env::temp_dir()
         .join("bottie-generation-tool-tests")
         .join(format!("{}.sqlite3", uuid::Uuid::new_v4()));
@@ -97,7 +113,7 @@ fn active_run() -> (ConversationStore, String, String, String) {
             id: run_id.clone(),
             conversation_id: conversation.id.clone(),
             request_message_id: request.id.clone(),
-            provider_id: "ollama".into(),
+            provider_id: provider_id.into(),
             model_id: "tool-model".into(),
             reasoning_effort: StoredReasoningEffort::Off,
             temperature: None,
@@ -109,7 +125,7 @@ fn active_run() -> (ConversationStore, String, String, String) {
 
 #[test]
 fn executes_and_persists_an_ollama_tool_round_before_returning_results() {
-    let (store, conversation_id, message_id, run_id) = active_run();
+    let (store, conversation_id, message_id, run_id) = active_run("ollama");
     let mut state = ToolLoopState::new(Instant::now());
     let cancellation = ToolLoopCancellation::default();
     let mut embedder = GenerationToolEmbedder;
@@ -161,9 +177,54 @@ fn executes_and_persists_an_ollama_tool_round_before_returning_results() {
 }
 
 #[test]
+fn preserves_openai_call_identity_while_persisting_the_exact_result() {
+    let (store, conversation_id, message_id, run_id) = active_run("openai");
+    let mut state = ToolLoopState::new(Instant::now());
+    let cancellation = ToolLoopCancellation::default();
+    let mut embedder = GenerationToolEmbedder;
+
+    let results = execute_openai_memory_round(
+        &store,
+        &run_id,
+        &mut embedder,
+        &mut state,
+        vec![OpenAiToolCall::fixture(
+            "call_openai_1",
+            "open_memory",
+            json!({
+                "conversationId": conversation_id,
+                "messageId": message_id,
+                "before": 0,
+                "after": 0
+            }),
+        )],
+        &cancellation,
+    )
+    .expect("OpenAI tool round should execute");
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].tool_call_id, "call_openai_1");
+    assert!(results[0].content.contains(r#""ok":true"#));
+    store
+        .finish_provider_run(&run_id, ProviderRunState::Completed, None, None)
+        .expect("run should complete");
+    let conversation = store
+        .load_conversation(&conversation_id)
+        .expect("conversation should reload");
+    let tool = &conversation.messages[1]
+        .provider_run
+        .as_ref()
+        .expect("response should retain its run")
+        .tool_invocations[0];
+    assert_eq!(tool.tool_name, "open_memory");
+    assert!(tool.result.as_ref().is_some_and(|result| !result.is_error));
+    assert_eq!(state.call_count(), 1);
+}
+
+#[test]
 #[ignore = "requires loopback fixture access"]
 fn streams_an_ollama_tool_call_result_and_final_answer_across_two_requests() {
-    let (store, conversation_id, message_id, run_id) = active_run();
+    let (store, conversation_id, message_id, run_id) = active_run("ollama");
     let tool_chunk = serde_json::json!({
         "message": {
             "role": "assistant",
@@ -247,9 +308,133 @@ fn streams_an_ollama_tool_call_result_and_final_answer_across_two_requests() {
     );
 }
 
+#[test]
+#[ignore = "requires loopback fixture access"]
+fn streams_an_openai_tool_call_result_and_final_answer_across_two_requests() {
+    let (store, conversation_id, message_id, run_id) = active_run("openai");
+    let tool_event = json!({
+        "choices": [{"delta": {"tool_calls": [{
+            "index": 0,
+            "id": "call_openai_1",
+            "type": "function",
+            "function": {
+                "name": "open_memory",
+                "arguments": serde_json::to_string(&json!({
+                    "conversationId": conversation_id,
+                    "messageId": message_id,
+                    "before": 0,
+                    "after": 0
+                })).unwrap()
+            }
+        }]}}]
+    });
+    let first_usage = json!({
+        "choices": [],
+        "usage": {"prompt_tokens": 7, "completion_tokens": 2, "cost": 0.001}
+    });
+    let final_event = json!({"choices": [{"delta": {"content": "Final answer"}}]});
+    let final_usage = json!({
+        "choices": [],
+        "usage": {"prompt_tokens": 11, "completion_tokens": 3, "cost": 0.002}
+    });
+    let responses = vec![
+        sse_response(&[tool_event, first_usage]),
+        sse_response(&[final_event, final_usage]),
+    ];
+    let (base_url, requests, server) = response_fixture_server("text/event-stream", responses);
+    let provider =
+        OpenAiProvider::for_loopback_fixture(&base_url).expect("fixture endpoint should build");
+    let sink = RecordingSink::default();
+    let semantic_indexer = SemanticIndexer::start(
+        std::env::temp_dir().join(format!("bottie-tool-model-{}", uuid::Uuid::new_v4())),
+        store.clone(),
+        Diagnostics::default(),
+    );
+    let request = ChatRequest {
+        provider_id: "openai".into(),
+        model_id: "tool-model".into(),
+        messages: vec![ChatTurn {
+            role: ChatRole::User,
+            content: vec![ContentBlock::Text {
+                text: "Open this exact memory".into(),
+            }],
+        }],
+        memory_enabled: true,
+        settings: ChatSettings {
+            temperature: None,
+            max_output_tokens: Some(128),
+            reasoning_effort: ReasoningEffort::Off,
+        },
+    };
+
+    let usage = tauri::async_runtime::block_on(stream_openai_memory_tools(
+        provider,
+        request,
+        sink.clone(),
+        store,
+        run_id,
+        semantic_indexer.query_embedder(),
+        ToolLoopCancellation::default(),
+    ))
+    .expect("two-round OpenAI generation should complete")
+    .expect("fixture reports usage");
+    server.join().expect("fixture server should finish");
+
+    assert_eq!(sink.text.lock().unwrap().as_str(), "Final answer");
+    assert_eq!(usage.input_tokens, Some(18));
+    assert_eq!(usage.output_tokens, Some(5));
+    assert!(
+        usage
+            .cost_usd
+            .is_some_and(|cost| (cost - 0.003).abs() < f64::EPSILON)
+    );
+    let requests = requests.lock().unwrap();
+    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(requests[1]["messages"][1]["role"], "assistant");
+    assert_eq!(
+        requests[1]["messages"][1]["tool_calls"][0]["id"],
+        "call_openai_1"
+    );
+    assert_eq!(requests[1]["messages"][2]["role"], "tool");
+    assert_eq!(requests[1]["messages"][2]["tool_call_id"], "call_openai_1");
+    assert!(
+        requests[1]["messages"][2]["content"]
+            .as_str()
+            .is_some_and(|content| content.contains(r#""ok":true"#))
+    );
+}
+
+/// Encodes complete Chat Completions events followed by the required SSE terminator.
+fn sse_response(events: &[serde_json::Value]) -> String {
+    let mut body = events
+        .iter()
+        .map(|event| format!("data: {event}\n\n"))
+        .collect::<String>();
+    body.push_str("data: [DONE]\n\n");
+    body
+}
+
 /// Starts a two-request loopback HTTP fixture and records each decoded JSON request body.
 fn fixture_server(
     responses: Vec<serde_json::Value>,
+) -> (
+    String,
+    Arc<Mutex<Vec<serde_json::Value>>>,
+    thread::JoinHandle<()>,
+) {
+    response_fixture_server(
+        "application/x-ndjson",
+        responses
+            .into_iter()
+            .map(|response| format!("{}\n", serde_json::to_string(&response).unwrap()))
+            .collect(),
+    )
+}
+
+/// Starts a two-request HTTP fixture with caller-supplied complete response bodies.
+fn response_fixture_server(
+    content_type: &'static str,
+    responses: Vec<String>,
 ) -> (
     String,
     Arc<Mutex<Vec<serde_json::Value>>>,
@@ -263,14 +448,13 @@ fn fixture_server(
     let recorded = requests.clone();
     let server = thread::spawn(move || {
         let mut responses = VecDeque::from(responses);
-        while let Some(response) = responses.pop_front() {
+        while let Some(body) = responses.pop_front() {
             let (mut stream, _) = listener.accept().expect("fixture request should connect");
             let request = read_json_request(&mut stream);
             recorded.lock().unwrap().push(request);
-            let body = format!("{}\n", serde_json::to_string(&response).unwrap());
             write!(
                 stream,
-                "HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                 body.len(),
                 body
             )

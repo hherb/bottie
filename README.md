@@ -65,10 +65,10 @@ omit older image associations; documents remain excluded from automatic provider
 the selected durable
 lineage, reads at most eight normalized images and 50 MiB per request, and emits provider-native Ollama, OpenAI-shaped,
 or Anthropic-shaped image blocks without exposing bytes to JavaScript. An explicit session-only Memory toggle is
-available for Ollama models that advertise tools. Those requests may execute bounded native conversation or retained
-document retrieval and return path-free excerpts through Ollama's local loopback API; no document is injected
-automatically, and cloud-provider tool mapping, approvals, other office formats, and direct document delivery remain
-unimplemented.
+available for Ollama and OpenAI-compatible models that advertise tools. Those requests may execute bounded native
+conversation or retained-document retrieval and return path-free excerpts through the provider's native tool shape;
+no document is injected automatically, and Anthropic/oMLX tool mapping, approvals, other office formats, and direct
+document delivery remain unimplemented.
 
 ## Development
 
@@ -207,7 +207,7 @@ files, never extracted SQLite text or normalized derivatives. Ready JPEG/PNG der
 capability-confirmed vision requests, with
 an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from automatic message content.
 Other office formats are not extracted. Indexed document text stays native until an explicitly enabled
-`search_attached_files` call returns a bounded path-free excerpt to local Ollama; cloud routes cannot use the tool.
+`search_attached_files` call returns a bounded path-free excerpt to a mapped Ollama or OpenAI-compatible model.
 Ready
 images also receive a
 metadata-free thumbnail capped to 320 pixels on either axis. The WebView requests that thumbnail through a private
@@ -237,18 +237,19 @@ controls are now explicit in Settings: the WebView receives only durable state, 
 failure category. Reindexing serializes with restore, pauses the worker, atomically removes only derived vectors,
 retains chunks and the application-owned model cache, then resumes bounded background work. Native-only
 `search_memory`, `open_memory`, and `search_attached_files` contracts provide bounded message excerpts, surrounding
-final turns, and ready-document excerpts with path-free provenance for a future tool runtime. One provider-independent
-definition set now advertises closed JSON schemas for those three tools and strictly validates raw names and arguments
+final turns, and ready-document excerpts with path-free provenance for the mapped tool runtime. One
+provider-independent definition set now advertises closed JSON schemas for those three tools and strictly validates
+raw names and arguments
 into their typed native contracts. A Rust-only provider-neutral dispatcher executes one validated call and returns an
 exclusive structured success/error envelope capped at 64 KiB, with stable redacted failure categories. Provider
 independent loop state now correlates repeated calls and results across at most four rounds, eight calls, 256 KiB of
 aggregate serialized output, and 30 seconds while checking a shared cancellation signal before and after every native
-call. Tool-capable Ollama models now receive those definitions only after the user enables Memory. Rust accumulates
-streamed calls, checkpoints each call/result under the active provider run, reuses the process-lifetime EmbeddingGemma
-worker for semantic queries, appends ordered Ollama tool-result messages, and aggregates usage across follow-up rounds.
-Tool activity is inspectable and portable; paths, hashes, scores, vectors, embeddings, cache details, and provider/native
-call identities remain excluded. OpenAI-shaped and Anthropic-shaped mapping, automatic retrieval injection, and real
-memory citation cards remain unimplemented.
+call. Tool-capable Ollama and OpenAI-compatible models now receive those definitions only after the user enables
+Memory. Rust accumulates streamed calls, checkpoints each call/result under the active provider run, reuses the
+process-lifetime EmbeddingGemma worker for semantic queries, appends provider-native correlated tool-result messages,
+and aggregates usage and optional cost across follow-up requests. Tool activity is inspectable and portable; paths,
+hashes, scores, vectors, embeddings, cache details, and provider/native call identities remain excluded.
+Anthropic-shaped and oMLX mapping, automatic retrieval injection, and real memory citation cards remain unimplemented.
 
 Run the layout-only browser preview:
 
@@ -283,12 +284,13 @@ The native memory subsystem uses FastEmbed 6 with Q4 EmbeddingGemma 300M as its 
 Bottie owns the model cache, durable acquisition/index progress, semantic-query prompting, and embedding/index
 versions; users do not configure a second inference provider merely to enable local memory indexing. A native-only
 `search_memory` contract now returns at most ten hybrid-ranked final-message excerpts with path-free conversation and
-message provenance for a future tool runtime. A matching native-only `open_memory` contract resolves exact provenance
+message provenance for the mapped tool runtime. A matching native-only `open_memory` contract resolves exact provenance
 into the matched message's immutable branch lineage, returning at most three final text turns on either side without
 changing the selected branch. Native-only `search_attached_files` applies the same bounded hybrid policy to ready
 extracted documents that retain an active or Archived association, returning safe file metadata and optional exact
 chunk offsets without paths, hashes, scores, or full extracted text. Provider-independent definitions expose only
 those three tools through closed schemas: required and optional fields, JSON types, Unicode-scalar identity/query
-ceilings, result/window bounds, and unknown-field rejection are enforced before typed dispatch. Provider invocation,
-executable dispatch, automatic prompt injection, document opening, and memory citations remain unavailable; Settings
-exposes only path-free progress and the derived-only reindex control.
+ceilings, result/window bounds, and unknown-field rejection are enforced before typed dispatch. Provider invocation
+and executable dispatch are available only through explicitly enabled, tool-capable Ollama and OpenAI-compatible
+requests. Anthropic/oMLX mapping, automatic prompt injection, document opening, and memory citations remain
+unavailable; Settings exposes only path-free progress and the derived-only reindex control.

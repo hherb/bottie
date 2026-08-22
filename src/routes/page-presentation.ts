@@ -1,7 +1,7 @@
 /** Pure presentation helpers for provider routing and visible attachment context. */
 
 import { displayEndpoint } from "$lib/chat";
-import type { ProviderId, ProviderSettings, ReasoningEffort } from "$lib/inference";
+import type { ModelInfo, ProviderId, ProviderSettings, ReasoningEffort } from "$lib/inference";
 import type { Attachment, InferenceStage, Message, MessageAttachment } from "$lib/presentation";
 
 /** Flattens visible message associations while retaining their owning durable identities. */
@@ -16,6 +16,11 @@ export function messageAttachmentAssociations(messages: Message[]): MessageAttac
 /** Combines draft and branch-independent attachments for next-request policy and feedback. */
 export function nextRequestAttachments(draft: Attachment[], conversation: Attachment[]): Attachment[] {
   return [...draft, ...conversation];
+}
+
+/** Confirms that Bottie maps native memory tools for the selected advertised capability. */
+export function memoryToolsAvailable(model: ModelInfo | undefined): boolean {
+  return Boolean(model?.capabilities.tools && (model.providerId === "ollama" || model.providerId === "openai"));
 }
 
 /** Selects the compact endpoint label for the active provider. */

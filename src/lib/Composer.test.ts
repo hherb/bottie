@@ -75,11 +75,13 @@ describe("Composer", () => {
     expect(html).toContain("cannot preview or send this image");
   });
 
-  it("exposes explicit pressed state only for a tool-capable Ollama selection", () => {
+  it("exposes explicit pressed state only for a mapped tool-capable selection", () => {
     const enabled = renderedComposer(true, true, [], true, true);
     const unavailable = renderedComposer(true, true);
 
     expect(enabled).toMatch(/aria-label="Disable memory tools"[^>]*aria-pressed="true"/);
-    expect(unavailable).toMatch(/aria-label="Memory tools require a tool-capable Ollama model"[^>]* disabled/);
+    expect(unavailable).toMatch(
+      /aria-label="Memory tools require a tool-capable Ollama or OpenAI-compatible model"[^>]* disabled/,
+    );
   });
 });

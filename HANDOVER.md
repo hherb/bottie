@@ -40,10 +40,11 @@ guided screen can restore the newest verified automatic snapshot or a manually s
 the damaged database bundle and prior attachment tree in app-private storage. Native provider runs now also retain
 ordered structured tool calls
 and one append-only result per call; reopened tool activity is inspectable and portable without exposing native or
-provider call identities. An explicit Memory composer toggle now lets tool-capable Ollama models use the three native
-memory tools through Ollama's function wire shape, Bottie's bounded multi-round state machine, and those durable tool
-records. OpenAI-shaped and Anthropic-shaped tool loops remain absent. Native attachment selection now streams
-chosen local files into application-private content-addressed storage with SHA-256 identities, content-based MIME
+provider call identities. An explicit Memory composer toggle now lets tool-capable Ollama and OpenAI-compatible models
+use the three native memory tools through their distinct function wire shapes, Bottie's bounded multi-round state
+machine, and those durable tool records. Anthropic-shaped and oMLX tool loops remain absent. Native attachment
+selection now streams chosen local files into application-private content-addressed storage with SHA-256 identities,
+content-based MIME
 sniffing, safe display names, a 25 MiB per-file limit, an eight-file selection limit, and cross-session duplicate
 detection. Source and storage paths never reach the WebView, and the interface explicitly labels retained attachment
 delivery state for the selected model. A selected draft can now commit atomically with its user message, reopen as
@@ -70,9 +71,9 @@ memory construction, not provider delivery. Up to eight retained
 files can now be kept in durable conversation scope independently of any branch or message. The interface distinguishes
 next-message, conversation, and message associations and supports narrow removal without deleting retained content.
 Conversation-scoped normalized images apply to every current request, require explicit vision capability, and are
-deduplicated when the same file is also linked to a message; explicitly enabled tool-capable Ollama requests may
-retrieve bounded document excerpts, while cloud routes cannot use the tool. Portable backups now retain
-every original blob and ready normalized derivative, while selected and batch exports bundle only referenced originals
+deduplicated when the same file is also linked to a message; explicitly enabled tool-capable Ollama or OpenAI-compatible
+requests may retrieve bounded document excerpts. Portable backups now retain every original blob and ready normalized
+derivative, while selected and batch exports bundle only referenced originals
 with versioned path-free manifests. Each successful non-recovery startup now removes attachment catalog rows older
 than a 24-hour safety window with no message or conversation reference, then sweeps equally old strict untracked
 original/derivative files and interrupted temporary work without touching recent cross-process drafts, recoverable
@@ -104,8 +105,8 @@ details. A matching Rust-owned `open_memory` contract now resolves that opaque p
 own immutable branch lineage without changing the selected branch. It returns at most three final text turns on each
 side, caps each turn at 2,000 Unicode scalars, retains Archived conversations, excludes Trash and non-final responses,
 and omits reasoning, provider details, attachments, and native paths. Automatic retrieval injection remains absent;
-only an explicitly enabled tool-capable Ollama request may call the native memory tools. A matching Rust-owned
-`search_attached_files` contract now applies hybrid retrieval only to
+only an explicitly enabled tool-capable Ollama or OpenAI-compatible request may call the native memory tools. A
+matching Rust-owned `search_attached_files` contract now applies hybrid retrieval only to
 ready extracted documents with durable active or Archived conversation/message associations. It returns bounded
 excerpts with safe file metadata and optional exact chunk offsets while omitting hashes, paths, scores, embeddings,
 full extracted text, and association internals. A single native definition set now exposes only `search_memory`,
@@ -118,12 +119,12 @@ structured success/error envelope. Successful envelopes have a 64 KiB serialized
 forwarding query, argument, embedding, storage, or path details. A provider-neutral native state machine now executes
 repeated batches through that dispatcher while correlating opaque call identities. One generation is bounded to eight
 calls, four tool rounds, 256 KiB of aggregate serialized output, and 30 seconds; cancellation and deadline checks run
-before and after every native call, and every exceptional outcome closes the loop. Ollama now maps the three closed
-definitions, accumulates streamed calls, executes and durably checkpoints ordered results, then continues generation
-with cumulative usage and shared cancellation. The next bounded implementation slice is OpenAI-compatible Chat
-Completions definition/call/result mapping plus explicit generation-loop wiring for models that advertise tools; do not
-bundle Anthropic-shaped or oMLX mapping, automatic retrieval injection, memory-card replacement, model-cache deletion,
-broad retention controls, document opening, or attachment retry controls.
+before and after every native call, and every exceptional outcome closes the loop. Ollama and OpenAI Chat Completions
+now map the three closed definitions, accumulate streamed calls, execute and durably checkpoint ordered results, then
+continue generation with cumulative usage and shared cancellation. The next bounded implementation slice is
+Anthropic-compatible Messages definition/call/result mapping plus explicit generation-loop wiring for models that
+advertise tools; do not bundle oMLX mapping, automatic retrieval injection, memory-card replacement, model-cache
+deletion, broad retention controls, document opening, or attachment retry controls.
 
 Read these files first:
 
@@ -137,7 +138,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/ollama-tool-loop`.
+branch `codex/openai-tool-loop`.
 
 ## Current implementation
 
@@ -254,9 +255,10 @@ name/argument validation, and conversion into exact typed native arguments witho
 `src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of those typed memory tools plus the bounded common
 success/error envelope without provider wire policy,
 `src-tauri/src/tool_loop.rs` owns provider-neutral multi-call correlation, recursion/call/output/deadline policy, and
-shared cancellation checks used by Ollama generation,
-`src-tauri/src/generation_tools.rs` owns Ollama call correlation, durable call/result checkpoints, cumulative usage,
-worker-backed query embedding, and provider-result serialization without leaking paths or embedding details,
+shared cancellation checks used by mapped provider generation,
+`src-tauri/src/generation_tools.rs` owns Ollama/OpenAI call correlation, durable call/result checkpoints, cumulative
+usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or embedding
+details,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
 EmbeddingGemma worker and its synchronous query-embedding proxy,
@@ -322,6 +324,8 @@ The remote adapters:
 - require Touch ID for the first read of each saved credential per macOS app session, then retain the unlocked value only
   in process memory;
 - discover remote models and normalize answer, reasoning, usage, cancellation, and provider errors;
+- map the three closed native memory definitions into OpenAI Chat Completions only after explicit Memory enablement and
+  advertised model capability, reconstruct streamed call fragments, and correlate `tool_call_id` results exactly;
 - preserve provider-reported USD cost metadata when compatible endpoints include it.
 
 Requests include a provider ID because model names can collide across providers. Initial discovery tolerates either
@@ -361,19 +365,19 @@ Do not mistake visual fixtures for implemented backend behavior:
   or is explicitly promoted into an existing conversation's durable context; an unassociated selection is eligible
   for native garbage collection after the 24-hour safety window and a later successful startup because the draft itself
   does not survive restart;
-- plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain unsent; their indexable state
-  feeds native FTS5, deterministic chunk, and semantic-vector indexes; an explicitly enabled tool-capable Ollama model
-  can now request bounded document excerpts through `search_attached_files`, but documents are not injected
-  automatically and no cloud provider receives them;
+- plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain outside automatic provider
+  context; their indexable state feeds native FTS5, deterministic chunk, and semantic-vector indexes. An explicitly
+  enabled tool-capable Ollama or OpenAI-compatible model can request bounded document excerpts through
+  `search_attached_files`;
   JPEG/PNG
   derivatives remain application-private and are read only for capability-confirmed vision requests; portable SQLite
   backups embed originals and ready derivatives, while selected/batch exports bundle referenced originals;
-- Ollama now emits and executes durable native memory-tool records when Memory is explicitly enabled; OpenAI-shaped
-  and Anthropic-shaped provider tool activity plus browser-preview tool activity remain absent or fixtures;
+- Ollama and OpenAI Chat Completions now emit and execute durable native memory-tool records when Memory is explicitly
+  enabled; Anthropic/oMLX provider tool activity plus browser-preview tool activity remain absent or fixtures;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- the native lexical, semantic KNN, fused search, and provenance-opening contracts now have an Ollama consumer through
-  the bounded dispatcher and loop, while visible/removable citation cards and real context-panel memory replacement
-  remain absent;
+- the native lexical, semantic KNN, fused search, and provenance-opening contracts now have Ollama and OpenAI-compatible
+  consumers through the bounded dispatcher and loop, while visible/removable citation cards and real context-panel
+  memory replacement remain absent;
 - no web search or fetch tool exists;
 - there are no automated end-to-end UI tests yet; the composer has focused server-rendered component coverage, and
   pure presentation and Markdown-policy helpers have frontend unit coverage.
@@ -414,7 +418,63 @@ The cohesively touched product modules remain below 500 lines. The crate composi
 existing practical-limit exception at 533 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Explicit Ollama native memory-tool loop
+## Most recently completed product slice: Explicit OpenAI Chat Completions native memory-tool loop
+
+### Goal
+
+Map Bottie's three closed native memory tools into OpenAI-compatible Chat Completions and run repeated explicitly
+enabled calls through the existing bounded dispatcher, state machine, durable tool records, provider stream, and shared
+cancellation path, without adding Anthropic-shaped or oMLX mapping, automatic retrieval injection, citation cards,
+context-panel replacement, or a schema migration.
+
+### Implemented shape
+
+1. The session-only Memory toggle is now available for Ollama or OpenAI-compatible models that explicitly advertise
+   tool capability. Native generation rechecks the selected model through provider discovery before definitions are
+   sent; the flag remains off by default and clears when the selected provider/model is not mapped and tool-capable.
+2. OpenAI request mapping preserves the exact three native names, descriptions, and closed JSON schemas. Streamed
+   function calls are reconstructed by provider index across argument fragments, require bounded non-empty call/name
+   identities, the exact `function` discriminator, and complete JSON-object arguments.
+3. Follow-up requests append the accumulated assistant reasoning/text and complete `tool_calls`, then one `role: tool`
+   result per call with the exact matching `tool_call_id`. Missing, conflicting, malformed, non-object, or mismatched
+   call data terminates the provider run without reflecting raw arguments in the stable error message.
+4. OpenAI's provider call identity becomes the provider-neutral loop identity and durable correlation key. It remains
+   Rust/SQLite-only and is returned unchanged only on the provider wire; reopened UI state and exports continue to omit
+   native and provider call identities.
+5. Every accepted invocation and exact bounded success/error envelope commits before provider reuse. OpenAI rounds use
+   the same blocking native dispatcher boundary, process-lifetime query embedder, four-round/eight-call/30-second
+   policy, aggregate-output ceiling, HTTP abort handle, and native cancellation signal as Ollama.
+6. Input tokens, output tokens, and optional provider-reported cost are accumulated across every Chat Completions
+   request in one logical generation and checkpointed through the existing usage path.
+
+### Acceptance criteria
+
+- Memory tools remain off by default and unavailable for Anthropic, oMLX, or any model that does not advertise tools.
+- The first OpenAI request contains exactly the three closed definitions; a follow-up contains ordered assistant calls
+  and correlated `tool_call_id` results without native paths, hashes, embeddings, or WebView-visible call identities.
+- Calls and exact structured success/error results survive reopen through the existing append-only provider-run
+  records before any result is reused by the provider.
+- Multiple rounds preserve cumulative usage/cost and shared cancellation while retaining the existing four-round,
+  eight-call, 64 KiB per-result, 256 KiB aggregate-output, and 30-second ceilings.
+- Anthropic-compatible and oMLX tool mapping, automatic injection, citation/context-panel replacement, persistent
+  memory controls, document opening, web tools, and attachment retry remain outside this slice.
+
+### Verification completed
+
+Focused TDD first failed on missing Chat Completions definition/call/result mapping, streamed fragment reconstruction,
+OpenAI durable round execution, and the composer's OpenAI availability contract. Pure tests cover explicit capability
+discovery, closed definition mapping, bounded/reasoning/multimodal request preservation, fragmented call assembly,
+malformed argument rejection, identity mismatch rejection, and provider gating. A real schema-18 store test confirms
+that the OpenAI provider identity and exact result persist before reuse. A host-loopback two-request SSE fixture
+confirms the second request contains the durable correlated result and produces the final answer with cumulative token
+and cost usage. Prettier, `svelte-check`, all 60 frontend tests, the production build, Cargo formatting, Cargo check,
+and all 219 default Rust tests pass; six opt-in tests remain ignored by default. The native development build compiled,
+launched one `bottie` window, remained active, and stopped cleanly on request. macOS window inspection confirmed the
+native window existed, but it could not be raised above the foreground Chrome window for a visual content review. No
+live third-party OpenAI-compatible account or API key was exercised, so the real credential/model/tool-call UI flow
+remains unverified.
+
+## Prior completed product slice: Explicit Ollama native memory-tool loop
 
 ### Goal
 
