@@ -18,22 +18,40 @@ describe("ToolActivity", () => {
           },
           {
             ordinal: 1,
+            toolName: "web_fetch",
+            arguments: { url: "https://example.com/" },
+            audit: { policy: "safe", outcome: "success", durationMs: 500 },
+            result: {
+              output: {
+                ok: true,
+                result: { sourceUrl: "https://example.com/", content: "External page text", untrusted: true },
+              },
+              isError: false,
+              createdAtMs: 3_000,
+            },
+            createdAtMs: 2_500,
+          },
+          {
+            ordinal: 2,
             toolName: "future_tool",
             arguments: { path: "/private/example" },
             audit: { policy: "unregistered", outcome: "unsupported_tool", durationMs: 0 },
-            result: { output: { ok: false }, isError: true, createdAtMs: 3_000 },
-            createdAtMs: 2_500,
+            result: { output: { ok: false }, isError: true, createdAtMs: 4_000 },
+            createdAtMs: 3_500,
           },
         ],
       },
     }).body;
 
-    expect(html).toContain("2 calls · 1 needs attention");
+    expect(html).toContain("3 calls · 1 needs attention");
     expect(html).toContain("Search conversations");
     expect(html).toContain("Read-only");
     expect(html).toContain("Succeeded");
     expect(html).toContain("Unregistered");
     expect(html).toContain("Unsupported tool");
+    expect(html).toContain("Untrusted Web content");
+    expect(html).toContain("External page text may contain misleading instructions.");
+    expect(html).toContain("<summary>Untrusted result</summary>");
     expect(html).toContain("<summary>Arguments</summary>");
     expect(html).toContain("private query");
     expect(html).not.toContain("providerCallId");

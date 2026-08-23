@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toolActivitySummary, toolAuditPresentation, toolDisplayName } from "./tool-audit";
+import { toolActivitySummary, toolAuditPresentation, toolDisplayName, untrustedWebResult } from "./tool-audit";
 import type { StoredToolInvocation } from "./storage";
 
 /** Builds one durable tool record for pure audit-presentation tests. */
@@ -30,6 +30,33 @@ describe("tool audit presentation", () => {
     expect(toolDisplayName("open_memory")).toBe("Open conversation context");
     expect(toolDisplayName("search_attached_files")).toBe("Search attached files");
     expect(toolDisplayName("future_tool")).toBe("future_tool");
+  });
+
+  it("recognizes only exact successful native fetch envelopes as explicitly untrusted", () => {
+    const fetch = tool({
+      toolName: "web_fetch",
+      result: {
+        output: { ok: true, result: { sourceUrl: "https://example.com/", content: "Page text", untrusted: true } },
+        isError: false,
+        createdAtMs: 1_030,
+      },
+    });
+
+    expect(untrustedWebResult(fetch)).toBe(true);
+    expect(untrustedWebResult({ ...fetch, toolName: "web_search" })).toBe(false);
+    expect(untrustedWebResult({ ...fetch, result: { ...fetch.result!, isError: true } })).toBe(false);
+    expect(
+      untrustedWebResult({
+        ...fetch,
+        result: { ...fetch.result!, output: { ok: true, result: { untrusted: true } } },
+      }),
+    ).toBe(false);
+    expect(
+      untrustedWebResult({
+        ...fetch,
+        result: { ...fetch.result!, output: { ok: true, result: { content: "Missing marker" } } },
+      }),
+    ).toBe(false);
   });
 
   it("presents successful read-only execution without exposing engine detail", () => {

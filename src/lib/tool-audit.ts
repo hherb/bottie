@@ -33,6 +33,18 @@ export function toolDisplayName(toolName: string): string {
   return TOOL_DISPLAY_NAMES[toolName] ?? toolName;
 }
 
+/** Recognizes the exact durable envelope used for explicitly untrusted fetched page text. */
+export function untrustedWebResult(tool: StoredToolInvocation): boolean {
+  if (tool.toolName !== "web_fetch" || !tool.result || tool.result.isError) return false;
+  const output = tool.result.output;
+  if (!isRecord(output) || output.ok !== true || !isRecord(output.result)) return false;
+  return (
+    output.result.untrusted === true &&
+    requiredString(output.result.sourceUrl) !== null &&
+    requiredString(output.result.content) !== null
+  );
+}
+
 /** Builds one bounded presentation summary without inspecting argument or result payloads. */
 export function toolAuditPresentation(tool: StoredToolInvocation): ToolAuditPresentation {
   const outcome = tool.audit.outcome;
@@ -95,4 +107,14 @@ function durationLabel(durationMs: number | null): string | null {
 /** Uppercases one stable lowercase status label. */
 function titleCase(value: string): string {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+/** Narrows an unknown durable payload into a non-array object. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Accepts one required non-empty string from the native fetched-page result. */
+function requiredString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
 }

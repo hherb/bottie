@@ -246,6 +246,15 @@
 .memory-meta .memory-kind {
   color: #8b8994;
 }
+.web-trust-label {
+  padding: 2px 5px;
+  border: 1px solid rgba(233, 169, 104, 0.24);
+  border-radius: 999px;
+  color: #c7935f;
+  font-size: 6.5px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
 .memory-meta button {
   display: grid;
   place-items: center;
@@ -290,6 +299,14 @@
 }
 .web-source-card p {
   margin-top: 4px;
+}
+.web-source-card .web-trust-note {
+  display: block;
+  margin: 7px 0;
+  color: #9c7653;
+  font-size: 7.5px;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
 }
 .memory-card > small {
   display: block;

@@ -48,7 +48,9 @@ the same durable bounded loop, and checkpoint the exact result before provider r
 Successful selected-lineage search and fetch results also create deduplicated, removable Web source cards in the
 Context panel. Cards expose only normalized public HTTP(S) source metadata and inert excerpts; a later fetched page
 supersedes an earlier search result for the same URL, while removal stays session-local and leaves the durable audit
-unchanged.
+unchanged. Fetched-page cards label the native result as untrusted and calmly explain that external page text may
+contain misleading instructions. The same notice appears before an explicitly untrusted result in the expandable tool
+audit; failed, malformed, search, and unmarked legacy results cannot acquire that label.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust

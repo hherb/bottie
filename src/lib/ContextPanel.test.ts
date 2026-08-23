@@ -164,11 +164,23 @@ describe("ContextPanel", () => {
             id: "web:https://blog.rust-lang.org/releases/1.90/",
             kind: "fetch",
             label: "Fetched page",
+            untrusted: true,
             title: "Rust release notes",
             url: "https://blog.rust-lang.org/releases/1.90/",
             host: "blog.rust-lang.org",
             excerpt: "The complete bounded page excerpt.",
             publishedAt: "2026-08-20",
+          },
+          {
+            id: "web:https://doc.rust-lang.org/cargo/guide/",
+            kind: "search",
+            label: "Search result",
+            untrusted: false,
+            title: "Cargo guide",
+            url: "https://doc.rust-lang.org/cargo/guide/",
+            host: "doc.rust-lang.org",
+            excerpt: "Cargo package guidance.",
+            publishedAt: null,
           },
         ],
         onclose: vi.fn(),
@@ -191,8 +203,10 @@ describe("ContextPanel", () => {
     expect(html).not.toContain("fixtures");
     expect(html).not.toContain("conversation-source");
     expect(html).not.toContain("message-source");
-    expect(html).toContain("Web sources <span>1</span>");
+    expect(html).toContain("Web sources <span>2</span>");
     expect(html).toContain("Fetched page");
+    expect(html.match(/Untrusted content/g)).toHaveLength(1);
+    expect(html).toContain("External page text may contain misleading instructions.");
     expect(html).toContain("The complete bounded page excerpt.");
     expect(html).toContain("Rust release notes");
     expect(html).toContain("blog.rust-lang.org");
