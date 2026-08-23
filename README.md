@@ -45,6 +45,10 @@ title and publication value. Raw markup, executable/embedded element content, an
 result remains explicitly untrusted inside the existing 64 KiB dispatcher envelope. Explicitly enabled tool-capable
 Ollama, OpenAI-compatible, and Anthropic-compatible requests now advertise it after `web_search`, execute it through
 the same durable bounded loop, and checkpoint the exact result before provider reuse.
+Successful selected-lineage search and fetch results also create deduplicated, removable Web source cards in the
+Context panel. Cards expose only normalized public HTTP(S) source metadata and inert excerpts; a later fetched page
+supersedes an earlier search result for the same URL, while removal stays session-local and leaves the durable audit
+unchanged.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -280,9 +284,9 @@ user enables Memory. Rust accumulates streamed calls, checkpoints each call/resu
 reuses the process-lifetime EmbeddingGemma worker for semantic queries, appends provider-native correlated tool-result
 messages, and aggregates usage and optional cost across follow-up requests. Tool activity is inspectable and portable;
 paths, hashes, scores, vectors, embeddings, cache details, and provider/native call identities remain excluded.
-Successful selected-lineage tool results also produce deduplicated conversation or retained-file citation cards in the
-Context panel. Removing a card is session-local presentation state and does not delete the append-only audit record or
-exclude the source from later retrieval. oMLX mapping and automatic retrieval injection remain unimplemented.
+Successful selected-lineage tool results also produce deduplicated conversation, retained-file, or Web source cards in
+the Context panel. Removing a card is session-local presentation state and does not delete the append-only audit record
+or exclude the source from later retrieval. oMLX mapping and automatic retrieval injection remain unimplemented.
 
 Run the layout-only browser preview:
 
@@ -341,7 +345,7 @@ attachment links, and message-derived lexical/chunk/vector rows in one transacti
 shared elsewhere remain; newly unreferenced originals, extraction text, and derivatives keep the existing 24-hour
 cross-process safety window before startup garbage collection removes them. Existing exports, manual backups, and
 automatic recovery snapshots are not rewritten and must be managed separately. The application-owned embedding-model
-cache is not conversation data and is retained. oMLX `web_fetch` mapping, dedicated Web citation cards, automatic
+cache is not conversation data and is retained. oMLX `web_fetch` mapping, claim-level Web citation links, automatic
 prompt injection, document opening, and attachment retry remain unavailable. Settings also exposes opt-in Trash
 retention:
 keep until manual forget (the default), 30 days, 90 days, or one year from the time a conversation enters Trash. Rust

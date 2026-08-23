@@ -173,9 +173,12 @@ publication metadata, at most 24 KiB of inert text, and an explicit untrusted ma
 envelope. Explicitly enabled tool-capable Ollama, OpenAI-compatible, and
 Anthropic-compatible requests now advertise `web_fetch` after `web_search`, execute it through the same safe
 dispatcher, checkpoint the exact bounded result, and append that result to the next provider request through the
-existing durable Web loop. The next bounded implementation slice is path-free Web source cards derived only from
-successful selected-lineage durable `web_search` and `web_fetch` results; do not bundle claim-level citation linking,
-oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, or attachment retry controls.
+existing durable Web loop. Successful selected-lineage `web_search` and `web_fetch` results now also produce
+deduplicated, removable, path-free Web source cards in the Context panel. Fetched-page metadata supersedes an earlier
+search result for the same fragment-free HTTP(S) URL, and dismissal remains session-local without changing the
+append-only audit. The next bounded implementation slice is calm prompt-injection presentation for explicitly
+untrusted Web content; do not bundle claim-level citation linking, oMLX mapping, automatic retrieval injection,
+model-cache deletion, document opening, or attachment retry controls.
 
 Read these files first:
 
@@ -189,7 +192,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/anthropic-web-fetch`.
+branch `codex/web-source-cards`.
 
 ## Current implementation
 
@@ -431,8 +434,9 @@ The native application configuration has:
 
 Do not mistake visual fixtures for implemented backend behavior:
 
-- the browser preview's one memory card is a fixture shaped like a successful native result; in the native app,
-  Context-panel citations derive from real selected-lineage durable tool activity and expose no relevance score;
+- the browser preview's one memory card and one Web source card are fixtures shaped like successful native results; in
+  the native app, Context-panel provenance derives from real selected-lineage durable tool activity and exposes no
+  relevance score;
 - context-panel token usage remains a fixture; response elapsed time and provider-reported token/cost usage are real
   and survive conversation reopen;
 - current next-message attachment selection is session-only until it commits atomically with a submitted user message
@@ -456,11 +460,11 @@ Do not mistake visual fixtures for implemented backend behavior:
   records or exclude a source from later retrieval;
 - the closed native `web_search` contract is explicitly available only to tool-capable Ollama, OpenAI-compatible, or
   Anthropic-compatible models after the user enables Web. Brave calls and exact common results enter the durable audit
-  before provider reuse. Successful results do not yet create dedicated Context-panel web-source cards;
+  before provider reuse. Successful results now create dedicated Context-panel Web source cards;
 - the closed native `web_fetch` contract, public-network client, and common dispatcher are mapped to explicitly enabled
   tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. Successful fetches now return inert text,
-  source URL, optional title/publication metadata, and an explicit untrusted marker; dedicated web-source cards,
-  claim-level citations, and prompt-injection presentation remain absent;
+  source URL, optional title/publication metadata, and an explicit untrusted marker; claim-level citations and
+  prompt-injection presentation remain absent;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -501,7 +505,62 @@ The cohesively touched product modules remain below 500 lines except the existin
 practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Native inert web-page extraction
+## Most recently completed product slice: Path-free removable Web source cards
+
+### Goal
+
+Replace the Context panel's missing Web provenance with visible, removable, path-free source cards derived only from
+successful selected-lineage durable `web_search` and `web_fetch` results, without changing native execution,
+persistence, provider mapping, or trust policy.
+
+### Implemented shape
+
+1. A pure frontend adapter accepts only exact successful dispatcher envelopes for `web_search` and `web_fetch`.
+   Search results expose only title, public HTTP(S) URL, host, bounded inert snippet, and optional publication metadata;
+   fetched pages require the native `untrusted: true` marker and expose the matching bounded inert fields.
+2. Unsafe schemes, credential-bearing URLs, localhost names, IP literals, failed results, malformed payloads, and
+   fetches without the explicit untrusted marker do not create cards. Fragments are removed before presentation and
+   source identity is the normalized URL; no provider ID, query, arguments, path, header, or native call identity is
+   retained in the card model.
+3. Selected-lineage messages and their tool activity are read newest-first. One fetched page supersedes the earlier
+   search result for the same URL, and repeated results deduplicate without inventing claim-level links. A focused
+   `WebToolState` keeps source dismissal session-local, so removing a card cannot rewrite the append-only audit.
+4. The Context panel renders a dedicated Web sources count, linked title, inert clamped excerpt, optional publication
+   value, and source host. External links retain `target="_blank"` plus `rel="noopener noreferrer"`. The existing
+   middle content is now one bounded scroll region, keeping the header and footer fixed while allowing attachments,
+   memory citations, Web sources, and the privacy route to remain fully reachable at shorter desktop heights.
+
+### Acceptance criteria
+
+- Only successful selected-lineage native Web results create cards; malformed, failed, local, or unsafe legacy
+  payloads cannot create visible or navigable sources.
+- Search and fetch results deduplicate by normalized fragment-free URL, with the later fetched page supplying the
+  richer card. Removing a card immediately shows the accurate empty state without deleting durable tool activity.
+- The card model and rendered UI expose no query, provider ID, raw arguments, native/provider call identity, path,
+  header, raw page source, or database detail.
+- No Rust code, schema migration, Tauri command, provider mapping, Web setting, automatic retrieval, claim-level
+  citation linking, prompt-injection presentation, oMLX mapping, model-cache deletion, document opening, or attachment
+  retry is added.
+
+### Verification completed
+
+Focused TDD first failed on the absent Web-provenance adapter and Context-panel section. Pure tests now cover exact
+search and fetch envelopes, safe URL normalization, fetch-over-search deduplication, dismissal filtering, failed and
+malformed results, local/file URLs, and the required untrusted fetch marker. Server-rendered component coverage checks
+the dedicated source card, safe link attributes, hidden opaque identity, empty state, and bounded shared scroll region.
+
+The full standard checks pass: Prettier, Svelte diagnostics with zero errors or warnings, all 79 frontend tests, the
+production build, Cargo formatting/check, and 287 Rust tests with 20 explicit opt-in tests skipped. No native code or
+migration changed.
+
+The browser preview was inspected at 1280 x 720 and 900 x 800. The combined Context-panel content scrolls independently
+between its fixed header and footer, both memory and Web cards remain fully reachable, the responsive overlay has no
+horizontal overflow, and session-local removal replaces the last Web card with its empty state while the durable tool
+activity remains visible. The signed native development app compiled and launched successfully. Immutable live-store
+inspection reported schema version 21 and `quick_check=ok`, with no retained successful Web result; therefore no native
+source-card interaction is claimed.
+
+## Prior completed product slice: Native inert web-page extraction
 
 ### Goal
 

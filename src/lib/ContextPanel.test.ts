@@ -41,6 +41,7 @@ describe("ContextPanel", () => {
         attachmentFailed: false,
         attachmentActionsDisabled: false,
         memoryCitations: [],
+        webSources: [],
         onclose: vi.fn(),
         onadd: vi.fn(),
         onremove: vi.fn(),
@@ -48,10 +49,12 @@ describe("ContextPanel", () => {
         onremoveconversation: vi.fn(),
         onremovemessage: vi.fn(),
         onremovememory: vi.fn(),
+        onremovewebsource: vi.fn(),
       },
     }).body;
 
     expect(html).toContain("Next message · 1 KB");
+    expect(html).toContain('class="context-scroll"');
     expect(html).toContain("Conversation · 1 KB");
     expect(html).toContain("Message · 1 KB");
     expect(html).toContain('aria-label="Keep draft.txt in conversation"');
@@ -111,6 +114,7 @@ describe("ContextPanel", () => {
         attachmentFailed: false,
         attachmentActionsDisabled: false,
         memoryCitations: [],
+        webSources: [],
         onclose: vi.fn(),
         onadd: vi.fn(),
         onremove: vi.fn(),
@@ -118,6 +122,7 @@ describe("ContextPanel", () => {
         onremoveconversation: vi.fn(),
         onremovemessage: vi.fn(),
         onremovememory: vi.fn(),
+        onremovewebsource: vi.fn(),
       },
     }).body;
 
@@ -154,6 +159,18 @@ describe("ContextPanel", () => {
             createdAtMs: 1_776_000_000_000,
           },
         ],
+        webSources: [
+          {
+            id: "web:https://blog.rust-lang.org/releases/1.90/",
+            kind: "fetch",
+            label: "Fetched page",
+            title: "Rust release notes",
+            url: "https://blog.rust-lang.org/releases/1.90/",
+            host: "blog.rust-lang.org",
+            excerpt: "The complete bounded page excerpt.",
+            publishedAt: "2026-08-20",
+          },
+        ],
         onclose: vi.fn(),
         onadd: vi.fn(),
         onremove: vi.fn(),
@@ -161,6 +178,7 @@ describe("ContextPanel", () => {
         onremoveconversation: vi.fn(),
         onremovemessage: vi.fn(),
         onremovememory: vi.fn(),
+        onremovewebsource: vi.fn(),
       },
     }).body;
 
@@ -173,6 +191,15 @@ describe("ContextPanel", () => {
     expect(html).not.toContain("fixtures");
     expect(html).not.toContain("conversation-source");
     expect(html).not.toContain("message-source");
+    expect(html).toContain("Web sources <span>1</span>");
+    expect(html).toContain("Fetched page");
+    expect(html).toContain("The complete bounded page excerpt.");
+    expect(html).toContain("Rust release notes");
+    expect(html).toContain("blog.rust-lang.org");
+    expect(html).toContain('href="https://blog.rust-lang.org/releases/1.90/"');
+    expect(html).toContain('rel="noopener noreferrer"');
+    expect(html).toContain('aria-label="Remove Rust release notes from web sources"');
+    expect(html).not.toContain("web:https://");
     expect(html).toContain("Model prompt local; search queries leave device");
     expect(html).toContain("Loopback model · Brave Search enabled");
   });
@@ -195,6 +222,7 @@ describe("ContextPanel", () => {
         attachmentFailed: false,
         attachmentActionsDisabled: false,
         memoryCitations: [],
+        webSources: [],
         onclose: vi.fn(),
         onadd: vi.fn(),
         onremove: vi.fn(),
@@ -202,6 +230,7 @@ describe("ContextPanel", () => {
         onremoveconversation: vi.fn(),
         onremovemessage: vi.fn(),
         onremovememory: vi.fn(),
+        onremovewebsource: vi.fn(),
       },
     }).body;
 
