@@ -20,6 +20,39 @@ use super::{
     tool_audit_migration::MIGRATION_21,
 };
 
+/// Exact ordered migration ledger names for schema validation and application.
+pub(super) const MIGRATION_NAMES: [&str; CURRENT_SCHEMA_VERSION as usize] = [
+    "storage foundation",
+    "branch-local message order",
+    "provider runs and usage",
+    "last open conversation",
+    "selected conversation branch",
+    "assistant response ratings",
+    "tool invocations and results",
+    "content-addressed attachments",
+    "durable message attachments",
+    "attachment text extraction",
+    "bounded PDF text extraction",
+    "bounded DOCX text extraction",
+    "bounded image normalization",
+    "attachment text indexing readiness",
+    "conversation attachment scope",
+    "FTS5 lexical memory foundation",
+    "versioned deterministic memory chunks",
+    "resumable sqlite-vec semantic index",
+    "per-conversation memory exclusion",
+    "time-based Trash retention",
+    "structured tool execution audit",
+];
+
+/// Returns the exact ledger name for one supported schema version.
+pub(super) fn migration_name(version: i64) -> Result<&'static str, StorageError> {
+    usize::try_from(version - 1)
+        .ok()
+        .and_then(|index| MIGRATION_NAMES.get(index).copied())
+        .ok_or_else(StorageError::migration)
+}
+
 impl ConversationStore {
     /// Applies each pending migration exactly once and ensures the built-in profile exists.
     pub(super) fn migrate(&self, connection: &mut Connection) -> Result<(), StorageError> {
@@ -33,8 +66,8 @@ impl ConversationStore {
             transaction.execute_batch(MIGRATION_1)?;
             let now = now_ms()?;
             transaction.execute(
-                "INSERT INTO schema_migrations (version, name, applied_at_ms) VALUES (1, 'storage foundation', ?1)",
-                [now],
+                "INSERT INTO schema_migrations (version, name, applied_at_ms) VALUES (1, ?1, ?2)",
+                params![migration_name(1)?, now],
             )?;
             transaction.execute(
                 "INSERT INTO profiles (id, name, created_at_ms) VALUES (?1, ?2, ?3)",
@@ -44,94 +77,64 @@ impl ConversationStore {
             transaction.commit()?;
         }
         if version < 2 {
-            apply_migration(connection, MIGRATION_2, 2, "branch-local message order")?;
+            apply_migration(connection, MIGRATION_2, 2)?;
         }
         if version < 3 {
-            apply_migration(connection, MIGRATION_3, 3, "provider runs and usage")?;
+            apply_migration(connection, MIGRATION_3, 3)?;
         }
         if version < 4 {
-            apply_migration(connection, MIGRATION_4, 4, "last open conversation")?;
+            apply_migration(connection, MIGRATION_4, 4)?;
         }
         if version < 5 {
-            apply_migration(connection, MIGRATION_5, 5, "selected conversation branch")?;
+            apply_migration(connection, MIGRATION_5, 5)?;
         }
         if version < 6 {
-            apply_migration(connection, MIGRATION_6, 6, "assistant response ratings")?;
+            apply_migration(connection, MIGRATION_6, 6)?;
         }
         if version < 7 {
-            apply_migration(connection, MIGRATION_7, 7, "tool invocations and results")?;
+            apply_migration(connection, MIGRATION_7, 7)?;
         }
         if version < 8 {
-            apply_migration(connection, MIGRATION_8, 8, "content-addressed attachments")?;
+            apply_migration(connection, MIGRATION_8, 8)?;
         }
         if version < 9 {
-            apply_migration(connection, MIGRATION_9, 9, "durable message attachments")?;
+            apply_migration(connection, MIGRATION_9, 9)?;
         }
         if version < 10 {
-            apply_migration(connection, MIGRATION_10, 10, "attachment text extraction")?;
+            apply_migration(connection, MIGRATION_10, 10)?;
         }
         if version < 11 {
-            apply_migration(connection, MIGRATION_11, 11, "bounded PDF text extraction")?;
+            apply_migration(connection, MIGRATION_11, 11)?;
         }
         if version < 12 {
-            apply_migration(connection, MIGRATION_12, 12, "bounded DOCX text extraction")?;
+            apply_migration(connection, MIGRATION_12, 12)?;
         }
         if version < 13 {
-            apply_migration(connection, MIGRATION_13, 13, "bounded image normalization")?;
+            apply_migration(connection, MIGRATION_13, 13)?;
         }
         if version < 14 {
-            apply_migration(
-                connection,
-                MIGRATION_14,
-                14,
-                "attachment text indexing readiness",
-            )?;
+            apply_migration(connection, MIGRATION_14, 14)?;
         }
         if version < 15 {
-            apply_migration(
-                connection,
-                MIGRATION_15,
-                15,
-                "conversation attachment scope",
-            )?;
+            apply_migration(connection, MIGRATION_15, 15)?;
         }
         if version < 16 {
-            apply_migration(
-                connection,
-                MIGRATION_16,
-                16,
-                "FTS5 lexical memory foundation",
-            )?;
+            apply_migration(connection, MIGRATION_16, 16)?;
         }
         if version < 17 {
             apply_memory_chunk_migration(connection)?;
         }
         if version < 18 {
-            apply_migration(
-                connection,
-                MIGRATION_18,
-                18,
-                "resumable sqlite-vec semantic index",
-            )?;
+            apply_migration(connection, MIGRATION_18, 18)?;
         }
         if version < 19 {
-            apply_migration(
-                connection,
-                MIGRATION_19,
-                19,
-                "per-conversation memory exclusion",
-            )?;
+            apply_migration(connection, MIGRATION_19, 19)?;
         }
         if version < 20 {
-            apply_migration(connection, MIGRATION_20, 20, "time-based Trash retention")?;
+            apply_migration(connection, MIGRATION_20, 20)?;
         }
         if version < 21 {
-            apply_migration(
-                connection,
-                MIGRATION_21,
-                21,
-                "structured tool execution audit",
-            )?;
+            apply_migration(connection, MIGRATION_21, 21)?;
         }
         Ok(())
     }
@@ -145,7 +148,7 @@ fn apply_memory_chunk_migration(connection: &mut Connection) -> Result<(), Stora
     backfill_memory_chunks(&transaction)?;
     transaction.execute(
         "INSERT INTO schema_migrations (version, name, applied_at_ms) VALUES (17, ?1, ?2)",
-        params!["versioned deterministic memory chunks", now_ms()?],
+        params![migration_name(17)?, now_ms()?],
     )?;
     transaction.pragma_update(None, "user_version", 17)?;
     transaction.commit()?;
@@ -157,14 +160,13 @@ fn apply_migration(
     connection: &mut Connection,
     sql: &str,
     version: i64,
-    name: &str,
 ) -> Result<(), StorageError> {
     let transaction =
         connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     transaction.execute_batch(sql)?;
     transaction.execute(
         "INSERT INTO schema_migrations (version, name, applied_at_ms) VALUES (?1, ?2, ?3)",
-        params![version, name, now_ms()?],
+        params![version, migration_name(version)?, now_ms()?],
     )?;
     transaction.pragma_update(None, "user_version", version)?;
     transaction.commit()?;

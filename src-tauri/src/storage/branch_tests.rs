@@ -223,6 +223,17 @@ fn version_four_stores_gain_a_selected_main_branch() {
     connection
         .execute_batch(MIGRATION_4)
         .expect("last-open migration should apply");
+    for version in 1..=4 {
+        connection
+            .execute(
+                "INSERT INTO schema_migrations (version, name, applied_at_ms) VALUES (?1, ?2, ?1)",
+                params![
+                    version,
+                    migrate::migration_name(version).expect("fixture migration name should exist")
+                ],
+            )
+            .expect("historical migration should be recorded");
+    }
     connection
         .execute(
             "INSERT INTO conversations (id, profile_id, title, created_at_ms, updated_at_ms)

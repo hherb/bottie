@@ -37,6 +37,23 @@ impl StorageError {
         }
     }
 
+    /// Creates a stable staged-migration failure without exposing paths, SQL, or source data.
+    pub(super) fn migration() -> Self {
+        Self {
+            code: "migration_failed",
+            message: "Bottie could not safely update its local conversation store. The source data was kept."
+                .into(),
+        }
+    }
+
+    /// Rejects a database created by a newer application without mutating it.
+    pub(super) fn newer_schema() -> Self {
+        Self {
+            code: "newer_schema",
+            message: "This local conversation store needs a newer Bottie version.".into(),
+        }
+    }
+
     /// Creates a stable failure while corrupt local data is awaiting guided recovery.
     pub(super) fn recovery_required() -> Self {
         Self {

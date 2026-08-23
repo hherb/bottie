@@ -15,6 +15,17 @@ fn seeds_a_version_three_store_from_its_newest_active_conversation() {
     connection
         .execute_batch(MIGRATION_3)
         .expect("provider run migration should apply");
+    for version in 1..=3 {
+        connection
+            .execute(
+                "INSERT INTO schema_migrations (version, name, applied_at_ms) VALUES (?1, ?2, ?1)",
+                params![
+                    version,
+                    migrate::migration_name(version).expect("fixture migration name should exist")
+                ],
+            )
+            .expect("historical migration should be recorded");
+    }
     connection
         .execute(
             "INSERT INTO profiles (id, name, created_at_ms) VALUES (?1, ?2, 1)",
