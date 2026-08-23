@@ -35,7 +35,7 @@ const NON_CONTENT_SELECTOR: &str =
     "script, style, template, noscript, svg, math, canvas, iframe, object, embed";
 
 /// One closed email-open request accepting only a Localmail search-result identity.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct OpenEmailRequest {
     /// Exact opaque decimal message identity returned by `search_email`.
@@ -44,7 +44,7 @@ pub(crate) struct OpenEmailRequest {
 
 /// Validated path-safe identity used to construct the fixed Localmail detail route.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) struct LocalmailOpenRequest {
+pub(crate) struct LocalmailOpenRequest {
     /// Exact Localmail decimal message identity.
     pub(super) message_id: String,
 }
@@ -93,7 +93,7 @@ struct RawOpenAddress {
 }
 
 /// Executes one bounded open using only the saved pinned connection and native vault credential.
-pub(super) async fn open_email_native(
+pub(crate) async fn open_email_native(
     config_path: &Path,
     credentials: &dyn CredentialStore,
     request: OpenEmailRequest,
@@ -202,7 +202,7 @@ async fn read_bounded_open_body(response: Response) -> Result<Vec<u8>, ProviderE
 }
 
 /// Validates the complete request before any config, credential, or network work.
-pub(super) fn validate_open_email_request(
+pub(crate) fn validate_open_email_request(
     request: OpenEmailRequest,
 ) -> Result<LocalmailOpenRequest, ProviderError> {
     if !is_valid_message_id(&request.message_id) {

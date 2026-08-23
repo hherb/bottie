@@ -142,8 +142,11 @@ command accepts only one strict decimal identity returned by search, performs on
 `GET /v1/messages/{id}` with compact headers and external images explicitly disabled, and returns bounded plain
 subject, sender, To/Cc, UTC date, inert body, and attachment-presence metadata marked untrusted. HTML markup,
 external-image URLs, Bcc, full headers, attachment details or bytes, account/folder internals, raw responses, native
-paths, and credentials remain excluded. Provider-loop mapping, Email controls/provenance, attachment access, outbound
-mail, and memory indexing are not yet implemented.
+paths, and credentials remain excluded. Rust also owns closed provider-independent `search_email` and `open_email`
+tool schemas, strict raw conversion into those exact connector requests, explicit safe read-only policy entries, and
+execution through Bottie's common redacted 64 KiB result envelope. Those definitions are not advertised to any model
+yet, so provider-loop mapping, Email controls/provenance, attachment access, outbound mail, and memory indexing remain
+unimplemented.
 
 ## Development
 

@@ -257,6 +257,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
   inert path-free summaries, and no email-body or attachment-content exposure (complete);
 - first-party Localmail `open_email` contract over exact search-result identities with one pinned authenticated detail
   call, external images disabled, bounded inert header/body text, and no HTML or attachment-byte exposure (complete);
+- provider-independent closed Localmail tool definitions, strict raw conversion into the existing connector requests,
+  safe read-only policy entries, and bounded redacted dispatch without provider advertisement (complete);
 - CSP and Tauri capability review;
 - secret-vault and filesystem-boundary tests;
 - dependency and license review;
