@@ -88,6 +88,7 @@ pub(crate) async fn stream_native_tools(
                 cancellation,
                 web_search,
                 web_fetch,
+                localmail,
             )
             .await
         }

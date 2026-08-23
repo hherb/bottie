@@ -57,7 +57,7 @@ fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
     assert!(!email_tools_enabled(true, "ollama", false, true));
     assert!(!email_tools_enabled(true, "ollama", true, false));
     assert!(email_tools_enabled(true, "openai", true, true));
-    assert!(!email_tools_enabled(true, "anthropic", true, true));
+    assert!(email_tools_enabled(true, "anthropic", true, true));
     assert!(!email_tools_enabled(true, "omlx", true, true));
 }
 
@@ -544,6 +544,7 @@ fn read_json_request(stream: &mut TcpStream) -> serde_json::Value {
 }
 
 mod anthropic;
+mod anthropic_email;
 mod anthropic_web_fetch;
 mod ollama_email;
 mod ollama_gating;

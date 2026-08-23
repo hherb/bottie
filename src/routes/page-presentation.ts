@@ -7,22 +7,27 @@ import type { Attachment, InferenceStage, Message, MessageAttachment } from "$li
 /** Providers with a Bottie-owned native tool loop after capability discovery. */
 const NATIVE_TOOL_PROVIDER_IDS: ReadonlySet<string> = new Set(["omlx", "ollama", "openai", "anthropic"]);
 /** Providers with an explicit Localmail mapping in Bottie's native tool loop. */
-const EMAIL_TOOL_PROVIDER_IDS: ReadonlySet<string> = new Set(["ollama", "openai"]);
+const EMAIL_TOOL_PROVIDER_IDS: ReadonlySet<string> = new Set(["ollama", "openai", "anthropic"]);
 /** Actionable setup guidance shared by the disabled Email control and its status note. */
 const EMAIL_SETUP_REASON = "Save Localmail certificate trust and a bearer token in Settings before enabling Email.";
 /** Combined connector and provider guidance when more than one prerequisite is absent. */
 const EMAIL_SETUP_AND_PROVIDER_REASON = [
-  "Save Localmail certificate trust and a bearer token in Settings, then switch to a tool-capable Ollama",
-  "or OpenAI-compatible model.",
+  "Save Localmail certificate trust and a bearer token in Settings, then switch to a tool-capable Ollama,",
+  "OpenAI-compatible, or Anthropic-compatible model.",
 ].join(" ");
 /** Supported-provider guidance without exposing connector configuration detail. */
 const EMAIL_PROVIDER_REASON = [
-  "Email is currently mapped only for Ollama and OpenAI-compatible models.",
+  "Email is currently mapped only for Ollama, OpenAI-compatible, and Anthropic-compatible models.",
   "Switch to a supported tool-capable model.",
 ].join(" ");
 /** Exact enabled disclosure for an OpenAI-compatible generation. */
 const OPENAI_EMAIL_BOUNDARY_NOTE = [
   "Your prompt and bounded Localmail tool results go to the selected OpenAI-compatible cloud endpoint;",
+  "model-selected email queries and exact message IDs go only to your pinned Localmail server.",
+].join(" ");
+/** Exact enabled disclosure for an Anthropic-compatible generation. */
+const ANTHROPIC_EMAIL_BOUNDARY_NOTE = [
+  "Your prompt and bounded Localmail tool results go to the selected Anthropic-compatible cloud endpoint;",
   "model-selected email queries and exact message IDs go only to your pinned Localmail server.",
 ].join(" ");
 /** Exact enabled disclosure for an Ollama generation. */
@@ -62,7 +67,7 @@ export function emailToolsAvailable(model: ModelInfo | undefined): boolean {
 
 /** Explains every unmet Email prerequisite without exposing connector details. */
 export function emailToolsUnavailableReason(model: ModelInfo | undefined, localmailConfigured: boolean): string {
-  const supportedProviderSelected = model?.providerId === "ollama" || model?.providerId === "openai";
+  const supportedProviderSelected = EMAIL_TOOL_PROVIDER_IDS.has(model?.providerId ?? "");
   const toolsAdvertised = Boolean(model?.capabilities.tools);
   if (!localmailConfigured && (!supportedProviderSelected || !toolsAdvertised)) {
     return EMAIL_SETUP_AND_PROVIDER_REASON;
@@ -74,7 +79,11 @@ export function emailToolsUnavailableReason(model: ModelInfo | undefined, localm
     return EMAIL_PROVIDER_REASON;
   }
   if (!toolsAdvertised) {
-    const providerName = model?.providerId === "openai" ? "OpenAI-compatible" : "Ollama";
+    const providerName = {
+      anthropic: "Anthropic-compatible",
+      openai: "OpenAI-compatible",
+      ollama: "Ollama",
+    }[model?.providerId ?? "ollama"];
     return [
       `The selected ${providerName} model does not advertise tool support.`,
       `Choose a tool-capable ${providerName} model.`,
@@ -85,6 +94,9 @@ export function emailToolsUnavailableReason(model: ModelInfo | undefined, localm
 
 /** Describes the two exact delivery routes used by an enabled Email request. */
 export function emailToolsBoundaryNote(model: ModelInfo | undefined): string {
+  if (model?.providerId === "anthropic") {
+    return ANTHROPIC_EMAIL_BOUNDARY_NOTE;
+  }
   if (model?.providerId === "openai") {
     return OPENAI_EMAIL_BOUNDARY_NOTE;
   }
