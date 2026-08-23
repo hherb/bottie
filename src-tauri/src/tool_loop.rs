@@ -28,7 +28,10 @@ pub(crate) const MAX_TOOL_LOOP_ROUNDS: usize = 4;
 /// Maximum serialized provider-facing tool output retained across one generation.
 pub(crate) const MAX_TOOL_LOOP_OUTPUT_BYTES: usize = 256 * 1_024;
 /// Overall wall-clock budget for one provider-neutral tool loop.
-pub(crate) const TOOL_LOOP_TIMEOUT: Duration = Duration::from_secs(30);
+///
+/// Five minutes accommodates repeated local-model inference after native results while the
+/// independent round, call, output, stream-idle, and cancellation limits remain enforced.
+pub(crate) const TOOL_LOOP_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 /// One provider-neutral raw call awaiting validation and native execution.
 #[derive(Clone, Debug, PartialEq, Eq)]

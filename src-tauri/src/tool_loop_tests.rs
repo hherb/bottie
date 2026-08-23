@@ -11,6 +11,7 @@ use std::{
 use serde_json::{Value, json};
 
 use crate::{
+    inference::STREAM_IDLE_TIMEOUT,
     storage::{ConversationStore, MessageState, NewStoredMessage, SemanticEmbedder, StoredRole},
     tool_dispatch::{MemoryToolExecution, bounded_memory_tool_success},
     tool_loop::{
@@ -258,4 +259,37 @@ fn completion_still_honors_cancellation_and_the_overall_deadline() {
         .complete_with(&cancellation, started_at + TOOL_LOOP_TIMEOUT)
         .expect_err("expired loop must not complete normally");
     assert_eq!(error.code, ToolLoopErrorCode::TimedOut);
+}
+
+#[test]
+fn overall_deadline_accommodates_two_slow_provider_follow_ups() {
+    let started_at = Instant::now();
+    let cancellation = ToolLoopCancellation::default();
+    let mut state = ToolLoopState::new(started_at);
+    let two_stream_idle_windows = STREAM_IDLE_TIMEOUT + STREAM_IDLE_TIMEOUT;
+
+    state
+        .execute_round_with(
+            vec![call("search", "search_memory")],
+            &cancellation,
+            || started_at,
+            |_| bounded_memory_tool_success(json!({"matches": []})),
+        )
+        .expect("initial tool result should execute");
+
+    state
+        .execute_round_with(
+            vec![call("open", "open_memory")],
+            &cancellation,
+            || started_at + STREAM_IDLE_TIMEOUT,
+            |_| bounded_memory_tool_success(json!({"turns": []})),
+        )
+        .expect("tool work after one slow provider follow-up should execute");
+
+    state
+        .complete_with(&cancellation, started_at + two_stream_idle_windows)
+        .expect(
+            "two permitted slow provider follow-ups should fit inside the overall loop deadline",
+        );
+    assert!(TOOL_LOOP_TIMEOUT > two_stream_idle_windows);
 }
