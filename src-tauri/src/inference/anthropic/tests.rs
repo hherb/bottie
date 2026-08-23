@@ -281,6 +281,16 @@ fn request_separates_system_turn_and_maps_reasoning() {
 }
 
 #[test]
+fn request_omits_implicit_sampling_for_models_that_reject_nondefault_temperature() {
+    let mut request = text_request("Hi");
+    request.model_id = "claude-sonnet-5".into();
+    let body = serde_json::to_value(AnthropicChatRequest::from(request)).unwrap();
+
+    assert!(body.get("temperature").is_none());
+    assert_eq!(body["thinking"]["type"], "disabled");
+}
+
+#[test]
 fn request_serializes_normalized_images_as_anthropic_source_blocks() {
     let mut request: ChatRequest = serde_json::from_str(concat!(
         r#"{"providerId":"anthropic","modelId":"claude-example","messages":["#,

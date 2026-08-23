@@ -79,3 +79,14 @@ fn rejects_webview_text_that_does_not_match_durable_context() {
 
     assert_eq!(error.code.as_str(), "invalid_request");
 }
+
+#[test]
+fn removes_anthropic_sampling_before_provider_run_provenance() {
+    let mut request = text_request("Hi");
+    request.provider_id = "anthropic".into();
+    request.model_id = "claude-sonnet-5".into();
+
+    let normalized = normalize_provider_request(request);
+
+    assert_eq!(normalized.settings.temperature, None);
+}

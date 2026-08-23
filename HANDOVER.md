@@ -612,6 +612,15 @@ contained the exact durable message. Anthropic fixtures match the current nullab
 `max_input_tokens`, omitted and legacy array forms, ignored additive fields, and fail-closed identity errors. No schema,
 credential, WebView IPC, provider-owned MCP, arbitrary server tool, approval UI, or host location surface was added.
 
+Follow-up native validation found two regressions before merge. The Svelte presentation gate still omitted `omlx` from
+its mapped-provider allowlist even after Rust discovered explicit tool support, leaving Memory and Web disabled for the
+live Qwen3.8 selection. One shared pure allowlist now includes all four mapped providers, and regression tests require
+tool-capable oMLX selections to enable both controls while preserving the false-capability denial. Anthropic model
+discovery worked, but the two live Claude Sonnet 5 runs in the immutable store ended as `invalid_request`: Bottie's
+provider-neutral default added `temperature: 0.7`, while current Sonnet 5 rejects non-default sampling parameters.
+Anthropic requests now remove that implicit setting before durable provider-run provenance and wire serialization;
+focused tests require its absence while retaining explicit disabled/adaptive thinking behavior.
+
 ## Next bounded product slice: Staged migration and promotion rollback
 
 Implement the accepted `MIGRATION-ROLLBACK.md` design: preflight and copy the supported live store, apply pending

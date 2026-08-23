@@ -32,6 +32,7 @@ pub(crate) async fn start_chat(
     context: ProviderRunContext,
     on_event: Channel<StreamEvent>,
 ) -> Result<ChatRun, ProviderError> {
+    let request = normalize_provider_request(request);
     let providers = state.providers.read().await.clone();
     let run_id = uuid::Uuid::new_v4().to_string();
     let attachment_context = state
@@ -309,6 +310,14 @@ pub(crate) async fn start_chat(
     });
 
     Ok(ChatRun { run_id })
+}
+
+/// Removes provider-neutral sampling defaults that Anthropic may reject before durable provenance is recorded.
+fn normalize_provider_request(mut request: ChatRequest) -> ChatRequest {
+    if request.provider_id == "anthropic" {
+        request.settings.temperature = None;
+    }
+    request
 }
 
 /// Reconciles WebView text with durable selected-lineage context and adds native images when allowed.

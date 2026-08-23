@@ -181,7 +181,8 @@ controls. API keys are written and removed through narrow Rust commands backed b
 routes are visibly labelled before sending, redirects stay disabled, and remote response usage and provider-reported
 cost metadata are preserved when available. Anthropic discovery accepts the current nullable structured capability
 object and `max_input_tokens`, while compatible endpoints retain explicit legacy capability-array gating for Bottie's
-client-executed tools.
+client-executed tools. Bottie omits its provider-neutral sampling default from Anthropic Messages requests because
+Claude Sonnet 5 rejects non-default sampling parameters.
 
 Thinking/reasoning defaults to off and can be toggled to low effort for each request. Reasoning-capable providers stream
 that material into a collapsed, user-expandable section rather than mixing it into the answer. Native generation also
