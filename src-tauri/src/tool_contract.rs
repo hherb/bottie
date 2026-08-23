@@ -1,5 +1,6 @@
 //! Provider-independent native memory-tool definitions and strict raw-argument validation.
 
+mod current_time;
 mod web_fetch;
 
 use serde::Serialize;
@@ -17,6 +18,9 @@ use crate::web_search::{
     MAX_WEB_SEARCH_TOOL_RESULTS, WEB_SEARCH_TOOL_NAME, WebSearchArguments,
 };
 
+pub(crate) use current_time::{
+    CURRENT_TIME_TOOL_NAME, current_time_tool_definition, validate_current_time_tool_arguments,
+};
 pub(crate) use web_fetch::{validate_web_fetch_tool_arguments, web_fetch_tool_definition};
 
 /// Provider-neutral definition of one Rust-owned tool and its closed JSON input schema.
@@ -85,6 +89,24 @@ pub(crate) fn memory_tool_definitions() -> [ToolDefinition; 3] {
             input_schema: search_schema(MAX_SEARCH_ATTACHED_FILE_RESULTS),
         },
     ]
+}
+
+/// Returns exactly the native definitions enabled for one already-capable provider request.
+pub(crate) fn enabled_native_tool_definitions(
+    memory_enabled: bool,
+    web_enabled: bool,
+) -> Vec<ToolDefinition> {
+    let mut definitions = memory_enabled
+        .then(memory_tool_definitions)
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    if web_enabled {
+        definitions.push(web_search_tool_definition());
+        definitions.push(web_fetch_tool_definition());
+    }
+    definitions.push(current_time_tool_definition());
+    definitions
 }
 
 /// Returns the provider-independent web-search definition without advertising it to model adapters yet.

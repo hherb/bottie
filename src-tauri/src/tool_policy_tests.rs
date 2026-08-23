@@ -4,7 +4,8 @@ use serde_json::json;
 
 use crate::{
     tool_contract::{
-        memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
+        current_time_tool_definition, memory_tool_definitions, web_fetch_tool_definition,
+        web_search_tool_definition,
     },
     tool_dispatch::{MemoryToolExecution, MemoryToolExecutionErrorCode, policy_error},
     tool_loop::NativeToolCall,
@@ -13,6 +14,17 @@ use crate::{
         authorize_tool_call_with_policy, tool_execution_policy,
     },
 };
+
+#[test]
+fn classifies_the_credential_free_native_clock_as_safe() {
+    let definition = current_time_tool_definition();
+    assert_eq!(
+        tool_execution_policy(definition.name),
+        Some(ToolExecutionPolicy::Safe)
+    );
+    let call = call("clock-call", definition.name, json!({}));
+    assert!(authorize_tool_call(&call, None).is_ok());
+}
 
 /// Builds one provider-neutral call for exact policy and approval matching.
 fn call(call_id: &str, tool_name: &str, arguments: serde_json::Value) -> NativeToolCall {

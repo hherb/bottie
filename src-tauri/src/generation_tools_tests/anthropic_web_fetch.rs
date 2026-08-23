@@ -181,7 +181,7 @@ fn streams_an_anthropic_web_fetch_result_and_final_answer_across_two_requests() 
     assert_eq!(usage.output_tokens, Some(5));
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
-    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(2));
+    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(3));
     assert_eq!(requests[0]["tools"][0]["name"], "web_search");
     assert_eq!(requests[0]["tools"][1]["name"], "web_fetch");
     assert_eq!(requests[1]["messages"][1]["role"], "assistant");

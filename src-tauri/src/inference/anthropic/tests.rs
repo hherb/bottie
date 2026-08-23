@@ -9,6 +9,81 @@ use crate::{
 };
 
 #[test]
+fn decodes_current_nullable_structured_model_capabilities_and_context_limits() {
+    let models = decode_model_list(
+        br#"{
+            "data": [
+                {
+                    "id": "claude-opus-4-6",
+                    "type": "model",
+                    "display_name": "Claude Opus 4.6",
+                    "max_input_tokens": 1000000,
+                    "max_tokens": 128000,
+                    "capabilities": {
+                        "image_input": {"supported": true},
+                        "code_execution": {"supported": true},
+                        "unknown_future_field": {"supported": true}
+                    }
+                },
+                {
+                    "id": "claude-legacy-current",
+                    "type": "model",
+                    "display_name": "Claude Legacy Current",
+                    "max_input_tokens": null,
+                    "capabilities": null
+                }
+            ],
+            "first_id": "claude-opus-4-6",
+            "has_more": false,
+            "last_id": "claude-legacy-current"
+        }"#,
+    )
+    .expect("current Anthropic Models shape should decode");
+
+    assert_eq!(models.len(), 2);
+    assert_eq!(models[0].max_context_tokens, Some(1_000_000));
+    assert!(models[0].capabilities.vision);
+    assert!(!models[0].capabilities.tools);
+    assert_eq!(models[1].max_context_tokens, None);
+    assert!(!models[1].capabilities.vision);
+}
+
+#[test]
+fn preserves_omitted_and_legacy_array_capabilities_for_compatible_endpoints() {
+    let models = decode_model_list(
+        br#"{
+            "data": [
+                {"id": "omitted", "type": "model"},
+                {"id": "compatible", "capabilities": ["vision", "tools"]}
+            ]
+        }"#,
+    )
+    .expect("omitted and compatible legacy capabilities should decode");
+
+    assert!(!models[0].capabilities.tools);
+    assert!(models[1].capabilities.vision);
+    assert!(models[1].capabilities.tools);
+}
+
+#[test]
+fn rejects_wrong_anthropic_model_identity_shapes() {
+    for fixture in [
+        br#"{"data":[{"id":7,"type":"model"}]}"#.as_slice(),
+        br#"{"data":[{"id":"claude","type":null}]}"#.as_slice(),
+        br#"{"data":[{"id":"claude","type":"not-a-model"}]}"#.as_slice(),
+        br#"{"data":{}}"#.as_slice(),
+    ] {
+        let error = decode_model_list(fixture).expect_err("wrong identity shapes should fail");
+        assert_eq!(error.code, ProviderErrorCode::MalformedResponse);
+        assert!(
+            !error
+                .message
+                .contains(&String::from_utf8_lossy(fixture).to_string())
+        );
+    }
+}
+
+#[test]
 fn decodes_text_thinking_usage_and_completion() {
     let models = decode_model_list(
         br#"{"data":[{"id":"claude-example","capabilities":["vision","tools"]}]}"#,
@@ -84,14 +159,28 @@ fn maps_closed_tools_and_fragmented_calls_into_correlated_messages() {
 }
 
 #[test]
+fn maps_the_clock_when_memory_and_web_are_both_disabled() {
+    let body = serde_json::to_value(
+        AnthropicToolSession::new(text_request("What time is it?"))
+            .unwrap()
+            .request,
+    )
+    .unwrap();
+
+    assert_eq!(body["tools"].as_array().map(Vec::len), Some(1));
+    assert_eq!(body["tools"][0]["name"], "current_time");
+}
+
+#[test]
 fn maps_web_tools_after_memory_when_explicitly_enabled() {
     let mut web_only = text_request("Find the current release");
     web_only.web_enabled = true;
     let web_only =
         serde_json::to_value(AnthropicToolSession::new(web_only).unwrap().request).unwrap();
-    assert_eq!(web_only["tools"].as_array().map(Vec::len), Some(2));
+    assert_eq!(web_only["tools"].as_array().map(Vec::len), Some(3));
     assert_eq!(web_only["tools"][0]["name"], "web_search");
     assert_eq!(web_only["tools"][1]["name"], "web_fetch");
+    assert_eq!(web_only["tools"][2]["name"], "current_time");
     assert_eq!(
         web_only["tools"][0]["input_schema"],
         web_search_tool_definition().input_schema
@@ -106,10 +195,11 @@ fn maps_web_tools_after_memory_when_explicitly_enabled() {
     combined.web_enabled = true;
     let combined =
         serde_json::to_value(AnthropicToolSession::new(combined).unwrap().request).unwrap();
-    assert_eq!(combined["tools"].as_array().map(Vec::len), Some(5));
+    assert_eq!(combined["tools"].as_array().map(Vec::len), Some(6));
     assert_eq!(combined["tools"][0]["name"], "search_memory");
     assert_eq!(combined["tools"][3]["name"], "web_search");
     assert_eq!(combined["tools"][4]["name"], "web_fetch");
+    assert_eq!(combined["tools"][5]["name"], "current_time");
 }
 
 #[test]

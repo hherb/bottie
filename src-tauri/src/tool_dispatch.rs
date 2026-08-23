@@ -1,14 +1,15 @@
 //! Provider-neutral execution and bounded result envelopes for Bottie's native tools.
 
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Serialize, Serializer, ser::SerializeStruct};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::{
     storage::{ConversationStore, SemanticEmbedder, StorageError},
     tool_contract::{
         MemoryToolArguments, ToolContractError, ToolContractErrorCode,
-        validate_memory_tool_arguments, validate_web_fetch_tool_arguments,
-        validate_web_search_tool_arguments,
+        validate_current_time_tool_arguments, validate_memory_tool_arguments,
+        validate_web_fetch_tool_arguments, validate_web_search_tool_arguments,
     },
     tool_loop::NativeToolCall,
     tool_policy::{ApprovedToolCall, ToolPolicyError, ToolPolicyErrorCode, authorize_tool_call},
@@ -16,6 +17,31 @@ use crate::{
     web_policy::WebNetworkPolicy,
     web_search::{WebSearchError, WebSearchErrorCode, WebSearchProvider},
 };
+
+/// Executes the clock with Bottie's real native system time.
+pub(crate) fn dispatch_current_time_tool(call: &NativeToolCall) -> MemoryToolExecution {
+    dispatch_current_time_tool_with_clock(call, Utc::now)
+}
+
+/// Executes the clock through an injected time source for exact deterministic verification.
+pub(crate) fn dispatch_current_time_tool_with_clock(
+    call: &NativeToolCall,
+    clock: impl FnOnce() -> DateTime<Utc>,
+) -> MemoryToolExecution {
+    let authorized = match authorize_tool_call(call, None) {
+        Ok(authorized) => authorized,
+        Err(error) => return policy_error(error),
+    };
+    if let Err(error) = validate_current_time_tool_arguments(
+        &authorized.call().tool_name,
+        &authorized.call().arguments,
+    ) {
+        return contract_error(error);
+    }
+    bounded_memory_tool_success(json!({
+        "utc": clock().to_rfc3339_opts(SecondsFormat::Millis, true)
+    }))
+}
 
 /// Maximum serialized size of one complete successful native tool envelope.
 pub(crate) const MAX_MEMORY_TOOL_OUTPUT_BYTES: usize = 64 * 1_024;

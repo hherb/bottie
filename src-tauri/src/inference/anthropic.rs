@@ -7,16 +7,17 @@ use url::Url;
 
 use super::{
     InferenceProvider, StreamSink,
-    settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_remote_base_url},
+    settings::{
+        CONNECT_TIMEOUT, DEFAULT_ANTHROPIC_BASE_URL, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT,
+        validate_remote_base_url,
+    },
     sse::SseDecoder,
     types::{
         ChatRequest, ModelInfo, ModelLoadState, ProviderCapabilities, ProviderError,
         ProviderErrorCode, Usage,
     },
 };
-use crate::tool_contract::{
-    memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
-};
+use crate::tool_contract::enabled_native_tool_definitions;
 
 use self::protocol::{
     AnthropicChatRequest, AnthropicResponseAccumulator, AnthropicToolRound, DecodedEvent,
@@ -40,16 +41,8 @@ impl AnthropicToolSession {
     /// Starts a session with exactly the closed native tools enabled for this request.
     pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
         validate_request(&request)?;
-        let mut definitions = request
-            .memory_enabled
-            .then(memory_tool_definitions)
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
-        if request.web_enabled {
-            definitions.push(web_search_tool_definition());
-            definitions.push(web_fetch_tool_definition());
-        }
+        let definitions =
+            enabled_native_tool_definitions(request.memory_enabled, request.web_enabled);
         Ok(Self {
             request: AnthropicChatRequest::with_tools(request, definitions),
         })
@@ -210,7 +203,13 @@ impl InferenceProvider for AnthropicProvider {
         if !response.status().is_success() {
             return Err(response_error(response).await);
         }
-        decode_model_list(&response.bytes().await.map_err(map_request_error)?)
+        let mut models = decode_model_list(&response.bytes().await.map_err(map_request_error)?)?;
+        if self.base_url.as_str() == DEFAULT_ANTHROPIC_BASE_URL {
+            for model in &mut models {
+                model.capabilities.tools = model.capabilities.text;
+            }
+        }
+        Ok(models)
     }
 
     async fn stream_chat(
@@ -315,9 +314,59 @@ struct ModelList {
 #[derive(Deserialize)]
 struct ModelRecord {
     id: String,
+    #[serde(default, rename = "type", deserialize_with = "deserialize_model_kind")]
+    kind: Option<String>,
     display_name: Option<String>,
+    max_input_tokens: Option<u64>,
     #[serde(default)]
-    capabilities: Vec<String>,
+    capabilities: Option<ModelCapabilities>,
+}
+
+/// Preserves compatible omission while rejecting a present non-string model identity kind.
+fn deserialize_model_kind<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    value
+        .as_str()
+        .map(|kind| Some(kind.to_owned()))
+        .ok_or_else(|| serde::de::Error::custom("model type must be a string"))
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum ModelCapabilities {
+    Legacy(Vec<String>),
+    Structured(StructuredModelCapabilities),
+}
+
+#[derive(Default, Deserialize)]
+struct StructuredModelCapabilities {
+    image_input: Option<CapabilitySupport>,
+}
+
+#[derive(Deserialize)]
+struct CapabilitySupport {
+    supported: bool,
+}
+
+impl ModelCapabilities {
+    /// Returns whether one legacy compatible-endpoint capability was explicitly advertised.
+    fn legacy_has(&self, name: &str) -> bool {
+        matches!(self, Self::Legacy(values) if values.iter().any(|value| value == name))
+    }
+
+    /// Reads only Anthropic's explicit image-input support from its structured capability object.
+    fn vision(&self) -> bool {
+        match self {
+            Self::Legacy(values) => values.iter().any(|value| value == "vision"),
+            Self::Structured(capabilities) => capabilities
+                .image_input
+                .as_ref()
+                .is_some_and(|capability| capability.supported),
+        }
+    }
 }
 
 fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
@@ -327,30 +376,38 @@ fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
             Some(error.to_string()),
         )
     })?;
+    if response.data.iter().any(|model| {
+        model.id.trim().is_empty() || model.kind.as_deref().is_some_and(|kind| kind != "model")
+    }) {
+        return Err(ProviderError::malformed(
+            "The Anthropic-compatible provider returned an invalid model list.",
+            Some("model identity was missing or invalid".into()),
+        ));
+    }
     let models = response
         .data
         .into_iter()
-        .filter(|model| !model.id.trim().is_empty())
         .map(|model| {
             let vision = model
                 .capabilities
-                .iter()
-                .any(|capability| capability == "vision");
+                .as_ref()
+                .is_some_and(ModelCapabilities::vision);
+            let tools = model
+                .capabilities
+                .as_ref()
+                .is_some_and(|capabilities| capabilities.legacy_has("tools"));
             ModelInfo {
                 provider_id: PROVIDER_ID.into(),
                 provider_name: PROVIDER_NAME.into(),
                 display_name: model.display_name.unwrap_or_else(|| model.id.clone()),
                 model_id: model.id,
-                max_context_tokens: None,
+                max_context_tokens: model.max_input_tokens,
                 load_state: ModelLoadState::Unknown,
                 capabilities: ProviderCapabilities {
                     text: true,
                     streaming: true,
                     vision,
-                    tools: model
-                        .capabilities
-                        .iter()
-                        .any(|capability| capability == "tools"),
+                    tools,
                     ..Default::default()
                 },
             }

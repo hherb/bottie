@@ -2,14 +2,15 @@
 
 use std::sync::{Arc, Mutex};
 
+use chrono::{TimeZone, Utc};
 use serde_json::{Value, json};
 
 use crate::{
     storage::{ConversationStore, MessageState, NewStoredMessage, SemanticEmbedder, StoredRole},
     tool_dispatch::{
         MAX_MEMORY_TOOL_OUTPUT_BYTES, MemoryToolExecution, MemoryToolExecutionErrorCode,
-        bounded_memory_tool_success, dispatch_memory_tool, dispatch_web_fetch_tool,
-        dispatch_web_search_tool,
+        bounded_memory_tool_success, dispatch_current_time_tool_with_clock, dispatch_memory_tool,
+        dispatch_web_fetch_tool, dispatch_web_search_tool,
     },
     tool_loop::NativeToolCall,
     web_fetch::{
@@ -22,6 +23,23 @@ use crate::{
         fixture_web_search_response,
     },
 };
+
+#[test]
+fn dispatches_an_injected_clock_as_exact_bounded_utc_without_host_detail() {
+    let call = NativeToolCall {
+        call_id: "clock-call".into(),
+        tool_name: "current_time".into(),
+        arguments: json!({}),
+    };
+    let now = Utc.with_ymd_and_hms(2026, 8, 23, 4, 5, 6).unwrap();
+    let result = success_result(dispatch_current_time_tool_with_clock(&call, || now));
+
+    assert_eq!(result, json!({"utc":"2026-08-23T04:05:06.000Z"}));
+    let serialized = result.to_string();
+    for forbidden in ["timezone", "locale", "hostname", "platform", "path"] {
+        assert!(!serialized.contains(forbidden));
+    }
+}
 
 /// Embedding dimensions fixed by Bottie's active EmbeddingGemma contract.
 const TEST_EMBEDDING_DIMENSIONS: usize = 768;

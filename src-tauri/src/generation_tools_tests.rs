@@ -15,18 +15,19 @@ use crate::{
     diagnostics::Diagnostics,
     generation_tools::{
         execute_ollama_tool_round, execute_openai_tool_round, stream_ollama_tools,
-        stream_openai_tools,
+        stream_omlx_tools, stream_openai_tools,
     },
     generation_web_tools::{NativeWebSearchExecutor, memory_tools_enabled, web_tools_enabled},
     inference::{
         ChatRequest, ChatRole, ChatSettings, ChatTurn, ContentBlock, OllamaProvider,
-        OllamaToolCall, OpenAiProvider, OpenAiToolCall, ProviderError, ReasoningEffort, StreamSink,
-        Usage,
+        OllamaToolCall, OmlxProvider, OpenAiProvider, OpenAiToolCall, ProviderError,
+        ReasoningEffort, StreamSink, Usage,
     },
     semantic_indexer::SemanticIndexer,
     storage::{
         ConversationStore, MessageState, NewProviderRun, NewStoredMessage, ProviderRunState,
-        SemanticEmbedder, StoredReasoningEffort, StoredRole, ToolAuditOutcome, ToolAuditPolicy,
+        SemanticEmbedder, StoredReasoningEffort, StoredRole, StoredUsage, ToolAuditOutcome,
+        ToolAuditPolicy,
     },
     tool_dispatch::{MemoryToolExecution, bounded_memory_tool_success},
     tool_loop::{ToolLoopCancellation, ToolLoopState},
@@ -41,7 +42,7 @@ fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
     assert!(!memory_tools_enabled(false, "openai", true));
     assert!(!memory_tools_enabled(true, "ollama", false));
     assert!(!memory_tools_enabled(true, "openai", false));
-    assert!(!memory_tools_enabled(true, "omlx", true));
+    assert!(memory_tools_enabled(true, "omlx", true));
     assert!(web_tools_enabled(true, "ollama", true));
     assert!(web_tools_enabled(true, "openai", true));
     assert!(!web_tools_enabled(false, "ollama", true));
@@ -49,7 +50,7 @@ fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
     assert!(!web_tools_enabled(true, "ollama", false));
     assert!(!web_tools_enabled(true, "openai", false));
     assert!(web_tools_enabled(true, "anthropic", true));
-    assert!(!web_tools_enabled(true, "omlx", true));
+    assert!(web_tools_enabled(true, "omlx", true));
 }
 
 /// Fixed dimensions required by the semantic query boundary when a search tool is exercised.
@@ -189,6 +190,52 @@ fn executes_and_persists_an_ollama_tool_round_before_returning_results() {
             .as_ref()
             .is_some_and(|result| !result.is_error)
     );
+    assert_eq!(state.call_count(), 1);
+}
+
+#[test]
+fn executes_and_persists_an_omlx_clock_call_with_exact_provider_identity() {
+    let (store, conversation_id, _message_id, run_id) = active_run("omlx");
+    let mut state = ToolLoopState::new(Instant::now());
+    let cancellation = ToolLoopCancellation::default();
+    let mut embedder = GenerationToolEmbedder;
+
+    let results = execute_openai_tool_round(
+        &store,
+        &run_id,
+        &mut embedder,
+        &mut state,
+        vec![OpenAiToolCall::fixture(
+            "call_omlx_clock",
+            "current_time",
+            json!({}),
+        )],
+        &cancellation,
+        false,
+        None,
+        None,
+    )
+    .expect("oMLX clock call should execute through the shared durable loop");
+
+    assert_eq!(results[0].tool_call_id, "call_omlx_clock");
+    assert!(results[0].content.contains(r#""ok":true"#));
+    assert!(results[0].content.contains(r#""utc":"#));
+    store
+        .finish_provider_run(&run_id, ProviderRunState::Completed, None, None)
+        .expect("run should complete");
+    let conversation = store
+        .load_conversation(&conversation_id)
+        .expect("conversation should reopen");
+    let tool = &conversation.messages[1]
+        .provider_run
+        .as_ref()
+        .expect("response should retain its run")
+        .tool_invocations[0];
+    assert_eq!(tool.tool_name, "current_time");
+    assert_eq!(tool.arguments, json!({}));
+    assert_eq!(tool.audit.policy, ToolAuditPolicy::Safe);
+    assert_eq!(tool.audit.outcome, Some(ToolAuditOutcome::Success));
+    assert!(tool.result.as_ref().is_some_and(|result| !result.is_error));
     assert_eq!(state.call_count(), 1);
 }
 
@@ -379,7 +426,7 @@ fn streams_an_ollama_tool_call_result_and_final_answer_across_two_requests() {
     assert_eq!(usage.output_tokens, Some(5));
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
-    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(2));
+    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(3));
     assert_eq!(requests[0]["tools"][0]["function"]["name"], "web_search");
     assert_eq!(requests[0]["tools"][1]["function"]["name"], "web_fetch");
     assert_eq!(requests[1]["messages"][1]["role"], "assistant");
@@ -486,4 +533,5 @@ mod anthropic;
 mod anthropic_web_fetch;
 mod ollama_gating;
 mod ollama_web_fetch;
+mod omlx;
 mod openai;

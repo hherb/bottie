@@ -6,9 +6,10 @@ use crate::{
     credentials::CredentialStore,
     inference::{ChatRequest, ChatRole, ChatTurn, ContentBlock, ProviderError},
     storage::{ConversationStore, SemanticEmbedder},
+    tool_contract::CURRENT_TIME_TOOL_NAME,
     tool_dispatch::{
-        MemoryToolExecution, dispatch_memory_tool, dispatch_web_fetch_tool,
-        dispatch_web_search_tool, policy_error,
+        MemoryToolExecution, dispatch_current_time_tool, dispatch_memory_tool,
+        dispatch_web_fetch_tool, dispatch_web_search_tool, policy_error,
     },
     tool_loop::NativeToolCall,
     tool_policy::{ToolPolicyError, ToolPolicyErrorCode},
@@ -22,6 +23,8 @@ use crate::{
 
 /// Fixed native instruction for linking Web-grounded claims to exact durable source URLs.
 const WEB_CITATION_GUIDANCE: &str = concat!(
+    "Call current_time before interpreting now, today, current, latest, or relative publication dates when the ",
+    "answer depends on them. Search-result dates are evidence, not a substitute for the native UTC clock. ",
     "When a factual claim relies on Web tool results, cite its source immediately after the claim with an inline ",
     "Markdown link to the exact result URL. Never invent or alter a source URL, and do not cite a source that does ",
     "not support the claim."
@@ -52,12 +55,12 @@ pub(crate) fn web_tools_enabled(
     provider_id: &str,
     model_supports_tools: bool,
 ) -> bool {
-    web_enabled && matches!(provider_id, "ollama" | "openai" | "anthropic") && model_supports_tools
+    web_enabled && provider_tools_enabled(provider_id, model_supports_tools)
 }
 
 /// Confirms that an already-enabled Web request has an explicit provider-native fetch mapping.
 pub(crate) fn web_fetch_enabled(web_tools_enabled: bool, provider_id: &str) -> bool {
-    web_tools_enabled && matches!(provider_id, "ollama" | "openai" | "anthropic")
+    web_tools_enabled && matches!(provider_id, "omlx" | "ollama" | "openai" | "anthropic")
 }
 
 /// Confirms explicit Memory intent plus a mapped provider's discovered per-model tool capability.
@@ -66,9 +69,12 @@ pub(crate) fn memory_tools_enabled(
     provider_id: &str,
     model_supports_tools: bool,
 ) -> bool {
-    memory_enabled
-        && matches!(provider_id, "ollama" | "openai" | "anthropic")
-        && model_supports_tools
+    memory_enabled && provider_tools_enabled(provider_id, model_supports_tools)
+}
+
+/// Confirms that one mapped provider explicitly advertises tool support for the selected model.
+pub(crate) fn provider_tools_enabled(provider_id: &str, model_supports_tools: bool) -> bool {
+    model_supports_tools && matches!(provider_id, "omlx" | "ollama" | "openai" | "anthropic")
 }
 
 /// Resolves the selected credential and constructs its fixed native search adapter.
@@ -199,6 +205,9 @@ pub(crate) fn dispatch_native_tool(
     web_search: Option<&dyn NativeWebSearchExecutor>,
     web_fetch: Option<&dyn NativeWebFetchExecutor>,
 ) -> MemoryToolExecution {
+    if call.tool_name == CURRENT_TIME_TOOL_NAME {
+        return dispatch_current_time_tool(call);
+    }
     if call.tool_name == WEB_SEARCH_TOOL_NAME {
         if let Some(web_search) = web_search {
             return web_search.execute(call);
@@ -252,7 +261,10 @@ mod tests {
         assert!(matches!(
             &guided.messages[0].content[0],
             crate::inference::ContentBlock::Text { text }
-                if text.contains("inline Markdown link") && text.contains("exact result URL")
+                if text.contains("inline Markdown link")
+                    && text.contains("exact result URL")
+                    && text.contains("Call current_time")
+                    && text.contains("not a substitute")
         ));
         assert_eq!(unchanged.messages.len(), 1);
         assert_eq!(unchanged.messages[0].role, crate::inference::ChatRole::User);
@@ -263,8 +275,8 @@ mod tests {
         assert!(web_fetch_enabled(true, "ollama"));
         assert!(web_fetch_enabled(true, "openai"));
         assert!(web_fetch_enabled(true, "anthropic"));
+        assert!(web_fetch_enabled(true, "omlx"));
         assert!(!web_fetch_enabled(false, "openai"));
-        assert!(!web_fetch_enabled(true, "omlx"));
     }
 
     impl CredentialStore for CredentialFixture {
