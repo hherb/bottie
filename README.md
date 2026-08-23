@@ -186,6 +186,13 @@ object and `max_input_tokens`, while compatible endpoints retain explicit legacy
 client-executed tools. Bottie omits its provider-neutral sampling default from Anthropic Messages requests because
 Claude Sonnet 5 rejects non-default sampling parameters.
 
+Recent diagnostics in Settings can be exported explicitly as version 1 `bottie-local-diagnostics` JSON for the
+current application session. Rust snapshots the existing 100-event bounded history in recorded order, reapplies
+credential, path, and content-shaped redaction, and opens a date-normalized native Save dialog only when the history is
+non-empty. The document declares that credentials, provider request/response bodies, raw tool arguments/results,
+database or attachment content, and native paths are omitted. The WebView receives only saved/cancelled state and the
+selected leaf filename; Bottie does not upload the document automatically.
+
 Thinking/reasoning defaults to off and can be toggled to low effort for each request. Reasoning-capable providers stream
 that material into a collapsed, user-expandable section rather than mixing it into the answer. Native generation also
 applies a 4,096-token default ceiling when the interface does not provide a tighter limit.

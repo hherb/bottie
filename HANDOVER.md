@@ -200,10 +200,14 @@ before ordinary corruption classification. Source identities, the exact migratio
 and current semantic metadata are validated; attachment files and the embedding-model cache remain unchanged. Reverse
 SQL and automatic binary downgrade are explicitly unsupported. Native clock and primary-provider tool parity are now
 complete: Rust owns the closed UTC clock, oMLX joins the durable native tool loop only after fixed endpoint-capability
-discovery, and Anthropic model discovery accepts its current structured response. The next bounded slice is structured
-local diagnostics export with explicit redaction and opt-in native save. Do not bundle diagnostic upload, provider
-request or response bodies, migration-recovery UI, a new feature schema, automatic retrieval injection,
-model-cache deletion, document opening, attachment retry controls, a general MCP runtime, packaging, or release updates.
+discovery, and Anthropic model discovery accepts its current structured response. Structured local diagnostics export
+is also complete: Settings can snapshot the existing bounded current-session events as versioned JSON through an
+explicit native Save dialog, while Rust reapplies credential, path, and content-shaped redaction and returns only a
+saved/cancelled outcome plus the selected leaf filename. The next bounded slice is the connection and authentication
+foundation for a first-party read-only Localmail connector. Do not bundle email tools,
+provider-loop mapping, provenance UI, arbitrary MCP execution, diagnostic upload, provider request or response bodies,
+migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, document opening,
+attachment retry controls, packaging, or release updates.
 
 Read these files first:
 
@@ -449,7 +453,8 @@ Provider configuration now:
   queries, or fragments;
 - disables redirects for every provider client;
 - uses 3-second connect, 5-second discovery, and 120-second stream-idle timeouts;
-- keeps the most recent 100 structured diagnostic events in memory and redacts credential-shaped values before returning them to Svelte.
+- keeps the most recent 100 structured diagnostic events in memory and redacts credential-, native-path-, and marked
+  content-shaped values before returning them to Svelte or a portable export.
 
 Generation settings now default to reasoning off and a 4,096-token completion ceiling. The toolbar can enable low-effort
 reasoning for the next request. Rust maps that provider-neutral setting to oMLX `enable_thinking`/`reasoning_effort` and
@@ -541,7 +546,7 @@ The cohesively touched product modules remain at or below 500 lines. The crate c
 `src-tauri/src/lib.rs` remains an existing practical-limit exception; the remaining known indivisible long lines are
 SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Staged migration and promotion rollback
+## Prior completed product slice: Staged migration and promotion rollback
 
 ### Goal
 
@@ -689,14 +694,69 @@ focused tests require its absence while retaining explicit disabled/adaptive thi
 confirmed authenticated live Web search completes successfully with both Claude Sonnet 5 through Anthropic and Qwen3.8
 through oMLX.
 
-## Next bounded product slice: Redacted local diagnostics export
+## Most recently completed product slice: Redacted local diagnostics export
 
-Add one explicit opt-in native Save flow for Bottie's bounded session diagnostics. Reuse the existing structured
-redaction boundary and native-only path handling, define a versioned portable document with stable event fields and
-clear omission policy, and cover cancellation, empty history, filename normalization, deterministic ordering, and
-secret/path/content-shaped fixtures. Do not add automatic upload, provider request or response bodies, raw tool
-arguments/results, database or attachment content, a schema migration, migration-recovery UI, packaging, or release
-work.
+### Goal
+
+Let a user explicitly save Bottie's bounded current-session diagnostics for local support without broadening the
+WebView, filesystem, provider-content, or automatic-upload boundaries.
+
+### Implemented shape
+
+1. One narrow `export_diagnostics` command snapshots the existing 100-event in-memory history and opens a native JSON
+   Save dialog only when at least one event exists. The destination remains native-only; IPC returns saved/cancelled
+   state and the selected leaf filename.
+2. Version 1 of `bottie-local-diagnostics` records the generation timestamp, current-session scope, and each existing
+   stable timestamp, level, event, optional provider identity, and optional detail in recording order. It uses a
+   date-normalized default filename and a trailing newline.
+3. Rust reapplies the native credential, path, and content-shaped redaction boundary before serialization. The document
+   explicitly declares that credentials/authentication material, provider request and response bodies, raw tool
+   arguments/results, database and attachment content, and native filesystem paths are omitted.
+4. Settings exposes one labelled Export JSON action beside Refresh. It is unavailable in browser preview and for an
+   empty history, reports cancellation calmly, and presents path-redacted failures without closing or saving Settings.
+5. The change adds no schema, durable diagnostic history, background task, upload path, generic file command, provider
+   traffic, credential access, tool payload access, or database/attachment read.
+
+### Acceptance criteria
+
+- Empty history fails before any Save dialog, native cancellation writes nothing, a selected destination receives exact
+  UTF-8 JSON, and the WebView receives no directory.
+- Export rendering is deterministic for an injected generation time and retains event insertion order.
+- Secret-, path-, request-body-, and user-content-shaped fixtures do not survive the redaction boundary.
+- The portable omission policy is explicit and independent from Bottie's SQLite schema version.
+- The Settings action remains accessible and contained at the desktop default and native minimum viewport.
+
+### Explicit exclusions
+
+Do not add automatic upload, provider request or response bodies, raw tool arguments/results, database or attachment
+content, durable diagnostic storage, a schema migration, migration-recovery UI, packaging, or release work.
+
+### Verification completed
+
+Focused Rust coverage exercises the versioned portable contract, deterministic recording order and filename,
+secret/path/content-shaped redaction, empty-history rejection, clean cancellation, exact UTF-8 file output, and
+leaf-filename-only outcome. The frontend contract renders the labelled action and disclosure. The standard frontend
+suite has 22 passing files and 87 tests; `svelte-check` reports zero errors or warnings, production build succeeds, and
+Prettier reports every tracked frontend source formatted. The full Rust suite has 353 tests: 331 pass by default and 22
+loopback, public-network, credential, or live-provider checks remain opt-in. Cargo formatting and compile checks pass.
+
+The browser preview was reviewed at 1320 × 820 and the 720 × 620 native minimum. The diagnostics heading, disclosure,
+Export JSON, Refresh, empty state, and Settings footer remain contained with no horizontal document overflow; the
+browser console reported no warnings or errors. Browser preview correctly disables export because it has no native
+session history. The native development app compiled, development-signed, and launched against the existing store.
+Immutable read-only inspection returned schema version 21, `quick_check=ok`, zero foreign-key failures, an exact
+21-row migration ledger, 13 conversations, 72 messages, 30 provider runs, and 12 tool invocation/result pairs. The
+slice adds no schema or live-store mutation. The real macOS Save-panel cancellation/write interaction was not
+synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
+contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
+
+## Next bounded product slice: Localmail connection and authentication
+
+Add only a first-party read-only Localmail connector foundation: an explicit HTTPS origin,
+certificate-trust confirmation, connection testing, and OAuth 2.1 or bounded bearer-token onboarding with every token
+kept in the operating-system vault. Do not add `search_email` or `open_email`, provider-loop definitions or execution,
+Email toggles or provenance cards, arbitrary MCP discovery/execution, attachment download/opening, Localmail account or
+sync administration, outbound mail, or Bottie memory indexing in the same slice.
 
 ## Prior completed planning slice: Migration rollback
 

@@ -47,7 +47,7 @@ use command_types::{
     ProviderCredentialUpdate, ProviderSelection,
 };
 use credentials::{CredentialStore, NATIVE_CREDENTIAL_IDS, SystemCredentialStore};
-use diagnostics::{DiagnosticEntry, Diagnostics, record_diagnostic, sanitized};
+use diagnostics::{DiagnosticEntry, Diagnostics, export_diagnostics, record_diagnostic, sanitized};
 use futures_util::future::AbortHandle;
 use generation::{cancel_chat, start_chat};
 use inference::{
@@ -536,6 +536,7 @@ pub fn run() {
             test_provider_connection,
             test_web_search_connection,
             get_diagnostics,
+            export_diagnostics,
             get_storage_recovery_status,
             get_conversation_retention_policy,
             get_semantic_index_progress,

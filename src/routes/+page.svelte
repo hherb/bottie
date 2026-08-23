@@ -22,6 +22,7 @@
   import "$lib/styles/context.css";
   import "$lib/styles/first-run.css";
   import "$lib/styles/settings.css";
+  import "$lib/styles/diagnostics.css";
   import "$lib/styles/recovery.css";
 
   import { PageState } from "./page-state.svelte";
