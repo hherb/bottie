@@ -241,8 +241,9 @@ blocked on Bottie's own licence text, a generated notice bundle, packaged ONNX R
 EmbeddingGemma terms, artwork provenance, and Windows/Linux verification. The keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
-disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. The next bounded product
-slice is themes and density options. Do not bundle dependency upgrades or remediation, Email provenance cards,
+disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
+Dark themes plus Comfortable and Compact density are now complete. The next bounded product slice is refined
+empty/offline/error states. Do not bundle dependency upgrades or remediation, Email provenance cards,
 attachment download or opening, Localmail administration, outbound mail, migration-recovery UI, a new feature schema,
 automatic retrieval injection, model-cache deletion, packaging, signing, updates, or release work.
 
@@ -803,16 +804,68 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: themes and density options
+## Next bounded product slice: refined empty, offline, and error states
 
-Add one local presentation preference surface for system, light, and dark themes plus comfortable and compact density.
-Apply explicit document-level state before first paint where practical, keep system preference reactive only while the
-system option is selected, and retain the current dark/comfortable presentation as the migration-safe default. Cover
-preference normalization, persistence, system changes, keyboard focus, and both density layouts at the native minimum
-viewport. Do not bundle broad accessibility remediation, empty/offline/error redesign, native menu or tray work, a new
-provider/tool/storage schema, dependency changes, performance testing, packaging, signing, updates, or release work.
+Refine the existing empty-conversation, provider-offline, and stable error presentations as one local UI slice. Keep
+native error categories, recovery behavior, provider retry policy, persistence, and trust-boundary contracts unchanged.
+Cover browser/native presentation, keyboard focus, reduced motion, and the native minimum viewport. Do not bundle a
+broad accessibility audit, provider/network changes, schema or IPC work, native menu or tray work, dependency changes,
+performance testing, packaging, signing, updates, or release work.
 
-## Most recently completed product slice: keyboard shortcuts and command palette
+## Most recently completed product slice: themes and density options
+
+### Goal
+
+Add one local presentation preference surface for System, Light, and Dark themes plus Comfortable and Compact density
+without extending native authority or mixing display state into provider settings.
+
+### Implemented shape
+
+1. `appearance.ts` owns the closed preference types, dark/comfortable fallback, unknown-value normalization, safe
+   local persistence, explicit theme resolution, document attributes, and a controller whose OS color listener exists
+   only while System is selected.
+2. A same-origin external preload applies valid theme, theme-preference, density, color-scheme, and theme-color state
+   before Svelte and the generated stylesheet can paint. The existing CSP remains unchanged and permits that bundled
+   script through `script-src 'self'`.
+3. Settings exposes labelled radio groups with visible focus for all five choices. Changes apply immediately and remain
+   independent of native provider Save/reconnect, credentials, diagnostics, tools, and storage.
+4. `appearance.css` retains the current dark/comfortable visuals as the default, adds a complete light semantic palette,
+   and applies compact spacing across navigation, messages, composer, Context, and Settings without changing content.
+5. The root shell uses non-scrollable clipping so focus within the fixed Settings dialog cannot leave the application
+   content programmatically scrolled after the modal closes.
+
+### Acceptance and explicit exclusions
+
+- Missing, malformed, and out-of-contract saved state resolves to dark/comfortable. Valid state survives reload and is
+  applied before ordinary app initialization.
+- System follows current OS light/dark state and listens for changes only while selected; explicit Light or Dark removes
+  the listener. Every choice remains keyboard-focusable and labelled.
+- Comfortable and Compact remain contained at the 720 × 620 native minimum and the 1320 × 820 desktop viewport without
+  horizontal document overflow or a retained shell scroll offset after closing Settings.
+- No Tauri command, capability, provider/tool mapping, credential, native storage, schema, dependency, network, menu,
+  tray, packaging, signing, update, or release behavior changed.
+
+### Verification completed
+
+Focused TDD first failed because the appearance module and component did not exist. Three pure/controller tests cover
+the migration-safe fallback, closed persisted shape, resolved themes, safe parsing, immediate writes, conditional OS
+listener lifecycle, and document state. Two rendered component tests cover the labelled radio groups and Settings
+integration.
+
+Prettier accepts all tracked frontend and script sources; the locked dependency inventory is unchanged; `svelte-check`
+reports zero errors or warnings; all 29 root Vitest files and 104 tests pass; and the production build succeeds. Cargo
+formatting and compilation pass. The full Rust suite remains at 416 tests: 387 pass by default and 29 loopback,
+public-network, credential, or live-provider tests remain explicitly ignored. `git diff --check` is clean.
+
+The browser preview was reviewed at 1320 × 820 and 720 × 620 across dark/comfortable, light/compact,
+light/comfortable, dark/compact, and System selection. Preference reload applied the saved explicit document state,
+both densities remained contained, focus rings were visible, modal close retained a zero shell scroll offset, and there
+was no horizontal document overflow or console warning/error. System resolved to the current OS scheme; focused unit
+coverage proves subsequent OS changes are ignored after an explicit theme is selected. The native app compiled,
+development-signed, and launched against the existing store. Native UI interaction was not synthetically clicked;
+provider, schema, credential, filesystem, and live-network checks are not applicable to this local WebView slice.
+
+## Prior completed product slice: keyboard shortcuts and command palette
 
 ### Goal
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { isTauri } from "@tauri-apps/api/core";
 
+  import AppearancePreferences from "$lib/AppearancePreferences.svelte";
   import Icon from "$lib/Icon.svelte";
   import MemoryIndexControl from "$lib/MemoryIndexControl.svelte";
   import LocalmailSettingsControl from "$lib/LocalmailSettingsControl.svelte";
@@ -24,6 +25,8 @@
     type WebSearchProviderId,
   } from "$lib/inference";
   import { cloneWebNetworkPolicy } from "$lib/web-policy";
+  import type { AppearancePreferences as AppearancePreferenceValues } from "$lib/appearance";
+  import { CONNECTION_POLICY, PROVIDER_SETTINGS, SEARCH_PROVIDER_SETTINGS } from "$lib/provider-settings-options";
 
   type ConnectionTestState = {
     status: "idle" | "testing" | "success" | "error";
@@ -32,41 +35,14 @@
 
   type Props = {
     settings: ProviderSettings;
+    appearance: AppearancePreferenceValues;
     isGenerating: boolean;
     onclose: () => void;
+    onappearancechange: (appearance: AppearancePreferenceValues) => void;
     onsaved: (settings: ProviderSettings) => Promise<void>;
   };
 
-  /** Provider metadata rendered by the settings form. */
-  const PROVIDER_SETTINGS: Array<{
-    id: ProviderId;
-    name: string;
-    description: string;
-    route: "local" | "cloud";
-  }> = [
-    { id: "omlx", name: "oMLX", description: "OpenAI-compatible local runtime", route: "local" },
-    { id: "ollama", name: "Ollama", description: "Native local API", route: "local" },
-    { id: "openai", name: "OpenAI compatible", description: "Chat Completions over HTTPS", route: "cloud" },
-    { id: "anthropic", name: "Anthropic compatible", description: "Messages API over HTTPS", route: "cloud" },
-  ];
-  const CONNECTION_POLICY = [
-    "Local loopback or remote HTTPS",
-    "redirects disabled",
-    "3 s connect",
-    "5 s discovery",
-    "15 s web test",
-    "120 s stream idle",
-  ].join(" · ");
-  const SEARCH_PROVIDER_SETTINGS: Array<{
-    id: WebSearchProviderId;
-    name: string;
-    hostname: string;
-  }> = [
-    { id: "brave", name: "Brave Search", hostname: "api.search.brave.com" },
-    { id: "exa", name: "Exa Search", hostname: "api.exa.ai" },
-  ];
-
-  let { settings, isGenerating, onclose, onsaved }: Props = $props();
+  let { settings, appearance, isGenerating, onclose, onappearancechange, onsaved }: Props = $props();
   let settingsDraft = $state<ProviderSettings>({
     ...DEFAULT_PROVIDER_SETTINGS,
     webNetworkPolicy: cloneWebNetworkPolicy(DEFAULT_PROVIDER_SETTINGS.webNetworkPolicy),
@@ -249,7 +225,7 @@
   <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="provider-settings-title">
     <header class="settings-header">
       <div>
-        <span class="eyebrow">Rust-owned configuration</span>
+        <span class="eyebrow">Local and native configuration</span>
         <h2 id="provider-settings-title">Settings</h2>
       </div>
       <button class="icon-button" aria-label="Close provider settings" onclick={close}>
@@ -258,6 +234,8 @@
     </header>
 
     <form class="settings-content" onsubmit={save}>
+      <AppearancePreferences {appearance} onchange={onappearancechange} />
+
       <p class="settings-intro">
         Local routes require loopback endpoints. Cloud routes require HTTPS and keep API keys in the operating-system
         credential vault; keys are never returned to the interface.

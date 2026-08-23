@@ -11,6 +11,7 @@
   import Sidebar from "$lib/Sidebar.svelte";
   import StorageRecovery from "$lib/StorageRecovery.svelte";
   import { composerAttachmentNote } from "$lib/chat";
+  import { createAppearanceController, type AppearanceController, type AppearancePreferences } from "$lib/appearance";
   import { webSearchProviderName } from "$lib/presentation";
   import { canBatchExportConversations } from "$lib/storage";
   import {
@@ -33,6 +34,7 @@
   import "$lib/styles/diagnostics.css";
   import "$lib/styles/localmail-settings.css";
   import "$lib/styles/recovery.css";
+  import "$lib/styles/appearance.css";
 
   import { PageState } from "./page-state.svelte";
   import {
@@ -43,13 +45,28 @@
   } from "./page-presentation";
 
   const state = new PageState();
+  let appearanceController: AppearanceController | null = null;
   let commandPaletteInvoker: HTMLElement | null = null;
 
   onMount(() => {
+    appearanceController = createAppearanceController({
+      root: document.documentElement,
+      storage: window.localStorage,
+      mediaQuery: window.matchMedia("(prefers-color-scheme: dark)"),
+      onChange: (preferences) => (state.appearance = preferences),
+    });
     state.commandPalette.platform = navigator.platform;
     void state.initialize();
-    return () => state.dispose();
+    return () => {
+      appearanceController?.dispose();
+      state.dispose();
+    };
   });
+
+  /** Persists and applies a complete local presentation preference. */
+  function updateAppearance(preferences: AppearancePreferences): void {
+    appearanceController?.update(preferences);
+  }
 
   /** Completes guided recovery before returning to normal conversation and provider initialization. */
   async function recoverStorage(source: "manual" | "automatic"): Promise<void> {
@@ -350,7 +367,9 @@
     {#if state.showSettings}
       <ProviderSettingsDialog
         settings={state.providerSettings}
+        appearance={state.appearance}
         isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
+        onappearancechange={updateAppearance}
         onclose={() => {
           state.showSettings = false;
           void state.email.refresh();

@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run --pool=forks --maxWorkers=1 --exclude \"website/**\" --exclude \"assets/**\"",
     "dependencies:check": "node scripts/dependency-inventory.mjs --check",
-    "format": "prettier --write \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\"",
-    "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\"",
+    "format": "prettier --write \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",
+    "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "node scripts/macos-development-signing.mjs --tauri"

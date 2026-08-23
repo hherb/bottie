@@ -31,7 +31,7 @@ body {
   width: 100%;
   height: 100%;
   margin: 0;
-  overflow: hidden;
+  overflow: clip;
   background: var(--bg);
 }
 button,
@@ -56,7 +56,7 @@ textarea:focus-visible {
   width: 100vw;
   height: 100vh;
   min-width: 720px;
-  overflow: hidden;
+  overflow: clip;
   background: radial-gradient(circle at 58% 4%, rgba(97, 75, 186, 0.08), transparent 32%), #0a0a0e;
 }
 .ambient {
