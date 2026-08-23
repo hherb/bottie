@@ -56,16 +56,11 @@ describe("page presentation", () => {
     expect(emailToolsAvailable(model("ollama", true))).toBe(true);
     expect(emailToolsAvailable(model("openai", true))).toBe(true);
     expect(emailToolsAvailable(model("anthropic", true))).toBe(true);
-    expect(emailToolsAvailable(model("omlx", true))).toBe(false);
+    expect(emailToolsAvailable(model("omlx", true))).toBe(true);
     expect(emailToolsAvailable(model("ollama", false))).toBe(false);
     expect(emailToolsAvailable(undefined)).toBe(false);
 
-    expect(emailToolsUnavailableReason(model("omlx", true), true)).toBe(
-      [
-        "Email is currently mapped only for Ollama, OpenAI-compatible, and Anthropic-compatible models.",
-        "Switch to a supported tool-capable model.",
-      ].join(" "),
-    );
+    expect(emailToolsUnavailableReason(model("omlx", true), true)).toBe("");
     expect(emailToolsUnavailableReason(model("ollama", false), true)).toBe(
       "The selected Ollama model does not advertise tool support. Choose a tool-capable Ollama model.",
     );
@@ -85,14 +80,15 @@ describe("page presentation", () => {
       ].join(" "),
     );
     expect(emailToolsUnavailableReason(model("omlx", true), false)).toBe(
-      [
-        "Save Localmail certificate trust and a bearer token in Settings, then switch to a tool-capable Ollama,",
-        "OpenAI-compatible, or Anthropic-compatible model.",
-      ].join(" "),
+      "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
     );
     expect(emailToolsUnavailableReason(model("ollama", true), true)).toBe("");
     expect(emailToolsUnavailableReason(model("openai", true), true)).toBe("");
     expect(emailToolsUnavailableReason(model("anthropic", true), true)).toBe("");
+    expect(emailToolsUnavailableReason(model("omlx", false), true)).toBe(
+      "The selected oMLX model does not advertise tool support. Choose a tool-capable oMLX model.",
+    );
+    expect(emailToolsUnavailableReason(model("omlx", true), true)).toBe("");
     expect(emailToolsBoundaryNote(model("ollama", true))).toContain("stays with Ollama on loopback");
     expect(emailToolsBoundaryNote(model("openai", true))).toContain(
       "prompt and bounded Localmail tool results go to the selected OpenAI-compatible cloud endpoint",
@@ -104,6 +100,10 @@ describe("page presentation", () => {
       "prompt and bounded Localmail tool results go to the selected Anthropic-compatible cloud endpoint",
     );
     expect(emailToolsBoundaryNote(model("anthropic", true))).toContain(
+      "email queries and exact message IDs go only to your pinned Localmail server",
+    );
+    expect(emailToolsBoundaryNote(model("omlx", true))).toContain("prompt stays with oMLX on loopback");
+    expect(emailToolsBoundaryNote(model("omlx", true))).toContain(
       "email queries and exact message IDs go only to your pinned Localmail server",
     );
   });

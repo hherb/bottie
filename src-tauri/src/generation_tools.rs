@@ -103,6 +103,7 @@ pub(crate) async fn stream_native_tools(
                 cancellation,
                 web_search,
                 web_fetch,
+                localmail,
             )
             .await
         }
@@ -120,6 +121,7 @@ pub(crate) async fn stream_omlx_tools(
     cancellation: ToolLoopCancellation,
     web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
     web_fetch: Option<Arc<dyn NativeWebFetchExecutor>>,
+    localmail: Option<Arc<dyn NativeLocalmailToolExecutor>>,
 ) -> Result<Option<Usage>, ProviderError> {
     let memory_enabled = request.memory_enabled;
     let mut session = OmlxToolSession::new(request)?;
@@ -146,6 +148,7 @@ pub(crate) async fn stream_omlx_tools(
         let round_cancellation = cancellation.clone();
         let round_web_search = web_search.clone();
         let round_web_fetch = web_fetch.clone();
+        let round_localmail = localmail.clone();
         let (returned_state, results) = tauri::async_runtime::spawn_blocking(move || {
             let results = execute_openai_tool_round(
                 &round_store,
@@ -157,7 +160,7 @@ pub(crate) async fn stream_omlx_tools(
                 memory_enabled,
                 round_web_search.as_ref().map(Arc::as_ref),
                 round_web_fetch.as_ref().map(Arc::as_ref),
-                None,
+                round_localmail.as_ref().map(Arc::as_ref),
             );
             (state, results)
         })

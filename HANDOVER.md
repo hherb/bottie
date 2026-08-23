@@ -40,9 +40,9 @@ guided screen can restore the newest verified automatic snapshot or a manually s
 the damaged database bundle and prior attachment tree in app-private storage. Native provider runs now also retain
 ordered structured tool calls
 and one append-only result per call; reopened tool activity is inspectable and portable without exposing native or
-provider call identities. An explicit Memory composer toggle now lets tool-capable Ollama, OpenAI-compatible, and
-Anthropic-compatible models use the three native memory tools through their distinct function wire shapes, Bottie's
-bounded multi-round state machine, and those durable tool records. An explicitly capable oMLX endpoint now uses the
+provider call identities. An explicit Memory composer toggle now lets tool-capable oMLX, Ollama, OpenAI-compatible,
+and Anthropic-compatible models use the three native memory tools through their distinct function wire shapes,
+Bottie's bounded multi-round state machine, and those durable tool records. An explicitly capable oMLX endpoint uses the
 same Bottie-owned clock, Memory, and Web loops without invoking its MCP or server-side tool routes. Native attachment
 selection now streams chosen local files into application-private content-addressed storage with SHA-256 identities,
 content-based MIME
@@ -72,7 +72,7 @@ memory construction, not provider delivery. Up to eight retained
 files can now be kept in durable conversation scope independently of any branch or message. The interface distinguishes
 next-message, conversation, and message associations and supports narrow removal without deleting retained content.
 Conversation-scoped normalized images apply to every current request, require explicit vision capability, and are
-deduplicated when the same file is also linked to a message; explicitly enabled tool-capable Ollama,
+deduplicated when the same file is also linked to a message; explicitly enabled tool-capable oMLX, Ollama,
 OpenAI-compatible, or Anthropic-compatible requests may retrieve bounded document excerpts. Portable backups now
 retain every original blob and ready normalized
 derivative, while selected and batch exports bundle only referenced originals
@@ -217,16 +217,16 @@ provider-independent layer is now complete: `search_email` and `open_email` have
 conversion into the existing connector requests, explicit safe read-only policy entries, and one configured native
 executor behind Bottie's existing 64 KiB success/error envelope. Invalid calls fail before Localmail configuration,
 vault, or network access, and connector failures map to fixed redacted categories. One off-by-default session Email
-control now advertises those definitions only to an explicitly tool-capable Ollama, OpenAI-compatible, or
-Anthropic-compatible selection after native pinned trust and credential metadata are both present. All three mapped
+control now advertises those definitions only to an explicitly tool-capable oMLX, Ollama, OpenAI-compatible, or
+Anthropic-compatible selection after native pinned trust and credential metadata are both present. All four mapped
 providers execute through the configured Localmail dispatcher and retain the existing durable safe audit and
-cancellation/call/round/output/deadline limits. Ollama prompts stay on loopback; OpenAI-compatible and
-Anthropic-compatible prompts plus bounded Localmail results use the selected visible cloud route. In every case, only
-model-selected queries and exact message identities go to the pinned Localmail server. Anthropic Messages preserve
-exact `tool_use` identities, immediate correlated `tool_result` blocks, and ordered thinking/redacted-thinking state.
-oMLX Email mapping remains absent. The next bounded slice is explicit oMLX Email mapping through its discovered
-Chat Completions-compatible tool route with matching loopback/Localmail disclosure. Do not bundle provenance cards,
-arbitrary MCP execution,
+cancellation/call/round/output/deadline limits. oMLX and Ollama prompts plus bounded Localmail results stay on
+loopback; OpenAI-compatible and Anthropic-compatible prompts plus bounded results use the selected visible cloud route.
+In every case, only model-selected queries and exact message identities go to the pinned Localmail server. Anthropic
+Messages preserve exact `tool_use` identities, immediate correlated `tool_result` blocks, and ordered
+thinking/redacted-thinking state.
+oMLX uses its discovered Chat Completions-compatible route without enabling endpoint-owned MCP or arbitrary server
+tools. The next bounded slice is a focused CSP and Tauri capability review. Do not bundle Email provenance cards,
 attachment download or opening, Localmail account or sync administration, outbound mail, Bottie memory indexing,
 migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, packaging, or
 release updates.
@@ -244,7 +244,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/localmail-anthropic-email`.
+branch `codex/localmail-omlx-email`.
 
 ## Current implementation
 
@@ -272,7 +272,7 @@ branch `codex/localmail-anthropic-email`.
 - bounded ready-image thumbnails plus explicit local-only extraction and normalization failure presentation;
 - durable extracted-text indexing readiness with honest indexable, unsupported, and blocked presentation;
 - capability-aware normalized JPEG/PNG delivery labels and current-draft blocking for text-only models;
-- a composer with off-by-default Memory, Web, and configured Ollama/OpenAI-compatible/Anthropic-compatible Email
+- a composer with off-by-default Memory, Web, and configured oMLX/Ollama/OpenAI-compatible/Anthropic-compatible Email
   affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
@@ -388,12 +388,12 @@ bounded inert text/title/publication extraction, untrusted result, and redacted 
 `src-tauri/src/web_policy.rs` owns the secret-free HTTPS-only default, bounded normalized allowed/blocked domain lists,
 parent-domain matching, and blocked-domain precedence shared by search-result and fetch enforcement,
 `src-tauri/src/storage/tool_audit_migration.rs` owns schema-21 audit columns and honest legacy backfill,
-`src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
+`src-tauri/src/generation_tools.rs` owns oMLX/Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
 embedding details, while `src-tauri/src/generation_web_tools.rs` selects mapped Web availability, resolves only the
 active search engine's native credential, and routes accepted calls into the strict provider-independent dispatcher,
 `src-tauri/src/generation_localmail_tools.rs` withholds Email until native pinned trust and credential metadata are
-configured, then snapshots the exact path- and credential-owning Localmail executor for mapped Ollama,
+configured, then snapshots the exact path- and credential-owning Localmail executor for mapped oMLX, Ollama,
 OpenAI-compatible, or Anthropic-compatible generation,
 `src-tauri/src/generation_tool_audit.rs` maps bounded execution envelopes into their durable audit outcomes,
 `src-tauri/src/generation_usage.rs` owns provider-neutral usage and cost accumulation across repeated tool rounds,
@@ -510,24 +510,24 @@ Do not mistake visual fixtures for implemented backend behavior:
   does not survive restart;
 - plain-text, Markdown, PDF, and DOCX attachments are extracted into SQLite but remain outside automatic provider
   context; their indexable state feeds native FTS5, deterministic chunk, and semantic-vector indexes. An explicitly
-  enabled tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible model can request bounded document excerpts
-  through `search_attached_files`;
+  enabled tool-capable oMLX, Ollama, OpenAI-compatible, or Anthropic-compatible model can request bounded document
+  excerpts through `search_attached_files`;
   JPEG/PNG
   derivatives remain application-private and are read only for capability-confirmed vision requests; portable SQLite
   backups embed originals and ready derivatives, while selected/batch exports bundle referenced originals;
-- Ollama, OpenAI Chat Completions, and Anthropic Messages now emit and execute durable native memory-tool records when
-  Memory is explicitly enabled; oMLX provider tool activity plus browser-preview tool activity remain absent or
-  fixtures;
+- oMLX, Ollama, OpenAI Chat Completions, and Anthropic Messages emit and execute durable native memory-tool records
+  when Memory is explicitly enabled; browser-preview tool activity remains a fixture;
 - reasoning-toggle state is session-only and resets to off when the app restarts;
-- the native lexical, semantic KNN, fused search, and provenance-opening contracts now have Ollama, OpenAI-compatible,
+- the native lexical, semantic KNN, fused search, and provenance-opening contracts have oMLX, Ollama, OpenAI-compatible,
   and Anthropic-compatible consumers through the bounded dispatcher and loop. Their successful retained results now
   produce real selected-lineage citation cards; dismissals reset with the frontend session and do not delete tool
   records or exclude a source from later retrieval;
-- the closed native `web_search` contract is explicitly available only to tool-capable Ollama, OpenAI-compatible, or
-  Anthropic-compatible models after the user enables Web. Brave calls and exact common results enter the durable audit
-  before provider reuse. Successful results now create dedicated Context-panel Web source cards;
+- the closed native `web_search` contract is explicitly available only to tool-capable oMLX, Ollama,
+  OpenAI-compatible, or Anthropic-compatible models after the user enables Web. Brave calls and exact common results
+  enter the durable audit before provider reuse. Successful results now create dedicated Context-panel Web source
+  cards;
 - the closed native `web_fetch` contract, public-network client, and common dispatcher are mapped to explicitly enabled
-  tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. Successful fetches now return inert text,
+  tool-capable oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible requests. Successful fetches return inert text,
   source URL, optional title/publication metadata, and an explicit untrusted marker. Fetched-page source cards and the
   expandable durable result label that content as untrusted and explain that external text may contain misleading
   instructions. Capability-gated native Web requests ask for inline Markdown links to exact result URLs; after
@@ -777,16 +777,85 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: oMLX Email mapping
+## Next bounded product slice: CSP and Tauri capability review
 
-Extend the existing session-only Email control to explicitly tool-capable oMLX models only after Bottie's fixed
-endpoint-capability discovery and native Localmail readiness gates pass. Map the two closed definitions through the
-existing Chat Completions-compatible call/result correlation, durable audit, cancellation, and bounded multi-round
-loop while retaining an exact loopback-provider/pinned-Localmail disclosure. Do not enable oMLX MCP or arbitrary
-server tools, add Email provenance cards, attachment download/opening, Localmail account or sync administration,
-outbound mail, Bottie memory indexing, a schema migration, automatic retrieval injection, packaging, or release work.
+Audit Bottie's current Content Security Policy and Tauri capability allowlist against the implemented native commands,
+opaque attachment-preview protocol, fixed external-link behavior, and Rust-owned provider/tool networking. Remove only
+permissions or destinations proven unused, add focused contract coverage for the resulting least-privilege boundary,
+and document the reviewed policy. Do not add a generic filesystem, shell, SQL, network, clipboard, opener, MCP, or
+plugin surface; change Email behavior; add provenance cards; perform a schema migration; or bundle keyboard shortcuts,
+packaging, signing, updates, or release work.
 
-## Most recently completed product slice: Anthropic-compatible Email mapping
+## Most recently completed product slice: oMLX Email mapping
+
+### Goal
+
+Let one explicitly tool-capable oMLX model use Bottie's two configured read-only Localmail tools after the existing
+off-by-default session choice, while preserving native endpoint-capability, trust, credential, provider-call, WebView,
+and shared tool-loop boundaries and making both loopback and pinned-Localmail destinations explicit.
+
+### Implemented shape
+
+1. The Email control is now available for tool-capable oMLX models as well as Ollama, OpenAI-compatible, and
+   Anthropic-compatible models after the same secret-free Localmail status confirms saved certificate trust and a
+   vault credential. Provider/model changes, missing readiness, and absent tool capability continue to disable it with
+   an actionable path-free reason.
+2. Enabled oMLX Email states that the prompt stays with the selected oMLX loopback endpoint, while only model-selected
+   email queries and exact message identities go to the pinned Localmail server. Existing Ollama loopback and cloud
+   provider disclosures remain unchanged.
+3. Native generation rechecks explicit Email intent, exact oMLX routing, discovered per-model tool capability, and
+   configured Localmail trust/credential metadata before retaining the request flag or constructing one immutable
+   generation-scoped executor. Eligibility still retrieves no credential material.
+4. An Email-only oMLX Chat Completions request advertises `search_email`, then `open_email`, then `current_time` through
+   the fixed endpoint's explicitly discovered tool contract. It does not invoke or forward oMLX MCP or arbitrary
+   server-owned tools.
+5. oMLX-emitted calls preserve the exact provider call identity in durable invocation and immediate correlated
+   `role: tool` results. Execution reuses the safe policy, strict typed Localmail conversion, pinned fixed-route client,
+   64 KiB redacted envelope, four-round/eight-call/30-second loop, 256 KiB aggregate ceiling, and shared cancellation.
+6. Focused oMLX Email orchestration tests live in their own cohesive module. No connector route, Tauri IPC payload or
+   capability, provider credential behavior, storage schema, or existing mapped-provider behavior changed.
+
+### Acceptance and explicit exclusions
+
+- Email remains off by default and session-only. oMLX availability requires configured pinned trust, a saved vault
+  credential, fixed-endpoint capability discovery, and explicit model tool capability.
+- Accepted calls cannot select another Localmail route or weaken certificate pinning, bearer authentication,
+  redirect/proxy denial, response/result bounds, identity correlation, inert text, `untrusted: true`, durable audit,
+  cancellation, or shared loop policy.
+- Prompts and bounded Localmail results stay on the already-visible selected oMLX loopback route. Only the exact
+  model-selected query/filter arguments or message identity enter the pinned Localmail request.
+- This slice adds no Email provenance cards, MCP execution, arbitrary oMLX server tools, attachment access, account or
+  sync administration, outbound mail, memory indexing, migration, automatic retrieval, packaging, or release work.
+
+### Verification completed
+
+Focused TDD first failed on oMLX frontend availability, native eligibility, the false Email definition gate, and the
+missing generation-scoped Localmail executor argument. Frontend tests now cover oMLX capability reasons and the exact
+loopback/pinned-Localmail disclosure. Socket-free Rust tests prove exact provider-call identity, bounded untrusted
+result reuse, safe durable audit, and fail-closed behavior without a configured executor. A host-local two-request
+Chat Completions fixture passed and confirmed Email-only definition order, one immediate correlated `search_email`
+result, final-answer streaming, cumulative usage, and terminal loop completion. It used only synthetic provider and
+email data; no real Localmail credential or archive content was accessed.
+
+Prettier, Svelte diagnostics, all 91 tracked frontend tests across 24 files, the production build, Cargo formatting and
+check with no warnings, and the full Rust suite pass. The Rust suite has 397 tests: 368 pass by default and 29
+loopback, public-network, credential, or live-provider checks remain explicitly opt-in. The literal `npm test` command
+also discovered the unrelated untracked `website/tests/rendered-html.test.mjs`, which has no Vitest suite; excluding
+that untouched untracked directory produced the recorded 24-file/91-test pass. The focused oMLX Email loopback fixture
+and all three existing live oMLX streaming, cancellation, clock, and Memory checks pass from the host.
+
+The browser preview was reviewed at 1320 x 820 and the 720 x 620 native minimum. The expanded four-provider
+prerequisite, Email control, and compact status remain visible, accessible, aligned, and contained without horizontal
+overflow or browser-console warnings/errors. The disconnected preview cannot satisfy native Localmail/oMLX readiness,
+so the enabled loopback disclosure has rendered component coverage rather than an interactive browser toggle.
+
+The native development app compiled, development-signed, launched, and remained running against the existing store.
+Immutable read-only inspection returned schema version 21, `quick_check=ok`, zero foreign-key failures, an exact
+21-row migration ledger, 17 conversations, 92 messages, 40 provider runs, and 20 tool invocation/result pairs. This
+slice adds no schema or live-store mutation. No production pinned-TLS Localmail call was exercised, so actual vault
+unlock and authenticated archive reading remain manually unverified.
+
+## Prior completed product slice: Anthropic-compatible Email mapping
 
 ### Goal
 

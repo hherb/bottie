@@ -123,7 +123,7 @@ approval-required tool is registered yet. oMLX-owned MCP execution, other office
 remain unimplemented. A separate Web toggle is off by default and available for tool-capable oMLX, Ollama,
 OpenAI-compatible, and Anthropic-compatible models. It requires the selected search engine's credential from the native
 vault and sends only
-model-selected bounded search queries and filters to that fixed route; Ollama prompts stay on loopback, while
+model-selected bounded search queries and filters to that fixed route; oMLX and Ollama prompts stay on loopback, while
 cloud-model prompts continue over their already-visible provider route. Privacy and activity surfaces identify the
 selected Brave Search or Exa Search hop whenever Web is enabled.
 
@@ -148,14 +148,16 @@ external-image URLs, Bcc, full headers, attachment details or bytes, account/fol
 paths, and credentials remain excluded. Rust also owns closed provider-independent `search_email` and `open_email`
 tool schemas, strict raw conversion into those exact connector requests, explicit safe read-only policy entries, and
 execution through Bottie's common redacted 64 KiB result envelope. An off-by-default session Email control advertises
-those two definitions only to an explicitly tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible model after
-native status confirms both pinned trust and a configured vault credential. Prompts remain on Ollama's loopback route;
-OpenAI-compatible and Anthropic-compatible prompts plus bounded Localmail tool results use the selected visible cloud
-route. Anthropic Messages preserve exact `tool_use`/`tool_result` identities and ordered thinking state across repeated
-rounds. The interface separately discloses that model-selected queries and exact message identities go only to the
-pinned Localmail server. Calls and bounded results reuse Bottie's durable audit, cancellation,
-four-round/eight-call/30-second loop, 64 KiB per-result ceiling, and 256 KiB aggregate ceiling. oMLX Email mapping,
-Email provenance, attachment access, outbound mail, and memory indexing remain unimplemented.
+those two definitions only to an explicitly tool-capable oMLX, Ollama, OpenAI-compatible, or Anthropic-compatible model
+after native status confirms both pinned trust and a configured vault credential. oMLX and Ollama prompts plus bounded
+Localmail tool results remain on their configured loopback routes; OpenAI-compatible and Anthropic-compatible prompts
+plus bounded results use the selected visible cloud route. Anthropic Messages preserve exact `tool_use`/`tool_result`
+identities and ordered thinking state across repeated rounds. The interface separately discloses that model-selected
+queries and exact message identities go only to the pinned Localmail server. Calls and bounded results reuse Bottie's
+durable audit, cancellation,
+four-round/eight-call/30-second loop, 64 KiB per-result ceiling, and 256 KiB aggregate ceiling. oMLX uses only its
+explicitly discovered Chat Completions tool route; endpoint-owned MCP and arbitrary server tools are not invoked. Email
+provenance, attachment access, outbound mail, and memory indexing remain unimplemented.
 
 ## Development
 

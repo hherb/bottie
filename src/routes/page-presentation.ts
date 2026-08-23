@@ -7,17 +7,17 @@ import type { Attachment, InferenceStage, Message, MessageAttachment } from "$li
 /** Providers with a Bottie-owned native tool loop after capability discovery. */
 const NATIVE_TOOL_PROVIDER_IDS: ReadonlySet<string> = new Set(["omlx", "ollama", "openai", "anthropic"]);
 /** Providers with an explicit Localmail mapping in Bottie's native tool loop. */
-const EMAIL_TOOL_PROVIDER_IDS: ReadonlySet<string> = new Set(["ollama", "openai", "anthropic"]);
+const EMAIL_TOOL_PROVIDER_IDS: ReadonlySet<string> = new Set(["omlx", "ollama", "openai", "anthropic"]);
 /** Actionable setup guidance shared by the disabled Email control and its status note. */
 const EMAIL_SETUP_REASON = "Save Localmail certificate trust and a bearer token in Settings before enabling Email.";
 /** Combined connector and provider guidance when more than one prerequisite is absent. */
 const EMAIL_SETUP_AND_PROVIDER_REASON = [
-  "Save Localmail certificate trust and a bearer token in Settings, then switch to a tool-capable Ollama,",
+  "Save Localmail certificate trust and a bearer token in Settings, then switch to a tool-capable oMLX, Ollama,",
   "OpenAI-compatible, or Anthropic-compatible model.",
 ].join(" ");
 /** Supported-provider guidance without exposing connector configuration detail. */
 const EMAIL_PROVIDER_REASON = [
-  "Email is currently mapped only for Ollama, OpenAI-compatible, and Anthropic-compatible models.",
+  "Email is currently mapped only for oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible models.",
   "Switch to a supported tool-capable model.",
 ].join(" ");
 /** Exact enabled disclosure for an OpenAI-compatible generation. */
@@ -33,6 +33,11 @@ const ANTHROPIC_EMAIL_BOUNDARY_NOTE = [
 /** Exact enabled disclosure for an Ollama generation. */
 const OLLAMA_EMAIL_BOUNDARY_NOTE = [
   "Your prompt stays with Ollama on loopback; model-selected email queries and exact message IDs go only",
+  "to your pinned Localmail server.",
+].join(" ");
+/** Exact enabled disclosure for an oMLX generation. */
+const OMLX_EMAIL_BOUNDARY_NOTE = [
+  "Your prompt stays with oMLX on loopback; model-selected email queries and exact message IDs go only",
   "to your pinned Localmail server.",
 ].join(" ");
 
@@ -83,6 +88,7 @@ export function emailToolsUnavailableReason(model: ModelInfo | undefined, localm
       anthropic: "Anthropic-compatible",
       openai: "OpenAI-compatible",
       ollama: "Ollama",
+      omlx: "oMLX",
     }[model?.providerId ?? "ollama"];
     return [
       `The selected ${providerName} model does not advertise tool support.`,
@@ -99,6 +105,9 @@ export function emailToolsBoundaryNote(model: ModelInfo | undefined): string {
   }
   if (model?.providerId === "openai") {
     return OPENAI_EMAIL_BOUNDARY_NOTE;
+  }
+  if (model?.providerId === "omlx") {
+    return OMLX_EMAIL_BOUNDARY_NOTE;
   }
   return OLLAMA_EMAIL_BOUNDARY_NOTE;
 }

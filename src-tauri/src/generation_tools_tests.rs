@@ -58,7 +58,7 @@ fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
     assert!(!email_tools_enabled(true, "ollama", true, false));
     assert!(email_tools_enabled(true, "openai", true, true));
     assert!(email_tools_enabled(true, "anthropic", true, true));
-    assert!(!email_tools_enabled(true, "omlx", true, true));
+    assert!(email_tools_enabled(true, "omlx", true, true));
 }
 
 /// Fixed dimensions required by the semantic query boundary when a search tool is exercised.
@@ -550,5 +550,6 @@ mod ollama_email;
 mod ollama_gating;
 mod ollama_web_fetch;
 mod omlx;
+mod omlx_email;
 mod openai;
 mod openai_email;

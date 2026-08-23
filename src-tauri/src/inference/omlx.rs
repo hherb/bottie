@@ -36,8 +36,11 @@ impl OmlxToolSession {
     /// Starts a session with exactly the closed tools enabled for this request.
     pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
         validate_request(&request)?;
-        let definitions =
-            enabled_native_tool_definitions(request.memory_enabled, request.web_enabled, false);
+        let definitions = enabled_native_tool_definitions(
+            request.memory_enabled,
+            request.web_enabled,
+            request.email_enabled,
+        );
         Ok(Self {
             request: OmlxChatRequest::with_tools(request, definitions),
         })

@@ -72,6 +72,7 @@ fn streams_an_omlx_clock_result_and_final_answer_across_two_requests() {
         ToolLoopCancellation::default(),
         None,
         None,
+        None,
     ))
     .expect("two-round oMLX clock generation should complete")
     .expect("fixture reports usage");
@@ -179,6 +180,7 @@ fn live_omlx_clock_and_memory_calls_complete_through_bottie() {
         run_id.clone(),
         semantic_indexer.query_embedder(),
         ToolLoopCancellation::default(),
+        None,
         None,
         None,
     ))
