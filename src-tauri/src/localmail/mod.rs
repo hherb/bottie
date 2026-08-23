@@ -1,7 +1,8 @@
-//! First-party Localmail connection and bearer-authentication foundation.
+//! First-party Localmail trust, bearer authentication, and bounded email search.
 
 mod commands;
 mod config;
+mod search;
 mod tls;
 
 use std::{path::Path, time::Duration};
@@ -17,8 +18,8 @@ use crate::{
     inference::ProviderError,
 };
 pub(crate) use commands::{
-    get_localmail_connection_status, probe_localmail_connection, test_localmail_connection,
-    update_localmail_connection,
+    get_localmail_connection_status, probe_localmail_connection, search_email,
+    test_localmail_connection, update_localmail_connection,
 };
 use config::{LocalmailConfig, load_config, save_config};
 use tls::{CertificateMode, CertificateVerifier};
@@ -342,5 +343,7 @@ fn localmail_internal_error() -> ProviderError {
     ProviderError::internal("Bottie could not prepare the Localmail connection.", None)
 }
 
+#[cfg(test)]
+mod search_tests;
 #[cfg(test)]
 mod tests;

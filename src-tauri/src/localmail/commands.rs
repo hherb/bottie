@@ -1,4 +1,4 @@
-//! Narrow Tauri commands for Localmail trust and authentication setup.
+//! Narrow Tauri commands for Localmail trust, authentication, and bounded search.
 
 use std::time::Instant;
 
@@ -11,6 +11,7 @@ use crate::{
     inference::ProviderError,
 };
 
+use super::search::{SearchEmailRequest, SearchEmailResponse, search_email_native};
 use super::*;
 
 #[tauri::command]
@@ -172,4 +173,41 @@ pub(crate) async fn test_localmail_connection(
             "Localmail identity verified; add a bearer token to verify authentication.".into()
         },
     })
+}
+
+#[tauri::command]
+/// Searches the saved pinned Localmail archive and returns inert path-free summaries only.
+pub(crate) async fn search_email(
+    request: SearchEmailRequest,
+    state: State<'_, AppState>,
+) -> Result<SearchEmailResponse, ProviderError> {
+    let result = search_email_native(
+        &state.localmail_config_path,
+        state.credentials.as_ref(),
+        request,
+    )
+    .await;
+    let response = match result {
+        Ok(response) => response,
+        Err(error) => {
+            record_diagnostic(
+                &state.diagnostics,
+                "error",
+                "Localmail email search failed",
+                Some(LOCALMAIL_CREDENTIAL_ID),
+                None,
+            )
+            .await;
+            return Err(sanitized(error));
+        }
+    };
+    record_diagnostic(
+        &state.diagnostics,
+        "info",
+        "Localmail email search completed",
+        Some(LOCALMAIL_CREDENTIAL_ID),
+        Some("Bounded inert message summaries returned"),
+    )
+    .await;
+    Ok(response)
 }

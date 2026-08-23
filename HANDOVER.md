@@ -203,13 +203,16 @@ complete: Rust owns the closed UTC clock, oMLX joins the durable native tool loo
 discovery, and Anthropic model discovery accepts its current structured response. Structured local diagnostics export
 is also complete: Settings can snapshot the existing bounded current-session events as versioned JSON through an
 explicit native Save dialog, while Rust reapplies credential, path, and content-shaped redaction and returns only a
-saved/cancelled outcome plus the selected leaf filename. A first-party read-only Localmail connection and authentication
-foundation is now complete: Rust owns the HTTPS origin, explicit certificate inspection and pinning, bounded server and
-bearer-authentication tests, and vault-only token storage. No email endpoint is called during setup. The next bounded
-slice is a Rust-owned `search_email` connector contract and one bounded native search call. Do not bundle
-`open_email`, provider-loop mapping, Email toggles or provenance UI, arbitrary MCP execution, attachment download or
-opening, Localmail account or sync administration, outbound mail, Bottie memory indexing, migration-recovery UI, a new
-feature schema, automatic retrieval injection, model-cache deletion, packaging, or release updates.
+saved/cancelled outcome plus the selected leaf filename. A first-party read-only Localmail connector now owns the HTTPS
+origin, explicit certificate inspection and pinning, bounded server and bearer-authentication tests, vault-only token
+storage, and one typed native email-search contract. Search validates its complete query/filter/result-limit shape
+before config, credential, or network access, calls only the fixed authenticated `POST /v1/search` route, and returns
+bounded path-free plain-text summaries marked untrusted. No email body, HTML, attachment content, account/folder
+internals, cursor, or score crosses that boundary. The next bounded slice is a Rust-owned `open_email` connector
+contract over one exact search result. Do not bundle provider-loop mapping, Email toggles or provenance UI, arbitrary
+MCP execution, attachment download or opening, Localmail account or sync administration, outbound mail, Bottie memory
+indexing, migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, packaging,
+or release updates.
 
 Read these files first:
 
@@ -752,17 +755,74 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Localmail search connector contract
+## Next bounded product slice: Localmail open-email connector contract
 
-Add only a Rust-owned typed `search_email` request/response contract over the saved pinned Localmail connection and one
-bounded native search call. Validate a closed query/filter/result-limit shape before network or credential access, use
-only Localmail's fixed read-only search route, bound response bytes and result metadata, and return path-free inert
-message summaries without bodies or attachment content. Do not add `open_email`, provider-loop definitions or
+Add only a Rust-owned typed `open_email` request/response contract over one exact opaque identity returned by
+`search_email`. Validate that identity before config, credential, or network access, use only Localmail's fixed
+read-only message route with external-image loading disabled, bound response bytes and returned header/body text, and
+return inert path-free content without HTML rendering or attachment bytes. Do not add provider-loop definitions or
 multi-round execution, an Email composer toggle, provenance cards, arbitrary MCP discovery/execution, attachment
 download/opening, Localmail account or sync administration, outbound mail, Bottie memory indexing, a schema migration,
 automatic retrieval injection, packaging, or release work.
 
-## Most recently completed product slice: Localmail connection and authentication
+## Most recently completed product slice: Localmail search connector contract
+
+### Goal
+
+Add one useful first-party Localmail read boundary without exposing the saved bearer token, arbitrary Localmail routes,
+email bodies, HTML, attachments, or archive internals to the WebView.
+
+### Implemented shape
+
+1. The new typed `search_email` Tauri command accepts a required query, optional sender, recipient, subject, strict
+   after/before date, and attachment-presence filters, plus a result limit from 1 to 20. Serde rejects unknown request
+   and filter fields. Rust normalizes whitespace, caps the query at 500 Unicode scalars and textual filters at 320, and
+   validates complete dates and ordering before reading connector settings or the credential vault.
+2. Search loads only the saved normalized HTTPS origin and confirmed certificate fingerprint, retrieves only the
+   vault-held Localmail credential, rebuilds the existing proxy-free, redirect-free pinned client, and sends exactly
+   one authenticated `POST /v1/search`. The JSON body contains only normalized query, supported filters, and limit;
+   it never enables cursor pagination, smart rewriting, alternate sorting, account/folder selection, or another route.
+3. Native response reading stops at 128 KiB. Rust ignores server account, folder, recipient, score, matched-arm, cursor,
+   estimate, body, and attachment-detail fields. Each retained result contains only a strict path-safe opaque message
+   identity, bounded plain subject and sender metadata, a normalized UTC date, HTML-free visible snippet text, and one
+   attachment-presence boolean. At most the requested count is returned and the whole response is marked untrusted.
+4. The bearer value exists only in a sensitive native Authorization header. Tauri receives no origin, certificate,
+   credential, raw Localmail response, filesystem path, email body, HTML, attachment name/content, or archive-internal
+   identity beyond the bounded opaque message ID. Diagnostics record only fixed success/failure events.
+5. Focused tests cover the closed request shape, bounds, dates, validation-before-credential ordering, exact fixed
+   method/route/header/body construction, response-byte/result/text limits, malformed identities and dates, inert HTML
+   removal, and absence of every deliberately discarded field. One opt-in loopback fixture executes the actual
+   request/stream/decode path without reading a real archive.
+
+### Acceptance and explicit exclusions
+
+- One accepted call performs only one first-page read-only search against the saved explicitly pinned Localmail
+  connection. No automatic search, cursor follow-up, rewrite request, or alternate route is possible.
+- Invalid requests fail before config, vault, or network work. Missing connection or token state fails closed.
+- Results are bounded path-free inert summaries; no body, HTML, attachment content/name, account/folder identity,
+  ranking detail, or cursor crosses IPC.
+- This slice adds no `open_email`, provider-visible definition, tool dispatcher or multi-round mapping, Email composer
+  control, provenance UI, MCP execution, attachment access, account/sync administration, outbound mail, memory indexing,
+  schema migration, automatic retrieval, packaging, or release work.
+
+### Verification completed
+
+Prettier, Svelte diagnostics, all 88 frontend tests across 23 files, the production build, Cargo formatting/check, and
+the full Rust suite pass. The Rust suite has 368 tests: 344 pass by default and 24 loopback, public-network,
+credential, or live-provider checks remain opt-in. Six new default Localmail search tests pass. The new isolated
+loopback search fixture also passed separately from the host and confirmed exactly one `POST /v1/search`, the
+sensitive bearer header, bounded request body, streamed response decoding, inert snippet mapping, and absence of
+cursor/smart fields. It used a synthetic token and synthetic email result; no real Localmail credential or archive data
+was accessed.
+
+The native development app compiled, development-signed, and launched against the existing store with the new command
+registered. Immutable read-only inspection returned schema version 21, `quick_check=ok`, zero foreign-key failures,
+an exact 21-row migration ledger, 14 conversations, 74 messages, 31 provider runs, and 12 tool invocation/result pairs.
+This slice adds no schema or live-store mutation. The production pinned-TLS search was not exercised with a real
+Localmail bearer token, so actual vault unlock and authenticated archive search remain manually unverified. No browser
+viewport review was repeated because this Rust-only slice changes no rendered UI.
+
+## Prior completed product slice: Localmail connection and authentication
 
 ### Goal
 
