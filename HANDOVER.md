@@ -230,10 +230,14 @@ tools. Bottie's CSP and Tauri capability review is also complete. The main WebVi
 permissions it uses to listen for and release native attachment-processing updates; app, path, window, webview, image,
 resource, menu, tray, and frontend event-emission commands are no longer granted by `core:default`. The CSP permits
 bundled UI, Tauri IPC, inline component styles, and Bottie's opaque attachment-preview protocol while denying frames,
-forms, objects, base-URL changes, unused asset schemes, and blob/data images. The next bounded slice is focused
-secret-vault and filesystem-boundary contract coverage. Do not bundle Email provenance cards, attachment download or
-opening, Localmail account or sync administration, outbound mail, Bottie memory indexing, migration-recovery UI, a new
-feature schema, automatic retrieval injection, model-cache deletion, packaging, or release updates.
+forms, objects, base-URL changes, unused asset schemes, and blob/data images. Secret-vault and filesystem-boundary
+contract coverage is now also complete. Saved and absent credential status is collected without reading secret values;
+provider settings, diagnostics, attachment ingestion and previews, export, backup, and restore expose exact typed,
+path-free IPC shapes under adversarial fixtures. Secret-bearing native command inputs reject unknown fields. The next
+bounded slice is a dependency and licence review. Do not bundle dependency upgrades, Email provenance cards,
+attachment download or opening, Localmail account or sync administration, outbound mail, Bottie memory indexing,
+migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, packaging, signing,
+updates, or release work.
 
 Read these files first:
 
@@ -248,7 +252,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/localmail-omlx-email`.
+branch `codex/ipc-boundary-contract-tests`.
 
 ## Current implementation
 
@@ -784,16 +788,80 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: secret-vault and filesystem-boundary tests
+## Next bounded product slice: dependency and licence review
 
-Add adversarial contract coverage proving that credential status/settings/diagnostics and native file workflows expose
-only their existing typed, path-free metadata across Tauri IPC. Exercise saved and absent credentials, redacted error
-paths, attachment ingestion/preview, export/backup/restore outcomes, and malformed WebView arguments without reading
-real user secrets or mutating the live store. Do not change keyring identities or biometric policy; add a generic
-filesystem, shell, SQL, network, clipboard, opener, MCP, or plugin surface; change Email behavior; add provenance cards;
-perform a schema migration; or bundle dependency review, shortcuts, packaging, signing, updates, or release work.
+Produce a reproducible inventory of the Rust, npm, and Tauri dependencies shipped by Bottie, including direct and
+transitive package versions, declared licences, bundled native/runtime assets, and the security-relevant feature flags
+that select them. Classify compatible, notice-required, unknown, and review-required entries; record authoritative
+licence sources and any release-blocking gaps; and add a bounded check or generated report only where it can remain
+deterministic in the repository. Do not upgrade or replace dependencies, change provider/tool behavior, fetch or run
+untrusted package scripts, add telemetry or upload, alter the WebView/native boundary, perform a schema migration, or
+bundle shortcuts, themes, accessibility remediation, performance work, packaging, signing, updates, or release work.
 
-## Most recently completed product slice: CSP and Tauri capability review
+## Most recently completed product slice: Secret-vault and filesystem-boundary tests
+
+### Goal
+
+Prove adversarially that Bottie's existing credential, settings, diagnostics, attachment, preview, export, backup, and
+restore commands expose only their narrow typed metadata across Tauri IPC without reading real credentials, mutating
+the live store, or granting the WebView new native authority.
+
+### Implemented shape
+
+1. Credential status collection now uses one independently tested helper that calls only secret-free
+   `configured`/`unlocked` metadata methods. Saved, absent, locked, and unlocked fixtures serialize as the exact four
+   provider-status fields; a panic-on-read fake proves status collection never requests a secret value.
+2. Credential-status failures discard backend detail and return one stable error without a diagnostic. Provider
+   settings, credential updates, provider/model selection, and provider/search connection drafts now deny unknown
+   fields, including filesystem-, shell-, database-, and credential-shaped additions.
+3. Exact provider-settings and current-session diagnostic serialization tests assert the complete field allowlists.
+   Secret-, Unix-path-, and Windows-path-shaped diagnostic fixtures remain redacted both in current IPC entries and
+   portable diagnostic exports; selected-path write failures return a fixed error.
+4. Isolated attachment ingestion covers one accepted and one rejected path while proving source paths, hashes, bytes,
+   extracted text, and derivative identities are absent from the returned metadata. Cancellation returns one exact
+   empty result. The opaque preview protocol rejects non-GET, nested, query-bearing, non-UUID, and encoded traversal
+   requests with bodyless `no-store`/`nosniff` responses.
+5. Backup and restore outcomes moved into a focused pure module; conversation export and attachment cancellation use
+   matching pure outcome helpers. Tests require saved/restored results to contain only status and leaf filenames and
+   cancellation to contain no filename. Storage errors drop injected native I/O detail.
+6. The slice adds no credential identity, biometric change, keyring access in tests, capability, CSP destination,
+   generic filesystem command, schema, provider or Email behavior, UI surface, dependency, or live-store mutation.
+
+### Acceptance and explicit exclusions
+
+- Tests use only fake credentials, temporary files, and temporary SQLite stores; no real user secret or live database
+  is read or changed.
+- Malformed structured inputs fail closed before command behavior, while valid existing frontend payloads retain their
+  camel-case contracts.
+- All file interactions remain Rust-owned; the WebView receives safe leaf labels or opaque attachment IDs, never a
+  selected directory, source path, database path, content hash, byte payload, or extracted content.
+- Do not change keyring identities or biometric policy; add a generic filesystem, shell, SQL, network, clipboard,
+  opener, MCP, or plugin surface; change Email behavior; add provenance cards; perform a schema migration; or bundle
+  dependency review, shortcuts, packaging, signing, updates, or release work.
+
+### Verification completed
+
+Focused TDD first failed because secret-bearing structured command inputs accepted unknown fields. The exact
+credential/status/settings/diagnostic and native-file outcome tests pass after applying closed deserialization and
+extracting pure path-free outcome helpers. The full Rust suite has 415 tests: 386 pass by default and 29 loopback,
+public-network, credential, or live-provider checks remain explicitly opt-in. Cargo formatting and compile checks pass.
+The frontend production build succeeds, `svelte-check` reports zero errors or warnings, and Prettier reports every
+tracked frontend source formatted. The literal local `npm test` also discovers the unrelated untracked
+`website/tests/rendered-html.test.mjs` file as an empty suite while all 91 tracked tests pass; the tracked suite passes
+cleanly when only that untouched untracked tree is excluded.
+
+Browser presentation review is not applicable because this slice changes no Svelte, CSS, or rendered behavior. The
+sandboxed `npm run tauri dev` could not bind the local Vite port, and a host retry found an existing listener already
+using port 1420. The freshly built Bottie binary was instead development-signed through the repository wrapper,
+launched against that existing local server, remained running without a terminal error, and stopped cleanly. Immutable
+read-only checks before and after launch were identical: schema version 21, `quick_check=ok`, zero foreign-key failures,
+an exact 21-row migration ledger, 18 conversations, 96 messages, 42 provider runs, and 22 tool invocation/result pairs.
+No real credential was read, no native dialog was exercised, and no live-store row changed. The temporary path-backed
+tests cover accepted/rejected attachment ingestion, diagnostic writing, and saved/cancelled export, backup, and restore
+outcome construction. Live-provider tests are not applicable because provider networking, discovery, streaming,
+cancellation, credentials, and tool mappings are unchanged.
+
+## Prior completed product slice: CSP and Tauri capability review
 
 ### Goal
 

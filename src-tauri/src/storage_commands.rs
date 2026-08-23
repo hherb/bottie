@@ -1,6 +1,5 @@
 //! Narrow Tauri commands for Rust-owned durable conversation storage.
 
-use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
@@ -16,57 +15,18 @@ use crate::{
 
 mod attachments;
 mod export;
+mod outcomes;
 
 pub(crate) use attachments::ingest_attachments;
 pub(crate) use export::{
     export_conversation_batch_json, export_conversation_json, export_conversation_markdown,
 };
+pub(crate) use outcomes::{BackupOutcome, RestoreOutcome};
+use outcomes::{cancelled_backup, cancelled_restore, leaf_name, restored, saved_backup};
 
 const SQLITE_FILTER_NAME: &str = "SQLite database";
 const SQLITE_EXTENSIONS: &[&str] = &["sqlite3", "db"];
 const BACKUP_FILE_NAME: &str = "bottie-backup.sqlite3";
-
-/// Result of one native backup Save-dialog interaction without exposing a filesystem path.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct BackupOutcome {
-    /// Whether a complete verified snapshot was written or the user cancelled the dialog.
-    status: BackupStatus,
-    /// Saved leaf filename, absent when the dialog was cancelled.
-    file_name: Option<String>,
-}
-
-/// Stable native backup outcomes returned to the presentation layer.
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-enum BackupStatus {
-    /// The SQLite snapshot was written and verified successfully.
-    Saved,
-    /// The user closed the native dialog without selecting a destination.
-    Cancelled,
-}
-
-/// Result of one native restore interaction without exposing any filesystem path.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct RestoreOutcome {
-    /// Whether a validated backup was restored or the user cancelled the interaction.
-    status: RestoreStatus,
-    /// Selected backup's leaf filename, absent when the interaction was cancelled.
-    file_name: Option<String>,
-    /// Application-private safety file or directory name, absent when cancelled.
-    preserved_copy_name: Option<String>,
-}
-
-/// Stable native restore outcomes returned to the presentation layer.
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-enum RestoreStatus {
-    /// The selected backup replaced the live store after validation and safety copy.
-    Restored,
-    /// The user closed either native dialog without completing a restore.
-    Cancelled,
-}
 
 #[tauri::command]
 /// Returns path-redacted corruption state and verified automatic-recovery availability.
@@ -171,10 +131,7 @@ pub(crate) async fn backup_conversation_store(
         .add_filter(SQLITE_FILTER_NAME, SQLITE_EXTENSIONS)
         .blocking_save_file();
     let Some(selected) = selected else {
-        return Ok(BackupOutcome {
-            status: BackupStatus::Cancelled,
-            file_name: None,
-        });
+        return Ok(cancelled_backup());
     };
     let path = selected.into_path().map_err(|_| StorageError::backup())?;
     let conversations = state.conversations.clone();
@@ -182,15 +139,7 @@ pub(crate) async fn backup_conversation_store(
     tauri::async_runtime::spawn_blocking(move || conversations.backup_to(&backup_path))
         .await
         .map_err(|_| StorageError::backup())??;
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(BACKUP_FILE_NAME)
-        .to_owned();
-    Ok(BackupOutcome {
-        status: BackupStatus::Saved,
-        file_name: Some(file_name),
-    })
+    Ok(saved_backup(&path, BACKUP_FILE_NAME))
 }
 
 #[tauri::command]
@@ -215,11 +164,7 @@ pub(crate) async fn restore_conversation_store(
     let path = selected
         .into_path()
         .map_err(|_| StorageError::invalid_backup())?;
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("selected backup")
-        .to_owned();
+    let file_name = leaf_name(&path, "selected backup");
     let recovery_required = state.conversations.is_recovery_required();
     let preservation_detail = if recovery_required {
         "Bottie will preserve the damaged database files before replacement."
@@ -260,16 +205,11 @@ pub(crate) async fn restore_conversation_store(
     .map_err(|_| StorageError::restore())??;
     state.attachment_processing.wake();
     state.semantic_indexing.wake();
-    let preserved_copy_name = safety_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("Bottie preserved local data")
-        .to_owned();
-    Ok(RestoreOutcome {
-        status: RestoreStatus::Restored,
-        file_name: Some(file_name),
-        preserved_copy_name: Some(preserved_copy_name),
-    })
+    Ok(restored(
+        file_name,
+        &safety_path,
+        "Bottie preserved local data",
+    ))
 }
 
 #[tauri::command]
@@ -318,25 +258,11 @@ pub(crate) async fn restore_latest_automatic_backup(
     .map_err(|_| StorageError::restore())??;
     state.attachment_processing.wake();
     state.semantic_indexing.wake();
-    let preserved_copy_name = preservation
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("Bottie preserved damaged data")
-        .to_owned();
-    Ok(RestoreOutcome {
-        status: RestoreStatus::Restored,
-        file_name: Some("latest automatic backup".into()),
-        preserved_copy_name: Some(preserved_copy_name),
-    })
-}
-
-/// Builds the neutral outcome shared by file-picker and confirmation cancellation.
-fn cancelled_restore() -> RestoreOutcome {
-    RestoreOutcome {
-        status: RestoreStatus::Cancelled,
-        file_name: None,
-        preserved_copy_name: None,
-    }
+    Ok(restored(
+        "latest automatic backup".into(),
+        &preservation,
+        "Bottie preserved damaged data",
+    ))
 }
 
 #[tauri::command]

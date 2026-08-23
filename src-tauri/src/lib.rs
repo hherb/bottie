@@ -53,7 +53,10 @@ use command_types::{
     AppInfo, ProviderConnectionDraft, ProviderConnectionTest, ProviderCredentialStatus,
     ProviderCredentialUpdate, ProviderSelection,
 };
-use credentials::{CredentialStore, NATIVE_CREDENTIAL_IDS, SystemCredentialStore};
+use credentials::{
+    CredentialStore, SystemCredentialStore, provider_credential_status,
+    provider_credential_statuses,
+};
 use diagnostics::{DiagnosticEntry, Diagnostics, export_diagnostics, record_diagnostic, sanitized};
 use futures_util::future::AbortHandle;
 use generation::{cancel_chat, start_chat};
@@ -163,17 +166,7 @@ async fn get_provider_settings(
 async fn get_provider_credential_status(
     state: State<'_, AppState>,
 ) -> Result<Vec<ProviderCredentialStatus>, ProviderError> {
-    NATIVE_CREDENTIAL_IDS
-        .into_iter()
-        .map(|provider_id| {
-            Ok(ProviderCredentialStatus {
-                provider_id: provider_id.into(),
-                configured: state.credentials.configured(provider_id)?,
-                unlocked: state.credentials.unlocked(provider_id)?,
-                biometric_protected: state.credentials.biometric_protected(),
-            })
-        })
-        .collect()
+    provider_credential_statuses(state.credentials.as_ref())
 }
 
 #[tauri::command]
@@ -187,12 +180,11 @@ async fn update_provider_credential(
     } else if let Some(api_key) = update.api_key {
         state.credentials.set(&update.provider_id, &api_key)?;
     }
-    let configured = state.credentials.configured(&update.provider_id)?;
-    let unlocked = state.credentials.unlocked(&update.provider_id)?;
+    let status = provider_credential_status(state.credentials.as_ref(), &update.provider_id)?;
     record_diagnostic(
         &state.diagnostics,
         "info",
-        if configured {
+        if status.configured {
             "Remote credential saved"
         } else {
             "Remote credential removed"
@@ -201,12 +193,7 @@ async fn update_provider_credential(
         Some("Credential material remained in the operating-system vault"),
     )
     .await;
-    Ok(ProviderCredentialStatus {
-        provider_id: update.provider_id,
-        configured,
-        unlocked,
-        biometric_protected: state.credentials.biometric_protected(),
-    })
+    Ok(status)
 }
 
 #[tauri::command]

@@ -1,6 +1,8 @@
 //! Native Save-dialog commands for path-redacted conversation document export.
 
 use serde::Serialize;
+use std::path::Path;
+
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
@@ -110,20 +112,54 @@ fn save_export(
         .add_filter(filter_name, &[extension])
         .blocking_save_file();
     let Some(selected) = selected else {
-        return Ok(ConversationExportOutcome {
-            status: ConversationExportStatus::Cancelled,
-            file_name: None,
-        });
+        return Ok(cancelled_export());
     };
     let path = selected.into_path().map_err(|_| StorageError::export())?;
     export.write_to(&path)?;
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(&export.file_name)
-        .to_owned();
-    Ok(ConversationExportOutcome {
+    Ok(saved_export(&path, &export.file_name))
+}
+
+/// Builds the neutral outcome for a cancelled native export picker.
+fn cancelled_export() -> ConversationExportOutcome {
+    ConversationExportOutcome {
+        status: ConversationExportStatus::Cancelled,
+        file_name: None,
+    }
+}
+
+/// Builds a saved export outcome from only the selected leaf filename.
+fn saved_export(path: &Path, fallback: &str) -> ConversationExportOutcome {
+    ConversationExportOutcome {
         status: ConversationExportStatus::Saved,
-        file_name: Some(file_name),
-    })
+        file_name: Some(
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or(fallback)
+                .to_owned(),
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn export_outcomes_serialize_only_status_and_leaf_filename() {
+        let saved = saved_export(
+            Path::new("/Users/alice/Documents/private/conversation.zip"),
+            "bottie-conversation.zip",
+        );
+
+        assert_eq!(
+            serde_json::to_value(saved).expect("saved outcome should serialize"),
+            json!({"status": "saved", "fileName": "conversation.zip"})
+        );
+        assert_eq!(
+            serde_json::to_value(cancelled_export()).expect("cancelled outcome should serialize"),
+            json!({"status": "cancelled", "fileName": null})
+        );
+    }
 }

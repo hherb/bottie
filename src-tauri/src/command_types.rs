@@ -15,7 +15,7 @@ pub(crate) struct AppInfo {
 
 /// Draft provider endpoint submitted for a connection test.
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct ProviderConnectionDraft {
     /// Stable provider identity.
     pub(crate) provider_id: String,
@@ -27,7 +27,7 @@ pub(crate) struct ProviderConnectionDraft {
 
 /// Provider and model pair selected by the user.
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct ProviderSelection {
     /// Stable provider identity.
     pub(crate) provider_id: String,
@@ -37,7 +37,7 @@ pub(crate) struct ProviderSelection {
 
 /// One native-provider credential update submitted to the native vault.
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct ProviderCredentialUpdate {
     /// Stable native-provider identity.
     pub(crate) provider_id: String,
@@ -79,7 +79,7 @@ pub(crate) struct ProviderConnectionTest {
 
 /// Draft credential used only for one fixed native web-search connection probe.
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct WebSearchConnectionDraft {
     /// Stable web-search provider identity.
     pub(crate) provider_id: String,
@@ -97,4 +97,82 @@ pub(crate) struct WebSearchConnectionTest {
     pub(crate) elapsed_ms: u64,
     /// User-readable connection summary without provider results.
     pub(crate) message: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn credential_updates_reject_unknown_or_malformed_webview_fields() {
+        let valid = serde_json::from_value::<ProviderCredentialUpdate>(json!({
+            "providerId": "openai",
+            "apiKey": null,
+            "remove": false
+        }))
+        .expect("the existing credential update shape should remain valid");
+        let unknown = serde_json::from_value::<ProviderCredentialUpdate>(json!({
+            "providerId": "openai",
+            "apiKey": "test-only-key",
+            "remove": false,
+            "filesystemPath": "/Users/alice/.secrets"
+        }));
+        let malformed = serde_json::from_value::<ProviderCredentialUpdate>(json!({
+            "providerId": "openai",
+            "apiKey": null,
+            "remove": "yes"
+        }));
+
+        assert_eq!(valid.provider_id, "openai");
+        assert_eq!(valid.api_key, None);
+        assert!(!valid.remove);
+        assert!(unknown.is_err());
+        assert!(malformed.is_err());
+    }
+
+    #[test]
+    fn provider_connection_drafts_reject_extra_native_authority() {
+        let provider = serde_json::from_value::<ProviderConnectionDraft>(json!({
+            "providerId": "openai",
+            "baseUrl": "https://api.example/v1/",
+            "apiKey": null,
+            "databasePath": "/tmp/bottie.sqlite3"
+        }));
+        let search = serde_json::from_value::<WebSearchConnectionDraft>(json!({
+            "providerId": "brave",
+            "apiKey": null,
+            "shellCommand": "open /tmp"
+        }));
+        let selection = serde_json::from_value::<ProviderSelection>(json!({
+            "providerId": "ollama",
+            "modelId": "qwen3:latest",
+            "filesystemPath": "/tmp/model"
+        }));
+
+        assert!(provider.is_err());
+        assert!(search.is_err());
+        assert!(selection.is_err());
+    }
+
+    #[test]
+    fn credential_status_serializes_only_secret_free_flags() {
+        let status = ProviderCredentialStatus {
+            provider_id: "openai".into(),
+            configured: true,
+            unlocked: false,
+            biometric_protected: true,
+        };
+
+        assert_eq!(
+            serde_json::to_value(status).expect("credential status should serialize"),
+            json!({
+                "providerId": "openai",
+                "configured": true,
+                "unlocked": false,
+                "biometricProtected": true
+            })
+        );
+    }
 }

@@ -135,6 +135,27 @@ fn protocol_serves_get_only_with_narrow_response_headers() {
         crate::attachment_preview_protocol::response(&store, &nested).status(),
         StatusCode::NOT_FOUND
     );
+
+    for uri in [
+        format!(
+            "bottie-attachment://localhost/{}?path=/Users/alice/private.png",
+            image.id
+        ),
+        "bottie-attachment://localhost/not-a-uuid".into(),
+        "bottie-attachment://localhost/%2e%2e/private.png".into(),
+    ] {
+        let request = Request::builder()
+            .method(Method::GET)
+            .uri(uri)
+            .body(Vec::new())
+            .expect("adversarial request should build");
+        let response = crate::attachment_preview_protocol::response(&store, &request);
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+        assert!(response.body().is_empty());
+    }
 }
 
 #[test]
