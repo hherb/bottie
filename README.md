@@ -77,6 +77,8 @@ Additional safeguards include:
 
 - an explicit main-window Tauri allowlist limited to native event listen/unlisten plus a CSP limited to bundled UI,
   Tauri IPC, and opaque attachment previews;
+- adversarial IPC contract tests for secret-free credential/settings/diagnostic state and path-free native file
+  outcomes, with unknown fields rejected on secret-bearing command inputs;
 - no general HTTP client exposed to the WebView;
 - loopback-only validation for local inference providers;
 - explicit cloud routing and first-run privacy disclosure;

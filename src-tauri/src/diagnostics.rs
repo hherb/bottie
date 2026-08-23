@@ -270,6 +270,42 @@ mod tests {
             );
         });
     }
+
+    #[test]
+    fn diagnostic_ipc_entries_have_an_exact_redacted_shape() {
+        tauri::async_runtime::block_on(async {
+            let diagnostics = Diagnostics::default();
+            record_diagnostic(
+                &diagnostics,
+                "error",
+                "Native boundary rejected input",
+                Some("openai"),
+                Some("token=test-secret path=/Users/alice/private.txt"),
+            )
+            .await;
+            let entries = diagnostics.lock().await;
+            let value = serde_json::to_value(entries.front().expect("entry should exist"))
+                .expect("diagnostic entry should serialize");
+
+            assert_eq!(value["level"], "error");
+            assert_eq!(value["event"], "Native boundary rejected input");
+            assert_eq!(value["providerId"], "openai");
+            assert_eq!(value["detail"], "token=[redacted] path=[redacted]");
+            assert!(value["timestampMs"].is_u64());
+            assert_eq!(
+                value
+                    .as_object()
+                    .expect("diagnostic should be an object")
+                    .keys()
+                    .cloned()
+                    .collect::<Vec<_>>(),
+                ["detail", "event", "level", "providerId", "timestampMs"]
+            );
+            let serialized = serde_json::to_string(&value).expect("diagnostic should serialize");
+            assert!(!serialized.contains("test-secret"));
+            assert!(!serialized.contains("/Users/alice"));
+        });
+    }
 }
 
 #[cfg(test)]

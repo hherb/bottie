@@ -8,7 +8,7 @@ use std::{
 
 use keyring::v1::{Entry, Error as KeyringError};
 
-use crate::inference::ProviderError;
+use crate::{command_types::ProviderCredentialStatus, inference::ProviderError};
 
 const SERVICE_NAME: &str = "com.hherb.bottie.provider-api-keys";
 const STATUS_SERVICE_NAME: &str = "com.hherb.bottie.provider-api-key-status";
@@ -20,6 +20,44 @@ const AUTHENTICATION_TIMEOUT: Duration = Duration::from_secs(60);
 pub(crate) const NATIVE_CREDENTIAL_IDS: [&str; 4] = ["openai", "anthropic", "brave", "exa"];
 /// Vault identity reserved for the first-party Localmail connector token.
 pub(crate) const LOCALMAIL_CREDENTIAL_ID: &str = "localmail";
+
+/// Returns secret-free status for each WebView-visible credential without reading a vault value.
+pub(crate) fn provider_credential_statuses(
+    credentials: &dyn CredentialStore,
+) -> Result<Vec<ProviderCredentialStatus>, ProviderError> {
+    NATIVE_CREDENTIAL_IDS
+        .into_iter()
+        .map(|provider_id| provider_credential_status(credentials, provider_id))
+        .collect()
+}
+
+/// Returns one path- and secret-free credential status for command responses.
+pub(crate) fn provider_credential_status(
+    credentials: &dyn CredentialStore,
+    provider_id: &str,
+) -> Result<ProviderCredentialStatus, ProviderError> {
+    validate_native_credential_provider(provider_id)?;
+    let configured = credentials
+        .configured(provider_id)
+        .map_err(|_| credential_status_error())?;
+    let unlocked = credentials
+        .unlocked(provider_id)
+        .map_err(|_| credential_status_error())?;
+    Ok(ProviderCredentialStatus {
+        provider_id: provider_id.into(),
+        configured,
+        unlocked,
+        biometric_protected: credentials.biometric_protected(),
+    })
+}
+
+/// Maps vault-status failures without forwarding keyring, path, or credential detail.
+fn credential_status_error() -> ProviderError {
+    ProviderError::internal(
+        "The operating-system credential vault could not report its status.",
+        None,
+    )
+}
 
 /// Narrow secret-store contract used by native provider orchestration.
 pub(crate) trait CredentialStore: Send + Sync {
@@ -252,7 +290,50 @@ fn vault_error(_error: KeyringError) -> ProviderError {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use serde_json::json;
+
     use super::*;
+
+    /// In-memory status fixture that panics if status collection tries to read secret values.
+    struct StatusCredentialStore {
+        configured: HashSet<String>,
+        unlocked: HashSet<String>,
+        fail_status: bool,
+    }
+
+    impl CredentialStore for StatusCredentialStore {
+        fn configured(&self, provider_id: &str) -> Result<bool, ProviderError> {
+            if self.fail_status {
+                return Err(ProviderError::internal(
+                    "leaky fixture failure",
+                    Some("token=test-secret path=/Users/alice/vault".into()),
+                ));
+            }
+            Ok(self.configured.contains(provider_id))
+        }
+
+        fn unlocked(&self, provider_id: &str) -> Result<bool, ProviderError> {
+            Ok(self.unlocked.contains(provider_id))
+        }
+
+        fn biometric_protected(&self) -> bool {
+            true
+        }
+
+        fn get(&self, _provider_id: &str) -> Result<Option<String>, ProviderError> {
+            panic!("credential status must not read a secret")
+        }
+
+        fn set(&self, _provider_id: &str, _api_key: &str) -> Result<(), ProviderError> {
+            panic!("credential status must not write a secret")
+        }
+
+        fn delete(&self, _provider_id: &str) -> Result<(), ProviderError> {
+            panic!("credential status must not delete a secret")
+        }
+    }
 
     #[test]
     fn credential_accounts_are_limited_to_native_providers() {
@@ -270,5 +351,88 @@ mod tests {
         assert!(requires_authentication(true, false));
         assert!(!requires_authentication(false, false));
         assert!(!requires_authentication(true, true));
+    }
+
+    #[test]
+    fn reports_saved_and_absent_credentials_as_exact_secret_free_metadata() {
+        let credentials = StatusCredentialStore {
+            configured: HashSet::from(["openai".into(), "brave".into()]),
+            unlocked: HashSet::from(["openai".into()]),
+            fail_status: false,
+        };
+
+        let statuses = provider_credential_statuses(&credentials)
+            .expect("credential status should remain metadata-only");
+
+        assert_eq!(
+            serde_json::to_value(statuses).expect("statuses should serialize"),
+            json!([
+                {
+                    "providerId": "openai",
+                    "configured": true,
+                    "unlocked": true,
+                    "biometricProtected": true
+                },
+                {
+                    "providerId": "anthropic",
+                    "configured": false,
+                    "unlocked": false,
+                    "biometricProtected": true
+                },
+                {
+                    "providerId": "brave",
+                    "configured": true,
+                    "unlocked": false,
+                    "biometricProtected": true
+                },
+                {
+                    "providerId": "exa",
+                    "configured": false,
+                    "unlocked": false,
+                    "biometricProtected": true
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn redacts_credential_status_failures_before_ipc() {
+        let credentials = StatusCredentialStore {
+            configured: HashSet::new(),
+            unlocked: HashSet::new(),
+            fail_status: true,
+        };
+
+        let error = match provider_credential_statuses(&credentials) {
+            Err(error) => error,
+            Ok(_) => panic!("vault status failure should remain redacted"),
+        };
+        let serialized = serde_json::to_string(&error).expect("provider error should serialize");
+
+        assert_eq!(error.code.as_str(), "internal");
+        assert_eq!(
+            error.message,
+            "The operating-system credential vault could not report its status."
+        );
+        assert_eq!(error.diagnostic, None);
+        assert!(!serialized.contains("test-secret"));
+        assert!(!serialized.contains("/Users/alice"));
+    }
+
+    #[test]
+    fn rejects_unknown_status_identities_before_store_access() {
+        let credentials = StatusCredentialStore {
+            configured: HashSet::new(),
+            unlocked: HashSet::new(),
+            fail_status: true,
+        };
+
+        let error = match provider_credential_status(&credentials, "filesystem") {
+            Err(error) => error,
+            Ok(_) => panic!("unknown status identity should fail closed"),
+        };
+
+        assert_eq!(error.code.as_str(), "invalid_request");
+        assert_eq!(error.diagnostic, None);
     }
 }

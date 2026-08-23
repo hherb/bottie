@@ -11,7 +11,7 @@ const INVALID_POLICY_MESSAGE: &str =
 
 /// Secret-free Web destination restrictions persisted with provider settings.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct WebNetworkPolicy {
     /// Reject plaintext HTTP result and fetch destinations when enabled.
     #[serde(default = "default_https_only")]

@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::{
     DiagnosticEntry, Diagnostics, prepare_diagnostics_export, record_diagnostic,
@@ -114,6 +114,10 @@ fn cancellation_writes_nothing_and_returns_no_filename() {
 
     assert_eq!(outcome.status, super::DiagnosticsExportStatus::Cancelled);
     assert_eq!(outcome.file_name, None);
+    assert_eq!(
+        serde_json::to_value(outcome).expect("cancellation should serialize"),
+        json!({"status": "cancelled", "fileName": null})
+    );
     assert!(!unexpected_path.exists());
 }
 
@@ -136,4 +140,28 @@ fn writes_exact_utf8_json_and_returns_only_the_selected_leaf_name() {
     );
     assert_eq!(std::fs::read_to_string(path).unwrap(), expected);
     std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn file_write_failures_serialize_without_the_selected_path() {
+    let directory =
+        std::env::temp_dir().join(format!("bottie-diagnostics-{}", uuid::Uuid::new_v4()));
+    let path = directory
+        .join("missing parent")
+        .join("private diagnostics.json");
+    let export = prepare_diagnostics_export(vec![entry(10, "Recorded")], GENERATED_AT_MS)
+        .expect("diagnostics should prepare");
+
+    let error = write_diagnostics_export(Some(path.clone()), export)
+        .expect_err("missing destination parent should fail safely");
+    let serialized = serde_json::to_string(&error).expect("error should serialize");
+
+    assert_eq!(
+        serde_json::to_value(error).expect("error should serialize as a value"),
+        json!({
+            "code": "internal",
+            "message": "Bottie could not save the diagnostics export."
+        })
+    );
+    assert!(!serialized.contains(&path.to_string_lossy().to_string()));
 }

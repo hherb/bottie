@@ -30,7 +30,7 @@ pub const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Persisted provider configuration. Secrets are deliberately absent.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ProviderSettings {
     /// Normalized oMLX loopback root.
     pub omlx_base_url: String,
@@ -449,5 +449,47 @@ mod tests {
             ..ProviderSettings::default()
         };
         assert!(invalid.normalized().is_err());
+    }
+
+    #[test]
+    fn settings_reject_unknown_webview_fields_including_secret_and_path_shapes() {
+        let mut value = serde_json::to_value(ProviderSettings::default()).unwrap();
+        value["apiKey"] = serde_json::json!("test-only-key");
+        value["databasePath"] = serde_json::json!("/Users/alice/bottie.sqlite3");
+
+        assert!(serde_json::from_value::<ProviderSettings>(value).is_err());
+
+        let mut nested = serde_json::to_value(ProviderSettings::default()).unwrap();
+        nested["webNetworkPolicy"]["shellCommand"] = serde_json::json!("open /tmp");
+        assert!(serde_json::from_value::<ProviderSettings>(nested).is_err());
+    }
+
+    #[test]
+    fn settings_serialize_as_an_exact_credential_free_ipc_contract() {
+        let value = serde_json::to_value(ProviderSettings::default()).unwrap();
+        let keys = value
+            .as_object()
+            .expect("settings should be an object")
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            keys,
+            [
+                "anthropicBaseUrl",
+                "lastModelId",
+                "lastProviderId",
+                "ollamaBaseUrl",
+                "omlxBaseUrl",
+                "openaiBaseUrl",
+                "setupCompleted",
+                "webNetworkPolicy",
+                "webSearchProviderId"
+            ]
+        );
+        assert!(value.get("apiKey").is_none());
+        assert!(value.get("credential").is_none());
+        assert!(value.get("filesystemPath").is_none());
     }
 }

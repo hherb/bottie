@@ -55,11 +55,7 @@ pub(crate) async fn ingest_attachments(
         .set_title("Attach local files")
         .blocking_pick_files();
     let Some(selected) = selected else {
-        return Ok(AttachmentIngestOutcome {
-            status: AttachmentPickerStatus::Cancelled,
-            attachments: Vec::new(),
-            rejections: Vec::new(),
-        });
+        return Ok(cancelled_ingest());
     };
     if selected.len() > MAX_ATTACHMENT_SELECTION_COUNT {
         return Err(StorageError::invalid(format!(
@@ -82,6 +78,87 @@ pub(crate) async fn ingest_attachments(
             .map_err(|_| StorageError::internal())?;
     state.attachment_processing.wake();
     Ok(outcome)
+}
+
+/// Builds the path-free neutral outcome for native picker cancellation.
+fn cancelled_ingest() -> AttachmentIngestOutcome {
+    AttachmentIngestOutcome {
+        status: AttachmentPickerStatus::Cancelled,
+        attachments: Vec::new(),
+        rejections: Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+    use crate::storage::ConversationStore;
+
+    /// Creates one isolated store without opening the live application database.
+    fn isolated_store() -> (PathBuf, ConversationStore) {
+        let directory =
+            std::env::temp_dir().join(format!("bottie-ipc-attachments-{}", uuid::Uuid::new_v4()));
+        let store = ConversationStore::initialize(directory.join("bottie.sqlite3"))
+            .expect("isolated storage should initialize");
+        (directory, store)
+    }
+
+    #[test]
+    fn cancelled_ingestion_has_an_exact_empty_ipc_shape() {
+        assert_eq!(
+            serde_json::to_value(cancelled_ingest()).expect("cancellation should serialize"),
+            json!({"status": "cancelled", "attachments": [], "rejections": []})
+        );
+    }
+
+    #[test]
+    fn selected_ingestion_omits_paths_hashes_bytes_and_extracted_content() {
+        let (directory, store) = isolated_store();
+        let private_directory = directory.join("private source");
+        std::fs::create_dir_all(&private_directory).expect("fixture directory should exist");
+        let accepted_path = private_directory.join("notes.md");
+        let missing_path = private_directory.join("missing.txt");
+        std::fs::write(&accepted_path, b"test-only attachment content")
+            .expect("fixture should be written");
+
+        let outcome = ingest_selected_paths(&store, vec![accepted_path.clone(), missing_path]);
+        let value = serde_json::to_value(outcome).expect("ingestion outcome should serialize");
+        let serialized = serde_json::to_string(&value).expect("outcome JSON should serialize");
+        let attachment = &value["attachments"][0];
+        let keys = attachment
+            .as_object()
+            .expect("attachment should be an object")
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        assert_eq!(value["status"], "selected");
+        assert_eq!(value["attachments"].as_array().map(Vec::len), Some(1));
+        assert_eq!(value["rejections"].as_array().map(Vec::len), Some(1));
+        assert_eq!(attachment["displayName"], "notes.md");
+        assert_eq!(
+            keys,
+            [
+                "byteSize",
+                "displayName",
+                "duplicate",
+                "extraction",
+                "id",
+                "indexing",
+                "mimeType",
+                "normalization"
+            ]
+        );
+        assert!(!serialized.contains(&directory.to_string_lossy().to_string()));
+        assert!(!serialized.contains("test-only attachment content"));
+        assert!(!serialized.contains("sha256"));
+        assert!(!serialized.contains("sourcePath"));
+        assert!(!serialized.contains("extractedText"));
+
+        std::fs::remove_dir_all(directory).expect("fixture should be removed");
+    }
 }
 
 /// Ingests selections independently so one policy rejection does not discard valid peers.
