@@ -71,6 +71,7 @@ describe("web provenance", () => {
         host: "blog.rust-lang.org",
         excerpt: "The current stable Rust release.",
         publishedAt: "2026-08-20",
+        cited: false,
       },
       {
         id: "web:https://doc.rust-lang.org/cargo/guide/",
@@ -82,6 +83,7 @@ describe("web provenance", () => {
         host: "doc.rust-lang.org",
         excerpt: "Cargo package guidance.",
         publishedAt: null,
+        cited: false,
       },
     ]);
   });
@@ -147,9 +149,53 @@ describe("web provenance", () => {
         host: "example.com",
         excerpt: "The complete bounded page excerpt.",
         publishedAt: "2026-08-21",
+        cited: false,
       },
     ]);
     expect(webSourcesForMessages(messages, new Set(["web:https://example.com/article"]))).toEqual([]);
+  });
+
+  it("connects only exact response Markdown links to that response's retained Web sources", () => {
+    const message = assistantWithTools([
+      {
+        ordinal: 0,
+        toolName: "web_search",
+        arguments: {},
+        result: {
+          output: {
+            ok: true,
+            result: {
+              providerId: "brave",
+              results: [
+                {
+                  title: "Rust release notes",
+                  url: "https://blog.rust-lang.org/releases/1.90/",
+                  snippet: "The current stable Rust release.",
+                  publishedAt: null,
+                },
+                {
+                  title: "Uncited guide",
+                  url: "https://doc.rust-lang.org/cargo/guide/",
+                  snippet: "Cargo package guidance.",
+                  publishedAt: null,
+                },
+              ],
+            },
+          },
+          isError: false,
+          createdAtMs: 2,
+        },
+        createdAtMs: 1,
+      },
+    ]);
+    message.content =
+      "Rust 1.90 is stable [according to its release notes](https://blog.rust-lang.org/releases/1.90/#details). " +
+      "An unrelated [provider link](https://example.com/) is not native provenance.";
+
+    expect(webSourcesForMessages([message]).map((source) => [source.url, source.cited])).toEqual([
+      ["https://blog.rust-lang.org/releases/1.90/", true],
+      ["https://doc.rust-lang.org/cargo/guide/", false],
+    ]);
   });
 
   it("ignores failures, malformed results, unsafe URLs, and fetches without the untrusted marker", () => {

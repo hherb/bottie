@@ -139,7 +139,8 @@ export const INITIAL_MESSAGES: Message[] = [
     content:
       "## A focused sequence\n\n1. Build the conversation experience.\n2. Connect inference and persistence.\n" +
       "3. Add tools behind the native boundary.\n\nThe important boundary is simple: the `WebView` presents " +
-      "state; the **Rust core** owns secrets, files, storage, provider calls, and tool execution.",
+      "state; the **Rust core** owns secrets, files, storage, provider calls, and tool execution " +
+      "[according to Tauri's security guidance](https://v2.tauri.app/security/).",
     toolInvocations: [
       {
         ordinal: 0,

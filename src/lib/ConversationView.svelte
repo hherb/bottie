@@ -6,6 +6,7 @@
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
   import ToolActivity from "$lib/ToolActivity.svelte";
   import { renderAssistantMarkdown } from "$lib/markdown";
+  import { webSourcesForMessage } from "$lib/web-provenance";
   import type { ConversationBranch } from "$lib/storage";
   import { attachmentFailure, attachmentStatusLabel } from "$lib/attachment";
   import { attachmentDeliveryLabel } from "$lib/chat";
@@ -113,6 +114,7 @@
     {/if}
 
     {#each messages as message (message.id)}
+      {@const webCitationUrls = new Set(webSourcesForMessage(message).map((source) => source.url))}
       <article class:assistant={message.role === "assistant"} class:error={message.error} class="message">
         <div class="message-avatar" class:user-avatar={message.role === "user"}>
           {#if message.role === "assistant"}<span class="mini-core"></span>{:else}<span>HH</span>{/if}
@@ -150,7 +152,7 @@
             <div class:markdown-body={message.role === "assistant"} class="message-text">
               {#if message.role === "assistant"}
                 <!-- The renderer emits parser-owned markup with raw HTML and unsafe destinations disabled. -->
-                {@html renderAssistantMarkdown(message.content)}
+                {@html renderAssistantMarkdown(message.content, webCitationUrls)}
               {:else}
                 {#each message.content.split("\n\n") as paragraph}<p>{paragraph}</p>{/each}
               {/if}

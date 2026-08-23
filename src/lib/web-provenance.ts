@@ -2,6 +2,7 @@
 
 import type { Message } from "./presentation";
 import type { StoredToolInvocation } from "./storage";
+import { assistantMarkdownLinkDestinations } from "./markdown";
 
 /** One removable web source shown in the active conversation's Context panel. */
 export type WebSource = {
@@ -14,6 +15,7 @@ export type WebSource = {
   host: string;
   excerpt: string;
   publishedAt: string | null;
+  cited: boolean;
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -34,10 +36,24 @@ const NON_PUBLIC_HOST_SUFFIXES = [
 export function webSourcesForMessages(messages: Message[], dismissedIds: ReadonlySet<string> = new Set()): WebSource[] {
   const sources = new Map<string, WebSource>();
   for (const message of messages.toReversed()) {
-    for (const tool of (message.toolInvocations ?? []).toReversed()) {
-      for (const source of sourcesForTool(tool)) {
-        if (!dismissedIds.has(source.id) && !sources.has(source.id)) sources.set(source.id, source);
-      }
+    for (const source of webSourcesForMessage(message)) {
+      if (dismissedIds.has(source.id)) continue;
+      const existing = sources.get(source.id);
+      if (!existing) sources.set(source.id, source);
+      else if (source.cited && !existing.cited) sources.set(source.id, { ...existing, cited: true });
+    }
+  }
+  return [...sources.values()];
+}
+
+/** Derives the exact durable Web sources and claim-link state for one assistant response. */
+export function webSourcesForMessage(message: Message): WebSource[] {
+  if (message.role !== "assistant" || !message.toolInvocations?.length) return [];
+  const linkedUrls = assistantMarkdownLinkDestinations(message.content);
+  const sources = new Map<string, WebSource>();
+  for (const tool of message.toolInvocations.toReversed()) {
+    for (const source of sourcesForTool(tool)) {
+      if (!sources.has(source.id)) sources.set(source.id, { ...source, cited: linkedUrls.has(source.url) });
     }
   }
   return [...sources.values()];
@@ -112,6 +128,7 @@ function sourceCard(
     host: location.host,
     excerpt,
     publishedAt,
+    cited: false,
   };
 }
 

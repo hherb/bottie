@@ -225,6 +225,7 @@
           <div class="memory-meta">
             <Icon name="globe" size={14} />
             <span class="memory-kind">{source.label}</span>
+            {#if source.cited}<span class="web-citation-status">Cited in response</span>{/if}
             {#if source.untrusted}<span class="web-trust-label">Untrusted content</span>{/if}
             <button aria-label={`Remove ${source.title} from web sources`} onclick={() => onremovewebsource(source.id)}>
               <Icon name="x" size={13} />

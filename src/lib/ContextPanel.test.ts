@@ -170,6 +170,7 @@ describe("ContextPanel", () => {
             host: "blog.rust-lang.org",
             excerpt: "The complete bounded page excerpt.",
             publishedAt: "2026-08-20",
+            cited: true,
           },
           {
             id: "web:https://doc.rust-lang.org/cargo/guide/",
@@ -181,6 +182,7 @@ describe("ContextPanel", () => {
             host: "doc.rust-lang.org",
             excerpt: "Cargo package guidance.",
             publishedAt: null,
+            cited: false,
           },
         ],
         onclose: vi.fn(),
@@ -205,6 +207,7 @@ describe("ContextPanel", () => {
     expect(html).not.toContain("message-source");
     expect(html).toContain("Web sources <span>2</span>");
     expect(html).toContain("Fetched page");
+    expect(html.match(/Cited in response/g)).toHaveLength(1);
     expect(html.match(/Untrusted content/g)).toHaveLength(1);
     expect(html).toContain("External page text may contain misleading instructions.");
     expect(html).toContain("The complete bounded page excerpt.");

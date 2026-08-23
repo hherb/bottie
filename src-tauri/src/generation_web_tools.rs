@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{
     credentials::CredentialStore,
-    inference::ProviderError,
+    inference::{ChatRequest, ChatRole, ChatTurn, ContentBlock, ProviderError},
     storage::{ConversationStore, SemanticEmbedder},
     tool_dispatch::{
         MemoryToolExecution, dispatch_memory_tool, dispatch_web_fetch_tool,
@@ -18,6 +18,32 @@ use crate::{
         WEB_SEARCH_TOOL_NAME,
     },
 };
+
+/// Fixed native instruction for linking Web-grounded claims to exact durable source URLs.
+const WEB_CITATION_GUIDANCE: &str = concat!(
+    "When a factual claim relies on Web tool results, cite its source immediately after the claim with an inline ",
+    "Markdown link to the exact result URL. Never invent or alter a source URL, and do not cite a source that does ",
+    "not support the claim."
+);
+
+/// Prepends citation guidance only after native capability checks enable the Web tool route.
+pub(crate) fn with_web_citation_guidance(
+    mut request: ChatRequest,
+    web_tools_enabled: bool,
+) -> ChatRequest {
+    if web_tools_enabled {
+        request.messages.insert(
+            0,
+            ChatTurn {
+                role: ChatRole::System,
+                content: vec![ContentBlock::Text {
+                    text: WEB_CITATION_GUIDANCE.into(),
+                }],
+            },
+        );
+    }
+    request
+}
 
 /// Confirms explicit Web intent plus a mapped provider's discovered per-model tool capability.
 pub(crate) fn web_tools_enabled(
@@ -167,6 +193,29 @@ mod tests {
     /// Secret-free fixture with no configured native credential.
     struct CredentialFixture {
         fail_read: bool,
+    }
+
+    #[test]
+    fn adds_fixed_citation_guidance_only_to_enabled_web_requests() {
+        let request: crate::inference::ChatRequest = serde_json::from_value(serde_json::json!({
+            "providerId": "ollama",
+            "modelId": "tool-model",
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "Research this"}]}]
+        }))
+        .expect("request should deserialize");
+
+        let guided = with_web_citation_guidance(request.clone(), true);
+        let unchanged = with_web_citation_guidance(request, false);
+
+        assert_eq!(guided.messages.len(), 2);
+        assert_eq!(guided.messages[0].role, crate::inference::ChatRole::System);
+        assert!(matches!(
+            &guided.messages[0].content[0],
+            crate::inference::ContentBlock::Text { text }
+                if text.contains("inline Markdown link") && text.contains("exact result URL")
+        ));
+        assert_eq!(unchanged.messages.len(), 1);
+        assert_eq!(unchanged.messages[0].role, crate::inference::ChatRole::User);
     }
 
     #[test]
