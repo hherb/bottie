@@ -189,23 +189,28 @@ implementation slice is complete: new installations now pause before the first c
 provider/model route and disclose Bottie's provider-delivery, local-storage, Memory, Web, attachment, and credential
 boundaries. Completion requires an available remembered provider/model pair and persists through one narrow native
 command. Settings written before this flow remain acknowledged, so existing users are not forced through a false first
-run. The next bounded slice is migration rollback planning; do not bundle rollback implementation, oMLX Web mapping,
-automatic retrieval injection, model-cache deletion, document opening, attachment retry controls, a general MCP
-runtime, packaging, or release updates.
+run. Migration rollback planning is now complete in `MIGRATION-ROLLBACK.md`: pending migrations will run against an
+isolated SQLite candidate, a verified source-version recovery point will precede journalled promotion, and restart
+reconciliation will either validate the target or restore the source without touching attachment files. Reverse SQL
+and automatic binary downgrade are explicitly unsupported. The next bounded slice is staged migration and promotion
+rollback implementation; do not bundle migration-recovery UI, a schema bump, oMLX Web mapping, automatic retrieval
+injection, model-cache deletion, document opening, attachment retry controls, a general MCP runtime, packaging, or
+release updates.
 
 Read these files first:
 
 1. `HANDOVER.md`
 2. `ROADMAP.md`
-3. `README.md`
-4. `CONTRIBUTING.md`
-5. `src/routes/+page.svelte`
-6. `src/routes/page-state.svelte.ts`
-7. `src-tauri/src/lib.rs`
-8. `src-tauri/tauri.conf.json`
+3. `MIGRATION-ROLLBACK.md`
+4. `README.md`
+5. `CONTRIBUTING.md`
+6. `src/routes/+page.svelte`
+7. `src/routes/page-state.svelte.ts`
+8. `src-tauri/src/lib.rs`
+9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/first-run-provider-privacy`.
+branch `codex/migration-rollback-plan`.
 
 ## Current implementation
 
@@ -529,7 +534,56 @@ The cohesively touched product modules remain at or below 500 lines except the e
 practical-limit exception; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: First-run provider and privacy setup
+## Most recently completed planning slice: Migration rollback
+
+### Goal
+
+Define a fail-closed, testable migration safety model before changing startup storage behavior, without claiming older
+binaries can read newer schemas or bundling the implementation.
+
+### Accepted shape
+
+1. `MIGRATION-ROLLBACK.md` classifies user-owned source data, rebuildable derived data, and application-private files.
+   Schema migrations remain forward-only and may not mutate attachment files or the embedding-model cache.
+2. Older supported stores will be preflighted read-only and copied through SQLite's online backup API. Pending schema
+   work and Rust backfills will run only on an isolated same-volume candidate before live data changes.
+3. Candidate validation requires SQLite integrity and foreign-key checks, exact current schema and ledger state, the
+   built-in profile, semantic-contract validation, and migration-specific source-data invariants.
+4. A verified source-version recovery point plus an atomic native-only promotion marker will precede candidate restore
+   into the live database. Restart reconciliation will validate the promoted target or restore the source recovery
+   point before ordinary corruption classification.
+5. The attachment tree remains unchanged and valid for either database version. The two newest completed migration
+   recovery points stay separate from automatic-backup rotation, and cleanup recognizes only exact managed names.
+6. Workers, retention, garbage collection, automatic backup rotation, provider discovery, and WebView setup remain
+   after successful live-store validation. The first implementation adds no Tauri command or migration UI.
+
+### Acceptance criteria for the next implementation slice
+
+- No pending migration mutates the live database before a candidate and source-version recovery point both validate.
+- Copy, migration, validation, safety-copy, promotion, and process-interruption fault points preserve or restore exact
+  source data without changing attachment files.
+- Historical schema fixtures, WAL content, ledger coherence, current semantic metadata, newer-schema rejection,
+  corruption routing, strict cleanup, and source/derived-data policy receive path-backed coverage.
+- Migration outcomes and errors remain path-, SQL-, filename-, content-, hash-, and credential-redacted; no WebView
+  migration capability is added.
+- A disposable real-store copy passes schema, integrity, foreign-key, ledger, and row-parity checks before native
+  launch is allowed to migrate the live store.
+
+### Explicit exclusions
+
+This planning slice changes no Rust, TypeScript, Svelte, SQLite schema, Tauri capability, live-store data, provider,
+credential, tool, attachment, backup, recovery, worker, packaging, or release behavior. Reverse migrations, automatic
+binary downgrade, migration-recovery UI, and rollback implementation remain absent.
+
+### Verification completed
+
+The plan was reconciled against the current schema-version-21 migration orchestrator, manual restore staging, portable
+backup boundary, corruption recovery, startup order, attachment worker, and semantic worker. Documentation formatting
+and the repository's full standard validation set were run without launching the native app or touching the live
+store. Browser and live-provider checks are not applicable because this slice changes no presentation, networking,
+credentials, IPC, native behavior, or database bytes.
+
+## Prior completed product slice: First-run provider and privacy setup
 
 ### Goal
 
