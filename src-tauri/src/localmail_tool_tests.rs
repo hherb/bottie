@@ -81,12 +81,21 @@ fn publishes_two_closed_schemas_without_advertising_them() {
         json!(false)
     );
 
-    let enabled_names = enabled_native_tool_definitions(true, true)
+    let enabled_names = enabled_native_tool_definitions(true, true, false)
         .into_iter()
         .map(|definition| definition.name)
         .collect::<Vec<_>>();
     assert!(!enabled_names.contains(&"search_email"));
     assert!(!enabled_names.contains(&"open_email"));
+
+    let ollama_email_names = enabled_native_tool_definitions(false, false, true)
+        .into_iter()
+        .map(|definition| definition.name)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ollama_email_names,
+        vec!["search_email", "open_email", "current_time"]
+    );
 }
 
 #[test]

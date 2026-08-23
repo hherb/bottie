@@ -170,7 +170,7 @@
         onretryresponse={(responseId) => void state.regenerateResponse(responseId, true)}
         onrateresponse={(responseId, rating) => void state.history.rateResponse(state.messages, responseId, rating)}
         onremoveattachment={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
-        onscrollready={(element) => state.setMessageScroll(element)}
+        onscrollready={(element) => state.interaction.setMessageScroll(element)}
       />
 
       <Composer
@@ -188,16 +188,19 @@
         memoryEnabled={state.memory.enabled}
         webAvailable={state.webAvailable}
         webEnabled={state.web.enabled}
+        emailAvailable={state.emailAvailable}
+        emailEnabled={state.email.enabled}
         onprompt={(prompt) => (state.prompt = prompt)}
-        oninput={() => state.resizeComposer()}
-        onkeydown={(event) => state.handleComposerKeydown(event)}
+        oninput={() => state.interaction.resizeComposer()}
+        onkeydown={(event) => state.interaction.handleKeydown(event, () => void state.sendMessage())}
         onsend={() => state.handleSendButton()}
         onadd={() => void state.attachment.openPicker()}
         onfiles={(event) => state.attachment.addBrowserFiles(event)}
         onremove={(id) => state.attachment.remove(id)}
         ontogglememory={() => state.memory.toggle(state.memoryAvailable, state.isGenerating)}
         ontoggleweb={() => state.web.toggle(state.webAvailable, state.isGenerating)}
-        oncomposerready={(element) => state.setComposer(element)}
+        ontoggleemail={() => state.email.toggle(state.emailAvailable, state.isGenerating)}
+        oncomposerready={(element) => state.interaction.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />
     </main>
@@ -249,7 +252,10 @@
       <ProviderSettingsDialog
         settings={state.providerSettings}
         isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
-        onclose={() => (state.showSettings = false)}
+        onclose={() => {
+          state.showSettings = false;
+          void state.email.refresh();
+        }}
         onsaved={(settings) => state.applyProviderSettings(settings)}
       />
     {/if}

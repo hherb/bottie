@@ -94,6 +94,7 @@ pub(crate) fn execute_anthropic_tool_round(
                     embedder,
                     call,
                     memory_enabled,
+                    None,
                     web_search,
                     web_fetch,
                 )

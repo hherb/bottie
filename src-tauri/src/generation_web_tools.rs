@@ -4,9 +4,10 @@ use std::sync::Arc;
 
 use crate::{
     credentials::CredentialStore,
+    generation_localmail_tools::NativeLocalmailToolExecutor,
     inference::{ChatRequest, ChatRole, ChatTurn, ContentBlock, ProviderError},
     storage::{ConversationStore, SemanticEmbedder},
-    tool_contract::CURRENT_TIME_TOOL_NAME,
+    tool_contract::{CURRENT_TIME_TOOL_NAME, OPEN_EMAIL_TOOL_NAME, SEARCH_EMAIL_TOOL_NAME},
     tool_dispatch::{
         MemoryToolExecution, dispatch_current_time_tool, dispatch_memory_tool,
         dispatch_web_fetch_tool, dispatch_web_search_tool, policy_error,
@@ -204,6 +205,7 @@ pub(crate) fn dispatch_native_tool(
     memory_enabled: bool,
     web_search: Option<&dyn NativeWebSearchExecutor>,
     web_fetch: Option<&dyn NativeWebFetchExecutor>,
+    localmail: Option<&dyn NativeLocalmailToolExecutor>,
 ) -> MemoryToolExecution {
     if call.tool_name == CURRENT_TIME_TOOL_NAME {
         return dispatch_current_time_tool(call);
@@ -217,6 +219,15 @@ pub(crate) fn dispatch_native_tool(
     if call.tool_name == WEB_FETCH_TOOL_NAME {
         if let Some(web_fetch) = web_fetch {
             return web_fetch.execute(call);
+        }
+        return disabled_tool_error();
+    }
+    if matches!(
+        call.tool_name.as_str(),
+        SEARCH_EMAIL_TOOL_NAME | OPEN_EMAIL_TOOL_NAME
+    ) {
+        if let Some(localmail) = localmail {
+            return localmail.execute(call);
         }
         return disabled_tool_error();
     }

@@ -25,29 +25,17 @@ use crate::{
 };
 
 /// Injected execution boundary shared by the configured connector and focused dispatcher tests.
-#[allow(
-    dead_code,
-    reason = "provider-loop wiring is explicitly deferred to the next bounded Localmail slice"
-)]
 pub(crate) trait LocalmailToolExecutor {
     /// Executes one already validated exact connector request and returns path-free structured content.
     async fn execute(&self, arguments: LocalmailToolArguments) -> Result<Value, ProviderError>;
 }
 
 /// Production Localmail executor retaining configuration paths and credentials entirely inside Rust.
-#[allow(
-    dead_code,
-    reason = "provider-loop wiring is explicitly deferred to the next bounded Localmail slice"
-)]
 pub(crate) struct ConfiguredLocalmailToolExecutor<'a> {
     config_path: &'a Path,
     credentials: &'a dyn CredentialStore,
 }
 
-#[allow(
-    dead_code,
-    reason = "provider-loop wiring is explicitly deferred to the next bounded Localmail slice"
-)]
 impl<'a> ConfiguredLocalmailToolExecutor<'a> {
     /// Binds one dispatcher execution to the current native Localmail configuration and vault.
     pub(crate) fn new(config_path: &'a Path, credentials: &'a dyn CredentialStore) -> Self {
@@ -203,10 +191,6 @@ pub(crate) fn dispatch_memory_tool(
 }
 
 /// Validates and executes one Localmail read through the common bounded native-tool envelope.
-#[allow(
-    dead_code,
-    reason = "provider-loop wiring is explicitly deferred to the next bounded Localmail slice"
-)]
 pub(crate) async fn dispatch_localmail_tool(
     executor: &impl LocalmailToolExecutor,
     call: &NativeToolCall,

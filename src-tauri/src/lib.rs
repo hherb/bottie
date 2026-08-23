@@ -8,6 +8,8 @@ mod command_types;
 mod credentials;
 mod diagnostics;
 mod generation;
+mod generation_localmail_tools;
+mod generation_tool_audit;
 mod generation_tools;
 mod generation_usage;
 mod generation_web_tools;

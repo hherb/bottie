@@ -216,12 +216,17 @@ headers, attachment details and bytes, account/folder internals, paths, and cred
 provider-independent layer is now complete: `search_email` and `open_email` have closed definitions, strict raw JSON
 conversion into the existing connector requests, explicit safe read-only policy entries, and one configured native
 executor behind Bottie's existing 64 KiB success/error envelope. Invalid calls fail before Localmail configuration,
-vault, or network access, and connector failures map to fixed redacted categories. Neither tool is advertised to a
-provider yet. The next bounded slice is an off-by-default session Email control plus explicit Ollama definition,
-call/result, durable-audit, and bounded-loop mapping through this dispatcher. Do not bundle OpenAI-compatible,
-Anthropic-compatible, or oMLX Email mapping, provenance cards, arbitrary MCP execution, attachment download or opening,
-Localmail account or sync administration, outbound mail, Bottie memory indexing, migration-recovery UI, a new feature
-schema, automatic retrieval injection, model-cache deletion, packaging, or release updates.
+vault, or network access, and connector failures map to fixed redacted categories. One off-by-default session Email
+control now advertises those definitions only to an explicitly tool-capable Ollama selection after native pinned trust
+and credential metadata are both present. Ollama calls execute through the configured Localmail dispatcher, retain the
+existing durable safe audit and cancellation/call/round/output/deadline limits, and return exact ordered bounded results
+for the next Ollama round. Prompts stay on loopback; the interface discloses that only model-selected queries and exact
+message identities go to the pinned Localmail server. OpenAI-compatible, Anthropic-compatible, and oMLX Email mapping
+remain absent. The next bounded slice is explicit OpenAI-compatible Email mapping with matching cloud-delivery
+disclosure. Do not bundle Anthropic-compatible or oMLX Email mapping, provenance cards, arbitrary MCP execution,
+attachment download or opening, Localmail account or sync administration, outbound mail, Bottie memory indexing,
+migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, packaging, or
+release updates.
 
 Read these files first:
 
@@ -236,7 +241,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/localmail-open-email`.
+branch `codex/localmail-ollama-email`.
 
 ## Current implementation
 
@@ -264,7 +269,7 @@ branch `codex/localmail-open-email`.
 - bounded ready-image thumbnails plus explicit local-only extraction and normalization failure presentation;
 - durable extracted-text indexing readiness with honest indexable, unsupported, and blocked presentation;
 - capability-aware normalized JPEG/PNG delivery labels and current-draft blocking for text-only models;
-- a composer with memory and web affordances;
+- a composer with off-by-default Memory, Web, and Ollama-only configured Email affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
 - collapsed reasoning sections that can be expanded independently of answer text;
@@ -360,11 +365,11 @@ conversation/message results over hybrid retrieval,
 reconstruction without changing conversation selection,
 `src-tauri/src/storage/memory_file_tool.rs` owns typed bounded `search_attached_files` arguments and ranked path-free
 ready-document results over hybrid retrieval,
-`src-tauri/src/tool_contract.rs` and `src-tauri/src/tool_contract/` own the provider-independent memory, web-search,
-and web-fetch definitions, closed JSON schemas, raw name/argument validation, and conversion into exact typed native
+`src-tauri/src/tool_contract.rs` and `src-tauri/src/tool_contract/` own the provider-independent memory, Web, and
+Localmail definitions, closed JSON schemas, raw name/argument validation, and conversion into exact typed native
 arguments without executing them,
-`src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of typed memory tools, provider-selected web search,
-and bounded public web fetch plus the common success/error envelope without model wire policy, while
+`src-tauri/src/tool_dispatch.rs` owns provider-neutral execution of typed memory, Web, and Localmail tools plus the
+common success/error envelope without model wire policy, while
 `src-tauri/src/tool_policy.rs`
 owns the explicit safe or approval-required classification and exact-call native approval binding applied before
 dispatch,
@@ -383,6 +388,9 @@ parent-domain matching, and blocked-domain precedence shared by search-result an
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
 embedding details, while `src-tauri/src/generation_web_tools.rs` selects mapped Web availability, resolves only the
 active search engine's native credential, and routes accepted calls into the strict provider-independent dispatcher,
+`src-tauri/src/generation_localmail_tools.rs` withholds Email until native pinned trust and credential metadata are
+configured, then snapshots the exact path- and credential-owning Localmail executor for Ollama-only generation,
+`src-tauri/src/generation_tool_audit.rs` maps bounded execution envelopes into their durable audit outcomes,
 `src-tauri/src/generation_usage.rs` owns provider-neutral usage and cost accumulation across repeated tool rounds,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
 `src-tauri/src/semantic_indexer.rs` owns lazy app-cache FastEmbed acquisition plus the resumable process-lifetime Q4
@@ -764,18 +772,85 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Session-only Email enablement and Ollama mapping
+## Next bounded product slice: OpenAI-compatible Email mapping
 
-Add one off-by-default session Email control for explicitly tool-capable Ollama models and map only the two closed
-Localmail definitions, calls, results, durable audit records, cancellation, and existing bounded multi-round loop
-through the configured dispatcher. Missing connector trust or credential state must fail closed without advertising a
-usable Email route, and the UI must disclose that prompts stay on loopback while model-selected email queries and exact
-message identities go only to the pinned Localmail server. Do not add OpenAI-compatible, Anthropic-compatible, or oMLX
-Email mapping, provenance cards, arbitrary MCP discovery/execution, attachment download/opening, Localmail account or
-sync administration, outbound mail, Bottie memory indexing, a schema migration, automatic retrieval injection,
-packaging, or release work.
+Extend the existing session-only Email control to explicitly tool-capable OpenAI-compatible models and map only the two
+closed Localmail definitions, exact `tool_call_id` calls/results, durable audit, cancellation, and existing bounded
+multi-round loop through the configured dispatcher. Missing pinned trust or credential metadata must still withhold the
+definitions. The interface must make clear that prompts and bounded Localmail tool results go to the selected cloud
+endpoint, while model-selected email queries and exact message identities go only to the pinned Localmail server. Do
+not add Anthropic-compatible or oMLX Email mapping, provenance cards, arbitrary MCP discovery/execution, attachment
+download/opening, Localmail account or sync administration, outbound mail, Bottie memory indexing, a schema migration,
+automatic retrieval injection, packaging, or release work.
 
-## Most recently completed product slice: Provider-independent Localmail tool definitions and dispatch
+## Most recently completed product slice: Session-only Email enablement and Ollama mapping
+
+### Goal
+
+Let one explicitly tool-capable local Ollama model use Bottie's two configured read-only Localmail tools after an
+off-by-default session choice, without exposing a usable route when native trust or credential state is absent and
+without widening the provider, WebView, connector, or tool-loop boundaries.
+
+### Implemented shape
+
+1. The composer adds one session-only Email toggle. It is available only for a tool-capable Ollama model after the
+   existing secret-free Localmail status confirms a saved HTTPS origin, certificate fingerprint, and vault credential.
+   Provider changes, unsupported model changes, and lost connector readiness disable it; browser preview and every
+   other provider stay unavailable.
+2. The enabled disclosure states that prompts remain with Ollama on loopback, while only model-selected email queries
+   and exact message identities go to the pinned Localmail server. No origin, fingerprint, token, query, identity, email
+   content, provider call identity, or native path is added to frontend state beyond the existing bounded tool audit.
+3. `ChatRequest.emailEnabled` defaults false. Native generation rechecks explicit intent, exact `ollama` routing,
+   discovered per-model tool capability, pinned trust, and credential configuration before retaining that flag or
+   constructing one immutable generation-scoped Localmail executor. Definition gating inspects vault metadata only; it
+   does not retrieve or unlock credential material.
+4. Ollama receives `search_email`, then `open_email`, then the existing `current_time` definition when Email alone is
+   enabled. OpenAI-compatible, Anthropic-compatible, and oMLX adapters pass an explicit false Email gate even if an
+   internal request were malformed, so they cannot advertise or execute these tools in this slice.
+5. Ollama-emitted calls enter the existing four-round, eight-call, 30-second, 64 KiB per-result, and 256 KiB aggregate
+   loop. Each call is checkpointed before execution, passes through the existing safe policy, strict Localmail argument
+   conversion, pinned client, fixed search/open routes, redacted common envelope, and exact ordered Ollama tool-result
+   message, then retains its duration/outcome and result before provider reuse.
+6. Composer DOM registration, resizing, scrolling, and focus moved into one cohesive interaction helper, while pure
+   audit-envelope mapping moved into a focused Rust module; touched source files remain within the practical 500-line
+   limit without changing behavior.
+
+### Acceptance and explicit exclusions
+
+- Email is off by default and session-only. It cannot be enabled for a model without explicit Ollama tool capability or
+  without both configured certificate trust and a saved vault credential.
+- Accepted calls cannot select a different Localmail route or weaken certificate pinning, bearer-header, redirect,
+  proxy, response-size, result, identity, inert-text, `untrusted: true`, cancellation, or shared loop policy.
+- Prompts stay on the configured Ollama loopback route. Only the exact model-selected query/filter arguments or message
+  identity enter the pinned Localmail request; bounded inert results return only to Ollama and the durable local audit.
+- This slice adds no OpenAI-compatible, Anthropic-compatible, or oMLX Email mapping, Email provenance cards, MCP
+  execution, attachment access, account/sync administration, outbound mail, memory indexing, migration, automatic
+  retrieval, packaging, or release work.
+
+### Verification completed
+
+Focused TDD first failed on the absent Email availability helper, composer contract/disclosure, request flag, Localmail
+definition gate, and Ollama-only eligibility. The focused frontend tests now pass. Native fixtures prove missing trust,
+missing credentials, non-Ollama providers, missing model capability, and absent generation executor all fail closed;
+definition gating never retrieves credential material. Socket-free tests prove Localmail execution and durable safe
+audit. A host-local two-request Ollama fixture passed and confirmed exact ordered definitions, one exact
+`search_email` call, bounded untrusted result correlation, final answer streaming, cumulative usage, and terminal loop
+completion.
+
+Prettier, Svelte diagnostics, all 89 frontend tests across 24 files, the production build, Cargo formatting/check with
+no warnings, and the full Rust suite pass. The Rust suite has 387 tests: 361 pass by default and 26 loopback,
+public-network, credential, or live-provider checks remain explicitly opt-in. The native development app compiled,
+development-signed, and launched against the existing store. Immutable read-only inspection returned schema version
+21, `quick_check=ok`, zero foreign-key failures, an exact 21-row migration ledger, 15 conversations, 80 messages, 34
+provider runs, and 13 tool invocation/result pairs. This slice adds no schema or live-store mutation.
+
+Browser presentation was reviewed at 1320 x 820 and the 720 x 620 native minimum. The disabled Email control was
+visible, accessible, aligned, and contained with no horizontal document overflow or browser-console warnings/errors.
+The disconnected preview cannot satisfy native Localmail readiness, so the enabled disclosure has rendered component
+coverage but was not visually toggled in that preview. No real Localmail archive, vault token, or live Ollama model was
+used; production pinned-TLS archive reading and a real model-selected Email call therefore remain manually unverified.
+
+## Prior completed product slice: Provider-independent Localmail tool definitions and dispatch
 
 ### Goal
 

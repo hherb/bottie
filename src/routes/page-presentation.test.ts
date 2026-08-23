@@ -4,6 +4,7 @@ import type { ProviderSettings } from "$lib/inference";
 import type { Attachment, Message } from "$lib/presentation";
 
 import {
+  emailToolsAvailable,
   inferenceStages,
   memoryToolsAvailable,
   messageAttachmentAssociations,
@@ -50,6 +51,12 @@ describe("page presentation", () => {
     expect(webToolsAvailable(model("openai", false))).toBe(false);
     expect(webToolsAvailable(model("ollama", false))).toBe(false);
     expect(webToolsAvailable(undefined)).toBe(false);
+    expect(emailToolsAvailable(model("ollama", true))).toBe(true);
+    expect(emailToolsAvailable(model("openai", true))).toBe(false);
+    expect(emailToolsAvailable(model("anthropic", true))).toBe(false);
+    expect(emailToolsAvailable(model("omlx", true))).toBe(false);
+    expect(emailToolsAvailable(model("ollama", false))).toBe(false);
+    expect(emailToolsAvailable(undefined)).toBe(false);
   });
 
   it("keeps draft, conversation, and message scope identities explicit", () => {

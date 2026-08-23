@@ -31,6 +31,11 @@ export function webToolsAvailable(model: ModelInfo | undefined): boolean {
   return Boolean(model?.capabilities.tools && NATIVE_TOOL_PROVIDER_IDS.has(model.providerId));
 }
 
+/** Confirms that Email is mapped only for an explicitly tool-capable Ollama model. */
+export function emailToolsAvailable(model: ModelInfo | undefined): boolean {
+  return Boolean(model?.capabilities.tools && model.providerId === "ollama");
+}
+
 /** Selects the compact endpoint label for the active provider. */
 export function selectedProviderEndpoint(providerId: ProviderId | "", settings: ProviderSettings): string {
   const baseUrl = {

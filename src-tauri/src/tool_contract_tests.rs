@@ -18,7 +18,7 @@ use crate::{
 #[test]
 fn selects_memory_web_and_clock_definitions_independently_in_stable_order() {
     let names = |memory_enabled, web_enabled| {
-        enabled_native_tool_definitions(memory_enabled, web_enabled)
+        enabled_native_tool_definitions(memory_enabled, web_enabled, false)
             .into_iter()
             .map(|definition| definition.name)
             .collect::<Vec<_>>()

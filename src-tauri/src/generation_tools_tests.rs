@@ -13,6 +13,7 @@ use serde_json::json;
 
 use crate::{
     diagnostics::Diagnostics,
+    generation_localmail_tools::email_tools_enabled,
     generation_tools::{
         execute_ollama_tool_round, execute_openai_tool_round, stream_ollama_tools,
         stream_omlx_tools, stream_openai_tools,
@@ -51,6 +52,13 @@ fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
     assert!(!web_tools_enabled(true, "openai", false));
     assert!(web_tools_enabled(true, "anthropic", true));
     assert!(web_tools_enabled(true, "omlx", true));
+    assert!(email_tools_enabled(true, "ollama", true, true));
+    assert!(!email_tools_enabled(false, "ollama", true, true));
+    assert!(!email_tools_enabled(true, "ollama", false, true));
+    assert!(!email_tools_enabled(true, "ollama", true, false));
+    assert!(!email_tools_enabled(true, "openai", true, true));
+    assert!(!email_tools_enabled(true, "anthropic", true, true));
+    assert!(!email_tools_enabled(true, "omlx", true, true));
 }
 
 /// Fixed dimensions required by the semantic query boundary when a search tool is exercised.
@@ -160,6 +168,7 @@ fn executes_and_persists_an_ollama_tool_round_before_returning_results() {
         true,
         None,
         None,
+        None,
     )
     .expect("tool round should execute");
 
@@ -260,6 +269,7 @@ fn audits_unregistered_provider_calls_as_rejected_without_reflecting_the_name_in
         true,
         None,
         None,
+        None,
     )
     .expect("unsupported call should close through the bounded result envelope");
 
@@ -325,6 +335,7 @@ fn executes_and_persists_an_ollama_web_search_before_returning_the_result() {
         &cancellation,
         false,
         Some(&web_search),
+        None,
         None,
     )
     .expect("web-search round should execute");
@@ -399,6 +410,7 @@ fn streams_an_ollama_tool_call_result_and_final_answer_across_two_requests() {
         }],
         memory_enabled: false,
         web_enabled: true,
+        email_enabled: false,
         settings: ChatSettings {
             temperature: Some(0.0),
             max_output_tokens: Some(128),
@@ -415,6 +427,7 @@ fn streams_an_ollama_tool_call_result_and_final_answer_across_two_requests() {
         semantic_indexer.query_embedder(),
         ToolLoopCancellation::default(),
         Some(Arc::new(GenerationWebSearchExecutor)),
+        None,
         None,
     ))
     .expect("two-round Ollama generation should complete")
@@ -531,6 +544,7 @@ fn read_json_request(stream: &mut TcpStream) -> serde_json::Value {
 
 mod anthropic;
 mod anthropic_web_fetch;
+mod ollama_email;
 mod ollama_gating;
 mod ollama_web_fetch;
 mod omlx;

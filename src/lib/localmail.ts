@@ -10,6 +10,11 @@ export type LocalmailConnectionStatus = {
   biometricProtected: boolean;
 };
 
+/** Confirms that Email may be offered without retrieving connector trust or credential material. */
+export function localmailToolsConfigured(status: LocalmailConnectionStatus): boolean {
+  return Boolean(status.origin && status.certificateSha256 && status.credentialConfigured);
+}
+
 /** Server identity and leaf fingerprint returned before trust confirmation. */
 export type LocalmailProbeResult = {
   origin: string;

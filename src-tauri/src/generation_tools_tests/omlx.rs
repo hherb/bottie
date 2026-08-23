@@ -54,6 +54,7 @@ fn streams_an_omlx_clock_result_and_final_answer_across_two_requests() {
         }],
         memory_enabled: false,
         web_enabled: false,
+        email_enabled: false,
         settings: ChatSettings {
             temperature: None,
             max_output_tokens: Some(128),
@@ -156,6 +157,7 @@ fn live_omlx_clock_and_memory_calls_complete_through_bottie() {
         }],
         memory_enabled: true,
         web_enabled: false,
+        email_enabled: false,
         settings: ChatSettings {
             temperature: Some(0.0),
             max_output_tokens: Some(160),

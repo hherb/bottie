@@ -258,7 +258,10 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - first-party Localmail `open_email` contract over exact search-result identities with one pinned authenticated detail
   call, external images disabled, bounded inert header/body text, and no HTML or attachment-byte exposure (complete);
 - provider-independent closed Localmail tool definitions, strict raw conversion into the existing connector requests,
-  safe read-only policy entries, and bounded redacted dispatch without provider advertisement (complete);
+  safe read-only policy entries, and bounded redacted dispatch (complete);
+- off-by-default session Email enablement for explicitly tool-capable Ollama models, with configured native trust and
+  credential gating, bounded multi-round execution, durable audit, and explicit loopback/Localmail disclosure
+  (complete);
 - CSP and Tauri capability review;
 - secret-vault and filesystem-boundary tests;
 - dependency and license review;
