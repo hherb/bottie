@@ -1,15 +1,21 @@
 //! Provider-neutral execution and bounded result envelopes for Bottie's native tools.
 
+use std::path::Path;
+
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 use serde_json::{Value, json};
 
 use crate::{
+    credentials::CredentialStore,
+    inference::{ProviderError, ProviderErrorCode},
+    localmail::{open_email_native, search_email_native},
     storage::{ConversationStore, SemanticEmbedder, StorageError},
     tool_contract::{
-        MemoryToolArguments, ToolContractError, ToolContractErrorCode,
-        validate_current_time_tool_arguments, validate_memory_tool_arguments,
-        validate_web_fetch_tool_arguments, validate_web_search_tool_arguments,
+        LocalmailToolArguments, MemoryToolArguments, ToolContractError, ToolContractErrorCode,
+        validate_current_time_tool_arguments, validate_localmail_tool_arguments,
+        validate_memory_tool_arguments, validate_web_fetch_tool_arguments,
+        validate_web_search_tool_arguments,
     },
     tool_loop::NativeToolCall,
     tool_policy::{ApprovedToolCall, ToolPolicyError, ToolPolicyErrorCode, authorize_tool_call},
@@ -17,6 +23,57 @@ use crate::{
     web_policy::WebNetworkPolicy,
     web_search::{WebSearchError, WebSearchErrorCode, WebSearchProvider},
 };
+
+/// Injected execution boundary shared by the configured connector and focused dispatcher tests.
+#[allow(
+    dead_code,
+    reason = "provider-loop wiring is explicitly deferred to the next bounded Localmail slice"
+)]
+pub(crate) trait LocalmailToolExecutor {
+    /// Executes one already validated exact connector request and returns path-free structured content.
+    async fn execute(&self, arguments: LocalmailToolArguments) -> Result<Value, ProviderError>;
+}
+
+/// Production Localmail executor retaining configuration paths and credentials entirely inside Rust.
+#[allow(
+    dead_code,
+    reason = "provider-loop wiring is explicitly deferred to the next bounded Localmail slice"
+)]
+pub(crate) struct ConfiguredLocalmailToolExecutor<'a> {
+    config_path: &'a Path,
+    credentials: &'a dyn CredentialStore,
+}
+
+#[allow(
+    dead_code,
+    reason = "provider-loop wiring is explicitly deferred to the next bounded Localmail slice"
+)]
+impl<'a> ConfiguredLocalmailToolExecutor<'a> {
+    /// Binds one dispatcher execution to the current native Localmail configuration and vault.
+    pub(crate) fn new(config_path: &'a Path, credentials: &'a dyn CredentialStore) -> Self {
+        Self {
+            config_path,
+            credentials,
+        }
+    }
+}
+
+impl LocalmailToolExecutor for ConfiguredLocalmailToolExecutor<'_> {
+    /// Executes only the selected existing fixed-route connector contract.
+    async fn execute(&self, arguments: LocalmailToolArguments) -> Result<Value, ProviderError> {
+        let result = match arguments {
+            LocalmailToolArguments::SearchEmail(request) => serde_json::to_value(
+                search_email_native(self.config_path, self.credentials, request).await?,
+            ),
+            LocalmailToolArguments::OpenEmail(request) => serde_json::to_value(
+                open_email_native(self.config_path, self.credentials, request).await?,
+            ),
+        };
+        result.map_err(|_| {
+            ProviderError::internal("Bottie could not serialize the Localmail result.", None)
+        })
+    }
+}
 
 /// Executes the clock with Bottie's real native system time.
 pub(crate) fn dispatch_current_time_tool(call: &NativeToolCall) -> MemoryToolExecution {
@@ -142,6 +199,31 @@ pub(crate) fn dispatch_memory_tool(
     match result {
         Ok(result) => bounded_memory_tool_success(result),
         Err(error) => storage_error(error),
+    }
+}
+
+/// Validates and executes one Localmail read through the common bounded native-tool envelope.
+#[allow(
+    dead_code,
+    reason = "provider-loop wiring is explicitly deferred to the next bounded Localmail slice"
+)]
+pub(crate) async fn dispatch_localmail_tool(
+    executor: &impl LocalmailToolExecutor,
+    call: &NativeToolCall,
+    approval: Option<ApprovedToolCall>,
+) -> MemoryToolExecution {
+    let authorized = match authorize_tool_call(call, approval) {
+        Ok(authorized) => authorized,
+        Err(error) => return policy_error(error),
+    };
+    let call = authorized.call();
+    let arguments = match validate_localmail_tool_arguments(&call.tool_name, &call.arguments) {
+        Ok(arguments) => arguments,
+        Err(error) => return contract_error(error),
+    };
+    match executor.execute(arguments).await {
+        Ok(result) => bounded_memory_tool_success(result),
+        Err(error) => localmail_error(error),
     }
 }
 
@@ -309,6 +391,27 @@ fn web_fetch_error(error: WebFetchError) -> MemoryToolExecution {
         | WebFetchErrorCode::Internal => execution_error(
             MemoryToolExecutionErrorCode::ExecutionFailed,
             "Bottie could not execute the native web-fetch tool.",
+        ),
+    }
+}
+
+/// Maps connector, trust, credential, and response failures without forwarding native detail.
+#[allow(
+    dead_code,
+    reason = "provider-loop wiring is explicitly deferred to the next bounded Localmail slice"
+)]
+fn localmail_error(error: ProviderError) -> MemoryToolExecution {
+    match error.code {
+        ProviderErrorCode::InvalidRequest
+        | ProviderErrorCode::Unavailable
+        | ProviderErrorCode::Timeout
+        | ProviderErrorCode::Server => execution_error(
+            MemoryToolExecutionErrorCode::Unavailable,
+            "The native Localmail connector is unavailable.",
+        ),
+        ProviderErrorCode::MalformedResponse | ProviderErrorCode::Internal => execution_error(
+            MemoryToolExecutionErrorCode::ExecutionFailed,
+            "Bottie could not execute the native Localmail tool.",
         ),
     }
 }

@@ -1,6 +1,7 @@
-//! Provider-independent native memory-tool definitions and strict raw-argument validation.
+//! Provider-independent native tool definitions and strict raw-argument validation.
 
 mod current_time;
+mod localmail;
 mod web_fetch;
 
 use serde::Serialize;
@@ -20,6 +21,12 @@ use crate::web_search::{
 
 pub(crate) use current_time::{
     CURRENT_TIME_TOOL_NAME, current_time_tool_definition, validate_current_time_tool_arguments,
+};
+#[cfg(test)]
+pub(crate) use localmail::localmail_tool_definitions;
+pub(crate) use localmail::{
+    LocalmailToolArguments, OPEN_EMAIL_TOOL_NAME, SEARCH_EMAIL_TOOL_NAME,
+    validate_localmail_tool_arguments,
 };
 pub(crate) use web_fetch::{validate_web_fetch_tool_arguments, web_fetch_tool_definition};
 

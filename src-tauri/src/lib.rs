@@ -30,6 +30,8 @@ mod web_search_commands;
 #[cfg(test)]
 mod generation_tools_tests;
 #[cfg(test)]
+mod localmail_tool_tests;
+#[cfg(test)]
 mod tool_contract_tests;
 #[cfg(test)]
 mod tool_dispatch_tests;

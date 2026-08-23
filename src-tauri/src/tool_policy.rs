@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::{
     storage::{OPEN_MEMORY_TOOL_NAME, SEARCH_ATTACHED_FILES_TOOL_NAME, SEARCH_MEMORY_TOOL_NAME},
-    tool_contract::CURRENT_TIME_TOOL_NAME,
+    tool_contract::{CURRENT_TIME_TOOL_NAME, OPEN_EMAIL_TOOL_NAME, SEARCH_EMAIL_TOOL_NAME},
     tool_loop::NativeToolCall,
     web_fetch::WEB_FETCH_TOOL_NAME,
     web_search::WEB_SEARCH_TOOL_NAME,
@@ -92,7 +92,9 @@ pub(crate) fn tool_execution_policy(tool_name: &str) -> Option<ToolExecutionPoli
         | OPEN_MEMORY_TOOL_NAME
         | SEARCH_ATTACHED_FILES_TOOL_NAME
         | WEB_SEARCH_TOOL_NAME
-        | WEB_FETCH_TOOL_NAME => Some(ToolExecutionPolicy::Safe),
+        | WEB_FETCH_TOOL_NAME
+        | SEARCH_EMAIL_TOOL_NAME
+        | OPEN_EMAIL_TOOL_NAME => Some(ToolExecutionPolicy::Safe),
         _ => None,
     }
 }

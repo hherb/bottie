@@ -23,6 +23,12 @@ pub(crate) use commands::{
     test_localmail_connection, update_localmail_connection,
 };
 use config::{LocalmailConfig, load_config, save_config};
+pub(crate) use open::validate_open_email_request;
+pub(crate) use open::{OpenEmailRequest, open_email_native};
+pub(crate) use search::{
+    MAX_EMAIL_FILTER_CHARS, MAX_EMAIL_MESSAGE_ID_CHARS, MAX_EMAIL_QUERY_CHARS, MAX_EMAIL_RESULTS,
+    SearchEmailRequest, search_email_native, validate_search_email_request,
+};
 use tls::{CertificateMode, CertificateVerifier};
 
 const LOCALMAIL_API_MAJOR: u32 = 1;

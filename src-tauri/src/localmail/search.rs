@@ -19,13 +19,13 @@ use crate::{
 use super::{CertificateMode, build_client, endpoint, load_config, normalize_bearer_token};
 
 /// Maximum Unicode scalar count accepted for one email search query.
-pub(super) const MAX_EMAIL_QUERY_CHARS: usize = 500;
+pub(crate) const MAX_EMAIL_QUERY_CHARS: usize = 500;
 /// Maximum Unicode scalar count accepted for one textual search filter.
-pub(super) const MAX_EMAIL_FILTER_CHARS: usize = 320;
+pub(crate) const MAX_EMAIL_FILTER_CHARS: usize = 320;
 /// Maximum number of summaries returned by one native email search.
-pub(super) const MAX_EMAIL_RESULTS: u8 = 20;
+pub(crate) const MAX_EMAIL_RESULTS: u8 = 20;
 /// Maximum Unicode scalar count retained from one Localmail message identity.
-pub(super) const MAX_EMAIL_MESSAGE_ID_CHARS: usize = 128;
+pub(crate) const MAX_EMAIL_MESSAGE_ID_CHARS: usize = 128;
 /// Maximum Unicode scalar count retained from one email subject.
 pub(super) const MAX_EMAIL_SUBJECT_CHARS: usize = 500;
 /// Maximum Unicode scalar count retained from one sender display name.
@@ -41,7 +41,7 @@ const NON_CONTENT_SELECTOR: &str =
     "script, style, template, noscript, svg, math, canvas, iframe, object, embed";
 
 /// Closed filter set accepted by Bottie's first Localmail search boundary.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub(super) struct SearchEmailFilters {
     /// Optional sender-address or sender-name filter.
@@ -59,7 +59,7 @@ pub(super) struct SearchEmailFilters {
 }
 
 /// One closed, bounded email-search request accepted from the WebView.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct SearchEmailRequest {
     /// Required nonblank Localmail search query.
@@ -111,7 +111,7 @@ pub(crate) struct SearchEmailResponse {
 
 /// Exact fixed-route JSON request sent to Localmail after Bottie validation.
 #[derive(Debug, Serialize)]
-pub(super) struct LocalmailSearchRequest {
+pub(crate) struct LocalmailSearchRequest {
     /// Normalized search query.
     pub(super) query: String,
     /// Normalized fixed metadata filters.
@@ -165,7 +165,7 @@ struct RawSearchAddress {
 }
 
 /// Executes one bounded search using only the saved pinned connection and native vault credential.
-pub(super) async fn search_email_native(
+pub(crate) async fn search_email_native(
     config_path: &Path,
     credentials: &dyn CredentialStore,
     request: SearchEmailRequest,
@@ -267,7 +267,7 @@ async fn read_bounded_search_body(response: Response) -> Result<Vec<u8>, Provide
 }
 
 /// Validates and normalizes the complete request before any config, credential, or network work.
-pub(super) fn validate_search_email_request(
+pub(crate) fn validate_search_email_request(
     request: SearchEmailRequest,
 ) -> Result<LocalmailSearchRequest, ProviderError> {
     let query = required_inline(&request.query, MAX_EMAIL_QUERY_CHARS)?;

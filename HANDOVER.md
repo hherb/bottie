@@ -213,11 +213,15 @@ internals, cursor, or score crosses that boundary. Open validates one strict dec
 same native state, calls only `GET /v1/messages/{id}` with compact headers and external images disabled, and returns
 bounded inert subject, address, UTC date, body, and attachment-presence fields. HTML, external-image URLs, Bcc, full
 headers, attachment details and bytes, account/folder internals, paths, and credentials remain excluded. The next
-bounded slice is provider-independent Localmail tool definitions and dispatch over those two closed connector
-contracts. Do not bundle provider-loop mapping, an Email toggle or provenance UI, arbitrary MCP execution, attachment
-download or opening, Localmail account or sync administration, outbound mail, Bottie memory indexing,
-migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, packaging, or
-release updates.
+provider-independent layer is now complete: `search_email` and `open_email` have closed definitions, strict raw JSON
+conversion into the existing connector requests, explicit safe read-only policy entries, and one configured native
+executor behind Bottie's existing 64 KiB success/error envelope. Invalid calls fail before Localmail configuration,
+vault, or network access, and connector failures map to fixed redacted categories. Neither tool is advertised to a
+provider yet. The next bounded slice is an off-by-default session Email control plus explicit Ollama definition,
+call/result, durable-audit, and bounded-loop mapping through this dispatcher. Do not bundle OpenAI-compatible,
+Anthropic-compatible, or oMLX Email mapping, provenance cards, arbitrary MCP execution, attachment download or opening,
+Localmail account or sync administration, outbound mail, Bottie memory indexing, migration-recovery UI, a new feature
+schema, automatic retrieval injection, model-cache deletion, packaging, or release updates.
 
 Read these files first:
 
@@ -760,16 +764,76 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Provider-independent Localmail tool definitions and dispatch
+## Next bounded product slice: Session-only Email enablement and Ollama mapping
 
-Add only closed provider-independent `search_email` and `open_email` definitions, strict raw-argument conversion into
-the exact existing connector requests, and bounded execution through the common native dispatcher envelope. Reuse the
-current validation-before-config/vault policy and preserve the existing result limits and inert untrusted markers. Do
-not add provider-loop mapping or multi-round execution, an Email composer toggle, provenance cards, arbitrary MCP
-discovery/execution, attachment download/opening, Localmail account or sync administration, outbound mail, Bottie
-memory indexing, a schema migration, automatic retrieval injection, packaging, or release work.
+Add one off-by-default session Email control for explicitly tool-capable Ollama models and map only the two closed
+Localmail definitions, calls, results, durable audit records, cancellation, and existing bounded multi-round loop
+through the configured dispatcher. Missing connector trust or credential state must fail closed without advertising a
+usable Email route, and the UI must disclose that prompts stay on loopback while model-selected email queries and exact
+message identities go only to the pinned Localmail server. Do not add OpenAI-compatible, Anthropic-compatible, or oMLX
+Email mapping, provenance cards, arbitrary MCP discovery/execution, attachment download/opening, Localmail account or
+sync administration, outbound mail, Bottie memory indexing, a schema migration, automatic retrieval injection,
+packaging, or release work.
 
-## Most recently completed product slice: Localmail open-email connector contract
+## Most recently completed product slice: Provider-independent Localmail tool definitions and dispatch
+
+### Goal
+
+Prepare the two existing read-only Localmail connector contracts for later explicit provider use without advertising
+them to any model, reading the archive automatically, exposing native connector state, or adding provider/UI wiring.
+
+### Implemented shape
+
+1. `localmail_tool_definitions()` returns only `search_email` and `open_email` with closed JSON schemas. Search requires
+   one bounded query and result limit from 1 to 20; its optional closed filters preserve the existing sender,
+   recipient, subject, complete-date, and attachment-presence contract. Open requires one strict decimal `messageId`
+   under the connector's existing signed-bigint identity policy.
+2. Strict raw conversion rejects non-objects, missing or unknown fields, JSON null/type mismatches, blank or overlong
+   text, malformed or reversed dates, invalid limits, and non-decimal identities. Accepted JSON becomes the exact
+   existing `SearchEmailRequest` or `OpenEmailRequest`, then passes the connector's complete validator again before any
+   configured executor can run.
+3. Both names have explicit safe policy entries because their configured executor can call only the existing fixed
+   read-only search and detail routes. Unknown names still fail closed. Neither definition is added to
+   `enabled_native_tool_definitions`, so oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible requests cannot see
+   or call them in this slice.
+4. `ConfiguredLocalmailToolExecutor` retains the config path and credential-vault boundary in Rust, selects only the
+   exact existing search/open native function, serializes only its bounded path-free response, and never returns the
+   origin, certificate fingerprint, bearer token, response bytes, archive internals, or filesystem detail.
+5. `dispatch_localmail_tool` applies policy before strict conversion, executes through an injected provider-independent
+   boundary, reuses the common exclusive success/error envelope and 64 KiB serialized ceiling, and maps missing trust,
+   credential, timeout, or server availability to fixed `unavailable`; malformed/internal connector outcomes become
+   fixed `execution_failed` without reflecting provider-controlled arguments or native diagnostics.
+
+### Acceptance and explicit exclusions
+
+- Malformed calls fail before Localmail configuration or vault access; accepted calls cannot select another route or
+  weaken the connector's pinned TLS, bearer-header, redirect, proxy, response-size, result, identity, inert-text, or
+  `untrusted: true` policies.
+- A successful dispatch contains only the existing path-free connector response and remains inside the shared 64 KiB
+  envelope. Connector messages, diagnostics, credentials, origins, fingerprints, paths, raw bodies, HTML, attachment
+  details/bytes, account/folder internals, cursors, scores, and Bcc cannot enter the error or success envelope.
+- This slice adds no provider advertisement, provider-loop or multi-round wiring, Email composer control, provenance
+  UI, MCP execution, attachment access, account/sync administration, outbound mail, memory indexing, schema migration,
+  automatic retrieval, packaging, or release work.
+
+### Verification completed
+
+Focused TDD first failed on the absent definitions, raw conversion, safe policy entries, executor boundary, validation
+ordering, common envelope, redacted failures, and output ceiling. All eight focused tests now pass, including a
+configured-executor fixture that panics if malformed arguments reach connector configuration or the credential vault.
+
+Prettier, Svelte diagnostics, all 88 frontend tests across 23 files, the production build, Cargo formatting/check with
+no warnings, and the full Rust suite pass. The Rust suite has 383 tests: 358 pass by default and 25 loopback,
+public-network, credential, or live-provider checks remain explicitly opt-in. Immutable read-only inspection returned
+schema version 21, `quick_check=ok`, zero foreign-key failures, an exact 21-row migration ledger, 15 conversations, 80
+messages, 34 provider runs, and 13 tool invocation/result pairs. This slice adds no schema or live-store mutation.
+
+No native archive, vault, or network call was exercised because no provider can advertise these definitions yet and
+the existing isolated connector fixtures already cover the exact fixed search/open routes. No native launch or browser
+viewport review was repeated because the slice adds no Tauri command, runtime registration, provider request mapping,
+frontend type, or rendered UI. Production pinned-TLS archive reading therefore remains manually unverified.
+
+## Prior completed product slice: Localmail open-email connector contract
 
 ### Goal
 
