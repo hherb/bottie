@@ -216,7 +216,7 @@ fn search_response_keeps_only_bounded_inert_summary_metadata() {
     let response = decode_search_response(
         br#"{
           "results": [{
-            "message_id": "message-42",
+            "message_id": "42",
             "account": {"id": "account-secret", "name": "Archive"},
             "folder": {"id": "folder-secret", "full_path": "/private/mail"},
             "subject": "Quarterly budget",
@@ -241,7 +241,7 @@ fn search_response_keeps_only_bounded_inert_summary_metadata() {
     assert!(response.untrusted);
     assert_eq!(response.results.len(), 1);
     let summary = &response.results[0];
-    assert_eq!(summary.message_id, "message-42");
+    assert_eq!(summary.message_id, "42");
     assert_eq!(summary.subject.as_deref(), Some("Quarterly budget"));
     assert_eq!(summary.sender.address.as_deref(), Some("alice@example.com"));
     assert_eq!(summary.sender.name.as_deref(), Some("Alice"));
@@ -275,7 +275,7 @@ fn search_response_truncates_display_text_and_rejects_invalid_identity_or_date()
     let response = decode_search_response(
         serde_json::to_string(&serde_json::json!({
             "results": [{
-                "message_id": "message-1",
+                "message_id": "1",
                 "subject": long_subject,
                 "from": {"address": null, "name": null},
                 "date": null,
@@ -326,8 +326,22 @@ fn search_response_truncates_display_text_and_rejects_invalid_identity_or_date()
         }),
         serde_json::json!({
             "results": [{
-                "message_id": "message-1", "subject": null,
+                "message_id": "1", "subject": null,
                 "from": {"address": null, "name": null}, "date": "yesterday",
+                "snippet_html": null, "has_attachments": false
+            }]
+        }),
+        serde_json::json!({
+            "results": [{
+                "message_id": "message-1", "subject": null,
+                "from": {"address": null, "name": null}, "date": null,
+                "snippet_html": null, "has_attachments": false
+            }]
+        }),
+        serde_json::json!({
+            "results": [{
+                "message_id": "9223372036854775808", "subject": null,
+                "from": {"address": null, "name": null}, "date": null,
                 "snippet_html": null, "has_attachments": false
             }]
         }),

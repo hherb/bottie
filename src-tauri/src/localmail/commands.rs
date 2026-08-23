@@ -1,4 +1,4 @@
-//! Narrow Tauri commands for Localmail trust, authentication, and bounded search.
+//! Narrow Tauri commands for Localmail trust, authentication, search, and inert email opening.
 
 use std::time::Instant;
 
@@ -11,8 +11,11 @@ use crate::{
     inference::ProviderError,
 };
 
-use super::search::{SearchEmailRequest, SearchEmailResponse, search_email_native};
 use super::*;
+use super::{
+    open::{OpenEmailRequest, OpenEmailResponse, open_email_native},
+    search::{SearchEmailRequest, SearchEmailResponse, search_email_native},
+};
 
 #[tauri::command]
 /// Returns secret-free Localmail connection and token availability.
@@ -207,6 +210,43 @@ pub(crate) async fn search_email(
         "Localmail email search completed",
         Some(LOCALMAIL_CREDENTIAL_ID),
         Some("Bounded inert message summaries returned"),
+    )
+    .await;
+    Ok(response)
+}
+
+#[tauri::command]
+/// Opens one exact Localmail search result and returns bounded inert content only.
+pub(crate) async fn open_email(
+    request: OpenEmailRequest,
+    state: State<'_, AppState>,
+) -> Result<OpenEmailResponse, ProviderError> {
+    let result = open_email_native(
+        &state.localmail_config_path,
+        state.credentials.as_ref(),
+        request,
+    )
+    .await;
+    let response = match result {
+        Ok(response) => response,
+        Err(error) => {
+            record_diagnostic(
+                &state.diagnostics,
+                "error",
+                "Localmail email open failed",
+                Some(LOCALMAIL_CREDENTIAL_ID),
+                None,
+            )
+            .await;
+            return Err(sanitized(error));
+        }
+    };
+    record_diagnostic(
+        &state.diagnostics,
+        "info",
+        "Localmail email open completed",
+        Some(LOCALMAIL_CREDENTIAL_ID),
+        Some("Bounded inert message headers and body returned"),
     )
     .await;
     Ok(response)

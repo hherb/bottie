@@ -57,7 +57,7 @@ use inference::{
     save_provider_settings,
 };
 use localmail::{
-    get_localmail_connection_status, probe_localmail_connection, search_email,
+    get_localmail_connection_status, open_email, probe_localmail_connection, search_email,
     test_localmail_connection, update_localmail_connection,
 };
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
@@ -548,6 +548,7 @@ pub fn run() {
             test_localmail_connection,
             update_localmail_connection,
             search_email,
+            open_email,
             get_diagnostics,
             export_diagnostics,
             get_storage_recovery_status,
