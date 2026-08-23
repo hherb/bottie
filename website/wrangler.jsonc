@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "bottie-website",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-08-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [{ "pattern": "bottie.org", "custom_domain": true }],
+  "assets": {
+    "directory": "dist/client",
+    "binding": "ASSETS",
+  },
+}

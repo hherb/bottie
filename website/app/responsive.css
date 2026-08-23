@@ -1,0 +1,162 @@
+@media (max-width: 980px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding-top: 70px;
+  }
+  .hero-copy {
+    max-width: 720px;
+  }
+  .product-stage {
+    width: min(720px, 100%);
+    margin: 30px auto 0;
+  }
+  .section-heading {
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+  .trust-section {
+    grid-template-columns: 1fr;
+    padding: 90px 50px;
+  }
+  .roadmap-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .future-card {
+    grid-column: 1 / -1;
+    min-height: 320px;
+  }
+}
+@media (max-width: 680px) {
+  .site-header {
+    width: min(100% - 30px, 1180px);
+    height: 72px;
+  }
+  nav > a:not(.nav-cta) {
+    display: none;
+  }
+  .hero {
+    width: min(100% - 30px, 1180px);
+    min-height: auto;
+    padding: 64px 0 90px;
+  }
+  h1 {
+    font-size: clamp(45px, 15vw, 66px);
+  }
+  .hero-intro {
+    font-size: 15px;
+  }
+  .hero-proof {
+    gap: 12px;
+  }
+  .app-window {
+    min-height: 440px;
+    transform: none;
+  }
+  .window-body {
+    grid-template-columns: 1fr;
+    min-height: 383px;
+  }
+  .mock-sidebar {
+    display: none;
+  }
+  .mock-chat {
+    padding: 28px 18px 92px;
+  }
+  .memory-card {
+    top: -24px;
+    right: 8px;
+  }
+  .privacy-card {
+    bottom: -30px;
+    left: 8px;
+  }
+  .provider-band {
+    align-items: flex-start;
+    width: min(100% - 30px, 1180px);
+  }
+  .provider-band > div {
+    justify-content: flex-start;
+    gap: 14px;
+  }
+  .section {
+    width: min(100% - 30px, 1180px);
+    padding: 105px 0;
+  }
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+  .feature-card {
+    min-height: 510px;
+    padding: 26px;
+  }
+  .feature-card h3 {
+    font-size: 24px;
+  }
+  .memory-visual,
+  .citation-visual,
+  .file-visual,
+  .branch-visual,
+  .recovery-visual,
+  .model-orbit {
+    height: 270px;
+  }
+  .result-one {
+    right: 0;
+  }
+  .result-two {
+    left: 0;
+  }
+  .ring-two {
+    width: 290px;
+  }
+  .branch-node {
+    right: 0;
+    width: 155px;
+  }
+  .branch-line {
+    width: 36%;
+  }
+  .trust-section {
+    width: min(100% - 30px, 1180px);
+    padding: 78px 24px;
+  }
+  .boundary-diagram {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .boundary-flow {
+    transform: rotate(90deg);
+  }
+  .roadmap-grid {
+    grid-template-columns: 1fr;
+  }
+  .future-card {
+    grid-column: auto;
+  }
+  .roadmap-card {
+    min-height: 360px;
+    padding: 26px;
+  }
+  .closing-section {
+    width: min(100% - 30px, 1180px);
+    padding: 120px 0 130px;
+  }
+  footer {
+    flex-direction: column;
+    width: min(100% - 30px, 1180px);
+    padding: 40px 0;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
