@@ -269,7 +269,7 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
   disclosure (complete);
 - explicit oMLX Email mapping through its discovered Chat Completions tool route, with exact call/result correlation,
   the same configured native trust and loop bounds, and loopback-provider/Localmail delivery disclosure (complete);
-- CSP and Tauri capability review;
+- CSP and Tauri capability review (complete);
 - secret-vault and filesystem-boundary tests;
 - dependency and license review;
 - keyboard shortcuts and command palette;

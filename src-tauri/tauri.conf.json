@@ -21,11 +21,17 @@
       }
     ],
     "security": {
+      "capabilities": ["default"],
       "csp": {
-        "default-src": "'self' customprotocol: asset:",
+        "base-uri": "'none'",
         "connect-src": "ipc: http://ipc.localhost",
+        "default-src": "'self'",
         "font-src": "'self'",
-        "img-src": "'self' bottie-attachment: http://bottie-attachment.localhost blob: data:",
+        "form-action": "'none'",
+        "frame-src": "'none'",
+        "img-src": "'self' bottie-attachment: http://bottie-attachment.localhost",
+        "object-src": "'none'",
+        "script-src": "'self'",
         "style-src": "'self' 'unsafe-inline'"
       }
     }

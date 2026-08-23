@@ -226,10 +226,14 @@ In every case, only model-selected queries and exact message identities go to th
 Messages preserve exact `tool_use` identities, immediate correlated `tool_result` blocks, and ordered
 thinking/redacted-thinking state.
 oMLX uses its discovered Chat Completions-compatible route without enabling endpoint-owned MCP or arbitrary server
-tools. The next bounded slice is a focused CSP and Tauri capability review. Do not bundle Email provenance cards,
-attachment download or opening, Localmail account or sync administration, outbound mail, Bottie memory indexing,
-migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, packaging, or
-release updates.
+tools. Bottie's CSP and Tauri capability review is also complete. The main WebView now receives only the two core event
+permissions it uses to listen for and release native attachment-processing updates; app, path, window, webview, image,
+resource, menu, tray, and frontend event-emission commands are no longer granted by `core:default`. The CSP permits
+bundled UI, Tauri IPC, inline component styles, and Bottie's opaque attachment-preview protocol while denying frames,
+forms, objects, base-URL changes, unused asset schemes, and blob/data images. The next bounded slice is focused
+secret-vault and filesystem-boundary contract coverage. Do not bundle Email provenance cards, attachment download or
+opening, Localmail account or sync administration, outbound mail, Bottie memory indexing, migration-recovery UI, a new
+feature schema, automatic retrieval injection, model-cache deletion, packaging, or release updates.
 
 Read these files first:
 
@@ -490,9 +494,12 @@ state.
 
 The native application configuration has:
 
-- a minimal `core:default` capability;
-- no opener or filesystem plugin permission;
-- a restrictive CSP allowing bundled assets and Tauri IPC;
+- one explicitly selected main-window capability containing only `core:event:allow-listen` and
+  `core:event:allow-unlisten`;
+- no app, path, window, webview, image, resource, menu, tray, event-emission, opener, filesystem, shell, clipboard, or
+  network plugin permission;
+- a restrictive CSP allowing bundled UI, Tauri IPC, necessary inline styles, and only the opaque
+  `bottie-attachment` image protocol;
 - a 1320 x 820 default window with a 720 x 620 minimum.
 
 ## What is still simulated
@@ -777,16 +784,72 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: CSP and Tauri capability review
+## Next bounded product slice: secret-vault and filesystem-boundary tests
 
-Audit Bottie's current Content Security Policy and Tauri capability allowlist against the implemented native commands,
-opaque attachment-preview protocol, fixed external-link behavior, and Rust-owned provider/tool networking. Remove only
-permissions or destinations proven unused, add focused contract coverage for the resulting least-privilege boundary,
-and document the reviewed policy. Do not add a generic filesystem, shell, SQL, network, clipboard, opener, MCP, or
-plugin surface; change Email behavior; add provenance cards; perform a schema migration; or bundle keyboard shortcuts,
-packaging, signing, updates, or release work.
+Add adversarial contract coverage proving that credential status/settings/diagnostics and native file workflows expose
+only their existing typed, path-free metadata across Tauri IPC. Exercise saved and absent credentials, redacted error
+paths, attachment ingestion/preview, export/backup/restore outcomes, and malformed WebView arguments without reading
+real user secrets or mutating the live store. Do not change keyring identities or biometric policy; add a generic
+filesystem, shell, SQL, network, clipboard, opener, MCP, or plugin surface; change Email behavior; add provenance cards;
+perform a schema migration; or bundle dependency review, shortcuts, packaging, signing, updates, or release work.
 
-## Most recently completed product slice: oMLX Email mapping
+## Most recently completed product slice: CSP and Tauri capability review
+
+### Goal
+
+Reduce Bottie's WebView authority to the exact Tauri core commands and CSP destinations required by the implemented UI,
+opaque attachment previews, native events, and Rust-owned networking without changing product behavior.
+
+### Implemented shape
+
+1. `tauri.conf.json` explicitly selects only the checked-in `default` capability, so adding another capability file
+   cannot silently merge authority into the main window.
+2. The main-window allowlist contains only `core:event:allow-listen` and `core:event:allow-unlisten`, which are required
+   for path-free attachment-processing updates. The frontend cannot emit native events or invoke Tauri's default app,
+   path, window, webview, image, resource, menu, or tray commands.
+3. Registered Bottie commands remain narrow Rust-owned `invoke_handler` entries. The dialog plugin is called only by
+   Rust, and no frontend dialog, filesystem, shell, opener, clipboard, SQL, HTTP, or arbitrary plugin permission exists.
+4. CSP now permits only bundled UI and fonts, Tauri's two IPC transports, necessary inline component styles, and the
+   opaque `bottie-attachment` image scheme plus its Windows/Android localhost form. Unused `customprotocol:`, `asset:`,
+   `blob:`, and `data:` sources were removed.
+5. `base-uri`, `form-action`, `frame-src`, and `object-src` are fixed to `none`; scripts remain self-only. Existing safe
+   external links retain their tested `_blank` plus `noopener noreferrer` behavior without adding an opener surface.
+6. Rust contract tests parse the checked-in Tauri configuration and capability file and assert the complete exact
+   boundary, including the absence of remote-domain IPC and asset-protocol configuration.
+
+### Acceptance and explicit exclusions
+
+- Provider, Web, and Localmail network access remains Rust-owned and is not represented in `connect-src` or a frontend
+  network permission.
+- Attachment previews still accept only opaque IDs through the existing main-WebView-only protocol; filesystem paths,
+  bytes, hashes, extracted text, and derivative identities remain absent from IPC.
+- Native Save/Open dialogs remain Rust-owned. Clipboard writes continue through the standard browser API and gain no
+  native clipboard permission.
+- This slice adds no generic filesystem, shell, SQL, network, clipboard, opener, MCP, or plugin surface; Email change;
+  provenance card; schema migration; shortcut; packaging; signing; update; or release work.
+
+### Verification completed
+
+Focused TDD first failed because no explicit capability selection existed and `core:default` remained broader than the
+two event commands Bottie uses. The two configuration-contract tests pass after tightening the policy. Prettier,
+Svelte diagnostics, production build, Cargo formatting, and Cargo check pass. The tracked frontend suite has 24 files
+and 91 passing tests. The literal root `npm test` also discovers the unrelated untracked
+`website/tests/rendered-html.test.mjs` file and reports it as an empty suite while all 91 tracked tests pass; rerunning
+with only that untouched untracked tree excluded passes. The full Rust suite has 399 tests: 370 pass by default and 29
+loopback, public-network, credential, or live-provider checks remain explicitly opt-in.
+
+The browser preview was reviewed at 1320 x 820 and the 720 x 620 native minimum. Both fixture images loaded, the shell
+and compact Context overlay stayed within the document width, and the browser console reported no warnings or errors.
+The preview does not receive Tauri's production CSP or capabilities, so it verifies presentation only. The native
+development app compiled, development-signed, launched with the tightened configuration, and remained running without
+a terminal error. Immutable read-only inspection returned schema version 21, `quick_check=ok`, zero foreign-key
+failures, an exact 21-row migration ledger, 17 conversations, 92 messages, 40 provider runs, and 20 tool
+invocation/result pairs. This slice adds no schema or intended live-store mutation. No native attachment update was
+available to trigger during the launch, so event delivery is covered by the exact capability contract and existing
+frontend listener behavior rather than a newly completed background job. Live-provider tests were not applicable
+because provider networking, discovery, streaming, cancellation, credentials, and tool mappings did not change.
+
+## Prior completed product slice: oMLX Email mapping
 
 ### Goal
 
