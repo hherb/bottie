@@ -57,8 +57,8 @@ use inference::{
     save_provider_settings,
 };
 use localmail::{
-    get_localmail_connection_status, probe_localmail_connection, test_localmail_connection,
-    update_localmail_connection,
+    get_localmail_connection_status, probe_localmail_connection, search_email,
+    test_localmail_connection, update_localmail_connection,
 };
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use semantic_indexer::SemanticIndexer;
@@ -547,6 +547,7 @@ pub fn run() {
             probe_localmail_connection,
             test_localmail_connection,
             update_localmail_connection,
+            search_email,
             get_diagnostics,
             export_diagnostics,
             get_storage_recovery_status,

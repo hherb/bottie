@@ -253,6 +253,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - structured local diagnostics with redaction and opt-in export (complete);
 - first-party Localmail HTTPS origin, explicit certificate trust, bounded connection testing, and vault-held bearer
   authentication foundation (complete);
+- first-party Localmail `search_email` contract with closed filters, one pinned authenticated search call, bounded
+  inert path-free summaries, and no email-body or attachment-content exposure (complete);
 - CSP and Tauri capability review;
 - secret-vault and filesystem-boundary tests;
 - dependency and license review;

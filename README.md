@@ -134,8 +134,11 @@ SHA-256 fingerprint for confirmation. Saved connections pin that exact certifica
 proxies, and cap connection metadata at 32 KiB. An optional bearer token is bounded before use and stored only in the
 operating-system credential vault; it is never written to `localmail.json`, returned over IPC, or included in
 diagnostics. The Test action calls only `/v1/version` and, when a token is available, `/v1/auth/whoami`; it does not read
-email. Email search/open tools, provider-loop mapping, attachment access, outbound mail, and memory indexing are not yet
-implemented.
+email. A separate Rust-owned `search_email` command now accepts one closed bounded query/filter/result-limit shape,
+then uses only the saved pinned connection and vault token for one authenticated `POST /v1/search`. It returns at most
+20 path-free plain-text summaries marked untrusted; Localmail bodies, HTML, attachment metadata/content, account/folder
+internals, scores, cursors, raw responses, and credentials do not cross IPC. `open_email`, provider-loop mapping,
+Email controls/provenance, attachment access, outbound mail, and memory indexing are not yet implemented.
 
 ## Development
 
