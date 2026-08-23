@@ -217,14 +217,16 @@ provider-independent layer is now complete: `search_email` and `open_email` have
 conversion into the existing connector requests, explicit safe read-only policy entries, and one configured native
 executor behind Bottie's existing 64 KiB success/error envelope. Invalid calls fail before Localmail configuration,
 vault, or network access, and connector failures map to fixed redacted categories. One off-by-default session Email
-control now advertises those definitions only to an explicitly tool-capable Ollama or OpenAI-compatible selection after
-native pinned trust and credential metadata are both present. Both mapped providers execute through the configured
-Localmail dispatcher and retain the existing durable safe audit and cancellation/call/round/output/deadline limits.
-Ollama prompts stay on loopback; OpenAI-compatible prompts and bounded Localmail results use the selected visible cloud
-route. In both cases, only model-selected queries and exact message identities go to the pinned Localmail server.
-Anthropic-compatible and oMLX Email mapping remain absent. The next bounded slice is explicit Anthropic-compatible
-Email mapping with exact Messages block correlation and matching cloud-delivery disclosure. Do not bundle oMLX Email
-mapping, provenance cards, arbitrary MCP execution,
+control now advertises those definitions only to an explicitly tool-capable Ollama, OpenAI-compatible, or
+Anthropic-compatible selection after native pinned trust and credential metadata are both present. All three mapped
+providers execute through the configured Localmail dispatcher and retain the existing durable safe audit and
+cancellation/call/round/output/deadline limits. Ollama prompts stay on loopback; OpenAI-compatible and
+Anthropic-compatible prompts plus bounded Localmail results use the selected visible cloud route. In every case, only
+model-selected queries and exact message identities go to the pinned Localmail server. Anthropic Messages preserve
+exact `tool_use` identities, immediate correlated `tool_result` blocks, and ordered thinking/redacted-thinking state.
+oMLX Email mapping remains absent. The next bounded slice is explicit oMLX Email mapping through its discovered
+Chat Completions-compatible tool route with matching loopback/Localmail disclosure. Do not bundle provenance cards,
+arbitrary MCP execution,
 attachment download or opening, Localmail account or sync administration, outbound mail, Bottie memory indexing,
 migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, packaging, or
 release updates.
@@ -242,7 +244,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/localmail-openai-email`.
+branch `codex/localmail-anthropic-email`.
 
 ## Current implementation
 
@@ -270,7 +272,8 @@ branch `codex/localmail-openai-email`.
 - bounded ready-image thumbnails plus explicit local-only extraction and normalization failure presentation;
 - durable extracted-text indexing readiness with honest indexable, unsupported, and blocked presentation;
 - capability-aware normalized JPEG/PNG delivery labels and current-draft blocking for text-only models;
-- a composer with off-by-default Memory, Web, and configured Ollama/OpenAI-compatible Email affordances;
+- a composer with off-by-default Memory, Web, and configured Ollama/OpenAI-compatible/Anthropic-compatible Email
+  affordances;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
 - collapsed reasoning sections that can be expanded independently of answer text;
@@ -390,8 +393,8 @@ cumulative usage/cost, worker-backed query embedding, and provider-result serial
 embedding details, while `src-tauri/src/generation_web_tools.rs` selects mapped Web availability, resolves only the
 active search engine's native credential, and routes accepted calls into the strict provider-independent dispatcher,
 `src-tauri/src/generation_localmail_tools.rs` withholds Email until native pinned trust and credential metadata are
-configured, then snapshots the exact path- and credential-owning Localmail executor for mapped Ollama or
-OpenAI-compatible generation,
+configured, then snapshots the exact path- and credential-owning Localmail executor for mapped Ollama,
+OpenAI-compatible, or Anthropic-compatible generation,
 `src-tauri/src/generation_tool_audit.rs` maps bounded execution envelopes into their durable audit outcomes,
 `src-tauri/src/generation_usage.rs` owns provider-neutral usage and cost accumulation across repeated tool rounds,
 `src-tauri/src/storage/message_content.rs` owns shared ordered text/reasoning block insertion and reconstruction,
@@ -774,17 +777,86 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Anthropic-compatible Email mapping
+## Next bounded product slice: oMLX Email mapping
 
-Extend the existing session-only Email control to explicitly tool-capable Anthropic-compatible models and map only the
-two closed Localmail definitions through exact `tool_use` identities, immediate `tool_result` blocks, preserved
-thinking/redacted-thinking state, durable audit, cancellation, and the existing bounded multi-round loop. Missing
-pinned trust or credential metadata must still withhold the definitions. The interface must retain the cloud-provider
-and pinned-Localmail delivery disclosure. Do not add oMLX Email mapping, provenance cards, arbitrary MCP
-discovery/execution, attachment download/opening, Localmail account or sync administration, outbound mail, Bottie
-memory indexing, a schema migration, automatic retrieval injection, packaging, or release work.
+Extend the existing session-only Email control to explicitly tool-capable oMLX models only after Bottie's fixed
+endpoint-capability discovery and native Localmail readiness gates pass. Map the two closed definitions through the
+existing Chat Completions-compatible call/result correlation, durable audit, cancellation, and bounded multi-round
+loop while retaining an exact loopback-provider/pinned-Localmail disclosure. Do not enable oMLX MCP or arbitrary
+server tools, add Email provenance cards, attachment download/opening, Localmail account or sync administration,
+outbound mail, Bottie memory indexing, a schema migration, automatic retrieval injection, packaging, or release work.
 
-## Most recently completed product slice: OpenAI-compatible Email mapping
+## Most recently completed product slice: Anthropic-compatible Email mapping
+
+### Goal
+
+Let one explicitly tool-capable Anthropic-compatible model use Bottie's two configured read-only Localmail tools after
+the existing off-by-default session choice, while preserving native trust, credential, provider-call, WebView, and
+shared tool-loop boundaries and making both cloud and pinned-Localmail destinations explicit.
+
+### Implemented shape
+
+1. The Email control is now available for tool-capable Anthropic-compatible models as well as Ollama and
+   OpenAI-compatible models after the same secret-free Localmail status confirms saved certificate trust and a vault
+   credential. Provider/model changes, missing readiness, oMLX selection, and absent tool capability continue to
+   disable it with an actionable path-free reason.
+2. Enabled Anthropic-compatible Email states that the prompt and bounded Localmail tool results go to the selected
+   cloud endpoint, while only model-selected email queries and exact message identities go to the pinned Localmail
+   server. Existing Ollama loopback and OpenAI-compatible cloud disclosures remain unchanged.
+3. Native generation rechecks explicit Email intent, exact `ollama|openai|anthropic` routing, discovered per-model
+   tool capability, and configured Localmail trust/credential metadata before retaining the request flag or
+   constructing one immutable generation-scoped executor. Eligibility still retrieves no credential material.
+4. An Email-only Anthropic Messages request advertises `search_email`, then `open_email`, then `current_time`. oMLX
+   sessions continue passing a false Email gate and cannot advertise those definitions.
+5. Anthropic-emitted calls preserve the exact provider `tool_use` identity in durable invocation and immediate
+   correlated `tool_result` blocks. Ordered signed thinking and redacted-thinking blocks survive the follow-up request
+   unchanged. Execution reuses the safe policy, strict typed Localmail conversion, pinned fixed-route client, 64 KiB
+   redacted envelope, four-round/eight-call/30-second loop, 256 KiB aggregate ceiling, and shared cancellation.
+6. Focused Anthropic Email orchestration tests live in their own cohesive module. No connector route, Tauri IPC
+   payload or capability, provider credential behavior, storage schema, or existing Ollama/OpenAI behavior changed.
+
+### Acceptance and explicit exclusions
+
+- Email remains off by default and session-only. Anthropic-compatible availability requires configured pinned trust,
+  a saved vault credential, and explicit model tool capability.
+- Accepted calls cannot select another Localmail route or weaken certificate pinning, bearer authentication,
+  redirect/proxy denial, response/result bounds, identity correlation, inert text, `untrusted: true`, durable audit,
+  cancellation, or shared loop policy.
+- Prompts and bounded Localmail results use the already-visible selected Anthropic-compatible cloud route. Only the
+  exact model-selected query/filter arguments or message identity enter the pinned Localmail request.
+- This slice adds no oMLX Email mapping, Email provenance cards, MCP execution, attachment access, account/sync
+  administration, outbound mail, memory indexing, migration, automatic retrieval, packaging, or release work.
+
+### Verification completed
+
+Focused TDD first failed on Anthropic-compatible frontend availability, native eligibility, and the false Email gate
+in Anthropic's definition mapping. Frontend tests now cover supported/unsupported provider and capability reasons plus
+the Anthropic cloud and pinned-Localmail disclosure. Socket-free Rust tests prove exact provider-call identity,
+bounded untrusted result reuse, safe durable audit, and fail-closed behavior without a configured executor. A
+host-local two-request Messages fixture passed and confirmed Email-only definition order, preserved signed-thinking
+and redacted-thinking blocks, one immediate correlated `search_email` result, final-answer streaming, cumulative
+usage, and terminal loop completion. It used only synthetic provider and email data; no real Anthropic-compatible
+credential or Localmail archive content was accessed.
+
+Prettier, Svelte diagnostics, all 91 frontend tests across 24 files, the production build, Cargo formatting/check with
+no warnings, and the full Rust suite pass. The Rust suite has 394 tests: 366 pass by default and 28 loopback,
+public-network, credential, or live-provider checks remain explicitly opt-in. The isolated Anthropic-compatible Email
+loopback fixture also passes explicitly from the host. Cargo compilation and tests ran on the host after sandboxed
+Rust build scripts stalled in environment filesystem/process I/O.
+
+The browser preview was reviewed at 1320 x 820 and the 720 x 620 native minimum. The expanded three-provider
+prerequisite reason and Email control remain visible, accessible, aligned, and contained without horizontal overflow
+or browser-console warnings/errors. The disconnected preview cannot satisfy native Localmail/Anthropic readiness, so
+the enabled cloud disclosure has rendered component coverage rather than an interactive browser toggle.
+
+The native development app compiled, development-signed, launched, and remained running against the existing store.
+Immutable read-only inspection returned schema version 21, `quick_check=ok`, zero foreign-key failures, an exact
+21-row migration ledger, 17 conversations, 92 messages, 40 provider runs, and 20 tool invocation/result pairs. This
+slice adds no schema or live-store mutation. No real remote Anthropic-compatible generation or production pinned-TLS
+Localmail call was exercised, so cloud credential unlock and authenticated archive reading remain manually
+unverified.
+
+## Prior completed product slice: OpenAI-compatible Email mapping
 
 ### Goal
 

@@ -203,6 +203,18 @@ fn maps_web_tools_after_memory_when_explicitly_enabled() {
 }
 
 #[test]
+fn maps_email_tools_before_the_clock_when_explicitly_enabled() {
+    let mut request = text_request("Find the quarterly plan email");
+    request.email_enabled = true;
+    let body = serde_json::to_value(AnthropicToolSession::new(request).unwrap().request).unwrap();
+
+    assert_eq!(body["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(body["tools"][0]["name"], "search_email");
+    assert_eq!(body["tools"][1]["name"], "open_email");
+    assert_eq!(body["tools"][2]["name"], "current_time");
+}
+
+#[test]
 fn rejects_non_object_arguments_and_mismatched_result_identity() {
     let mut malformed = AnthropicResponseAccumulator::default();
     for payload in [

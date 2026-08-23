@@ -32,6 +32,7 @@ fn preserves_call_identity_while_persisting_the_exact_result() {
         true,
         None,
         None,
+        None,
     )
     .expect("Anthropic tool round should execute");
 
@@ -126,6 +127,7 @@ fn streams_call_result_and_final_answer_across_two_requests() {
         ToolLoopCancellation::default(),
         None,
         None,
+        None,
     ))
     .expect("two-round Anthropic generation should complete")
     .expect("fixture reports usage");
@@ -181,6 +183,7 @@ fn executes_and_persists_an_anthropic_web_search_before_returning_the_result() {
         false,
         Some(&web_search),
         None,
+        None,
     )
     .expect("Anthropic web-search round should execute");
 
@@ -229,6 +232,7 @@ fn rejects_anthropic_memory_calls_when_only_web_was_explicitly_enabled() {
         &cancellation,
         false,
         Some(&web_search),
+        None,
         None,
     )
     .expect("disabled memory call should close through the bounded result envelope");
@@ -303,6 +307,7 @@ fn streams_an_anthropic_web_search_result_and_final_answer_across_two_requests()
         semantic_indexer.query_embedder(),
         ToolLoopCancellation::default(),
         Some(Arc::new(GenerationWebSearchExecutor)),
+        None,
         None,
     ))
     .expect("two-round Anthropic web generation should complete")
