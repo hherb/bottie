@@ -136,7 +136,8 @@ startup because the current binary cannot safely use the older schema, but the o
 
 ### Slice A — staged migration and promotion rollback
 
-This is the next bounded implementation slice.
+This is the planned rollback implementation slice, scheduled after the native clock and primary-provider tool-parity
+slice recorded in `HANDOVER.md`.
 
 1. Separate migration-only candidate initialization from normal store startup.
 2. Add read-only preflight and exact candidate/live validation helpers.

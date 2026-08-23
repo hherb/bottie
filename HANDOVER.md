@@ -192,10 +192,11 @@ command. Settings written before this flow remain acknowledged, so existing user
 run. Migration rollback planning is now complete in `MIGRATION-ROLLBACK.md`: pending migrations will run against an
 isolated SQLite candidate, a verified source-version recovery point will precede journalled promotion, and restart
 reconciliation will either validate the target or restore the source without touching attachment files. Reverse SQL
-and automatic binary downgrade are explicitly unsupported. The next bounded slice is staged migration and promotion
-rollback implementation; do not bundle migration-recovery UI, a schema bump, oMLX Web mapping, automatic retrieval
-injection, model-cache deletion, document opening, attachment retry controls, a general MCP runtime, packaging, or
-release updates.
+and automatic binary downgrade are explicitly unsupported. The next bounded slice is native clock and primary-provider
+tool parity: it wires oMLX and repairs current Anthropic model discovery. The staged migration and promotion rollback
+implementation follows it. Do not bundle oMLX-owned MCP execution, arbitrary server-side tools, migration implementation
+or UI, a schema bump, automatic retrieval injection, model-cache deletion, document opening, attachment retry controls,
+a general MCP runtime, packaging, or release updates.
 
 Read these files first:
 
@@ -534,6 +535,66 @@ The cohesively touched product modules remain at or below 500 lines except the e
 practical-limit exception; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
+## Next bounded product slice: Native clock and primary-provider tool parity
+
+### Goal
+
+Ground time-sensitive answers in Bottie's real native clock, make the primary oMLX route capable of the same Bottie-owned
+Memory and Web loops as the other mapped providers, and restore current Anthropic model discovery without delegating
+tool execution to a provider or exposing host location.
+
+### Intended shape
+
+1. One closed provider-independent `current_time` definition accepts an exact empty object and returns only the
+   Rust-owned system clock as a bounded RFC 3339 UTC value. It returns no host timezone, locale, hostname, path, or
+   platform detail and performs no network access.
+2. The clock is classified as a safe read-only native tool, uses the existing validation, cancellation, deadline,
+   output, durable audit, and provider-call correlation policy, and is advertised to every mapped tool-capable route
+   independently of the Memory and Web toggles. The existing toggles continue to control only their own definitions.
+3. Fixed Web guidance tells a model to call `current_time` before interpreting `now`, `today`, `current`, `latest`, or
+   relative publication dates when the answer depends on them. Search-result dates are evidence, not a substitute for
+   the clock.
+4. oMLX discovery performs one bounded check of its fixed loopback OpenAPI document. Only an explicit
+   `/v1/chat/completions` request schema containing both `tools` and `tool_choice` enables tools for discovered oMLX
+   text models; absence, over-limit data, or malformed metadata remains fail-closed without model-name heuristics.
+5. oMLX receives Bottie's closed OpenAI-shaped function definitions, accumulates fragmented streamed call identities
+   and object arguments, checkpoints each call/result, and continues through correlated assistant `tool_calls` plus
+   `role: tool` results under the existing four-round/eight-call/30-second loop.
+6. Memory, Web search, and Web fetch remain explicitly user-enabled. Bottie resolves credentials, validates arguments,
+   performs retrieval/network work, and stores the audit; oMLX receives only the same bounded inert result envelopes
+   used by the other providers. oMLX's own MCP and server-side tool routes are not invoked or forwarded.
+7. Anthropic model discovery accepts its current nullable structured `capabilities` object as well as an omitted value
+   and the legacy string-array extension used by compatible fixtures. Unknown additive fields are ignored, the current
+   `max_input_tokens` value is normalized when present, and malformed top-level/model identity data still returns the
+   existing redacted error. Structured fields such as Anthropic server-side `code_execution` are not reinterpreted as
+   permission for Bottie's client-executed tools; compatible endpoints retain explicit capability gating.
+
+### Acceptance criteria
+
+- An injected-clock unit test proves exact UTC serialization and rejects null, unknown fields, and non-object
+  arguments without reflecting them in an error.
+- Ollama, OpenAI-compatible, Anthropic-compatible, and explicitly capable oMLX requests receive `current_time`; models
+  and oMLX endpoints without explicit tool support receive no tool definition.
+- oMLX Memory-only, Web-only, combined, and clock-only requests preserve exact definition gating, streamed call
+  identity, durable audit order, result correlation, cumulative usage, cancellation, and terminal provider-run state.
+- A current oMLX live check demonstrates a clock call reporting the real UTC year and an explicitly enabled Memory or
+  Web call completing through Bottie's dispatcher. Reopened activity shows the same bounded audit.
+- Missing Brave/Exa credentials fail before Web definitions are sent, while the credential-free clock and Memory remain
+  usable. No API key, query, source text, clock host detail, path, or provider body crosses WebView IPC.
+- The user can select the primary oMLX route and enable Memory and Web when the fixed endpoint contract explicitly
+  supports tools; capability loss clears the toggles as it does for other providers.
+- A fixture matching Anthropic's current Models API response, including object and null `capabilities`, discovers the
+  models and context limits; omitted and legacy array forms remain compatible, and wrong top-level/model identity
+  shapes still fail with no provider body or credential in the user-facing error.
+- With a valid credential, Settings can test the canonical Anthropic endpoint successfully. Its existing Messages tool
+  loop and compatible-endpoint capability boundary remain unchanged by the decoder repair.
+
+### Explicit exclusions
+
+Do not add local-time or timezone settings, location inference, oMLX-owned MCP execution, arbitrary oMLX server tools,
+approval UI, automatic memory retrieval, a storage migration, migration rollback implementation, model-cache deletion,
+document opening, attachment retry controls, packaging, or release work in this slice.
+
 ## Most recently completed planning slice: Migration rollback
 
 ### Goal
@@ -557,7 +618,7 @@ binaries can read newer schemas or bundling the implementation.
 6. Workers, retention, garbage collection, automatic backup rotation, provider discovery, and WebView setup remain
    after successful live-store validation. The first implementation adds no Tauri command or migration UI.
 
-### Acceptance criteria for the next implementation slice
+### Acceptance criteria for the staged rollback implementation
 
 - No pending migration mutates the live database before a candidate and source-version recovery point both validate.
 - Copy, migration, validation, safety-copy, promotion, and process-interruption fault points preserve or restore exact
@@ -568,6 +629,8 @@ binaries can read newer schemas or bundling the implementation.
   migration capability is added.
 - A disposable real-store copy passes schema, integrity, foreign-key, ledger, and row-parity checks before native
   launch is allowed to migrate the live store.
+
+This remains the following bounded storage slice after native clock and primary-provider tool parity.
 
 ### Explicit exclusions
 

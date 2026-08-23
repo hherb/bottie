@@ -210,6 +210,12 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] Ollama native definition/call/result mapping and generation-loop wiring;
 - [x] OpenAI Chat Completions definition/call/result mapping and generation-loop wiring;
 - [x] Anthropic Messages definition/call/result mapping and generation-loop wiring;
+- [ ] Rust-owned zero-argument UTC `current_time` tool with closed schema, safe policy, durable audit, and provider
+  mappings (next bounded slice);
+- [ ] bounded oMLX endpoint-capability discovery plus native clock, Memory, and Web tool-loop mapping (next bounded
+  slice);
+- [ ] current Anthropic Models API structured-capability decoding with legacy compatible-response preservation (next
+  bounded slice);
 - [x] active-generation cancellation propagation through mapped providers and native tool work;
 - [x] safe versus approval-required tool policy;
 - [x] structured audit records and expandable activity UI;
@@ -244,7 +250,7 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 
 - first-run provider and privacy setup (complete);
 - automatic backup rotation and corruption recovery (complete), plus migration rollback planning (complete; staged
-  promotion rollback implementation next);
+  promotion rollback implementation follows native clock and primary-provider tool parity);
 - crash-safe partial messages and interrupted indexing recovery;
 - structured local diagnostics with redaction and opt-in export;
 - CSP and Tauri capability review;
