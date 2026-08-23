@@ -2,6 +2,7 @@
   import { onDestroy } from "svelte";
 
   import { copyAssistantResponse } from "$lib/clipboard";
+  import ConversationStatus from "$lib/ConversationStatus.svelte";
   import Icon from "$lib/Icon.svelte";
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
   import ToolActivity from "$lib/ToolActivity.svelte";
@@ -85,18 +86,15 @@
 </script>
 
 <div class="message-scroll" bind:this={messageScroll}>
-  {#if providerStatus !== "available"}
-    <div class:offline={providerStatus === "offline"} class="provider-banner" role="status">
-      <Icon name="shield" size={16} />
-      <span>
-        <strong>{providerStatus === "checking" ? "Connecting to provider…" : providerError?.message}</strong>
-        {#if providerError?.diagnostic}<small>{providerError.diagnostic}</small>{/if}
-      </span>
-      {#if providerStatus === "offline"}<button onclick={onretry}>Retry</button>{/if}
-    </div>
-  {/if}
+  <ConversationStatus
+    empty={messages.length === 0}
+    {providerStatus}
+    {providerError}
+    providerName={selectedModel?.providerName ?? null}
+    {onretry}
+  />
   <div class="conversation-canvas">
-    <div class="date-divider"><span>Current conversation</span></div>
+    {#if messages.length > 0}<div class="date-divider"><span>Current conversation</span></div>{/if}
 
     {#if branches.length > 1}
       <label class="branch-picker">
@@ -124,6 +122,9 @@
             <strong>{message.role === "assistant" ? "bottie" : "You"}</strong>
             {#if message.role === "assistant"}
               <span>{message.model ?? selectedModel?.displayName ?? "Selected model"}</span>
+              {#if message.error}
+                <span class="message-state error-state"><Icon name="x" size={10} />Response needs attention</span>
+              {/if}
             {/if}
           </div>
 

@@ -5,50 +5,6 @@
   scrollbar-color: #2b2a34 transparent;
   scrollbar-width: thin;
 }
-.provider-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: min(760px, calc(100% - 64px));
-  padding: 10px 12px;
-  margin: 18px auto -11px;
-  border: 1px solid rgba(233, 169, 104, 0.16);
-  border-radius: 11px;
-  background: rgba(233, 169, 104, 0.045);
-  color: #c9a57d;
-}
-.provider-banner.offline {
-  border-color: rgba(233, 118, 104, 0.18);
-  background: rgba(233, 118, 104, 0.045);
-  color: #d49a91;
-}
-.provider-banner > span {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-.provider-banner strong {
-  font-size: 9px;
-  font-weight: 590;
-}
-.provider-banner small {
-  margin-top: 3px;
-  overflow: hidden;
-  color: #706d76;
-  font-size: 7px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.provider-banner button {
-  padding: 5px 8px;
-  border: 1px solid currentColor;
-  border-radius: 7px;
-  background: transparent;
-  color: inherit;
-  font-size: 8px;
-  cursor: pointer;
-}
 .conversation-canvas {
   width: min(760px, calc(100% - 64px));
   margin: 0 auto;
