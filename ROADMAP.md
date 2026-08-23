@@ -241,7 +241,33 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] user-configurable HTTPS, allowlisted-domain, and blocklisted-domain policy applied to Web search results,
   fetches, and every redirect without weakening the fixed public-address baseline.
 
-MCP interoperability can follow after bottie's own tool contract and policy model are stable.
+### Localmail email tools
+
+Priority: start after the structured local-diagnostics export and before the remaining Milestone 6 desktop-beta
+polish. Deliver this as a first-party, read-only Localmail connector; it must not open a general arbitrary-MCP
+execution surface.
+
+- [ ] native Localmail connection setup with an explicit HTTPS origin, certificate-trust confirmation, connection
+  test, and OAuth 2.1 or bounded bearer-token onboarding; keep every access/refresh token in the operating-system vault
+  and out of WebView IPC, diagnostics, tool arguments, and durable tool results;
+- [ ] one closed `search_email` contract backed by Localmail's ACL-scoped hybrid search, with bounded query/date/sender/
+  recipient/subject filters, a small result limit, stable redacted failures, and no automatic or silent retrieval;
+- [ ] one closed `open_email` contract for a search result's opaque message identity, returning bounded sender,
+  recipients, subject, date, body text, and safe attachment names while excluding raw bytes, full headers, hashes,
+  server paths, account internals, and credential material;
+- [ ] explicit provider mappings through Bottie's existing capability-gated tool loop, cancellation,
+  call/round/deadline/output ceilings, fail-closed policy, and append-only audit records;
+- [ ] a session-only Email toggle plus durable, deduplicated, path-free email provenance cards and claim-linking
+  guidance; treat all returned subject/body/attachment text as untrusted content and present that boundary calmly;
+- [ ] settings-level disconnect and credential revocation guidance, focused contract/auth/limit/error tests, a mocked
+  Localmail integration suite, and one opt-in live end-to-end check against a separately ACL-limited Localmail user.
+
+Implement in three bounded slices: connection/authentication, native tools/provider-loop wiring, then provenance UI and
+live integration. Defer arbitrary MCP discovery/execution, Localmail account administration or sync control, attachment
+download/opening, raw message access, outbound mail, and importing Localmail content into Bottie's own memory index.
+
+General MCP interoperability can follow this fixed connector after Bottie's own tool contract and policy model are
+stable.
 
 ## Milestone 6 — Reliability, privacy, and desktop beta
 
@@ -307,7 +333,8 @@ Attachments, hybrid conversation search, embeddings, and inspectable memory tool
 
 ### Connected beta
 
-Remote OpenAI/Anthropic-compatible providers, secure credentials, web tools, citations, and import/export.
+Remote OpenAI/Anthropic-compatible providers, secure credentials, web tools, first-party Localmail email retrieval,
+citations, and import/export.
 
 ### Desktop 1.0
 
