@@ -57,6 +57,18 @@
   color: #c6beff;
   text-decoration-color: currentColor;
 }
+.markdown-body .web-citation-link {
+  padding: 0.08em 0.34em;
+  border: 1px solid rgba(233, 169, 104, 0.26);
+  border-radius: 999px;
+  background: rgba(233, 169, 104, 0.07);
+  color: #d9aa77;
+  text-decoration: none;
+}
+.markdown-body .web-citation-link:hover {
+  border-color: rgba(233, 169, 104, 0.48);
+  color: #efc08e;
+}
 .markdown-body blockquote {
   padding: 0.15em 0 0.15em 0.9em;
   border-left: 2px solid rgba(143, 125, 247, 0.42);

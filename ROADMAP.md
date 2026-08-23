@@ -231,7 +231,7 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] explicit Anthropic-compatible generation-loop mapping for `web_fetch`;
 - [x] extraction to inert text with source URL, title, and publication metadata;
 - [x] removable path-free Context-panel source cards derived from successful selected-lineage Web tool results;
-- citations connected to claims and retained with the conversation;
+- [x] citations connected to claims and retained with the conversation;
 - [x] prompt-injection labeling for explicitly untrusted fetched-page content in source cards and durable tool audit;
 - user-configurable domain and network policy controls.
 

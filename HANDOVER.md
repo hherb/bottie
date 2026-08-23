@@ -177,10 +177,13 @@ existing durable Web loop. Successful selected-lineage `web_search` and `web_fet
 deduplicated, removable, path-free Web source cards in the Context panel. Fetched-page metadata supersedes an earlier
 search result for the same fragment-free HTTP(S) URL, and dismissal remains session-local without changing the
 append-only audit. Fetched-page source cards and their durable audit results now carry calm prompt-injection
-presentation derived only from the exact native `untrusted: true` result marker. The next bounded implementation slice
-is claim-level Web citation linking retained with the conversation; do not bundle user-configurable domain/network
-policy, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, or attachment retry
-controls.
+presentation derived only from the exact native `untrusted: true` result marker. Claim-level Web citation linking is
+also complete. Native capability-gated Web requests now receive fixed citation guidance, while the stored assistant
+Markdown and successful response-owned Web results provide the durable link after completion and reopen. The UI marks
+only normalized URLs that match the same response's exact retained Web provenance and labels the matching Context card
+without changing ordinary safe external links. The next bounded implementation slice is user-configurable domain and
+network policy controls; do not bundle oMLX mapping, automatic retrieval injection, model-cache deletion, document
+opening, attachment retry controls, or a general MCP runtime.
 
 Read these files first:
 
@@ -194,7 +197,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/web-source-cards`.
+branch `codex/web-claim-citations`.
 
 ## Current implementation
 
@@ -467,7 +470,9 @@ Do not mistake visual fixtures for implemented backend behavior:
   tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. Successful fetches now return inert text,
   source URL, optional title/publication metadata, and an explicit untrusted marker. Fetched-page source cards and the
   expandable durable result label that content as untrusted and explain that external text may contain misleading
-  instructions; claim-level citations remain absent;
+  instructions. Capability-gated native Web requests ask for inline Markdown links to exact result URLs; after
+  completion or reopen, only links matched to the same response's successful retained Web results receive claim-level
+  citation treatment and a matching Context-card label;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -504,11 +509,67 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
 The cohesively touched product modules remain below 500 lines except the existing generation composition root
-`src-tauri/src/generation.rs` at 516 lines. The crate composition root `src-tauri/src/lib.rs` is another existing
+`src-tauri/src/generation.rs` at 518 lines. The crate composition root `src-tauri/src/lib.rs` is another existing
 practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Calm untrusted Web-content presentation
+## Most recently completed product slice: Durable claim-level Web citations
+
+### Goal
+
+Connect Web-grounded claims to exact successful native sources and retain those links with the conversation without
+adding a citation schema, exposing tool identities, or treating arbitrary provider-authored links as trusted
+provenance.
+
+### Implemented shape
+
+1. After native discovery confirms an explicitly Web-enabled Ollama, OpenAI-compatible, or Anthropic-compatible model
+   supports tools, Rust prepends one fixed system instruction asking for an inline Markdown link immediately after
+   each Web-grounded claim. The model must use the exact result URL and must not cite unsupported claims.
+2. The assistant's existing checkpointed Markdown retains each produced link unchanged, while the same response's
+   append-only successful `web_search` and `web_fetch` results retain exact native provenance. No migration or new
+   Tauri command is required, and oMLX receives no Web instruction.
+3. One pure Markdown helper extracts normalized HTTP(S) link destinations. The response renderer applies citation
+   treatment only when a fragment-free destination exactly matches a safe Web source derived from that response's
+   successful durable result. Unsafe, email, unmatched, failed, malformed, and other-response links cannot acquire the
+   citation marker.
+4. Matching Context cards show `Cited in response`; ordinary source cards and ordinary safe external links remain
+   unchanged. Copy and Markdown/JSON export already preserve the exact answer Markdown and tool audit, so the durable
+   link survives restart, branch switching, and portable output without an opaque native/provider call identity.
+
+### Acceptance criteria
+
+- Web-disabled requests, oMLX, and models without explicit native tool capability receive no citation instruction.
+- A citation marker requires both an accepted assistant Markdown link and an exact normalized URL from the same
+  response's successful selected-lineage native Web result; a model-authored external link alone is not provenance.
+- Citations survive completion and conversation reopen through existing answer and tool-result persistence, with no
+  schema migration or WebView-owned citation record.
+- The marked link remains an isolated safe external link, source-card removal stays session-local, and copy/export
+  preserve exact Markdown without exposing query, arguments, provider/native call identity, path, header, source
+  bytes, credential, or database detail.
+- User-configurable domain/network policy, oMLX mapping, automatic retrieval, model-cache deletion, document opening,
+  attachment retry, and general MCP interoperability remain outside the slice.
+
+### Verification completed
+
+Focused TDD first failed on absent native citation guidance, Markdown destination extraction, exact response-owned
+source matching, inline citation treatment, and Context-card citation state. The focused native and frontend suites now
+cover Web enablement, normalized fragments, unmatched and unsafe links, cited versus uncited source cards, and the
+fixed path-free presentation contract.
+
+The full standard checks pass: Prettier, Svelte diagnostics with zero errors or warnings, all 83 frontend tests, the
+production build, Cargo formatting/check, and 308 Rust tests with 288 passing and 20 explicit opt-in tests skipped. No
+schema migration, Tauri command, credential, endpoint, tool result, or live-store format changed.
+
+The browser preview was inspected at 1280 x 720 and the 720 x 620 native minimum. The inline citation and matching
+`Cited in response` source label remain legible, the Context panel retains independent scrolling, document width
+matches each viewport without horizontal overflow, and the browser console has no warnings or errors. A real
+model-generated Web citation was not exercised because that would require a live provider and selected search
+credential; native request-shape and durable reopen behavior are covered at their existing typed boundaries. The
+signed native development app compiled and launched successfully. Immutable live-store inspection reported schema
+version 21, `quick_check=ok`, 22 provider runs, and no retained `web_search` or `web_fetch` call; no migration was added.
+
+## Prior completed product slice: Calm untrusted Web-content presentation
 
 ### Goal
 

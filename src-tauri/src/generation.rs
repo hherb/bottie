@@ -9,7 +9,7 @@ use crate::{
     generation_tools::stream_native_tools,
     generation_web_tools::{
         configured_web_fetch, configured_web_search, memory_tools_enabled, web_fetch_enabled,
-        web_tools_enabled,
+        web_tools_enabled, with_web_citation_guidance,
     },
     inference::{
         ChatRequest, ChatRole, ChatRun, ChatTurn, ContentBlock, ImageMediaType, ProviderError,
@@ -149,6 +149,7 @@ pub(crate) async fn start_chat(
     };
     let request = match attachment_context
         .and_then(|context| request_with_attachment_context(request, context, supports_vision))
+        .map(|request| with_web_citation_guidance(request, supports_web_tools))
     {
         Ok(request) => request,
         Err(error) => {

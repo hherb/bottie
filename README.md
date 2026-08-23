@@ -51,6 +51,12 @@ supersedes an earlier search result for the same URL, while removal stays sessio
 unchanged. Fetched-page cards label the native result as untrusted and calmly explain that external page text may
 contain misleading instructions. The same notice appears before an explicitly untrusted result in the expandable tool
 audit; failed, malformed, search, and unmarked legacy results cannot acquire that label.
+When native capability checks enable Web for a mapped provider, Bottie adds fixed guidance asking the model to cite
+Web-grounded claims with inline Markdown links to exact result URLs. The stored answer retains those links unchanged.
+On completion and reopen, Bottie marks a link as a Web citation only when its normalized destination matches a
+successful Web result retained on that same response; the matching Context card is labelled `Cited in response`.
+Unmatched model-authored links remain ordinary safe external links, and copied or exported Markdown preserves the
+same claim-level link without adding opaque tool identities.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -347,7 +353,7 @@ attachment links, and message-derived lexical/chunk/vector rows in one transacti
 shared elsewhere remain; newly unreferenced originals, extraction text, and derivatives keep the existing 24-hour
 cross-process safety window before startup garbage collection removes them. Existing exports, manual backups, and
 automatic recovery snapshots are not rewritten and must be managed separately. The application-owned embedding-model
-cache is not conversation data and is retained. oMLX `web_fetch` mapping, claim-level Web citation links, automatic
+cache is not conversation data and is retained. oMLX `web_fetch` mapping, automatic
 prompt injection, document opening, and attachment retry remain unavailable. Settings also exposes opt-in Trash
 retention:
 keep until manual forget (the default), 30 days, 90 days, or one year from the time a conversation enters Trash. Rust
