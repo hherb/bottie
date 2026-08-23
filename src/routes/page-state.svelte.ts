@@ -3,6 +3,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
+import { DEFAULT_APPEARANCE, type AppearancePreferences } from "$lib/appearance";
 import {
   chatTurnsForMessages,
   completionMeta,
@@ -59,6 +60,8 @@ const STARTING_STAGE = 0;
 const STREAMING_STAGE = 1;
 /** Owns the reactive state and imperative actions shared by the page's presentation components. */
 export class PageState {
+  /** Local WebView presentation preference, kept outside native provider settings. */
+  appearance = $state<AppearancePreferences>({ ...DEFAULT_APPEARANCE });
   messages = $state<Message[]>(isTauri() ? [] : INITIAL_MESSAGES.map((message) => ({ ...message })));
   prompt = $state("");
   isGenerating = $state(false);

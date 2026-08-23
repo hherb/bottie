@@ -9,8 +9,10 @@ describe("ProviderSettingsDialog", () => {
     const html = render(ProviderSettingsDialog, {
       props: {
         settings: DEFAULT_PROVIDER_SETTINGS,
+        appearance: { theme: "dark", density: "comfortable" },
         isGenerating: false,
         onclose: vi.fn(),
+        onappearancechange: vi.fn(),
         onsaved: vi.fn(),
       },
     }).body;
@@ -31,6 +33,10 @@ describe("ProviderSettingsDialog", () => {
     expect(html).toContain("Recent diagnostics");
     expect(html).toContain("Export JSON");
     expect(html).toContain("Structured with secrets and paths redacted");
+    expect(html).toContain("Appearance");
+    expect(html).toContain("System");
+    expect(html).toContain("Comfortable");
+    expect(html).toContain("Compact");
     expect(html).not.toContain("Enable web search tool");
   });
 });

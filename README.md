@@ -69,6 +69,12 @@ available for New conversation (Command/Ctrl+N), conversation search (Command/Ct
 (Command/Ctrl+Shift+B), the Context panel (Command/Ctrl+Shift+C), and Settings (Command/Ctrl+,). Escape closes the
 palette and restores focus to the control that opened it.
 
+## Appearance
+
+Settings includes local System, Light, and Dark theme choices plus Comfortable and Compact density. Appearance changes
+apply immediately without reconnecting a provider and stay on the current device. New and invalid preference state
+falls back to Bottie's existing dark, comfortable presentation; System follows OS color changes only while selected.
+
 ## The trust boundary
 
 Bottie is local-first, not local-only. The interface makes the selected provider and enabled context routes visible
