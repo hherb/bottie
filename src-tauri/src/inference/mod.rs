@@ -19,6 +19,8 @@ pub(crate) use omlx::OmlxToolSession;
 pub use openai::OpenAiProvider;
 pub(crate) use openai::{OpenAiToolCall, OpenAiToolResult, OpenAiToolSession};
 pub use provider::{InferenceProvider, StreamSink};
+#[cfg(test)]
+pub(crate) use settings::STREAM_IDLE_TIMEOUT;
 pub(crate) use settings::redact_diagnostic;
 pub use settings::{
     ProviderSettings, load_provider_settings, persist_completed_first_run_setup,

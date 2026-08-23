@@ -1,6 +1,6 @@
 # bottie handover
 
-Last verified: 2026-08-23
+Last verified: 2026-08-24
 
 ## Start here
 
@@ -121,7 +121,7 @@ structured success/error envelope. Successful envelopes have a 64 KiB serialized
 `unsupported_tool`, `invalid_arguments`, `unavailable`, `execution_failed`, or `output_too_large` categories without
 forwarding query, argument, embedding, storage, or path details. A provider-neutral native state machine now executes
 repeated batches through that dispatcher while correlating opaque call identities. One generation is bounded to eight
-calls, four tool rounds, 256 KiB of aggregate serialized output, and 30 seconds; cancellation and deadline checks run
+calls, four tool rounds, 256 KiB of aggregate serialized output, and five minutes; cancellation and deadline checks run
 before and after every native call, and every exceptional outcome closes the loop. oMLX, Ollama, OpenAI Chat
 Completions, and Anthropic Messages now map the three closed definitions, accumulate streamed calls, execute and
 durably checkpoint
@@ -238,6 +238,14 @@ bounded slice is a dependency and licence review. Do not bundle dependency upgra
 attachment download or opening, Localmail account or sync administration, outbound mail, Bottie memory indexing,
 migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, packaging, signing,
 updates, or release work.
+
+A 2026-08-24 reliability correction extends the provider-neutral tool-loop deadline from 30 seconds to five minutes.
+Two retained oMLX Email failures showed successful `search_email` results followed by timeout termination while the
+27B local model prepared the next round; the shorter whole-loop ceiling contradicted the independently permitted
+120-second provider stream-idle window. A focused regression now proves that two fully permitted slow provider
+follow-ups can complete while the four-round, eight-call, 64 KiB per-result, 256 KiB aggregate-output, cancellation,
+and provider stream-idle limits remain unchanged. The full default Rust suite and the synthetic two-request oMLX Email
+fixture pass. This correction adds no schema, IPC, tool definition, provider mapping, credential, or WebView change.
 
 Read these files first:
 
@@ -672,7 +680,7 @@ tool execution to a provider or exposing host location.
    text models; absence, over-limit data, or malformed metadata remains fail-closed without model-name heuristics.
 5. oMLX receives Bottie's closed OpenAI-shaped function definitions, accumulates fragmented streamed call identities
    and object arguments, checkpoints each call/result, and continues through correlated assistant `tool_calls` plus
-   `role: tool` results under the existing four-round/eight-call/30-second loop.
+   `role: tool` results under the existing four-round/eight-call/five-minute loop.
 6. Memory, Web search, and Web fetch remain explicitly user-enabled. Bottie resolves credentials, validates arguments,
    performs retrieval/network work, and stores the audit; oMLX receives only the same bounded inert result envelopes
    used by the other providers. oMLX's own MCP and server-side tool routes are not invoked or forwarded.
@@ -942,7 +950,7 @@ and shared tool-loop boundaries and making both loopback and pinned-Localmail de
    server-owned tools.
 5. oMLX-emitted calls preserve the exact provider call identity in durable invocation and immediate correlated
    `role: tool` results. Execution reuses the safe policy, strict typed Localmail conversion, pinned fixed-route client,
-   64 KiB redacted envelope, four-round/eight-call/30-second loop, 256 KiB aggregate ceiling, and shared cancellation.
+   64 KiB redacted envelope, four-round/eight-call/five-minute loop, 256 KiB aggregate ceiling, and shared cancellation.
 6. Focused oMLX Email orchestration tests live in their own cohesive module. No connector route, Tauri IPC payload or
    capability, provider credential behavior, storage schema, or existing mapped-provider behavior changed.
 
@@ -1011,7 +1019,7 @@ shared tool-loop boundaries and making both cloud and pinned-Localmail destinati
 5. Anthropic-emitted calls preserve the exact provider `tool_use` identity in durable invocation and immediate
    correlated `tool_result` blocks. Ordered signed thinking and redacted-thinking blocks survive the follow-up request
    unchanged. Execution reuses the safe policy, strict typed Localmail conversion, pinned fixed-route client, 64 KiB
-   redacted envelope, four-round/eight-call/30-second loop, 256 KiB aggregate ceiling, and shared cancellation.
+   redacted envelope, four-round/eight-call/five-minute loop, 256 KiB aggregate ceiling, and shared cancellation.
 6. Focused Anthropic Email orchestration tests live in their own cohesive module. No connector route, Tauri IPC
    payload or capability, provider credential behavior, storage schema, or existing Ollama/OpenAI behavior changed.
 
@@ -1080,7 +1088,7 @@ tool-loop boundaries unchanged and making both network destinations explicit.
    Anthropic-compatible and oMLX sessions continue passing a false Email gate and cannot advertise those definitions.
 5. OpenAI-emitted calls preserve the exact provider `tool_call_id` in the durable invocation and correlated tool
    result message. Execution reuses the safe policy, strict typed Localmail conversion, pinned fixed-route client,
-   64 KiB redacted envelope, four-round/eight-call/30-second loop, 256 KiB aggregate ceiling, and shared cancellation.
+   64 KiB redacted envelope, four-round/eight-call/five-minute loop, 256 KiB aggregate ceiling, and shared cancellation.
 6. Focused OpenAI Email orchestration tests live in their own cohesive module. No connector route, Tauri IPC payload or
    capability, provider credential behavior, storage schema, or existing Ollama behavior changed.
 
@@ -1147,7 +1155,7 @@ without widening the provider, WebView, connector, or tool-loop boundaries.
 4. Ollama receives `search_email`, then `open_email`, then the existing `current_time` definition when Email alone is
    enabled. OpenAI-compatible, Anthropic-compatible, and oMLX adapters pass an explicit false Email gate even if an
    internal request were malformed, so they cannot advertise or execute these tools in this slice.
-5. Ollama-emitted calls enter the existing four-round, eight-call, 30-second, 64 KiB per-result, and 256 KiB aggregate
+5. Ollama-emitted calls enter the existing four-round, eight-call, five-minute, 64 KiB per-result, and 256 KiB aggregate
    loop. Each call is checkpointed before execution, passes through the existing safe policy, strict Localmail argument
    conversion, pinned client, fixed search/open routes, redacted common envelope, and exact ordered Ollama tool-result
    message, then retains its duration/outcome and result before provider reuse.
@@ -1830,7 +1838,7 @@ without changing oMLX mapping, WebView IPC, settings, storage schema, or page-so
    Anthropic's `is_error` signal.
 4. The mapped path reuses the closed URL validator, safe execution policy, DNS/address-pinned `NativeWebFetch`, common
    64 KiB result envelope, cumulative provider usage, and existing eight-call, four-round, 256 KiB aggregate,
-   30-second, and cancellation limits.
+   five-minute, and cancellation limits.
 
 ### Acceptance criteria
 
@@ -1882,7 +1890,7 @@ representation.
    `tool_calls` message followed by the exactly correlated `role: tool` result.
 4. The mapped path reuses the closed URL validator, safe execution policy, DNS/address-pinned `NativeWebFetch`, common
    64 KiB result envelope, cumulative provider usage, and existing eight-call, four-round, 256 KiB aggregate,
-   30-second, and cancellation limits.
+   five-minute, and cancellation limits.
 
 ### Acceptance criteria
 
@@ -1934,7 +1942,7 @@ changing the other provider mappings, WebView IPC, settings, storage schema, or 
    `web_search`.
 4. Ollama calls retain generated opaque identities, exact typed arguments, safe audit policy, terminal outcome,
    native-work duration, and the exact bounded result before provider reuse. The follow-up remains one ordered
-   `role: tool` message under the existing eight-call, four-round, 256 KiB aggregate, 30-second, and cancellation
+   `role: tool` message under the existing eight-call, four-round, 256 KiB aggregate, five-minute, and cancellation
    limits.
 
 ### Acceptance criteria
@@ -2087,7 +2095,7 @@ shared cancellation path without adding oMLX mapping, web-source cards, `web_fet
    order and appends Web. oMLX requests still cannot advertise Web.
 3. Streamed Anthropic `tool_use` blocks retain their exact bounded provider identities and object inputs. Results
    return through correlated user `tool_result` blocks after the common safe dispatcher, four-round/eight-call/
-   30-second loop, 64 KiB per-result and 256 KiB aggregate-output limits, shared cancellation, and cumulative
+   five-minute loop, 64 KiB per-result and 256 KiB aggregate-output limits, shared cancellation, and cumulative
    usage/cost handling. Native structured failures set Anthropic's `is_error` signal.
 4. Each accepted call and its exact bounded success/error envelope commit to the existing append-only provider-run
    record before provider reuse. Credential, query, provider-body, path, embedding, and provider/native call identities
@@ -2151,7 +2159,7 @@ migration.
    function; Memory alone retains the three memory functions; enabling both preserves memory-definition order and
    appends Web. Anthropic-compatible and oMLX requests still cannot advertise Web.
 3. Streamed OpenAI function calls retain their exact bounded provider identities and object arguments. Results return
-   through correlated `role: tool` messages after the common safe dispatcher, four-round/eight-call/30-second loop,
+   through correlated `role: tool` messages after the common safe dispatcher, four-round/eight-call/five-minute loop,
    64 KiB per-result and 256 KiB aggregate-output limits, shared cancellation, and cumulative usage/cost handling.
 4. Each accepted call and its exact bounded success/error envelope commit to the existing append-only provider-run
    record before provider reuse. Credential, query, provider-body, path, embedding, and provider/native call identities
@@ -2213,7 +2221,7 @@ path without adding OpenAI-compatible or Anthropic-compatible mapping, web-sourc
 2. Ollama receives exactly the explicitly enabled closed definitions: Web alone advertises one `web_search` function;
    enabling Memory as well retains the three memory definitions first and appends Web. OpenAI-compatible, Anthropic-
    compatible, and oMLX requests cannot advertise Web.
-3. Ollama's ordered calls reuse the existing opaque native identities, four-round/eight-call/30-second state machine,
+3. Ollama's ordered calls reuse the existing opaque native identities, four-round/eight-call/five-minute state machine,
    64 KiB per-result and 256 KiB aggregate-output limits, cumulative usage, HTTP abort handle, and before/after native
    cancellation checks.
 4. Each accepted `web_search` invocation commits before the existing strict provider-independent dispatcher runs. Its
@@ -2739,7 +2747,7 @@ replacement, or a schema migration.
    remains Rust/SQLite-only and is returned unchanged only on the provider wire; reopened UI state and exports continue
    to omit native and provider call identities.
 5. Every accepted invocation and exact bounded success/error envelope commits before provider reuse. Anthropic rounds
-   use the same blocking native dispatcher boundary, process-lifetime query embedder, four-round/eight-call/30-second
+   use the same blocking native dispatcher boundary, process-lifetime query embedder, four-round/eight-call/five-minute
    policy, aggregate-output ceiling, HTTP abort handle, and native cancellation signal as the other mapped providers.
 6. Input tokens, output tokens, and optional provider-reported cost are accumulated across every Messages request in
    one logical generation and checkpointed through the existing usage path.
@@ -2754,7 +2762,7 @@ replacement, or a schema migration.
 - Calls and exact structured success/error results survive reopen through the existing append-only provider-run
   records before any result is reused by the provider.
 - Multiple rounds preserve cumulative usage/cost and shared cancellation while retaining the existing four-round,
-  eight-call, 64 KiB per-result, 256 KiB aggregate-output, and 30-second ceilings.
+  eight-call, 64 KiB per-result, 256 KiB aggregate-output, and five-minute ceilings.
 - oMLX tool mapping, automatic injection, citation/context-panel replacement, persistent memory controls, document
   opening, web tools, and attachment retry remain outside this slice.
 
@@ -2797,7 +2805,7 @@ context-panel replacement, or a schema migration.
    Rust/SQLite-only and is returned unchanged only on the provider wire; reopened UI state and exports continue to omit
    native and provider call identities.
 5. Every accepted invocation and exact bounded success/error envelope commits before provider reuse. OpenAI rounds use
-   the same blocking native dispatcher boundary, process-lifetime query embedder, four-round/eight-call/30-second
+   the same blocking native dispatcher boundary, process-lifetime query embedder, four-round/eight-call/five-minute
    policy, aggregate-output ceiling, HTTP abort handle, and native cancellation signal as Ollama.
 6. Input tokens, output tokens, and optional provider-reported cost are accumulated across every Chat Completions
    request in one logical generation and checkpointed through the existing usage path.
@@ -2810,7 +2818,7 @@ context-panel replacement, or a schema migration.
 - Calls and exact structured success/error results survive reopen through the existing append-only provider-run
   records before any result is reused by the provider.
 - Multiple rounds preserve cumulative usage/cost and shared cancellation while retaining the existing four-round,
-  eight-call, 64 KiB per-result, 256 KiB aggregate-output, and 30-second ceilings.
+  eight-call, 64 KiB per-result, 256 KiB aggregate-output, and five-minute ceilings.
 - Anthropic-compatible and oMLX tool mapping, automatic injection, citation/context-panel replacement, persistent
   memory controls, document opening, web tools, and attachment retry remain outside this slice.
 
@@ -2856,7 +2864,7 @@ cards, context-panel replacement, or a schema migration.
    retrieval reuses the application-owned model runtime rather than loading a second model per generation. Provider
    request rounds stay async while synchronous storage/embedding work runs on a blocking worker.
 6. Ollama request usage is accumulated across every round. Cancellation raises both the HTTP abort handle and the
-   native tool-loop signal; call, round, aggregate-output, and 30-second loop ceilings remain unchanged.
+   native tool-loop signal; call, round, aggregate-output, and five-minute loop ceilings remain unchanged.
 
 ### Acceptance criteria
 
@@ -2866,7 +2874,7 @@ cards, context-panel replacement, or a schema migration.
 - Calls and exact structured success/error results survive reopen through the existing append-only provider-run
   records before any result is reused by Ollama.
 - Multiple rounds preserve cumulative usage and shared cancellation while retaining the existing four-round,
-  eight-call, 64 KiB per-result, 256 KiB aggregate-output, and 30-second ceilings.
+  eight-call, 64 KiB per-result, 256 KiB aggregate-output, and five-minute ceilings.
 - OpenAI-compatible, Anthropic-compatible, and oMLX tool mapping, automatic injection, citation/context-panel
   replacement, persistent memory controls, document opening, web tools, and attachment retry remain outside this
   slice.
@@ -2908,7 +2916,7 @@ provider wire mapping, generation integration, automatic retrieval injection, UI
 3. Complete correlated result serialization is accumulated under a 256 KiB generation-wide ceiling in addition to
    the dispatcher's existing 64 KiB per-result ceiling. The result that would exceed the aggregate limit is not
    returned to the future provider adapter, and later calls do not execute.
-4. One 30-second deadline covers the state-machine lifetime. A cloneable native cancellation signal and the deadline
+4. One five-minute deadline covers the state-machine lifetime. A cloneable native cancellation signal and the deadline
    are checked before and after every dispatcher call and before normal completion, so cancellation or expiry prevents
    subsequent tool work and becomes terminal.
 5. Loop failures use fixed redacted `call_limit_exceeded`, `recursion_limit_exceeded`,
