@@ -69,7 +69,7 @@ pub struct ChatRequest {
     /// Whether this request may advertise Bottie's native web-search tool to a compatible local provider.
     pub web_enabled: bool,
     #[serde(default)]
-    /// Whether this request may advertise Bottie's configured Localmail tools to Ollama.
+    /// Whether this request may advertise Bottie's configured Localmail tools to a mapped provider.
     pub email_enabled: bool,
     #[serde(default)]
     /// Optional provider-neutral generation settings.

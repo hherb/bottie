@@ -20,7 +20,7 @@ pub(crate) fn email_tools_enabled(
     localmail_configured: bool,
 ) -> bool {
     email_enabled
-        && matches!(provider_id, "ollama" | "openai" | "anthropic")
+        && matches!(provider_id, "omlx" | "ollama" | "openai" | "anthropic")
         && model_supports_tools
         && localmail_configured
 }

@@ -267,6 +267,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - explicit Anthropic-compatible Email mapping with exact Messages `tool_use`/`tool_result` block correlation,
   preserved thinking state, the same configured native trust and loop bounds, and cloud-provider/Localmail delivery
   disclosure (complete);
+- explicit oMLX Email mapping through its discovered Chat Completions tool route, with exact call/result correlation,
+  the same configured native trust and loop bounds, and loopback-provider/Localmail delivery disclosure (complete);
 - CSP and Tauri capability review;
 - secret-vault and filesystem-boundary tests;
 - dependency and license review;

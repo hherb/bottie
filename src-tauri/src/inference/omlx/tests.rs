@@ -257,7 +257,7 @@ fn sends_explicit_off_and_low_reasoning_controls() {
 }
 
 #[test]
-fn maps_clock_memory_and_web_definitions_only_through_the_native_session() {
+fn maps_clock_memory_web_and_email_definitions_only_through_the_native_session() {
     let clock_only = serde_json::to_value(
         OmlxToolSession::new(live_request("model".into(), "What time is it?"))
             .unwrap()
@@ -277,6 +277,14 @@ fn maps_clock_memory_and_web_definitions_only_through_the_native_session() {
     assert_eq!(combined["tools"][3]["function"]["name"], "web_search");
     assert_eq!(combined["tools"][4]["function"]["name"], "web_fetch");
     assert_eq!(combined["tools"][5]["function"]["name"], "current_time");
+
+    let mut email = live_request("model".into(), "Find the quarterly plan email");
+    email.email_enabled = true;
+    let email = serde_json::to_value(OmlxToolSession::new(email).unwrap().request).unwrap();
+    assert_eq!(email["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(email["tools"][0]["function"]["name"], "search_email");
+    assert_eq!(email["tools"][1]["function"]["name"], "open_email");
+    assert_eq!(email["tools"][2]["function"]["name"], "current_time");
 }
 
 #[test]
