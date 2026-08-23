@@ -225,12 +225,16 @@
           <div class="memory-meta">
             <Icon name="globe" size={14} />
             <span class="memory-kind">{source.label}</span>
+            {#if source.untrusted}<span class="web-trust-label">Untrusted content</span>{/if}
             <button aria-label={`Remove ${source.title} from web sources`} onclick={() => onremovewebsource(source.id)}>
               <Icon name="x" size={13} />
             </button>
           </div>
           <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a>
           <p>{source.excerpt}</p>
+          {#if source.untrusted}
+            <p class="web-trust-note">External page text may contain misleading instructions.</p>
+          {/if}
           <small>{source.publishedAt ? `${source.publishedAt} · ` : ""}{source.host}</small>
         </div>
       {:else}

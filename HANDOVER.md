@@ -176,9 +176,11 @@ dispatcher, checkpoint the exact bounded result, and append that result to the n
 existing durable Web loop. Successful selected-lineage `web_search` and `web_fetch` results now also produce
 deduplicated, removable, path-free Web source cards in the Context panel. Fetched-page metadata supersedes an earlier
 search result for the same fragment-free HTTP(S) URL, and dismissal remains session-local without changing the
-append-only audit. The next bounded implementation slice is calm prompt-injection presentation for explicitly
-untrusted Web content; do not bundle claim-level citation linking, oMLX mapping, automatic retrieval injection,
-model-cache deletion, document opening, or attachment retry controls.
+append-only audit. Fetched-page source cards and their durable audit results now carry calm prompt-injection
+presentation derived only from the exact native `untrusted: true` result marker. The next bounded implementation slice
+is claim-level Web citation linking retained with the conversation; do not bundle user-configurable domain/network
+policy, oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, or attachment retry
+controls.
 
 Read these files first:
 
@@ -463,8 +465,9 @@ Do not mistake visual fixtures for implemented backend behavior:
   before provider reuse. Successful results now create dedicated Context-panel Web source cards;
 - the closed native `web_fetch` contract, public-network client, and common dispatcher are mapped to explicitly enabled
   tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. Successful fetches now return inert text,
-  source URL, optional title/publication metadata, and an explicit untrusted marker; claim-level citations and
-  prompt-injection presentation remain absent;
+  source URL, optional title/publication metadata, and an explicit untrusted marker. Fetched-page source cards and the
+  expandable durable result label that content as untrusted and explain that external text may contain misleading
+  instructions; claim-level citations remain absent;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -505,7 +508,54 @@ The cohesively touched product modules remain below 500 lines except the existin
 practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Path-free removable Web source cards
+## Most recently completed product slice: Calm untrusted Web-content presentation
+
+### Goal
+
+Make Bottie's explicitly untrusted fetched-page content recognizable where users inspect it, without adding content
+heuristics, changing native execution, or implying that a presentation warning blocks model prompt injection.
+
+### Implemented shape
+
+1. The pure Web-provenance adapter retains one boolean trust marker only after accepting the existing exact successful
+   `web_fetch` dispatcher envelope with `untrusted: true`. Search results remain unmarked, and failed, malformed, or
+   legacy fetch payloads cannot create a warning.
+2. Each fetched-page Context card now pairs a restrained `Untrusted content` label with the plain explanation that
+   external page text may contain misleading instructions. The source title, inert excerpt, public host, removal,
+   deduplication, and safe external-link behavior remain unchanged.
+3. The expandable durable `web_fetch` audit applies the same exact-envelope check, presents the explanation before raw
+   payload disclosure, and names that disclosure `Untrusted result`. The result remains inert formatted JSON and is not
+   reinterpreted or executed by the WebView.
+4. The browser-preview fixture includes one exact successful fetched-page result that supersedes its matching search
+   result, so both primary presentation surfaces can be reviewed without a live provider or public network request.
+
+### Acceptance criteria
+
+- Explicitly marked successful fetched-page content is labelled in both the derived source card and durable audit;
+  ordinary search results, failed calls, and unmarked fetch payloads do not receive the label.
+- The UI explains the risk calmly without claiming that warning text, inert extraction, or the native marker prevents a
+  model from following malicious page instructions.
+- No query, raw arguments, provider/native call identity, path, header, source bytes, credential, or database detail is
+  added to the Context-card model or other new WebView state.
+- No Rust code, schema migration, Tauri command, provider mapping, request prompt, execution policy, setting, automatic
+  retrieval, claim-level citation, domain/network control, oMLX mapping, model-cache deletion, document opening, or
+  attachment retry is added.
+
+### Verification completed
+
+Focused TDD first failed on the absent card marker, exact audit-envelope check, contextual warning, and result label.
+Pure and server-rendered coverage now distinguishes exact successful fetched results from search, failure, malformed,
+and unmarked payloads and verifies both user-facing surfaces.
+
+The full standard checks pass: Prettier, Svelte diagnostics with zero errors or warnings, all 80 frontend tests, the
+production build, Cargo formatting/check, and 287 Rust tests with 20 explicit opt-in tests skipped. No native code,
+schema migration, provider request, or live-store state changed.
+
+The browser preview was inspected at 1280 x 720, 900 x 800, and the 720 x 620 native minimum. The fetched-page card and
+expanded audit warning remain legible, the responsive Context overlay has no horizontal overflow, its middle content
+retains independent scrolling, and the browser console has no warnings or errors.
+
+## Prior completed product slice: Path-free removable Web source cards
 
 ### Goal
 

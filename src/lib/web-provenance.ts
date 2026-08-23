@@ -8,6 +8,7 @@ export type WebSource = {
   id: string;
   kind: "search" | "fetch";
   label: "Search result" | "Fetched page";
+  untrusted: boolean;
   title: string;
   url: string;
   host: string;
@@ -70,7 +71,7 @@ function searchSources(result: UnknownRecord): WebSource[] {
     const excerpt = requiredString(item.snippet);
     const location = safeWebLocation(item.url);
     if (!title || !excerpt || !location) return [];
-    return [sourceCard("search", "Search result", title, excerpt, optionalString(item.publishedAt), location)];
+    return [sourceCard("search", "Search result", false, title, excerpt, optionalString(item.publishedAt), location)];
   });
 }
 
@@ -83,6 +84,7 @@ function fetchSource(result: UnknownRecord): WebSource | null {
   return sourceCard(
     "fetch",
     "Fetched page",
+    true,
     optionalString(result.title) ?? location.host,
     excerpt,
     optionalString(result.publishedAt),
@@ -94,6 +96,7 @@ function fetchSource(result: UnknownRecord): WebSource | null {
 function sourceCard(
   kind: WebSource["kind"],
   label: WebSource["label"],
+  untrusted: boolean,
   title: string,
   excerpt: string,
   publishedAt: string | null,
@@ -103,6 +106,7 @@ function sourceCard(
     id: `web:${location.url}`,
     kind,
     label,
+    untrusted,
     title,
     url: location.url,
     host: location.host,

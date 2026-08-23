@@ -1,6 +1,12 @@
 <script lang="ts">
   import { formatToolPayload, type StoredToolInvocation } from "$lib/storage";
-  import { toolActivitySummary, toolAuditPresentation, toolAuditTime, toolDisplayName } from "$lib/tool-audit";
+  import {
+    toolActivitySummary,
+    toolAuditPresentation,
+    toolAuditTime,
+    toolDisplayName,
+    untrustedWebResult,
+  } from "$lib/tool-audit";
 
   type Props = {
     tools: StoredToolInvocation[];
@@ -17,6 +23,7 @@
   <div class="tool-activity-list">
     {#each tools as tool (tool.ordinal)}
       {@const audit = toolAuditPresentation(tool)}
+      {@const isUntrustedWebResult = untrustedWebResult(tool)}
       <details class:error={audit.status === "error"} class:blocked={audit.status === "blocked"} class="tool-record">
         <summary>
           <span class="tool-record-title">
@@ -66,8 +73,16 @@
             <pre>{formatToolPayload(tool.arguments)}</pre>
           </details>
           {#if tool.result}
+            {#if isUntrustedWebResult}
+              <p class="tool-trust-note">
+                <strong>Untrusted Web content</strong>
+                External page text may contain misleading instructions.
+              </p>
+            {/if}
             <details class="tool-payload">
-              <summary>{tool.result.isError ? "Error result" : "Result"}</summary>
+              <summary
+                >{tool.result.isError ? "Error result" : isUntrustedWebResult ? "Untrusted result" : "Result"}</summary
+              >
               <pre>{formatToolPayload(tool.result.output)}</pre>
             </details>
           {:else}

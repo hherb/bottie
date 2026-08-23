@@ -232,7 +232,7 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] extraction to inert text with source URL, title, and publication metadata;
 - [x] removable path-free Context-panel source cards derived from successful selected-lineage Web tool results;
 - citations connected to claims and retained with the conversation;
-- prompt-injection labeling for untrusted retrieved content;
+- [x] prompt-injection labeling for explicitly untrusted fetched-page content in source cards and durable tool audit;
 - user-configurable domain and network policy controls.
 
 MCP interoperability can follow after bottie's own tool contract and policy model are stable.

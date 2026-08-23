@@ -127,6 +127,20 @@
 .tool-payload {
   margin-top: 6px;
 }
+.tool-trust-note {
+  padding: 7px 8px;
+  margin: 6px 0 0;
+  border: 1px solid rgba(233, 169, 104, 0.16);
+  border-radius: 6px;
+  background: rgba(233, 169, 104, 0.035);
+  color: #9d7f63;
+  font-size: 7.5px;
+  line-height: 1.45;
+}
+.tool-trust-note strong {
+  display: block;
+  color: #c7935f;
+}
 .tool-payload > summary {
   padding: 5px 0;
   color: #747d7b;

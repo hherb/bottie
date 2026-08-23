@@ -204,6 +204,31 @@ export const INITIAL_MESSAGES: Message[] = [
         },
         createdAtMs: 3,
       },
+      {
+        ordinal: 2,
+        toolName: "web_fetch",
+        arguments: { url: "https://v2.tauri.app/security/" },
+        result: {
+          output: {
+            ok: true,
+            result: {
+              sourceUrl: "https://v2.tauri.app/security/",
+              title: "Tauri security guidance",
+              publishedAt: null,
+              content: "Keep privileged capabilities behind narrow native commands and review their permissions.",
+              untrusted: true,
+            },
+          },
+          isError: false,
+          createdAtMs: 6,
+        },
+        audit: {
+          policy: "safe",
+          outcome: "success",
+          durationMs: 31,
+        },
+        createdAtMs: 5,
+      },
     ],
   },
 ];
