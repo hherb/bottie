@@ -193,15 +193,17 @@ implementation slice is complete: new installations now pause before the first c
 provider/model route and disclose Bottie's provider-delivery, local-storage, Memory, Web, attachment, and credential
 boundaries. Completion requires an available remembered provider/model pair and persists through one narrow native
 command. Settings written before this flow remain acknowledged, so existing users are not forced through a false first
-run. Migration rollback planning is now complete in `MIGRATION-ROLLBACK.md`: pending migrations will run against an
-isolated SQLite candidate, a verified source-version recovery point will precede journalled promotion, and restart
-reconciliation will either validate the target or restore the source without touching attachment files. Reverse SQL
-and automatic binary downgrade are explicitly unsupported. Native clock and primary-provider tool parity are now
+run. Staged migration and promotion rollback are now complete: supported older stores are preflighted read-only and
+migrated only in an isolated same-volume candidate. A verified source-version recovery point and atomic native-only
+marker precede live promotion, and restart reconciliation accepts the exact target or restores the verified source
+before ordinary corruption classification. Source identities, the exact migration ledger, foreign keys, integrity,
+and current semantic metadata are validated; attachment files and the embedding-model cache remain unchanged. Reverse
+SQL and automatic binary downgrade are explicitly unsupported. Native clock and primary-provider tool parity are now
 complete: Rust owns the closed UTC clock, oMLX joins the durable native tool loop only after fixed endpoint-capability
-discovery, and Anthropic model discovery accepts its current structured response. The next bounded slice is staged
-migration and promotion rollback implementation. Do not bundle migration-recovery UI, a new feature schema, automatic
-retrieval injection, model-cache deletion, document opening, attachment retry controls, a general MCP runtime,
-packaging, or release updates.
+discovery, and Anthropic model discovery accepts its current structured response. The next bounded slice is structured
+local diagnostics export with explicit redaction and opt-in native save. Do not bundle diagnostic upload, provider
+request or response bodies, migration-recovery UI, a new feature schema, automatic retrieval injection,
+model-cache deletion, document opening, attachment retry controls, a general MCP runtime, packaging, or release updates.
 
 Read these files first:
 
@@ -539,7 +541,71 @@ The cohesively touched product modules remain at or below 500 lines. The crate c
 `src-tauri/src/lib.rs` remains an existing practical-limit exception; the remaining known indivisible long lines are
 SVG path values in `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Native clock and primary-provider tool parity
+## Most recently completed product slice: Staged migration and promotion rollback
+
+### Goal
+
+Prevent a failed forward migration or interrupted promotion from leaving the only live conversation store partly
+upgraded, while retaining Bottie's forward-only schema policy and native-only filesystem/database boundary.
+
+### Implemented shape
+
+1. Startup classifies absent, current, supported older, newer, and invalid stores through read-only preflight. Newer
+   schemas fail without mutation; ordinary corruption retains the existing restricted recovery path.
+2. A supported older store is copied through SQLite's online backup API into one same-volume candidate, so committed
+   WAL content is included. Pending SQL and Rust-owned backfills run only against that candidate.
+3. Exact candidate validation requires `quick_check`, zero foreign-key failures, the current schema and contiguous
+   named ledger, required foundation tables and built-in profile, current semantic metadata, and parity for every
+   source-table identity present before migration.
+4. A separate verified source-version recovery point is created only after the candidate passes. Recovery points omit
+   portable attachment payloads, remain outside automatic-backup rotation, and retain the two newest strict managed
+   files without pruning unmanaged lookalikes or the point named by an active marker.
+5. One bounded native-only marker records the operation, source/target versions, exact managed leaf names, and prepared
+   phase before live promotion. It contains no paths, SQL, content, hashes, credentials, or unrestricted filenames.
+6. Promotion reuses SQLite's restore boundary and validates the live target again. A failed promotion restores and
+   validates the source point; a damaged destination also has a same-volume replacement fallback. Attachment files and
+   the embedding-model cache are never moved or rewritten.
+7. Marker reconciliation runs before ordinary corruption classification. It accepts an exact target and cleans only
+   the candidate/marker, or restores an exact source and stops that startup with a redacted failure. If neither copy
+   validates, all managed evidence is preserved for a compatible build or later guided migration recovery.
+
+### Acceptance criteria
+
+- New, current, newer, corrupt, and supported historical stores retain their explicit fail-safe startup policy.
+- Copy, early/late candidate migration, candidate validation, recovery-point validation, live promotion, and
+  post-promotion interruption fault points do not silently lose source data or mutate attachment files.
+- WAL-only committed rows, exact ledger names, source identities, semantic metadata, foreign keys, strict filenames,
+  two-point retention, active-marker protection, and both reconciliation outcomes have path-backed coverage.
+- Migration failures expose only stable `migration_failed` or `newer_schema` messages; no Tauri command, capability,
+  frontend type, schema version, reverse SQL, provider behavior, or attachment-file operation is added.
+- A disposable copy of the real schema-21 store passes integrity, foreign-key, ledger, and row-identity parity checks
+  before native launch; the unchanged current-store startup creates no migration artifacts.
+
+### Explicit exclusions
+
+Do not add migration-recovery UI, reverse migrations, automatic binary downgrade, attachment conversion, a new feature
+schema, diagnostic upload/export, provider or tool changes, automatic retrieval, model-cache deletion, document
+opening, attachment retry controls, a general MCP runtime, packaging, or release work in this slice.
+
+### Verification completed
+
+Twelve focused path-backed tests cover WAL-aware candidate and source copies, source identity parity, injected copy,
+migration, validation, safety-copy, restore, and post-restore faults, exact target acceptance, damaged-live source
+restoration, newer-schema and malformed-ledger rejection, foreign-key failure, failed marker-write cleanup,
+malformed-marker preservation, unchanged attachment bytes, traversal-shaped managed names, strict cleanup, active
+recovery-point protection, and two-point retention. Historical version-three
+and version-four fixtures now include the coherent ledgers required of supported real stores. The full Rust suite has
+348 tests: 326 pass by default and 22 loopback, public-network, credential, or live-provider checks remain opt-in.
+
+An immutable read-only inspection of the live store returned schema 21, `quick_check=ok`, zero foreign-key failures,
+and an exact 21-row ledger. A disposable SQLite copy matched the source schema, ledger, and identities/counts for 13
+conversations, 17 branches, 72 messages, 2,740 blocks, 30 provider runs, 35 usage rows, 12 tool calls/results, four
+attachments, six message associations, and 97 chunk/vector mappings. The native app then compiled, launched, and
+rendered the existing selected conversation normally. A post-launch immutable check remained schema 21 with the same
+integrity and ledger state, and no migration marker, candidate, or recovery directory was created for the current
+store. Browser and provider checks are not applicable because this slice changes no presentation or networking.
+
+## Prior completed product slice: Native clock and primary-provider tool parity
 
 ### Goal
 
@@ -623,15 +689,16 @@ focused tests require its absence while retaining explicit disabled/adaptive thi
 confirmed authenticated live Web search completes successfully with both Claude Sonnet 5 through Anthropic and Qwen3.8
 through oMLX.
 
-## Next bounded product slice: Staged migration and promotion rollback
+## Next bounded product slice: Redacted local diagnostics export
 
-Implement the accepted `MIGRATION-ROLLBACK.md` design: preflight and copy the supported live store, apply pending
-migrations only to an isolated same-volume candidate, validate candidate and source-version recovery point, journal and
-promote through the existing SQLite replacement boundary, and reconcile interrupted promotion before ordinary startup.
-Use the acceptance criteria in the following migration-planning section. Do not add a migration-recovery UI, reverse
-SQL, automatic binary downgrade, attachment-file mutation, a new feature schema, packaging, or release work.
+Add one explicit opt-in native Save flow for Bottie's bounded session diagnostics. Reuse the existing structured
+redaction boundary and native-only path handling, define a versioned portable document with stable event fields and
+clear omission policy, and cover cancellation, empty history, filename normalization, deterministic ordering, and
+secret/path/content-shaped fixtures. Do not add automatic upload, provider request or response bodies, raw tool
+arguments/results, database or attachment content, a schema migration, migration-recovery UI, packaging, or release
+work.
 
-## Most recently completed planning slice: Migration rollback
+## Prior completed planning slice: Migration rollback
 
 ### Goal
 
@@ -666,13 +733,14 @@ binaries can read newer schemas or bundling the implementation.
 - A disposable real-store copy passes schema, integrity, foreign-key, ledger, and row-parity checks before native
   launch is allowed to migrate the live store.
 
-This is the next bounded storage slice after native clock and primary-provider tool parity.
+This planning gate defined the storage slice that was subsequently implemented after native clock and primary-provider
+tool parity.
 
 ### Explicit exclusions
 
-This planning slice changes no Rust, TypeScript, Svelte, SQLite schema, Tauri capability, live-store data, provider,
-credential, tool, attachment, backup, recovery, worker, packaging, or release behavior. Reverse migrations, automatic
-binary downgrade, migration-recovery UI, and rollback implementation remain absent.
+At the time, this planning slice changed no Rust, TypeScript, Svelte, SQLite schema, Tauri capability, live-store data,
+provider, credential, tool, attachment, backup, recovery, worker, packaging, or release behavior. Reverse migrations,
+automatic binary downgrade, and migration-recovery UI remain absent after the implementation slice.
 
 ### Verification completed
 

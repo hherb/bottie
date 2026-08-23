@@ -1,7 +1,6 @@
 //! Rust-owned durable conversation storage.
 
 use std::{
-    fs,
     path::PathBuf,
     sync::{
         Arc,
@@ -47,6 +46,8 @@ mod memory_semantic_query;
 pub(crate) mod memory_tool;
 mod message_content;
 mod migrate;
+mod migration_rollback;
+mod migration_validation;
 mod migrations;
 mod portable_backup;
 mod portable_export;
@@ -109,7 +110,7 @@ const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_CONVERSATION_TITLE_CHARACTERS: usize = 80;
 
 /// Path-backed SQLite store opened through short-lived configured connections.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct ConversationStore {
     path: PathBuf,
     recovery_required: Arc<AtomicBool>,
@@ -118,10 +119,16 @@ pub(crate) struct ConversationStore {
 impl ConversationStore {
     /// Creates the application directory, applies migrations, and verifies integrity.
     pub(crate) fn initialize(path: PathBuf) -> Result<Self, StorageError> {
+        Self::initialize_with_migration_fault(path, migration_rollback::MigrationFault::None)
+    }
+
+    /// Initializes through the deterministic staged-migration fault boundary used by path-backed tests.
+    fn initialize_with_migration_fault(
+        path: PathBuf,
+        fault: migration_rollback::MigrationFault,
+    ) -> Result<Self, StorageError> {
         memory_semantic::register_sqlite_vec()?;
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
+        migration_rollback::prepare_store(&path, fault)?;
         let store = Self {
             path,
             recovery_required: Arc::new(AtomicBool::new(false)),
@@ -463,6 +470,8 @@ mod memory_semantic_query_tests;
 mod memory_semantic_tests;
 #[cfg(test)]
 mod memory_tool_tests;
+#[cfg(test)]
+mod migration_rollback_tests;
 #[cfg(test)]
 mod portable_export_tests;
 #[cfg(test)]

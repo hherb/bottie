@@ -79,10 +79,12 @@ After a successful native startup, an app-private background rotation also creat
 reports corruption at startup, Bottie opens a restricted recovery screen instead of mutating the damaged store. Users
 can restore the newest verified automatic snapshot or choose a manual backup; Rust preserves the damaged database
 bundle in app-private storage before replacement.
-The accepted [migration rollback plan](MIGRATION-ROLLBACK.md) keeps schema changes forward-only while specifying an
-isolated migration candidate, verified pre-migration recovery point, crash-reconcilable promotion marker, and strict
-source-data validation. That rollback framework is planned but not yet implemented; current startup migrations still
-run directly against the live database one transaction at a time.
+The implemented [migration rollback contract](MIGRATION-ROLLBACK.md) keeps schema changes forward-only. Supported older
+stores are preflighted read-only, copied into an isolated same-volume candidate, migrated and validated there, and
+promoted only after a separate verified source-version recovery point and native-only marker exist. Startup reconciles
+an interrupted promotion before ordinary corruption classification by accepting a valid target or restoring the
+verified source. The two newest strict migration recovery points remain separate from automatic backup rotation;
+attachments and the embedding-model cache are never changed by schema migration.
 Remote inference, Brave Search, and Exa Search API keys stay in the operating-system credential vault and never return to
 the WebView. On macOS, Touch ID gates the first read of each saved cloud credential
 per Bottie session; successful unlocks are cached only in process memory. The native attachment picker now streams up

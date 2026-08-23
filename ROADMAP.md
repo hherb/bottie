@@ -248,9 +248,8 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 Outcome: bottie is safe and comfortable enough for sustained daily use.
 
 - first-run provider and privacy setup (complete);
-- automatic backup rotation and corruption recovery (complete), plus migration rollback planning (complete; staged
-  promotion rollback implementation is the next bounded slice);
-- crash-safe partial messages and interrupted indexing recovery;
+- automatic backup rotation, corruption recovery, and staged migration promotion rollback (complete);
+- crash-safe partial messages and interrupted indexing recovery (complete);
 - structured local diagnostics with redaction and opt-in export;
 - CSP and Tauri capability review;
 - secret-vault and filesystem-boundary tests;

@@ -1,22 +1,21 @@
 # Migration rollback plan
 
-Status: accepted implementation plan; no rollback code is included in this planning slice.
+Status: implemented in the staged migration and promotion rollback slice.
 
 ## Purpose
 
 Bottie must not leave the only live conversation store partly upgraded when a schema migration, validation step, or
-process fails. The implementation will migrate an isolated candidate, preserve a verified pre-migration database, and
-promote the candidate only after every pending migration passes.
+process fails. Startup now migrates an isolated candidate, preserves a verified pre-migration database, and promotes
+the candidate only after every pending migration passes.
 
 This plan protects Bottie's Rust-owned SQLite store while preserving the existing WebView boundary. It covers failed
 forward migrations and interrupted candidate promotion. It does not promise that an older Bottie binary can read a
 newer schema, and it does not introduce reverse SQL migrations.
 
-## Current baseline
+## Implemented baseline
 
-- `ConversationStore::initialize` opens the live database and applies each pending migration in its own immediate
-  transaction. One failed migration rolls back its transaction, but earlier migrations from the same startup may
-  already be committed.
+- `ConversationStore::initialize` preflights existing data read-only. A supported older store is copied and migrated
+  in isolation; only a new empty store applies migrations directly because it has no source data to preserve.
 - `user_version` and `schema_migrations` record the current schema. Version 17 also runs a Rust-owned deterministic
   backfill inside its migration transaction.
 - Manual restore and corruption recovery already copy a source through SQLite's online backup API, migrate an isolated
@@ -136,8 +135,7 @@ startup because the current binary cannot safely use the older schema, but the o
 
 ### Slice A — staged migration and promotion rollback
 
-This is the planned rollback implementation slice, scheduled after the native clock and primary-provider tool-parity
-slice recorded in `HANDOVER.md`.
+Status: complete after the native clock and primary-provider tool-parity slice recorded in `HANDOVER.md`.
 
 1. Separate migration-only candidate initialization from normal store startup.
 2. Add read-only preflight and exact candidate/live validation helpers.
@@ -146,7 +144,7 @@ slice recorded in `HANDOVER.md`.
    retain two completed migration recovery points.
 5. Return only a stable startup error or path-free migration outcome; add no WebView command or screen.
 
-No schema version bump is required to add this framework.
+The framework required no schema version bump and added no WebView command or capability.
 
 ### Later work
 
@@ -157,7 +155,7 @@ No schema version bump is required to add this framework.
 
 ## Test and fault matrix
 
-The implementation is not complete until path-backed tests prove:
+Path-backed acceptance coverage proves:
 
 - every retained historical schema fixture migrates to the current schema with `quick_check`, `foreign_key_check`,
   ledger, profile, and migration-specific invariants passing;
@@ -166,7 +164,7 @@ The implementation is not complete until path-backed tests prove:
   validation leaves the live database byte/logical state and attachment tree unchanged;
 - safety-copy failure prevents promotion;
 - failure during live restore returns the verified source schema and source-data rows;
-- restart reconciliation handles every marker phase, including a valid promoted live store and a damaged live store;
+- restart reconciliation handles a prepared marker with either a valid promoted live store or a damaged live store;
 - a newer schema, corrupt source, malformed ledger, invalid safety copy, and unmanaged lookalike files are never
   mutated or removed;
 - promotion cleanup removes only exact managed staging files, retains the recovery point named by an active marker, and
@@ -194,7 +192,6 @@ The rollback framework is accepted only when:
 
 ## Explicit exclusions
 
-This plan does not implement rollback, reverse migrations, cross-version downgrade automation, release packaging,
-update delivery, migration-recovery UI, backup settings, attachment file conversion, model-cache deletion, provider or
-tool behavior, oMLX Web mapping, automatic memory injection, document opening, attachment retry controls, or a general
-MCP runtime.
+This framework does not implement reverse migrations, cross-version downgrade automation, release packaging, update
+delivery, migration-recovery UI, backup settings, attachment file conversion, model-cache deletion, provider or tool
+behavior, automatic memory injection, document opening, attachment retry controls, or a general MCP runtime.
