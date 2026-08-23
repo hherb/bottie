@@ -11,12 +11,13 @@ use crate::{
 struct AnthropicWebFetchExecutor;
 
 impl NativeWebFetchExecutor for AnthropicWebFetchExecutor {
-    /// Returns one bounded untrusted page-source result through the common envelope.
+    /// Returns one bounded untrusted inert-page result through the common envelope.
     fn execute(&self, _call: &crate::tool_loop::NativeToolCall) -> MemoryToolExecution {
         bounded_memory_tool_success(json!({
-            "finalUrl": "https://example.com/release",
-            "contentType": "text/html",
-            "content": "<p>Bounded Anthropic fixture page.</p>",
+            "sourceUrl": "https://example.com/release",
+            "title": "Example release",
+            "publishedAt": "2026-08-23",
+            "content": "Bounded Anthropic fixture page.",
             "untrusted": true
         }))
     }
@@ -52,7 +53,7 @@ fn executes_anthropic_web_fetch_with_exact_call_identity_and_durable_result() {
     assert!(
         results[0]
             .content
-            .contains("<p>Bounded Anthropic fixture page.</p>")
+            .contains("Bounded Anthropic fixture page.")
     );
     assert!(results[0].content.contains(r#""untrusted":true"#));
     store
@@ -196,7 +197,7 @@ fn streams_an_anthropic_web_fetch_result_and_final_answer_across_two_requests() 
     assert!(
         requests[1]["messages"][2]["content"][0]["content"]
             .as_str()
-            .is_some_and(|content| content.contains("<p>Bounded Anthropic fixture page.</p>"))
+            .is_some_and(|content| content.contains("Bounded Anthropic fixture page."))
     );
     assert!(
         requests[1]["messages"][2]["content"][0]["content"]

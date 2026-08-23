@@ -97,8 +97,77 @@ fn fixed_error_categories_never_reflect_urls_or_response_material() {
 }
 
 #[test]
+fn extracts_bounded_inert_html_text_and_metadata() {
+    let source = concat!(
+        "<!doctype html><html><head>",
+        "<title> Fallback &amp; title </title>",
+        "<meta property=\"og:title\" content=\" Primary   title \" />",
+        "<meta property=\"article:published_time\" content=\" 2026-08-23T01:02:03Z \" />",
+        "<style>.secret { display: none; }</style>",
+        "<script>ignoreProviderInstructions()</script>",
+        "</head><body><main><h1>Primary &amp; useful</h1>",
+        "<p>One <strong>visible</strong> paragraph.</p>",
+        "<template>hidden template</template><svg><text>hidden vector</text></svg>",
+        "<p>Second&nbsp;paragraph.</p></main></body></html>",
+    );
+
+    let page = extract_page_content("text/html", source).unwrap();
+
+    assert_eq!(page.title.as_deref(), Some("Primary title"));
+    assert_eq!(page.published_at.as_deref(), Some("2026-08-23T01:02:03Z"));
+    assert!(page.content.contains("Primary & useful"));
+    assert!(page.content.contains("One visible paragraph."));
+    assert!(page.content.contains("Second paragraph."));
+    assert!(!page.content.contains('<'));
+    assert!(!page.content.contains("ignoreProviderInstructions"));
+    assert!(!page.content.contains("hidden template"));
+    assert!(!page.content.contains("hidden vector"));
+}
+
+#[test]
+fn extracts_xhtml_and_plain_text_without_executable_markup() {
+    let xhtml = concat!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+        "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head>",
+        "<title>XHTML &amp; entities</title>",
+        "</head><body><time itemprop=\"datePublished\" datetime=\"2026-08-23\"></time>",
+        "<p>First<br />Second</p></body></html>",
+    );
+    let xhtml_page = extract_page_content("application/xhtml+xml", xhtml).unwrap();
+    assert_eq!(xhtml_page.title.as_deref(), Some("XHTML & entities"));
+    assert_eq!(xhtml_page.published_at.as_deref(), Some("2026-08-23"));
+    assert_eq!(xhtml_page.content, "First\nSecond");
+
+    let plain_page = extract_page_content(
+        "text/plain",
+        "\u{feff}  First\tline  \r\nSecond\u{0007}line\n\n\nThird line  ",
+    )
+    .unwrap();
+    assert_eq!(plain_page.title, None);
+    assert_eq!(plain_page.published_at, None);
+    assert_eq!(plain_page.content, "First line\nSecond line\n\nThird line");
+}
+
+#[test]
+fn bounds_extracted_text_and_metadata_on_utf8_boundaries() {
+    let title = "T".repeat(MAX_WEB_FETCH_TITLE_BYTES + 20);
+    let published = "P".repeat(MAX_WEB_FETCH_PUBLICATION_BYTES + 20);
+    let body = "é".repeat(MAX_WEB_FETCH_TEXT_BYTES);
+    let source = format!(
+        "<html><head><title>{title}</title><meta name=\"date\" content=\"{published}\"></head>",
+    ) + &format!("<body><p>{body}</p></body></html>");
+
+    let page = extract_page_content("text/html", &source).unwrap();
+
+    assert!(page.title.unwrap().len() <= MAX_WEB_FETCH_TITLE_BYTES);
+    assert!(page.published_at.unwrap().len() <= MAX_WEB_FETCH_PUBLICATION_BYTES);
+    assert!(page.content.len() <= MAX_WEB_FETCH_TEXT_BYTES);
+    assert!(page.content.is_char_boundary(page.content.len()));
+}
+
+#[test]
 #[ignore = "requires loopback fixture access"]
-fn follows_bounded_relative_redirects_and_returns_only_utf8_page_source() {
+fn follows_bounded_relative_redirects_and_returns_only_inert_utf8_text() {
     use std::{
         io::{Read, Write},
         net::TcpListener,
@@ -137,9 +206,10 @@ fn follows_bounded_relative_redirects_and_returns_only_utf8_page_source() {
             .unwrap();
     server.join().unwrap();
 
-    assert_eq!(response.final_url, format!("http://{address}/final"));
-    assert_eq!(response.content_type, "text/html");
-    assert_eq!(response.content, "<main>Untrusted fixture.</main>");
+    assert_eq!(response.source_url, format!("http://{address}/final"));
+    assert_eq!(response.title, None);
+    assert_eq!(response.published_at, None);
+    assert_eq!(response.content, "Untrusted fixture.");
     assert!(response.untrusted);
 }
 
@@ -255,10 +325,10 @@ fn fetches_one_public_https_page_under_production_network_policy() {
     let response = tauri::async_runtime::block_on(NativeWebFetch::new().fetch(request)).unwrap();
 
     assert_eq!(
-        response.final_url,
+        response.source_url,
         "https://www.iana.org/help/example-domains"
     );
-    assert_eq!(response.content_type, "text/html");
     assert!(!response.content.is_empty());
+    assert!(!response.content.contains('<'));
     assert!(response.untrusted);
 }

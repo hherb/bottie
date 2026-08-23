@@ -39,10 +39,12 @@ OpenAI-compatible, and Anthropic-compatible models. When enabled, each mapped pr
 through Bottie's existing bounded native loop; every call and exact result is checkpointed before provider reuse.
 A separate closed `web_fetch` foundation validates one absolute public HTTP(S) URL, blocks IP literals, special-use
 names, non-default ports, and any non-public DNS answer, pins accepted addresses per hop, and revalidates at most three
-redirects under one 15-second deadline. It accepts at most 48 KiB of valid UTF-8 HTML, XHTML, or plain page source and
-marks it untrusted inside the existing 64 KiB dispatcher envelope. Explicitly enabled tool-capable Ollama,
-OpenAI-compatible, and Anthropic-compatible requests now advertise it after `web_search`, execute it through the same
-durable bounded loop, and checkpoint the exact result before provider reuse.
+redirects under one 15-second deadline. It accepts at most 48 KiB of valid UTF-8 HTML, XHTML, or plain page source,
+parses HTML/XHTML into at most 24 KiB of inert visible text, and returns the final source URL with a bounded optional
+title and publication value. Raw markup, executable/embedded element content, and media type are omitted, while the
+result remains explicitly untrusted inside the existing 64 KiB dispatcher envelope. Explicitly enabled tool-capable
+Ollama, OpenAI-compatible, and Anthropic-compatible requests now advertise it after `web_search`, execute it through
+the same durable bounded loop, and checkpoint the exact result before provider reuse.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -339,8 +341,9 @@ attachment links, and message-derived lexical/chunk/vector rows in one transacti
 shared elsewhere remain; newly unreferenced originals, extraction text, and derivatives keep the existing 24-hour
 cross-process safety window before startup garbage collection removes them. Existing exports, manual backups, and
 automatic recovery snapshots are not rewritten and must be managed separately. The application-owned embedding-model
-cache is not conversation data and is retained. oMLX `web_fetch` mapping, inert page-text extraction, automatic prompt
-injection, document opening, and attachment retry remain unavailable. Settings also exposes opt-in Trash retention:
+cache is not conversation data and is retained. oMLX `web_fetch` mapping, dedicated Web citation cards, automatic
+prompt injection, document opening, and attachment retry remain unavailable. Settings also exposes opt-in Trash
+retention:
 keep until manual forget (the default), 30 days, 90 days, or one year from the time a conversation enters Trash. Rust
 stores only that
 bounded period and permanently removes expired Trash on the next healthy app launch through the same live-store

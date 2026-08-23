@@ -7,12 +7,13 @@ use crate::generation_web_tools::NativeWebFetchExecutor;
 struct OpenAiWebFetchExecutor;
 
 impl NativeWebFetchExecutor for OpenAiWebFetchExecutor {
-    /// Returns one bounded untrusted page-source result through the common envelope.
+    /// Returns one bounded untrusted inert-page result through the common envelope.
     fn execute(&self, _call: &crate::tool_loop::NativeToolCall) -> MemoryToolExecution {
         bounded_memory_tool_success(json!({
-            "finalUrl": "https://example.com/release",
-            "contentType": "text/html",
-            "content": "<p>Bounded OpenAI fixture page.</p>",
+            "sourceUrl": "https://example.com/release",
+            "title": "Example release",
+            "publishedAt": "2026-08-23",
+            "content": "Bounded OpenAI fixture page.",
             "untrusted": true
         }))
     }
@@ -139,11 +140,7 @@ fn executes_openai_web_fetch_with_exact_call_identity_and_durable_result() {
     .expect("OpenAI web-fetch round should execute");
 
     assert_eq!(results[0].tool_call_id, "call_openai_fetch_1");
-    assert!(
-        results[0]
-            .content
-            .contains("<p>Bounded OpenAI fixture page.</p>")
-    );
+    assert!(results[0].content.contains("Bounded OpenAI fixture page."));
     assert!(results[0].content.contains(r#""untrusted":true"#));
     store
         .finish_provider_run(&run_id, ProviderRunState::Completed, None, None)
@@ -386,7 +383,7 @@ fn streams_an_openai_web_fetch_result_and_final_answer_across_two_requests() {
     assert!(
         requests[1]["messages"][2]["content"]
             .as_str()
-            .is_some_and(|content| content.contains("<p>Bounded OpenAI fixture page.</p>"))
+            .is_some_and(|content| content.contains("Bounded OpenAI fixture page."))
     );
     assert!(
         requests[1]["messages"][2]["content"]
