@@ -57,6 +57,12 @@ On completion and reopen, Bottie marks a link as a Web citation only when its no
 successful Web result retained on that same response; the matching Context card is labelled `Cited in response`.
 Unmatched model-authored links remain ordinary safe external links, and copied or exported Markdown preserves the
 same claim-level link without adding opaque tool identities.
+Settings now persist a secret-free Web destination policy behind the Rust boundary. HTTPS-only access is the default;
+users may save up to 32 combined allowed and blocked public DNS names, with parent-domain matching and blocked-domain
+precedence. Rust filters normalized search results before the common tool envelope and applies the same immutable
+per-generation policy before a fetch plus after every redirect. Disabling HTTPS-only permits public HTTP without ever
+permitting IP literals, loopback, private, special-use, mixed public/private DNS answers, non-default ports, ambient
+proxies, or automatic redirects.
 The selected visible branch can be saved as either human-readable Markdown or versioned, machine-readable JSON. Both
 formats retain separate reasoning, response status, provider/model provenance, local ratings, retained tool activity,
 and path-free attachment metadata. When the selected lineage or conversation scope references retained files, Rust
@@ -155,9 +161,10 @@ hosts, embedded credentials, paths, query strings, and fragments; redirects are 
 exposed to the WebView. oMLX discovery reads explicit VLM and residency metadata from `/v1/models/status`. Ollama
 discovery also normalizes model capabilities, context size, and loaded/on-demand state.
 
-Settings also support HTTPS OpenAI-compatible and Anthropic-compatible profiles. API keys are written and removed
-through narrow Rust commands backed by the OS credential vault. Cloud routes are visibly labelled before sending,
-redirects stay disabled, and remote response usage and provider-reported cost metadata are preserved when available.
+Settings also support HTTPS OpenAI-compatible and Anthropic-compatible profiles plus path-free Web destination
+controls. API keys are written and removed through narrow Rust commands backed by the OS credential vault. Cloud
+routes are visibly labelled before sending, redirects stay disabled, and remote response usage and provider-reported
+cost metadata are preserved when available.
 
 Thinking/reasoning defaults to off and can be toggled to low effort for each request. Reasoning-capable providers stream
 that material into a collapsed, user-expandable section rather than mixing it into the answer. Native generation also

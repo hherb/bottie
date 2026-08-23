@@ -76,6 +76,13 @@ export type ProviderId = "omlx" | "ollama" | "openai" | "anthropic";
 /** Fixed native web-search adapters available for explicit selection. */
 export type WebSearchProviderId = "brave" | "exa";
 
+/** Saved path-free restrictions applied by Rust to public Web destinations. */
+export type WebNetworkPolicy = {
+  httpsOnly: boolean;
+  allowedDomains: string[];
+  blockedDomains: string[];
+};
+
 /** Persisted non-secret provider configuration. */
 export type ProviderSettings = {
   omlxBaseUrl: string;
@@ -83,6 +90,7 @@ export type ProviderSettings = {
   openaiBaseUrl: string;
   anthropicBaseUrl: string;
   webSearchProviderId: WebSearchProviderId;
+  webNetworkPolicy: WebNetworkPolicy;
   lastProviderId: ProviderId | null;
   lastModelId: string | null;
 };

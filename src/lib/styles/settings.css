@@ -185,6 +185,42 @@
   color: #777581;
   font-size: 8px;
 }
+.web-network-policy textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 64px;
+  padding: 9px 10px;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  outline: 0;
+  background: #0d0d12;
+  color: #d9d6dd;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.web-network-policy textarea:focus {
+  border-color: rgba(143, 125, 247, 0.5);
+  box-shadow: 0 0 0 3px rgba(143, 125, 247, 0.07);
+}
+.web-policy-toggle {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+.web-policy-toggle input {
+  margin: 0;
+  accent-color: #8070dc;
+}
+.web-policy-boundary {
+  margin: 10px 0 0;
+  color: #6f8b87;
+  font-size: 8px;
+  line-height: 1.5;
+}
 .endpoint-row button:hover,
 .credential-row button:hover,
 .fixed-route-row button:hover,

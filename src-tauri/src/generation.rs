@@ -116,10 +116,12 @@ pub(crate) async fn start_chat(
             .as_ref()
             .is_some_and(|capabilities| capabilities.tools),
     );
+    let provider_settings = providers.settings();
     let web_search = if supports_web_tools {
         match configured_web_search(
-            &providers.settings().web_search_provider_id,
+            &provider_settings.web_search_provider_id,
             state.credentials.as_ref(),
+            provider_settings.web_network_policy.clone(),
         ) {
             Ok(provider) => Some(provider),
             Err(error) => {
@@ -136,8 +138,8 @@ pub(crate) async fn start_chat(
     } else {
         None
     };
-    let web_fetch =
-        web_fetch_enabled(supports_web_tools, provider.provider_id()).then(configured_web_fetch);
+    let web_fetch = web_fetch_enabled(supports_web_tools, provider.provider_id())
+        .then(|| configured_web_fetch(provider_settings.web_network_policy));
     let supports_tools = supports_memory_tools || supports_web_tools;
     let attachment_context = if supports_vision {
         state

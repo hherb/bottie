@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { ProviderSettings } from "$lib/inference";
 import type { Attachment, Message } from "$lib/presentation";
 
 import {
@@ -63,15 +64,16 @@ describe("page presentation", () => {
   });
 
   it("builds provider route labels without exposing protocol noise", () => {
-    const settings = {
+    const settings: ProviderSettings = {
       omlxBaseUrl: "http://127.0.0.1:8000/",
       ollamaBaseUrl: "http://127.0.0.1:11434/",
       openaiBaseUrl: "https://api.openai.com/v1/",
       anthropicBaseUrl: "https://api.anthropic.com/v1/",
       webSearchProviderId: "brave",
+      webNetworkPolicy: { httpsOnly: true, allowedDomains: [], blockedDomains: [] },
       lastProviderId: null,
       lastModelId: null,
-    } as const;
+    };
 
     expect(selectedProviderEndpoint("ollama", settings)).toBe("127.0.0.1:11434");
     expect(inferenceStages(false, false, "Cloud provider", "Brave Search", "low")).toEqual([

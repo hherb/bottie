@@ -19,7 +19,9 @@ use reqwest::{
 use serde::{Deserialize, Serialize};
 use url::{Host, Url};
 
-pub(crate) use errors::{WebFetchError, WebFetchErrorCode};
+use crate::web_policy::WebNetworkPolicy;
+
+pub(crate) use errors::{WebFetchError, WebFetchErrorCode, blocked_by_user_policy};
 use errors::{
     blocked_address, internal_error, invalid_request, malformed_response, map_request_error,
     redirect_error, response_too_large, unsupported_content_type,
@@ -55,18 +57,39 @@ impl WebFetchArguments {
     pub(crate) fn into_request(self) -> Result<WebFetchRequest, WebFetchError> {
         WebFetchRequest::new(self.url)
     }
+
+    /// Converts validated arguments under one immutable saved policy snapshot.
+    pub(crate) fn into_request_with_policy(
+        self,
+        policy: &WebNetworkPolicy,
+    ) -> Result<WebFetchRequest, WebFetchError> {
+        WebFetchRequest::with_policy(self.url, policy.clone())
+    }
 }
 
 /// One normalized public URL accepted by the native fetch boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct WebFetchRequest {
     url: Url,
+    policy: WebNetworkPolicy,
 }
 
 impl WebFetchRequest {
     /// Validates a public HTTP(S) URL, removes its fragment, and forbids embedded authority.
     pub(crate) fn new(value: impl Into<String>) -> Result<Self, WebFetchError> {
-        normalize_public_url(&value.into()).map(|url| Self { url })
+        Self::with_policy(value, WebNetworkPolicy::public_http_and_https())
+    }
+
+    /// Applies one normalized saved policy before any network work can begin.
+    fn with_policy(
+        value: impl Into<String>,
+        policy: WebNetworkPolicy,
+    ) -> Result<Self, WebFetchError> {
+        let url = normalize_public_url(&value.into())?;
+        if !policy.allows_url(&url) {
+            return Err(blocked_by_user_policy());
+        }
+        Ok(Self { url, policy })
     }
 
     #[cfg(test)]
@@ -80,7 +103,10 @@ impl WebFetchRequest {
     fn for_loopback_fixture(value: &str) -> Self {
         let mut url = Url::parse(value).expect("fixture URL should parse");
         url.set_fragment(None);
-        Self { url }
+        Self {
+            url,
+            policy: WebNetworkPolicy::public_http_and_https(),
+        }
     }
 }
 
@@ -95,11 +121,24 @@ pub(crate) struct WebFetchResponse {
     untrusted: bool,
 }
 
+impl WebFetchResponse {
+    /// Confirms a provider result still matches the saved destination policy before serialization.
+    pub(crate) fn allowed_by(&self, policy: &WebNetworkPolicy) -> bool {
+        Url::parse(&self.source_url).is_ok_and(|url| policy.allows_url(&url))
+    }
+}
+
 #[cfg(test)]
 /// Builds one bounded response for provider-neutral dispatcher fixtures.
 pub(crate) fn fixture_web_fetch_response() -> WebFetchResponse {
+    fixture_web_fetch_response_at("https://www.iana.org/release")
+}
+
+#[cfg(test)]
+/// Builds one bounded response at a test-selected safe destination for policy fixtures.
+pub(crate) fn fixture_web_fetch_response_at(source_url: &str) -> WebFetchResponse {
     WebFetchResponse {
-        source_url: "https://www.iana.org/release".into(),
+        source_url: source_url.into(),
         title: Some("IANA release".into()),
         published_at: Some("2026-08-23".into()),
         content: "Bounded fixture page.".into(),
@@ -201,6 +240,7 @@ impl WebFetchProvider for NativeWebFetch {
     async fn fetch(&self, request: WebFetchRequest) -> Result<WebFetchResponse, WebFetchError> {
         let deadline = Instant::now() + self.total_timeout;
         let mut current = request.url;
+        let policy = request.policy;
         for followed in 0..=MAX_WEB_FETCH_REDIRECTS {
             let response = self.send(&current, deadline).await?;
             if is_redirect(response.status()) {
@@ -208,6 +248,9 @@ impl WebFetchProvider for NativeWebFetch {
                     return Err(redirect_error());
                 }
                 current = redirect_target(&current, &response, self.allow_non_public())?;
+                if !self.allow_non_public() && !policy.allows_url(&current) {
+                    return Err(blocked_by_user_policy());
+                }
                 continue;
             }
             if !response.status().is_success() {

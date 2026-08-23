@@ -11,6 +11,8 @@ mod tests;
 use serde::{Deserialize, Serialize};
 use url::{Host, Url};
 
+use crate::web_policy::WebNetworkPolicy;
+
 pub use brave::BraveSearchProvider;
 pub use exa::ExaSearchProvider;
 
@@ -345,6 +347,13 @@ impl WebSearchResponse {
     /// Returns the ordered bounded normalized web results.
     pub fn results(&self) -> &[WebSearchResult] {
         &self.results
+    }
+
+    /// Drops destinations that do not satisfy the durable user policy before serialization.
+    pub(crate) fn filtered_by(mut self, policy: &WebNetworkPolicy) -> Self {
+        self.results
+            .retain(|result| Url::parse(result.url()).is_ok_and(|url| policy.allows_url(&url)));
+        self
     }
 }
 

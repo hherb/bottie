@@ -233,7 +233,8 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] removable path-free Context-panel source cards derived from successful selected-lineage Web tool results;
 - [x] citations connected to claims and retained with the conversation;
 - [x] prompt-injection labeling for explicitly untrusted fetched-page content in source cards and durable tool audit;
-- user-configurable domain and network policy controls.
+- [x] user-configurable HTTPS, allowlisted-domain, and blocklisted-domain policy applied to Web search results,
+  fetches, and every redirect without weakening the fixed public-address baseline.
 
 MCP interoperability can follow after bottie's own tool contract and policy model are stable.
 

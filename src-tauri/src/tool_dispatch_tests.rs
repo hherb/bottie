@@ -14,8 +14,9 @@ use crate::{
     tool_loop::NativeToolCall,
     web_fetch::{
         WebFetchError, WebFetchProvider, WebFetchRequest, WebFetchResponse,
-        fixture_web_fetch_response,
+        fixture_web_fetch_response, fixture_web_fetch_response_at,
     },
+    web_policy::WebNetworkPolicy,
     web_search::{
         WebSearchError, WebSearchProvider, WebSearchRequest, WebSearchResponse,
         fixture_web_search_response,
@@ -24,7 +25,6 @@ use crate::{
 
 /// Embedding dimensions fixed by Bottie's active EmbeddingGemma contract.
 const TEST_EMBEDDING_DIMENSIONS: usize = 768;
-
 /// Deterministic embedding boundary that records whether native model work occurred.
 #[derive(Default)]
 struct DispatchEmbedder {
@@ -275,8 +275,12 @@ fn dispatches_validated_web_search_through_the_provider_neutral_boundary() {
         }),
     };
 
-    let execution =
-        tauri::async_runtime::block_on(dispatch_web_search_tool(&provider, &call, None));
+    let execution = tauri::async_runtime::block_on(dispatch_web_search_tool(
+        &provider,
+        &call,
+        &WebNetworkPolicy::default(),
+        None,
+    ));
     let result = success_result(execution);
     assert_eq!(result["providerId"], json!("fixture"));
     assert_eq!(
@@ -308,8 +312,12 @@ fn rejects_invalid_web_search_before_network_work_and_redacts_provider_failures(
         tool_name: "web_search".into(),
         arguments: json!({"query": "private query", "includeDomains": ["https://invalid"]}),
     };
-    let invalid =
-        tauri::async_runtime::block_on(dispatch_web_search_tool(&provider, &invalid_call, None));
+    let invalid = tauri::async_runtime::block_on(dispatch_web_search_tool(
+        &provider,
+        &invalid_call,
+        &WebNetworkPolicy::default(),
+        None,
+    ));
     let MemoryToolExecution::Error { error } = invalid else {
         panic!("invalid search should return an error envelope");
     };
@@ -321,8 +329,12 @@ fn rejects_invalid_web_search_before_network_work_and_redacts_provider_failures(
         tool_name: "web_search".into(),
         arguments: json!({"query": "private query"}),
     };
-    let failed =
-        tauri::async_runtime::block_on(dispatch_web_search_tool(&provider, &failed_call, None));
+    let failed = tauri::async_runtime::block_on(dispatch_web_search_tool(
+        &provider,
+        &failed_call,
+        &WebNetworkPolicy::default(),
+        None,
+    ));
     let MemoryToolExecution::Error { error } = failed else {
         panic!("provider failure should return an error envelope");
     };
@@ -344,7 +356,12 @@ fn dispatches_validated_web_fetch_through_the_bounded_native_boundary() {
         arguments: json!({"url": "https://www.iana.org/release#notes"}),
     };
 
-    let execution = tauri::async_runtime::block_on(dispatch_web_fetch_tool(&provider, &call, None));
+    let execution = tauri::async_runtime::block_on(dispatch_web_fetch_tool(
+        &provider,
+        &call,
+        &WebNetworkPolicy::default(),
+        None,
+    ));
     let result = success_result(execution);
     assert_eq!(result["sourceUrl"], json!("https://www.iana.org/release"));
     assert_eq!(result["title"], json!("IANA release"));
@@ -369,8 +386,12 @@ fn rejects_invalid_web_fetch_before_network_work_and_redacts_failures() {
         tool_name: "web_fetch".into(),
         arguments: json!({"url": "http://127.0.0.1/private"}),
     };
-    let invalid =
-        tauri::async_runtime::block_on(dispatch_web_fetch_tool(&provider, &invalid_call, None));
+    let invalid = tauri::async_runtime::block_on(dispatch_web_fetch_tool(
+        &provider,
+        &invalid_call,
+        &WebNetworkPolicy::default(),
+        None,
+    ));
     let MemoryToolExecution::Error { error } = invalid else {
         panic!("invalid fetch should return an error envelope");
     };
@@ -382,11 +403,98 @@ fn rejects_invalid_web_fetch_before_network_work_and_redacts_failures() {
         tool_name: "web_fetch".into(),
         arguments: json!({"url": "https://www.iana.org/private"}),
     };
-    let failed =
-        tauri::async_runtime::block_on(dispatch_web_fetch_tool(&provider, &failed_call, None));
+    let failed = tauri::async_runtime::block_on(dispatch_web_fetch_tool(
+        &provider,
+        &failed_call,
+        &WebNetworkPolicy::default(),
+        None,
+    ));
     let MemoryToolExecution::Error { error } = failed else {
         panic!("fetch failure should return an error envelope");
     };
     assert_eq!(error.code, MemoryToolExecutionErrorCode::Unavailable);
     assert!(!error.message.contains("private"));
+}
+
+#[test]
+fn applies_saved_web_policy_before_results_cross_the_dispatch_boundary() {
+    let search_requests = Arc::new(Mutex::new(Vec::new()));
+    let search_provider = DispatchSearchProvider {
+        requests: search_requests.clone(),
+        result: Ok(fixture_web_search_response()),
+    };
+    let search_call = NativeToolCall {
+        call_id: "search-call".into(),
+        tool_name: "web_search".into(),
+        arguments: json!({"query": "bounded policy"}),
+    };
+    let policy = WebNetworkPolicy {
+        blocked_domains: vec!["example.com".into()],
+        ..WebNetworkPolicy::default()
+    }
+    .normalized()
+    .unwrap();
+    let search = tauri::async_runtime::block_on(dispatch_web_search_tool(
+        &search_provider,
+        &search_call,
+        &policy,
+        None,
+    ));
+    assert_eq!(success_result(search)["results"], json!([]));
+    assert_eq!(search_requests.lock().unwrap().len(), 1);
+
+    let fetch_requests = Arc::new(Mutex::new(Vec::new()));
+    let fetch_provider = DispatchFetchProvider {
+        requests: fetch_requests.clone(),
+        result: Ok(fixture_web_fetch_response()),
+    };
+    let fetch_call = NativeToolCall {
+        call_id: "fetch-call".into(),
+        tool_name: "web_fetch".into(),
+        arguments: json!({"url": "https://www.iana.org/release"}),
+    };
+    let policy = WebNetworkPolicy {
+        blocked_domains: vec!["iana.org".into()],
+        ..WebNetworkPolicy::default()
+    }
+    .normalized()
+    .unwrap();
+    let fetch = tauri::async_runtime::block_on(dispatch_web_fetch_tool(
+        &fetch_provider,
+        &fetch_call,
+        &policy,
+        None,
+    ));
+    let MemoryToolExecution::Error { error } = fetch else {
+        panic!("blocked fetch should return an error envelope");
+    };
+    assert_eq!(error.code, MemoryToolExecutionErrorCode::InvalidArguments);
+    assert!(fetch_requests.lock().unwrap().is_empty());
+    assert!(!error.message.contains("iana"));
+
+    let final_requests = Arc::new(Mutex::new(Vec::new()));
+    let final_provider = DispatchFetchProvider {
+        requests: final_requests.clone(),
+        result: Ok(fixture_web_fetch_response_at(
+            "https://example.com/redirected",
+        )),
+    };
+    let policy = WebNetworkPolicy {
+        allowed_domains: vec!["iana.org".into()],
+        ..WebNetworkPolicy::default()
+    }
+    .normalized()
+    .unwrap();
+    let final_result = tauri::async_runtime::block_on(dispatch_web_fetch_tool(
+        &final_provider,
+        &fetch_call,
+        &policy,
+        None,
+    ));
+    let MemoryToolExecution::Error { error } = final_result else {
+        panic!("policy-mismatched final URL should return an error envelope");
+    };
+    assert_eq!(error.code, MemoryToolExecutionErrorCode::InvalidArguments);
+    assert_eq!(final_requests.lock().unwrap().len(), 1);
+    assert!(!error.message.contains("example"));
 }

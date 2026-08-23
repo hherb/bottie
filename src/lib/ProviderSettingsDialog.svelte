@@ -4,6 +4,7 @@
   import Icon from "$lib/Icon.svelte";
   import MemoryIndexControl from "$lib/MemoryIndexControl.svelte";
   import ConversationRetentionControl from "$lib/ConversationRetentionControl.svelte";
+  import WebNetworkPolicyControl from "$lib/WebNetworkPolicyControl.svelte";
   import { DEFAULT_PROVIDER_SETTINGS } from "$lib/presentation";
   import {
     getDiagnostics,
@@ -20,6 +21,7 @@
     type ProviderSettings,
     type WebSearchProviderId,
   } from "$lib/inference";
+  import { cloneWebNetworkPolicy } from "$lib/web-policy";
 
   type ConnectionTestState = {
     status: "idle" | "testing" | "success" | "error";
@@ -63,7 +65,10 @@
   ];
 
   let { settings, isGenerating, onclose, onsaved }: Props = $props();
-  let settingsDraft = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
+  let settingsDraft = $state<ProviderSettings>({
+    ...DEFAULT_PROVIDER_SETTINGS,
+    webNetworkPolicy: cloneWebNetworkPolicy(DEFAULT_PROVIDER_SETTINGS.webNetworkPolicy),
+  });
   let draftInitialized = false;
   let settingsError = $state("");
   let settingsSaving = $state(false);
@@ -99,7 +104,10 @@
 
   $effect(() => {
     if (!draftInitialized) {
-      settingsDraft = { ...settings };
+      settingsDraft = {
+        ...settings,
+        webNetworkPolicy: cloneWebNetworkPolicy(settings.webNetworkPolicy),
+      };
       draftInitialized = true;
     }
     void refreshDiagnostics();
@@ -393,6 +401,12 @@
           {/if}
         </div>
       {/each}
+
+      <WebNetworkPolicyControl
+        policy={settingsDraft.webNetworkPolicy}
+        disabled={!isTauri() || settingsSaving}
+        onchange={(policy) => (settingsDraft.webNetworkPolicy = policy)}
+      />
 
       <div class="settings-policy">
         <Icon name="shield" size={15} />

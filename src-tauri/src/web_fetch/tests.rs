@@ -35,6 +35,26 @@ fn request_normalizes_public_urls_and_removes_fragments() {
 }
 
 #[test]
+fn saved_https_policy_can_be_explicitly_relaxed_without_weakening_the_public_baseline() {
+    let arguments = WebFetchArguments {
+        url: "http://www.iana.org/domains".into(),
+    };
+
+    assert!(arguments.clone().into_request().is_ok());
+    assert!(
+        arguments
+            .clone()
+            .into_request_with_policy(&WebNetworkPolicy::default())
+            .is_err()
+    );
+    assert!(
+        arguments
+            .into_request_with_policy(&WebNetworkPolicy::public_http_and_https())
+            .is_ok()
+    );
+}
+
+#[test]
 fn public_ip_policy_rejects_local_reserved_and_transition_ranges() {
     for address in [
         "0.0.0.0",

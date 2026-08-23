@@ -13,6 +13,7 @@ use crate::{
     tool_loop::NativeToolCall,
     tool_policy::{ToolPolicyError, ToolPolicyErrorCode},
     web_fetch::{NativeWebFetch, WEB_FETCH_TOOL_NAME},
+    web_policy::WebNetworkPolicy,
     web_search::{
         BRAVE_SEARCH_PROVIDER_ID, BraveSearchProvider, EXA_SEARCH_PROVIDER_ID, ExaSearchProvider,
         WEB_SEARCH_TOOL_NAME,
@@ -74,6 +75,7 @@ pub(crate) fn memory_tools_enabled(
 pub(crate) fn configured_web_search(
     provider_id: &str,
     credentials: &dyn CredentialStore,
+    network_policy: WebNetworkPolicy,
 ) -> Result<Arc<dyn NativeWebSearchExecutor>, ProviderError> {
     if !matches!(
         provider_id,
@@ -93,23 +95,37 @@ pub(crate) fn configured_web_search(
         })?
         .ok_or_else(|| ProviderError::invalid_request(missing_credential_message(provider_id)))?;
     let provider = match provider_id {
-        BRAVE_SEARCH_PROVIDER_ID => BraveSearchProvider::new(api_key)
-            .map(|provider| Arc::new(provider) as Arc<dyn NativeWebSearchExecutor>),
-        EXA_SEARCH_PROVIDER_ID => ExaSearchProvider::new(api_key)
-            .map(|provider| Arc::new(provider) as Arc<dyn NativeWebSearchExecutor>),
+        BRAVE_SEARCH_PROVIDER_ID => {
+            BraveSearchProvider::new(api_key).map(ConfiguredWebSearchProvider::Brave)
+        }
+        EXA_SEARCH_PROVIDER_ID => {
+            ExaSearchProvider::new(api_key).map(ConfiguredWebSearchProvider::Exa)
+        }
         _ => unreachable!("provider identity was validated above"),
     };
-    provider.map_err(|_| {
-        ProviderError::internal(
-            "Bottie could not initialize the configured web-search provider.",
-            None,
-        )
-    })
+    provider
+        .map(|provider| {
+            Arc::new(ConfiguredWebSearch {
+                provider,
+                network_policy,
+            }) as Arc<dyn NativeWebSearchExecutor>
+        })
+        .map_err(|_| {
+            ProviderError::internal(
+                "Bottie could not initialize the configured web-search provider.",
+                None,
+            )
+        })
 }
 
 /// Constructs the credential-free public-network fetcher for an explicitly mapped request.
-pub(crate) fn configured_web_fetch() -> Arc<dyn NativeWebFetchExecutor> {
-    Arc::new(NativeWebFetch::new())
+pub(crate) fn configured_web_fetch(
+    network_policy: WebNetworkPolicy,
+) -> Arc<dyn NativeWebFetchExecutor> {
+    Arc::new(ConfiguredWebFetch {
+        provider: NativeWebFetch::new(),
+        network_policy,
+    })
 }
 
 /// Returns the user action for a missing selected search credential.
@@ -126,15 +142,28 @@ pub(crate) trait NativeWebSearchExecutor: Send + Sync {
     fn execute(&self, call: &NativeToolCall) -> MemoryToolExecution;
 }
 
-impl NativeWebSearchExecutor for BraveSearchProvider {
-    fn execute(&self, call: &NativeToolCall) -> MemoryToolExecution {
-        tauri::async_runtime::block_on(dispatch_web_search_tool(self, call, None))
-    }
+/// Concrete selected provider retained with one immutable per-generation policy snapshot.
+enum ConfiguredWebSearchProvider {
+    Brave(BraveSearchProvider),
+    Exa(ExaSearchProvider),
 }
 
-impl NativeWebSearchExecutor for ExaSearchProvider {
+/// Search executor that cannot observe settings changes during an accepted generation.
+struct ConfiguredWebSearch {
+    provider: ConfiguredWebSearchProvider,
+    network_policy: WebNetworkPolicy,
+}
+
+impl NativeWebSearchExecutor for ConfiguredWebSearch {
     fn execute(&self, call: &NativeToolCall) -> MemoryToolExecution {
-        tauri::async_runtime::block_on(dispatch_web_search_tool(self, call, None))
+        match &self.provider {
+            ConfiguredWebSearchProvider::Brave(provider) => tauri::async_runtime::block_on(
+                dispatch_web_search_tool(provider, call, &self.network_policy, None),
+            ),
+            ConfiguredWebSearchProvider::Exa(provider) => tauri::async_runtime::block_on(
+                dispatch_web_search_tool(provider, call, &self.network_policy, None),
+            ),
+        }
     }
 }
 
@@ -144,9 +173,20 @@ pub(crate) trait NativeWebFetchExecutor: Send + Sync {
     fn execute(&self, call: &NativeToolCall) -> MemoryToolExecution;
 }
 
-impl NativeWebFetchExecutor for NativeWebFetch {
+/// Fetch executor retaining the same policy snapshot as its generation's search executor.
+struct ConfiguredWebFetch {
+    provider: NativeWebFetch,
+    network_policy: WebNetworkPolicy,
+}
+
+impl NativeWebFetchExecutor for ConfiguredWebFetch {
     fn execute(&self, call: &NativeToolCall) -> MemoryToolExecution {
-        tauri::async_runtime::block_on(dispatch_web_fetch_tool(self, call, None))
+        tauri::async_runtime::block_on(dispatch_web_fetch_tool(
+            &self.provider,
+            call,
+            &self.network_policy,
+            None,
+        ))
     }
 }
 
@@ -265,6 +305,7 @@ mod tests {
         let error = match configured_web_search(
             BRAVE_SEARCH_PROVIDER_ID,
             &CredentialFixture { fail_read: false },
+            WebNetworkPolicy::default(),
         ) {
             Ok(_) => panic!("missing credential must not build a web-search executor"),
             Err(error) => error,
@@ -280,6 +321,7 @@ mod tests {
         let error = match configured_web_search(
             EXA_SEARCH_PROVIDER_ID,
             &CredentialFixture { fail_read: false },
+            WebNetworkPolicy::default(),
         ) {
             Ok(_) => panic!("missing credential must not build a web-search executor"),
             Err(error) => error,
@@ -295,6 +337,7 @@ mod tests {
         let error = match configured_web_search(
             EXA_SEARCH_PROVIDER_ID,
             &CredentialFixture { fail_read: true },
+            WebNetworkPolicy::default(),
         ) {
             Ok(_) => panic!("credential failure must not build a web-search executor"),
             Err(error) => error,
@@ -312,7 +355,11 @@ mod tests {
 
     #[test]
     fn rejects_unknown_search_engines_before_credential_access() {
-        let error = match configured_web_search("custom", &CredentialFixture { fail_read: true }) {
+        let error = match configured_web_search(
+            "custom",
+            &CredentialFixture { fail_read: true },
+            WebNetworkPolicy::default(),
+        ) {
             Ok(_) => panic!("unknown provider must not build a web-search executor"),
             Err(error) => error,
         };

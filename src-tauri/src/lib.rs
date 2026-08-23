@@ -22,6 +22,7 @@ mod tool_dispatch;
 mod tool_loop;
 mod tool_policy;
 mod web_fetch;
+mod web_policy;
 pub mod web_search;
 mod web_search_commands;
 
@@ -35,6 +36,8 @@ mod tool_dispatch_tests;
 mod tool_loop_tests;
 #[cfg(test)]
 mod tool_policy_tests;
+#[cfg(test)]
+mod web_policy_tests;
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
 
@@ -208,7 +211,10 @@ async fn update_provider_settings(
         "info",
         "Provider settings saved",
         None,
-        Some("Inference endpoints and the fixed web-search route were updated; no credentials stored"),
+        Some(concat!(
+            "Inference endpoints, fixed web-search route, and Web destination policy were updated; ",
+            "no credentials stored",
+        )),
     )
     .await;
     Ok(settings)
