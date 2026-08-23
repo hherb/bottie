@@ -12,6 +12,7 @@ mod generation_tools;
 mod generation_usage;
 mod generation_web_tools;
 mod inference;
+mod localmail;
 mod provider_registry;
 mod semantic_indexer;
 mod storage;
@@ -55,6 +56,10 @@ use inference::{
     ProviderError, ProviderSettings, load_provider_settings, persist_completed_first_run_setup,
     save_provider_settings,
 };
+use localmail::{
+    get_localmail_connection_status, probe_localmail_connection, test_localmail_connection,
+    update_localmail_connection,
+};
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use semantic_indexer::SemanticIndexer;
 use storage::ConversationStore;
@@ -85,6 +90,7 @@ type ActiveRuns = Arc<tauri::async_runtime::Mutex<HashMap<String, ActiveRun>>>;
 struct AppState {
     providers: tauri::async_runtime::RwLock<ProviderSet>,
     settings_path: PathBuf,
+    localmail_config_path: PathBuf,
     runs: ActiveRuns,
     diagnostics: Diagnostics,
     credentials: Arc<dyn CredentialStore>,
@@ -465,6 +471,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let settings_path = app.path().app_config_dir()?.join("providers.json");
+            let localmail_config_path = app.path().app_config_dir()?.join("localmail.json");
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
             let embedding_cache_path = app.path().app_data_dir()?.join("embedding-models");
             let startup = ConversationStore::initialize_for_app(database_path)
@@ -515,6 +522,7 @@ pub fn run() {
             app.manage(AppState {
                 providers: tauri::async_runtime::RwLock::new(providers),
                 settings_path,
+                localmail_config_path,
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 diagnostics,
                 credentials: Arc::new(SystemCredentialStore::default()),
@@ -535,6 +543,10 @@ pub fn run() {
             complete_first_run_setup,
             test_provider_connection,
             test_web_search_connection,
+            get_localmail_connection_status,
+            probe_localmail_connection,
+            test_localmail_connection,
+            update_localmail_connection,
             get_diagnostics,
             export_diagnostics,
             get_storage_recovery_status,

@@ -127,6 +127,16 @@ model-selected bounded search queries and filters to that fixed route; Ollama pr
 cloud-model prompts continue over their already-visible provider route. Privacy and activity surfaces identify the
 selected Brave Search or Exa Search hop whenever Web is enabled.
 
+Settings also contains the connection and authentication foundation for a first-party read-only Localmail connector.
+Rust accepts only an explicit HTTPS origin without embedded credentials, path, query, or fragment. Certificate
+inspection calls only Localmail's bounded unauthenticated `/v1/version` route and presents the leaf certificate's
+SHA-256 fingerprint for confirmation. Saved connections pin that exact certificate, disable redirects and ambient
+proxies, and cap connection metadata at 32 KiB. An optional bearer token is bounded before use and stored only in the
+operating-system credential vault; it is never written to `localmail.json`, returned over IPC, or included in
+diagnostics. The Test action calls only `/v1/version` and, when a token is available, `/v1/auth/whoami`; it does not read
+email. Email search/open tools, provider-loop mapping, attachment access, outbound mail, and memory indexing are not yet
+implemented.
+
 ## Development
 
 Prerequisites:
