@@ -837,7 +837,7 @@ audit. A host-local two-request Ollama fixture passed and confirmed exact ordere
 `search_email` call, bounded untrusted result correlation, final answer streaming, cumulative usage, and terminal loop
 completion.
 
-Prettier, Svelte diagnostics, all 89 frontend tests across 24 files, the production build, Cargo formatting/check with
+Prettier, Svelte diagnostics, all 90 frontend tests across 24 files, the production build, Cargo formatting/check with
 no warnings, and the full Rust suite pass. The Rust suite has 387 tests: 361 pass by default and 26 loopback,
 public-network, credential, or live-provider checks remain explicitly opt-in. The native development app compiled,
 development-signed, and launched against the existing store. Immutable read-only inspection returned schema version
@@ -847,8 +847,18 @@ provider runs, and 13 tool invocation/result pairs. This slice adds no schema or
 Browser presentation was reviewed at 1320 x 820 and the 720 x 620 native minimum. The disabled Email control was
 visible, accessible, aligned, and contained with no horizontal document overflow or browser-console warnings/errors.
 The disconnected preview cannot satisfy native Localmail readiness, so the enabled disclosure has rendered component
-coverage but was not visually toggled in that preview. No real Localmail archive, vault token, or live Ollama model was
-used; production pinned-TLS archive reading and a real model-selected Email call therefore remain manually unverified.
+coverage but was not visually toggled in that preview.
+
+A subsequent native user check reported that authenticated Localmail setup still left Email disabled. Secret-free live
+inspection confirmed that certificate trust and the credential-vault configured marker were saved, but the persisted
+provider selection was oMLX; this slice deliberately maps Email only to Ollama. Focused TDD now covers an actionable
+reason for missing saved readiness, non-Ollama selection, or missing Ollama tool capability. The composer renders that
+reason beside the disabled control, and a successful connection test now distinguishes a pasted draft token from the
+saved vault token required by Email. The native app rebuilt and launched after the correction, and the local Ollama
+catalogue exposed installed tool-capable models. macOS denied assistive access to inspect or switch the native control,
+and the in-app browser policy blocked reloading the local preview after this follow-up change, so the new message has
+component-render and type-check coverage rather than a second visual review. No email endpoint or real model-selected
+Email call was exercised; production pinned-TLS archive reading remains manually unverified.
 
 ## Prior completed product slice: Provider-independent Localmail tool definitions and dispatch
 

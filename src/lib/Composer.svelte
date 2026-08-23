@@ -18,6 +18,7 @@
     webEnabled: boolean;
     emailAvailable: boolean;
     emailEnabled: boolean;
+    emailUnavailableReason: string;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -46,6 +47,7 @@
     webEnabled,
     emailAvailable,
     emailEnabled,
+    emailUnavailableReason,
     onprompt,
     oninput,
     onkeydown,
@@ -155,7 +157,8 @@
             ? emailEnabled
               ? "Disable email tools"
               : "Enable email tools"
-            : "Email tools require configured Localmail and tool-capable Ollama"}
+            : emailUnavailableReason}
+          title={!emailAvailable ? emailUnavailableReason : undefined}
           aria-pressed={emailAvailable && emailEnabled}
           disabled={!emailAvailable || isGenerating}
           onclick={ontoggleemail}
@@ -187,5 +190,7 @@
       Your prompt stays with Ollama on loopback; model-selected email queries and exact message IDs go only to your
       pinned Localmail server.
     </p>
+  {:else if emailUnavailableReason}
+    <p class="email-boundary-note" role="status">{emailUnavailableReason}</p>
   {/if}
 </footer>

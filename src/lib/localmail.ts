@@ -33,6 +33,25 @@ export type LocalmailConnectionTest = {
   message: string;
 };
 
+/** Explains whether a successful authentication probe used a saved or still-draft token. */
+export function localmailConnectionTestMessage(
+  result: LocalmailConnectionTest,
+  testedDraftToken: boolean,
+  savedCredentialConfigured: boolean,
+): string {
+  const outcome = result.authenticatedAs
+    ? `${result.message} Signed in as ${result.authenticatedAs}. ${result.elapsedMs} ms.`
+    : `${result.message} ${result.elapsedMs} ms.`;
+  if (testedDraftToken) {
+    if (savedCredentialConfigured) {
+      return `${outcome} Save this connection before Email uses the tested replacement token.`;
+    }
+    return `${outcome} Save this connection before enabling Email; the tested token is not in the credential vault yet.`;
+  }
+  if (result.authenticatedAs) return `${outcome} The saved vault token is ready for Email.`;
+  return outcome;
+}
+
 /** Reads Localmail settings without returning any credential value. */
 export async function getLocalmailConnectionStatus(): Promise<LocalmailConnectionStatus> {
   if (!isTauri()) throw new Error("Localmail setup requires the native Bottie application.");

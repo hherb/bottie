@@ -40,7 +40,12 @@ import {
 import { ConversationState } from "./conversation-state.svelte";
 import { AttachmentState } from "./attachment-state.svelte";
 import { RecoveryState } from "./recovery-state.svelte";
-import { emailToolsAvailable, memoryToolsAvailable, webToolsAvailable } from "./page-presentation";
+import {
+  emailToolsAvailable,
+  emailToolsUnavailableReason,
+  memoryToolsAvailable,
+  webToolsAvailable,
+} from "./page-presentation";
 import { MemoryContextState } from "./memory-context-state.svelte";
 import { WebToolState } from "./web-tool-state.svelte";
 import { FirstRunSetupState } from "./first-run-setup-state.svelte";
@@ -113,6 +118,10 @@ export class PageState {
   /** Whether configured Localmail can be used by the selected tool-capable Ollama model. */
   get emailAvailable(): boolean {
     return this.email.configured && emailToolsAvailable(this.selectedModel);
+  }
+  /** Actionable path-free reason the Email control is unavailable, or empty when it is ready. */
+  get emailUnavailableReason(): string {
+    return emailToolsUnavailableReason(this.selectedModel, this.email.configured);
   }
   /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {

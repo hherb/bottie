@@ -15,6 +15,7 @@ function renderedComposer(
   webEnabled = false,
   emailAvailable = false,
   emailEnabled = false,
+  emailUnavailableReason = "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
 ): string {
   return render(Composer, {
     props: {
@@ -31,6 +32,7 @@ function renderedComposer(
       webEnabled,
       emailAvailable,
       emailEnabled,
+      emailUnavailableReason,
       onprompt: vi.fn(),
       oninput: vi.fn(),
       onkeydown: vi.fn(),
@@ -97,7 +99,10 @@ describe("Composer", () => {
     expect(unavailable).toMatch(/aria-label="Memory tools require a supported tool-capable model"[^>]* disabled/);
     expect(unavailable).toMatch(/aria-label="Web search requires a supported tool-capable model"[^>]* disabled/);
     expect(unavailable).toMatch(
-      /aria-label="Email tools require configured Localmail and tool-capable Ollama"[^>]* disabled/,
+      /aria-label="Save Localmail certificate trust and a bearer token in Settings before enabling Email\."[^>]* disabled/,
+    );
+    expect(unavailable).toContain(
+      "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
     );
   });
 });
