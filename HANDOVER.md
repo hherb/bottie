@@ -185,9 +185,13 @@ without changing ordinary safe external links. User-configurable Web destination
 secret-free HTTPS-only setting defaults on; optional allowed and blocked parent-domain lists are normalized and
 bounded in Rust. Each generation snapshots that policy, filters normalized search results before serialization, and
 rechecks the initial fetch plus every redirect without weakening the fixed public-address baseline. The next bounded
-implementation slice is first-run provider and privacy setup; do not bundle oMLX Web mapping, automatic retrieval
-injection, model-cache deletion, document opening, attachment retry controls, a general MCP runtime, packaging, or
-release updates.
+implementation slice is complete: new installations now pause before the first conversation to identify the discovered
+provider/model route and disclose Bottie's provider-delivery, local-storage, Memory, Web, attachment, and credential
+boundaries. Completion requires an available remembered provider/model pair and persists through one narrow native
+command. Settings written before this flow remain acknowledged, so existing users are not forced through a false first
+run. The next bounded slice is migration rollback planning; do not bundle rollback implementation, oMLX Web mapping,
+automatic retrieval injection, model-cache deletion, document opening, attachment retry controls, a general MCP
+runtime, packaging, or release updates.
 
 Read these files first:
 
@@ -201,7 +205,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/web-domain-network-policy`.
+branch `codex/first-run-provider-privacy`.
 
 ## Current implementation
 
@@ -258,6 +262,9 @@ branch `codex/web-domain-network-policy`.
 - a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, bounded Web
   HTTPS/allowed-domain/blocked-domain policy, timeout policy, and secret/path-redacted session diagnostics including
   automatic-backup outcomes;
+- a native-only first-run provider/privacy gate that identifies the available selected route, explains provider versus
+  local-data boundaries, keeps Memory and Web off by default, opens full Settings when configuration is needed, and
+  persists completion without credentials or paths;
 - context-panel open/close behavior;
 - reduced-motion and keyboard-focus support.
 
@@ -517,12 +524,76 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Rust crate documentation is enforced with `#![deny(missing_docs)]`, and TypeScript exports and functions carry JSDoc;
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
-The cohesively touched product modules remain below 500 lines except the existing generation composition root
+The cohesively touched product modules remain at or below 500 lines except the existing generation composition root
 `src-tauri/src/generation.rs` at 518 lines. The crate composition root `src-tauri/src/lib.rs` is another existing
-practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
+practical-limit exception; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: User-configurable Web destination policy
+## Most recently completed product slice: First-run provider and privacy setup
+
+### Goal
+
+Require a new native installation to understand and confirm its concrete provider route plus Bottie's privacy
+boundaries before chatting, without treating existing settings as a new install or weakening the native/WebView split.
+
+### Implemented shape
+
+1. Secret-free `ProviderSettings` now includes `setupCompleted`. A genuinely absent settings file uses the new default
+   `false`, while settings serialized before this field existed deserialize as `true`; legacy users therefore keep
+   their established startup path. Normalization and every later settings or remembered-selection write preserve the
+   value.
+2. After healthy storage initialization and model discovery, one modal gate shows the concrete provider/model and a
+   local or cloud route. The completion control remains unavailable until discovery has produced a usable model; an
+   honest offline state directs users to the existing full provider Settings flow instead of simulating readiness.
+3. The disclosure distinguishes prompt, normalized-image, and explicitly enabled tool-result delivery from Bottie's
+   local conversation, attachment, and derived-memory storage. It states that Memory and Web begin disabled for every
+   frontend session and that cloud and search credentials stay in the operating-system vault. It neither enables a
+   tool nor stores disclosure text.
+4. One argument-free `complete_first_run_setup` command reads the active Rust-owned settings, requires an already
+   remembered provider/model pair, persists only the completion marker, updates active native state, and returns the
+   existing secret-free settings shape. No generic settings, filesystem, credential, or database capability is added.
+5. Setup completion/progress/error state is isolated from the established 500-line conversation page-state boundary.
+   The modal has no dismiss path around the acknowledgement and traps keyboard focus within its actions. Full Settings
+   temporarily replaces it and returns to the same first-run gate after saving or cancellation.
+
+### Acceptance criteria
+
+- A new settings default requires setup; a settings file written before this feature opens normally without a false
+  onboarding interruption.
+- Setup cannot complete without an available remembered provider/model pair, and successful completion survives an
+  independent settings reload.
+- Users see local versus cloud routing and the provider/local-data/Memory/Web/credential boundaries before the composer
+  becomes usable; offline users get a real provider-configuration path.
+- The WebView sends no credential, path, settings payload, provider response, attachment byte, extracted text, hash,
+  SQL, or database value to complete setup.
+- No SQLite migration, provider endpoint or wire mapping, credential behavior, Memory/Web default, automatic
+  retrieval, oMLX Web mapping, model-cache deletion, document opening, attachment retry, MCP runtime, rollback
+  implementation, packaging, or release work is added.
+
+### Verification completed
+
+Focused TDD first failed on the absent settings marker, legacy compatibility behavior, persistent completion helper,
+and first-run disclosure component. Native tests now prove that new defaults require setup, legacy JSON defaults to
+completed, a missing selection cannot create a settings file, and a configured completion persists across an
+independent reload. Server-rendered frontend coverage verifies the cloud-route/privacy disclosure and the disabled,
+provider-settings-directed offline state.
+
+The full standard checks pass: Prettier, Svelte diagnostics with zero errors or warnings, all 87 frontend tests, the
+production build, Cargo formatting/check, and 316 Rust tests with 296 passing and 20 explicit opt-in tests skipped.
+No schema migration, credential, endpoint, provider request, tool result, or live-store format changed.
+
+The browser preview was inspected with a temporary native-gate presentation fixture at 1320 x 820 and the 720 x 620
+native minimum. The offline state, all disclosures, provider-Settings handoff, disabled completion, and action row are
+fully contained; the minimum-size card requires no internal scroll and the console has no warnings or errors. The
+temporary fixture was removed after inspection. The signed native development app compiled, launched, and remained
+running against the existing installation. Its pre-feature provider settings contained a remembered oMLX/model pair,
+no completion field, and no credential-shaped field, exercising the legacy-acknowledged load path. Immutable live-store
+inspection reported schema version 21, `quick_check=ok`, nine conversations, and 56 messages. A real new-install
+completion click was not performed against the user's established settings; the path-backed native persistence test
+covers that mutation. Keyboard verification also confirmed that the first Tab enters the setup actions, forward and
+reverse traversal remain contained, and opening full Settings removes the first-run dialog until Settings closes.
+
+## Prior completed product slice: User-configurable Web destination policy
 
 ### Goal
 

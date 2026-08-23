@@ -99,6 +99,7 @@ export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {
     allowedDomains: [],
     blockedDomains: [],
   },
+  setupCompleted: false,
   lastProviderId: null,
   lastModelId: null,
 };

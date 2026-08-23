@@ -71,6 +71,7 @@ describe("page presentation", () => {
       anthropicBaseUrl: "https://api.anthropic.com/v1/",
       webSearchProviderId: "brave",
       webNetworkPolicy: { httpsOnly: true, allowedDomains: [], blockedDomains: [] },
+      setupCompleted: true,
       lastProviderId: null,
       lastModelId: null,
     };

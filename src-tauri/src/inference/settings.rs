@@ -44,6 +44,9 @@ pub struct ProviderSettings {
     /// User-configurable restrictions layered over the fixed public-Web baseline.
     #[serde(default)]
     pub web_network_policy: WebNetworkPolicy,
+    /// Whether the native first-run provider and privacy disclosure was completed.
+    #[serde(default = "legacy_setup_completed")]
+    pub setup_completed: bool,
     #[serde(default)]
     /// Last successfully selected provider.
     pub last_provider_id: Option<String>,
@@ -61,6 +64,7 @@ impl Default for ProviderSettings {
             anthropic_base_url: DEFAULT_ANTHROPIC_BASE_URL.into(),
             web_search_provider_id: DEFAULT_WEB_SEARCH_PROVIDER_ID.into(),
             web_network_policy: WebNetworkPolicy::default(),
+            setup_completed: false,
             last_provider_id: None,
             last_model_id: None,
         }
@@ -85,6 +89,7 @@ impl ProviderSettings {
                 .web_network_policy
                 .normalized()
                 .map_err(|error| ProviderError::invalid_request(error.message()))?,
+            setup_completed: self.setup_completed,
             last_provider_id: normalize_provider_id(self.last_provider_id)?,
             last_model_id: normalize_model_id(self.last_model_id)?,
         })
@@ -154,6 +159,11 @@ fn default_anthropic_base_url() -> String {
 
 fn default_web_search_provider_id() -> String {
     DEFAULT_WEB_SEARCH_PROVIDER_ID.into()
+}
+
+/// Treats settings written before the first-run flow existed as already acknowledged.
+fn legacy_setup_completed() -> bool {
+    true
 }
 
 /// Normalizes and bounds an optional remembered model identity.
@@ -243,6 +253,22 @@ pub fn save_provider_settings(
     fs::write(path, bytes).map_err(|error| {
         ProviderError::internal("Could not save provider settings.", Some(error.to_string()))
     })
+}
+
+/// Marks first-run setup complete only for a validated remembered provider/model pair.
+pub fn persist_completed_first_run_setup(
+    path: &Path,
+    mut settings: ProviderSettings,
+) -> Result<ProviderSettings, ProviderError> {
+    if settings.last_provider_id.is_none() || settings.last_model_id.is_none() {
+        return Err(ProviderError::invalid_request(
+            "Choose an available provider and model before finishing setup.",
+        ));
+    }
+    settings.setup_completed = true;
+    let settings = settings.normalized()?;
+    save_provider_settings(path, &settings)?;
+    Ok(settings)
 }
 
 /// Removes credential-shaped values before a diagnostic crosses into UI state.
@@ -370,6 +396,31 @@ mod tests {
     }
 
     #[test]
+    fn new_defaults_require_first_run_setup() {
+        assert!(!ProviderSettings::default().setup_completed);
+    }
+
+    #[test]
+    fn completing_first_run_setup_requires_and_persists_a_provider_pair() {
+        let directory =
+            std::env::temp_dir().join(format!("bottie-first-run-{}", uuid::Uuid::new_v4()));
+        let path = directory.join("providers.json");
+        let missing_selection = ProviderSettings::default();
+        assert!(persist_completed_first_run_setup(&path, missing_selection).is_err());
+        assert!(!path.exists());
+
+        let configured = ProviderSettings {
+            last_provider_id: Some("ollama".into()),
+            last_model_id: Some("qwen3:latest".into()),
+            ..ProviderSettings::default()
+        };
+        let completed = persist_completed_first_run_setup(&path, configured).unwrap();
+        assert!(completed.setup_completed);
+        assert!(load_provider_settings(&path).unwrap().setup_completed);
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
     fn older_settings_files_load_without_a_remembered_selection() {
         let settings: ProviderSettings = serde_json::from_str(
             r#"{"omlxBaseUrl":"http://127.0.0.1:8000/","ollamaBaseUrl":"http://127.0.0.1:11434/"}"#,
@@ -381,6 +432,7 @@ mod tests {
         assert_eq!(settings.anthropic_base_url, DEFAULT_ANTHROPIC_BASE_URL);
         assert_eq!(settings.web_search_provider_id, "brave");
         assert_eq!(settings.web_network_policy, WebNetworkPolicy::default());
+        assert!(settings.setup_completed);
     }
 
     #[test]
