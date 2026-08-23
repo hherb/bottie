@@ -619,7 +619,9 @@ tool-capable oMLX selections to enable both controls while preserving the false-
 discovery worked, but the two live Claude Sonnet 5 runs in the immutable store ended as `invalid_request`: Bottie's
 provider-neutral default added `temperature: 0.7`, while current Sonnet 5 rejects non-default sampling parameters.
 Anthropic requests now remove that implicit setting before durable provider-run provenance and wire serialization;
-focused tests require its absence while retaining explicit disabled/adaptive thinking behavior.
+focused tests require its absence while retaining explicit disabled/adaptive thinking behavior. The user subsequently
+confirmed authenticated live Web search completes successfully with both Claude Sonnet 5 through Anthropic and Qwen3.8
+through oMLX.
 
 ## Next bounded product slice: Staged migration and promotion rollback
 
