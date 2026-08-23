@@ -173,6 +173,11 @@ textarea:focus-visible {
   border-color: rgba(143, 125, 247, 0.4);
   transform: translateY(-1px);
 }
+.new-chat:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
 kbd {
   margin-left: auto;
   color: #777582;

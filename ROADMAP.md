@@ -273,7 +273,7 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - secret-vault and filesystem-boundary tests (complete);
 - dependency and licence review with a locked macOS Rust/npm inventory, native/runtime asset review, and explicit
   release gates (complete);
-- keyboard shortcuts and command palette;
+- keyboard shortcuts and command palette (complete);
 - themes, density options, and refined empty/offline/error states;
 - accessibility audit and reduced-motion verification;
 - performance tests for long conversations and large histories;

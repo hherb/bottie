@@ -30,6 +30,8 @@
     onmodelchange: (modelKey: string) => void;
     ontogglereasoning: () => void;
     onopensidebar: () => void;
+    onopencommands: (invoker: HTMLElement) => void;
+    commandPaletteShortcut: string;
     ontogglecontext: () => void;
     onexport: () => void;
     onexportjson: () => void;
@@ -64,6 +66,8 @@
     onmodelchange,
     ontogglereasoning,
     onopensidebar,
+    onopencommands,
+    commandPaletteShortcut,
     ontogglecontext,
     onexport,
     onexportjson,
@@ -158,6 +162,15 @@
       <span>{isLocalRoute ? (webEnabled ? "Local + web" : "Local only") : "Cloud route"}</span>
     </div>
     <button
+      class="icon-button"
+      aria-label={`Open command palette (${commandPaletteShortcut})`}
+      title={`Open command palette · ${commandPaletteShortcut}`}
+      onclick={(event) => onopencommands(event.currentTarget)}
+    >
+      <Icon name="search" size={18} />
+    </button>
+    <button
+      id="context-panel-toggle"
       class:active={showContext}
       class="icon-button"
       aria-label="Toggle context panel"

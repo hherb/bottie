@@ -61,6 +61,14 @@ only the typed information it needs to render the interface.
   internals to the WebView.
 - Review each tool call, stable outcome, duration, and retained result in the conversation audit.
 
+## Keyboard commands
+
+Open the local command palette with Command+K on macOS or Ctrl+K on Windows and Linux. It filters a small registry of
+existing safe interface actions and keeps unavailable actions visible with their reason. Direct shortcuts are also
+available for New conversation (Command/Ctrl+N), conversation search (Command/Ctrl+Shift+F), conversation navigation
+(Command/Ctrl+Shift+B), the Context panel (Command/Ctrl+Shift+C), and Settings (Command/Ctrl+,). Escape closes the
+palette and restores focus to the control that opened it.
+
 ## The trust boundary
 
 Bottie is local-first, not local-only. The interface makes the selected provider and enabled context routes visible
