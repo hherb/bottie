@@ -6,6 +6,7 @@ use tauri::{State, ipc::Channel};
 use crate::{
     ActiveRun, AppState,
     diagnostics::{record_diagnostic, sanitized},
+    generation_localmail_tools::{configured_localmail_tools, email_tools_enabled},
     generation_tools::stream_native_tools,
     generation_web_tools::{
         configured_web_fetch, configured_web_search, memory_tools_enabled, provider_tools_enabled,
@@ -117,6 +118,42 @@ pub(crate) async fn start_chat(
             .as_ref()
             .is_some_and(|capabilities| capabilities.tools),
     );
+    let model_supports_tools = model_capabilities
+        .as_ref()
+        .is_some_and(|capabilities| capabilities.tools);
+    let wants_email_tools = email_tools_enabled(
+        request.email_enabled,
+        provider.provider_id(),
+        model_supports_tools,
+        true,
+    );
+    let localmail = if wants_email_tools {
+        match configured_localmail_tools(
+            state.localmail_config_path.clone(),
+            state.credentials.clone(),
+        ) {
+            Ok(executor) => executor,
+            Err(error) => {
+                let error = sanitized(error);
+                finish_provider_run(
+                    &state.conversations,
+                    &run_id,
+                    ProviderRunState::Failed,
+                    Some(error.code.as_str()),
+                    None,
+                )?;
+                return Err(error);
+            }
+        }
+    } else {
+        None
+    };
+    let supports_email_tools = email_tools_enabled(
+        request.email_enabled,
+        provider.provider_id(),
+        model_supports_tools,
+        localmail.is_some(),
+    );
     let provider_settings = providers.settings();
     let web_search = if supports_web_tools {
         match configured_web_search(
@@ -141,12 +178,7 @@ pub(crate) async fn start_chat(
     };
     let web_fetch = web_fetch_enabled(supports_web_tools, provider.provider_id())
         .then(|| configured_web_fetch(provider_settings.web_network_policy));
-    let supports_tools = provider_tools_enabled(
-        provider.provider_id(),
-        model_capabilities
-            .as_ref()
-            .is_some_and(|capabilities| capabilities.tools),
-    );
+    let supports_tools = provider_tools_enabled(provider.provider_id(), model_supports_tools);
     let attachment_context = if supports_vision {
         state
             .conversations
@@ -173,6 +205,7 @@ pub(crate) async fn start_chat(
     };
     request.memory_enabled = supports_memory_tools;
     request.web_enabled = supports_web_tools;
+    request.email_enabled = supports_email_tools;
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
     let tool_cancellation = ToolLoopCancellation::default();
     state.runs.lock().await.insert(
@@ -218,6 +251,7 @@ pub(crate) async fn start_chat(
                     task_run_id.clone(),
                     query_embedder,
                     tool_cancellation,
+                    localmail,
                     web_search,
                     web_fetch,
                 )

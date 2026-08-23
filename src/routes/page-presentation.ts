@@ -31,6 +31,30 @@ export function webToolsAvailable(model: ModelInfo | undefined): boolean {
   return Boolean(model?.capabilities.tools && NATIVE_TOOL_PROVIDER_IDS.has(model.providerId));
 }
 
+/** Confirms that Email is mapped only for an explicitly tool-capable Ollama model. */
+export function emailToolsAvailable(model: ModelInfo | undefined): boolean {
+  return Boolean(model?.capabilities.tools && model.providerId === "ollama");
+}
+
+/** Explains every unmet Email prerequisite without exposing connector details. */
+export function emailToolsUnavailableReason(model: ModelInfo | undefined, localmailConfigured: boolean): string {
+  const ollamaSelected = model?.providerId === "ollama";
+  const toolsAdvertised = Boolean(model?.capabilities.tools);
+  if (!localmailConfigured && (!ollamaSelected || !toolsAdvertised)) {
+    return "Save Localmail certificate trust and a bearer token in Settings, then switch to a tool-capable Ollama model.";
+  }
+  if (!localmailConfigured) {
+    return "Save Localmail certificate trust and a bearer token in Settings before enabling Email.";
+  }
+  if (!ollamaSelected) {
+    return "Email is currently mapped only for Ollama. Switch to a tool-capable Ollama model.";
+  }
+  if (!toolsAdvertised) {
+    return "The selected Ollama model does not advertise tool support. Choose a tool-capable Ollama model.";
+  }
+  return "";
+}
+
 /** Selects the compact endpoint label for the active provider. */
 export function selectedProviderEndpoint(providerId: ProviderId | "", settings: ProviderSettings): string {
   const baseUrl = {

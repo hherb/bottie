@@ -1,7 +1,6 @@
 /** Reactive presentation state and actions for the Bottie conversation shell. */
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { tick } from "svelte";
 
 import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
 import {
@@ -33,7 +32,6 @@ import {
 import {
   DEFAULT_PROVIDER_SETTINGS,
   INITIAL_MESSAGES,
-  MAX_COMPOSER_HEIGHT_PX,
   nextMessageId,
   type Message,
   type ProviderStatus,
@@ -42,15 +40,21 @@ import {
 import { ConversationState } from "./conversation-state.svelte";
 import { AttachmentState } from "./attachment-state.svelte";
 import { RecoveryState } from "./recovery-state.svelte";
-import { memoryToolsAvailable, webToolsAvailable } from "./page-presentation";
+import {
+  emailToolsAvailable,
+  emailToolsUnavailableReason,
+  memoryToolsAvailable,
+  webToolsAvailable,
+} from "./page-presentation";
 import { MemoryContextState } from "./memory-context-state.svelte";
 import { WebToolState } from "./web-tool-state.svelte";
 import { FirstRunSetupState } from "./first-run-setup-state.svelte";
+import { EmailToolState } from "./email-tool-state.svelte";
+import { ComposerInteractionState } from "./composer-interaction-state";
 
 const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
 const STREAMING_STAGE = 1;
-const NEXT_EVENT_LOOP_TICK_MS = 0;
 /** Owns the reactive state and imperative actions shared by the page's presentation components. */
 export class PageState {
   messages = $state<Message[]>(isTauri() ? [] : INITIAL_MESSAGES.map((message) => ({ ...message })));
@@ -73,16 +77,16 @@ export class PageState {
   reasoningEffort = $state<ReasoningEffort>("off");
   memory = new MemoryContextState();
   web = new WebToolState();
+  email = new EmailToolState();
   providerSettings = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
   recovery = new RecoveryState();
   history = new ConversationState();
   attachment = new AttachmentState();
   firstRun = new FirstRunSetupState();
+  interaction = new ComposerInteractionState();
 
   private generationRun = 0;
   private cancellationRequested = false;
-  private messageScroll?: HTMLDivElement;
-  private composer?: HTMLTextAreaElement;
   /** Currently selected provider-qualified model, when discovery has produced one. */
   get selectedModel(): ModelInfo | undefined {
     return this.models.find((model) => modelKey(model) === this.selectedModelKey);
@@ -110,6 +114,14 @@ export class PageState {
   /** Whether the selected mapped provider/model can accept Bottie's native web-search tool. */
   get webAvailable(): boolean {
     return webToolsAvailable(this.selectedModel);
+  }
+  /** Whether configured Localmail can be used by the selected tool-capable Ollama model. */
+  get emailAvailable(): boolean {
+    return this.email.configured && emailToolsAvailable(this.selectedModel);
+  }
+  /** Actionable path-free reason the Email control is unavailable, or empty when it is ready. */
+  get emailUnavailableReason(): string {
+    return emailToolsUnavailableReason(this.selectedModel, this.email.configured);
   }
   /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {
@@ -140,7 +152,7 @@ export class PageState {
       this.providerStatus = "offline";
       return;
     }
-    const [messages] = await Promise.all([this.history.initialize(), this.refreshModels()]);
+    const [messages] = await Promise.all([this.history.initialize(), this.refreshModels(), this.email.refresh()]);
     this.messages = messages;
   }
   /** Releases native event listeners when the page is unmounted. */
@@ -154,7 +166,7 @@ export class PageState {
     if (messages) {
       this.messages = messages;
       this.showSidebar = false;
-      await this.scrollToBottom("auto");
+      await this.interaction.scrollToBottom("auto");
     }
   }
   /** Opens the preserved branch selected from native conversation-search results. */
@@ -164,7 +176,7 @@ export class PageState {
     if (messages) {
       this.messages = messages;
       this.showSidebar = false;
-      await this.scrollToBottom("auto");
+      await this.interaction.scrollToBottom("auto");
     }
   }
   /** Discovers streaming text models for one provider and resolves a stable selection. */
@@ -186,6 +198,7 @@ export class PageState {
       if (!currentSelectionAvailable) this.selectedModelKey = resolved.selectedModelKey;
       if (!this.memoryAvailable) this.memory.disable();
       if (!this.webAvailable) this.web.disable();
+      if (!this.emailAvailable) this.email.disable();
       this.providerStatus = this.models.length > 0 ? "available" : "offline";
       if (this.models.length === 0) {
         this.providerError = {
@@ -207,6 +220,7 @@ export class PageState {
   async changeProvider(providerId: ProviderId): Promise<void> {
     this.memory.disable();
     this.web.disable();
+    this.email.disable();
     this.selectedProviderId = providerId;
     this.models = [];
     this.selectedModelKey = "";
@@ -217,6 +231,7 @@ export class PageState {
     this.selectedModelKey = selectedModelKey;
     if (!this.memoryAvailable) this.memory.disable();
     if (!this.webAvailable) this.web.disable();
+    if (!this.emailAvailable) this.email.disable();
     await this.rememberCurrentSelection();
   }
 
@@ -240,37 +255,6 @@ export class PageState {
       this.providerSettings = await rememberProviderSelection(this.selectedProviderId, model.modelId);
     } catch (error) {
       console.warn("Could not remember the provider and model selection", error);
-    }
-  }
-
-  /** Registers the conversation's scroll container after its component mounts. */
-  setMessageScroll(element: HTMLDivElement): void {
-    this.messageScroll = element;
-  }
-
-  /** Registers the composer textarea after its component mounts. */
-  setComposer(element: HTMLTextAreaElement): void {
-    this.composer = element;
-  }
-
-  /** Scrolls the conversation to its newest content after pending DOM updates. */
-  async scrollToBottom(behavior: ScrollBehavior = "smooth"): Promise<void> {
-    await tick();
-    this.messageScroll?.scrollTo({ top: this.messageScroll.scrollHeight, behavior });
-  }
-
-  /** Resizes the composer up to its named maximum presentation height. */
-  resizeComposer(): void {
-    if (!this.composer) return;
-    this.composer.style.height = "0";
-    this.composer.style.height = `${Math.min(this.composer.scrollHeight, MAX_COMPOSER_HEIGHT_PX)}px`;
-  }
-
-  /** Sends on unmodified Enter while preserving Shift+Enter for newlines. */
-  handleComposerKeydown(event: KeyboardEvent): void {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void this.sendMessage();
     }
   }
 
@@ -301,7 +285,7 @@ export class PageState {
     });
     this.prompt = "";
     this.attachment.clear();
-    this.resizeComposer();
+    this.interaction.resizeComposer();
     await this.startGeneration(runContext);
   }
 
@@ -362,7 +346,7 @@ export class PageState {
       retryable: false,
     });
     const startedAt = performance.now();
-    await this.scrollToBottom();
+    await this.interaction.scrollToBottom();
 
     try {
       const chatRun = await startChat(
@@ -372,6 +356,7 @@ export class PageState {
           messages: requestMessages,
           memoryEnabled: this.memory.enabled,
           webEnabled: this.web.enabled,
+          emailEnabled: this.email.enabled,
           settings: { reasoningEffort: this.reasoningEffort },
         },
         runContext,
@@ -402,7 +387,7 @@ export class PageState {
     const messages = await this.history.selectBranch(branchId);
     if (messages) {
       this.messages = messages;
-      await this.scrollToBottom("auto");
+      await this.interaction.scrollToBottom("auto");
     }
   }
 
@@ -416,10 +401,10 @@ export class PageState {
       this.activeStage = STREAMING_STAGE;
     } else if (event.type === "text_delta") {
       reply.content += event.delta;
-      void this.scrollToBottom("auto");
+      void this.interaction.scrollToBottom("auto");
     } else if (event.type === "reasoning_delta") {
       reply.reasoning = (reply.reasoning ?? "") + event.delta;
-      void this.scrollToBottom("auto");
+      void this.interaction.scrollToBottom("auto");
     } else if (event.type === "usage_updated") {
       this.currentUsage = event.usage;
     } else if (event.type === "completed") {
@@ -495,6 +480,6 @@ export class PageState {
     this.cancellationRequested = false;
     this.prompt = "";
     this.showSidebar = false;
-    setTimeout(() => this.composer?.focus(), NEXT_EVENT_LOOP_TICK_MS);
+    this.interaction.focusAfterUpdate();
   }
 }

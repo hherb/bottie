@@ -12,6 +12,7 @@
     | "files"
     | "globe"
     | "image"
+    | "mail"
     | "menu"
     | "more"
     | "new-chat"
@@ -94,6 +95,9 @@
     <rect x="3" y="4" width="18" height="16" rx="3" />
     <circle cx="9" cy="10" r="2" />
     <path d="m21 15-4.5-4.5L7 20" />
+  {:else if name === "mail"}
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m4 7 8 6 8-6" />
   {:else if name === "menu"}
     <path d="M4 7h16M4 12h16M4 17h16" />
   {:else if name === "more"}

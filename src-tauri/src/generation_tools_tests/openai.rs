@@ -243,6 +243,7 @@ fn streams_an_openai_web_search_result_and_final_answer_across_two_requests() {
         }],
         memory_enabled: false,
         web_enabled: true,
+        email_enabled: false,
         settings: ChatSettings {
             temperature: None,
             max_output_tokens: Some(128),
@@ -340,6 +341,7 @@ fn streams_an_openai_web_fetch_result_and_final_answer_across_two_requests() {
         }],
         memory_enabled: false,
         web_enabled: true,
+        email_enabled: false,
         settings: ChatSettings {
             temperature: None,
             max_output_tokens: Some(128),
@@ -445,6 +447,7 @@ fn streams_an_openai_tool_call_result_and_final_answer_across_two_requests() {
         }],
         memory_enabled: true,
         web_enabled: false,
+        email_enabled: false,
         settings: ChatSettings {
             temperature: None,
             max_output_tokens: Some(128),

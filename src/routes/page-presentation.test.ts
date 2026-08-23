@@ -4,6 +4,8 @@ import type { ProviderSettings } from "$lib/inference";
 import type { Attachment, Message } from "$lib/presentation";
 
 import {
+  emailToolsUnavailableReason,
+  emailToolsAvailable,
   inferenceStages,
   memoryToolsAvailable,
   messageAttachmentAssociations,
@@ -50,6 +52,26 @@ describe("page presentation", () => {
     expect(webToolsAvailable(model("openai", false))).toBe(false);
     expect(webToolsAvailable(model("ollama", false))).toBe(false);
     expect(webToolsAvailable(undefined)).toBe(false);
+    expect(emailToolsAvailable(model("ollama", true))).toBe(true);
+    expect(emailToolsAvailable(model("openai", true))).toBe(false);
+    expect(emailToolsAvailable(model("anthropic", true))).toBe(false);
+    expect(emailToolsAvailable(model("omlx", true))).toBe(false);
+    expect(emailToolsAvailable(model("ollama", false))).toBe(false);
+    expect(emailToolsAvailable(undefined)).toBe(false);
+
+    expect(emailToolsUnavailableReason(model("omlx", true), true)).toBe(
+      "Email is currently mapped only for Ollama. Switch to a tool-capable Ollama model.",
+    );
+    expect(emailToolsUnavailableReason(model("ollama", false), true)).toBe(
+      "The selected Ollama model does not advertise tool support. Choose a tool-capable Ollama model.",
+    );
+    expect(emailToolsUnavailableReason(model("ollama", true), false)).toBe(
+      "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
+    );
+    expect(emailToolsUnavailableReason(model("omlx", true), false)).toBe(
+      "Save Localmail certificate trust and a bearer token in Settings, then switch to a tool-capable Ollama model.",
+    );
+    expect(emailToolsUnavailableReason(model("ollama", true), true)).toBe("");
   });
 
   it("keeps draft, conversation, and message scope identities explicit", () => {

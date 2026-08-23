@@ -35,6 +35,7 @@ export type ChatRequest = {
   messages: ChatTurn[];
   memoryEnabled?: boolean;
   webEnabled?: boolean;
+  emailEnabled?: boolean;
   settings?: {
     temperature?: number;
     maxOutputTokens?: number;

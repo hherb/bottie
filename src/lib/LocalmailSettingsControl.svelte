@@ -5,6 +5,7 @@
   import { providerErrorFromUnknown } from "$lib/inference";
   import {
     getLocalmailConnectionStatus,
+    localmailConnectionTestMessage,
     probeLocalmailConnection,
     testLocalmailConnection,
     updateLocalmailConnection,
@@ -126,10 +127,9 @@
     feedback = "";
     failed = false;
     try {
+      const testedDraftToken = bearerToken.trim().length > 0;
       const result = await testLocalmailConnection(origin, certificate, bearerToken.trim() || null);
-      feedback = result.authenticatedAs
-        ? `${result.message} Signed in as ${result.authenticatedAs}. ${result.elapsedMs} ms.`
-        : `${result.message} ${result.elapsedMs} ms.`;
+      feedback = localmailConnectionTestMessage(result, testedDraftToken, credentialConfigured);
     } catch (error) {
       showError(error);
     } finally {

@@ -219,6 +219,7 @@ fn web_tool_request() -> ChatRequest {
         }],
         memory_enabled: false,
         web_enabled: true,
+        email_enabled: false,
         settings: ChatSettings {
             temperature: None,
             max_output_tokens: Some(128),

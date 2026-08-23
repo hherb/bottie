@@ -42,7 +42,7 @@ impl AnthropicToolSession {
     pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
         validate_request(&request)?;
         let definitions =
-            enabled_native_tool_definitions(request.memory_enabled, request.web_enabled);
+            enabled_native_tool_definitions(request.memory_enabled, request.web_enabled, false);
         Ok(Self {
             request: AnthropicChatRequest::with_tools(request, definitions),
         })

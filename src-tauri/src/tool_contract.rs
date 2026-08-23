@@ -22,7 +22,6 @@ use crate::web_search::{
 pub(crate) use current_time::{
     CURRENT_TIME_TOOL_NAME, current_time_tool_definition, validate_current_time_tool_arguments,
 };
-#[cfg(test)]
 pub(crate) use localmail::localmail_tool_definitions;
 pub(crate) use localmail::{
     LocalmailToolArguments, OPEN_EMAIL_TOOL_NAME, SEARCH_EMAIL_TOOL_NAME,
@@ -102,6 +101,7 @@ pub(crate) fn memory_tool_definitions() -> [ToolDefinition; 3] {
 pub(crate) fn enabled_native_tool_definitions(
     memory_enabled: bool,
     web_enabled: bool,
+    email_enabled: bool,
 ) -> Vec<ToolDefinition> {
     let mut definitions = memory_enabled
         .then(memory_tool_definitions)
@@ -111,6 +111,9 @@ pub(crate) fn enabled_native_tool_definitions(
     if web_enabled {
         definitions.push(web_search_tool_definition());
         definitions.push(web_fetch_tool_definition());
+    }
+    if email_enabled {
+        definitions.extend(localmail_tool_definitions());
     }
     definitions.push(current_time_tool_definition());
     definitions

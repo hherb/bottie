@@ -13,6 +13,9 @@ function renderedComposer(
   memoryEnabled = false,
   webAvailable = false,
   webEnabled = false,
+  emailAvailable = false,
+  emailEnabled = false,
+  emailUnavailableReason = "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
 ): string {
   return render(Composer, {
     props: {
@@ -27,6 +30,9 @@ function renderedComposer(
       memoryEnabled,
       webAvailable,
       webEnabled,
+      emailAvailable,
+      emailEnabled,
+      emailUnavailableReason,
       onprompt: vi.fn(),
       oninput: vi.fn(),
       onkeydown: vi.fn(),
@@ -36,6 +42,7 @@ function renderedComposer(
       onremove: vi.fn(),
       ontogglememory: vi.fn(),
       ontoggleweb: vi.fn(),
+      ontoggleemail: vi.fn(),
       oncomposerready: vi.fn(),
       onattachmentinputready: vi.fn(),
     },
@@ -81,12 +88,21 @@ describe("Composer", () => {
   });
 
   it("exposes explicit pressed state only for a mapped tool-capable selection", () => {
-    const enabled = renderedComposer(true, true, [], true, true, true, true);
+    const enabled = renderedComposer(true, true, [], true, true, true, true, true, true);
     const unavailable = renderedComposer(true, true);
 
     expect(enabled).toMatch(/aria-label="Disable memory tools"[^>]*aria-pressed="true"/);
     expect(enabled).toMatch(/aria-label="Disable web search"[^>]*aria-pressed="true"/);
+    expect(enabled).toMatch(/aria-label="Disable email tools"[^>]*aria-pressed="true"/);
+    expect(enabled).toContain("Your prompt stays with Ollama on loopback");
+    expect(enabled).toMatch(/exact message IDs go only to your\s+pinned Localmail server/);
     expect(unavailable).toMatch(/aria-label="Memory tools require a supported tool-capable model"[^>]* disabled/);
     expect(unavailable).toMatch(/aria-label="Web search requires a supported tool-capable model"[^>]* disabled/);
+    expect(unavailable).toMatch(
+      /aria-label="Save Localmail certificate trust and a bearer token in Settings before enabling Email\."[^>]* disabled/,
+    );
+    expect(unavailable).toContain(
+      "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
+    );
   });
 });

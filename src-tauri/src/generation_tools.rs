@@ -3,6 +3,8 @@
 use std::sync::Arc;
 
 use crate::{
+    generation_localmail_tools::NativeLocalmailToolExecutor,
+    generation_tool_audit::audit_outcome,
     generation_usage::merge_usage,
     generation_web_tools::{NativeWebFetchExecutor, NativeWebSearchExecutor, dispatch_native_tool},
     inference::{
@@ -15,9 +17,9 @@ use crate::{
     semantic_indexer::SemanticQueryEmbedder,
     storage::{
         ConversationStore, NewToolInvocation, NewToolResult, SemanticEmbedder, StorageError,
-        ToolAuditOutcome, ToolAuditPolicy,
+        ToolAuditPolicy,
     },
-    tool_dispatch::{MemoryToolExecution, MemoryToolExecutionErrorCode},
+    tool_dispatch::MemoryToolExecution,
     tool_loop::{
         NativeToolCall, ToolLoopCancellation, ToolLoopError, ToolLoopErrorCode, ToolLoopState,
         ToolRoundError,
@@ -40,6 +42,7 @@ pub(crate) async fn stream_native_tools(
     provider_run_id: String,
     query_embedder: SemanticQueryEmbedder,
     cancellation: ToolLoopCancellation,
+    localmail: Option<Arc<dyn NativeLocalmailToolExecutor>>,
     web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
     web_fetch: Option<Arc<dyn NativeWebFetchExecutor>>,
 ) -> Result<Option<Usage>, ProviderError> {
@@ -55,6 +58,7 @@ pub(crate) async fn stream_native_tools(
                 cancellation,
                 web_search,
                 web_fetch,
+                localmail,
             )
             .await
         }
@@ -234,6 +238,7 @@ pub(crate) async fn stream_ollama_tools(
     cancellation: ToolLoopCancellation,
     web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
     web_fetch: Option<Arc<dyn NativeWebFetchExecutor>>,
+    localmail: Option<Arc<dyn NativeLocalmailToolExecutor>>,
 ) -> Result<Option<Usage>, ProviderError> {
     let memory_enabled = request.memory_enabled;
     let mut session = OllamaToolSession::new(request)?;
@@ -258,6 +263,7 @@ pub(crate) async fn stream_ollama_tools(
         let round_run_id = provider_run_id.clone();
         let mut round_embedder = query_embedder.clone();
         let round_cancellation = cancellation.clone();
+        let round_localmail = localmail.clone();
         let round_web_search = web_search.clone();
         let round_web_fetch = web_fetch.clone();
         let (returned_state, results) = tauri::async_runtime::spawn_blocking(move || {
@@ -271,6 +277,7 @@ pub(crate) async fn stream_ollama_tools(
                 memory_enabled,
                 round_web_search.as_ref().map(Arc::as_ref),
                 round_web_fetch.as_ref().map(Arc::as_ref),
+                round_localmail.as_ref().map(Arc::as_ref),
             );
             (state, results)
         })
@@ -294,6 +301,7 @@ pub(crate) fn execute_ollama_tool_round(
     memory_enabled: bool,
     web_search: Option<&dyn NativeWebSearchExecutor>,
     web_fetch: Option<&dyn NativeWebFetchExecutor>,
+    localmail: Option<&dyn NativeLocalmailToolExecutor>,
 ) -> Result<Vec<OllamaToolResult>, ProviderError> {
     let tool_names = calls
         .iter()
@@ -319,6 +327,7 @@ pub(crate) fn execute_ollama_tool_round(
                     embedder,
                     call,
                     memory_enabled,
+                    localmail,
                     web_search,
                     web_fetch,
                 )
@@ -370,6 +379,7 @@ pub(crate) fn execute_openai_tool_round(
                     embedder,
                     call,
                     memory_enabled,
+                    None,
                     web_search,
                     web_fetch,
                 )
@@ -396,6 +406,7 @@ fn execute_and_checkpoint(
     embedder: &mut impl SemanticEmbedder,
     call: &NativeToolCall,
     memory_enabled: bool,
+    localmail: Option<&dyn NativeLocalmailToolExecutor>,
     web_search: Option<&dyn NativeWebSearchExecutor>,
     web_fetch: Option<&dyn NativeWebFetchExecutor>,
 ) -> Result<MemoryToolExecution, StorageError> {
@@ -412,8 +423,15 @@ fn execute_and_checkpoint(
         audit_policy,
     })?;
     let started = std::time::Instant::now();
-    let execution =
-        dispatch_native_tool(store, embedder, call, memory_enabled, web_search, web_fetch);
+    let execution = dispatch_native_tool(
+        store,
+        embedder,
+        call,
+        memory_enabled,
+        web_search,
+        web_fetch,
+        localmail,
+    );
     let audit_outcome = audit_outcome(&execution);
     let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let output = serde_json::to_value(&execution).map_err(|_| StorageError::internal())?;
@@ -426,21 +444,6 @@ fn execute_and_checkpoint(
         duration_ms,
     })?;
     Ok(execution)
-}
-
-/// Maps the bounded dispatcher envelope into its durable path-free audit category.
-fn audit_outcome(execution: &MemoryToolExecution) -> ToolAuditOutcome {
-    let MemoryToolExecution::Error { error } = execution else {
-        return ToolAuditOutcome::Success;
-    };
-    match error.code {
-        MemoryToolExecutionErrorCode::UnsupportedTool => ToolAuditOutcome::UnsupportedTool,
-        MemoryToolExecutionErrorCode::InvalidArguments => ToolAuditOutcome::InvalidArguments,
-        MemoryToolExecutionErrorCode::ApprovalRequired => ToolAuditOutcome::ApprovalRequired,
-        MemoryToolExecutionErrorCode::Unavailable => ToolAuditOutcome::Unavailable,
-        MemoryToolExecutionErrorCode::ExecutionFailed => ToolAuditOutcome::ExecutionFailed,
-        MemoryToolExecutionErrorCode::OutputTooLarge => ToolAuditOutcome::OutputTooLarge,
-    }
 }
 
 /// Converts loop policy or secret-free checkpoint failures into the existing generation surface.

@@ -82,9 +82,9 @@ pub(crate) struct LocalmailConnectionUpdate {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct LocalmailConnectionStatus {
-    origin: Option<String>,
-    certificate_sha256: Option<String>,
-    credential_configured: bool,
+    pub(crate) origin: Option<String>,
+    pub(crate) certificate_sha256: Option<String>,
+    pub(crate) credential_configured: bool,
     credential_unlocked: bool,
     biometric_protected: bool,
 }
@@ -269,7 +269,7 @@ fn validate_version(version: VersionResponse) -> Result<VersionResponse, Provide
 }
 
 /// Produces secret-free status from native configuration and credential-vault metadata.
-fn connection_status(
+pub(crate) fn connection_status(
     path: &Path,
     credentials: &dyn CredentialStore,
 ) -> Result<LocalmailConnectionStatus, ProviderError> {

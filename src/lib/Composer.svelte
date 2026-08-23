@@ -16,6 +16,9 @@
     memoryEnabled: boolean;
     webAvailable: boolean;
     webEnabled: boolean;
+    emailAvailable: boolean;
+    emailEnabled: boolean;
+    emailUnavailableReason: string;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -25,6 +28,7 @@
     onremove: (id: string) => void;
     ontogglememory: () => void;
     ontoggleweb: () => void;
+    ontoggleemail: () => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -41,6 +45,9 @@
     memoryEnabled,
     webAvailable,
     webEnabled,
+    emailAvailable,
+    emailEnabled,
+    emailUnavailableReason,
     onprompt,
     oninput,
     onkeydown,
@@ -50,6 +57,7 @@
     onremove,
     ontogglememory,
     ontoggleweb,
+    ontoggleemail,
     oncomposerready,
     onattachmentinputready,
   }: Props = $props();
@@ -143,6 +151,20 @@
         >
           <Icon name="globe" size={17} /><span>Web</span>
         </button>
+        <button
+          class="tool-toggle"
+          aria-label={emailAvailable
+            ? emailEnabled
+              ? "Disable email tools"
+              : "Enable email tools"
+            : emailUnavailableReason}
+          title={!emailAvailable ? emailUnavailableReason : undefined}
+          aria-pressed={emailAvailable && emailEnabled}
+          disabled={!emailAvailable || isGenerating}
+          onclick={ontoggleemail}
+        >
+          <Icon name="mail" size={17} /><span>Email</span>
+        </button>
       </div>
 
       <button
@@ -163,4 +185,12 @@
   <p class="composer-note">
     {attachmentNote}
   </p>
+  {#if emailEnabled}
+    <p class="email-boundary-note">
+      Your prompt stays with Ollama on loopback; model-selected email queries and exact message IDs go only to your
+      pinned Localmail server.
+    </p>
+  {:else if emailUnavailableReason}
+    <p class="email-boundary-note" role="status">{emailUnavailableReason}</p>
+  {/if}
 </footer>

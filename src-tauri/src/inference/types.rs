@@ -69,6 +69,9 @@ pub struct ChatRequest {
     /// Whether this request may advertise Bottie's native web-search tool to a compatible local provider.
     pub web_enabled: bool,
     #[serde(default)]
+    /// Whether this request may advertise Bottie's configured Localmail tools to Ollama.
+    pub email_enabled: bool,
+    #[serde(default)]
     /// Optional provider-neutral generation settings.
     pub settings: ChatSettings,
 }
@@ -372,13 +375,16 @@ mod tests {
             "modelId": "tool-model",
             "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}],
             "memoryEnabled": true,
-            "webEnabled": true
+            "webEnabled": true,
+            "emailEnabled": true
         }))
         .expect("explicit memory request should deserialize");
 
         assert!(!disabled.memory_enabled);
         assert!(!disabled.web_enabled);
+        assert!(!disabled.email_enabled);
         assert!(enabled.memory_enabled);
         assert!(enabled.web_enabled);
+        assert!(enabled.email_enabled);
     }
 }
