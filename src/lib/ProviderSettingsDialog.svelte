@@ -3,6 +3,7 @@
 
   import Icon from "$lib/Icon.svelte";
   import MemoryIndexControl from "$lib/MemoryIndexControl.svelte";
+  import LocalmailSettingsControl from "$lib/LocalmailSettingsControl.svelte";
   import ConversationRetentionControl from "$lib/ConversationRetentionControl.svelte";
   import WebNetworkPolicyControl from "$lib/WebNetworkPolicyControl.svelte";
   import { DEFAULT_PROVIDER_SETTINGS } from "$lib/presentation";
@@ -432,6 +433,8 @@
         disabled={!isTauri() || settingsSaving}
         onchange={(policy) => (settingsDraft.webNetworkPolicy = policy)}
       />
+
+      <LocalmailSettingsControl disabled={isGenerating || settingsSaving} />
 
       <div class="settings-policy">
         <Icon name="shield" size={15} />

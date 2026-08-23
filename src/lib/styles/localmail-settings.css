@@ -1,0 +1,78 @@
+.localmail-setting .endpoint-row button {
+  min-width: 112px;
+}
+
+.localmail-certificate {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  margin-top: 10px;
+  border: 1px solid rgba(231, 180, 127, 0.2);
+  border-radius: 9px;
+  background: rgba(231, 180, 127, 0.04);
+}
+
+.localmail-certificate.saved {
+  border-color: rgba(121, 202, 190, 0.18);
+  background: rgba(121, 202, 190, 0.035);
+}
+
+.localmail-certificate span,
+.localmail-certificate p,
+.localmail-boundary {
+  margin: 0;
+  color: #777581;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.localmail-certificate code {
+  overflow-wrap: anywhere;
+  color: #c5c1cb;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.localmail-boundary {
+  margin-top: 11px;
+}
+
+.localmail-boundary code {
+  color: #9b97a2;
+}
+
+.localmail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.localmail-actions button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #b6b2bd;
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.localmail-actions button.primary {
+  border-color: rgba(143, 125, 247, 0.45);
+  background: rgba(128, 112, 220, 0.2);
+  color: #ded9ff;
+}
+
+.localmail-actions button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+@media (max-width: 720px) {
+  .localmail-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

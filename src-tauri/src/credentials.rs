@@ -13,11 +13,13 @@ use crate::inference::ProviderError;
 const SERVICE_NAME: &str = "com.hherb.bottie.provider-api-keys";
 const STATUS_SERVICE_NAME: &str = "com.hherb.bottie.provider-api-key-status";
 const CONFIGURED_MARKER: &str = "configured";
-const AUTHENTICATION_REASON: &str = "unlock cloud provider credentials";
+const AUTHENTICATION_REASON: &str = "unlock cloud and connector credentials";
 const AUTHENTICATION_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Stable native provider identities allowed to own credential-vault entries.
 pub(crate) const NATIVE_CREDENTIAL_IDS: [&str; 4] = ["openai", "anthropic", "brave", "exa"];
+/// Vault identity reserved for the first-party Localmail connector token.
+pub(crate) const LOCALMAIL_CREDENTIAL_ID: &str = "localmail";
 
 /// Narrow secret-store contract used by native provider orchestration.
 pub(crate) trait CredentialStore: Send + Sync {
@@ -180,7 +182,7 @@ fn delete_entry(service: &str, provider_id: &str) -> Result<(), ProviderError> {
 
 /// Rejects local and unknown identities before they can address the credential vault.
 fn validate_native_credential_provider(provider_id: &str) -> Result<(), ProviderError> {
-    if NATIVE_CREDENTIAL_IDS.contains(&provider_id) {
+    if NATIVE_CREDENTIAL_IDS.contains(&provider_id) || provider_id == LOCALMAIL_CREDENTIAL_ID {
         Ok(())
     } else {
         Err(ProviderError::invalid_request(
@@ -258,6 +260,7 @@ mod tests {
         assert!(validate_native_credential_provider("anthropic").is_ok());
         assert!(validate_native_credential_provider("brave").is_ok());
         assert!(validate_native_credential_provider("exa").is_ok());
+        assert!(validate_native_credential_provider("localmail").is_ok());
         assert!(validate_native_credential_provider("ollama").is_err());
         assert!(validate_native_credential_provider("").is_err());
     }

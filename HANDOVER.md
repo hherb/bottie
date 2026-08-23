@@ -203,11 +203,13 @@ complete: Rust owns the closed UTC clock, oMLX joins the durable native tool loo
 discovery, and Anthropic model discovery accepts its current structured response. Structured local diagnostics export
 is also complete: Settings can snapshot the existing bounded current-session events as versioned JSON through an
 explicit native Save dialog, while Rust reapplies credential, path, and content-shaped redaction and returns only a
-saved/cancelled outcome plus the selected leaf filename. The next bounded slice is the connection and authentication
-foundation for a first-party read-only Localmail connector. Do not bundle email tools,
-provider-loop mapping, provenance UI, arbitrary MCP execution, diagnostic upload, provider request or response bodies,
-migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, document opening,
-attachment retry controls, packaging, or release updates.
+saved/cancelled outcome plus the selected leaf filename. A first-party read-only Localmail connection and authentication
+foundation is now complete: Rust owns the HTTPS origin, explicit certificate inspection and pinning, bounded server and
+bearer-authentication tests, and vault-only token storage. No email endpoint is called during setup. The next bounded
+slice is a Rust-owned `search_email` connector contract and one bounded native search call. Do not bundle
+`open_email`, provider-loop mapping, Email toggles or provenance UI, arbitrary MCP execution, attachment download or
+opening, Localmail account or sync administration, outbound mail, Bottie memory indexing, migration-recovery UI, a new
+feature schema, automatic retrieval injection, model-cache deletion, packaging, or release updates.
 
 Read these files first:
 
@@ -222,7 +224,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/native-clock-primary-provider-tools`.
+branch `codex/localmail-connection-auth`.
 
 ## Current implementation
 
@@ -694,7 +696,7 @@ focused tests require its absence while retaining explicit disabled/adaptive thi
 confirmed authenticated live Web search completes successfully with both Claude Sonnet 5 through Anthropic and Qwen3.8
 through oMLX.
 
-## Most recently completed product slice: Redacted local diagnostics export
+## Prior completed product slice: Redacted local diagnostics export
 
 ### Goal
 
@@ -750,13 +752,67 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Localmail connection and authentication
+## Next bounded product slice: Localmail search connector contract
 
-Add only a first-party read-only Localmail connector foundation: an explicit HTTPS origin,
-certificate-trust confirmation, connection testing, and OAuth 2.1 or bounded bearer-token onboarding with every token
-kept in the operating-system vault. Do not add `search_email` or `open_email`, provider-loop definitions or execution,
-Email toggles or provenance cards, arbitrary MCP discovery/execution, attachment download/opening, Localmail account or
-sync administration, outbound mail, or Bottie memory indexing in the same slice.
+Add only a Rust-owned typed `search_email` request/response contract over the saved pinned Localmail connection and one
+bounded native search call. Validate a closed query/filter/result-limit shape before network or credential access, use
+only Localmail's fixed read-only search route, bound response bytes and result metadata, and return path-free inert
+message summaries without bodies or attachment content. Do not add `open_email`, provider-loop definitions or
+multi-round execution, an Email composer toggle, provenance cards, arbitrary MCP discovery/execution, attachment
+download/opening, Localmail account or sync administration, outbound mail, Bottie memory indexing, a schema migration,
+automatic retrieval injection, packaging, or release work.
+
+## Most recently completed product slice: Localmail connection and authentication
+
+### Goal
+
+Establish an explicit first-party Localmail server and bearer-authentication boundary without reading email, exposing a
+token to the WebView, or adding a model-visible tool.
+
+### Implemented shape
+
+1. Settings now includes one focused Localmail archive control. It accepts only an explicit HTTPS origin without
+   credentials, a path, query, or fragment; changing the origin invalidates any inspected certificate draft.
+2. Native certificate inspection calls only `/v1/version`, accepts the presented leaf certificate for that inspection,
+   proves handshake key possession, and returns its SHA-256 fingerprint for comparison through another trusted channel.
+   Confirmed connections pin that exact certificate. Redirects and ambient proxies are disabled, connection/request
+   timeouts are fixed, and response metadata is capped at 32 KiB.
+3. The optional bearer token is trimmed, header-validated, and capped at 4,096 bytes before entering the existing
+   operating-system credential vault. `localmail.json` retains only the normalized origin and certificate fingerprint;
+   status IPC exposes only configuration/unlock booleans. On macOS, an existing locked token reuses Bottie's Touch ID
+   session gate.
+4. The Test action calls `/v1/version` and, only when a draft or saved token exists, `/v1/auth/whoami`. It returns a
+   bounded authenticated username and server version, never the token or email. Native diagnostics record only fixed
+   success/failure categories without origins, fingerprints, usernames, response bodies, or credentials.
+5. Focused Rust tests cover origin, fingerprint, token, persistence/reopen/removal, conflict, and certificate-verifier
+   policy. A server-rendered component test covers the explicit HTTPS, certificate confirmation, vault, and no-email
+   disclosure. One opt-in live test exercises the real TLS inspection and Localmail version contract.
+
+### Acceptance and explicit exclusions
+
+- Certificate trust is explicit and is rechecked for each tested connection; a changed certificate fails closed
+  until it is inspected and confirmed again.
+- A token is never serialized into connector settings, returned over Tauri IPC, recorded in diagnostics, or sent to the
+  unauthenticated version route.
+- Setup and testing read no email. This slice adds no `search_email`/`open_email`, tool definition, dispatcher entry,
+  provider-loop mapping, Email toggle/provenance card, MCP execution, attachment route, outbound mail, memory indexing,
+  SQLite schema, or Localmail account/sync administration.
+
+### Verification completed
+
+Prettier, Svelte diagnostics, all 88 frontend tests across 23 files, the production build, Cargo formatting/check, and
+the full Rust suite pass. The Rust suite has 361 tests: 338 pass by default and 23 loopback, public-network,
+credential, or live-provider checks remain opt-in. The seven default Localmail tests cover the closed native boundary.
+The ignored live Localmail identity probe also passed from the host against the running loopback server with exactly one
+unauthenticated `/v1/version` call; it confirmed API 1.0 without requesting a bearer token or reading email.
+
+The native development app compiled, development-signed, and launched against the existing store. Immutable read-only
+inspection returned schema version 21, `quick_check=ok`, zero foreign-key failures, an exact 21-row migration ledger,
+13 conversations, 72 messages, 30 provider runs, and 12 tool invocation/result pairs. This slice adds no schema or
+live-store mutation. The native Localmail bearer-authentication flow was not exercised with a real token, so actual OS
+vault persistence/Touch ID and `/v1/auth/whoami` remain manually unverified. The in-app browser control runtime was not
+available in this session, so the new settings surface has server-rendered component coverage but no fresh automated
+desktop/compact viewport inspection.
 
 ## Prior completed planning slice: Migration rollback
 
