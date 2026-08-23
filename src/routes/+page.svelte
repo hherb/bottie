@@ -190,6 +190,7 @@
         webEnabled={state.web.enabled}
         emailAvailable={state.emailAvailable}
         emailEnabled={state.email.enabled}
+        emailBoundaryNote={state.emailBoundaryNote}
         emailUnavailableReason={state.emailUnavailableReason}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.interaction.resizeComposer()}

@@ -56,7 +56,7 @@ fn enables_memory_tools_only_for_explicit_mapped_tool_capable_requests() {
     assert!(!email_tools_enabled(false, "ollama", true, true));
     assert!(!email_tools_enabled(true, "ollama", false, true));
     assert!(!email_tools_enabled(true, "ollama", true, false));
-    assert!(!email_tools_enabled(true, "openai", true, true));
+    assert!(email_tools_enabled(true, "openai", true, true));
     assert!(!email_tools_enabled(true, "anthropic", true, true));
     assert!(!email_tools_enabled(true, "omlx", true, true));
 }
@@ -221,6 +221,7 @@ fn executes_and_persists_an_omlx_clock_call_with_exact_provider_identity() {
         )],
         &cancellation,
         false,
+        None,
         None,
         None,
     )
@@ -549,3 +550,4 @@ mod ollama_gating;
 mod ollama_web_fetch;
 mod omlx;
 mod openai;
+mod openai_email;

@@ -15,6 +15,10 @@ function renderedComposer(
   webEnabled = false,
   emailAvailable = false,
   emailEnabled = false,
+  emailBoundaryNote = [
+    "Your prompt stays with Ollama on loopback; model-selected email queries and exact message IDs go only",
+    "to your pinned Localmail server.",
+  ].join(" "),
   emailUnavailableReason = "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
 ): string {
   return render(Composer, {
@@ -32,6 +36,7 @@ function renderedComposer(
       webEnabled,
       emailAvailable,
       emailEnabled,
+      emailBoundaryNote,
       emailUnavailableReason,
       onprompt: vi.fn(),
       oninput: vi.fn(),
@@ -104,5 +109,17 @@ describe("Composer", () => {
     expect(unavailable).toContain(
       "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
     );
+  });
+
+  it("discloses cloud prompt and bounded result delivery for OpenAI-compatible Email", () => {
+    const boundary = [
+      "Your prompt and bounded Localmail tool results go to the selected OpenAI-compatible cloud endpoint;",
+      "model-selected email queries and exact message IDs go only to your pinned Localmail server.",
+    ].join(" ");
+    const html = renderedComposer(true, true, [], false, false, false, false, true, true, boundary);
+
+    expect(html).toContain("selected OpenAI-compatible cloud endpoint");
+    expect(html).toContain("bounded Localmail tool results");
+    expect(html).toMatch(/email queries and exact message IDs go only to your\s+pinned Localmail server/);
   });
 });

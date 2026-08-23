@@ -23,7 +23,7 @@ export class EmailToolState {
     this.enabled = false;
   }
 
-  /** Toggles Email only for an idle, configured, capable Ollama route. */
+  /** Toggles Email only for an idle, configured, capable mapped provider route. */
   toggle(available: boolean, isGenerating: boolean): void {
     if (available && !isGenerating) this.enabled = !this.enabled;
   }
