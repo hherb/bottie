@@ -7,6 +7,7 @@
   import WebNetworkPolicyControl from "$lib/WebNetworkPolicyControl.svelte";
   import { DEFAULT_PROVIDER_SETTINGS } from "$lib/presentation";
   import {
+    exportDiagnostics,
     getDiagnostics,
     getProviderCredentialStatus,
     providerErrorFromUnknown,
@@ -73,6 +74,9 @@
   let settingsError = $state("");
   let settingsSaving = $state(false);
   let diagnostics = $state<DiagnosticEntry[]>([]);
+  let diagnosticsExporting = $state(false);
+  let diagnosticsExportFeedback = $state("");
+  let diagnosticsExportFailed = $state(false);
   let connectionTests = $state<Record<ProviderId, ConnectionTestState>>({
     omlx: { status: "idle", message: "" },
     ollama: { status: "idle", message: "" },
@@ -125,6 +129,27 @@
   /** Refreshes the secret-redacted session diagnostic list. */
   async function refreshDiagnostics(): Promise<void> {
     diagnostics = await getDiagnostics().catch(() => diagnostics);
+  }
+
+  /** Opens the native diagnostic Save flow and reports only its path-free outcome. */
+  async function saveDiagnostics(): Promise<void> {
+    if (!isTauri() || diagnostics.length === 0 || diagnosticsExporting) return;
+    diagnosticsExporting = true;
+    diagnosticsExportFeedback = "";
+    diagnosticsExportFailed = false;
+    try {
+      const outcome = await exportDiagnostics();
+      if (outcome.status === "saved") {
+        diagnosticsExportFeedback = `Saved redacted diagnostics as ${outcome.fileName ?? "JSON"}.`;
+      } else {
+        diagnosticsExportFeedback = "Diagnostics export cancelled.";
+      }
+    } catch (error) {
+      diagnosticsExportFeedback = providerErrorFromUnknown(error).message;
+      diagnosticsExportFailed = true;
+    } finally {
+      diagnosticsExporting = false;
+    }
   }
 
   /** Refreshes remote credential availability without reading secret values. */
@@ -420,7 +445,14 @@
       <section class="diagnostics" aria-label="Recent native diagnostics">
         <div class="diagnostics-heading">
           <span><strong>Recent diagnostics</strong><small>Structured with secrets and paths redacted</small></span>
-          <button type="button" onclick={refreshDiagnostics}>Refresh</button>
+          <div class="diagnostics-actions">
+            <button
+              type="button"
+              disabled={!isTauri() || diagnostics.length === 0 || diagnosticsExporting}
+              onclick={saveDiagnostics}>{diagnosticsExporting ? "Exporting…" : "Export JSON"}</button
+            >
+            <button type="button" onclick={refreshDiagnostics}>Refresh</button>
+          </div>
         </div>
         {#if diagnostics.length === 0}
           <p class="diagnostics-empty">No native activity has been recorded this session.</p>
@@ -434,6 +466,15 @@
               </div>
             {/each}
           </div>
+        {/if}
+        {#if diagnosticsExportFeedback}
+          <p
+            class:error={diagnosticsExportFailed}
+            class="diagnostics-export-feedback"
+            role={diagnosticsExportFailed ? "alert" : "status"}
+          >
+            {diagnosticsExportFeedback}
+          </p>
         {/if}
       </section>
 

@@ -132,6 +132,12 @@ export type DiagnosticEntry = {
   detail: string | null;
 };
 
+/** Result of one native redacted-diagnostics Save-dialog interaction. */
+export type DiagnosticsExportOutcome = {
+  status: "saved" | "cancelled";
+  fileName: string | null;
+};
+
 /** Produces the normalized failure returned when native commands are unavailable. */
 function unavailableInBrowser(): ProviderError {
   return {
@@ -218,6 +224,12 @@ export async function testWebSearchConnection(
 export async function getDiagnostics(): Promise<DiagnosticEntry[]> {
   if (!isTauri()) return [];
   return invoke<DiagnosticEntry[]>("get_diagnostics");
+}
+
+/** Saves the bounded current-session diagnostics without exposing the selected path. */
+export async function exportDiagnostics(): Promise<DiagnosticsExportOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<DiagnosticsExportOutcome>("export_diagnostics");
 }
 
 /** Starts a provider-qualified native chat stream. */

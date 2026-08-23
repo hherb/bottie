@@ -250,7 +250,7 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - first-run provider and privacy setup (complete);
 - automatic backup rotation, corruption recovery, and staged migration promotion rollback (complete);
 - crash-safe partial messages and interrupted indexing recovery (complete);
-- structured local diagnostics with redaction and opt-in export;
+- structured local diagnostics with redaction and opt-in export (complete);
 - CSP and Tauri capability review;
 - secret-vault and filesystem-boundary tests;
 - dependency and license review;

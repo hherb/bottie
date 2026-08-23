@@ -28,6 +28,9 @@ describe("ProviderSettingsDialog", () => {
     expect(html).toContain('id="web-policy-allowed-domains"');
     expect(html).toContain('id="web-policy-blocked-domains"');
     expect(html).toContain("Private, loopback, special-use, and non-public addresses remain blocked");
+    expect(html).toContain("Recent diagnostics");
+    expect(html).toContain("Export JSON");
+    expect(html).toContain("Structured with secrets and paths redacted");
     expect(html).not.toContain("Enable web search tool");
   });
 });

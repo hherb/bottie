@@ -270,51 +270,6 @@
   color: #617d7a;
   font-size: 7.5px;
 }
-.diagnostics {
-  padding-top: 13px;
-  border-top: 1px solid var(--line);
-}
-.diagnostics-heading button {
-  padding: 5px 8px;
-}
-.diagnostics-empty {
-  margin: 12px 0 2px;
-  color: #65636e;
-  font-size: 8.5px;
-}
-.diagnostic-list {
-  margin-top: 10px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  overflow: hidden;
-}
-.diagnostic-row {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  gap: 8px;
-  padding: 7px 9px;
-  border-bottom: 1px solid var(--line);
-  font-size: 7.5px;
-}
-.diagnostic-row:last-child {
-  border-bottom: 0;
-}
-.diagnostic-row > span {
-  color: #66646f;
-}
-.diagnostic-row strong {
-  overflow: hidden;
-  color: #aaa7b0;
-  font-weight: 540;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.diagnostic-row small {
-  color: #686672;
-}
-.diagnostic-row.error strong {
-  color: #d0948c;
-}
 .settings-error {
   margin: 12px 0 0;
   font-size: 9px;

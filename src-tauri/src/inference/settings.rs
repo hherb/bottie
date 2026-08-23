@@ -7,6 +7,10 @@ use crate::web_policy::WebNetworkPolicy;
 
 use super::ProviderError;
 
+mod redaction;
+
+pub(crate) use redaction::redact_diagnostic;
+
 /// Built-in loopback root for oMLX.
 pub const DEFAULT_OMLX_BASE_URL: &str = "http://127.0.0.1:8000/";
 /// Built-in loopback root for Ollama.
@@ -269,56 +273,6 @@ pub fn persist_completed_first_run_setup(
     let settings = settings.normalized()?;
     save_provider_settings(path, &settings)?;
     Ok(settings)
-}
-
-/// Removes credential-shaped values before a diagnostic crosses into UI state.
-pub fn redact_diagnostic(value: &str) -> String {
-    let mut redacted = value.to_owned();
-    for marker in ["api_key=", "apikey=", "token=", "access_token="] {
-        redacted = redact_after_marker(&redacted, marker);
-    }
-    redact_bearer_tokens(&redacted)
-}
-
-/// Redacts the value following one case-insensitive credential marker.
-fn redact_after_marker(value: &str, marker: &str) -> String {
-    let mut result = value.to_owned();
-    let mut search_from = 0;
-    loop {
-        let lower = result[search_from..].to_ascii_lowercase();
-        let Some(relative_start) = lower.find(marker) else {
-            break;
-        };
-        let value_start = search_from + relative_start + marker.len();
-        let value_end = result[value_start..]
-            .find(['&', ' ', '\n', '\r'])
-            .map(|offset| value_start + offset)
-            .unwrap_or(result.len());
-        result.replace_range(value_start..value_end, "[redacted]");
-        search_from = value_start + "[redacted]".len();
-    }
-    result
-}
-
-/// Redacts bearer credential values without exposing them to the WebView.
-fn redact_bearer_tokens(value: &str) -> String {
-    let marker = "bearer ";
-    let mut result = value.to_owned();
-    let mut search_from = 0;
-    loop {
-        let lower = result[search_from..].to_ascii_lowercase();
-        let Some(relative_start) = lower.find(marker) else {
-            break;
-        };
-        let value_start = search_from + relative_start + marker.len();
-        let value_end = result[value_start..]
-            .find([' ', '\n', '\r', ','])
-            .map(|offset| value_start + offset)
-            .unwrap_or(result.len());
-        result.replace_range(value_start..value_end, "[redacted]");
-        search_from = value_start + "[redacted]".len();
-    }
-    result
 }
 
 #[cfg(test)]
