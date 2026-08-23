@@ -166,13 +166,16 @@ accepts one absolute public HTTP(S) URL. Its native client strips fragments, rej
 special-use DNS names, non-default ports, and any DNS answer outside a fail-closed public-address policy. Every
 redirect is resolved and revalidated explicitly, the client disables ambient proxies and automatic redirects, pins
 the accepted DNS answers for each hop, and shares one 15-second deadline across at most three redirects. Successful
-responses are limited to 48 KiB of valid UTF-8 HTML, XHTML, or plain page source and enter the existing 64 KiB common
-envelope with an explicit untrusted marker. Explicitly enabled tool-capable Ollama, OpenAI-compatible, and
+responses are limited to 48 KiB of valid UTF-8 HTML, XHTML, or plain page source. HTML/XHTML is parsed into bounded
+visible text after executable and embedded elements are removed; plain text passes through the same whitespace,
+control-character, and UTF-8 boundary policy. Results contain the final source URL, optional bounded title and
+publication metadata, at most 24 KiB of inert text, and an explicit untrusted marker before the existing 64 KiB common
+envelope. Explicitly enabled tool-capable Ollama, OpenAI-compatible, and
 Anthropic-compatible requests now advertise `web_fetch` after `web_search`, execute it through the same safe
 dispatcher, checkpoint the exact bounded result, and append that result to the next provider request through the
-existing durable Web loop. The next bounded implementation slice is native HTML/XHTML page-source extraction into
-bounded inert text with source URL, title, and optional publication metadata; do not bundle oMLX mapping, citation
-cards, automatic retrieval injection, model-cache deletion, document opening, or attachment retry controls.
+existing durable Web loop. The next bounded implementation slice is path-free Web source cards derived only from
+successful selected-lineage durable `web_search` and `web_fetch` results; do not bundle claim-level citation linking,
+oMLX mapping, automatic retrieval injection, model-cache deletion, document opening, or attachment retry controls.
 
 Read these files first:
 
@@ -320,8 +323,8 @@ shared cancellation checks used by mapped provider generation,
 query/result/error contract, and fixed-endpoint Brave Search and Exa Search adapters with strict request/response
 bounds, safe result-URL policy, and redacted provider failures,
 `src-tauri/src/web_fetch/` owns the closed public-URL contract, fail-closed DNS/address policy, pinned per-hop
-resolution, explicit redirects, shared timeout, accepted UTF-8 media types, response byte ceiling, untrusted page-source
-result, and redacted failures,
+resolution, explicit redirects, shared timeout, accepted UTF-8 media types, response byte ceiling, HTML/XHTML parsing,
+bounded inert text/title/publication extraction, untrusted result, and redacted failures,
 `src-tauri/src/storage/tool_audit_migration.rs` owns schema-21 audit columns and honest legacy backfill,
 `src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
@@ -455,8 +458,9 @@ Do not mistake visual fixtures for implemented backend behavior:
   Anthropic-compatible models after the user enables Web. Brave calls and exact common results enter the durable audit
   before provider reuse. Successful results do not yet create dedicated Context-panel web-source cards;
 - the closed native `web_fetch` contract, public-network client, and common dispatcher are mapped to explicitly enabled
-  tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. HTML-to-inert-text extraction, source
-  metadata, citations, and prompt-injection presentation remain absent;
+  tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. Successful fetches now return inert text,
+  source URL, optional title/publication metadata, and an explicit untrusted marker; dedicated web-source cards,
+  claim-level citations, and prompt-injection presentation remain absent;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -497,7 +501,61 @@ The cohesively touched product modules remain below 500 lines except the existin
 practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Anthropic-compatible web-fetch generation mapping
+## Most recently completed product slice: Native inert web-page extraction
+
+### Goal
+
+Replace raw HTML/XHTML page source in successful `web_fetch` results with bounded inert visible text, final source URL,
+optional title, and optional publication metadata without changing network policy, provider mapping, IPC, storage
+schema, settings, or automatic retrieval behavior.
+
+### Implemented shape
+
+1. The existing 48 KiB response-source ceiling, strict UTF-8 media policy, public-address validation, DNS pinning,
+   explicit redirects, and shared timeout remain unchanged. The accepted source stays Rust-only and is parsed before
+   common-envelope serialization or durable provider reuse.
+2. A tolerant HTML tree parser now handles both HTML and XHTML. Open Graph and Twitter title metadata take precedence
+   over the document title. Recognized article/date meta fields and semantic publication-time elements supply one
+   optional publication value; both metadata fields are normalized and treated as untrusted.
+3. Script, style, template, noscript, SVG, MathML, canvas, frame, object, and embed nodes are removed before visible body
+   formatting. Entities are decoded, control characters and excess whitespace are normalized, paragraph boundaries
+   remain inert text, and UTF-8-safe ceilings retain at most 24 KiB of content, 512 bytes of title, and 256 bytes of
+   publication metadata. Plain-text responses use the same normalization and content ceiling.
+4. The common result now contains `sourceUrl`, optional `title`, optional `publishedAt`, inert `content`, and
+   `untrusted: true`. Raw markup and response media type no longer enter provider follow-up messages or new durable
+   tool results. Existing Ollama, OpenAI-compatible, and Anthropic-compatible loops retain their exact correlation,
+   audit, persistence, cancellation, and aggregate-output behavior.
+
+### Acceptance criteria
+
+- HTML/XHTML tags and executable or embedded element content cannot survive in the returned content; entity-decoded
+  visible text, normalized metadata, and plain-text paragraph boundaries remain available.
+- Content and metadata truncate only at valid UTF-8 boundaries before the existing 64 KiB common-envelope ceiling.
+- Source bytes, paths, headers, DNS answers, and provider/network detail remain inside Rust; no new Tauri command,
+  WebView state, schema migration, setting, credential, or endpoint is added.
+- oMLX mapping, dedicated web-source cards, claim-level citation linking, automatic retrieval injection,
+  prompt-injection presentation, model-cache deletion, document opening, and attachment retry remain outside this
+  slice.
+
+### Verification completed
+
+Focused TDD first failed on the absent extraction contract and result metadata. Pure tests now cover HTML, XHTML,
+plain text, entity decoding, metadata precedence and semantic publication time, executable/embedded-node removal,
+whitespace and control-character normalization, and UTF-8-safe content/title/publication ceilings. Dispatcher and all
+three mapped-provider durable fixtures assert the inert result shape rather than raw markup.
+
+The full standard checks pass: Prettier, Svelte diagnostics with zero errors or warnings, all 76 frontend tests, the
+production build, Cargo formatting/check, and 287 Rust tests with 20 explicit opt-in tests skipped. The restricted
+sandbox could not bind loopback fixture sockets; the authorized host-local retry passed all seven relevant ignored
+tests, including the three mapped-provider two-request loops, redirect/timeout/size policy, and one direct
+production-policy IANA HTTPS fetch whose returned content contained no markup.
+
+The signed native development app compiled and launched successfully. Immutable live-store inspection reported schema
+version 21, `quick_check=ok`, 22 provider runs, and no retained `web_fetch` call; no migration was added. No browser
+presentation review was repeated because this slice changes no frontend surface. No manual model-initiated
+`web_fetch` interaction is claimed.
+
+## Prior completed product slice: Anthropic-compatible web-fetch generation mapping
 
 ### Goal
 

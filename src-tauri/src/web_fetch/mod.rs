@@ -1,6 +1,7 @@
-//! Bounded native retrieval of public UTF-8 web page source.
+//! Bounded native retrieval and inert-text extraction of public UTF-8 web pages.
 
 mod errors;
+mod extraction;
 #[cfg(test)]
 mod tests;
 
@@ -22,6 +23,11 @@ pub(crate) use errors::{WebFetchError, WebFetchErrorCode};
 use errors::{
     blocked_address, internal_error, invalid_request, malformed_response, map_request_error,
     redirect_error, response_too_large, unsupported_content_type,
+};
+use extraction::extract_page_content;
+#[cfg(test)]
+use extraction::{
+    MAX_WEB_FETCH_PUBLICATION_BYTES, MAX_WEB_FETCH_TEXT_BYTES, MAX_WEB_FETCH_TITLE_BYTES,
 };
 
 /// Stable name of the provider-independent native web-fetch tool.
@@ -78,12 +84,13 @@ impl WebFetchRequest {
     }
 }
 
-/// Bounded page source returned after every redirect and response check succeeds.
+/// Bounded inert page content returned after every redirect and response check succeeds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct WebFetchResponse {
-    final_url: String,
-    content_type: String,
+    source_url: String,
+    title: Option<String>,
+    published_at: Option<String>,
     content: String,
     untrusted: bool,
 }
@@ -92,14 +99,15 @@ pub(crate) struct WebFetchResponse {
 /// Builds one bounded response for provider-neutral dispatcher fixtures.
 pub(crate) fn fixture_web_fetch_response() -> WebFetchResponse {
     WebFetchResponse {
-        final_url: "https://www.iana.org/release".into(),
-        content_type: "text/html".into(),
-        content: "<p>Bounded fixture page.</p>".into(),
+        source_url: "https://www.iana.org/release".into(),
+        title: Some("IANA release".into()),
+        published_at: Some("2026-08-23".into()),
+        content: "Bounded fixture page.".into(),
         untrusted: true,
     }
 }
 
-/// Native page-source client with production public-network enforcement.
+/// Native page client with production public-network and inert-extraction enforcement.
 #[derive(Clone, Debug)]
 pub(crate) struct NativeWebFetch {
     total_timeout: Duration,
@@ -211,10 +219,12 @@ impl WebFetchProvider for NativeWebFetch {
                 .map_err(|_| malformed_response())?
                 .trim_start_matches('\u{feff}')
                 .to_owned();
+            let page = extract_page_content(&content_type, &content)?;
             return Ok(WebFetchResponse {
-                final_url: current.to_string(),
-                content_type,
-                content,
+                source_url: current.to_string(),
+                title: page.title,
+                published_at: page.published_at,
+                content: page.content,
                 untrusted: true,
             });
         }

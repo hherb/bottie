@@ -346,9 +346,10 @@ fn dispatches_validated_web_fetch_through_the_bounded_native_boundary() {
 
     let execution = tauri::async_runtime::block_on(dispatch_web_fetch_tool(&provider, &call, None));
     let result = success_result(execution);
-    assert_eq!(result["finalUrl"], json!("https://www.iana.org/release"));
-    assert_eq!(result["contentType"], json!("text/html"));
-    assert_eq!(result["content"], json!("<p>Bounded fixture page.</p>"));
+    assert_eq!(result["sourceUrl"], json!("https://www.iana.org/release"));
+    assert_eq!(result["title"], json!("IANA release"));
+    assert_eq!(result["publishedAt"], json!("2026-08-23"));
+    assert_eq!(result["content"], json!("Bounded fixture page."));
     assert_eq!(result["untrusted"], json!(true));
 
     let requests = requests.lock().unwrap();

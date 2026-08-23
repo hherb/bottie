@@ -7,12 +7,13 @@ use crate::generation_web_tools::NativeWebFetchExecutor;
 struct GenerationWebFetchExecutor;
 
 impl NativeWebFetchExecutor for GenerationWebFetchExecutor {
-    /// Returns one bounded untrusted page-source result through the common envelope.
+    /// Returns one bounded untrusted inert-page result through the common envelope.
     fn execute(&self, _call: &crate::tool_loop::NativeToolCall) -> MemoryToolExecution {
         bounded_memory_tool_success(json!({
-            "finalUrl": "https://example.com/release",
-            "contentType": "text/html",
-            "content": "<p>Bounded fixture page.</p>",
+            "sourceUrl": "https://example.com/release",
+            "title": "Example release",
+            "publishedAt": "2026-08-23",
+            "content": "Bounded fixture page.",
             "untrusted": true
         }))
     }
@@ -45,7 +46,8 @@ fn executes_and_persists_an_ollama_web_fetch_before_returning_the_result() {
 
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].tool_name, "web_fetch");
-    assert!(results[0].content.contains("<p>Bounded fixture page.</p>"));
+    assert!(results[0].content.contains("Bounded fixture page."));
+    assert!(!results[0].content.contains("<p>"));
     assert!(results[0].content.contains(r#""untrusted":true"#));
     store
         .finish_provider_run(&run_id, ProviderRunState::Completed, None, None)
@@ -178,7 +180,7 @@ fn streams_an_ollama_web_fetch_result_and_final_answer_across_two_requests() {
     assert!(
         requests[1]["messages"][2]["content"]
             .as_str()
-            .is_some_and(|content| content.contains("<p>Bounded fixture page.</p>"))
+            .is_some_and(|content| content.contains("Bounded fixture page."))
     );
     assert!(
         requests[1]["messages"][2]["content"]
