@@ -337,18 +337,20 @@ fn map_search_result(raw: RawSearchResult) -> Result<SearchEmailSummary, Provide
     })
 }
 
-/// Requires an opaque identifier that cannot be interpreted as a filesystem path.
+/// Requires the strict decimal string identity emitted by Localmail's bigint API boundary.
 fn normalize_message_id(value: &str) -> Result<String, ProviderError> {
-    let value = value.trim();
-    if value.is_empty()
-        || value.chars().count() > MAX_EMAIL_MESSAGE_ID_CHARS
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-    {
+    if !is_valid_message_id(value) {
         return Err(malformed_search_response());
     }
-    Ok(value.into())
+    Ok(value.to_owned())
+}
+
+/// Recognizes the strict decimal string identity emitted and accepted by Localmail.
+pub(super) fn is_valid_message_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.chars().count() <= MAX_EMAIL_MESSAGE_ID_CHARS
+        && value.bytes().all(|byte| byte.is_ascii_digit())
+        && value.parse::<i64>().is_ok()
 }
 
 /// Converts one server timestamp to a stable UTC RFC 3339 representation.

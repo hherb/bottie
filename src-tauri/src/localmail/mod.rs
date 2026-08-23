@@ -1,7 +1,8 @@
-//! First-party Localmail trust, bearer authentication, and bounded email search.
+//! First-party Localmail trust, bearer authentication, and bounded inert email reading.
 
 mod commands;
 mod config;
+mod open;
 mod search;
 mod tls;
 
@@ -18,7 +19,7 @@ use crate::{
     inference::ProviderError,
 };
 pub(crate) use commands::{
-    get_localmail_connection_status, probe_localmail_connection, search_email,
+    get_localmail_connection_status, open_email, probe_localmail_connection, search_email,
     test_localmail_connection, update_localmail_connection,
 };
 use config::{LocalmailConfig, load_config, save_config};
@@ -343,6 +344,8 @@ fn localmail_internal_error() -> ProviderError {
     ProviderError::internal("Bottie could not prepare the Localmail connection.", None)
 }
 
+#[cfg(test)]
+mod open_tests;
 #[cfg(test)]
 mod search_tests;
 #[cfg(test)]

@@ -137,8 +137,13 @@ diagnostics. The Test action calls only `/v1/version` and, when a token is avail
 email. A separate Rust-owned `search_email` command now accepts one closed bounded query/filter/result-limit shape,
 then uses only the saved pinned connection and vault token for one authenticated `POST /v1/search`. It returns at most
 20 path-free plain-text summaries marked untrusted; Localmail bodies, HTML, attachment metadata/content, account/folder
-internals, scores, cursors, raw responses, and credentials do not cross IPC. `open_email`, provider-loop mapping,
-Email controls/provenance, attachment access, outbound mail, and memory indexing are not yet implemented.
+internals, scores, cursors, raw responses, and credentials do not cross IPC. A matching Rust-owned `open_email`
+command accepts only one strict decimal identity returned by search, performs one authenticated
+`GET /v1/messages/{id}` with compact headers and external images explicitly disabled, and returns bounded plain
+subject, sender, To/Cc, UTC date, inert body, and attachment-presence metadata marked untrusted. HTML markup,
+external-image URLs, Bcc, full headers, attachment details or bytes, account/folder internals, raw responses, native
+paths, and credentials remain excluded. Provider-loop mapping, Email controls/provenance, attachment access, outbound
+mail, and memory indexing are not yet implemented.
 
 ## Development
 
