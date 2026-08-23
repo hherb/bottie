@@ -242,7 +242,7 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 
 Outcome: bottie is safe and comfortable enough for sustained daily use.
 
-- first-run provider and privacy setup;
+- first-run provider and privacy setup (complete);
 - automatic backup rotation and corruption recovery (complete), plus migration rollback planning;
 - crash-safe partial messages and interrupted indexing recovery;
 - structured local diagnostics with redaction and opt-in export;

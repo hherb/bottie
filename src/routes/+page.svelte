@@ -4,6 +4,7 @@
   import Composer from "$lib/Composer.svelte";
   import ContextPanel from "$lib/ContextPanel.svelte";
   import ConversationView from "$lib/ConversationView.svelte";
+  import FirstRunSetup from "$lib/FirstRunSetup.svelte";
   import ProviderSettingsDialog from "$lib/ProviderSettingsDialog.svelte";
   import ProviderToolbar from "$lib/ProviderToolbar.svelte";
   import Sidebar from "$lib/Sidebar.svelte";
@@ -19,6 +20,7 @@
   import "$lib/styles/markdown.css";
   import "$lib/styles/composer.css";
   import "$lib/styles/context.css";
+  import "$lib/styles/first-run.css";
   import "$lib/styles/settings.css";
   import "$lib/styles/recovery.css";
 
@@ -225,6 +227,21 @@
       onremovememory={(citationId) => state.memory.dismiss(citationId)}
       onremovewebsource={(sourceId) => state.web.dismiss(sourceId)}
     />
+
+    {#if state.firstRun.requiresSetup(state.providerSettings) && !state.showSettings}
+      <FirstRunSetup
+        providerName={state.selectedModel?.providerName ?? null}
+        modelName={state.selectedModel?.displayName ?? null}
+        providerEndpoint={selectedProviderEndpoint(state.selectedProviderId, state.providerSettings)}
+        isLocalRoute={state.isLocalRoute}
+        canComplete={state.canSend}
+        isSaving={state.firstRun.isSaving}
+        error={state.firstRun.error}
+        onopensettings={() => (state.showSettings = true)}
+        oncomplete={() =>
+          void state.firstRun.complete(state.canSend, (settings) => (state.providerSettings = settings))}
+      />
+    {/if}
 
     {#if state.showSettings}
       <ProviderSettingsDialog

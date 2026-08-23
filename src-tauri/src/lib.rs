@@ -52,7 +52,8 @@ use futures_util::future::AbortHandle;
 use generation::{cancel_chat, start_chat};
 use inference::{
     AnthropicProvider, InferenceProvider, ModelInfo, OllamaProvider, OmlxProvider, OpenAiProvider,
-    ProviderError, ProviderSettings, load_provider_settings, save_provider_settings,
+    ProviderError, ProviderSettings, load_provider_settings, persist_completed_first_run_setup,
+    save_provider_settings,
 };
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use semantic_indexer::SemanticIndexer;
@@ -238,6 +239,25 @@ async fn remember_provider_selection(
         "Provider and model selection remembered",
         Some(&selection.provider_id),
         None,
+    )
+    .await;
+    Ok(settings)
+}
+
+#[tauri::command]
+/// Persists completion of the first-run provider and privacy disclosure.
+async fn complete_first_run_setup(
+    state: State<'_, AppState>,
+) -> Result<ProviderSettings, ProviderError> {
+    let settings = state.providers.read().await.settings();
+    let settings = persist_completed_first_run_setup(&state.settings_path, settings)?;
+    state.providers.write().await.settings = settings.clone();
+    record_diagnostic(
+        &state.diagnostics,
+        "info",
+        "First-run setup completed",
+        settings.last_provider_id.as_deref(),
+        Some("Provider route and privacy boundaries acknowledged; no credentials stored"),
     )
     .await;
     Ok(settings)
@@ -512,6 +532,7 @@ pub fn run() {
             update_provider_credential,
             update_provider_settings,
             remember_provider_selection,
+            complete_first_run_setup,
             test_provider_connection,
             test_web_search_connection,
             get_diagnostics,

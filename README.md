@@ -161,6 +161,13 @@ hosts, embedded credentials, paths, query strings, and fragments; redirects are 
 exposed to the WebView. oMLX discovery reads explicit VLM and residency metadata from `/v1/models/status`. Ollama
 discovery also normalizes model capabilities, context size, and loaded/on-demand state.
 
+On a genuinely new native installation, Bottie pauses before the first conversation to show the discovered
+provider/model and whether its route is local or cloud. The disclosure distinguishes provider-delivered prompts,
+normalized images, and explicitly enabled tool results from local conversations, files, and derived memory; Memory and
+Web remain session-only and off by default, and credentials remain in the OS vault. Setup cannot complete until one
+usable provider/model pair has been remembered. Settings files written before this flow are treated as already
+acknowledged, so upgrading does not replay first-run setup.
+
 Settings also support HTTPS OpenAI-compatible and Anthropic-compatible profiles plus path-free Web destination
 controls. API keys are written and removed through narrow Rust commands backed by the OS credential vault. Cloud
 routes are visibly labelled before sending, redirects stay disabled, and remote response usage and provider-reported

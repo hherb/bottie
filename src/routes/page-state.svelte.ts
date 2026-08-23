@@ -45,6 +45,7 @@ import { RecoveryState } from "./recovery-state.svelte";
 import { memoryToolsAvailable, webToolsAvailable } from "./page-presentation";
 import { MemoryContextState } from "./memory-context-state.svelte";
 import { WebToolState } from "./web-tool-state.svelte";
+import { FirstRunSetupState } from "./first-run-setup-state.svelte";
 
 const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
@@ -76,12 +77,12 @@ export class PageState {
   recovery = new RecoveryState();
   history = new ConversationState();
   attachment = new AttachmentState();
+  firstRun = new FirstRunSetupState();
 
   private generationRun = 0;
   private cancellationRequested = false;
   private messageScroll?: HTMLDivElement;
   private composer?: HTMLTextAreaElement;
-
   /** Currently selected provider-qualified model, when discovery has produced one. */
   get selectedModel(): ModelInfo | undefined {
     return this.models.find((model) => modelKey(model) === this.selectedModelKey);
@@ -211,7 +212,6 @@ export class PageState {
     this.selectedModelKey = "";
     await this.refreshModels(providerId);
   }
-
   /** Applies and persists a model selection from the toolbar. */
   async changeModel(selectedModelKey: string): Promise<void> {
     this.selectedModelKey = selectedModelKey;

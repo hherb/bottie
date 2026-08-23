@@ -91,6 +91,7 @@ export type ProviderSettings = {
   anthropicBaseUrl: string;
   webSearchProviderId: WebSearchProviderId;
   webNetworkPolicy: WebNetworkPolicy;
+  setupCompleted: boolean;
   lastProviderId: ProviderId | null;
   lastModelId: string | null;
 };
@@ -164,6 +165,12 @@ export async function rememberProviderSelection(providerId: ProviderId, modelId:
   return invoke<ProviderSettings>("remember_provider_selection", {
     selection: { providerId, modelId },
   });
+}
+
+/** Persists completion of the native first-run provider and privacy disclosure. */
+export async function completeFirstRunSetup(): Promise<ProviderSettings> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ProviderSettings>("complete_first_run_setup");
 }
 
 /** Tests a draft provider endpoint without changing active settings. */
