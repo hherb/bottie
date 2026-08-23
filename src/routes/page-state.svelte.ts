@@ -43,6 +43,7 @@ import { RecoveryState } from "./recovery-state.svelte";
 import {
   emailToolsAvailable,
   emailToolsUnavailableReason,
+  emailToolsBoundaryNote,
   memoryToolsAvailable,
   webToolsAvailable,
 } from "./page-presentation";
@@ -115,13 +116,17 @@ export class PageState {
   get webAvailable(): boolean {
     return webToolsAvailable(this.selectedModel);
   }
-  /** Whether configured Localmail can be used by the selected tool-capable Ollama model. */
+  /** Whether configured Localmail can be used by the selected tool-capable mapped model. */
   get emailAvailable(): boolean {
     return this.email.configured && emailToolsAvailable(this.selectedModel);
   }
   /** Actionable path-free reason the Email control is unavailable, or empty when it is ready. */
   get emailUnavailableReason(): string {
     return emailToolsUnavailableReason(this.selectedModel, this.email.configured);
+  }
+  /** Exact provider and Localmail delivery disclosure for one enabled Email request. */
+  get emailBoundaryNote(): string {
+    return emailToolsBoundaryNote(this.selectedModel);
   }
   /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {

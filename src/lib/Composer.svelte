@@ -18,6 +18,7 @@
     webEnabled: boolean;
     emailAvailable: boolean;
     emailEnabled: boolean;
+    emailBoundaryNote: string;
     emailUnavailableReason: string;
     onprompt: (prompt: string) => void;
     oninput: () => void;
@@ -47,6 +48,7 @@
     webEnabled,
     emailAvailable,
     emailEnabled,
+    emailBoundaryNote,
     emailUnavailableReason,
     onprompt,
     oninput,
@@ -186,10 +188,7 @@
     {attachmentNote}
   </p>
   {#if emailEnabled}
-    <p class="email-boundary-note">
-      Your prompt stays with Ollama on loopback; model-selected email queries and exact message IDs go only to your
-      pinned Localmail server.
-    </p>
+    <p class="email-boundary-note">{emailBoundaryNote}</p>
   {:else if emailUnavailableReason}
     <p class="email-boundary-note" role="status">{emailUnavailableReason}</p>
   {/if}

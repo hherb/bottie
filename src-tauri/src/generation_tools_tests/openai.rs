@@ -1,11 +1,8 @@
 //! OpenAI-compatible durable call correlation and loopback generation tests.
-
 use super::*;
 use crate::generation_web_tools::NativeWebFetchExecutor;
-
 /// Socket-free native web-fetch executor for OpenAI-compatible orchestration tests.
 struct OpenAiWebFetchExecutor;
-
 impl NativeWebFetchExecutor for OpenAiWebFetchExecutor {
     /// Returns one bounded untrusted inert-page result through the common envelope.
     fn execute(&self, _call: &crate::tool_loop::NativeToolCall) -> MemoryToolExecution {
@@ -43,6 +40,7 @@ fn preserves_openai_call_identity_while_persisting_the_exact_result() {
         )],
         &cancellation,
         true,
+        None,
         None,
         None,
     )
@@ -88,6 +86,7 @@ fn executes_openai_web_search_with_exact_call_identity_and_durable_result() {
         &cancellation,
         false,
         Some(&web_search),
+        None,
         None,
     )
     .expect("OpenAI web-search round should execute");
@@ -136,6 +135,7 @@ fn executes_openai_web_fetch_with_exact_call_identity_and_durable_result() {
         false,
         None,
         Some(&web_fetch),
+        None,
     )
     .expect("OpenAI web-fetch round should execute");
 
@@ -183,6 +183,7 @@ fn rejects_openai_memory_calls_when_only_web_was_explicitly_enabled() {
         &cancellation,
         false,
         Some(&web_search),
+        None,
         None,
     )
     .expect("disabled memory call should close through the bounded result envelope");
@@ -260,6 +261,7 @@ fn streams_an_openai_web_search_result_and_final_answer_across_two_requests() {
         semantic_indexer.query_embedder(),
         ToolLoopCancellation::default(),
         Some(Arc::new(GenerationWebSearchExecutor)),
+        None,
         None,
     ))
     .expect("two-round OpenAI web generation should complete")
@@ -359,6 +361,7 @@ fn streams_an_openai_web_fetch_result_and_final_answer_across_two_requests() {
         ToolLoopCancellation::default(),
         Some(Arc::new(GenerationWebSearchExecutor)),
         Some(Arc::new(OpenAiWebFetchExecutor)),
+        None,
     ))
     .expect("two-round OpenAI web-fetch generation should complete")
     .expect("fixture reports usage");
@@ -463,6 +466,7 @@ fn streams_an_openai_tool_call_result_and_final_answer_across_two_requests() {
         run_id,
         semantic_indexer.query_embedder(),
         ToolLoopCancellation::default(),
+        None,
         None,
         None,
     ))

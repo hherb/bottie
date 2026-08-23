@@ -262,6 +262,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - off-by-default session Email enablement for explicitly tool-capable Ollama models, with configured native trust and
   credential gating, bounded multi-round execution, durable audit, and explicit loopback/Localmail disclosure
   (complete);
+- explicit OpenAI-compatible Email mapping with exact Chat Completions call/result correlation, the same configured
+  native trust and loop bounds, and cloud-provider/Localmail delivery disclosure (complete);
 - CSP and Tauri capability review;
 - secret-vault and filesystem-boundary tests;
 - dependency and license review;

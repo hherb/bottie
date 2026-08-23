@@ -135,8 +135,8 @@ proxies, and cap connection metadata at 32 KiB. An optional bearer token is boun
 operating-system credential vault; it is never written to `localmail.json`, returned over IPC, or included in
 diagnostics. The Test action calls only `/v1/version` and, when a token is available, `/v1/auth/whoami`; it does not read
 email. A passing test with a newly pasted token does not save it: the connection must still be confirmed and saved
-before Email becomes available. The composer states whether saved Localmail readiness, Ollama routing, or advertised
-model tool support is missing instead of presenting an unexplained disabled control. A separate Rust-owned
+before Email becomes available. The composer states whether saved Localmail readiness, supported provider routing, or
+advertised model tool support is missing instead of presenting an unexplained disabled control. A separate Rust-owned
 `search_email` command now accepts one closed bounded query/filter/result-limit shape,
 then uses only the saved pinned connection and vault token for one authenticated `POST /v1/search`. It returns at most
 20 path-free plain-text summaries marked untrusted; Localmail bodies, HTML, attachment metadata/content, account/folder
@@ -148,11 +148,12 @@ external-image URLs, Bcc, full headers, attachment details or bytes, account/fol
 paths, and credentials remain excluded. Rust also owns closed provider-independent `search_email` and `open_email`
 tool schemas, strict raw conversion into those exact connector requests, explicit safe read-only policy entries, and
 execution through Bottie's common redacted 64 KiB result envelope. An off-by-default session Email control advertises
-those two definitions only to an explicitly tool-capable Ollama model after native status confirms both pinned trust
-and a configured vault credential. Prompts remain on Ollama's loopback route; the interface discloses that
-model-selected queries and exact message identities go only to the pinned Localmail server. Calls and bounded results
-reuse Bottie's durable audit, cancellation, four-round/eight-call/30-second loop, 64 KiB per-result ceiling, and 256 KiB
-aggregate ceiling. OpenAI-compatible, Anthropic-compatible, and oMLX Email mapping, Email provenance, attachment access,
+those two definitions only to an explicitly tool-capable Ollama or OpenAI-compatible model after native status confirms
+both pinned trust and a configured vault credential. Prompts remain on Ollama's loopback route; OpenAI-compatible
+prompts and bounded Localmail tool results use the selected visible cloud route. The interface separately discloses
+that model-selected queries and exact message identities go only to the pinned Localmail server. Calls and bounded
+results reuse Bottie's durable audit, cancellation, four-round/eight-call/30-second loop, 64 KiB per-result ceiling,
+and 256 KiB aggregate ceiling. Anthropic-compatible and oMLX Email mapping, Email provenance, attachment access,
 outbound mail, and memory indexing remain unimplemented.
 
 ## Development

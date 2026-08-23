@@ -12,14 +12,17 @@ use crate::{
     tool_loop::NativeToolCall,
 };
 
-/// Confirms explicit Email intent, configured trust/credential state, and Ollama tool capability.
+/// Confirms explicit Email intent, configured trust/credential state, and a mapped provider capability.
 pub(crate) fn email_tools_enabled(
     email_enabled: bool,
     provider_id: &str,
     model_supports_tools: bool,
     localmail_configured: bool,
 ) -> bool {
-    email_enabled && provider_id == "ollama" && model_supports_tools && localmail_configured
+    email_enabled
+        && matches!(provider_id, "ollama" | "openai")
+        && model_supports_tools
+        && localmail_configured
 }
 
 /// Builds one immutable per-generation Localmail executor only when trust and a credential exist.
