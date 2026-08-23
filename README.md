@@ -138,6 +138,7 @@ Run the standard validation suite before submitting a change:
 
 ```sh
 npm run format:check
+npm run dependencies:check
 npm run check
 npm test
 npm run build
@@ -155,6 +156,8 @@ latest completed slice.
 - [`ROADMAP.md`](ROADMAP.md) — product principles, completed milestones, and upcoming work
 - [`HANDOVER.md`](HANDOVER.md) — current implementation state, validation evidence, limitations, and next slice
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — documentation, style, TDD, and slice-completion requirements
+- [`DEPENDENCY-LICENCES.md`](DEPENDENCY-LICENCES.md) — reproducible package inventory, licence review, and release
+  gaps
 - [`MIGRATION-ROLLBACK.md`](MIGRATION-ROLLBACK.md) — forward-only migration and recovery contract
 
 ## Current boundaries

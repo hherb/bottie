@@ -234,10 +234,14 @@ forms, objects, base-URL changes, unused asset schemes, and blob/data images. Se
 contract coverage is now also complete. Saved and absent credential status is collected without reading secret values;
 provider settings, diagnostics, attachment ingestion and previews, export, backup, and restore expose exact typed,
 path-free IPC shapes under adversarial fixtures. Secret-bearing native command inputs reject unknown fields. The next
-bounded slice is a dependency and licence review. Do not bundle dependency upgrades, Email provenance cards,
-attachment download or opening, Localmail account or sync administration, outbound mail, Bottie memory indexing,
-migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, packaging, signing,
-updates, or release work.
+bounded slice is now complete: Bottie has a deterministic locked macOS Rust/npm dependency inventory, reviewed
+security-sensitive Cargo features and native/runtime assets, authoritative licence sources, explicit classification,
+and six release gates. Current resolved package metadata has no unknown licence declaration, but distribution remains
+blocked on Bottie's own licence text, a generated notice bundle, packaged ONNX Runtime evidence, pinned and accepted
+EmbeddingGemma terms, artwork provenance, and Windows/Linux verification. The next bounded product slice is keyboard
+shortcuts and a command palette. Do not bundle dependency upgrades or remediation, Email provenance cards, attachment
+download or opening, Localmail administration, outbound mail, migration-recovery UI, a new feature schema, automatic
+retrieval injection, model-cache deletion, packaging, signing, updates, or release work.
 
 A 2026-08-24 reliability correction extends the provider-neutral tool-loop deadline from 30 seconds to five minutes.
 Two retained oMLX Email failures showed successful `search_email` results followed by timeout termination while the
@@ -260,7 +264,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/ipc-boundary-contract-tests`.
+branch `codex/dependency-licence-review`.
 
 ## Current implementation
 
@@ -796,17 +800,78 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: dependency and licence review
+## Next bounded product slice: keyboard shortcuts and command palette
 
-Produce a reproducible inventory of the Rust, npm, and Tauri dependencies shipped by Bottie, including direct and
-transitive package versions, declared licences, bundled native/runtime assets, and the security-relevant feature flags
-that select them. Classify compatible, notice-required, unknown, and review-required entries; record authoritative
-licence sources and any release-blocking gaps; and add a bounded check or generated report only where it can remain
-deterministic in the repository. Do not upgrade or replace dependencies, change provider/tool behavior, fetch or run
-untrusted package scripts, add telemetry or upload, alter the WebView/native boundary, perform a schema migration, or
-bundle shortcuts, themes, accessibility remediation, performance work, packaging, signing, updates, or release work.
+Add one accessible in-app command palette over a small registry of existing safe UI actions. A platform-appropriate
+Command/Ctrl+K shortcut opens it; Escape closes it and focus returns to the invoking control. Commands should expose
+their labels and shortcuts, filter locally, keep disabled reasons from the existing generation/provider gates, and
+cover only New chat, conversation search, Settings, and the existing navigation/context-panel surfaces. Use tested
+pure registry/filter helpers and focused keyboard/component coverage. Do not add global OS shortcuts, a Tauri plugin or
+capability, new IPC, destructive lifecycle commands, provider/tool execution, dependency upgrades or licence
+remediation, themes, broad accessibility remediation, performance work, packaging, signing, updates, or release work.
 
-## Most recently completed product slice: Secret-vault and filesystem-boundary tests
+## Most recently completed product slice: dependency and licence review
+
+### Goal
+
+Produce a reproducible inventory of the Rust, npm, and Tauri dependencies shipped by Bottie, including exact direct
+and transitive versions, declared licences, native/runtime assets, and the security-relevant features that select
+them, without changing dependency resolution or executing untrusted package work.
+
+### Implemented shape
+
+1. `scripts/dependency-inventory.mjs` runs locked, offline Cargo tree resolution for macOS arm64 and x64 normal/build
+   graphs and reads npm's version-three lockfile directly. It invokes no Cargo build, npm installation, lifecycle
+   script, network service, telemetry, or upload.
+2. `dependency-inventory.json` records exact package versions, direct/transitive and graph/install scope,
+   target membership, declared licence, review class, resolved Rust features or npm optional/peer state, authoritative
+   registry source, npm integrity, security-sensitive direct choices, asset metadata, and hashes for every reviewed
+   input. `npm run dependencies:check` reproduces and compares the snapshot byte-for-byte.
+3. The reviewed macOS union contains 399 unique Rust crates: 29 direct, 376 in a normal runtime graph, and 23
+   build-only. `Cargo.lock` retains a 649-package all-platform superset. The root npm lock contains 157 exact package
+   paths: 14 direct, eight production-install, and 149 development-install. npm's development marker does not prove
+   code is absent from the compiled frontend, so every locked npm entry remains in the notice review. The separately
+   deployed `website/` project is not bundled into the desktop app and retains its own lockfile and Node test command.
+4. Across those packages and six non-package asset groups, 10 entries are compatible, 543 require release notices,
+   nine require human review, and none has an unknown declaration. Five MPL-2.0 Rust crates and npm's Python-2.0
+   `argparse` remain review-required rather than being declared incompatible without legal review.
+5. `DEPENDENCY-LICENCES.md` records the classification policy, authoritative sources, selected network/TLS/storage/
+   decoder/native features, SQLite/sqlite-vec/ONNX Runtime/EmbeddingGemma delivery, and six release gates: missing
+   Bottie licence text, no notice bundle, uncaptured ORT artefact notices, unpinned/unaccepted Gemma terms, unknown
+   artwork provenance, and unverified Windows/Linux bundles.
+6. Root Vitest now excludes the independent `website/` project and unrelated repository-root `assets/` tree so
+   standard desktop validation tests only its `src/` and `scripts/` surfaces. This slice adds no dependency version,
+   compiled feature, app code, schema, IPC, capability, UI, provider/tool behavior, credential, or live-store change.
+
+### Acceptance and explicit exclusions
+
+- Every resolved macOS Rust package and every root npm lock path has an exact version, declared licence, scope, and
+  authoritative package source in the generated snapshot. Input or graph drift fails the deterministic check.
+- Classification is a conservative technical release policy, not legal advice. Unknown and review-required entries
+  are never silently accepted; declared licences do not substitute for the exact distributable texts and notices.
+- Native/runtime assets distinguish repository-bundled bytes, build-time inputs, runtime downloads, and OS-supplied
+  frameworks. The report does not claim Windows/Linux or final package contents were verified.
+- Do not upgrade, replace, or vendor dependencies; fetch or run package scripts; change model-cache behavior or add a
+  licence-acceptance UI; change providers, tools, IPC, schema, capabilities, CSP, or rendered UI; or bundle shortcuts,
+  themes, broad accessibility work, performance work, packaging, signing, updates, or release work.
+
+### Verification completed
+
+Focused TDD first failed because the dependency inventory module did not exist. Four tests now cover Cargo
+deduplication/feature merging, multi-target runtime-versus-build scope, conservative licence classification, and exact
+npm path/scope/integrity/directness. The deterministic locked offline check passes against the committed snapshot.
+
+Prettier accepts all tracked frontend and script sources; `svelte-check` reports zero errors or warnings; all 25 root
+Vitest files and 95 tests pass; and the production build succeeds. Cargo formatting and compile checks pass. The full
+Rust suite contains 416 tests: 387 pass by default and 29 loopback, public-network, credential, or live-provider checks
+remain explicitly ignored. `git diff --check` is clean.
+
+Browser and native-app presentation review, live-provider checks, and immutable live-store inspection are not
+applicable because the slice changes no application code, WebView/native boundary, provider protocol, schema, or
+rendered behavior. The inventory command used only locked offline metadata and did not fetch dependencies, execute
+package build/lifecycle scripts, inspect credentials, or mutate the live store.
+
+## Prior completed product slice: Secret-vault and filesystem-boundary tests
 
 ### Goal
 
