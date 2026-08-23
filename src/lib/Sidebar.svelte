@@ -18,6 +18,8 @@
     searchResults: ConversationSearchResult[];
     isSearching: boolean;
     isGenerating: boolean;
+    newChatShortcut: string;
+    searchShortcut: string;
     onclose: () => void;
     onnewchat: () => void;
     onselectconversation: (conversationId: string) => void;
@@ -42,6 +44,8 @@
     searchResults,
     isSearching,
     isGenerating,
+    newChatShortcut,
+    searchShortcut,
     onclose,
     onnewchat,
     onselectconversation,
@@ -61,15 +65,6 @@
   let deletedConversations = $derived(conversationsForLifecycle(conversations, "deleted"));
   let searchInput = $state<HTMLInputElement>();
 
-  /** Focuses conversation search from the standard desktop shortcut. */
-  function handleWindowKeydown(event: KeyboardEvent): void {
-    if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey)) {
-      event.preventDefault();
-      searchInput?.focus();
-      searchInput?.select();
-    }
-  }
-
   /** Clears an active query, or releases focus when the field is already empty. */
   function handleSearchKeydown(event: KeyboardEvent): void {
     if (event.key !== "Escape") return;
@@ -77,8 +72,6 @@
     else searchInput?.blur();
   }
 </script>
-
-<svelte:window onkeydown={handleWindowKeydown} />
 
 {#if mobileOpen}
   <button class="mobile-scrim" aria-label="Close conversations" onclick={onclose}></button>
@@ -91,16 +84,23 @@
     <span class="alpha-label">alpha</span>
   </div>
 
-  <button class="new-chat" onclick={onnewchat}>
+  <button
+    id="new-conversation-button"
+    class="new-chat"
+    disabled={isGenerating}
+    title={isGenerating ? "Finish the current response before starting a new conversation." : undefined}
+    onclick={onnewchat}
+  >
     <Icon name="new-chat" size={17} />
     <span>New conversation</span>
-    <kbd>⌘ N</kbd>
+    <kbd>{newChatShortcut}</kbd>
   </button>
 
   <label class="conversation-search">
     <Icon name="search" size={17} />
     <input
       aria-label="Search conversations"
+      id="conversation-search"
       bind:this={searchInput}
       value={searchQuery}
       maxlength="200"
@@ -108,7 +108,7 @@
       oninput={(event) => onsearch(event.currentTarget.value)}
       onkeydown={handleSearchKeydown}
     />
-    <kbd>⌘ K</kbd>
+    <kbd>{searchShortcut}</kbd>
   </label>
 
   <nav class="conversation-list" aria-label="Past conversations">

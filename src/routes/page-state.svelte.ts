@@ -52,6 +52,7 @@ import { WebToolState } from "./web-tool-state.svelte";
 import { FirstRunSetupState } from "./first-run-setup-state.svelte";
 import { EmailToolState } from "./email-tool-state.svelte";
 import { ComposerInteractionState } from "./composer-interaction-state";
+import { CommandPaletteState } from "./command-palette-state.svelte";
 
 const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
@@ -85,6 +86,7 @@ export class PageState {
   attachment = new AttachmentState();
   firstRun = new FirstRunSetupState();
   interaction = new ComposerInteractionState();
+  commandPalette = new CommandPaletteState();
 
   private generationRun = 0;
   private cancellationRequested = false;

@@ -238,10 +238,13 @@ bounded slice is now complete: Bottie has a deterministic locked macOS Rust/npm 
 security-sensitive Cargo features and native/runtime assets, authoritative licence sources, explicit classification,
 and six release gates. Current resolved package metadata has no unknown licence declaration, but distribution remains
 blocked on Bottie's own licence text, a generated notice bundle, packaged ONNX Runtime evidence, pinned and accepted
-EmbeddingGemma terms, artwork provenance, and Windows/Linux verification. The next bounded product slice is keyboard
-shortcuts and a command palette. Do not bundle dependency upgrades or remediation, Email provenance cards, attachment
-download or opening, Localmail administration, outbound mail, migration-recovery UI, a new feature schema, automatic
-retrieval injection, model-cache deletion, packaging, signing, updates, or release work.
+EmbeddingGemma terms, artwork provenance, and Windows/Linux verification. The keyboard-shortcut slice is now complete:
+Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
+shortcuts, local filtering, wrapped keyboard selection,
+disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. The next bounded product
+slice is themes and density options. Do not bundle dependency upgrades or remediation, Email provenance cards,
+attachment download or opening, Localmail administration, outbound mail, migration-recovery UI, a new feature schema,
+automatic retrieval injection, model-cache deletion, packaging, signing, updates, or release work.
 
 A 2026-08-24 reliability correction extends the provider-neutral tool-loop deadline from 30 seconds to five minutes.
 Two retained oMLX Email failures showed successful `search_email` results followed by timeout termination while the
@@ -264,7 +267,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/dependency-licence-review`.
+branch `codex/keyboard-command-palette`.
 
 ## Current implementation
 
@@ -800,17 +803,73 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: keyboard shortcuts and command palette
+## Next bounded product slice: themes and density options
 
-Add one accessible in-app command palette over a small registry of existing safe UI actions. A platform-appropriate
-Command/Ctrl+K shortcut opens it; Escape closes it and focus returns to the invoking control. Commands should expose
-their labels and shortcuts, filter locally, keep disabled reasons from the existing generation/provider gates, and
-cover only New chat, conversation search, Settings, and the existing navigation/context-panel surfaces. Use tested
-pure registry/filter helpers and focused keyboard/component coverage. Do not add global OS shortcuts, a Tauri plugin or
-capability, new IPC, destructive lifecycle commands, provider/tool execution, dependency upgrades or licence
-remediation, themes, broad accessibility remediation, performance work, packaging, signing, updates, or release work.
+Add one local presentation preference surface for system, light, and dark themes plus comfortable and compact density.
+Apply explicit document-level state before first paint where practical, keep system preference reactive only while the
+system option is selected, and retain the current dark/comfortable presentation as the migration-safe default. Cover
+preference normalization, persistence, system changes, keyboard focus, and both density layouts at the native minimum
+viewport. Do not bundle broad accessibility remediation, empty/offline/error redesign, native menu or tray work, a new
+provider/tool/storage schema, dependency changes, performance testing, packaging, signing, updates, or release work.
 
-## Most recently completed product slice: dependency and licence review
+## Most recently completed product slice: keyboard shortcuts and command palette
+
+### Goal
+
+Add one accessible, locally filtered command palette over a bounded registry of existing safe interface actions without
+creating new native authority or letting shortcuts cross existing modal and generation gates.
+
+### Implemented shape
+
+1. `command-palette.ts` owns a pure five-command registry for New conversation, conversation search, conversation
+   navigation, Context-panel toggling, and Settings. It derives Command or Ctrl labels from the desktop platform,
+   provides exact direct-shortcut matching, token filtering, and wrapped enabled-item navigation.
+2. Command/Ctrl+K and a labelled toolbar button open the modal palette. Command/Ctrl+N, Command/Ctrl+Shift+F,
+   Command/Ctrl+Shift+B, Command/Ctrl+Shift+C, and Command/Ctrl+, run the same registered actions directly.
+3. The palette uses a labelled modal dialog, search combobox, related listbox, active-descendant state, visible
+   shortcuts, local descriptions, disabled reasons, Arrow-key navigation, Enter execution, a Tab focus trap, Escape
+   dismissal, and exact invoking-control focus restoration.
+4. New conversation stays disabled while generation, message persistence, or conversation management is active.
+   Browser-preview search stays visible with its native-storage-unavailable reason. Disabled direct shortcuts open the
+   palette to expose that reason instead of silently running or cancelling work.
+5. Existing first-run and Settings modals retain priority. Actions reuse only existing UI functions and focus targets;
+   there is no global OS shortcut, Tauri plugin/capability, IPC command, provider/tool execution, lifecycle command,
+   schema, credential, filesystem, or network change.
+
+### Acceptance and explicit exclusions
+
+- The complete command registry is small, deterministic, locally filtered, platform-labelled, and accessible from both
+  pointer and keyboard input. Escape restores focus, and direct shortcuts share the exact registry and availability.
+- Context labels reflect current visibility; responsive navigation commands reveal the sidebar before focusing its
+  existing New conversation or search control.
+- Do not add global shortcuts, native menu/tray work, destructive lifecycle actions, provider/tool execution,
+  dependency upgrades or licence remediation, themes, broad accessibility remediation, performance work, packaging,
+  signing, updates, or release work.
+
+### Verification completed
+
+Focused TDD first failed because the registry and palette component did not exist. Five focused tests now cover the
+complete platform-labelled registry, busy and native-storage disabled reasons, local multi-field filtering, exact
+shortcut matching, wrapped disabled-item skipping, and the modal combobox/listbox structure.
+
+Prettier accepts all tracked frontend and script sources; `svelte-check` reports zero errors or warnings; all 27 root
+Vitest files and 100 tests pass; and the production build succeeds. Cargo formatting and compilation pass. The full
+Rust suite contains 416 tests: 387 pass by default and 29 loopback, public-network, credential, or live-provider tests
+remain explicitly ignored. `git diff --check` is clean.
+
+The browser preview was reviewed at 1320 × 820 and the 720 × 620 native minimum. The palette remained contained with
+no horizontal document overflow. Pointer opening, local filtering, wrapped Arrow/Enter execution, disabled-search
+feedback, direct Context toggling, Escape dismissal, invoking-control focus restoration, and responsive navigation
+focus all worked; the console reported no warnings or errors. The browser preview deliberately exposes conversation
+search as unavailable because it has no native store. Native launch is recorded separately below. Live-provider,
+schema, credential, filesystem, and immutable-store checks are not applicable because this slice changes only local
+WebView presentation and existing UI action routing.
+
+The native development app compiled, development-signed, and launched against the existing store with the updated
+shell composition. The macOS window was not synthetically clicked, so native launch is not claimed as a second
+keyboard-interaction check; the rendered browser interaction evidence covers the exact shortcut and focus behavior.
+
+## Prior completed product slice: dependency and licence review
 
 ### Goal
 

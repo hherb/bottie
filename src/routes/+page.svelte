@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
 
+  import CommandPalette from "$lib/CommandPalette.svelte";
   import Composer from "$lib/Composer.svelte";
   import ContextPanel from "$lib/ContextPanel.svelte";
   import ConversationView from "$lib/ConversationView.svelte";
@@ -12,6 +13,12 @@
   import { composerAttachmentNote } from "$lib/chat";
   import { webSearchProviderName } from "$lib/presentation";
   import { canBatchExportConversations } from "$lib/storage";
+  import {
+    commandForKeyboardEvent,
+    isCommandPaletteShortcut,
+    type CommandId,
+    type CommandPaletteItem,
+  } from "$lib/command-palette";
   import "$lib/styles/shell.css";
   import "$lib/styles/conversation-nav.css";
   import "$lib/styles/conversation.css";
@@ -19,6 +26,7 @@
   import "$lib/styles/tool-activity.css";
   import "$lib/styles/markdown.css";
   import "$lib/styles/composer.css";
+  import "$lib/styles/command-palette.css";
   import "$lib/styles/context.css";
   import "$lib/styles/first-run.css";
   import "$lib/styles/settings.css";
@@ -35,8 +43,10 @@
   } from "./page-presentation";
 
   const state = new PageState();
+  let commandPaletteInvoker: HTMLElement | null = null;
 
   onMount(() => {
+    state.commandPalette.platform = navigator.platform;
     void state.initialize();
     return () => state.dispose();
   });
@@ -48,7 +58,82 @@
     state.messages = messages;
     await state.refreshModels();
   }
+
+  /** Opens the palette while retaining the exact invoking control for Escape focus restoration. */
+  function openCommandPalette(invoker: HTMLElement | null): void {
+    commandPaletteInvoker = invoker;
+    state.commandPalette.open = true;
+  }
+
+  /** Closes the palette and optionally restores focus to the control that opened it. */
+  async function closeCommandPalette(restoreFocus = true): Promise<void> {
+    state.commandPalette.open = false;
+    await tick();
+    if (restoreFocus) commandPaletteInvoker?.focus();
+    commandPaletteInvoker = null;
+  }
+
+  /** Focuses one existing sidebar surface after responsive navigation becomes visible. */
+  async function focusSidebar(target: "navigation" | "search"): Promise<void> {
+    state.showSidebar = true;
+    await tick();
+    const selector = target === "search" ? "#conversation-search" : "#new-conversation-button";
+    document.querySelector<HTMLElement>(selector)?.focus();
+  }
+
+  /** Returns the current command registry from shell-owned reactive availability. */
+  function commandItems(): CommandPaletteItem[] {
+    return state.commandPalette.items({
+      busy: state.isGenerating || state.isPersistingMessage || state.history.isManaging,
+      contextOpen: state.showContext,
+      storageAvailable: state.runtime.version !== "preview",
+    });
+  }
+
+  /** Executes one registry command through existing page actions only. */
+  async function runCommand(id: CommandId): Promise<void> {
+    const command = commandItems().find((item) => item.id === id);
+    if (!command || command.disabledReason) return;
+    await closeCommandPalette(false);
+    if (id === "new-chat") {
+      await state.startNewChat();
+    } else if (id === "search-conversations") {
+      await focusSidebar("search");
+    } else if (id === "focus-navigation") {
+      await focusSidebar("navigation");
+    } else if (id === "toggle-context") {
+      state.showContext = !state.showContext;
+      await tick();
+      document.querySelector<HTMLElement>("#context-panel-toggle")?.focus();
+    } else {
+      state.showSettings = true;
+      state.showSidebar = false;
+      await tick();
+      document.querySelector<HTMLElement>(".settings-dialog button")?.focus();
+    }
+  }
+
+  /** Handles exact app-shell shortcuts without crossing an active modal boundary. */
+  function handleWindowKeydown(event: KeyboardEvent): void {
+    if (state.commandPalette.open || state.showSettings || state.firstRun.requiresSetup(state.providerSettings)) return;
+    if (isCommandPaletteShortcut(event)) {
+      event.preventDefault();
+      openCommandPalette(event.target instanceof HTMLElement ? event.target : null);
+      return;
+    }
+    const commandId = commandForKeyboardEvent(event);
+    if (!commandId) return;
+    event.preventDefault();
+    const command = commandItems().find((item) => item.id === commandId);
+    if (command?.disabledReason) {
+      openCommandPalette(event.target instanceof HTMLElement ? event.target : null);
+    } else {
+      void runCommand(commandId);
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleWindowKeydown} />
 
 <svelte:head>
   <title>bottie — local-first conversations</title>
@@ -82,6 +167,8 @@
       searchResults={state.history.searchResults}
       isSearching={state.history.isSearching}
       isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
+      newChatShortcut={commandItems().find((item) => item.id === "new-chat")?.shortcut ?? "Ctrl N"}
+      searchShortcut={commandItems().find((item) => item.id === "search-conversations")?.shortcut ?? "Ctrl ⇧ F"}
       onclose={() => (state.showSidebar = false)}
       onnewchat={() => void state.startNewChat()}
       onselectconversation={(conversationId) => void state.openConversation(conversationId)}
@@ -134,6 +221,8 @@
         onmodelchange={(modelKey) => void state.changeModel(modelKey)}
         ontogglereasoning={() => state.toggleReasoning()}
         onopensidebar={() => (state.showSidebar = true)}
+        onopencommands={(invoker) => openCommandPalette(invoker)}
+        commandPaletteShortcut={state.commandPalette.shortcutLabel()}
         ontogglecontext={() => (state.showContext = !state.showContext)}
         onexport={() => void state.history.exportMarkdown()}
         onexportjson={() => void state.history.exportJson()}
@@ -234,6 +323,14 @@
       onremovememory={(citationId) => state.memory.dismiss(citationId)}
       onremovewebsource={(sourceId) => state.web.dismiss(sourceId)}
     />
+
+    {#if state.commandPalette.open}
+      <CommandPalette
+        items={commandItems()}
+        onclose={() => void closeCommandPalette()}
+        onrun={(id) => void runCommand(id)}
+      />
+    {/if}
 
     {#if state.firstRun.requiresSetup(state.providerSettings) && !state.showSettings}
       <FirstRunSetup
