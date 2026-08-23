@@ -804,15 +804,72 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: refined empty, offline, and error states
+## Next bounded product slice: focused accessibility audit and reduced-motion verification
 
-Refine the existing empty-conversation, provider-offline, and stable error presentations as one local UI slice. Keep
-native error categories, recovery behavior, provider retry policy, persistence, and trust-boundary contracts unchanged.
-Cover browser/native presentation, keyboard focus, reduced motion, and the native minimum viewport. Do not bundle a
-broad accessibility audit, provider/network changes, schema or IPC work, native menu or tray work, dependency changes,
-performance testing, packaging, signing, updates, or release work.
+Audit the existing conversation shell, composer, navigation, Context, Settings, first-run, recovery, and command-palette
+surfaces as one WebView-only accessibility slice. Verify keyboard order and focus return, accessible names and state,
+status announcements, dark/light contrast, zoom containment, and reduced-motion behavior at the desktop and native
+minimum viewports. Fix only presentation semantics and styling found by that audit. Keep native/provider contracts,
+retry and recovery policy, persistence, IPC/schema, dependencies, network behavior, performance testing, native menu
+or tray work, packaging, signing, updates, and release work unchanged.
 
-## Most recently completed product slice: themes and density options
+## Most recently completed product slice: refined empty, offline, and error states
+
+### Goal
+
+Make the blank-conversation, provider-disconnected, and durable failed-response states calm, distinct, actionable, and
+contained without changing any native error, retry, persistence, or trust-boundary contract.
+
+### Implemented shape
+
+1. `ConversationStatus.svelte` now owns one typed presentation boundary for connected, checking, browser-preview, and
+   offline provider states. Blank conversations receive state-specific headings and guidance, while existing
+   conversations retain a compact status banner.
+2. Offline banners keep the stable native message and optional diagnostic, and expose the existing retry callback as a
+   labelled `Retry connection` button with visible keyboard focus. Checking remains a polite live status and browser
+   preview remains explicitly native-only without offering a false retry action.
+3. Empty connected conversations identify the selected provider and explain that the next message starts a private
+   local conversation. The prior empty `Current conversation` divider is absent until a message exists.
+4. Durable failed assistant responses retain their exact stored text, metadata, and retry eligibility while adding a
+   compact `Response needs attention` label. No error text or retryability is reclassified in the WebView.
+5. Cohesive dark/light presentation lives in `conversation-status.css`. The global reduced-motion policy now also
+   removes ambient decoration, while retaining the existing near-zero animation and transition durations.
+
+### Acceptance and explicit exclusions
+
+- Rendered contracts distinguish all four provider states, keep diagnostics visible only when supplied, expose retry
+  only for offline state, and preserve failed-response content plus its existing retry action.
+- The browser-preview empty and existing-conversation states remain contained at 1320 x 820 and 720 x 620 in dark and
+  light themes with visible focus, zero horizontal document overflow, and no console warning or error.
+- Reduced-motion styles disable repeated animation and transitions and remove ambient motion. No new animation is
+  introduced by the status surfaces.
+- No native error category, provider recovery/retry behavior, native command, capability, credential, storage, schema,
+  IPC, dependency, network, menu, tray, performance, packaging, signing, update, or release behavior changed.
+
+### Verification completed
+
+Focused TDD first failed because `ConversationStatus.svelte` did not exist and because durable failed responses lacked
+the new visible state label. Four rendered tests now cover connected, checking, browser-preview, and offline empty
+states, compact offline presentation above existing messages, diagnostic and retry visibility, and preservation of a
+durable failed response's stable content and retry action.
+
+Prettier accepts all tracked frontend and script sources; `svelte-check` reports zero errors or warnings; all 31 root
+Vitest files and 108 tests pass; and the production build succeeds. Cargo formatting and compilation pass. The full
+Rust suite remains at 416 tests: 387 pass by default and 29 loopback, public-network, credential, or live-provider tests
+remain explicitly ignored. `git diff --check` is clean, and touched implementation and style files remain below the
+practical 500-line limit after extracting the cohesive status stylesheet.
+
+The browser preview was reviewed at 1320 x 820 and the 720 x 620 native minimum in dark and light themes. The refined
+browser-disconnected banner, blank-conversation guidance, composer, and responsive overlays remain contained; exact
+DOM measurements report no horizontal document overflow. Focus styling is visible, parsed reduced-motion rules cover
+all animations and transitions plus ambient decoration, and the browser console reports no warnings or errors.
+
+The native development app compiled, development-signed, and launched against the existing store. Immutable read-only
+inspection returned schema version 21, `quick_check=ok`, and zero foreign-key failures. Native connected/offline UI
+interactions were not synthetically clicked; focused rendered coverage exercises those exact path-free presentation
+states. Live-provider tests are not applicable because this slice changes no provider networking or wire mapping.
+
+## Prior completed product slice: themes and density options
 
 ### Goal
 

@@ -275,7 +275,7 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
   release gates (complete);
 - keyboard shortcuts and command palette (complete);
 - themes and density options (complete);
-- refined empty/offline/error states;
+- refined empty/offline/error states (complete);
 - accessibility audit and reduced-motion verification;
 - performance tests for long conversations and large histories;
 - macOS, Windows, and Linux packaging and smoke tests;
