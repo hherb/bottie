@@ -39,6 +39,12 @@
   font-weight: 620;
   letter-spacing: -0.02em;
 }
+.context-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
 .context-section {
   flex: 0 0 auto;
   padding: 16px 18px;
@@ -202,9 +208,7 @@
   font-size: 7.5px;
 }
 .memory-section {
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: none;
+  overflow: visible;
 }
 .memory-card {
   position: relative;
@@ -228,6 +232,9 @@
 }
 .memory-card.violet::before {
   background: var(--violet);
+}
+.memory-card.amber::before {
+  background: var(--amber);
 }
 .memory-meta {
   display: flex;
@@ -262,6 +269,27 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
+}
+.web-source-heading {
+  margin-top: 15px;
+}
+.web-source-card a {
+  display: block;
+  margin-top: 8px;
+  overflow: hidden;
+  color: #c9c5d0;
+  font-size: 9px;
+  font-weight: 580;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.web-source-card a:hover {
+  color: var(--amber);
+  text-decoration: underline;
+}
+.web-source-card p {
+  margin-top: 4px;
 }
 .memory-card > small {
   display: block;

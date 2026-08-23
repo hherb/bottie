@@ -215,6 +215,7 @@
       attachmentFailed={state.attachment.failed}
       attachmentActionsDisabled={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
       memoryCitations={state.memory.citations(state.messages)}
+      webSources={state.web.sources(state.messages)}
       onclose={() => (state.showContext = false)}
       onadd={() => void state.attachment.openPicker()}
       onremove={(id) => state.attachment.remove(id)}
@@ -222,6 +223,7 @@
       onremoveconversation={(attachmentId) => void state.removeConversationAttachment(attachmentId)}
       onremovemessage={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
       onremovememory={(citationId) => state.memory.dismiss(citationId)}
+      onremovewebsource={(sourceId) => state.web.dismiss(sourceId)}
     />
 
     {#if state.showSettings}

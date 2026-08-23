@@ -175,6 +175,35 @@ export const INITIAL_MESSAGES: Message[] = [
         },
         createdAtMs: 1,
       },
+      {
+        ordinal: 1,
+        toolName: "web_search",
+        arguments: { query: "Bottie local-first architecture" },
+        result: {
+          output: {
+            ok: true,
+            result: {
+              providerId: "brave",
+              results: [
+                {
+                  title: "Tauri security guidance",
+                  url: "https://v2.tauri.app/security/",
+                  snippet: "Keep privileged capabilities behind narrow native commands.",
+                  publishedAt: null,
+                },
+              ],
+            },
+          },
+          isError: false,
+          createdAtMs: 4,
+        },
+        audit: {
+          policy: "safe",
+          outcome: "success",
+          durationMs: 24,
+        },
+        createdAtMs: 3,
+      },
     ],
   },
 ];
