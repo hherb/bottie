@@ -12,7 +12,8 @@ use crate::{
     },
     tool_loop::NativeToolCall,
     tool_policy::{ApprovedToolCall, ToolPolicyError, ToolPolicyErrorCode, authorize_tool_call},
-    web_fetch::{WebFetchError, WebFetchErrorCode, WebFetchProvider},
+    web_fetch::{WebFetchError, WebFetchErrorCode, WebFetchProvider, blocked_by_user_policy},
+    web_policy::WebNetworkPolicy,
     web_search::{WebSearchError, WebSearchErrorCode, WebSearchProvider},
 };
 
@@ -122,6 +123,7 @@ pub(crate) fn dispatch_memory_tool(
 pub(crate) async fn dispatch_web_search_tool(
     provider: &impl WebSearchProvider,
     call: &NativeToolCall,
+    network_policy: &WebNetworkPolicy,
     approval: Option<ApprovedToolCall>,
 ) -> MemoryToolExecution {
     let authorized = match authorize_tool_call(call, approval) {
@@ -138,7 +140,7 @@ pub(crate) async fn dispatch_web_search_tool(
         Err(error) => return web_search_error(error),
     };
     match provider.search(request).await {
-        Ok(response) => match serde_json::to_value(response) {
+        Ok(response) => match serde_json::to_value(response.filtered_by(network_policy)) {
             Ok(result) => bounded_memory_tool_success(result),
             Err(_) => execution_error(
                 MemoryToolExecutionErrorCode::ExecutionFailed,
@@ -153,6 +155,7 @@ pub(crate) async fn dispatch_web_search_tool(
 pub(crate) async fn dispatch_web_fetch_tool(
     provider: &impl WebFetchProvider,
     call: &NativeToolCall,
+    network_policy: &WebNetworkPolicy,
     approval: Option<ApprovedToolCall>,
 ) -> MemoryToolExecution {
     let authorized = match authorize_tool_call(call, approval) {
@@ -164,11 +167,14 @@ pub(crate) async fn dispatch_web_fetch_tool(
         Ok(arguments) => arguments,
         Err(error) => return contract_error(error),
     };
-    let request = match arguments.into_request() {
+    let request = match arguments.into_request_with_policy(network_policy) {
         Ok(request) => request,
         Err(error) => return web_fetch_error(error),
     };
     match provider.fetch(request).await {
+        Ok(response) if !response.allowed_by(network_policy) => {
+            web_fetch_error(blocked_by_user_policy())
+        }
         Ok(response) => match serde_json::to_value(response) {
             Ok(result) => bounded_memory_tool_success(result),
             Err(_) => execution_error(

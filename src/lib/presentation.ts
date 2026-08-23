@@ -94,6 +94,11 @@ export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {
   openaiBaseUrl: "https://api.openai.com/v1/",
   anthropicBaseUrl: "https://api.anthropic.com/v1/",
   webSearchProviderId: "brave",
+  webNetworkPolicy: {
+    httpsOnly: true,
+    allowedDomains: [],
+    blockedDomains: [],
+  },
   lastProviderId: null,
   lastModelId: null,
 };

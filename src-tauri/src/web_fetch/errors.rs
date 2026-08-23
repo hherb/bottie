@@ -55,6 +55,14 @@ pub(super) fn invalid_request() -> WebFetchError {
     )
 }
 
+/// Builds one fixed user-policy rejection without reflecting the destination.
+pub(crate) fn blocked_by_user_policy() -> WebFetchError {
+    WebFetchError::new(
+        WebFetchErrorCode::InvalidRequest,
+        "The web destination is blocked by the saved Web network policy.",
+    )
+}
+
 /// Builds one fixed blocked destination-address error.
 pub(super) fn blocked_address() -> WebFetchError {
     WebFetchError::new(

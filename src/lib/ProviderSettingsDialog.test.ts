@@ -23,6 +23,11 @@ describe("ProviderSettingsDialog", () => {
     expect(html).toContain('aria-label="Choose web search engine"');
     expect(html).toContain('value="exa"');
     expect(html).toContain("Connection test sends one fixed bounded probe and does not expose search results.");
+    expect(html).toContain("Web destination policy");
+    expect(html).toContain("Require HTTPS destinations");
+    expect(html).toContain('id="web-policy-allowed-domains"');
+    expect(html).toContain('id="web-policy-blocked-domains"');
+    expect(html).toContain("Private, loopback, special-use, and non-public addresses remain blocked");
     expect(html).not.toContain("Enable web search tool");
   });
 });

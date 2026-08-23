@@ -181,9 +181,13 @@ presentation derived only from the exact native `untrusted: true` result marker.
 also complete. Native capability-gated Web requests now receive fixed citation guidance, while the stored assistant
 Markdown and successful response-owned Web results provide the durable link after completion and reopen. The UI marks
 only normalized URLs that match the same response's exact retained Web provenance and labels the matching Context card
-without changing ordinary safe external links. The next bounded implementation slice is user-configurable domain and
-network policy controls; do not bundle oMLX mapping, automatic retrieval injection, model-cache deletion, document
-opening, attachment retry controls, or a general MCP runtime.
+without changing ordinary safe external links. User-configurable Web destination policy is also complete. A
+secret-free HTTPS-only setting defaults on; optional allowed and blocked parent-domain lists are normalized and
+bounded in Rust. Each generation snapshots that policy, filters normalized search results before serialization, and
+rechecks the initial fetch plus every redirect without weakening the fixed public-address baseline. The next bounded
+implementation slice is first-run provider and privacy setup; do not bundle oMLX Web mapping, automatic retrieval
+injection, model-cache deletion, document opening, attachment retry controls, a general MCP runtime, packaging, or
+release updates.
 
 Read these files first:
 
@@ -197,7 +201,7 @@ Read these files first:
 8. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/web-claim-citations`.
+branch `codex/web-domain-network-policy`.
 
 ## Current implementation
 
@@ -251,8 +255,9 @@ branch `codex/web-claim-citations`.
 - confirmed manual restore from validated Bottie backups with a named pre-restore safety copy;
 - verified daily automatic SQLite snapshots with a seven-snapshot app-private retention policy;
 - corruption-aware startup with guided automatic/manual restore and app-private damaged-data preservation;
-- a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, timeout policy,
-  and secret/path-redacted session diagnostics including automatic-backup outcomes;
+- a provider settings dialog with endpoint editing, OS-vault credential management, connection tests, bounded Web
+  HTTPS/allowed-domain/blocked-domain policy, timeout policy, and secret/path-redacted session diagnostics including
+  automatic-backup outcomes;
 - context-panel open/close behavior;
 - reduced-motion and keyboard-focus support.
 
@@ -333,6 +338,8 @@ bounds, safe result-URL policy, and redacted provider failures,
 `src-tauri/src/web_fetch/` owns the closed public-URL contract, fail-closed DNS/address policy, pinned per-hop
 resolution, explicit redirects, shared timeout, accepted UTF-8 media types, response byte ceiling, HTML/XHTML parsing,
 bounded inert text/title/publication extraction, untrusted result, and redacted failures,
+`src-tauri/src/web_policy.rs` owns the secret-free HTTPS-only default, bounded normalized allowed/blocked domain lists,
+parent-domain matching, and blocked-domain precedence shared by search-result and fetch enforcement,
 `src-tauri/src/storage/tool_audit_migration.rs` owns schema-21 audit columns and honest legacy backfill,
 `src-tauri/src/generation_tools.rs` owns Ollama/OpenAI/Anthropic call correlation, durable call/result checkpoints,
 cumulative usage/cost, worker-backed query embedding, and provider-result serialization without leaking paths or
@@ -415,6 +422,7 @@ local provider being offline and reports a combined retryable error only when ne
 Provider configuration now:
 
 - persists normalized endpoint roots and the remembered provider/model pair in the OS application-config directory;
+- persists one normalized path-free Web destination policy with HTTPS-only enabled for new and older settings files;
 - keeps API keys out of that file and stores only remote credential availability in UI state;
 - remembers the last successfully selected provider/model pair in the same Rust-owned settings file;
 - accepts HTTP(S) loopback roots for local providers and HTTPS roots for remote profiles, with no embedded credentials,
@@ -472,7 +480,8 @@ Do not mistake visual fixtures for implemented backend behavior:
   expandable durable result label that content as untrusted and explain that external text may contain misleading
   instructions. Capability-gated native Web requests ask for inline Markdown links to exact result URLs; after
   completion or reopen, only links matched to the same response's successful retained Web results receive claim-level
-  citation treatment and a matching Context-card label;
+  citation treatment and a matching Context-card label. Saved HTTPS/domain policy filters search results before their
+  common envelope and rejects a fetch before network work or at any policy-mismatched redirect;
 - there are no automated end-to-end UI tests yet; the composer and Context panel have focused server-rendered
   component coverage, and pure presentation and Markdown-policy helpers have frontend unit coverage.
 
@@ -513,7 +522,66 @@ The cohesively touched product modules remain below 500 lines except the existin
 practical-limit exception at 548 lines; the remaining known indivisible long lines are SVG path values in
 `src/lib/Icon.svelte`.
 
-## Most recently completed product slice: Durable claim-level Web citations
+## Most recently completed product slice: User-configurable Web destination policy
+
+### Goal
+
+Let users narrow Web search and fetch destinations without weakening Bottie's fixed public-network protections,
+exposing native network detail to the WebView, or allowing settings to change an accepted generation mid-run.
+
+### Implemented shape
+
+1. `WebNetworkPolicy` persists with the existing secret-free provider settings. HTTPS-only defaults on for new and
+   older settings files. Optional allowed and blocked lists accept at most 32 combined normalized public DNS names;
+   parent domains include their subdomains, exact duplicates/conflicts fail validation, and blocked domains win.
+2. Every explicitly Web-enabled generation snapshots the normalized policy beside its concrete Brave/Exa search and
+   credential-free fetch executors. A later Settings write cannot change the route of that accepted run.
+3. Search adapters retain their existing model-selected query filters and safe-result normalization. The common native
+   dispatcher then drops every normalized result that violates HTTPS, allowlist, or blocklist policy before the result
+   can serialize into the durable tool envelope or provider follow-up.
+4. `web_fetch` applies the same policy before DNS or HTTP work, rechecks each explicitly resolved redirect target, and
+   verifies the final provider result before serialization. Disabling HTTPS-only permits public HTTP but cannot permit
+   IP literals, private/loopback/special-use names or addresses, mixed non-public DNS answers, non-default ports,
+   embedded credentials, ambient proxies, automatic redirects, or any other fixed baseline rejection.
+5. Settings renders one focused path-free policy control with the HTTPS default, line/comma-delimited allowed and
+   blocked domains, parent/precedence guidance, and an explicit immutable private-network boundary. The WebView never
+   receives DNS answers, resolved addresses, request data, headers, source content, credentials, or native detail.
+
+### Acceptance criteria
+
+- Older settings load with HTTPS-only enabled, saved domain names normalize deterministically, invalid or over-limit
+  policies fail without being activated, and the settings file remains secret-free.
+- Search results cannot cross the common dispatcher when their exact normalized URL violates the saved policy.
+- A blocked fetch fails before provider work; the same immutable policy is reapplied to every redirect and final URL.
+- Turning off HTTPS-only restores only public HTTP support and cannot relax Bottie's native public-address baseline.
+- Settings remains accessible and horizontally contained at the desktop default and 720 x 620 native minimum.
+- No schema migration, new Tauri command, credential, provider definition/wire mapping, approval UI, oMLX mapping,
+  automatic retrieval, model-cache deletion, document opening, attachment retry, MCP runtime, packaging, or release
+  work is added.
+
+### Verification completed
+
+Focused TDD first failed on the absent policy model, older-settings default, domain validation/matching, dispatcher
+filter, pre-network fetch rejection, draft cloning/parsing, and Settings controls. Native coverage now exercises
+HTTPS defaults and relaxation, allow/block precedence, unsafe/conflicting/over-limit settings, secret-free
+serialization, pre-envelope search filtering, and pre-network fetch rejection. Frontend coverage verifies isolated
+nested drafts plus the complete labelled Settings surface.
+
+The full standard checks pass: Prettier, Svelte diagnostics with zero errors or warnings, all 85 frontend tests, the
+production build, Cargo formatting/check, and 314 Rust tests with 294 passing and 20 explicit opt-in tests skipped. No
+schema migration, credential, provider endpoint, database record, tool definition/result shape, or live-store format
+changed.
+
+The browser preview was inspected at 1280 x 720 and the 720 x 620 native minimum. The policy card and both text areas
+remain legible inside the existing bounded Settings scroll region, HTTPS is visibly enabled by default, document and
+settings content have no horizontal overflow, and the console has no warnings or errors. The signed native development
+app compiled and launched successfully. Immutable live-store inspection reported schema version 21 and
+`quick_check=ok`, 22 provider runs, and no retained `web_search` or `web_fetch` call; the policy is stored in the
+existing native provider-settings file, so no database migration or live-store mutation was required. Live Web calls
+were not made because they require a selected search credential and would not add coverage beyond the deterministic
+native policy/dispatcher boundaries.
+
+## Prior completed product slice: Durable claim-level Web citations
 
 ### Goal
 

@@ -3,6 +3,8 @@ use std::{fs, path::Path, time::Duration};
 use serde::{Deserialize, Serialize};
 use url::{Host, Url};
 
+use crate::web_policy::WebNetworkPolicy;
+
 use super::ProviderError;
 
 /// Built-in loopback root for oMLX.
@@ -39,6 +41,9 @@ pub struct ProviderSettings {
     /// Fixed native search adapter used by explicitly enabled Web calls.
     #[serde(default = "default_web_search_provider_id")]
     pub web_search_provider_id: String,
+    /// User-configurable restrictions layered over the fixed public-Web baseline.
+    #[serde(default)]
+    pub web_network_policy: WebNetworkPolicy,
     #[serde(default)]
     /// Last successfully selected provider.
     pub last_provider_id: Option<String>,
@@ -55,6 +60,7 @@ impl Default for ProviderSettings {
             openai_base_url: DEFAULT_OPENAI_BASE_URL.into(),
             anthropic_base_url: DEFAULT_ANTHROPIC_BASE_URL.into(),
             web_search_provider_id: DEFAULT_WEB_SEARCH_PROVIDER_ID.into(),
+            web_network_policy: WebNetworkPolicy::default(),
             last_provider_id: None,
             last_model_id: None,
         }
@@ -75,6 +81,10 @@ impl ProviderSettings {
             )?
             .to_string(),
             web_search_provider_id: normalize_web_search_provider_id(&self.web_search_provider_id)?,
+            web_network_policy: self
+                .web_network_policy
+                .normalized()
+                .map_err(|error| ProviderError::invalid_request(error.message()))?,
             last_provider_id: normalize_provider_id(self.last_provider_id)?,
             last_model_id: normalize_model_id(self.last_model_id)?,
         })
@@ -370,6 +380,35 @@ mod tests {
         assert_eq!(settings.openai_base_url, DEFAULT_OPENAI_BASE_URL);
         assert_eq!(settings.anthropic_base_url, DEFAULT_ANTHROPIC_BASE_URL);
         assert_eq!(settings.web_search_provider_id, "brave");
+        assert_eq!(settings.web_network_policy, WebNetworkPolicy::default());
+    }
+
+    #[test]
+    fn validates_and_round_trips_the_secret_free_web_network_policy() {
+        let settings = ProviderSettings {
+            web_network_policy: WebNetworkPolicy {
+                https_only: false,
+                allowed_domains: vec![" Rust-Lang.ORG. ".into()],
+                blocked_domains: vec!["ads.rust-lang.org".into()],
+            },
+            ..ProviderSettings::default()
+        }
+        .normalized()
+        .unwrap();
+
+        assert_eq!(
+            settings.web_network_policy.allowed_domains,
+            ["rust-lang.org"]
+        );
+        assert_eq!(
+            settings.web_network_policy.blocked_domains,
+            ["ads.rust-lang.org"]
+        );
+        assert!(!settings.web_network_policy.https_only);
+
+        let serialized = serde_json::to_value(settings).unwrap();
+        assert_eq!(serialized["webNetworkPolicy"]["httpsOnly"], false);
+        assert!(serialized.get("credential").is_none());
     }
 
     #[test]
