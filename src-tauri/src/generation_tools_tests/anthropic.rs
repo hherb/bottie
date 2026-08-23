@@ -140,7 +140,7 @@ fn streams_call_result_and_final_answer_across_two_requests() {
             .is_some_and(|cost| (cost - 0.003).abs() < f64::EPSILON)
     );
     let requests = requests.lock().unwrap();
-    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(4));
     assert_eq!(requests[1]["messages"][1]["role"], "assistant");
     assert_eq!(requests[1]["messages"][1]["content"][0]["type"], "tool_use");
     assert_eq!(requests[1]["messages"][2]["role"], "user");
@@ -314,7 +314,7 @@ fn streams_an_anthropic_web_search_result_and_final_answer_across_two_requests()
     assert_eq!(usage.output_tokens, Some(5));
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
-    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(2));
+    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(3));
     assert_eq!(requests[0]["tools"][0]["name"], "web_search");
     assert_eq!(requests[0]["tools"][1]["name"], "web_fetch");
     assert_eq!(requests[1]["messages"][1]["role"], "assistant");

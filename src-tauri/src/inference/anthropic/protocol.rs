@@ -23,8 +23,6 @@ pub(super) struct AnthropicChatRequest {
     system: Option<String>,
     max_tokens: u32,
     stream: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    temperature: Option<f32>,
     thinking: ThinkingConfig,
     #[serde(skip_serializing_if = "Option::is_none")]
     output_config: Option<OutputConfig>,
@@ -83,9 +81,6 @@ impl From<ChatRequest> for AnthropicChatRequest {
             system: (!system.is_empty()).then(|| system.join("\n\n")),
             max_tokens: request.settings.max_output_tokens.unwrap_or(4_096),
             stream: true,
-            temperature: (!reasoning_enabled)
-                .then_some(request.settings.temperature)
-                .flatten(),
             thinking: if reasoning_enabled {
                 ThinkingConfig::Adaptive
             } else {

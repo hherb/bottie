@@ -1,21 +1,70 @@
-use std::collections::HashMap;
-
 use futures_util::StreamExt;
 use reqwest::{Client, StatusCode};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use url::Url;
 
 use super::{
     InferenceProvider,
-    multimodal::{OpenAiContent, openai_content},
+    openai::protocol::{
+        DecodedStreamEvent, OpenAiToolCall, OpenAiToolCallAccumulator, OpenAiToolResult,
+        decode_stream_payload,
+    },
     provider::StreamSink,
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_local_base_url},
     sse::SseDecoder,
-    types::{
-        ChatRequest, ChatRole, ModelInfo, ModelLoadState, ProviderCapabilities, ProviderError,
-        ProviderErrorCode, ReasoningEffort, Usage,
-    },
+    types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
 };
+use crate::tool_contract::enabled_native_tool_definitions;
+
+use self::protocol::OmlxChatRequest;
+
+mod discovery;
+mod protocol;
+
+#[cfg(test)]
+use self::discovery::{
+    decode_model_list, decode_model_status, decode_openapi_tool_support, enrich_models,
+    enrich_tool_capabilities,
+};
+
+/// One provider-native oMLX history spanning repeated Bottie-owned tool rounds.
+pub(crate) struct OmlxToolSession {
+    request: OmlxChatRequest,
+}
+
+impl OmlxToolSession {
+    /// Starts a session with exactly the closed tools enabled for this request.
+    pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
+        validate_request(&request)?;
+        let definitions =
+            enabled_native_tool_definitions(request.memory_enabled, request.web_enabled);
+        Ok(Self {
+            request: OmlxChatRequest::with_tools(request, definitions),
+        })
+    }
+
+    /// Appends one complete assistant call batch and its exact correlated native results.
+    pub(crate) fn append_results(
+        &mut self,
+        round: OmlxToolRound,
+        results: Vec<OpenAiToolResult>,
+    ) -> Result<(), ProviderError> {
+        self.request
+            .append_tool_exchange(round.reasoning, round.content, round.tool_calls, results)
+    }
+}
+
+/// One complete streamed oMLX assistant round before optional native execution.
+pub(crate) struct OmlxToolRound {
+    /// Separate accumulated reasoning retained for the next provider request.
+    pub(crate) reasoning: String,
+    /// Accumulated assistant answer content retained for the next provider request.
+    pub(crate) content: String,
+    /// Ordered calls reconstructed from streamed OpenAI-shaped fragments.
+    pub(crate) tool_calls: Vec<OpenAiToolCall>,
+    /// Provider-reported usage for this request round.
+    pub(crate) usage: Option<Usage>,
+}
 
 const PROVIDER_ID: &str = "omlx";
 const PROVIDER_NAME: &str = "oMLX";
@@ -86,18 +135,118 @@ impl OmlxProvider {
             .map(|bytes| bytes.to_vec())
             .map_err(map_request_error)
     }
+
+    /// Reads one fixed discovery resource without allowing an unbounded response allocation.
+    async fn get_bounded(
+        &self,
+        path: &str,
+        maximum_bytes: usize,
+    ) -> Result<Vec<u8>, ProviderError> {
+        let response = self
+            .client
+            .get(self.endpoint(path)?)
+            .timeout(DISCOVERY_TIMEOUT)
+            .send()
+            .await
+            .map_err(map_request_error)?;
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+        if response
+            .content_length()
+            .is_some_and(|length| length > maximum_bytes as u64)
+        {
+            return Err(ProviderError::malformed(
+                "oMLX returned invalid endpoint capability metadata.",
+                Some("OpenAPI response exceeded its byte limit".into()),
+            ));
+        }
+        let mut stream = response.bytes_stream();
+        let mut bytes = Vec::new();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(map_request_error)?;
+            if bytes.len().saturating_add(chunk.len()) > maximum_bytes {
+                return Err(ProviderError::malformed(
+                    "oMLX returned invalid endpoint capability metadata.",
+                    Some("OpenAPI response exceeded its byte limit".into()),
+                ));
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        Ok(bytes)
+    }
+
+    /// Streams one tool-capable oMLX round without delegating execution to the endpoint.
+    pub(crate) async fn stream_tool_round(
+        &self,
+        session: &OmlxToolSession,
+        sink: impl StreamSink + Send + Sync,
+    ) -> Result<OmlxToolRound, ProviderError> {
+        self.stream_request(&session.request, sink, false).await
+    }
+
+    /// Streams one request while accumulating exact follow-up fields for a native tool exchange.
+    async fn stream_request(
+        &self,
+        request: &OmlxChatRequest,
+        sink: impl StreamSink + Send + Sync,
+        emit_usage: bool,
+    ) -> Result<OmlxToolRound, ProviderError> {
+        let response = self
+            .client
+            .post(self.endpoint("v1/chat/completions")?)
+            .json(request)
+            .send()
+            .await
+            .map_err(map_request_error)?;
+        if !response.status().is_success() {
+            return Err(response_error(response).await);
+        }
+        let mut bytes = response.bytes_stream();
+        let mut decoder = SseDecoder::default();
+        let mut calls = OpenAiToolCallAccumulator::default();
+        let mut round = OmlxToolRound {
+            reasoning: String::new(),
+            content: String::new(),
+            tool_calls: Vec::new(),
+            usage: None,
+        };
+        while let Some(chunk) = bytes.next().await {
+            let chunk = chunk.map_err(map_request_error)?;
+            for payload in decoder.push(&chunk)? {
+                if process_stream_event(
+                    decode_omlx_stream_payload(&payload)?,
+                    &sink,
+                    &mut round,
+                    &mut calls,
+                    emit_usage,
+                )? {
+                    return Ok(round);
+                }
+            }
+        }
+        for payload in decoder.finish()? {
+            if process_stream_event(
+                decode_omlx_stream_payload(&payload)?,
+                &sink,
+                &mut round,
+                &mut calls,
+                emit_usage,
+            )? {
+                return Ok(round);
+            }
+        }
+        Err(ProviderError::malformed(
+            "oMLX ended the response before completion.",
+            Some("SSE stream did not contain data: [DONE]".into()),
+        ))
+    }
 }
 
 impl InferenceProvider for OmlxProvider {
     /// Discovers oMLX models and enriches them with explicit VLM and residency metadata.
     async fn discover_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
-        let mut models = decode_model_list(&self.get("v1/models").await?)?;
-        if let Ok(status_bytes) = self.get("v1/models/status").await
-            && let Ok(statuses) = decode_model_status(&status_bytes)
-        {
-            enrich_models(&mut models, &statuses);
-        }
-        Ok(models)
+        discovery::discover_models(self).await
     }
 
     /// Streams one oMLX SSE chat response into the normalized sink.
@@ -107,68 +256,56 @@ impl InferenceProvider for OmlxProvider {
         sink: impl StreamSink + Send + Sync,
     ) -> Result<Option<Usage>, ProviderError> {
         validate_request(&request)?;
-        let body = OmlxChatRequest::from(request);
-        let response = self
-            .client
-            .post(self.endpoint("v1/chat/completions")?)
-            .json(&body)
-            .send()
+        self.stream_request(&OmlxChatRequest::from(request), sink, true)
             .await
-            .map_err(map_request_error)?;
-
-        if !response.status().is_success() {
-            return Err(response_error(response).await);
-        }
-
-        let mut bytes = response.bytes_stream();
-        let mut decoder = SseDecoder::default();
-        let mut usage = None;
-        let mut completed = false;
-
-        while let Some(chunk) = bytes.next().await {
-            let chunk = chunk.map_err(map_request_error)?;
-            for payload in decoder.push(&chunk)? {
-                match decode_stream_payload(&payload)? {
-                    DecodedEvent::TextDelta(delta) if !delta.is_empty() => {
-                        sink.text_delta(delta)?
-                    }
-                    DecodedEvent::ReasoningDelta(delta) if !delta.is_empty() => {
-                        sink.reasoning_delta(delta)?
-                    }
-                    DecodedEvent::Usage(updated) => {
-                        sink.usage_updated(updated.clone())?;
-                        usage = Some(updated);
-                    }
-                    DecodedEvent::Done => completed = true,
-                    DecodedEvent::TextDelta(_) | DecodedEvent::ReasoningDelta(_) => {}
-                }
-            }
-        }
-
-        for payload in decoder.finish()? {
-            match decode_stream_payload(&payload)? {
-                DecodedEvent::TextDelta(delta) if !delta.is_empty() => sink.text_delta(delta)?,
-                DecodedEvent::ReasoningDelta(delta) if !delta.is_empty() => {
-                    sink.reasoning_delta(delta)?
-                }
-                DecodedEvent::Usage(updated) => {
-                    sink.usage_updated(updated.clone())?;
-                    usage = Some(updated);
-                }
-                DecodedEvent::Done => completed = true,
-                DecodedEvent::TextDelta(_) | DecodedEvent::ReasoningDelta(_) => {}
-            }
-        }
-
-        if !completed {
-            return Err(ProviderError::malformed(
-                "oMLX ended the response before completion.",
-                Some("SSE stream did not contain data: [DONE]".into()),
-            ));
-        }
-
-        Ok(usage)
+            .map(|round| round.usage)
     }
+}
+
+/// Applies one shared OpenAI-shaped stream event while retaining oMLX-specific errors.
+fn process_stream_event(
+    event: DecodedStreamEvent,
+    sink: &(impl StreamSink + Send + Sync),
+    round: &mut OmlxToolRound,
+    calls: &mut OpenAiToolCallAccumulator,
+    emit_usage: bool,
+) -> Result<bool, ProviderError> {
+    if !event.reasoning_delta.is_empty() {
+        round.reasoning.push_str(&event.reasoning_delta);
+        sink.reasoning_delta(event.reasoning_delta)?;
+    }
+    if !event.text_delta.is_empty() {
+        round.content.push_str(&event.text_delta);
+        sink.text_delta(event.text_delta)?;
+    }
+    calls
+        .extend(event.tool_call_deltas)
+        .map_err(map_omlx_protocol_error)?;
+    if let Some(usage) = event.usage {
+        if emit_usage {
+            sink.usage_updated(usage.clone())?;
+        }
+        round.usage = Some(usage);
+    }
+    if event.done {
+        round.tool_calls = std::mem::take(calls)
+            .finish()
+            .map_err(map_omlx_protocol_error)?;
+    }
+    Ok(event.done)
+}
+
+/// Decodes an OpenAI-shaped oMLX event while keeping its provider identity in user-facing errors.
+fn decode_omlx_stream_payload(payload: &str) -> Result<DecodedStreamEvent, ProviderError> {
+    decode_stream_payload(payload).map_err(map_omlx_protocol_error)
+}
+
+/// Rewords shared protocol failures without exposing provider payload content.
+fn map_omlx_protocol_error(error: ProviderError) -> ProviderError {
+    ProviderError::malformed(
+        "oMLX sent an invalid streaming response or native tool call.",
+        error.diagnostic,
+    )
 }
 
 /// Validates the provider-neutral request invariants required by oMLX.
@@ -243,207 +380,6 @@ fn normalize_response_error(status: StatusCode, body: &str) -> ProviderError {
 }
 
 #[derive(Deserialize)]
-struct OmlxModelList {
-    data: Vec<OmlxModel>,
-}
-
-#[derive(Deserialize)]
-struct OmlxModel {
-    id: String,
-    max_model_len: Option<u64>,
-    #[serde(default)]
-    capabilities: Vec<String>,
-}
-
-#[derive(Deserialize)]
-struct OmlxModelStatusList {
-    models: Vec<OmlxModelStatus>,
-}
-
-#[derive(Deserialize)]
-struct OmlxModelStatus {
-    id: String,
-    loaded: Option<bool>,
-    engine_type: Option<String>,
-    model_type: Option<String>,
-}
-
-#[derive(Clone, Copy)]
-struct OmlxModelStatusMetadata {
-    vision: bool,
-    load_state: ModelLoadState,
-}
-
-/// Decodes and normalizes the oMLX model-list response.
-fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, ProviderError> {
-    let response: OmlxModelList = serde_json::from_slice(bytes).map_err(|error| {
-        ProviderError::malformed(
-            "oMLX returned an invalid model list.",
-            Some(error.to_string()),
-        )
-    })?;
-    let models = response
-        .data
-        .into_iter()
-        .filter(|model| !model.id.trim().is_empty())
-        .map(|model| {
-            let vision = model
-                .capabilities
-                .iter()
-                .any(|capability| capability == "vision");
-            ModelInfo {
-                provider_id: PROVIDER_ID.into(),
-                provider_name: PROVIDER_NAME.into(),
-                display_name: model.id.replace("--", "/"),
-                model_id: model.id,
-                max_context_tokens: model.max_model_len,
-                load_state: ModelLoadState::Unknown,
-                capabilities: ProviderCapabilities {
-                    text: true,
-                    streaming: true,
-                    vision,
-                    ..ProviderCapabilities::default()
-                },
-            }
-        })
-        .collect::<Vec<_>>();
-    if models.is_empty() {
-        return Err(ProviderError::unavailable(
-            "oMLX is running but has no models available.",
-            None,
-        ));
-    }
-    Ok(models)
-}
-
-/// Decodes explicit oMLX model type and residency metadata by model identity.
-fn decode_model_status(
-    bytes: &[u8],
-) -> Result<HashMap<String, OmlxModelStatusMetadata>, ProviderError> {
-    let response: OmlxModelStatusList = serde_json::from_slice(bytes).map_err(|error| {
-        ProviderError::malformed(
-            "oMLX returned an invalid model status list.",
-            Some(error.to_string()),
-        )
-    })?;
-    Ok(response
-        .models
-        .into_iter()
-        .filter(|model| !model.id.trim().is_empty())
-        .map(|model| {
-            let vision = model.model_type.as_deref() == Some("vlm")
-                || model.engine_type.as_deref() == Some("vlm");
-            let load_state = match model.loaded {
-                Some(true) => ModelLoadState::Loaded,
-                Some(false) => ModelLoadState::Unloaded,
-                None => ModelLoadState::Unknown,
-            };
-            (model.id, OmlxModelStatusMetadata { vision, load_state })
-        })
-        .collect())
-}
-
-/// Applies status metadata without weakening capabilities already advertised by the catalogue.
-fn enrich_models(models: &mut [ModelInfo], statuses: &HashMap<String, OmlxModelStatusMetadata>) {
-    for model in models {
-        let Some(status) = statuses.get(&model.model_id) else {
-            continue;
-        };
-        model.capabilities.vision |= status.vision;
-        model.load_state = status.load_state;
-    }
-}
-
-#[derive(Serialize)]
-struct OmlxChatRequest {
-    model: String,
-    messages: Vec<OmlxChatTurn>,
-    stream: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    temperature: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    max_tokens: Option<u32>,
-    chat_template_kwargs: OmlxChatTemplateSettings,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reasoning_effort: Option<&'static str>,
-    stream_options: OmlxStreamOptions,
-}
-
-#[derive(Serialize)]
-/// Template controls used to turn model thinking on or off explicitly.
-struct OmlxChatTemplateSettings {
-    enable_thinking: bool,
-}
-
-#[derive(Serialize)]
-struct OmlxStreamOptions {
-    include_usage: bool,
-}
-
-#[derive(Serialize)]
-struct OmlxChatTurn {
-    role: &'static str,
-    content: OpenAiContent,
-}
-
-impl From<ChatRequest> for OmlxChatRequest {
-    /// Converts a provider-neutral request into the oMLX wire shape.
-    fn from(request: ChatRequest) -> Self {
-        let settings = request.settings;
-        let reasoning_enabled = settings.reasoning_effort == ReasoningEffort::Low;
-        Self {
-            model: request.model_id,
-            messages: request
-                .messages
-                .into_iter()
-                .map(|turn| OmlxChatTurn {
-                    role: match turn.role {
-                        ChatRole::System => "system",
-                        ChatRole::User => "user",
-                        ChatRole::Assistant => "assistant",
-                    },
-                    content: openai_content(turn.content),
-                })
-                .collect(),
-            stream: true,
-            temperature: settings.temperature,
-            max_tokens: settings.max_output_tokens,
-            chat_template_kwargs: OmlxChatTemplateSettings {
-                enable_thinking: reasoning_enabled,
-            },
-            reasoning_effort: reasoning_enabled.then_some("low"),
-            stream_options: OmlxStreamOptions {
-                include_usage: true,
-            },
-        }
-    }
-}
-
-#[derive(Deserialize)]
-struct OmlxStreamChunk {
-    #[serde(default)]
-    choices: Vec<OmlxChoice>,
-    usage: Option<OmlxUsage>,
-}
-
-#[derive(Deserialize)]
-struct OmlxChoice {
-    delta: OmlxDelta,
-}
-
-#[derive(Default, Deserialize)]
-struct OmlxDelta {
-    content: Option<String>,
-    reasoning_content: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct OmlxUsage {
-    prompt_tokens: Option<u64>,
-    completion_tokens: Option<u64>,
-}
-
-#[derive(Deserialize)]
 struct OmlxErrorResponse {
     error: OmlxErrorBody,
 }
@@ -451,44 +387,6 @@ struct OmlxErrorResponse {
 #[derive(Deserialize)]
 struct OmlxErrorBody {
     message: String,
-}
-
-#[derive(Debug)]
-enum DecodedEvent {
-    TextDelta(String),
-    ReasoningDelta(String),
-    Usage(Usage),
-    Done,
-}
-
-/// Decodes one oMLX SSE data payload into a normalized event.
-fn decode_stream_payload(payload: &str) -> Result<DecodedEvent, ProviderError> {
-    if payload.trim() == "[DONE]" {
-        return Ok(DecodedEvent::Done);
-    }
-    let chunk: OmlxStreamChunk = serde_json::from_str(payload).map_err(|error| {
-        ProviderError::malformed(
-            "oMLX sent a malformed stream event.",
-            Some(error.to_string()),
-        )
-    })?;
-    if let Some(usage) = chunk.usage {
-        return Ok(DecodedEvent::Usage(Usage {
-            input_tokens: usage.prompt_tokens,
-            output_tokens: usage.completion_tokens,
-            cost_usd: None,
-        }));
-    }
-    let delta = chunk
-        .choices
-        .into_iter()
-        .next()
-        .map(|choice| choice.delta)
-        .unwrap_or_default();
-    if let Some(reasoning) = delta.reasoning_content {
-        return Ok(DecodedEvent::ReasoningDelta(reasoning));
-    }
-    Ok(DecodedEvent::TextDelta(delta.content.unwrap_or_default()))
 }
 
 #[cfg(test)]

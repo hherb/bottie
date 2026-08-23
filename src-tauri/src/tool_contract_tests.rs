@@ -5,13 +5,90 @@ use serde_json::{Value, json};
 use crate::{
     storage::{OpenMemoryArguments, SearchAttachedFilesArguments, SearchMemoryArguments},
     tool_contract::{
-        MemoryToolArguments, ToolContractErrorCode, memory_tool_definitions,
-        validate_memory_tool_arguments, validate_web_fetch_tool_arguments,
-        validate_web_search_tool_arguments, web_fetch_tool_definition, web_search_tool_definition,
+        CURRENT_TIME_TOOL_NAME, MemoryToolArguments, ToolContractErrorCode,
+        current_time_tool_definition, enabled_native_tool_definitions, memory_tool_definitions,
+        validate_current_time_tool_arguments, validate_memory_tool_arguments,
+        validate_web_fetch_tool_arguments, validate_web_search_tool_arguments,
+        web_fetch_tool_definition, web_search_tool_definition,
     },
     web_fetch::WebFetchArguments,
     web_search::{WebSearchArguments, WebSearchFreshness},
 };
+
+#[test]
+fn selects_memory_web_and_clock_definitions_independently_in_stable_order() {
+    let names = |memory_enabled, web_enabled| {
+        enabled_native_tool_definitions(memory_enabled, web_enabled)
+            .into_iter()
+            .map(|definition| definition.name)
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(names(false, false), ["current_time"]);
+    assert_eq!(
+        names(true, false),
+        [
+            "search_memory",
+            "open_memory",
+            "search_attached_files",
+            "current_time"
+        ]
+    );
+    assert_eq!(
+        names(false, true),
+        ["web_search", "web_fetch", "current_time"]
+    );
+    assert_eq!(names(true, true).len(), 6);
+}
+
+#[test]
+fn publishes_and_validates_one_closed_zero_argument_clock_schema() {
+    let definition = serde_json::to_value(current_time_tool_definition())
+        .expect("clock definition should serialize");
+
+    assert_eq!(definition["name"], json!(CURRENT_TIME_TOOL_NAME));
+    assert_eq!(definition["inputSchema"]["type"], json!("object"));
+    assert_eq!(definition["inputSchema"]["properties"], json!({}));
+    assert_eq!(definition["inputSchema"]["required"], json!([]));
+    assert_eq!(
+        definition["inputSchema"]["additionalProperties"],
+        json!(false)
+    );
+    validate_current_time_tool_arguments(CURRENT_TIME_TOOL_NAME, &json!({}))
+        .expect("an exact empty object should validate");
+}
+
+#[test]
+fn rejects_nonempty_or_nonobject_clock_arguments_without_reflecting_them() {
+    for (name, arguments, expected) in [
+        (
+            CURRENT_TIME_TOOL_NAME,
+            json!(null),
+            ToolContractErrorCode::InvalidArguments,
+        ),
+        (
+            CURRENT_TIME_TOOL_NAME,
+            json!([]),
+            ToolContractErrorCode::InvalidArguments,
+        ),
+        (
+            CURRENT_TIME_TOOL_NAME,
+            json!({"timezone": "Australia/Perth"}),
+            ToolContractErrorCode::InvalidArguments,
+        ),
+        (
+            "host_time",
+            json!({}),
+            ToolContractErrorCode::UnsupportedTool,
+        ),
+    ] {
+        let error = validate_current_time_tool_arguments(name, &arguments)
+            .expect_err("invalid clock arguments should fail closed");
+        assert_eq!(error.code, expected);
+        assert!(!error.message.contains(&arguments.to_string()));
+        assert!(!error.message.contains("Australia/Perth"));
+    }
+}
 
 /// Returns the definition with one stable native name.
 fn definition(name: &str) -> Value {

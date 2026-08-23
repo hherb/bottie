@@ -163,7 +163,7 @@ impl From<ToolDefinition> for OpenAiToolDefinition {
 }
 
 #[derive(Serialize)]
-struct OpenAiAssistantToolCall {
+pub(crate) struct OpenAiAssistantToolCall {
     id: String,
     #[serde(rename = "type")]
     kind: &'static str,
@@ -271,7 +271,7 @@ struct WireUsage {
 }
 
 #[derive(Deserialize)]
-pub(super) struct OpenAiToolCallDelta {
+pub(crate) struct OpenAiToolCallDelta {
     index: usize,
     id: Option<String>,
     #[serde(rename = "type")]
@@ -286,16 +286,16 @@ struct OpenAiToolCallFunctionDelta {
 }
 
 /// One normalized stream payload whose independent fields can coexist in a provider event.
-pub(super) struct DecodedStreamEvent {
-    pub(super) text_delta: String,
-    pub(super) reasoning_delta: String,
-    pub(super) tool_call_deltas: Vec<OpenAiToolCallDelta>,
-    pub(super) usage: Option<Usage>,
-    pub(super) done: bool,
+pub(crate) struct DecodedStreamEvent {
+    pub(crate) text_delta: String,
+    pub(crate) reasoning_delta: String,
+    pub(crate) tool_call_deltas: Vec<OpenAiToolCallDelta>,
+    pub(crate) usage: Option<Usage>,
+    pub(crate) done: bool,
 }
 
 /// Decodes one Chat Completions SSE data payload without performing I/O.
-pub(super) fn decode_stream_payload(payload: &str) -> Result<DecodedStreamEvent, ProviderError> {
+pub(crate) fn decode_stream_payload(payload: &str) -> Result<DecodedStreamEvent, ProviderError> {
     if payload.trim() == "[DONE]" {
         return Ok(DecodedStreamEvent {
             text_delta: String::new(),
@@ -332,7 +332,7 @@ pub(super) fn decode_stream_payload(payload: &str) -> Result<DecodedStreamEvent,
 
 #[derive(Default)]
 /// Incrementally reconstructs streamed Chat Completions function-call fragments by index.
-pub(super) struct OpenAiToolCallAccumulator {
+pub(crate) struct OpenAiToolCallAccumulator {
     calls: BTreeMap<usize, PartialOpenAiToolCall>,
 }
 
@@ -346,7 +346,7 @@ struct PartialOpenAiToolCall {
 
 impl OpenAiToolCallAccumulator {
     /// Extends partial calls while rejecting conflicting identities and an excessive index set.
-    pub(super) fn extend(&mut self, deltas: Vec<OpenAiToolCallDelta>) -> Result<(), ProviderError> {
+    pub(crate) fn extend(&mut self, deltas: Vec<OpenAiToolCallDelta>) -> Result<(), ProviderError> {
         for delta in deltas {
             if !self.calls.contains_key(&delta.index) && self.calls.len() >= MAX_STREAMED_TOOL_CALLS
             {
@@ -372,7 +372,7 @@ impl OpenAiToolCallAccumulator {
     }
 
     /// Finalizes ordered calls only when identity, function kind, name, and object JSON are valid.
-    pub(super) fn finish(self) -> Result<Vec<OpenAiToolCall>, ProviderError> {
+    pub(crate) fn finish(self) -> Result<Vec<OpenAiToolCall>, ProviderError> {
         self.calls
             .into_values()
             .map(|call| {

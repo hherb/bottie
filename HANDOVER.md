@@ -42,7 +42,8 @@ ordered structured tool calls
 and one append-only result per call; reopened tool activity is inspectable and portable without exposing native or
 provider call identities. An explicit Memory composer toggle now lets tool-capable Ollama, OpenAI-compatible, and
 Anthropic-compatible models use the three native memory tools through their distinct function wire shapes, Bottie's
-bounded multi-round state machine, and those durable tool records. oMLX tool loops remain absent. Native attachment
+bounded multi-round state machine, and those durable tool records. An explicitly capable oMLX endpoint now uses the
+same Bottie-owned clock, Memory, and Web loops without invoking its MCP or server-side tool routes. Native attachment
 selection now streams chosen local files into application-private content-addressed storage with SHA-256 identities,
 content-based MIME
 sniffing, safe display names, a 25 MiB per-file limit, an eight-file selection limit, and cross-session duplicate
@@ -106,8 +107,8 @@ details. A matching Rust-owned `open_memory` contract now resolves that opaque p
 own immutable branch lineage without changing the selected branch. It returns at most three final text turns on each
 side, caps each turn at 2,000 Unicode scalars, retains Archived conversations, excludes Trash and non-final responses,
 and omits reasoning, provider details, attachments, and native paths. Automatic retrieval injection remains absent;
-only an explicitly enabled tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible request may call the native
-memory tools. A
+only an explicitly enabled tool-capable oMLX, Ollama, OpenAI-compatible, or Anthropic-compatible request may call the
+native memory tools. A
 matching Rust-owned `search_attached_files` contract now applies hybrid retrieval only to
 ready extracted documents with durable active or Archived conversation/message associations. It returns bounded
 excerpts with safe file metadata and optional exact chunk offsets while omitting hashes, paths, scores, embeddings,
@@ -121,8 +122,9 @@ structured success/error envelope. Successful envelopes have a 64 KiB serialized
 forwarding query, argument, embedding, storage, or path details. A provider-neutral native state machine now executes
 repeated batches through that dispatcher while correlating opaque call identities. One generation is bounded to eight
 calls, four tool rounds, 256 KiB of aggregate serialized output, and 30 seconds; cancellation and deadline checks run
-before and after every native call, and every exceptional outcome closes the loop. Ollama, OpenAI Chat Completions,
-and Anthropic Messages now map the three closed definitions, accumulate streamed calls, execute and durably checkpoint
+before and after every native call, and every exceptional outcome closes the loop. oMLX, Ollama, OpenAI Chat
+Completions, and Anthropic Messages now map the three closed definitions, accumulate streamed calls, execute and
+durably checkpoint
 ordered results, then continue generation with cumulative usage and shared cancellation. Successful selected-lineage
 `search_memory`, `open_memory`, and `search_attached_files` results now produce deduplicated, path-free conversation or
 file citation cards in the Context panel. Removing a card is session-local presentation state and deliberately leaves
@@ -141,7 +143,8 @@ also complete. Schema version 20 stores one optional built-in-profile Trash peri
 applied only during a healthy app startup; active and Archived conversations are never eligible. Automatic forget uses
 the same live-store cascade, attachment safety window, and external-copy/model-cache boundary as explicit forget. The
 native tool runtime now applies one fail-closed execution policy before validation or dispatch. The three explicitly
-enabled, bounded, read-only memory tools plus the closed `web_search` and `web_fetch` contracts are classified safe;
+enabled, bounded, read-only memory tools, the zero-argument UTC clock, and the closed `web_search` and `web_fetch`
+contracts are classified safe;
 any future approval-required tool needs a one-use trusted native grant bound to the exact provider call identity, tool
 name, and arguments. Provider calls cannot create
 approvals, and unknown or mismatched calls return fixed redacted errors through the existing durable result path. No
@@ -159,8 +162,9 @@ exceed Bottie's fixed limits. Brave maps those filters to its query API; Exa use
 publication-date lower bound. Both adapters recheck normalized result hosts before returning them. The safe read-only
 native dispatcher executes the typed contract through the selected search provider and maps all failures into the
 existing 64 KiB redacted envelope. A session-only Web toggle now
-advertises that definition only to explicitly enabled, tool-capable Ollama, OpenAI-compatible, or Anthropic-compatible
-models. All three mapped providers execute calls through the same bounded native loop, durable audit, cancellation,
+advertises that definition only to explicitly enabled, tool-capable oMLX, Ollama, OpenAI-compatible, or
+Anthropic-compatible models. All four mapped providers execute calls through the same bounded native loop, durable
+audit, cancellation,
 and common result envelope used by memory tools. A separate closed provider-independent `web_fetch` definition now
 accepts one absolute public HTTP(S) URL. Its native client strips fragments, rejects embedded credentials, IP literals,
 special-use DNS names, non-default ports, and any DNS answer outside a fail-closed public-address policy. Every
@@ -170,7 +174,7 @@ responses are limited to 48 KiB of valid UTF-8 HTML, XHTML, or plain page source
 visible text after executable and embedded elements are removed; plain text passes through the same whitespace,
 control-character, and UTF-8 boundary policy. Results contain the final source URL, optional bounded title and
 publication metadata, at most 24 KiB of inert text, and an explicit untrusted marker before the existing 64 KiB common
-envelope. Explicitly enabled tool-capable Ollama, OpenAI-compatible, and
+envelope. Explicitly enabled tool-capable oMLX, Ollama, OpenAI-compatible, and
 Anthropic-compatible requests now advertise `web_fetch` after `web_search`, execute it through the same safe
 dispatcher, checkpoint the exact bounded result, and append that result to the next provider request through the
 existing durable Web loop. Successful selected-lineage `web_search` and `web_fetch` results now also produce
@@ -192,11 +196,12 @@ command. Settings written before this flow remain acknowledged, so existing user
 run. Migration rollback planning is now complete in `MIGRATION-ROLLBACK.md`: pending migrations will run against an
 isolated SQLite candidate, a verified source-version recovery point will precede journalled promotion, and restart
 reconciliation will either validate the target or restore the source without touching attachment files. Reverse SQL
-and automatic binary downgrade are explicitly unsupported. The next bounded slice is native clock and primary-provider
-tool parity: it wires oMLX and repairs current Anthropic model discovery. The staged migration and promotion rollback
-implementation follows it. Do not bundle oMLX-owned MCP execution, arbitrary server-side tools, migration implementation
-or UI, a schema bump, automatic retrieval injection, model-cache deletion, document opening, attachment retry controls,
-a general MCP runtime, packaging, or release updates.
+and automatic binary downgrade are explicitly unsupported. Native clock and primary-provider tool parity are now
+complete: Rust owns the closed UTC clock, oMLX joins the durable native tool loop only after fixed endpoint-capability
+discovery, and Anthropic model discovery accepts its current structured response. The next bounded slice is staged
+migration and promotion rollback implementation. Do not bundle migration-recovery UI, a new feature schema, automatic
+retrieval injection, model-cache deletion, document opening, attachment retry controls, a general MCP runtime,
+packaging, or release updates.
 
 Read these files first:
 
@@ -211,7 +216,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/migration-rollback-plan`.
+branch `codex/native-clock-primary-provider-tools`.
 
 ## Current implementation
 
@@ -530,12 +535,11 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Rust crate documentation is enforced with `#![deny(missing_docs)]`, and TypeScript exports and functions carry JSDoc;
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
-The cohesively touched product modules remain at or below 500 lines except the existing generation composition root
-`src-tauri/src/generation.rs` at 518 lines. The crate composition root `src-tauri/src/lib.rs` is another existing
-practical-limit exception; the remaining known indivisible long lines are SVG path values in
-`src/lib/Icon.svelte`.
+The cohesively touched product modules remain at or below 500 lines. The crate composition root
+`src-tauri/src/lib.rs` remains an existing practical-limit exception; the remaining known indivisible long lines are
+SVG path values in `src/lib/Icon.svelte`.
 
-## Next bounded product slice: Native clock and primary-provider tool parity
+## Most recently completed product slice: Native clock and primary-provider tool parity
 
 ### Goal
 
@@ -543,7 +547,7 @@ Ground time-sensitive answers in Bottie's real native clock, make the primary oM
 Memory and Web loops as the other mapped providers, and restore current Anthropic model discovery without delegating
 tool execution to a provider or exposing host location.
 
-### Intended shape
+### Implemented shape
 
 1. One closed provider-independent `current_time` definition accepts an exact empty object and returns only the
    Rust-owned system clock as a bounded RFC 3339 UTC value. It returns no host timezone, locale, hostname, path, or
@@ -595,6 +599,38 @@ Do not add local-time or timezone settings, location inference, oMLX-owned MCP e
 approval UI, automatic memory retrieval, a storage migration, migration rollback implementation, model-cache deletion,
 document opening, attachment retry controls, packaging, or release work in this slice.
 
+### Verification completed
+
+Focused contract tests inject an exact clock and prove millisecond RFC 3339 UTC output, empty-object-only arguments,
+safe policy, bounded results, durable audit, and redacted failures. Provider request fixtures prove clock-only, Memory,
+Web, and combined definition gating across all four mapped routes. oMLX fixtures cover bounded OpenAPI discovery,
+nullable catalogue capabilities, explicit text/vision/embedding status, fragmented call reconstruction, exact result
+correlation, cumulative usage, reopen, and terminal audit state. A host-local two-round integration check completed
+through an exact `role: tool` clock result. A live oMLX 0.6.3rc2 check with the loaded Qwen3.8 model called both
+`current_time` and `open_memory`; the reopened clock result reported the current UTC year and the reopened memory result
+contained the exact durable message. Anthropic fixtures match the current nullable structured `capabilities` object,
+`max_input_tokens`, omitted and legacy array forms, ignored additive fields, and fail-closed identity errors. No schema,
+credential, WebView IPC, provider-owned MCP, arbitrary server tool, approval UI, or host location surface was added.
+
+Follow-up native validation found two regressions before merge. The Svelte presentation gate still omitted `omlx` from
+its mapped-provider allowlist even after Rust discovered explicit tool support, leaving Memory and Web disabled for the
+live Qwen3.8 selection. One shared pure allowlist now includes all four mapped providers, and regression tests require
+tool-capable oMLX selections to enable both controls while preserving the false-capability denial. Anthropic model
+discovery worked, but the two live Claude Sonnet 5 runs in the immutable store ended as `invalid_request`: Bottie's
+provider-neutral default added `temperature: 0.7`, while current Sonnet 5 rejects non-default sampling parameters.
+Anthropic requests now remove that implicit setting before durable provider-run provenance and wire serialization;
+focused tests require its absence while retaining explicit disabled/adaptive thinking behavior. The user subsequently
+confirmed authenticated live Web search completes successfully with both Claude Sonnet 5 through Anthropic and Qwen3.8
+through oMLX.
+
+## Next bounded product slice: Staged migration and promotion rollback
+
+Implement the accepted `MIGRATION-ROLLBACK.md` design: preflight and copy the supported live store, apply pending
+migrations only to an isolated same-volume candidate, validate candidate and source-version recovery point, journal and
+promote through the existing SQLite replacement boundary, and reconcile interrupted promotion before ordinary startup.
+Use the acceptance criteria in the following migration-planning section. Do not add a migration-recovery UI, reverse
+SQL, automatic binary downgrade, attachment-file mutation, a new feature schema, packaging, or release work.
+
 ## Most recently completed planning slice: Migration rollback
 
 ### Goal
@@ -630,7 +666,7 @@ binaries can read newer schemas or bundling the implementation.
 - A disposable real-store copy passes schema, integrity, foreign-key, ledger, and row-parity checks before native
   launch is allowed to migrate the live store.
 
-This remains the following bounded storage slice after native clock and primary-provider tool parity.
+This is the next bounded storage slice after native clock and primary-provider tool parity.
 
 ### Explicit exclusions
 

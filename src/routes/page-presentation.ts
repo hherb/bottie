@@ -4,6 +4,9 @@ import { displayEndpoint } from "$lib/chat";
 import type { ModelInfo, ProviderId, ProviderSettings, ReasoningEffort } from "$lib/inference";
 import type { Attachment, InferenceStage, Message, MessageAttachment } from "$lib/presentation";
 
+/** Providers with a Bottie-owned native tool loop after capability discovery. */
+const NATIVE_TOOL_PROVIDER_IDS: ReadonlySet<string> = new Set(["omlx", "ollama", "openai", "anthropic"]);
+
 /** Flattens visible message associations while retaining their owning durable identities. */
 export function messageAttachmentAssociations(messages: Message[]): MessageAttachment[] {
   return messages.flatMap((message) =>
@@ -20,18 +23,12 @@ export function nextRequestAttachments(draft: Attachment[], conversation: Attach
 
 /** Confirms that Bottie maps native memory tools for the selected advertised capability. */
 export function memoryToolsAvailable(model: ModelInfo | undefined): boolean {
-  return Boolean(
-    model?.capabilities.tools &&
-    (model.providerId === "ollama" || model.providerId === "openai" || model.providerId === "anthropic"),
-  );
+  return Boolean(model?.capabilities.tools && NATIVE_TOOL_PROVIDER_IDS.has(model.providerId));
 }
 
 /** Confirms that Bottie maps native web search for the selected advertised capability. */
 export function webToolsAvailable(model: ModelInfo | undefined): boolean {
-  return Boolean(
-    model?.capabilities.tools &&
-    (model.providerId === "ollama" || model.providerId === "openai" || model.providerId === "anthropic"),
-  );
+  return Boolean(model?.capabilities.tools && NATIVE_TOOL_PROVIDER_IDS.has(model.providerId));
 }
 
 /** Selects the compact endpoint label for the active provider. */

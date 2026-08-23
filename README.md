@@ -22,9 +22,10 @@ Native provider runs retain ordered structured tool calls and one append-only re
 native execution classification, stable outcome, and native-work duration; historical calls remain labelled legacy.
 Reopened and just-completed tool activity is visible in a calm expandable audit panel, with raw payloads nested below
 the audit summary. A Rust-only provider-neutral state machine can now execute repeated
-native memory-tool batches through the strict dispatcher while enforcing an eight-call, four-round, 256 KiB aggregate
-output, 30-second deadline, and shared cancellation policy across Ollama, OpenAI-compatible, and Anthropic-compatible
-wire formats.
+native tool batches through the strict dispatcher while enforcing an eight-call, four-round, 256 KiB aggregate output,
+30-second deadline, and shared cancellation policy across oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible wire
+formats. Every explicitly tool-capable route also receives a closed zero-argument `current_time` tool backed only by
+Rust's UTC system clock; it exposes no timezone, locale, hostname, path, or platform detail.
 A separate Rust-only web-search boundary now normalizes bounded queries and inert result metadata behind a pluggable
 provider contract. Fixed Brave Search and Exa Search adapters use provider-owned HTTPS endpoints, disable redirects,
 keep API keys in sensitive request headers, cap response bytes, and accept only absolute HTTP(S) result URLs. Settings
@@ -34,7 +35,7 @@ WebView. A separate closed
 provider-independent `web_search` definition now validates day/week/month/year freshness, bounded include/exclude DNS
 filters, and result limits before a safe native dispatcher can execute the selected provider. Brave maps freshness and
 domain policy to its query API; Exa maps domains to native arrays and freshness to an absolute publication-date lower
-bound. Both adapters recheck returned hosts. A session-only Web toggle is available for tool-capable Ollama,
+bound. Both adapters recheck returned hosts. A session-only Web toggle is available for tool-capable oMLX, Ollama,
 OpenAI-compatible, and Anthropic-compatible models. When enabled, each mapped provider can call the closed definition
 through Bottie's existing bounded native loop; every call and exact result is checkpointed before provider reuse.
 A separate closed `web_fetch` foundation validates one absolute public HTTP(S) URL, blocks IP literals, special-use
@@ -43,7 +44,7 @@ redirects under one 15-second deadline. It accepts at most 48 KiB of valid UTF-8
 parses HTML/XHTML into at most 24 KiB of inert visible text, and returns the final source URL with a bounded optional
 title and publication value. Raw markup, executable/embedded element content, and media type are omitted, while the
 result remains explicitly untrusted inside the existing 64 KiB dispatcher envelope. Explicitly enabled tool-capable
-Ollama, OpenAI-compatible, and Anthropic-compatible requests now advertise it after `web_search`, execute it through
+oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible requests advertise it after `web_search`, execute it through
 the same durable bounded loop, and checkpoint the exact result before provider reuse.
 Successful selected-lineage search and fetch results also create deduplicated, removable Web source cards in the
 Context panel. Cards expose only normalized public HTTP(S) source metadata and inert excerpts; a later fetched page
@@ -51,8 +52,9 @@ supersedes an earlier search result for the same URL, while removal stays sessio
 unchanged. Fetched-page cards label the native result as untrusted and calmly explain that external page text may
 contain misleading instructions. The same notice appears before an explicitly untrusted result in the expandable tool
 audit; failed, malformed, search, and unmarked legacy results cannot acquire that label.
-When native capability checks enable Web for a mapped provider, Bottie adds fixed guidance asking the model to cite
-Web-grounded claims with inline Markdown links to exact result URLs. The stored answer retains those links unchanged.
+When native capability checks enable Web for a mapped provider, Bottie adds fixed guidance asking the model to consult
+`current_time` before interpreting relative or current dates and to cite Web-grounded claims with inline Markdown links
+to exact result URLs. The stored answer retains those links unchanged.
 On completion and reopen, Bottie marks a link as a Web citation only when its normalized destination matches a
 successful Web result retained on that same response; the matching Context card is labelled `Cited in response`.
 Unmatched model-authored links remain ordinary safe external links, and copied or exported Markdown preserves the
@@ -109,15 +111,16 @@ omit older image associations; documents remain excluded from automatic provider
 the selected durable
 lineage, reads at most eight normalized images and 50 MiB per request, and emits provider-native Ollama, OpenAI-shaped,
 or Anthropic-shaped image blocks without exposing bytes to JavaScript. An explicit session-only Memory toggle is
-available for Ollama, OpenAI-compatible, and Anthropic-compatible models that advertise tools. Those requests may
+available for oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible models that advertise tools. Those requests may
 execute bounded native conversation or retained-document retrieval and return path-free excerpts through the
 provider's native tool shape; no document is injected automatically. The native dispatcher classifies every
 registered tool as safe or approval-required before validation or execution. The bounded read-only memory and Web
 contracts have explicit safe entries; unknown tools fail closed, and any future approval-required
 call must consume a Rust-owned grant over its exact provider call ID, name, and arguments. No approval UI or
-approval-required tool is registered yet. oMLX tool mapping, other office formats, and direct document delivery remain
-unimplemented. A separate Web toggle is off by default and available for tool-capable Ollama, OpenAI-compatible, and
-Anthropic-compatible models. It requires the selected search engine's credential from the native vault and sends only
+approval-required tool is registered yet. oMLX-owned MCP execution, other office formats, and direct document delivery
+remain unimplemented. A separate Web toggle is off by default and available for tool-capable oMLX, Ollama,
+OpenAI-compatible, and Anthropic-compatible models. It requires the selected search engine's credential from the native
+vault and sends only
 model-selected bounded search queries and filters to that fixed route; Ollama prompts stay on loopback, while
 cloud-model prompts continue over their already-visible provider route. Privacy and activity surfaces identify the
 selected Brave Search or Exa Search hop whenever Web is enabled.
@@ -162,7 +165,8 @@ With oMLX or Ollama running on its default loopback port, the native app discove
 Provider and model use separate selectors; changing providers refreshes that provider's models, and the last successful
 pair is restored after restart. Settings can change either endpoint and test it before saving. Rust rejects non-loopback
 hosts, embedded credentials, paths, query strings, and fragments; redirects are disabled, and no HTTP capability is
-exposed to the WebView. oMLX discovery reads explicit VLM and residency metadata from `/v1/models/status`. Ollama
+exposed to the WebView. oMLX discovery reads explicit VLM/residency metadata from `/v1/models/status` and accepts tools
+only when its bounded fixed OpenAPI request schema contains both `tools` and `tool_choice`. Ollama
 discovery also normalizes model capabilities, context size, and loaded/on-demand state.
 
 On a genuinely new native installation, Bottie pauses before the first conversation to show the discovered
@@ -175,7 +179,10 @@ acknowledged, so upgrading does not replay first-run setup.
 Settings also support HTTPS OpenAI-compatible and Anthropic-compatible profiles plus path-free Web destination
 controls. API keys are written and removed through narrow Rust commands backed by the OS credential vault. Cloud
 routes are visibly labelled before sending, redirects stay disabled, and remote response usage and provider-reported
-cost metadata are preserved when available.
+cost metadata are preserved when available. Anthropic discovery accepts the current nullable structured capability
+object and `max_input_tokens`, while compatible endpoints retain explicit legacy capability-array gating for Bottie's
+client-executed tools. Bottie omits its provider-neutral sampling default from Anthropic Messages requests because
+Claude Sonnet 5 rejects non-default sampling parameters.
 
 Thinking/reasoning defaults to off and can be toggled to low effort for each request. Reasoning-capable providers stream
 that material into a collapsed, user-expandable section rather than mixing it into the answer. Native generation also
@@ -267,7 +274,7 @@ files, never extracted SQLite text or normalized derivatives. Ready JPEG/PNG der
 capability-confirmed vision requests, with
 an eight-image and 50 MiB selected-lineage request ceiling; documents remain absent from automatic message content.
 Other office formats are not extracted. Indexed document text stays native until an explicitly enabled
-`search_attached_files` call returns a bounded path-free excerpt to a mapped Ollama, OpenAI-compatible, or
+`search_attached_files` call returns a bounded path-free excerpt to a mapped oMLX, Ollama, OpenAI-compatible, or
 Anthropic-compatible model.
 Ready
 images also receive a
@@ -305,14 +312,15 @@ into their typed native contracts. A Rust-only provider-neutral dispatcher execu
 exclusive structured success/error envelope capped at 64 KiB, with stable redacted failure categories. Provider
 independent loop state now correlates repeated calls and results across at most four rounds, eight calls, 256 KiB of
 aggregate serialized output, and 30 seconds while checking a shared cancellation signal before and after every native
-call. Tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible models receive those definitions only after the
+call. Tool-capable oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible models receive those definitions only after
+the
 user enables Memory. Rust accumulates streamed calls, checkpoints each call/result under the active provider run,
 reuses the process-lifetime EmbeddingGemma worker for semantic queries, appends provider-native correlated tool-result
 messages, and aggregates usage and optional cost across follow-up requests. Tool activity is inspectable and portable;
 paths, hashes, scores, vectors, embeddings, cache details, and provider/native call identities remain excluded.
 Successful selected-lineage tool results also produce deduplicated conversation, retained-file, or Web source cards in
 the Context panel. Removing a card is session-local presentation state and does not delete the append-only audit record
-or exclude the source from later retrieval. oMLX mapping and automatic retrieval injection remain unimplemented.
+or exclude the source from later retrieval. Automatic retrieval injection remains unimplemented.
 
 Run the layout-only browser preview:
 
@@ -327,6 +335,13 @@ Four ignored tests exercise streaming and cancellation against live local provid
 ```sh
 cargo test --manifest-path src-tauri/Cargo.toml live_omlx_stream -- --ignored --test-threads=1
 cargo test --manifest-path src-tauri/Cargo.toml live_ollama_stream -- --ignored --test-threads=1
+```
+
+One additional ignored live oMLX check exercises `current_time` plus explicitly enabled `open_memory` through Bottie's
+durable dispatcher and verifies the reopened results:
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml live_omlx_clock_and_memory -- --ignored --test-threads=1
 ```
 
 ## Planned architecture
@@ -355,7 +370,7 @@ chunk offsets without paths, hashes, scores, or full extracted text. Provider-in
 three memory tools plus `web_search` and `web_fetch` through closed schemas. Required and optional
 fields, JSON types, Unicode-scalar identity/query/URL ceilings, result/window bounds, public-network policy, and
 unknown-field rejection are enforced before typed dispatch. Memory and Web provider invocation is available only
-through explicitly enabled, tool-capable Ollama, OpenAI-compatible, and Anthropic-compatible requests. The common
+through explicitly enabled, tool-capable oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible requests. The common
 dispatcher additionally applies an explicit native execution policy before argument validation: current bounded
 read-only memory and Web tools are safe, unknown tools fail closed, and future
 approval-required tools cannot run without an exact Rust-owned call grant. Providers and WebView arguments cannot
@@ -371,8 +386,8 @@ attachment links, and message-derived lexical/chunk/vector rows in one transacti
 shared elsewhere remain; newly unreferenced originals, extraction text, and derivatives keep the existing 24-hour
 cross-process safety window before startup garbage collection removes them. Existing exports, manual backups, and
 automatic recovery snapshots are not rewritten and must be managed separately. The application-owned embedding-model
-cache is not conversation data and is retained. oMLX `web_fetch` mapping, automatic
-prompt injection, document opening, and attachment retry remain unavailable. Settings also exposes opt-in Trash
+cache is not conversation data and is retained. Automatic memory injection, document opening, and attachment retry
+remain unavailable. Settings also exposes opt-in Trash
 retention:
 keep until manual forget (the default), 30 days, 90 days, or one year from the time a conversation enters Trash. Rust
 stores only that

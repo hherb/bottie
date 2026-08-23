@@ -4,6 +4,7 @@ use serde_json::Value;
 
 use crate::{
     storage::{OPEN_MEMORY_TOOL_NAME, SEARCH_ATTACHED_FILES_TOOL_NAME, SEARCH_MEMORY_TOOL_NAME},
+    tool_contract::CURRENT_TIME_TOOL_NAME,
     tool_loop::NativeToolCall,
     web_fetch::WEB_FETCH_TOOL_NAME,
     web_search::WEB_SEARCH_TOOL_NAME,
@@ -86,7 +87,8 @@ pub(crate) struct ToolPolicyError {
 /// Returns the explicit policy for one registered native tool, or none for an unknown name.
 pub(crate) fn tool_execution_policy(tool_name: &str) -> Option<ToolExecutionPolicy> {
     match tool_name {
-        SEARCH_MEMORY_TOOL_NAME
+        CURRENT_TIME_TOOL_NAME
+        | SEARCH_MEMORY_TOOL_NAME
         | OPEN_MEMORY_TOOL_NAME
         | SEARCH_ATTACHED_FILES_TOOL_NAME
         | WEB_SEARCH_TOOL_NAME

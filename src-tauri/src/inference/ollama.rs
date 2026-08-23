@@ -13,9 +13,7 @@ use self::protocol::{
     NdjsonDecoder, OllamaChatRequest, OllamaErrorResponse, OllamaShowRequest, OllamaShowResponse,
     decode_model_list, decode_running_models, decode_stream_line, model_info, normalize_usage,
 };
-use crate::tool_contract::{
-    memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
-};
+use crate::tool_contract::enabled_native_tool_definitions;
 
 mod protocol;
 
@@ -30,16 +28,8 @@ impl OllamaToolSession {
     /// Starts a session with exactly the closed native tools enabled for this request.
     pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
         validate_request(&request)?;
-        let mut definitions = request
-            .memory_enabled
-            .then(memory_tool_definitions)
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
-        if request.web_enabled {
-            definitions.push(web_search_tool_definition());
-            definitions.push(web_fetch_tool_definition());
-        }
+        let definitions =
+            enabled_native_tool_definitions(request.memory_enabled, request.web_enabled);
         Ok(Self {
             request: OllamaChatRequest::with_tools(request, definitions),
         })

@@ -4,7 +4,7 @@ use futures_util::{FutureExt, future::Abortable};
 
 use super::*;
 use crate::inference::types::{
-    ChatSettings, ChatTurn, ContentBlock, ImageMediaType, ReasoningEffort,
+    ChatRole, ChatSettings, ChatTurn, ContentBlock, ImageMediaType, ModelLoadState, ReasoningEffort,
 };
 
 #[derive(Clone, Default)]
@@ -76,14 +76,67 @@ fn accepts_only_loopback_endpoints() {
 fn decodes_live_model_list_shape() {
     let fixture = concat!(
         r#"{"object":"list","data":[{"id":"Qwen3.6-35B-A3B-8bit","#,
-        r#""object":"model","max_model_len":262144,"capabilities":["vision"]}]}"#,
+        r#""object":"model","max_model_len":262144,"capabilities":["vision"]},"#,
+        r#"{"id":"LFM2.5-8B-A1B-MLX-8bit","max_model_len":128000,"capabilities":null}]}"#,
     );
     let models = decode_model_list(fixture.as_bytes()).expect("model list should decode");
-    assert_eq!(models.len(), 1);
+    assert_eq!(models.len(), 2);
     assert_eq!(models[0].model_id, "Qwen3.6-35B-A3B-8bit");
     assert_eq!(models[0].max_context_tokens, Some(262_144));
     assert!(models[0].capabilities.streaming);
     assert!(models[0].capabilities.vision);
+    assert!(models[1].capabilities.text);
+}
+
+#[test]
+fn enables_tools_only_for_the_explicit_chat_completions_openapi_contract() {
+    let supported = br##"{
+        "paths": {
+            "/v1/chat/completions": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ChatCompletionRequest"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "components": {
+            "schemas": {
+                "ChatCompletionRequest": {
+                    "type": "object",
+                    "properties": {"tools": {}, "tool_choice": {}}
+                }
+            }
+        }
+    }"##;
+    assert!(decode_openapi_tool_support(supported));
+
+    for unsupported in [
+        br#"{}"#.as_slice(),
+        br#"{"paths":{"/v1/chat/completions":{"post":{"requestBody":{"content":{"application/json":{"schema":{"type":"object","properties":{"tools":{}}}}}}}}}}"#.as_slice(),
+        br#"{"paths":{"/v1/chat/completions":{"get":{"requestBody":{"content":{"application/json":{"schema":{"type":"object","properties":{"tools":{},"tool_choice":{}}}}}}}}}}"#.as_slice(),
+        b"not json".as_slice(),
+    ] {
+        assert!(!decode_openapi_tool_support(unsupported));
+    }
+}
+
+#[test]
+fn enriches_only_text_models_with_explicit_endpoint_tool_support() {
+    let mut models = decode_model_list(
+        br#"{"data":[{"id":"text-model"},{"id":"embedding-model","capabilities":["embeddings"]}]}"#,
+    )
+    .expect("model fixture should decode");
+    enrich_tool_capabilities(&mut models, true);
+
+    assert!(models[0].capabilities.tools);
+    assert!(!models[1].capabilities.tools);
+    enrich_tool_capabilities(&mut models, false);
+    assert!(!models[0].capabilities.tools);
 }
 
 #[test]
@@ -115,6 +168,12 @@ fn enriches_catalogue_from_explicit_vlm_status_metadata() {
                 "loaded":false,
                 "engine_type":"batched",
                 "model_type":"llm"
+            },
+            {
+                "id":"embedding-model",
+                "loaded":false,
+                "engine_type":"embedding",
+                "model_type":"embedding"
             }
         ]
     }"#;
@@ -129,6 +188,13 @@ fn enriches_catalogue_from_explicit_vlm_status_metadata() {
     assert_eq!(models[1].load_state, ModelLoadState::Unloaded);
     assert!(!models[2].capabilities.vision);
     assert_eq!(models[2].load_state, ModelLoadState::Unloaded);
+
+    let mut embedding =
+        decode_model_list(br#"{"data":[{"id":"embedding-model","capabilities":null}]}"#)
+            .expect("nullable catalogue capability should decode");
+    enrich_models(&mut embedding, &statuses);
+    assert!(!embedding[0].capabilities.text);
+    assert!(embedding[0].capabilities.embeddings);
 }
 
 #[test]
@@ -144,42 +210,36 @@ fn decodes_fragmented_sse_and_completion() {
         .push(b"tent\":\"hello\"}}]}\r\n\r\ndata: [DONE]\n\n")
         .unwrap();
     assert_eq!(payloads.len(), 2);
-    assert!(matches!(
-        decode_stream_payload(&payloads[0]).unwrap(),
-        DecodedEvent::TextDelta(ref delta) if delta == "hello"
-    ));
-    assert!(matches!(
-        decode_stream_payload(&payloads[1]).unwrap(),
-        DecodedEvent::Done
-    ));
+    assert_eq!(
+        decode_omlx_stream_payload(&payloads[0]).unwrap().text_delta,
+        "hello"
+    );
+    assert!(decode_omlx_stream_payload(&payloads[1]).unwrap().done);
 }
 
 #[test]
 fn decodes_usage_update() {
-    let event = decode_stream_payload(
+    let event = decode_omlx_stream_payload(
         r#"{"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":7}}"#,
     )
     .unwrap();
-    assert!(matches!(
-        event,
-        DecodedEvent::Usage(Usage {
+    assert_eq!(
+        event.usage,
+        Some(Usage {
             input_tokens: Some(12),
             output_tokens: Some(7),
             cost_usd: None
         })
-    ));
+    );
 }
 
 #[test]
 fn decodes_reasoning_separately_from_answer_text() {
-    let event = decode_stream_payload(
+    let event = decode_omlx_stream_payload(
         r#"{"choices":[{"delta":{"reasoning_content":"checking assumptions"}}]}"#,
     )
     .unwrap();
-    assert!(matches!(
-        event,
-        DecodedEvent::ReasoningDelta(ref delta) if delta == "checking assumptions"
-    ));
+    assert_eq!(event.reasoning_delta, "checking assumptions");
 }
 
 #[test]
@@ -193,6 +253,71 @@ fn sends_explicit_off_and_low_reasoning_controls() {
     let low = serde_json::to_value(OmlxChatRequest::from(request)).unwrap();
     assert_eq!(low["chat_template_kwargs"]["enable_thinking"], true);
     assert_eq!(low["reasoning_effort"], "low");
+}
+
+#[test]
+fn maps_clock_memory_and_web_definitions_only_through_the_native_session() {
+    let clock_only = serde_json::to_value(
+        OmlxToolSession::new(live_request("model".into(), "What time is it?"))
+            .unwrap()
+            .request,
+    )
+    .unwrap();
+    assert_eq!(clock_only["tools"].as_array().map(Vec::len), Some(1));
+    assert_eq!(clock_only["tools"][0]["function"]["name"], "current_time");
+    assert_eq!(clock_only["tool_choice"], "auto");
+
+    let mut combined = live_request("model".into(), "Recall and research this");
+    combined.memory_enabled = true;
+    combined.web_enabled = true;
+    let combined = serde_json::to_value(OmlxToolSession::new(combined).unwrap().request).unwrap();
+    assert_eq!(combined["tools"].as_array().map(Vec::len), Some(6));
+    assert_eq!(combined["tools"][0]["function"]["name"], "search_memory");
+    assert_eq!(combined["tools"][3]["function"]["name"], "web_search");
+    assert_eq!(combined["tools"][4]["function"]["name"], "web_fetch");
+    assert_eq!(combined["tools"][5]["function"]["name"], "current_time");
+}
+
+#[test]
+fn reconstructs_fragmented_calls_and_appends_exact_correlated_results() {
+    let mut calls = OpenAiToolCallAccumulator::default();
+    for payload in [
+        r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_clock","type":"function","function":{"name":"current_","arguments":"{"}}]}}]}"#,
+        r#"{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"time","arguments":"}"}}]}}]}"#,
+    ] {
+        let event = decode_omlx_stream_payload(payload).unwrap();
+        calls.extend(event.tool_call_deltas).unwrap();
+    }
+    let calls = calls.finish().unwrap();
+    assert_eq!(calls[0].call_id(), "call_clock");
+    assert_eq!(calls[0].tool_name(), "current_time");
+    assert_eq!(calls[0].arguments(), &serde_json::json!({}));
+
+    let mut session = OmlxToolSession::new(live_request("model".into(), "What time is it?"))
+        .expect("tool session should build");
+    session
+        .append_results(
+            OmlxToolRound {
+                reasoning: "Checking the native clock.".into(),
+                content: String::new(),
+                tool_calls: calls,
+                usage: Some(Usage {
+                    input_tokens: Some(4),
+                    output_tokens: Some(2),
+                    cost_usd: None,
+                }),
+            },
+            vec![OpenAiToolResult {
+                tool_call_id: "call_clock".into(),
+                content: r#"{"ok":true,"result":{"utc":"2026-08-23T04:05:06.000Z"}}"#.into(),
+            }],
+        )
+        .expect("exact result should append");
+    let body = serde_json::to_value(session.request).unwrap();
+    assert_eq!(body["messages"][1]["role"], "assistant");
+    assert_eq!(body["messages"][1]["tool_calls"][0]["id"], "call_clock");
+    assert_eq!(body["messages"][2]["role"], "tool");
+    assert_eq!(body["messages"][2]["tool_call_id"], "call_clock");
 }
 
 #[test]
@@ -237,7 +362,9 @@ fn reasoning_only_ipc_settings_keep_safe_generation_defaults() {
 
 #[test]
 fn rejects_malformed_event() {
-    let error = decode_stream_payload("not json").unwrap_err();
+    let error = decode_omlx_stream_payload("not json")
+        .err()
+        .expect("invalid JSON should fail");
     assert_eq!(error.code, ProviderErrorCode::MalformedResponse);
 }
 

@@ -11,16 +11,14 @@ use super::{
     sse::SseDecoder,
     types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
 };
-use crate::tool_contract::{
-    memory_tool_definitions, web_fetch_tool_definition, web_search_tool_definition,
-};
+use crate::tool_contract::enabled_native_tool_definitions;
 
 use self::protocol::{
     DecodedStreamEvent, OpenAiChatRequest, OpenAiToolCallAccumulator, decode_stream_payload,
 };
 
 mod discovery;
-mod protocol;
+pub(crate) mod protocol;
 
 use discovery::decode_model_list;
 
@@ -38,16 +36,8 @@ impl OpenAiToolSession {
     /// Starts a session with exactly the closed native tools enabled for this request.
     pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
         validate_request(&request)?;
-        let mut definitions = request
-            .memory_enabled
-            .then(memory_tool_definitions)
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
-        if request.web_enabled {
-            definitions.push(web_search_tool_definition());
-            definitions.push(web_fetch_tool_definition());
-        }
+        let definitions =
+            enabled_native_tool_definitions(request.memory_enabled, request.web_enabled);
         Ok(Self {
             request: OpenAiChatRequest::with_tools(request, definitions),
         })
@@ -416,6 +406,20 @@ mod tests {
     }
 
     #[test]
+    fn request_maps_the_clock_when_memory_and_web_are_both_disabled() {
+        let request: ChatRequest = serde_json::from_value(serde_json::json!({
+            "providerId": "openai",
+            "modelId": "gpt-example",
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "time?"}]}]
+        }))
+        .unwrap();
+        let body = serde_json::to_value(OpenAiToolSession::new(request).unwrap().request).unwrap();
+
+        assert_eq!(body["tools"].as_array().map(Vec::len), Some(1));
+        assert_eq!(body["tools"][0]["function"]["name"], "current_time");
+    }
+
+    #[test]
     fn request_maps_web_tools_after_memory_when_explicitly_enabled() {
         let mut request: ChatRequest = serde_json::from_value(serde_json::json!({
             "providerId": "openai",
@@ -428,9 +432,10 @@ mod tests {
 
         let body = serde_json::to_value(OpenAiToolSession::new(request).unwrap().request).unwrap();
 
-        assert_eq!(body["tools"].as_array().map(Vec::len), Some(5));
+        assert_eq!(body["tools"].as_array().map(Vec::len), Some(6));
         assert_eq!(body["tools"][3]["function"]["name"], "web_search");
         assert_eq!(body["tools"][4]["function"]["name"], "web_fetch");
+        assert_eq!(body["tools"][5]["function"]["name"], "current_time");
         assert_eq!(
             body["tools"][3]["function"]["parameters"]["additionalProperties"],
             false

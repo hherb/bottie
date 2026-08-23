@@ -204,6 +204,19 @@ fn maps_closed_native_memory_definitions_into_ollama_tools() {
 }
 
 #[test]
+fn maps_the_clock_when_memory_and_web_are_both_disabled() {
+    let body = serde_json::to_value(
+        OllamaToolSession::new(live_request("tool-model".into(), "what time is it"))
+            .unwrap()
+            .request,
+    )
+    .unwrap();
+
+    assert_eq!(body["tools"].as_array().map(Vec::len), Some(1));
+    assert_eq!(body["tools"][0]["function"]["name"], "current_time");
+}
+
+#[test]
 fn maps_the_closed_web_definitions_after_memory_when_explicitly_enabled() {
     let definitions = memory_tool_definitions()
         .into_iter()
