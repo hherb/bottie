@@ -277,7 +277,7 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - themes and density options (complete);
 - refined empty/offline/error states (complete);
 - accessibility audit and reduced-motion verification (complete);
-- performance tests for long conversations and large histories;
+- performance tests for long conversations and large histories (complete);
 - macOS, Windows, and Linux packaging and smoke tests;
 - custom bottie application icon, signing, updates, and release notes.
 

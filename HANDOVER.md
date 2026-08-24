@@ -243,9 +243,12 @@ Command/Ctrl+K opens one accessible local command palette over five safe existin
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
 Dark themes plus Comfortable and Compact density are now complete. Refined empty/offline/error states and the focused
-WebView accessibility audit are also complete. Do not bundle dependency upgrades or remediation, Email provenance cards,
-attachment download or opening, Localmail administration, outbound mail, migration-recovery UI, a new feature schema,
-automatic retrieval injection, model-cache deletion, packaging, signing, updates, or release work.
+WebView accessibility audit are also complete. Reproducible performance budgets now cover a 2,000-conversation,
+50,000-message native history plus 2,000-row navigation and 600-turn WebView fixtures. All initial budgets passed, so
+the slice deliberately changes no production loading, search, branch, rendering, or scrolling behavior. Do not bundle
+dependency upgrades or remediation, Email provenance cards, attachment download or opening, Localmail administration,
+outbound mail, migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion,
+packaging, signing, updates, or release work.
 
 A 2026-08-24 reliability correction extends the provider-neutral tool-loop deadline from 30 seconds to five minutes.
 Two retained oMLX Email failures showed successful `search_email` results followed by timeout termination while the
@@ -268,7 +271,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/accessibility-audit`.
+branch `codex/performance-budgets`.
 
 ## Current implementation
 
@@ -804,14 +807,75 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: performance tests for long conversations and large histories
+## Next bounded product slice: macOS packaging and smoke test
 
-Add reproducible performance fixtures and budgets for loading, searching, switching, rendering, and scrolling long
-selected lineages plus large active/Archived conversation lists. Measure before changing behavior, then fix only a
-demonstrated bottleneck behind the existing storage, branch, search, and WebView contracts. Keep schema, provider/tool
-behavior, network access, native menu/tray work, packaging, signing, updates, and release work unchanged.
+Produce one reproducible unsigned/development-signed macOS application bundle from the locked dependency state, inspect
+its packaged resources and native runtime assets, and exercise a bounded launch/storage/provider-offline smoke path.
+Record exact commands, bundle evidence, remaining distribution gates, and any signing limitation. Keep Windows/Linux
+packaging, custom artwork replacement, notarization, updates, release notes, dependency remediation, schema, IPC,
+provider/tool behavior, and network policy unchanged.
 
-## Most recently completed product slice: focused accessibility audit and reduced-motion verification
+## Most recently completed product slice: performance tests for long conversations and large histories
+
+### Goal
+
+Add reproducible performance fixtures and explicit budgets for native loading/search plus WebView switching, rendering,
+and scrolling without pre-emptively changing the established storage, branch, search, or presentation contracts.
+
+### Implemented shape
+
+1. One deterministic native fixture contains 2,000 active/Archived conversations, 50,000 final text messages, and one
+   600-turn selected lineage. Its ignored Rust budget test measures only the production list/load/search paths; derived
+   memory-index triggers are removed only from the disposable fixture so setup work does not contaminate measurements.
+2. One typed path-free frontend fixture produces the matching 2,000 navigation rows and 600 durable/presentation turns.
+   Opt-in Vitest budgets measure selected-lineage reconstruction plus complete Sidebar and ConversationView rendering
+   after one warm-up, taking the fastest of three runs to reject scheduler noise.
+3. `npm run performance:test` runs the isolated frontend and native budgets without adding the large fixtures to the
+   default validation duration. The documented development-only `?performance=long-history` preview renders those same
+   WebView shapes for reproducible real-browser scrolling checks and is gated out of production behavior.
+4. Initial measurements passed every named budget. No demonstrated bottleneck required a production optimization, so
+   schema, queries, branch selection, IPC, component behavior, styles, provider/tool behavior, and network access stay
+   unchanged.
+
+### Budgets and evidence
+
+- Frontend: 600-turn switching stays below 50 ms; 2,000-row Sidebar server rendering stays below 1,500 ms; and 600-turn
+  ConversationView server rendering stays below 2,000 ms. The recorded warmed results were 0.06 ms, 12.10 ms, and
+  10.84 ms respectively.
+- Native debug build: listing 2,000 conversations stays below 250 ms; loading the 600-turn lineage stays below 1,000
+  ms; and literal search across 50,000 messages stays below 1,000 ms. The recorded results were 4.16 ms, 44.29 ms, and
+  301.20 ms respectively.
+- The 1,280 x 720 browser fixture rendered all 600 messages over a 96,435 px scroll surface and all 2,000 navigation
+  rows over a 70,132 px surface. Twelve 1,600 px conversation scroll steps completed in 183 ms and twelve 1,200 px
+  navigation steps completed in 255 ms, reaching the exact expected offsets without warnings or errors.
+
+### Acceptance and explicit exclusions
+
+- Fixtures are deterministic, path-free, opt-in, and large enough to exercise long selected lineages plus active and
+  Archived histories. Named budgets fail closed when a measured path regresses.
+- Fixture construction and compile time are not presented as product operation latency. Browser scroll timings are
+  local rendered evidence, while the automated budgets cover deterministic storage and server-rendered component work.
+- No production performance behavior, schema/migration, provider/tool mapping, dependency, network, native menu/tray,
+  packaging, signing, update, or release behavior changed. Live-provider tests are not applicable.
+
+### Verification completed
+
+The opt-in combined performance command passes all three frontend and the one native budget tests. Prettier accepts all
+tracked frontend and script sources; `svelte-check` reports zero errors or warnings; the default root Vitest run has 34
+passing files plus the intentionally skipped performance-budget file, with 113 default tests passing and three opt-in
+budget tests skipped. The production build succeeds, and neither the long-history query marker nor its fixture content
+appears in the generated client/server output. The regenerated locked dependency inventory changes only `package.json`'s
+input hash and passes its offline check.
+
+Cargo formatting and compilation pass. The Rust suite has 417 tests: 387 pass by default and 30 loopback,
+public-network, credential, live-provider, or large-history performance checks remain explicitly ignored. The opt-in
+native performance test then passes separately. `git diff --check` is clean.
+
+The browser evidence above uses Bottie's real development components and styles; its console remained free of warnings
+and errors after both scroll runs. This slice changes no production app behavior or live-store schema, so a native app
+launch, immutable live-store inspection, credential access, and live-provider checks are not applicable.
+
+## Prior completed product slice: focused accessibility audit and reduced-motion verification
 
 ### Goal
 
