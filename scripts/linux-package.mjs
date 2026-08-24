@@ -30,7 +30,7 @@ const ELF_MACHINES = new Map([
   [0xb7, "aarch64"],
 ]);
 const ALLOWED_INSTALLED_ICON_NAMES = new Set(["bottie", SMOKE_PRODUCT_NAME]);
-const INSTALLED_ICON_SIZES = [32, 128, 256];
+const INSTALLED_ICON_SIZES = [32, 64, 128, 256];
 
 /** Returns the exact locked, DEB-only Tauri arguments used by the package command. */
 export function linuxBuildArguments() {

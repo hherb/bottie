@@ -248,7 +248,7 @@ npm run package:linux:inspect
 ```
 
 The build is DEB-only, non-interactive, skips package signing, and passes `--locked` to Cargo. Inspection extracts the
-DEB without installing Bottie and requires the generated 32, 128, and 256 pixel Bottie marks at their exact hicolor
+DEB without installing Bottie and requires the generated 32, 64, 128, and 256 pixel Bottie marks at their exact hicolor
 application paths. It reports only archive metadata, extraction-relative payload paths and hashes, ELF architecture
 and direct shared-library requirements, and packaged native runtime files. Host paths and maintainer scripts are
 excluded from the JSON evidence.

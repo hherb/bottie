@@ -838,7 +838,7 @@ reproducible and path-free.
    ICNS container, a non-empty ICO directory, and the exact reviewed 64-pixel favicon. Tauri now explicitly selects
    the 32, 64, 128, 256, ICNS, and ICO assets for platform bundling without changing CSP or WebView permissions.
 4. macOS package inspection continues to require `Contents/Resources/icon.icns`. Linux inspection reads the one
-   packaged desktop launcher's closed Bottie or smoke `Icon=` identity, then requires 32, 128, and 256-pixel marks at
+   packaged desktop launcher's closed Bottie or smoke `Icon=` identity, then requires 32, 64, 128, and 256-pixel marks at
    the matching exact hicolor paths. Windows reads only public associated-icon dimensions from the administratively
    extracted `bottie.exe`. No host path enters evidence.
 5. The Windows and Linux pull-request workflows regenerate and compare the artwork before their real locked package
