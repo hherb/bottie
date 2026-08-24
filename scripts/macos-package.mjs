@@ -7,7 +7,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { lstat, mkdir, readFile, readdir, readlink, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { homedir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { selectAppleDevelopmentIdentity } from "./macos-development-signing.mjs";
@@ -97,7 +97,12 @@ async function visitBundle(directory, root, files, symlinks) {
     if (entry.isDirectory()) {
       await visitBundle(absolutePath, root, files, symlinks);
     } else if (entry.isSymbolicLink()) {
-      symlinks.push({ path: relativePath, target: await readlink(absolutePath) });
+      const target = await readlink(absolutePath);
+      const normalizedTarget = normalize(target);
+      if (isAbsolute(target) || normalizedTarget === ".." || normalizedTarget.startsWith(`..${sep}`)) {
+        throw new Error("The macOS bundle contains an unsafe symbolic link target.");
+      }
+      symlinks.push({ path: relativePath, target });
     } else if (entry.isFile()) {
       const bytes = await readFile(absolutePath);
       files.push({

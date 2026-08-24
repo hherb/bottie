@@ -1,0 +1,78 @@
+name: macOS distribution validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sign-notarize-and-verify:
+    name: Developer ID, notarization, and Gatekeeper
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: macos-distribution
+    env:
+      BOTTIE_APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.BOTTIE_APPLE_DEVELOPER_ID_P12_BASE64 }}
+      BOTTIE_APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.BOTTIE_APPLE_DEVELOPER_ID_P12_PASSWORD }}
+      BOTTIE_APPLE_NOTARY_KEY_P8: ${{ secrets.BOTTIE_APPLE_NOTARY_KEY_P8 }}
+      BOTTIE_APPLE_NOTARY_KEY_ID: ${{ secrets.BOTTIE_APPLE_NOTARY_KEY_ID }}
+      BOTTIE_APPLE_NOTARY_ISSUER_ID: ${{ secrets.BOTTIE_APPLE_NOTARY_ISSUER_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Verify credential-free distribution contracts
+        run: |
+          node --check scripts/macos-distribution.mjs
+          npm test -- scripts/macos-distribution.test.mjs
+
+      - name: Import protected Apple credentials
+        env:
+          BOTTIE_CI_KEYCHAIN_PASSWORD: ${{ secrets.BOTTIE_CI_KEYCHAIN_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH="$RUNNER_TEMP/bottie-developer-id.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/bottie-signing.keychain-db"
+          NOTARY_KEY_PATH="$RUNNER_TEMP/bottie-notary-key.p8"
+          printf '%s' "$BOTTIE_APPLE_DEVELOPER_ID_P12_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          printf '%s' "$BOTTIE_APPLE_NOTARY_KEY_P8" > "$NOTARY_KEY_PATH"
+          chmod 600 "$CERTIFICATE_PATH" "$NOTARY_KEY_PATH"
+          security create-keychain -p "$BOTTIE_CI_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$BOTTIE_CI_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" \
+            -P "$BOTTIE_APPLE_DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$BOTTIE_CI_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          echo "BOTTIE_CI_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "BOTTIE_APPLE_NOTARY_KEY_PATH=$NOTARY_KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Sign, notarize, staple, and verify
+        run: npm run package:macos:distribution
+
+      - name: Upload identity-free evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottie-macos-distribution-evidence
+          path: package/macos-distribution-evidence.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove imported Apple credentials
+        if: always()
+        run: |
+          if [[ -n "${BOTTIE_CI_KEYCHAIN_PATH:-}" ]]; then
+            security delete-keychain "$BOTTIE_CI_KEYCHAIN_PATH" || true
+          fi
+          rm -f "$RUNNER_TEMP/bottie-developer-id.p12" "$RUNNER_TEMP/bottie-notary-key.p8"

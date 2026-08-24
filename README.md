@@ -204,6 +204,32 @@ only that test identity's Application Support data after termination. Fresh rele
 execution-policy evaluation for up to the command's two-minute startup allowance. This workflow does not produce a
 notarized or end-user-distributable release.
 
+To exercise Bottie's separate distribution-validation contract, first make a Developer ID Application identity
+available in the active keychains. Set `BOTTIE_APPLE_DISTRIBUTION_IDENTITY` to its exact label or SHA-1 fingerprint
+when more than one such identity is usable. Then provide exactly one Apple notary authentication mode:
+
+- `BOTTIE_APPLE_NOTARY_PROFILE` for a profile already saved by `xcrun notarytool store-credentials`; or
+- `BOTTIE_APPLE_NOTARY_KEY_PATH`, `BOTTIE_APPLE_NOTARY_KEY_ID`, and
+  `BOTTIE_APPLE_NOTARY_ISSUER_ID` for one protected App Store Connect team API key whose private-key path remains
+  outside the repository.
+
+Run the credential-dependent validation explicitly:
+
+```sh
+npm run package:macos:distribution
+```
+
+The command rebuilds the same locked app-only bundle, signs it with the checked-in minimal hardened-runtime
+entitlements and a secure timestamp, submits one temporary ZIP through `notarytool`, staples and validates the ticket,
+and requires Gatekeeper to accept the final bundle. It removes the submission ZIP and writes only path-safe,
+identity-free JSON evidence under the ignored `package` directory. It does not publish or upload Bottie as a release.
+
+The manual `macOS distribution validation` GitHub workflow provides the same contract through the protected
+`macos-distribution` environment. It expects environment secrets for the base64 PKCS #12 Developer ID certificate,
+its password, a temporary-keychain password, and the notary team API key, key ID, and issuer ID. The job imports those
+values only into runner-temporary storage, uploads only the bounded evidence JSON for seven days, and deletes the
+temporary keychain and credential files even after failure.
+
 ### Windows package verification
 
 On a Windows host with dependencies installed from the checked-in lockfiles, build and inspect the unsigned x64 MSI:
