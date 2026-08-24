@@ -146,6 +146,10 @@ npm run dev
 The browser preview is useful for layout work. Native inference and other Tauri-owned functionality are deliberately
 unavailable, so sending is disabled.
 
+For reproducible long-history rendering and scrolling checks during development, open
+`http://127.0.0.1:1420/?performance=long-history` after starting the preview. This explicit development-only fixture
+renders 2,000 active/Archived navigation rows and a 600-turn selected lineage; it is absent from production behavior.
+
 ## Development
 
 Run the standard validation suite before submitting a change:
@@ -159,6 +163,13 @@ npm run build
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Run the opt-in large-history budgets separately so their deterministic 2,000-conversation/50,000-message fixture does
+not add to the default test duration:
+
+```sh
+npm run performance:test
 ```
 
 Live-provider tests are ignored by default because they require explicitly configured local services and, in some

@@ -38,6 +38,7 @@
   import "$lib/styles/appearance.css";
 
   import { PageState } from "./page-state.svelte";
+  import { applyPerformancePreview } from "./performance-preview";
   import {
     inferenceStages,
     messageAttachmentAssociations,
@@ -51,6 +52,7 @@
   let settingsInvoker: HTMLElement | null = null;
 
   onMount(() => {
+    if (import.meta.env.DEV) applyPerformancePreview(state, window.location.search);
     appearanceController = createAppearanceController({
       root: document.documentElement,
       storage: window.localStorage,

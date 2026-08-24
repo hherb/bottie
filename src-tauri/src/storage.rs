@@ -473,6 +473,8 @@ mod memory_tool_tests;
 #[cfg(test)]
 mod migration_rollback_tests;
 #[cfg(test)]
+mod performance_tests;
+#[cfg(test)]
 mod portable_export_tests;
 #[cfg(test)]
 mod rating_tests;
