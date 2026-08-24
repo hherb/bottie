@@ -9,7 +9,6 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DatabaseSync } from "node:sqlite";
 
 const DEFAULT_MSI_DIRECTORY = "src-tauri/target/release/bundle/msi";
 const WINDOWS_EXECUTABLE_NAME = "bottie.exe";
@@ -226,7 +225,8 @@ async function terminateChild(child) {
 }
 
 /** Returns an immutable read-only summary of the isolated smoke database. */
-function inspectSmokeDatabase(databasePath) {
+async function inspectSmokeDatabase(databasePath) {
+  const { DatabaseSync } = await import("node:sqlite");
   const database = new DatabaseSync(databasePath, { readOnly: true });
   try {
     const quickCheck = database.prepare("PRAGMA quick_check").get().quick_check;
@@ -308,7 +308,7 @@ async function smokeWindowsBundle(extractedDirectory, inspection) {
     await terminateChild(child);
     return {
       capturedOutputBytes,
-      database: inspectSmokeDatabase(databasePath),
+      database: await inspectSmokeDatabase(databasePath),
       isolatedSupportDirectory: true,
       offlineProviderConnections: endpoint.connectionCount(),
       remainedRunning: true,

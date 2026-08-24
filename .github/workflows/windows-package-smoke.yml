@@ -41,7 +41,11 @@ jobs:
         run: npm ci
 
       - name: Verify Windows package contracts
-        run: npm test -- scripts/windows-package.test.mjs
+        run: |
+          node --check scripts/windows-package.mjs
+          node --check scripts/windows-package.test.mjs
+          node -e "import('./scripts/windows-package.mjs')"
+          npm test -- scripts/windows-package.test.mjs
 
       - name: Build, inspect, and smoke-test unsigned MSI
         run: npm run package:windows:smoke
