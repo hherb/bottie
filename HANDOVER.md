@@ -271,7 +271,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/performance-budgets`.
+branch `codex/macos-packaging-smoke`.
 
 ## Current implementation
 
@@ -807,15 +807,89 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: macOS packaging and smoke test
+## Next bounded product slice: Windows packaging and smoke test
 
-Produce one reproducible unsigned/development-signed macOS application bundle from the locked dependency state, inspect
-its packaged resources and native runtime assets, and exercise a bounded launch/storage/provider-offline smoke path.
-Record exact commands, bundle evidence, remaining distribution gates, and any signing limitation. Keep Windows/Linux
-packaging, custom artwork replacement, notarization, updates, release notes, dependency remediation, schema, IPC,
-provider/tool behavior, and network policy unchanged.
+Produce one reproducible unsigned/development-signed Windows application bundle from the locked dependency state on a
+Windows host, inspect its packaged resources and native runtime assets, and exercise a bounded launch, fresh-storage,
+and provider-offline smoke path under a distinct test identity. Record exact commands, bundle evidence, remaining
+distribution gates, and signing limitations. Keep Linux packaging, custom artwork replacement, distribution signing,
+updates, release notes, dependency remediation, schema, IPC, provider/tool behavior, and network policy unchanged.
 
-## Most recently completed product slice: performance tests for long conversations and large histories
+## Most recently completed product slice: macOS packaging and smoke test
+
+### Goal
+
+Produce one reproducible unsigned/development-signed macOS application bundle from the locked dependency state,
+inspect its packaged resources and native runtime assets, and exercise a bounded launch/storage/provider-offline smoke
+path without touching Bottie's live application data.
+
+### Implemented shape
+
+1. `npm run package:macos` invokes Tauri's app-only, non-interactive `--no-sign` build and passes `--locked` through to
+   Cargo. The path-free inspector requires the plist, executable, and icon; records bundle-relative hashes, byte
+   counts, architecture, public plist metadata, code-signing class, and packaged native libraries; and exposes no
+   certificate label or host path.
+2. `npm run package:macos:sign-development` selects the same sole or explicitly requested Apple Development identity
+   as the existing development runner, signs with the hardened runtime and no timestamp, and strictly verifies the
+   bundle. It adds no distribution certificate, notarization, release entitlement, or repository-held identity.
+3. `npm run package:macos:smoke` compiles the same locked code under the distinct
+   `com.bottie.packaging-smoke` identity, refuses to replace a pre-existing support directory, and points both local
+   provider roots at one process-owned loopback endpoint that accepts then rejects every connection. The runner waits
+   up to two minutes for known macOS policy evaluation, requires a fresh SQLite store plus at least one rejected
+   provider discovery connection, proves the process remains live through a three-second settle window, terminates
+   only that process, and removes only the test identity's Application Support directory.
+4. The smoke database reinspection uses an encoded immutable SQLite URI after plain `-readonly` opening proved
+   unreliable on this host. The workflow emits path-free milestones as soon as store creation, offline discovery, and
+   sustained liveness are observed, preserving useful evidence if a later host-policy or inspection step fails.
+
+### Package and smoke evidence
+
+- The locked arm64 build produced Bottie 0.1.0 with macOS 10.13 as its declared minimum. The development-signed main
+  app contains four regular files after signing: `Info.plist`, the embedded-frontend executable, `icon.icns`, and the
+  code-resource seal. It totals 54,278,357 bytes, has bundle digest
+  `652ae06fb7738d712b1dcc10acadb80861fe6a04606f06d19ea1d1e68b04e3b1`, and passes strict `codesign` verification.
+- Tauri embeds the generated frontend into the executable; there is no loose web-resource directory. `otool -L`
+  reports only OS-supplied macOS libraries/frameworks, including CoreML, WebKit, LocalAuthentication, and Security.
+  No ONNX Runtime dylib or other non-system native runtime file is present in the app bundle.
+- One development-signed distinct-identity launch reached application code, created its fresh isolated store,
+  contacted the rejecting provider endpoint, and stayed live through the settle window. Its first post-termination
+  SQLite command used a plain read-only path and failed; the immutable-URI regression is covered, but later fresh code
+  hashes remained in macOS execution-policy evaluation for the full two-minute allowance before application startup.
+  Therefore the corrected end-to-end smoke command is not claimed as a clean repeat on this host.
+- `codesign --verify --strict` accepts the development-signed bundle, while `spctl --assess` rejects it because it is
+  neither Developer-ID signed nor notarized. This is the expected distribution limitation, not a release-ready app.
+  Windows/Linux bundles, final artwork, notices/terms gates, distribution signing, and notarization remain open.
+
+### Safety correction and explicit exclusions
+
+Two early attempts used `CFFIXED_USER_HOME`; local Tauri/`dirs` source then confirmed native app-data resolution uses
+the process home instead. Those attempts were stopped, the approach was removed, and immutable inspection of Bottie's
+existing store returned `quick_check=ok`, schema version 21, an exact 21-row migration ledger, and no foreign-key
+output. The final workflow refuses Bottie's production identity and cleans up the distinct smoke directory after every
+attempt. No smoke data remains.
+
+Do not add Windows/Linux packaging to this slice; replace custom artwork; add distribution signing, notarization,
+updates, release notes, notice generation, or dependency/terms remediation; change schema, IPC, provider/tool behavior,
+network policy, credentials, or live-store content; or present the development-signed app as distributable.
+
+### Verification completed
+
+TDD first failed for the absent package workflow, then for development-signing, distinct smoke identity, established
+pre-run signing, and immutable SQLite URI contracts. Eight focused tests now cover the locked build arguments,
+bundle-relative inventory, signing classification and arguments, isolated provider settings, and encoded immutable
+database paths. The real locked build, strict signature verification, bundle inspection, native-library inspection,
+distinct-identity startup/storage/offline/liveness path, policy ceiling, cleanup, and immutable live-store health checks
+were exercised as described above.
+
+Prettier accepts every tracked frontend/script source, the locked dependency inventory matches, `svelte-check` reports
+zero errors or warnings, all 35 default Vitest files pass with the one opt-in performance file skipped, 121 tests pass,
+and the three performance budgets remain opt-in. The production build and `git diff --check` pass. Cargo formatting and
+compilation pass. The full Rust suite contains 417 tests: 387 pass and 30 loopback, public-network, credential,
+live-provider, or performance tests remain explicitly ignored. The suite used Bottie's existing pre-run Apple
+Development signer after macOS held the freshly linked ad-hoc test executable. Live-provider and credential tests are
+not applicable; the smoke endpoint is process-owned loopback and deliberately rejects every request.
+
+## Prior completed product slice: performance tests for long conversations and large histories
 
 ### Goal
 
