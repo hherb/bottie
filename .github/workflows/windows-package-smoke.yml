@@ -45,7 +45,8 @@ jobs:
           node --check scripts/windows-package.mjs
           node --check scripts/windows-package.test.mjs
           node -e "import('./scripts/windows-package.mjs')"
-          npm run package:windows:test
+          npm exec svelte-kit sync
+          npm test -- scripts/windows-package.test.mjs
 
       - name: Build, inspect, and smoke-test unsigned MSI
         run: npm run package:windows:smoke
