@@ -54,9 +54,9 @@ Across 399 Rust packages, 157 npm paths, and six reviewed non-package asset grou
 
 | Classification  | Entries | Result                                                                 |
 | --------------- | ------: | ---------------------------------------------------------------------- |
-| Compatible      |      10 | No further technical gap identified by this inventory                  |
+| Compatible      |      11 | No further technical gap identified by this inventory                  |
 | Notice-required |     543 | Must be represented in the release notice/licence bundle               |
-| Review-required |       9 | Five MPL crates, one Python-2.0 npm package, and three asset groups     |
+| Review-required |       8 | Five MPL crates, one Python-2.0 npm package, and two asset groups       |
 | Unknown         |       0 | No missing declaration in either resolved macOS graph or npm lockfile  |
 
 No GPL, AGPL, LGPL, or SSPL declaration appears in the reviewed graphs. The five MPL-2.0 runtime-graph crates are
@@ -116,9 +116,10 @@ Authoritative sources: [model repository](https://huggingface.co/onnx-community/
 
 ### Application artwork and platform frameworks
 
-The Tauri icon set and browser favicon are repository-owned bytes and their exact hashes are in the inventory, but no
-source/provenance or grant is recorded. They remain review-required. macOS WebKit, Security, LocalAuthentication, and
-other frameworks are supplied by the operating system and are not copied into Bottie's current app bundle.
+The Tauri icon set and browser favicon are repository-owned MIT-licensed bytes. Their editable sources, generation
+inputs, packaged outputs, exact hashes, and redistribution statement are recorded in the inventory. macOS WebKit,
+Security, LocalAuthentication, and other frameworks are supplied by the operating system and are not copied into
+Bottie's current app bundle.
 
 ## Release-blocking gaps
 
@@ -130,8 +131,7 @@ other frameworks are supplied by the operating system and are not copied into Bo
    release target; a lockfile entry for the Rust wrapper alone is insufficient.
 4. The EmbeddingGemma revision/files are not pinned and the Gemma terms are not presented or accepted through a
    release-ready product flow.
-5. The application icon/favicon provenance and redistribution rights are not recorded.
-6. Windows and Linux package smokes record final payloads, loose native assets, and direct system dependencies, but
+5. Windows and Linux package smokes record final payloads, loose native assets, and direct system dependencies, but
    their complete resolved graphs and platform-specific licence/notice obligations remain unverified.
 
 These are release gates, not reasons to change dependencies in this review slice. Dependency upgrades, replacement,

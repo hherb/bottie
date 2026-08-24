@@ -1,6 +1,6 @@
 {
   "name": "bottie",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "description": "A local-first, provider-flexible desktop chatbot with persistent memory.",
   "type": "module",
   "scripts": {
@@ -27,6 +27,7 @@
     "package:linux:inspect": "node scripts/linux-package.mjs --inspect",
     "package:linux:smoke": "node scripts/linux-package.mjs --smoke",
     "package:linux:test": "node --test scripts/linux-package.contract.mjs",
+    "release:candidate": "node scripts/release-candidate.mjs --write",
     "format": "prettier --write \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

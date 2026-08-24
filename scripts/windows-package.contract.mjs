@@ -13,6 +13,7 @@ import {
   parseEmbeddedIconDimensions,
   windowsBuildArguments,
   windowsSmokeBuildArguments,
+  versionedPackageEvidence,
 } from "./windows-package.mjs";
 
 const temporaryDirectories = [];
@@ -32,6 +33,15 @@ async function createExtractedBundleFixture() {
 }
 
 describe("Windows package evidence", () => {
+  it("binds retained evidence to the checked-out release version and schema", () => {
+    assert.deepEqual(versionedPackageEvidence("0.9.0", { bundle: {}, smoke: {} }), {
+      schemaVersion: 1,
+      version: "0.9.0",
+      bundle: {},
+      smoke: {},
+    });
+  });
+
   it("keeps the build locked, MSI-only, unsigned, and non-interactive", () => {
     assert.deepEqual(windowsBuildArguments(), ["build", "--bundles", "msi", "--no-sign", "--ci", "--", "--locked"]);
   });

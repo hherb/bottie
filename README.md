@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> Bottie is an active developer preview. It is not yet distributed as a signed end-user release.
+> Bottie 0.9.0 is being prepared as a tester-facing beta. It is not yet distributed as a signed end-user release.
 
 ## Why Bottie?
 
@@ -293,6 +293,20 @@ verifies the fresh store read-only after termination, and removes the complete t
 DEB plus path-free JSON evidence for seven days. It does not install, sign, publish, or claim an end-user-distributable
 release.
 
+## 0.9.0 beta release candidate
+
+[`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) is the versioned tester-facing source for Bottie's first desktop beta. After
+the platform workflows have produced their evidence files, run the offline release gate:
+
+```sh
+npm run release:candidate
+```
+
+The command always writes an ignored, path-free `package/release-candidate-manifest.json`, then exits non-zero unless
+every version, dependency, artwork, licence/notice, package-smoke, distribution-signature, notarization, and Gatekeeper
+gate passes. It does not sign, upload, tag, or publish anything. Unsigned Windows/Linux smoke packages and a source test
+suite are intentionally insufficient for `ready: true`.
+
 Live-provider tests are ignored by default because they require explicitly configured local services and, in some
 cases, credentials. See [`HANDOVER.md`](HANDOVER.md) for the current test inventory and the evidence recorded for the
 latest completed slice.
@@ -304,6 +318,7 @@ latest completed slice.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — documentation, style, TDD, and slice-completion requirements
 - [`DEPENDENCY-LICENCES.md`](DEPENDENCY-LICENCES.md) — reproducible package inventory, licence review, and release
   gaps
+- [`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) — tester-facing 0.9.0 beta notes and distribution cautions
 - [`MIGRATION-ROLLBACK.md`](MIGRATION-ROLLBACK.md) — forward-only migration and recovery contract
 
 ## Current boundaries
