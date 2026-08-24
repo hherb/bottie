@@ -229,6 +229,36 @@ read-only after termination, and removes only temporary build/extraction data pl
 The checked-in Windows Server 2025 PR workflow uploads the unsigned MSI and path-free JSON evidence for seven days.
 Neither command produces a signed or end-user-distributable release.
 
+### Linux package verification
+
+On an Ubuntu host with the Tauri Linux desktop prerequisites and dependencies installed from the checked-in
+lockfiles, build and inspect the unsigned DEB:
+
+```sh
+npm run dependencies:check
+npm run package:linux:test
+npm run package:linux
+npm run package:linux:inspect
+```
+
+The build is DEB-only, non-interactive, skips package signing, and passes `--locked` to Cargo. Inspection extracts the
+DEB without installing Bottie and reports only archive metadata, extraction-relative payload paths and hashes, ELF
+architecture and direct shared-library requirements, and packaged native runtime files. Host paths and maintainer
+scripts are excluded from the JSON evidence.
+
+Run the bounded launch/storage/provider-offline check separately under an available display and D-Bus session:
+
+```sh
+dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke
+```
+
+The smoke command builds under the distinct `com.bottie.packaging-smoke` identity, confines config, data, cache, and
+runtime files to process-owned XDG directories, targets both local providers at one rejecting loopback endpoint,
+verifies the fresh store read-only after termination, and removes the complete temporary tree. The checked-in Ubuntu
+24.04 PR workflow matches the locked ONNX Runtime archive's glibc/libstdc++ ABI requirements and uploads the unsigned
+DEB plus path-free JSON evidence for seven days. It does not install, sign, publish, or claim an end-user-distributable
+release.
+
 Live-provider tests are ignored by default because they require explicitly configured local services and, in some
 cases, credentials. See [`HANDOVER.md`](HANDOVER.md) for the current test inventory and the evidence recorded for the
 latest completed slice.

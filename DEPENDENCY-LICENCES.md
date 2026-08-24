@@ -32,8 +32,9 @@ direct packages, 376 entries in a normal runtime graph, and 23 build-only entrie
 records as a conservative all-platform superset. The npm lock contains 157 exact package paths: 14 direct packages,
 eight production-install entries, and 149 development-install entries. npm's `dev` marker describes installation
 scope, not whether a bundler copies code into the final frontend, so all 157 remain in the conservative notice review.
-Windows and Linux graph/artefact verification remains a release task; this review does not fetch their currently
-uncached target packages.
+Windows and Linux locked packaging workflows now verify their final application payloads and native-runtime shapes.
+Per-platform resolved-graph and licence/notice review remains a release task; this inventory does not fetch every
+target-specific package.
 
 The separately deployed `website/` project has its own manifest, lockfile, build, and Node test command. It is not
 linked or bundled into the Tauri desktop application and is outside this inventory. The root Vitest command now
@@ -130,7 +131,8 @@ other frameworks are supplied by the operating system and are not copied into Bo
 4. The EmbeddingGemma revision/files are not pinned and the Gemma terms are not presented or accepted through a
    release-ready product flow.
 5. The application icon/favicon provenance and redistribution rights are not recorded.
-6. Windows and Linux resolved graphs, native assets, system dependencies, and final bundle contents remain unverified.
+6. Windows and Linux package smokes record final payloads, loose native assets, and direct system dependencies, but
+   their complete resolved graphs and platform-specific licence/notice obligations remain unverified.
 
 These are release gates, not reasons to change dependencies in this review slice. Dependency upgrades, replacement,
 vendoring, model-cache behavior, user-facing licence acceptance, packaging, signing, and updates remain separate work.

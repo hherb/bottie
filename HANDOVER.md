@@ -237,8 +237,9 @@ path-free IPC shapes under adversarial fixtures. Secret-bearing native command i
 bounded slice is now complete: Bottie has a deterministic locked macOS Rust/npm dependency inventory, reviewed
 security-sensitive Cargo features and native/runtime assets, authoritative licence sources, explicit classification,
 and six release gates. Current resolved package metadata has no unknown licence declaration, but distribution remains
-blocked on Bottie's own licence text, a generated notice bundle, packaged ONNX Runtime evidence, pinned and accepted
-EmbeddingGemma terms, artwork provenance, and Linux verification. The keyboard-shortcut slice is now complete:
+blocked on Bottie's own licence text, a generated notice bundle, ONNX Runtime notice evidence, pinned and accepted
+EmbeddingGemma terms, artwork provenance, and per-platform resolved-graph review. The keyboard-shortcut slice is now
+complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -271,7 +272,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/windows-packaging-smoke`.
+branch `codex/linux-packaging-smoke`.
 
 ## Current implementation
 
@@ -807,16 +808,90 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Linux packaging and smoke test
+## Next bounded product slice: custom application icon
 
-Produce one reproducible unsigned Linux application bundle from the locked dependency state on an Ubuntu host, inspect
-its packaged resources, ELF dependencies, and native runtime assets, and exercise a bounded launch, fresh-storage, and
-provider-offline smoke path under isolated XDG directories and a distinct test identity. Record exact commands, bundle
-evidence, remaining distribution gates, and signing limitations. Keep custom artwork replacement, distribution
-signing, updates, release notes, dependency remediation, schema, IPC, provider/tool behavior, and network policy
-unchanged.
+Replace Tauri's default application icon with one approved Bottie mark across the WebView favicon plus macOS, Windows,
+and Linux package surfaces. Record source provenance and redistribution rights, generate deterministic platform assets,
+verify required sizes/alpha plus installed-package placement, and retain the existing CSP and path-free package
+evidence. Keep distribution signing, notarization, updates, release notes, notice generation, dependency remediation,
+schema, IPC, provider/tool behavior, and network policy unchanged.
 
-## Most recently completed product slice: Windows packaging and smoke test
+## Most recently completed product slice: Linux packaging and smoke test
+
+### Goal
+
+Produce one reproducible unsigned Linux DEB from the locked dependency state on an Ubuntu host, inspect its packaged
+resources, ELF dependencies, and native runtime assets, and exercise a bounded launch, fresh-storage, and
+provider-offline smoke path under isolated XDG directories and a distinct test identity.
+
+### Implemented shape
+
+1. `npm run package:linux` invokes Tauri's DEB-only, non-interactive `--no-sign` build and passes `--locked` through to
+   Cargo. `npm run package:linux:inspect` extracts exactly one DEB with `dpkg-deb --extract` into a temporary directory
+   instead of installing or registering Bottie.
+2. The path-free inspector requires exactly one Bottie ELF executable, records DEB control metadata and archive
+   signing class, extraction-relative hashes and byte counts, ELF architecture and direct shared-library requirements,
+   and packaged `.so` runtime assets. Host paths and maintainer scripts do not serialize into evidence.
+3. `npm run package:linux:smoke` builds the locked code in a temporary Cargo target under the distinct
+   `com.bottie.packaging-smoke` identity. It confines config, data, cache, and runtime state to one process-owned
+   temporary XDG tree, writes only bounded local-provider settings, and launches the extracted executable against one
+   process-owned loopback endpoint that accepts then rejects every connection.
+4. The bounded runner requires a fresh SQLite store, rejected provider discovery, three seconds of continued
+   liveness, process-group termination, and read-only database integrity/schema counts before removing the entire
+   temporary build, extraction, and XDG tree.
+5. The Ubuntu 24.04 pull-request workflow installs only the Tauri desktop prerequisites, runs the dependency-free Node
+   contracts, launches the real smoke path under an isolated Xvfb/D-Bus session, and retains the unsigned DEB plus
+   path-free JSON evidence for seven days. It does not install Bottie or publish a release.
+
+### Package and smoke evidence
+
+- The locked Ubuntu 24.04 build produced `bottie-packaging-smoke_0.1.0_amd64.deb`, 22,634,974 bytes, with SHA-256
+  `c5353be2b0237575630b3bf59d29c9fa6c3aac5c010ea9764009c2806afdb48b`. The archive has no Debian signature member,
+  so the inspector classifies it as unsigned and verification is false, as required by `--no-sign`.
+- The extracted x86_64 payload has five files totaling 68,833,793 bytes and bundle digest
+  `c69125de40f074a658608361d607ee5234d8adb4650351b7f72c132058e2407b`. Its 68,822,080-byte `usr/bin/bottie`
+  executable has SHA-256 `649158808f5cc784c6d901a54bfe0fe726f5201ae3b85a40d61eb01cd1d88859`; the other four files are one desktop
+  entry and the existing default icon at three packaged sizes.
+- The DEB declares `libwebkit2gtk-4.1-0` and `libgtk-3-0`. Direct ELF requirements cover the loader, C/C++ runtimes,
+  WebKitGTK/JavaScriptCore, Soup, GTK/GDK, GLib/GIO, Cairo, D-Bus, and related system libraries. No loose `.so` or
+  other native runtime file is installed beside the executable; this does not replace the remaining ONNX Runtime
+  licence/notice review.
+- The distinct-identity executable created a fresh schema-21 store with an exact 21-row migration ledger, one built-in
+  profile, zero conversations, and `quick_check=ok`; it contacted the rejecting provider endpoint exactly once,
+  remained live through the settle window, and terminated cleanly. The process-owned XDG tree was then removed.
+- Workflow run `32687067001` completed contracts, build, extraction, inspection, Xvfb/D-Bus launch, smoke, evidence
+  upload, and cleanup in 7m49s. The unsigned DEB and JSON evidence are retained as
+  `bottie-linux-package-smoke` for seven days; the repository does not treat them as an end-user release.
+
+### Safety corrections and explicit exclusions
+
+The first cold build on Ubuntu 22.04 reached final linking but failed because the locked ONNX Runtime archive references
+glibc 2.38 C23 conversion symbols plus newer libstdc++ string symbols that the host's glibc 2.35/GCC 11 runtime cannot
+provide. The workflow therefore targets Ubuntu 24.04 and retains that newer ABI baseline as an explicit package
+compatibility limitation rather than changing or rebuilding the locked dependency.
+
+Do not replace custom artwork; add distribution signing, repository publishing, updates, release notes, notice
+generation, or dependency/terms remediation; change schema, IPC, provider/tool behavior, network policy, credentials,
+or live-store content; or present the unsigned DEB as an end-user release.
+
+### Verification completed
+
+Six dependency-free Node contracts cover locked DEB arguments, the distinct identity, exact app-relative inventory,
+duplicate/missing executable rejection, ELF architecture, isolated XDG roots, and bounded provider settings. The final
+Ubuntu workflow exercised the real release build, DEB checksum/control/signing classification, extraction, payload
+hashing, ELF architecture and direct dependencies, native-runtime inventory, fresh storage, offline-provider
+discovery, liveness, process-group termination, read-only SQLite integrity/schema counts, cleanup, and artifact upload.
+
+Prettier accepts every tracked frontend/script source, the locked dependency inventory matches, `svelte-check` reports
+zero errors or warnings, all 35 default Vitest files pass with one opt-in performance file skipped, 121 tests pass, and
+the three performance budgets remain opt-in. The separate Linux contract suite passes all six tests. The production
+build and `git diff --check` pass. Cargo formatting and compilation pass. The full Rust suite contains 417 tests: 387
+pass and 30 loopback, public-network, credential, live-provider, or performance tests remain explicitly ignored.
+GitHub notes that the v4 action internals target its deprecated Node 20 runtime and are forced to Node 24. Live-provider
+and credential tests are not applicable because the smoke endpoint is process-owned loopback and rejects every
+request.
+
+## Prior completed product slice: Windows packaging and smoke test
 
 ### Goal
 
