@@ -13,13 +13,22 @@ use crate::{command_types::ProviderCredentialStatus, inference::ProviderError};
 const SERVICE_NAME: &str = "com.hherb.bottie.provider-api-keys";
 const STATUS_SERVICE_NAME: &str = "com.hherb.bottie.provider-api-key-status";
 const CONFIGURED_MARKER: &str = "configured";
-const AUTHENTICATION_REASON: &str = "unlock cloud and connector credentials";
+const AUTHENTICATION_REASON: &str =
+    "unlock saved cloud, search, and connector credentials for this Bottie session";
 const AUTHENTICATION_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Stable native provider identities allowed to own credential-vault entries.
 pub(crate) const NATIVE_CREDENTIAL_IDS: [&str; 4] = ["openai", "anthropic", "brave", "exa"];
 /// Vault identity reserved for the first-party Localmail connector token.
 pub(crate) const LOCALMAIL_CREDENTIAL_ID: &str = "localmail";
+/// Every credential Bottie warms after the single app-session authentication.
+const NATIVE_SESSION_CREDENTIAL_IDS: [&str; 5] = [
+    "openai",
+    "anthropic",
+    "brave",
+    "exa",
+    LOCALMAIL_CREDENTIAL_ID,
+];
 
 /// Returns secret-free status for each WebView-visible credential without reading a vault value.
 pub(crate) fn provider_credential_statuses(
@@ -82,8 +91,14 @@ pub(crate) trait CredentialStore: Send + Sync {
 
 /// Credential store backed by the platform password manager and a session biometric gate.
 #[derive(Default)]
+struct CredentialSession {
+    secrets: HashMap<String, String>,
+    authenticated: bool,
+}
+
+#[derive(Default)]
 pub(crate) struct SystemCredentialStore {
-    cache: Mutex<HashMap<String, String>>,
+    session: Mutex<CredentialSession>,
 }
 
 impl SystemCredentialStore {
@@ -94,10 +109,22 @@ impl SystemCredentialStore {
     }
 
     /// Returns the process-only cache after handling poisoned-lock failures safely.
-    fn cache(&self) -> Result<MutexGuard<'_, HashMap<String, String>>, ProviderError> {
-        self.cache.lock().map_err(|_| {
+    fn session(&self) -> Result<MutexGuard<'_, CredentialSession>, ProviderError> {
+        self.session.lock().map_err(|_| {
             ProviderError::internal("The credential session could not be accessed.", None)
         })
+    }
+
+    /// Authenticates once and warms every configured credential into process-only memory.
+    pub(crate) fn warm_session(&self) -> Result<usize, ProviderError> {
+        let mut session = self.session()?;
+        warm_configured_credentials(
+            &mut session,
+            &NATIVE_SESSION_CREDENTIAL_IDS,
+            Self::configured_in_vault,
+            authenticate_with_biometrics,
+            Self::read_secret,
+        )
     }
 
     /// Migrates pre-biometric entries to a secret-free configured marker.
@@ -139,7 +166,7 @@ impl SystemCredentialStore {
 impl CredentialStore for SystemCredentialStore {
     fn configured(&self, provider_id: &str) -> Result<bool, ProviderError> {
         validate_native_credential_provider(provider_id)?;
-        if self.cache()?.contains_key(provider_id) {
+        if self.session()?.secrets.contains_key(provider_id) {
             return Ok(true);
         }
         Self::configured_in_vault(provider_id)
@@ -147,7 +174,7 @@ impl CredentialStore for SystemCredentialStore {
 
     fn unlocked(&self, provider_id: &str) -> Result<bool, ProviderError> {
         validate_native_credential_provider(provider_id)?;
-        Ok(self.cache()?.contains_key(provider_id))
+        Ok(self.session()?.secrets.contains_key(provider_id))
     }
 
     fn biometric_protected(&self) -> bool {
@@ -156,18 +183,18 @@ impl CredentialStore for SystemCredentialStore {
 
     fn get(&self, provider_id: &str) -> Result<Option<String>, ProviderError> {
         validate_native_credential_provider(provider_id)?;
-        if let Some(secret) = self.cache()?.get(provider_id).cloned() {
+        let mut session = self.session()?;
+        if let Some(secret) = session.secrets.get(provider_id).cloned() {
             return Ok(Some(secret));
         }
-        if !Self::configured_in_vault(provider_id)? {
-            return Ok(None);
-        }
-        authenticate_with_biometrics()?;
-        let secret = Self::read_secret(provider_id)?;
-        if let Some(value) = &secret {
-            self.cache()?.insert(provider_id.into(), value.clone());
-        }
-        Ok(secret)
+        warm_configured_credentials(
+            &mut session,
+            &[provider_id],
+            Self::configured_in_vault,
+            authenticate_with_biometrics,
+            Self::read_secret,
+        )?;
+        Ok(session.secrets.get(provider_id).cloned())
     }
 
     fn set(&self, provider_id: &str, api_key: &str) -> Result<(), ProviderError> {
@@ -177,9 +204,11 @@ impl CredentialStore for SystemCredentialStore {
             return Err(ProviderError::invalid_request("API keys cannot be empty."));
         }
         let configured = Self::configured_in_vault(provider_id)?;
-        let unlocked = self.cache()?.contains_key(provider_id);
-        if requires_authentication(configured, unlocked) {
+        let mut session = self.session()?;
+        let authorized = session.authenticated || session.secrets.contains_key(provider_id);
+        if requires_authentication(configured, authorized) {
             authenticate_with_biometrics()?;
+            session.authenticated = true;
         }
         Self::entry(SERVICE_NAME, provider_id)?
             .set_password(api_key)
@@ -187,27 +216,68 @@ impl CredentialStore for SystemCredentialStore {
         Self::entry(STATUS_SERVICE_NAME, provider_id)?
             .set_password(CONFIGURED_MARKER)
             .map_err(vault_error)?;
-        self.cache()?.insert(provider_id.into(), api_key.into());
+        session.secrets.insert(provider_id.into(), api_key.into());
         Ok(())
     }
 
     fn delete(&self, provider_id: &str) -> Result<(), ProviderError> {
         validate_native_credential_provider(provider_id)?;
         let configured = Self::configured_in_vault(provider_id)?;
-        let unlocked = self.cache()?.contains_key(provider_id);
-        if requires_authentication(configured, unlocked) {
+        let mut session = self.session()?;
+        let authorized = session.authenticated || session.secrets.contains_key(provider_id);
+        if requires_authentication(configured, authorized) {
             authenticate_with_biometrics()?;
+            session.authenticated = true;
         }
         delete_entry(SERVICE_NAME, provider_id)?;
         delete_entry(STATUS_SERVICE_NAME, provider_id)?;
-        self.cache()?.remove(provider_id);
+        session.secrets.remove(provider_id);
         Ok(())
     }
 }
 
+/// Warms configured secrets while coalescing all reads behind one session authentication.
+fn warm_configured_credentials<C, A, R>(
+    session: &mut CredentialSession,
+    provider_ids: &[&str],
+    mut configured: C,
+    mut authenticate: A,
+    mut read_secret: R,
+) -> Result<usize, ProviderError>
+where
+    C: FnMut(&str) -> Result<bool, ProviderError>,
+    A: FnMut() -> Result<(), ProviderError>,
+    R: FnMut(&str) -> Result<Option<String>, ProviderError>,
+{
+    let configured_ids = provider_ids
+        .iter()
+        .copied()
+        .filter(|provider_id| !session.secrets.contains_key(*provider_id))
+        .map(|provider_id| configured(provider_id).map(|saved| (provider_id, saved)))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter_map(|(provider_id, saved)| saved.then_some(provider_id))
+        .collect::<Vec<_>>();
+    if configured_ids.is_empty() {
+        return Ok(0);
+    }
+    if !session.authenticated {
+        authenticate()?;
+        session.authenticated = true;
+    }
+    let mut warmed = 0;
+    for provider_id in configured_ids {
+        if let Some(secret) = read_secret(provider_id)? {
+            session.secrets.insert(provider_id.into(), secret);
+            warmed += 1;
+        }
+    }
+    Ok(warmed)
+}
+
 /// Returns whether an existing locked credential needs explicit authentication.
-fn requires_authentication(configured: bool, unlocked: bool) -> bool {
-    configured && !unlocked
+fn requires_authentication(configured: bool, authorized: bool) -> bool {
+    configured && !authorized
 }
 
 /// Removes one vault entry while treating an already-absent value as success.
@@ -289,150 +359,5 @@ fn vault_error(_error: KeyringError) -> ProviderError {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::collections::HashSet;
-
-    use serde_json::json;
-
-    use super::*;
-
-    /// In-memory status fixture that panics if status collection tries to read secret values.
-    struct StatusCredentialStore {
-        configured: HashSet<String>,
-        unlocked: HashSet<String>,
-        fail_status: bool,
-    }
-
-    impl CredentialStore for StatusCredentialStore {
-        fn configured(&self, provider_id: &str) -> Result<bool, ProviderError> {
-            if self.fail_status {
-                return Err(ProviderError::internal(
-                    "leaky fixture failure",
-                    Some("token=test-secret path=/Users/alice/vault".into()),
-                ));
-            }
-            Ok(self.configured.contains(provider_id))
-        }
-
-        fn unlocked(&self, provider_id: &str) -> Result<bool, ProviderError> {
-            Ok(self.unlocked.contains(provider_id))
-        }
-
-        fn biometric_protected(&self) -> bool {
-            true
-        }
-
-        fn get(&self, _provider_id: &str) -> Result<Option<String>, ProviderError> {
-            panic!("credential status must not read a secret")
-        }
-
-        fn set(&self, _provider_id: &str, _api_key: &str) -> Result<(), ProviderError> {
-            panic!("credential status must not write a secret")
-        }
-
-        fn delete(&self, _provider_id: &str) -> Result<(), ProviderError> {
-            panic!("credential status must not delete a secret")
-        }
-    }
-
-    #[test]
-    fn credential_accounts_are_limited_to_native_providers() {
-        assert!(validate_native_credential_provider("openai").is_ok());
-        assert!(validate_native_credential_provider("anthropic").is_ok());
-        assert!(validate_native_credential_provider("brave").is_ok());
-        assert!(validate_native_credential_provider("exa").is_ok());
-        assert!(validate_native_credential_provider("localmail").is_ok());
-        assert!(validate_native_credential_provider("ollama").is_err());
-        assert!(validate_native_credential_provider("").is_err());
-    }
-
-    #[test]
-    fn only_existing_locked_credentials_require_authentication() {
-        assert!(requires_authentication(true, false));
-        assert!(!requires_authentication(false, false));
-        assert!(!requires_authentication(true, true));
-    }
-
-    #[test]
-    fn reports_saved_and_absent_credentials_as_exact_secret_free_metadata() {
-        let credentials = StatusCredentialStore {
-            configured: HashSet::from(["openai".into(), "brave".into()]),
-            unlocked: HashSet::from(["openai".into()]),
-            fail_status: false,
-        };
-
-        let statuses = provider_credential_statuses(&credentials)
-            .expect("credential status should remain metadata-only");
-
-        assert_eq!(
-            serde_json::to_value(statuses).expect("statuses should serialize"),
-            json!([
-                {
-                    "providerId": "openai",
-                    "configured": true,
-                    "unlocked": true,
-                    "biometricProtected": true
-                },
-                {
-                    "providerId": "anthropic",
-                    "configured": false,
-                    "unlocked": false,
-                    "biometricProtected": true
-                },
-                {
-                    "providerId": "brave",
-                    "configured": true,
-                    "unlocked": false,
-                    "biometricProtected": true
-                },
-                {
-                    "providerId": "exa",
-                    "configured": false,
-                    "unlocked": false,
-                    "biometricProtected": true
-                }
-            ])
-        );
-    }
-
-    #[test]
-    fn redacts_credential_status_failures_before_ipc() {
-        let credentials = StatusCredentialStore {
-            configured: HashSet::new(),
-            unlocked: HashSet::new(),
-            fail_status: true,
-        };
-
-        let error = match provider_credential_statuses(&credentials) {
-            Err(error) => error,
-            Ok(_) => panic!("vault status failure should remain redacted"),
-        };
-        let serialized = serde_json::to_string(&error).expect("provider error should serialize");
-
-        assert_eq!(error.code.as_str(), "internal");
-        assert_eq!(
-            error.message,
-            "The operating-system credential vault could not report its status."
-        );
-        assert_eq!(error.diagnostic, None);
-        assert!(!serialized.contains("test-secret"));
-        assert!(!serialized.contains("/Users/alice"));
-    }
-
-    #[test]
-    fn rejects_unknown_status_identities_before_store_access() {
-        let credentials = StatusCredentialStore {
-            configured: HashSet::new(),
-            unlocked: HashSet::new(),
-            fail_status: true,
-        };
-
-        let error = match provider_credential_status(&credentials, "filesystem") {
-            Err(error) => error,
-            Ok(_) => panic!("unknown status identity should fail closed"),
-        };
-
-        assert_eq!(error.code.as_str(), "invalid_request");
-        assert_eq!(error.diagnostic, None);
-    }
-}
+#[path = "credentials_tests.rs"]
+mod tests;

@@ -5,6 +5,7 @@ mod attachment_garbage_collector;
 mod attachment_preview_protocol;
 mod attachment_processor;
 mod command_types;
+mod credential_session;
 mod credentials;
 mod diagnostics;
 mod generation;
@@ -53,6 +54,7 @@ use command_types::{
     AppInfo, ProviderConnectionDraft, ProviderConnectionTest, ProviderCredentialStatus,
     ProviderCredentialUpdate, ProviderSelection,
 };
+use credential_session::schedule_session_unlock;
 use credentials::{
     CredentialStore, SystemCredentialStore, provider_credential_status,
     provider_credential_statuses,
@@ -512,13 +514,15 @@ pub fn run() {
                     .expect("the built-in Ollama configuration must be valid"),
                 settings: ProviderSettings::default(),
             });
+            let credentials = Arc::new(SystemCredentialStore::default());
+            schedule_session_unlock(credentials.clone(), diagnostics.clone());
             app.manage(AppState {
                 providers: tauri::async_runtime::RwLock::new(providers),
                 settings_path,
                 localmail_config_path,
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 diagnostics,
-                credentials: Arc::new(SystemCredentialStore::default()),
+                credentials,
                 conversations,
                 attachment_processing,
                 semantic_indexing,
