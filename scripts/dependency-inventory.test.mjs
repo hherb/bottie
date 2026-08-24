@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyLicence, mergeRustInventories, parseCargoTree, parseNpmLock } from "./dependency-inventory.mjs";
+import {
+  classifyLicence,
+  classifyReviewedLicence,
+  mergeRustInventories,
+  parseCargoTree,
+  parseNpmLock,
+} from "./dependency-inventory.mjs";
 
 describe("dependency inventory", () => {
   it("deduplicates Cargo packages while retaining selected features", () => {
@@ -58,6 +64,12 @@ tauri-build v2.5.3|Apache-2.0 OR MIT|default
       ),
     ).toBe("notice-required");
     expect(classifyLicence("proprietary-custom")).toBe("review-required");
+  });
+
+  it("applies only exact human-reviewed MPL and Python package decisions", () => {
+    expect(classifyReviewedLicence("cargo", "cssparser", "0.36.0", "MPL-2.0")).toBe("notice-required");
+    expect(classifyReviewedLicence("npm", "argparse", "3.0.0", "Python-2.0")).toBe("notice-required");
+    expect(classifyReviewedLicence("cargo", "future-mpl-package", "1.0.0", "MPL-2.0")).toBe("review-required");
   });
 
   it("retains exact npm paths, scopes, integrity, and directness", () => {

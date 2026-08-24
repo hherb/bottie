@@ -7,10 +7,19 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  acceptsModelTerms,
+  acceptsPackagedDocuments,
+  acceptsRuntimeAssets,
+  summarizeDocuments,
+} from "./release-candidate-runtime.mjs";
+
 const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const RELEASE_VERSION = "0.9.0";
 const RELEASE_NOTES_PATH = `RELEASES/${RELEASE_VERSION}.md`;
 const DEPENDENCY_INVENTORY_PATH = "dependency-inventory.json";
+const RUNTIME_ASSETS_PATH = "runtime-assets.json";
+const MODEL_TERMS_EVIDENCE_PATH = "package/model-terms-evidence.json";
 const MACOS_EVIDENCE_PATH = "package/macos-distribution-evidence.json";
 const WINDOWS_EVIDENCE_PATH = "package/windows-package-evidence.json";
 const LINUX_EVIDENCE_PATH = "package/linux-package-evidence.json";
@@ -53,6 +62,12 @@ export function buildReleaseCandidateManifest(inputs) {
     dependency?.summary?.["review-required"] === 0;
   const artworkCurrent = isArtworkCurrent(dependency);
   const hasDocuments = isSha256(inputs.requiredDocuments?.licence) && isSha256(inputs.requiredDocuments?.notices);
+  const runtimeAssetsCurrent = acceptsRuntimeAssets(
+    inputs.runtimeAssets,
+    inputs.runtimeAssetSources,
+    inputs.requiredDocuments,
+  );
+  const modelTermsAccepted = acceptsModelTerms(inputs.runtimeAssets, inputs.modelTermsAcceptance);
 
   const gates = [
     gate("release-notes", notes.version === inputs.version && notes.channel === "beta", "invalid-release-notes"),
@@ -60,11 +75,25 @@ export function buildReleaseCandidateManifest(inputs) {
     gate("dependency-inventory-current", inventoryCurrent, "missing-or-stale-dependency-inventory"),
     gate("dependency-review", dependencyReviewComplete, "unresolved-dependency-review"),
     gate("licence-and-notices", hasDocuments, "missing-licence-or-notice-bundle"),
+    gate("runtime-assets", runtimeAssetsCurrent, "missing-or-stale-runtime-asset-contract"),
+    gate("model-terms", modelTermsAccepted, "missing-or-stale-model-terms-acceptance"),
     gate("artwork", artworkCurrent, "missing-or-stale-artwork-evidence"),
-    gate("macos-distribution", acceptsMacos(macos, inputs.version), "missing-unsigned-or-unnotarized-macos"),
-    gate("windows-package", acceptsWindowsPackage(windows, inputs.version), "missing-or-stale-windows-package"),
+    gate(
+      "macos-distribution",
+      acceptsMacos(macos, inputs.version, inputs.requiredDocuments, inputs.runtimeAssets),
+      "missing-unsigned-or-unnotarized-macos",
+    ),
+    gate(
+      "windows-package",
+      acceptsWindowsPackage(windows, inputs.version, inputs.requiredDocuments, inputs.runtimeAssets),
+      "missing-or-stale-windows-package",
+    ),
     gate("windows-distribution", acceptsWindowsDistribution(windows), "missing-or-unsigned-windows-package"),
-    gate("linux-package", acceptsLinuxPackage(linux, inputs.version), "missing-or-stale-linux-package"),
+    gate(
+      "linux-package",
+      acceptsLinuxPackage(linux, inputs.version, inputs.requiredDocuments, inputs.runtimeAssets),
+      "missing-or-stale-linux-package",
+    ),
     gate("linux-distribution", acceptsLinuxDistribution(linux), "missing-or-unsigned-linux-package"),
   ];
   return {
@@ -80,6 +109,8 @@ export function buildReleaseCandidateManifest(inputs) {
       dependencyInventorySha256: dependency ? sha256(JSON.stringify(dependency)) : null,
       licenceSha256: inputs.requiredDocuments?.licence ?? null,
       noticesSha256: inputs.requiredDocuments?.notices ?? null,
+      runtimeAssetsSha256: inputs.runtimeAssets?.manifestSha256 ?? null,
+      modelTermsSha256: inputs.runtimeAssets?.embeddingGemma?.terms?.sha256 ?? null,
     },
     artifacts: { linux, macos, windows },
     gates,
@@ -126,7 +157,11 @@ function summarizeMacos(evidence) {
       executable: evidence.artifact?.requiredEntries?.executable === true,
       icon: evidence.artifact?.requiredEntries?.icon === true,
       infoPlist: evidence.artifact?.requiredEntries?.infoPlist === true,
+      licence: evidence.artifact?.requiredEntries?.licence === true,
+      modelNotice: evidence.artifact?.requiredEntries?.modelNotice === true,
+      thirdPartyNotices: evidence.artifact?.requiredEntries?.thirdPartyNotices === true,
     },
+    requiredDocuments: summarizeDocuments(evidence.artifact?.requiredDocuments),
     signing: {
       classification: normalizedChoice(evidence.signing?.classification, ["developer-id-application"]),
       hardenedRuntime: evidence.signing?.hardenedRuntime === true,
@@ -159,6 +194,7 @@ function summarizeWindows(evidence) {
     },
     installer: summarizeInstaller(evidence.bundle?.installer),
     payloadSignature: summarizeSignature(evidence.bundle?.payload?.signature),
+    requiredDocuments: summarizeDocuments(evidence.bundle?.payload?.requiredDocuments),
     smoke: summarizeSmoke(evidence.smoke),
   };
 }
@@ -175,6 +211,7 @@ function summarizeLinux(evidence) {
     bundleDigest: shaOrNull(evidence.bundle?.payload?.bundleDigest),
     installedIconCount: stringArray(evidence.bundle?.payload?.installedIcons).length,
     installer: summarizeInstaller(evidence.bundle?.installer),
+    requiredDocuments: summarizeDocuments(evidence.bundle?.payload?.requiredDocuments),
     smoke: summarizeSmoke(evidence.smoke),
   };
 }
@@ -215,7 +252,7 @@ function summarizeSmoke(smoke) {
 }
 
 /** Validates the complete current macOS Developer ID and notarization record. */
-function acceptsMacos(evidence, version) {
+function acceptsMacos(evidence, version, documents, runtimeAssets) {
   return Boolean(
     evidence?.schemaVersion === SCHEMA_VERSION &&
     evidence.version === version &&
@@ -223,6 +260,7 @@ function acceptsMacos(evidence, version) {
     evidence.architectures.length > 0 &&
     evidence.bundleDigest &&
     Object.values(evidence.requiredEntries).every(Boolean) &&
+    acceptsPackagedDocuments(evidence.requiredDocuments, documents, runtimeAssets) &&
     evidence.signing.classification === "developer-id-application" &&
     evidence.signing.hardenedRuntime &&
     evidence.signing.secureTimestamp &&
@@ -237,7 +275,7 @@ function acceptsMacos(evidence, version) {
 }
 
 /** Validates the versioned Windows payload and its isolated offline smoke. */
-function acceptsWindowsPackage(evidence, version) {
+function acceptsWindowsPackage(evidence, version, documents, runtimeAssets) {
   return Boolean(
     evidence?.schemaVersion === SCHEMA_VERSION &&
     evidence.version === version &&
@@ -248,6 +286,7 @@ function acceptsWindowsPackage(evidence, version) {
     evidence.embeddedIcon.width > 0 &&
     evidence.installer.sha256 &&
     evidence.installer.size > 0 &&
+    acceptsPackagedDocuments(evidence.requiredDocuments, documents, runtimeAssets) &&
     acceptsSmoke(evidence.smoke),
   );
 }
@@ -263,7 +302,7 @@ function acceptsWindowsDistribution(evidence) {
 }
 
 /** Validates the versioned Linux payload and its isolated offline smoke. */
-function acceptsLinuxPackage(evidence, version) {
+function acceptsLinuxPackage(evidence, version, documents, runtimeAssets) {
   return Boolean(
     evidence?.schemaVersion === SCHEMA_VERSION &&
     evidence.version === version &&
@@ -274,6 +313,7 @@ function acceptsLinuxPackage(evidence, version) {
     evidence.installedIconCount >= 4 &&
     evidence.installer.sha256 &&
     evidence.installer.size > 0 &&
+    acceptsPackagedDocuments(evidence.requiredDocuments, documents, runtimeAssets) &&
     acceptsSmoke(evidence.smoke),
   );
 }
@@ -303,6 +343,8 @@ function acceptsSmoke(smoke) {
 /** Loads the exact repository sources and evidence files used by the command-line gate. */
 function loadInputs(repositoryRoot) {
   const dependencyInventory = readJson(join(repositoryRoot, DEPENDENCY_INVENTORY_PATH));
+  const runtimeAssetPath = join(repositoryRoot, RUNTIME_ASSETS_PATH);
+  const runtimeAssetManifest = readOptionalJson(runtimeAssetPath);
   return {
     version: RELEASE_VERSION,
     releaseNotes: readFileSync(join(repositoryRoot, RELEASE_NOTES_PATH), "utf8"),
@@ -313,6 +355,17 @@ function loadInputs(repositoryRoot) {
       licence: optionalFileSha256(join(repositoryRoot, LICENCE_PATH)),
       notices: optionalFileSha256(join(repositoryRoot, NOTICES_PATH)),
     },
+    runtimeAssets: runtimeAssetManifest
+      ? { ...runtimeAssetManifest, manifestSha256: optionalFileSha256(runtimeAssetPath) }
+      : null,
+    runtimeAssetSources: {
+      modelNotice: optionalFileSha256(join(repositoryRoot, "MODEL-NOTICE.txt")),
+      onnxRuntimeLicence: optionalFileSha256(join(repositoryRoot, "third-party/onnxruntime-1.28.0/LICENSE")),
+      onnxRuntimeNotices: optionalFileSha256(
+        join(repositoryRoot, "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt"),
+      ),
+    },
+    modelTermsAcceptance: readOptionalJson(join(repositoryRoot, MODEL_TERMS_EVIDENCE_PATH)),
     macosDistribution: readOptionalJson(join(repositoryRoot, MACOS_EVIDENCE_PATH)),
     windowsPackage: readOptionalJson(join(repositoryRoot, WINDOWS_EVIDENCE_PATH)),
     linuxPackage: readOptionalJson(join(repositoryRoot, LINUX_EVIDENCE_PATH)),

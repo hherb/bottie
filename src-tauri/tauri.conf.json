@@ -39,6 +39,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../MODEL-NOTICE.txt": "MODEL-NOTICE.txt",
+      "../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
+    },
     "macOS": {
       "hardenedRuntime": true,
       "entitlements": "Entitlements.plist"

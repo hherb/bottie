@@ -234,12 +234,14 @@ forms, objects, base-URL changes, unused asset schemes, and blob/data images. Se
 contract coverage is now also complete. Saved and absent credential status is collected without reading secret values;
 provider settings, diagnostics, attachment ingestion and previews, export, backup, and restore expose exact typed,
 path-free IPC shapes under adversarial fixtures. Secret-bearing native command inputs reject unknown fields. The
-dependency-review slice is complete: Bottie has a deterministic locked macOS Rust/npm dependency inventory, reviewed
-security-sensitive Cargo features and native/runtime assets, authoritative licence sources, explicit classification,
-and six release gates. Current resolved package metadata has no unknown licence declaration, but distribution remains
-blocked on Bottie's own licence text, a generated notice bundle, ONNX Runtime notice evidence, pinned and accepted
-EmbeddingGemma terms, and per-platform resolved-graph review. The keyboard-shortcut slice is now
-complete:
+dependency and release-asset review is complete: Bottie has a deterministic locked macOS, Windows, Linux, and npm
+dependency inventory, reviewed security-sensitive Cargo features and native/runtime assets, authoritative licence
+sources, a root MIT licence, and one generated distributable notice bundle. The selected ONNX Runtime archives and
+upstream notices are hash-bound, while the six-file EmbeddingGemma snapshot is revision- and hash-pinned before native
+loading. Package evidence requires exact copies of the project licence, third-party notices, and model notice.
+The release owner has explicitly accepted the reviewed Gemma terms, and the current macOS 0.9.0 bundle has passed
+Developer ID signing, Apple notarization, ticket stapling/validation, and Gatekeeper assessment. Distribution remains
+blocked on fresh Windows/Linux package and verified signature evidence. The keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -272,7 +274,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/release-candidate-0.9.0`.
+branch `codex/release-licence-runtime-assets`.
 
 ## Current implementation
 
@@ -808,15 +810,97 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: release-gate licence and runtime-asset remediation
+## Next bounded product slice: fresh Windows and Linux 0.9.0 package evidence
 
-Resolve the repository-owned licence text, deterministic third-party notice bundle, exact packaged ONNX Runtime notice
-evidence, pinned EmbeddingGemma snapshot/terms flow, and Windows/Linux resolved-graph review required by the 0.9.0
-release-candidate manifest. Preserve the current runtime behavior and application identity. Do not publish a release,
-add update delivery, generate or rotate signing keys, add Windows/Linux distribution signing, or change schema, IPC,
-providers, tools, Localmail, or Web policy in the same slice.
+Run the existing locked Windows x64 MSI and Ubuntu x64 DEB package/inspection/isolated-smoke workflows against the
+current licence, third-party notices, model notice, icon, version, and runtime-asset contracts. Retain only their
+existing path-free evidence, verify the workflow artifacts, and rerun the release-candidate gate. Do not present the
+unsigned packages as distributable releases; add Windows/Linux signing, update keys or delivery; publish a tag/release;
+or change runtime product behavior, schema, IPC, providers, tools, Localmail, or Web policy in that slice.
 
-## Most recently completed product slice: 0.9.0 beta notes and release-candidate gate
+## Most recently completed product slice: release-gate licence and runtime-asset remediation
+
+### Goal
+
+Close the repository-owned licence, third-party notice, ONNX Runtime, model snapshot, terms-evidence, and per-platform
+resolved-graph gaps without weakening Bottie's release gate or changing its user-visible application identity.
+
+### Implemented shape
+
+1. A root MIT `LICENSE` now agrees with npm and Cargo metadata. The offline dependency inventory covers macOS arm64 and
+   x64, Windows x64, Linux x64, and every root npm lock path: 531 unique Rust crates, 157 npm paths, and six reviewed
+   asset groups. Exact human review moves the five MPL-2.0 crates and `argparse 3.0.0` from unresolved to
+   notice-required; unknown and review-required counts are both zero.
+2. `third-party/package-licence-texts.json` records 679 notice-required locked package identities against 403
+   deduplicated distributable text bodies. Package-owned licence/copying/copyright/notice files are preferred; an
+   immutable SPDX 3.28.0 fallback plus authoritative package source is used only when a published workspace or
+   platform-binary package omitted its shared file. `THIRD-PARTY-NOTICES.txt` deterministically emits those identities
+   and texts plus ONNX Runtime's complete, untruncated upstream notice file.
+3. `runtime-assets.json` binds ort-sys 2.0.0-rc.13 to the exact ONNX Runtime 1.28.0 macOS arm64, Windows x64, and Linux
+   x64 archive URLs/SHA-256 values and the version-matched upstream licence/notice hashes. It also pins the six
+   EmbeddingGemma Q4 ONNX/data/tokenizer/config files to repository revision
+   `75a84c732f1884df76bec365346230e32f582c82` with exact sizes and SHA-256 values.
+4. Native semantic model preparation now downloads that immutable revision, streams verification of every contracted
+   file, and only then points FastEmbed's cache reference at the verified snapshot. The application still downloads
+   the model lazily into its Rust-owned cache and exposes no path, hash, model file, terms state, or byte content over
+   IPC.
+5. `MODEL-NOTICE.txt` records the reviewed 1 April 2026 Gemma terms. The release operator can create ignored,
+   non-identifying, timestamp-free evidence only by supplying the exact documented acknowledgement. The release gate
+   binds that evidence to the exact model revision and notice hash and fails closed when it is absent or stale. After
+   independently accepting those terms, the release owner explicitly authorized the exact command and the host-local
+   evidence was generated without an identity, timestamp, host path, or terms body.
+6. Tauri packages the project licence, model notice, and generated third-party notices. macOS, Windows, and Linux
+   inspection contracts require one exact copy and retain only their hashes. The release-candidate gate compares those
+   hashes with current repository inputs before accepting any platform package.
+
+### Current gate result and explicit exclusions
+
+The regenerated path-free manifest now passes release notes, version alignment, current four-target dependency
+inventory, dependency review, project licence/notices, runtime assets, model-terms acceptance, current macOS package
+and Developer ID distribution evidence, and artwork. It correctly fails only the missing Windows/Linux
+package/distribution evidence. No credential was created, rotated, exported, or disclosed. The temporary signed archive
+was submitted only to Apple's notarization service and removed after acceptance; no application package was published,
+and no tag or release was created.
+
+This slice adds no schema or IPC contract, settings or migration state, provider/tool behavior, Web or Localmail
+policy, update delivery, release publication, or Windows/Linux signing implementation. Existing model-cache content is
+retained; a stale cache revision is superseded only by the immutable verified snapshot when semantic model work next
+loads.
+
+### Verification completed
+
+Focused tests cover deterministic notice sorting/deduplication and missing-text failure; exact model and ONNX Runtime
+asset identities; deliberate terms acknowledgement; stale evidence; package-document presence; four-target review
+overrides; and streamed model size/hash failure. `npm run notices:check`, `npm run release:assets:check`, and
+`npm run dependencies:check` reproduce the committed artefacts offline. Prettier accepts all tracked frontend/script
+sources; `svelte-check` reports zero errors and warnings; the production frontend build succeeds; and all 40 default
+Vitest files pass 149 tests while one file and three performance cases remain opt-in. Windows and Linux package
+contract suites each pass nine tests.
+
+Cargo formatting and compilation pass. The full Rust suite contains 420 tests: 390 pass and 30 loopback,
+public-network, credential, live-provider, or performance cases remain explicitly ignored; the zero-case doc-test
+phase also passes. The focused compiled-contract test proves exact six-file parsing plus size/hash mismatch failure
+without downloading or using the Gemma model.
+
+The unsigned macOS package built successfully as one arm64 application containing exactly six files. Its project
+licence, model notice, and third-party notice hashes exactly match the current repository inputs; inspection found no
+loose native runtime because ONNX Runtime is statically linked on this target. After explicit authorization to use the
+existing host identity, the distinct `com.bottie.packaging-smoke` application built, development-signed, strictly
+verified, and launched. Its isolated store returned `quick_check=ok`, schema version 21, an exact 21-row migration
+ledger, one profile, and zero conversations; the rejecting loopback provider was contacted once, the app remained live
+through the settle window, terminated cleanly, and removed its process-owned support directory. The signed seven-file
+bundle retained the exact three document hashes and no loose native runtime. No live model download was attempted.
+After separate explicit upload authorization, the 0.9.0 `com.bottie.app` arm64 bundle was signed as Developer ID
+Application software with hardened runtime, the reviewed minimal entitlements, and a secure timestamp; strict
+verification passed. Apple accepted the 19,013,633-byte temporary archive, after which the ticket was stapled and
+validated and Gatekeeper accepted the bundle as Notarized Developer ID software. The final eight-file bundle retains the
+exact project-licence, model-notice, and third-party-notice hashes, contains no loose native runtime, and has bundle
+digest `bb7213f4b3058f764bdc88686dcd2c69917e1988fb8d871e94378f49b317886e`. The temporary archive was removed, and
+the retained ignored evidence contains no certificate or team identity, credential, host path, or raw command output.
+Browser review is not applicable because this slice changes no rendered interface, and no Windows/Linux package was
+built on macOS.
+
+## Prior completed product slice: 0.9.0 beta notes and release-candidate gate
 
 ### Goal
 

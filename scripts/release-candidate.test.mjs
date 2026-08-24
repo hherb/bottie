@@ -40,9 +40,33 @@ function acceptedInputs() {
     },
     currentInputHashes: { ...currentInputHashes },
     requiredDocuments: { licence: SHA, notices: SHA },
+    runtimeAssets: {
+      schemaVersion: 1,
+      manifestSha256: SHA,
+      onnxRuntime: { licenceSha256: SHA, thirdPartyNoticesSha256: SHA },
+      embeddingGemma: { revision: "b".repeat(40), terms: { sha256: SHA } },
+    },
+    runtimeAssetSources: { modelNotice: SHA, onnxRuntimeLicence: SHA, onnxRuntimeNotices: SHA },
+    modelTermsAcceptance: {
+      schemaVersion: 1,
+      accepted: true,
+      modelRevision: "b".repeat(40),
+      termsSha256: SHA,
+    },
     macosDistribution: {
       schemaVersion: 1,
-      artifact: { bundleDigest: SHA, requiredEntries: { executable: true, icon: true, infoPlist: true } },
+      artifact: {
+        bundleDigest: SHA,
+        requiredDocuments: { licence: SHA, modelNotice: SHA, thirdPartyNotices: SHA },
+        requiredEntries: {
+          executable: true,
+          icon: true,
+          infoPlist: true,
+          licence: true,
+          modelNotice: true,
+          thirdPartyNotices: true,
+        },
+      },
       metadata: { architectures: ["arm64"], identifier: "com.bottie.app", version: VERSION },
       notarization: {
         gatekeeper: { accepted: true, source: "notarized-developer-id" },
@@ -67,6 +91,7 @@ function acceptedInputs() {
           architecture: "x86_64",
           bundleDigest: SHA,
           embeddedIcon: { height: 32, width: 32 },
+          requiredDocuments: { licence: SHA, modelNotice: SHA, thirdPartyNotices: SHA },
           signature: { classification: "identified", verifies: true },
         },
       },
@@ -86,6 +111,7 @@ function acceptedInputs() {
           architecture: "x86_64",
           bundleDigest: SHA,
           installedIcons: ["icon-32.png", "icon-64.png", "icon-128.png", "icon-512.png"],
+          requiredDocuments: { licence: SHA, modelNotice: SHA, thirdPartyNotices: SHA },
         },
       },
       smoke: acceptedSmoke(),
@@ -136,6 +162,7 @@ describe("release candidate gate", () => {
     inputs.windowsPackage.bundle.installer.signature = { classification: "unsigned", verifies: false };
     inputs.linuxPackage = null;
     inputs.requiredDocuments.notices = null;
+    inputs.modelTermsAcceptance = null;
 
     const manifest = buildReleaseCandidateManifest(inputs);
     const gates = Object.fromEntries(manifest.gates.map((gate) => [gate.id, gate.passed]));
@@ -144,6 +171,7 @@ describe("release candidate gate", () => {
     expect(gates).toMatchObject({
       "dependency-inventory-current": false,
       "licence-and-notices": false,
+      "model-terms": false,
       "linux-package": false,
       "macos-distribution": false,
       "windows-distribution": false,

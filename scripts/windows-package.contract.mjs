@@ -29,6 +29,9 @@ async function createExtractedBundleFixture() {
   await mkdir(join(directory, "PFiles", "bottie"), { recursive: true });
   await writeFile(join(directory, "PFiles", "bottie", "bottie.exe"), "native executable");
   await writeFile(join(directory, "PFiles", "bottie", "onnxruntime.dll"), "native runtime");
+  await writeFile(join(directory, "PFiles", "bottie", "LICENSE"), "project licence");
+  await writeFile(join(directory, "PFiles", "bottie", "MODEL-NOTICE.txt"), "model notice");
+  await writeFile(join(directory, "PFiles", "bottie", "THIRD-PARTY-NOTICES.txt"), "third-party notices");
   return directory;
 }
 
@@ -78,9 +81,10 @@ describe("Windows package evidence", () => {
     assert.equal(inspection.applicationDirectory, "PFiles/bottie");
     assert.equal(inspection.executable, "bottie.exe");
     assert.deepEqual(inspection.nativeRuntimeAssets, ["onnxruntime.dll"]);
+    assert.deepEqual(Object.keys(inspection.requiredDocuments), ["licence", "modelNotice", "thirdPartyNotices"]);
     assert.deepEqual(
       inspection.files.map((file) => file.path),
-      ["bottie.exe", "onnxruntime.dll"],
+      ["bottie.exe", "LICENSE", "MODEL-NOTICE.txt", "onnxruntime.dll", "THIRD-PARTY-NOTICES.txt"],
     );
     assert.equal(
       inspection.files.some((file) => file.path.includes(bundle)),

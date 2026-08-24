@@ -296,16 +296,32 @@ release.
 ## 0.9.0 beta release candidate
 
 [`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) is the versioned tester-facing source for Bottie's first desktop beta. After
-the platform workflows have produced their evidence files, run the offline release gate:
+the platform workflows have produced their evidence files, verify the deterministic licence/runtime sources and run
+the offline release gate:
 
 ```sh
+npm run dependencies:check
+npm run notices:check
+npm run release:assets:check
 npm run release:candidate
 ```
 
 The command always writes an ignored, path-free `package/release-candidate-manifest.json`, then exits non-zero unless
-every version, dependency, artwork, licence/notice, package-smoke, distribution-signature, notarization, and Gatekeeper
-gate passes. It does not sign, upload, tag, or publish anything. Unsigned Windows/Linux smoke packages and a source test
-suite are intentionally insufficient for `ready: true`.
+every version, dependency, artwork, licence/notice, runtime-asset, model-terms, package-smoke, distribution-signature,
+notarization, and Gatekeeper gate passes. It does not sign, upload, tag, or publish anything. Unsigned Windows/Linux
+smoke packages and a source test suite are intentionally insufficient for `ready: true`.
+
+The release owner must read the [Gemma Terms of Use](https://ai.google.dev/gemma/terms) before creating model-terms
+evidence. If and only if they accept the reviewed 1 April 2026 terms for this release, the exact acknowledgement is:
+
+```sh
+node scripts/release-assets.mjs \
+  '--accept-gemma-terms=I have read and accept the Gemma Terms of Use dated 2026-04-01 for Bottie 0.9.0 release review'
+```
+
+That deliberate command writes ignored `package/model-terms-evidence.json`, containing only the accepted boolean,
+schema version, model revision, and model-notice hash. It includes no operator identity, timestamp, host path, or terms
+body. Codex and ordinary build/check commands do not run it or accept legal terms on the release owner's behalf.
 
 Live-provider tests are ignored by default because they require explicitly configured local services and, in some
 cases, credentials. See [`HANDOVER.md`](HANDOVER.md) for the current test inventory and the evidence recorded for the
@@ -317,7 +333,11 @@ latest completed slice.
 - [`HANDOVER.md`](HANDOVER.md) — current implementation state, validation evidence, limitations, and next slice
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — documentation, style, TDD, and slice-completion requirements
 - [`DEPENDENCY-LICENCES.md`](DEPENDENCY-LICENCES.md) — reproducible package inventory, licence review, and release
-  gaps
+  obligations
+- [`LICENSE`](LICENSE) and [`THIRD-PARTY-NOTICES.txt`](THIRD-PARTY-NOTICES.txt) — distributable project and locked
+  dependency terms
+- [`MODEL-NOTICE.txt`](MODEL-NOTICE.txt) and [`runtime-assets.json`](runtime-assets.json) — reviewed Gemma terms notice
+  plus immutable model/ONNX Runtime identities
 - [`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) — tester-facing 0.9.0 beta notes and distribution cautions
 - [`MIGRATION-ROLLBACK.md`](MIGRATION-ROLLBACK.md) — forward-only migration and recovery contract
 

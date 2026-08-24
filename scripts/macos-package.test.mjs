@@ -32,6 +32,9 @@ async function createBundleFixture() {
   await writeFile(join(bundle, "Contents", "Info.plist"), "plist");
   await writeFile(join(bundle, "Contents", "MacOS", "bottie"), "native executable");
   await writeFile(join(bundle, "Contents", "Resources", "icon.icns"), "icon");
+  await writeFile(join(bundle, "Contents", "Resources", "LICENSE"), "project licence");
+  await writeFile(join(bundle, "Contents", "Resources", "MODEL-NOTICE.txt"), "model notice");
+  await writeFile(join(bundle, "Contents", "Resources", "THIRD-PARTY-NOTICES.txt"), "third-party notices");
   await writeFile(join(bundle, "Contents", "Resources", "_up_", "immutable", "app.js"), "frontend");
   await writeFile(join(bundle, "Contents", "Frameworks", "libonnxruntime.dylib"), "runtime");
   return bundle;
@@ -61,8 +64,16 @@ describe("macOS package evidence", () => {
 
     const inspection = await inspectBundleFiles(bundle);
 
-    expect(inspection.requiredEntries).toEqual({ executable: true, icon: true, infoPlist: true });
+    expect(inspection.requiredEntries).toEqual({
+      executable: true,
+      icon: true,
+      infoPlist: true,
+      licence: true,
+      modelNotice: true,
+      thirdPartyNotices: true,
+    });
     expect(inspection.frontendAssetCount).toBe(1);
+    expect(Object.keys(inspection.requiredDocuments)).toEqual(["licence", "modelNotice", "thirdPartyNotices"]);
     expect(inspection.nativeRuntimeAssets).toEqual(["Contents/Frameworks/libonnxruntime.dylib"]);
     expect(inspection.files.map((file) => file.path)).not.toContain(expect.stringContaining(bundle));
     expect(inspection.files.every((file) => file.sha256.length === 64)).toBe(true);

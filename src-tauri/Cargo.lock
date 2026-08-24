@@ -411,6 +411,7 @@ dependencies = [
  "dom_query",
  "fastembed",
  "futures-util",
+ "hf-hub",
  "image",
  "infer",
  "keyring",

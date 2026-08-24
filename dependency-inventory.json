@@ -4,22 +4,50 @@
   "scope": {
     "rustTargets": [
       "aarch64-apple-darwin",
-      "x86_64-apple-darwin"
+      "x86_64-apple-darwin",
+      "x86_64-pc-windows-msvc",
+      "x86_64-unknown-linux-gnu"
     ],
     "rustLockPackages": 649,
     "npmLockPackages": 157,
-    "limitation": "Rust entries are the union of locked macOS arm64/x64 normal and build graphs. The Cargo.lock count is a conservative all-platform superset; per-platform resolved-graph review remains a release check."
+    "limitation": "Rust entries are the union of locked macOS arm64/x64, Windows x64, and Linux x64 normal and build graphs. The Cargo.lock count remains a conservative superset for architectures outside those four reviewed targets."
   },
   "inputs": {
-    "package.json": "53f9788c2eef035052dfcaab937238e04e46b375e2ce97be4a1abd22fbb3532a",
+    "package.json": "eabec558aba1b08d5b5ffbbaa7f157c5b2e436d09ea117251a12866096c157c9",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
-    "src-tauri/Cargo.toml": "16b2b40790c7652933729635642b991b0069635a257918d7109564c12379f26f",
-    "src-tauri/Cargo.lock": "e72de51e7e1f2b6c1221fe6a3b494fabcf29cb8cf0e558a874495071d8e2520e",
-    "src-tauri/tauri.conf.json": "2f5eb5a53df06c8f9f57f40a0c3105723d74a66d2aee72f41735d0e0e5069a6a",
-    "src-tauri/src/semantic_indexer.rs": "b77287aa3a30340f90b66f8b18ce825c90eb02e5769ead3f78b1326ece9c85b5",
-    "scripts/dependency-inventory.mjs": "81ae69ccd916fa593d0e1bb27a60c5bb9fe0afda2571bf73b82e092b5b98b0fe",
+    "src-tauri/Cargo.toml": "f73bd494384f4493e954418621ba56c2bccc690856de39f9f8345ba79f3d7d64",
+    "src-tauri/Cargo.lock": "0225b11ac04aac1d44b944de6bc5ff61e9b30445a4522ed3ac1608befac97bbf",
+    "src-tauri/tauri.conf.json": "765d41df7220cd87803d043e690ac992a3d051a58b8b46c3e187bf3812060764",
+    "src-tauri/src/semantic_indexer.rs": "26536d0d3db57e2a5ffdb340bc13b98ddf10099646eb9e294a97f2a0c36794c2",
+    "scripts/dependency-inventory.mjs": "f4d5972e26430ac2f902d0b0d330b25205d5e0d656925ac97335a14b72db186d",
     "scripts/application-icons.mjs": "1307b7f746a9ef9f6920739934fd8a4aea6886f3d735e58dc0c5c016fb8ee275",
-    "scripts/release-candidate.mjs": "c3f8eae1f34532935d77be9206dd7bc1c6bc9fca58a751eacb4866017574f88b",
+    "scripts/release-candidate.mjs": "24d3caea3c2ab80b15380b2495b68a1cc76dacdc9311b0d10d833df79769dd88",
+    "scripts/release-candidate-runtime.mjs": "bab0720610eeb980a85a151d10078b919ca7c261fec1f1f111108ba6a60b21aa",
+    "scripts/release-assets.mjs": "012f36ccc07a1778a54a5fffd7a5bef4826a434d1c2f87cedf160d5d289d625b",
+    "scripts/third-party-notices.mjs": "a0a8916c36f0c8eb951a79c9438d9db47ae546e319050b4a0d621dcfcaa9b375",
+    "scripts/macos-package.mjs": "43abb9566e69a98245d5cc1efcf33062ae4302e5c2c2b96fe8e9881283e5c90f",
+    "scripts/windows-package.mjs": "cd773d4aef125de641440ff78fd8080948f17dcc6b78eb65af1d89e1abca1801",
+    "scripts/linux-package.mjs": "0201a5e8e09bf26c888f2b80c3003c0679fff750087aa196f0e26f48ad0917db",
+    "LICENSE": "6f78c7d9d21c1432be2769ec843d045e00a87cf94c90c0cf325b932628772884",
+    "MODEL-NOTICE.txt": "d4e49f201ce441098703da8d449a00462bbdcd946a12c1d75f89231a9da2130e",
+    "THIRD-PARTY-NOTICES.txt": "04b8afa05729cb61963c8205d8bda9eac234abff3136de926be59f1bbcd70463",
+    "runtime-assets.json": "7644b8c67b37410ec720d6d5f58ec211a50021daa5f2aab14434533ccf227ddb",
+    "third-party/onnxruntime-1.28.0/LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+    "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
+    "third-party/package-licence-texts.json": "919c82a280f4a340a07ae73e7f833cf33a25007cd14044d4bd55486feb0a495f",
+    "third-party/spdx-3.28.0/exceptions/LLVM-exception.txt": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e",
+    "third-party/spdx-3.28.0/licenses/Apache-2.0.txt": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+    "third-party/spdx-3.28.0/licenses/BSD-2-Clause.txt": "017b5ee48f680e82cba79141c7895a1f02b856df2512225f5c427fe36765ef0b",
+    "third-party/spdx-3.28.0/licenses/BSD-3-Clause.txt": "3cf06aba3588c41c514f6946bb2d757b413ff6491647d474800f55edca75dcb4",
+    "third-party/spdx-3.28.0/licenses/BSL-1.0.txt": "84c6ef3ea9e3254a54d0acf5d3e0c61ae011b8fef7dd6940591cf060e6380a8f",
+    "third-party/spdx-3.28.0/licenses/CDLA-Permissive-2.0.txt": "4531a67d443284d93ffed0803df5b10634aff21c3d77e381f2d48af01d875868",
+    "third-party/spdx-3.28.0/licenses/ISC.txt": "f2ec607f67bb0dd3053b49835b02110d5cd0f8eb6da3aac4dc0b142a6b299be9",
+    "third-party/spdx-3.28.0/licenses/MIT-0.txt": "59746d6285ffa44bfc7ecada352aa5d6a20dc8eab418a60ce091cc739012c135",
+    "third-party/spdx-3.28.0/licenses/MIT.txt": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+    "third-party/spdx-3.28.0/licenses/MPL-2.0.txt": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04",
+    "third-party/spdx-3.28.0/licenses/Python-2.0.txt": "893c2bafbb8133f7aa97e1f79a3ee3241ebca7025f56278e9e1f72bb98592f9d",
+    "third-party/spdx-3.28.0/licenses/Unicode-3.0.txt": "f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1",
+    "third-party/spdx-3.28.0/licenses/Zlib.txt": "bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d",
     "assets/bottie-logo-kit/README.md": "69e80eb92e33b48d41438f7eddd4274411dbaeb0f35daed18acfc2e61b649262",
     "assets/bottie-logo-kit/bottie-icon-512.png": "91e8f85833b157f9a2530ad97925ed9c45484b3bd6f45c596879ab0648238a1e",
     "assets/bottie-logo-kit/bottie-mark-color.svg": "b13001902fd696ea021da2a112e824a95fe2007c2a51c52a8b83edee2abe57d6",
@@ -123,17 +151,17 @@
       "name": "Microsoft ONNX Runtime",
       "version": "1.28.0 selected by ort-sys 2.0.0-rc.13",
       "licence": "MIT plus upstream third-party notices",
-      "classification": "review-required",
-      "delivery": "A platform archive is fetched and hash-checked by ort-sys at build time, then linked for FastEmbed; the final packaged artefact and notices are not yet captured.",
-      "source": "https://github.com/microsoft/onnxruntime/blob/main/LICENSE"
+      "classification": "notice-required",
+      "delivery": "The three supported release archives are selected and hash-checked by ort-sys at build time. runtime-assets.json binds their identities to the version-matched licence and upstream notice files.",
+      "source": "third-party/onnxruntime-1.28.0/LICENSE"
     },
     {
       "name": "EmbeddingGemma 300M Q4 ONNX model",
-      "version": "onnx-community/embeddinggemma-300m-ONNX main revision",
+      "version": "onnx-community/embeddinggemma-300m-ONNX@75a84c732f1884df76bec365346230e32f582c82",
       "licence": "Gemma Terms of Use",
-      "classification": "review-required",
-      "delivery": "Downloaded at runtime into Bottie's application cache; not bundled in this repository or current binary. The repository revision and model file hashes are not pinned by Bottie.",
-      "source": "https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX"
+      "classification": "notice-required",
+      "delivery": "Downloaded at runtime into Bottie's application cache; not bundled in this repository or application. runtime-assets.json pins the revision and all six files, and MODEL-NOTICE.txt records the reviewed terms.",
+      "source": "runtime-assets.json"
     },
     {
       "name": "macOS system frameworks and WebKit",
@@ -145,10 +173,10 @@
     }
   ],
   "summary": {
-    "compatible": 11,
-    "notice-required": 543,
+    "compatible": 12,
+    "notice-required": 682,
     "unknown": 0,
-    "review-required": 8
+    "review-required": 0
   },
   "rust": [
     {
@@ -160,10 +188,25 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/adler2/2.0.1"
+    },
+    {
+      "name": "aes",
+      "version": "0.8.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/aes/0.8.4"
     },
     {
       "name": "aes",
@@ -174,7 +217,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/aes/0.9.2"
@@ -188,7 +233,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -208,7 +255,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -226,7 +275,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/alloc-no-stdlib/2.0.4"
@@ -240,7 +291,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/alloc-stdlib/0.2.4"
@@ -254,7 +307,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc"
@@ -270,7 +325,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -296,6 +353,171 @@
       "source": "https://crates.io/crates/apple-native-keyring-store/1.0.2"
     },
     {
+      "name": "async-broadcast",
+      "version": "0.7.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/async-broadcast/0.7.2"
+    },
+    {
+      "name": "async-channel",
+      "version": "2.5.0",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/async-channel/2.5.0"
+    },
+    {
+      "name": "async-executor",
+      "version": "1.14.0",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/async-executor/1.14.0"
+    },
+    {
+      "name": "async-io",
+      "version": "2.6.0",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/async-io/2.6.0"
+    },
+    {
+      "name": "async-lock",
+      "version": "3.4.2",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/async-lock/3.4.2"
+    },
+    {
+      "name": "async-process",
+      "version": "2.5.0",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/async-process/2.5.0"
+    },
+    {
+      "name": "async-recursion",
+      "version": "1.1.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/async-recursion/1.1.1"
+    },
+    {
+      "name": "async-signal",
+      "version": "0.2.14",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/async-signal/0.2.14"
+    },
+    {
+      "name": "async-task",
+      "version": "4.7.1",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/async-task/4.7.1"
+    },
+    {
+      "name": "async-trait",
+      "version": "0.1.92",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/async-trait/0.1.92"
+    },
+    {
+      "name": "atk",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/atk/0.18.2"
+    },
+    {
+      "name": "atk-sys",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/atk-sys/0.18.2"
+    },
+    {
       "name": "atomic-waker",
       "version": "1.1.2",
       "licence": "Apache-2.0 OR MIT",
@@ -304,7 +526,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/atomic-waker/1.1.2"
@@ -318,7 +542,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/autocfg/1.5.1"
@@ -332,7 +558,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "aws-lc-sys",
@@ -349,7 +577,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "prebuilt-nasm"
@@ -365,7 +595,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -382,7 +614,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -400,7 +634,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -418,7 +654,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -435,7 +673,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -452,7 +692,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "std"
@@ -468,7 +710,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -484,7 +728,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "serde",
@@ -502,7 +748,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/block-buffer/0.10.4"
@@ -516,10 +764,25 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/block-buffer/0.12.1"
+    },
+    {
+      "name": "block-padding",
+      "version": "0.3.3",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/block-padding/0.3.3"
     },
     {
       "name": "block-padding",
@@ -530,7 +793,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/block-padding/0.4.2"
@@ -554,6 +819,19 @@
       "source": "https://crates.io/crates/block2/0.6.2"
     },
     {
+      "name": "blocking",
+      "version": "1.6.2",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/blocking/1.6.2"
+    },
+    {
       "name": "brotli",
       "version": "8.0.4",
       "licence": "BSD-3-Clause AND MIT",
@@ -562,7 +840,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc-stdlib",
@@ -579,7 +859,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc-stdlib",
@@ -596,7 +878,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "extern_crate_alloc"
@@ -612,7 +896,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -629,7 +915,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -646,13 +934,48 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
         "std"
       ],
       "source": "https://crates.io/crates/bytes/1.12.1"
+    },
+    {
+      "name": "cairo-rs",
+      "version": "0.18.5",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "glib",
+        "use_glib"
+      ],
+      "source": "https://crates.io/crates/cairo-rs/0.18.5"
+    },
+    {
+      "name": "cairo-sys-rs",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "glib",
+        "use_glib"
+      ],
+      "source": "https://crates.io/crates/cairo-sys-rs/0.18.2"
     },
     {
       "name": "camino",
@@ -663,7 +986,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "serde1"
@@ -679,7 +1004,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -695,7 +1022,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cargo_toml/0.22.3"
@@ -709,7 +1038,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cargo-platform/0.1.9"
@@ -723,12 +1054,31 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc"
       ],
       "source": "https://crates.io/crates/castaway/0.2.4"
+    },
+    {
+      "name": "cbc",
+      "version": "0.1.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "alloc",
+        "block-padding",
+        "default"
+      ],
+      "source": "https://crates.io/crates/cbc/0.1.2"
     },
     {
       "name": "cbc",
@@ -739,7 +1089,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "block-padding",
@@ -756,7 +1108,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "parallel"
@@ -772,10 +1126,29 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cfb/0.7.3"
+    },
+    {
+      "name": "cfg-expr",
+      "version": "0.15.8",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "target-lexicon",
+        "targets"
+      ],
+      "source": "https://crates.io/crates/cfg-expr/0.15.8"
     },
     {
       "name": "cfg-if",
@@ -786,7 +1159,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cfg-if/1.0.4"
@@ -800,7 +1175,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "rng"
@@ -816,7 +1193,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -831,6 +1210,22 @@
     },
     {
       "name": "cipher",
+      "version": "0.4.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "alloc",
+        "block-padding"
+      ],
+      "source": "https://crates.io/crates/cipher/0.4.4"
+    },
+    {
+      "name": "cipher",
       "version": "0.5.2",
       "licence": "MIT OR Apache-2.0",
       "classification": "notice-required",
@@ -838,7 +1233,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "block-padding"
@@ -854,7 +1251,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cmake/0.1.58"
@@ -868,7 +1267,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -876,6 +1277,22 @@
         "std"
       ],
       "source": "https://crates.io/crates/compact_str/0.9.1"
+    },
+    {
+      "name": "concurrent-queue",
+      "version": "2.5.0",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/concurrent-queue/2.5.0"
     },
     {
       "name": "console",
@@ -886,7 +1303,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -905,7 +1324,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/const-oid/0.10.2"
@@ -919,7 +1340,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cookie/0.18.2"
@@ -1000,7 +1423,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cpubits/0.1.1"
@@ -1014,7 +1439,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cpufeatures/0.2.17"
@@ -1028,7 +1455,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cpufeatures/0.3.0"
@@ -1042,7 +1471,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1059,7 +1490,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1076,7 +1509,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1093,7 +1528,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -1110,7 +1547,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1127,7 +1566,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "std"
@@ -1143,7 +1584,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/crypto-common/0.2.2"
@@ -1152,12 +1595,14 @@
       "name": "cssparser",
       "version": "0.36.0",
       "licence": "MPL-2.0",
-      "classification": "review-required",
+      "classification": "notice-required",
       "direct": false,
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cssparser/0.36.0"
@@ -1166,12 +1611,14 @@
       "name": "cssparser-macros",
       "version": "0.6.1",
       "licence": "MPL-2.0",
-      "classification": "review-required",
+      "classification": "notice-required",
       "direct": false,
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/cssparser-macros/0.6.1"
@@ -1185,7 +1632,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "proc_macro",
@@ -1202,7 +1651,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -1218,7 +1669,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1235,7 +1688,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1252,7 +1707,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "strsim",
@@ -1269,7 +1726,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "strsim",
@@ -1286,7 +1745,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/darling_macro/0.20.11"
@@ -1300,7 +1761,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/darling_macro/0.23.0"
@@ -1314,12 +1777,27 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "serde"
       ],
       "source": "https://crates.io/crates/dary_heap/0.3.9"
+    },
+    {
+      "name": "dbus",
+      "version": "0.9.12",
+      "licence": "Apache-2.0/MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/dbus/0.9.12"
     },
     {
       "name": "deranged",
@@ -1330,7 +1808,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -1346,7 +1826,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1363,7 +1845,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "lib_has_std"
@@ -1379,7 +1863,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "lib_has_std"
@@ -1395,7 +1881,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "add",
@@ -1414,7 +1902,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "add",
@@ -1432,14 +1922,18 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
         "block-buffer",
         "core-api",
         "default",
-        "std"
+        "mac",
+        "std",
+        "subtle"
       ],
       "source": "https://crates.io/crates/digest/0.10.7"
     },
@@ -1452,7 +1946,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -1471,7 +1967,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/dirs/6.0.0"
@@ -1485,7 +1983,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/dirs-sys/0.5.0"
@@ -1520,10 +2020,44 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/displaydoc/0.2.7"
+    },
+    {
+      "name": "dlopen2",
+      "version": "0.8.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "derive",
+        "dlopen2_derive",
+        "symbor",
+        "wrapper"
+      ],
+      "source": "https://crates.io/crates/dlopen2/0.8.2"
+    },
+    {
+      "name": "dlopen2_derive",
+      "version": "0.4.3",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/dlopen2_derive/0.4.3"
     },
     {
       "name": "dom_query",
@@ -1534,7 +2068,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1551,7 +2087,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1569,7 +2107,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/dtoa/1.0.11"
@@ -1578,12 +2118,14 @@
       "name": "dtoa-short",
       "version": "0.3.5",
       "licence": "MPL-2.0",
-      "classification": "review-required",
+      "classification": "notice-required",
       "direct": false,
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/dtoa-short/0.3.5"
@@ -1597,7 +2139,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/dunce/1.0.5"
@@ -1611,7 +2155,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/dyn-clone/1.0.20"
@@ -1625,7 +2171,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "block-padding",
@@ -1642,7 +2190,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1674,10 +2224,28 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/embed-resource/3.0.11"
+    },
+    {
+      "name": "encode_unicode",
+      "version": "1.0.0",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/encode_unicode/1.0.0"
     },
     {
       "name": "encoding_rs",
@@ -1688,13 +2256,59 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
         "default"
       ],
       "source": "https://crates.io/crates/encoding_rs/0.8.35"
+    },
+    {
+      "name": "endi",
+      "version": "1.1.1",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/endi/1.1.1"
+    },
+    {
+      "name": "enumflags2",
+      "version": "0.7.12",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "serde"
+      ],
+      "source": "https://crates.io/crates/enumflags2/0.7.12"
+    },
+    {
+      "name": "enumflags2_derive",
+      "version": "0.7.12",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/enumflags2_derive/0.7.12"
     },
     {
       "name": "equivalent",
@@ -1705,7 +2319,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/equivalent/1.0.2"
@@ -1719,7 +2335,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc"
@@ -1735,9 +2353,11 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
+        "default",
         "std"
       ],
       "source": "https://crates.io/crates/errno/0.3.14"
@@ -1751,10 +2371,45 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/esaxx-rs/0.1.10"
+    },
+    {
+      "name": "event-listener",
+      "version": "5.4.2",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "parking",
+        "std"
+      ],
+      "source": "https://crates.io/crates/event-listener/5.4.2"
+    },
+    {
+      "name": "event-listener-strategy",
+      "version": "0.5.4",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/event-listener-strategy/0.5.4"
     },
     {
       "name": "fallible-iterator",
@@ -1765,7 +2420,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -1782,7 +2439,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/fallible-streaming-iterator/0.1.9"
@@ -1796,7 +2455,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "hf-hub",
@@ -1814,7 +2475,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -1832,10 +2495,25 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/fdeflate/0.3.7"
+    },
+    {
+      "name": "field-offset",
+      "version": "0.3.6",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/field-offset/0.3.6"
     },
     {
       "name": "find-msvc-tools",
@@ -1846,7 +2524,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/find-msvc-tools/0.1.11"
@@ -1860,7 +2540,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "any_impl",
@@ -1879,7 +2561,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1896,7 +2580,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -1960,7 +2646,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -1977,7 +2665,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/fs_extra/1.3.0"
@@ -1991,7 +2681,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -2009,7 +2701,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -2017,6 +2711,59 @@
         "std"
       ],
       "source": "https://crates.io/crates/futures-core/0.3.34"
+    },
+    {
+      "name": "futures-executor",
+      "version": "0.3.34",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/futures-executor/0.3.34"
+    },
+    {
+      "name": "futures-io",
+      "version": "0.3.34",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/futures-io/0.3.34"
+    },
+    {
+      "name": "futures-lite",
+      "version": "2.6.1",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "alloc",
+        "default",
+        "fastrand",
+        "futures-io",
+        "parking",
+        "race",
+        "std"
+      ],
+      "source": "https://crates.io/crates/futures-lite/2.6.1"
     },
     {
       "name": "futures-macro",
@@ -2027,7 +2774,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/futures-macro/0.3.34"
@@ -2041,7 +2790,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -2059,7 +2810,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -2076,7 +2829,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -2090,6 +2845,97 @@
       "source": "https://crates.io/crates/futures-util/0.3.34"
     },
     {
+      "name": "gdk",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/gdk/0.18.2"
+    },
+    {
+      "name": "gdk-pixbuf",
+      "version": "0.18.5",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/gdk-pixbuf/0.18.5"
+    },
+    {
+      "name": "gdk-pixbuf-sys",
+      "version": "0.18.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/gdk-pixbuf-sys/0.18.0"
+    },
+    {
+      "name": "gdk-sys",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/gdk-sys/0.18.2"
+    },
+    {
+      "name": "gdkwayland-sys",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/gdkwayland-sys/0.18.2"
+    },
+    {
+      "name": "gdkx11",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/gdkx11/0.18.2"
+    },
+    {
+      "name": "gdkx11-sys",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/gdkx11-sys/0.18.2"
+    },
+    {
       "name": "generic-array",
       "version": "0.14.7",
       "licence": "MIT",
@@ -2098,7 +2944,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "more_lengths"
@@ -2114,7 +2962,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/getrandom/0.2.17"
@@ -2128,7 +2978,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "std"
@@ -2144,13 +2996,115 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "std",
         "sys_rng"
       ],
       "source": "https://crates.io/crates/getrandom/0.4.3"
+    },
+    {
+      "name": "gio",
+      "version": "0.18.4",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v2_58",
+        "v2_60",
+        "v2_62",
+        "v2_64",
+        "v2_66",
+        "v2_68",
+        "v2_70"
+      ],
+      "source": "https://crates.io/crates/gio/0.18.4"
+    },
+    {
+      "name": "gio-sys",
+      "version": "0.18.1",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v2_58",
+        "v2_60",
+        "v2_62",
+        "v2_64",
+        "v2_66",
+        "v2_68",
+        "v2_70"
+      ],
+      "source": "https://crates.io/crates/gio-sys/0.18.1"
+    },
+    {
+      "name": "glib",
+      "version": "0.18.5",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "gio",
+        "gio_ffi",
+        "v2_58",
+        "v2_60",
+        "v2_62",
+        "v2_64",
+        "v2_66",
+        "v2_68",
+        "v2_70"
+      ],
+      "source": "https://crates.io/crates/glib/0.18.5"
+    },
+    {
+      "name": "glib-macros",
+      "version": "0.18.5",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/glib-macros/0.18.5"
+    },
+    {
+      "name": "glib-sys",
+      "version": "0.18.1",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v2_58",
+        "v2_60",
+        "v2_62",
+        "v2_64",
+        "v2_66",
+        "v2_68",
+        "v2_70"
+      ],
+      "source": "https://crates.io/crates/glib-sys/0.18.1"
     },
     {
       "name": "glob",
@@ -2161,10 +3115,74 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/glob/0.3.4"
+    },
+    {
+      "name": "gobject-sys",
+      "version": "0.18.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v2_58",
+        "v2_62",
+        "v2_66",
+        "v2_68",
+        "v2_70"
+      ],
+      "source": "https://crates.io/crates/gobject-sys/0.18.0"
+    },
+    {
+      "name": "gtk",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v3_24"
+      ],
+      "source": "https://crates.io/crates/gtk/0.18.2"
+    },
+    {
+      "name": "gtk-sys",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v3_24"
+      ],
+      "source": "https://crates.io/crates/gtk-sys/0.18.2"
+    },
+    {
+      "name": "gtk3-macros",
+      "version": "0.18.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/gtk3-macros/0.18.2"
     },
     {
       "name": "hashbrown",
@@ -2175,7 +3193,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "raw"
@@ -2191,7 +3211,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "allocator-api2",
@@ -2213,7 +3235,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/hashbrown/0.17.1"
@@ -2227,10 +3251,27 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/hashlink/0.11.1"
+    },
+    {
+      "name": "heck",
+      "version": "0.4.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/heck/0.4.1"
     },
     {
       "name": "heck",
@@ -2241,27 +3282,74 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/heck/0.5.0"
+    },
+    {
+      "name": "hex",
+      "version": "0.4.3",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "alloc",
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/hex/0.4.3"
     },
     {
       "name": "hf-hub",
       "version": "0.5.0",
       "licence": "Apache-2.0",
       "classification": "notice-required",
-      "direct": false,
+      "direct": true,
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "rustls-tls",
         "ureq"
       ],
       "source": "https://crates.io/crates/hf-hub/0.5.0"
+    },
+    {
+      "name": "hkdf",
+      "version": "0.12.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/hkdf/0.12.4"
+    },
+    {
+      "name": "hmac",
+      "version": "0.12.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/hmac/0.12.1"
     },
     {
       "name": "hmac-sha256",
@@ -2272,7 +3360,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -2288,7 +3378,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/html5ever/0.38.0"
@@ -2302,7 +3394,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -2319,7 +3413,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/http-body/1.1.0"
@@ -2333,7 +3429,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -2349,7 +3447,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -2366,7 +3466,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/hybrid-array/0.4.14"
@@ -2380,7 +3482,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "client",
@@ -2398,7 +3502,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "aws-lc-rs",
@@ -2416,7 +3522,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "client",
@@ -2437,7 +3545,8 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "fallback"
@@ -2453,7 +3562,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/ico/0.5.0"
@@ -2467,7 +3578,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/icu_collections/2.3.0"
@@ -2481,7 +3594,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "zerovec"
@@ -2497,7 +3612,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "compiled_data"
@@ -2513,7 +3630,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/icu_normalizer_data/2.3.0"
@@ -2527,7 +3646,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "compiled_data"
@@ -2543,7 +3664,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/icu_properties_data/2.3.0"
@@ -2557,7 +3680,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "baked"
@@ -2573,7 +3698,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/ident_case/1.0.1"
@@ -2587,7 +3714,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -2605,7 +3734,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "compiled_data"
@@ -2621,7 +3752,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "jpeg",
@@ -2638,7 +3771,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "serde",
@@ -2655,7 +3790,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -2672,7 +3809,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -2690,7 +3829,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -2702,6 +3843,21 @@
     },
     {
       "name": "inout",
+      "version": "0.1.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "block-padding"
+      ],
+      "source": "https://crates.io/crates/inout/0.1.4"
+    },
+    {
+      "name": "inout",
       "version": "0.2.2",
       "licence": "MIT OR Apache-2.0",
       "classification": "notice-required",
@@ -2709,7 +3865,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "block-padding"
@@ -2725,7 +3883,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -2742,7 +3902,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -2760,10 +3922,45 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/itoa/1.0.18"
+    },
+    {
+      "name": "javascriptcore-rs",
+      "version": "1.1.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "v2_28",
+        "v2_38"
+      ],
+      "source": "https://crates.io/crates/javascriptcore-rs/1.1.2"
+    },
+    {
+      "name": "javascriptcore-rs-sys",
+      "version": "1.1.1",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v2_28",
+        "v2_38"
+      ],
+      "source": "https://crates.io/crates/javascriptcore-rs-sys/1.1.1"
     },
     {
       "name": "jobserver",
@@ -2774,7 +3971,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/jobserver/0.1.35"
@@ -2788,7 +3987,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -2805,7 +4006,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "assign",
@@ -2827,7 +4030,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -2846,7 +4051,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "apple-native-keyring-store",
@@ -2866,7 +4073,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/keyring-core/1.0.0"
@@ -2880,13 +4089,31 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
         "std"
       ],
       "source": "https://crates.io/crates/libc/0.2.189"
+    },
+    {
+      "name": "libdbus-sys",
+      "version": "0.2.7",
+      "licence": "Apache-2.0/MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "pkg-config"
+      ],
+      "source": "https://crates.io/crates/libdbus-sys/0.2.7"
     },
     {
       "name": "libsqlite3-sys",
@@ -2897,7 +4124,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "bundled",
@@ -2911,6 +4140,31 @@
       "source": "https://crates.io/crates/libsqlite3-sys/0.36.0"
     },
     {
+      "name": "linux-raw-sys",
+      "version": "0.12.1",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "auxvec",
+        "elf",
+        "errno",
+        "general",
+        "if_ether",
+        "ioctl",
+        "net",
+        "netlink",
+        "no_std",
+        "prctl",
+        "xdp"
+      ],
+      "source": "https://crates.io/crates/linux-raw-sys/0.12.1"
+    },
+    {
       "name": "litemap",
       "version": "0.8.3",
       "licence": "Unicode-3.0",
@@ -2919,7 +4173,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/litemap/0.8.3"
@@ -2933,7 +4189,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "atomic_usize",
@@ -2950,7 +4208,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/log/0.4.33"
@@ -2964,7 +4224,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/lopdf/0.44.0"
@@ -2978,7 +4240,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "optimization",
@@ -2995,7 +4259,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -3011,7 +4277,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/macro_rules_attribute-proc_macro/0.2.3"
@@ -3025,7 +4293,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/markup5ever/0.38.0"
@@ -3039,7 +4309,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "cgemm",
@@ -3056,7 +4328,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -3074,7 +4348,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -3082,6 +4358,21 @@
         "std"
       ],
       "source": "https://crates.io/crates/memchr/2.8.3"
+    },
+    {
+      "name": "memoffset",
+      "version": "0.9.1",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/memoffset/0.9.1"
     },
     {
       "name": "mime",
@@ -3092,7 +4383,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/mime/0.3.17"
@@ -3106,7 +4399,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "std"
@@ -3122,7 +4417,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -3141,7 +4438,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "net",
@@ -3159,7 +4458,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/monostate/0.1.18"
@@ -3173,7 +4474,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/monostate-impl/0.1.18"
@@ -3187,7 +4490,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "avx",
@@ -3216,7 +4521,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "common-controls-v6",
@@ -3234,7 +4541,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "std"
@@ -3250,7 +4559,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/new_debug_unreachable/1.0.6"
@@ -3264,7 +4575,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -3282,7 +4595,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -3290,6 +4605,38 @@
         "std"
       ],
       "source": "https://crates.io/crates/nom/8.0.0"
+    },
+    {
+      "name": "num",
+      "version": "0.4.3",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "num-bigint",
+        "std"
+      ],
+      "source": "https://crates.io/crates/num/0.4.3"
+    },
+    {
+      "name": "num-bigint",
+      "version": "0.4.8",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/num-bigint/0.4.8"
     },
     {
       "name": "num-complex",
@@ -3300,9 +4647,13 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
-      "features": [],
+      "features": [
+        "std"
+      ],
       "source": "https://crates.io/crates/num-complex/0.4.6"
     },
     {
@@ -3314,7 +4665,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/num-conv/0.2.2"
@@ -3328,10 +4681,48 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
-      "features": [],
+      "features": [
+        "i128",
+        "std"
+      ],
       "source": "https://crates.io/crates/num-integer/0.1.47"
+    },
+    {
+      "name": "num-iter",
+      "version": "0.1.46",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "i128",
+        "std"
+      ],
+      "source": "https://crates.io/crates/num-iter/0.1.46"
+    },
+    {
+      "name": "num-rational",
+      "version": "0.4.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "num-bigint",
+        "num-bigint-std",
+        "std"
+      ],
+      "source": "https://crates.io/crates/num-rational/0.4.2"
     },
     {
       "name": "num-traits",
@@ -3342,7 +4733,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -3800,7 +5193,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -3819,7 +5214,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/onig/6.5.3"
@@ -3833,24 +5230,54 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/onig_sys/69.9.3"
     },
     {
+      "name": "openssl-probe",
+      "version": "0.2.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/openssl-probe/0.2.1"
+    },
+    {
       "name": "option-ext",
       "version": "0.2.0",
       "licence": "MPL-2.0",
-      "classification": "review-required",
+      "classification": "notice-required",
       "direct": false,
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/option-ext/0.2.0"
+    },
+    {
+      "name": "ordered-stream",
+      "version": "0.2.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/ordered-stream/0.2.0"
     },
     {
       "name": "ort",
@@ -3861,7 +5288,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "api-17",
@@ -3889,7 +5318,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "__tls",
@@ -3909,6 +5340,45 @@
       "source": "https://crates.io/crates/ort-sys/2.0.0-rc.13"
     },
     {
+      "name": "pango",
+      "version": "0.18.3",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/pango/0.18.3"
+    },
+    {
+      "name": "pango-sys",
+      "version": "0.18.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/pango-sys/0.18.0"
+    },
+    {
+      "name": "parking",
+      "version": "2.2.1",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/parking/2.2.1"
+    },
+    {
       "name": "parking_lot",
       "version": "0.12.5",
       "licence": "MIT OR Apache-2.0",
@@ -3917,7 +5387,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -3933,7 +5405,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/parking_lot_core/0.9.12"
@@ -3947,7 +5421,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/paste/1.0.15"
@@ -3961,7 +5437,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/pastey/0.2.3"
@@ -3975,7 +5453,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -3993,7 +5473,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4012,7 +5494,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/phf_codegen/0.13.1"
@@ -4026,7 +5510,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/phf_generator/0.13.1"
@@ -4040,7 +5526,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/phf_macros/0.13.1"
@@ -4054,7 +5542,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4071,10 +5561,29 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/pin-project-lite/0.2.17"
+    },
+    {
+      "name": "piper",
+      "version": "0.2.5",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "futures-io",
+        "std"
+      ],
+      "source": "https://crates.io/crates/piper/0.2.5"
     },
     {
       "name": "pkg-config",
@@ -4085,7 +5594,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/pkg-config/0.3.34"
@@ -4099,7 +5610,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4116,7 +5629,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/png/0.17.16"
@@ -4130,10 +5645,25 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/png/0.18.1"
+    },
+    {
+      "name": "polling",
+      "version": "3.11.0",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/polling/3.11.0"
     },
     {
       "name": "portable-atomic",
@@ -4144,7 +5674,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4161,7 +5693,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "zerovec"
@@ -4177,7 +5711,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/powerfmt/0.2.0"
@@ -4191,7 +5727,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "simd",
@@ -4208,10 +5746,81 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/precomputed-hash/0.1.1"
+    },
+    {
+      "name": "proc-macro-crate",
+      "version": "1.3.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/proc-macro-crate/1.3.1"
+    },
+    {
+      "name": "proc-macro-crate",
+      "version": "2.0.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/proc-macro-crate/2.0.2"
+    },
+    {
+      "name": "proc-macro-crate",
+      "version": "3.5.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/proc-macro-crate/3.5.0"
+    },
+    {
+      "name": "proc-macro-error",
+      "version": "1.0.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "syn",
+        "syn-error"
+      ],
+      "source": "https://crates.io/crates/proc-macro-error/1.0.4"
+    },
+    {
+      "name": "proc-macro-error-attr",
+      "version": "1.0.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/proc-macro-error-attr/1.0.4"
     },
     {
       "name": "proc-macro2",
@@ -4222,7 +5831,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4240,7 +5851,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/pxfm/0.1.30"
@@ -4254,7 +5867,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -4270,7 +5885,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4287,7 +5904,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -4308,7 +5927,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -4330,7 +5951,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "std"
@@ -4346,7 +5969,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/rand_core/0.10.1"
@@ -4360,7 +5985,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "os_rng",
@@ -4377,7 +6004,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/rangemap/1.8.0"
@@ -4391,7 +6020,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -4408,7 +6039,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/rawpointer/0.2.1"
@@ -4422,7 +6055,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/rayon/1.12.0"
@@ -4436,7 +6071,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/rayon-cond/0.4.0"
@@ -4450,7 +6087,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/rayon-core/1.13.0"
@@ -4464,7 +6103,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4496,7 +6137,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -4533,7 +6176,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4558,7 +6203,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "__rustls",
@@ -4579,7 +6226,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "common-controls-v6",
@@ -4599,7 +6248,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -4617,7 +6268,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "backup",
@@ -4638,7 +6291,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/rustc_version/0.4.1"
@@ -4652,7 +6307,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4669,13 +6326,19 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
         "default",
+        "event",
         "fs",
-        "std"
+        "net",
+        "pipe",
+        "process",
+        "std",
+        "time"
       ],
       "source": "https://crates.io/crates/rustix/1.1.4"
     },
@@ -4688,7 +6351,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "aws-lc-rs",
@@ -4702,6 +6367,19 @@
       "source": "https://crates.io/crates/rustls/0.23.43"
     },
     {
+      "name": "rustls-native-certs",
+      "version": "0.8.4",
+      "licence": "Apache-2.0 OR ISC OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/rustls-native-certs/0.8.4"
+    },
+    {
       "name": "rustls-pki-types",
       "version": "1.15.1",
       "licence": "MIT OR Apache-2.0",
@@ -4710,7 +6388,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -4728,7 +6408,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/rustls-platform-verifier/0.7.0"
@@ -4742,7 +6424,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -4761,7 +6445,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/rustversion/1.0.23"
@@ -4775,7 +6461,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/ryu/1.0.23"
@@ -4789,7 +6477,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4806,7 +6496,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/same-file/1.0.6"
@@ -4820,7 +6512,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4842,7 +6536,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/schemars_derive/0.8.22"
@@ -4856,10 +6552,27 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/scopeguard/1.2.0"
+    },
+    {
+      "name": "secret-service",
+      "version": "5.1.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "crypto-rust"
+      ],
+      "source": "https://crates.io/crates/secret-service/5.1.0"
     },
     {
       "name": "security-framework",
@@ -4901,12 +6614,14 @@
       "name": "selectors",
       "version": "0.36.1",
       "licence": "MPL-2.0",
-      "classification": "review-required",
+      "classification": "notice-required",
       "direct": false,
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/selectors/0.36.1"
@@ -4920,7 +6635,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -4938,7 +6655,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -4959,7 +6678,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -4979,7 +6700,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -4995,7 +6718,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/serde_derive_internals/0.29.1"
@@ -5009,7 +6734,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -5029,10 +6756,27 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/serde_repr/0.1.21"
+    },
+    {
+      "name": "serde_spanned",
+      "version": "0.6.9",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "serde"
+      ],
+      "source": "https://crates.io/crates/serde_spanned/0.6.9"
     },
     {
       "name": "serde_spanned",
@@ -5043,7 +6787,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -5061,7 +6807,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -5080,7 +6828,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/serde_with_macros/3.22.0"
@@ -5094,7 +6844,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/serde-untagged/0.1.9"
@@ -5108,7 +6860,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/serialize-to-javascript/0.1.2"
@@ -5122,7 +6876,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/serialize-to-javascript-impl/0.1.2"
@@ -5136,7 +6892,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -5153,7 +6911,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -5170,7 +6930,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -5188,13 +6950,28 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
         "std"
       ],
       "source": "https://crates.io/crates/shlex/2.0.1"
+    },
+    {
+      "name": "signal-hook-registry",
+      "version": "1.4.8",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/signal-hook-registry/1.4.8"
     },
     {
       "name": "simd-adler32",
@@ -5205,7 +6982,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "const-generics",
@@ -5223,7 +7002,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -5240,9 +7021,12 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
+        "default",
         "std"
       ],
       "source": "https://crates.io/crates/slab/0.4.12"
@@ -5256,11 +7040,14 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "const_generics",
-        "const_new"
+        "const_new",
+        "union"
       ],
       "source": "https://crates.io/crates/smallvec/1.15.2"
     },
@@ -5273,7 +7060,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "all"
@@ -5289,10 +7078,55 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/socks/0.3.4"
+    },
+    {
+      "name": "softbuffer",
+      "version": "0.4.8",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/softbuffer/0.4.8"
+    },
+    {
+      "name": "soup3",
+      "version": "0.5.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/soup3/0.5.0"
+    },
+    {
+      "name": "soup3-sys",
+      "version": "0.5.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v3_0"
+      ],
+      "source": "https://crates.io/crates/soup3-sys/0.5.0"
     },
     {
       "name": "spm_precompiled",
@@ -5303,7 +7137,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/spm_precompiled/0.1.4"
@@ -5317,7 +7153,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/sqlite-vec/0.1.7-alpha.10"
@@ -5331,7 +7169,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -5349,7 +7189,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/static_assertions/1.1.0"
@@ -5363,7 +7205,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/string_cache/0.9.0"
@@ -5377,7 +7221,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/string_cache_codegen/0.6.1"
@@ -5391,7 +7237,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/stringprep/0.1.5"
@@ -5405,7 +7253,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/strsim/0.11.1"
@@ -5419,7 +7269,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/subtle/2.6.1"
@@ -5433,7 +7285,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "build",
@@ -5445,6 +7299,19 @@
     },
     {
       "name": "syn",
+      "version": "1.0.109",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/syn/1.0.109"
+    },
+    {
+      "name": "syn",
       "version": "2.0.119",
       "licence": "MIT OR Apache-2.0",
       "classification": "notice-required",
@@ -5452,7 +7319,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "clone-impls",
@@ -5464,7 +7333,8 @@
         "parsing",
         "printing",
         "proc-macro",
-        "visit"
+        "visit",
+        "visit-mut"
       ],
       "source": "https://crates.io/crates/syn/2.0.119"
     },
@@ -5477,17 +7347,21 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "clone-impls",
         "default",
         "derive",
         "extra-traits",
+        "fold",
         "full",
         "parsing",
         "printing",
-        "proc-macro"
+        "proc-macro",
+        "visit-mut"
       ],
       "source": "https://crates.io/crates/syn/3.0.3"
     },
@@ -5500,7 +7374,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "futures",
@@ -5517,13 +7393,28 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
         "proc-macro"
       ],
       "source": "https://crates.io/crates/synstructure/0.13.2"
+    },
+    {
+      "name": "system-deps",
+      "version": "6.2.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/system-deps/6.2.2"
     },
     {
       "name": "tao",
@@ -5534,7 +7425,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "dbus",
@@ -5542,6 +7435,21 @@
         "x11"
       ],
       "source": "https://crates.io/crates/tao/0.35.3"
+    },
+    {
+      "name": "target-lexicon",
+      "version": "0.12.16",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/target-lexicon/0.12.16"
     },
     {
       "name": "tauri",
@@ -5552,7 +7460,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "common-controls-v6",
@@ -5577,7 +7487,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "config-json",
@@ -5594,7 +7506,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "brotli",
@@ -5611,7 +7525,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "compression"
@@ -5627,7 +7543,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "build"
@@ -5643,7 +7561,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -5660,7 +7580,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/tauri-plugin-fs/2.5.1"
@@ -5674,7 +7596,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/tauri-runtime/2.11.3"
@@ -5688,7 +7612,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "common-controls-v6",
@@ -5706,7 +7632,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "brotli",
@@ -5733,7 +7661,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/tauri-winres/0.3.6"
@@ -5747,7 +7677,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -5764,7 +7696,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/tendril/0.5.1"
@@ -5778,7 +7712,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/thiserror/1.0.69"
@@ -5792,7 +7728,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -5809,7 +7747,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/thiserror-impl/1.0.69"
@@ -5823,7 +7763,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/thiserror-impl/2.0.20"
@@ -5837,7 +7779,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -5858,7 +7802,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/time-core/0.1.9"
@@ -5872,7 +7818,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "formatting",
@@ -5889,7 +7837,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "zerovec"
@@ -5905,7 +7855,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -5923,7 +7875,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/tinyvec_macros/0.1.1"
@@ -5937,7 +7891,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "onig"
@@ -5953,7 +7909,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "bytes",
@@ -5967,7 +7925,8 @@
         "rt-multi-thread",
         "socket2",
         "sync",
-        "time"
+        "time",
+        "windows-sys"
       ],
       "source": "https://crates.io/crates/tokio/1.53.1"
     },
@@ -5980,7 +7939,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "aws-lc-rs",
@@ -5998,12 +7959,29 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "io"
       ],
       "source": "https://crates.io/crates/tokio-util/0.7.19"
+    },
+    {
+      "name": "toml",
+      "version": "0.8.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "parse"
+      ],
+      "source": "https://crates.io/crates/toml/0.8.2"
     },
     {
       "name": "toml",
@@ -6014,7 +7992,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6034,7 +8014,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6047,6 +8029,21 @@
     },
     {
       "name": "toml_datetime",
+      "version": "0.6.3",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "serde"
+      ],
+      "source": "https://crates.io/crates/toml_datetime/0.6.3"
+    },
+    {
+      "name": "toml_datetime",
       "version": "0.7.5+spec-1.1.0",
       "licence": "MIT OR Apache-2.0",
       "classification": "notice-required",
@@ -6054,7 +8051,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -6072,14 +8071,63 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
+        "default",
         "serde",
         "std"
       ],
       "source": "https://crates.io/crates/toml_datetime/1.1.1%2Bspec-1.1.0"
+    },
+    {
+      "name": "toml_edit",
+      "version": "0.19.15",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/toml_edit/0.19.15"
+    },
+    {
+      "name": "toml_edit",
+      "version": "0.20.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "serde"
+      ],
+      "source": "https://crates.io/crates/toml_edit/0.20.2"
+    },
+    {
+      "name": "toml_edit",
+      "version": "0.25.13+spec-1.1.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "parse"
+      ],
+      "source": "https://crates.io/crates/toml_edit/0.25.13%2Bspec-1.1.0"
     },
     {
       "name": "toml_parser",
@@ -6090,10 +8138,13 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
+        "default",
         "std"
       ],
       "source": "https://crates.io/crates/toml_parser/1.1.3%2Bspec-1.1.0"
@@ -6107,7 +8158,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -6124,7 +8177,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "futures-core",
@@ -6147,7 +8202,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "follow-redirect",
@@ -6165,7 +8222,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/tower-layer/0.3.3"
@@ -6179,7 +8238,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/tower-service/0.3.3"
@@ -6193,12 +8254,30 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
-        "std"
+        "attributes",
+        "default",
+        "std",
+        "tracing-attributes"
       ],
       "source": "https://crates.io/crates/tracing/0.1.44"
+    },
+    {
+      "name": "tracing-attributes",
+      "version": "0.1.31",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/tracing-attributes/0.1.31"
     },
     {
       "name": "tracing-core",
@@ -6209,7 +8288,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "once_cell",
@@ -6226,7 +8307,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/try-lock/0.2.5"
@@ -6240,7 +8323,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6257,7 +8342,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/typeid/1.0.3"
@@ -6271,7 +8358,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "const-generics"
@@ -6287,7 +8376,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/unic-char-property/0.9.0"
@@ -6301,7 +8392,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -6317,7 +8410,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default"
@@ -6333,7 +8428,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6351,7 +8448,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/unic-ucd-version/0.9.0"
@@ -6365,7 +8464,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/unicode_categories/0.1.1"
@@ -6379,7 +8480,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6397,7 +8500,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/unicode-ident/1.0.24"
@@ -6411,7 +8516,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6428,7 +8535,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/unicode-normalization-alignments/0.1.12"
@@ -6442,7 +8551,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6460,7 +8571,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/unicode-segmentation/1.13.3"
@@ -6474,7 +8587,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "cjk",
@@ -6491,7 +8606,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6508,7 +8625,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/untrusted/0.9.0"
@@ -6522,7 +8641,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "_ring",
@@ -6547,7 +8668,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "client"
@@ -6563,7 +8686,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6581,7 +8706,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/urlpattern/0.3.0"
@@ -6595,7 +8722,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/utf8_iter/1.0.4"
@@ -6609,7 +8738,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6626,7 +8757,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -6646,7 +8779,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/vcpkg/0.2.15"
@@ -6660,10 +8795,25 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/version_check/0.9.5"
+    },
+    {
+      "name": "version-compare",
+      "version": "0.2.1",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/version-compare/0.2.1"
     },
     {
       "name": "walkdir",
@@ -6674,7 +8824,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/walkdir/2.5.0"
@@ -6688,7 +8840,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/want/0.3.1"
@@ -6702,10 +8856,78 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/web_atoms/0.2.6"
+    },
+    {
+      "name": "webkit2gtk",
+      "version": "2.0.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v2_10",
+        "v2_12",
+        "v2_14",
+        "v2_16",
+        "v2_18",
+        "v2_2",
+        "v2_20",
+        "v2_22",
+        "v2_24",
+        "v2_26",
+        "v2_28",
+        "v2_30",
+        "v2_32",
+        "v2_34",
+        "v2_36",
+        "v2_38",
+        "v2_4",
+        "v2_40",
+        "v2_6",
+        "v2_8"
+      ],
+      "source": "https://crates.io/crates/webkit2gtk/2.0.2"
+    },
+    {
+      "name": "webkit2gtk-sys",
+      "version": "2.0.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "v2_10",
+        "v2_12",
+        "v2_14",
+        "v2_16",
+        "v2_18",
+        "v2_20",
+        "v2_22",
+        "v2_24",
+        "v2_26",
+        "v2_28",
+        "v2_30",
+        "v2_32",
+        "v2_34",
+        "v2_36",
+        "v2_38",
+        "v2_40",
+        "v2_6",
+        "v2_8"
+      ],
+      "source": "https://crates.io/crates/webkit2gtk-sys/2.0.2"
     },
     {
       "name": "webpki-roots",
@@ -6716,10 +8938,51 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/webpki-roots/1.0.9"
+    },
+    {
+      "name": "webview2-com",
+      "version": "0.38.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/webview2-com/0.38.2"
+    },
+    {
+      "name": "webview2-com-macros",
+      "version": "0.8.1",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/webview2-com-macros/0.8.1"
+    },
+    {
+      "name": "webview2-com-sys",
+      "version": "0.38.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/webview2-com-sys/0.38.2"
     },
     {
       "name": "weezl",
@@ -6730,7 +8993,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -6738,6 +9003,34 @@
         "std"
       ],
       "source": "https://crates.io/crates/weezl/0.2.1"
+    },
+    {
+      "name": "winapi",
+      "version": "0.3.9",
+      "licence": "MIT/Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "winsock2"
+      ],
+      "source": "https://crates.io/crates/winapi/0.3.9"
+    },
+    {
+      "name": "winapi-util",
+      "version": "0.1.11",
+      "licence": "Unlicense OR MIT",
+      "classification": "compatible",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/winapi-util/0.1.11"
     },
     {
       "name": "window-vibrancy",
@@ -6748,10 +9041,411 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc"
       ],
       "features": [],
       "source": "https://crates.io/crates/window-vibrancy/0.6.0"
+    },
+    {
+      "name": "windows",
+      "version": "0.61.3",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "Win32",
+        "Win32_Devices",
+        "Win32_Devices_HumanInterfaceDevice",
+        "Win32_Foundation",
+        "Win32_Globalization",
+        "Win32_Graphics",
+        "Win32_Graphics_Dwm",
+        "Win32_Graphics_Gdi",
+        "Win32_System",
+        "Win32_System_Com",
+        "Win32_System_Com_StructuredStorage",
+        "Win32_System_DataExchange",
+        "Win32_System_Diagnostics",
+        "Win32_System_Diagnostics_Debug",
+        "Win32_System_LibraryLoader",
+        "Win32_System_Memory",
+        "Win32_System_Ole",
+        "Win32_System_Registry",
+        "Win32_System_SystemInformation",
+        "Win32_System_SystemServices",
+        "Win32_System_Threading",
+        "Win32_System_Variant",
+        "Win32_System_WinRT",
+        "Win32_System_WindowsProgramming",
+        "Win32_UI",
+        "Win32_UI_Accessibility",
+        "Win32_UI_Controls",
+        "Win32_UI_HiDpi",
+        "Win32_UI_Input",
+        "Win32_UI_Input_Ime",
+        "Win32_UI_Input_KeyboardAndMouse",
+        "Win32_UI_Input_Pointer",
+        "Win32_UI_Input_Touch",
+        "Win32_UI_Shell",
+        "Win32_UI_TextServices",
+        "Win32_UI_WindowsAndMessaging",
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows/0.61.3"
+    },
+    {
+      "name": "windows_x86_64_msvc",
+      "version": "0.52.6",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows_x86_64_msvc/0.52.6"
+    },
+    {
+      "name": "windows_x86_64_msvc",
+      "version": "0.53.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows_x86_64_msvc/0.53.1"
+    },
+    {
+      "name": "windows-collections",
+      "version": "0.2.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-collections/0.2.0"
+    },
+    {
+      "name": "windows-core",
+      "version": "0.61.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows-core/0.61.2"
+    },
+    {
+      "name": "windows-future",
+      "version": "0.2.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-future/0.2.1"
+    },
+    {
+      "name": "windows-implement",
+      "version": "0.60.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-implement/0.60.2"
+    },
+    {
+      "name": "windows-interface",
+      "version": "0.59.3",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-interface/0.59.3"
+    },
+    {
+      "name": "windows-link",
+      "version": "0.1.3",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-link/0.1.3"
+    },
+    {
+      "name": "windows-link",
+      "version": "0.2.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-link/0.2.1"
+    },
+    {
+      "name": "windows-native-keyring-store",
+      "version": "1.1.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "default",
+        "search"
+      ],
+      "source": "https://crates.io/crates/windows-native-keyring-store/1.1.0"
+    },
+    {
+      "name": "windows-numerics",
+      "version": "0.2.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-numerics/0.2.0"
+    },
+    {
+      "name": "windows-result",
+      "version": "0.3.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows-result/0.3.4"
+    },
+    {
+      "name": "windows-strings",
+      "version": "0.4.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows-strings/0.4.2"
+    },
+    {
+      "name": "windows-sys",
+      "version": "0.59.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "Win32",
+        "Win32_Foundation",
+        "Win32_Graphics",
+        "Win32_Graphics_Dwm",
+        "Win32_Graphics_Gdi",
+        "Win32_System",
+        "Win32_System_LibraryLoader",
+        "Win32_System_SystemInformation",
+        "Win32_UI",
+        "Win32_UI_WindowsAndMessaging",
+        "default"
+      ],
+      "source": "https://crates.io/crates/windows-sys/0.59.0"
+    },
+    {
+      "name": "windows-sys",
+      "version": "0.60.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "Win32",
+        "Win32_Foundation",
+        "Win32_System",
+        "Win32_System_Com",
+        "Win32_UI",
+        "Win32_UI_Controls",
+        "Win32_UI_Shell",
+        "Win32_UI_Shell_Common",
+        "Win32_UI_WindowsAndMessaging",
+        "default"
+      ],
+      "source": "https://crates.io/crates/windows-sys/0.60.2"
+    },
+    {
+      "name": "windows-sys",
+      "version": "0.61.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "Wdk",
+        "Wdk_Foundation",
+        "Wdk_Storage",
+        "Wdk_Storage_FileSystem",
+        "Wdk_System",
+        "Wdk_System_IO",
+        "Win32",
+        "Win32_Foundation",
+        "Win32_Globalization",
+        "Win32_Graphics",
+        "Win32_Graphics_Gdi",
+        "Win32_Networking",
+        "Win32_Networking_WinSock",
+        "Win32_Security",
+        "Win32_Security_Credentials",
+        "Win32_Security_Cryptography",
+        "Win32_Storage",
+        "Win32_Storage_FileSystem",
+        "Win32_System",
+        "Win32_System_Com",
+        "Win32_System_Console",
+        "Win32_System_IO",
+        "Win32_System_LibraryLoader",
+        "Win32_System_Pipes",
+        "Win32_System_SystemInformation",
+        "Win32_System_SystemServices",
+        "Win32_System_Threading",
+        "Win32_System_WindowsProgramming",
+        "Win32_UI",
+        "Win32_UI_Accessibility",
+        "Win32_UI_Controls",
+        "Win32_UI_HiDpi",
+        "Win32_UI_Input",
+        "Win32_UI_Input_KeyboardAndMouse",
+        "Win32_UI_Shell",
+        "Win32_UI_WindowsAndMessaging",
+        "default"
+      ],
+      "source": "https://crates.io/crates/windows-sys/0.61.2"
+    },
+    {
+      "name": "windows-targets",
+      "version": "0.52.6",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-targets/0.52.6"
+    },
+    {
+      "name": "windows-targets",
+      "version": "0.53.5",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-targets/0.53.5"
+    },
+    {
+      "name": "windows-threading",
+      "version": "0.1.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-threading/0.1.0"
+    },
+    {
+      "name": "windows-version",
+      "version": "0.1.7",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-version/0.1.7"
+    },
+    {
+      "name": "winnow",
+      "version": "0.5.40",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "alloc",
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/winnow/0.5.40"
     },
     {
       "name": "winnow",
@@ -6762,7 +9456,9 @@
       "scope": "build-only",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/winnow/0.7.15"
@@ -6776,9 +9472,18 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
-      "features": [],
+      "features": [
+        "alloc",
+        "ascii",
+        "binary",
+        "default",
+        "parser",
+        "std"
+      ],
       "source": "https://crates.io/crates/winnow/1.0.4"
     },
     {
@@ -6790,7 +9495,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/writeable/0.6.4"
@@ -6804,7 +9511,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "gdkx11",
@@ -6821,6 +9530,32 @@
       "source": "https://crates.io/crates/wry/0.55.1"
     },
     {
+      "name": "x11",
+      "version": "2.21.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/x11/2.21.0"
+    },
+    {
+      "name": "x11-dl",
+      "version": "2.21.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/x11-dl/2.21.0"
+    },
+    {
       "name": "yoke",
       "version": "0.8.3",
       "licence": "Unicode-3.0",
@@ -6829,7 +9564,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "derive",
@@ -6846,10 +9583,95 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/yoke-derive/0.8.2"
+    },
+    {
+      "name": "zbus",
+      "version": "5.19.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "async-executor",
+        "async-fs",
+        "async-io",
+        "async-lock",
+        "async-process",
+        "async-task",
+        "blocking",
+        "blocking-api",
+        "default"
+      ],
+      "source": "https://crates.io/crates/zbus/5.19.0"
+    },
+    {
+      "name": "zbus_macros",
+      "version": "5.19.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "blocking-api",
+        "default"
+      ],
+      "source": "https://crates.io/crates/zbus_macros/5.19.0"
+    },
+    {
+      "name": "zbus_names",
+      "version": "4.3.4",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/zbus_names/4.3.4"
+    },
+    {
+      "name": "zbus-secret-service-keyring-store",
+      "version": "1.0.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "crypto-rust"
+      ],
+      "source": "https://crates.io/crates/zbus-secret-service-keyring-store/1.0.1"
+    },
+    {
+      "name": "zcheapstr",
+      "version": "1.1.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "serde"
+      ],
+      "source": "https://crates.io/crates/zcheapstr/1.1.0"
     },
     {
       "name": "zerocopy",
@@ -6860,7 +9682,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "simd"
@@ -6876,7 +9700,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "derive"
@@ -6892,7 +9718,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/zerofrom-derive/0.1.7"
@@ -6906,7 +9734,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "alloc",
@@ -6923,7 +9753,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "yoke",
@@ -6940,7 +9772,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "derive",
@@ -6957,7 +9791,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/zerovec-derive/0.11.5"
@@ -6971,7 +9807,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "_deflate-any",
@@ -6988,7 +9826,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [],
       "source": "https://crates.io/crates/zmij/1.0.23"
@@ -7002,7 +9842,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "std"
@@ -7018,7 +9860,9 @@
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
-        "x86_64-apple-darwin"
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
       ],
       "features": [
         "default",
@@ -7027,6 +9871,52 @@
         "x86"
       ],
       "source": "https://crates.io/crates/zune-jpeg/0.5.15"
+    },
+    {
+      "name": "zvariant",
+      "version": "5.15.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "enumflags2"
+      ],
+      "source": "https://crates.io/crates/zvariant/5.15.0"
+    },
+    {
+      "name": "zvariant_derive",
+      "version": "5.15.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/zvariant_derive/5.15.0"
+    },
+    {
+      "name": "zvariant_utils",
+      "version": "4.2.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/zvariant_utils/4.2.0"
     }
   ],
   "npm": [
@@ -8256,7 +11146,7 @@
       "name": "argparse",
       "version": "3.0.0",
       "licence": "Python-2.0",
-      "classification": "review-required",
+      "classification": "notice-required",
       "direct": false,
       "scope": "production-install",
       "optional": false,
