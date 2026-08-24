@@ -124,7 +124,7 @@ function inspectAuthenticode(path) {
     "$signature = Get-AuthenticodeSignature -LiteralPath $env:BOTTIE_WINDOWS_INSPECT_PATH",
     "$signature.Status.ToString()",
   ].join("; ");
-  const status = runHostCommand("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+  const status = runHostCommand("pwsh.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], {
     env: { ...process.env, BOTTIE_WINDOWS_INSPECT_PATH: path },
   }).trim();
   return { classification: classifyAuthenticodeStatus(status), verifies: status === "Valid" };
