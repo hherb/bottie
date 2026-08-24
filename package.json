@@ -19,6 +19,7 @@
     "package:windows": "node scripts/windows-package.mjs --build",
     "package:windows:inspect": "node scripts/windows-package.mjs --inspect",
     "package:windows:smoke": "node scripts/windows-package.mjs --smoke",
+    "package:windows:test": "vitest run --pool=threads --maxWorkers=1 scripts/windows-package.test.mjs",
     "format": "prettier --write \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
