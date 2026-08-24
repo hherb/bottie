@@ -271,7 +271,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/windows-packaging-smoke`.
+branch `codex/linux-packaging-smoke`.
 
 ## Current implementation
 
@@ -807,7 +807,7 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Linux packaging and smoke test
+## Current product slice: Linux packaging and smoke test
 
 Produce one reproducible unsigned Linux application bundle from the locked dependency state on an Ubuntu host, inspect
 its packaged resources, ELF dependencies, and native runtime assets, and exercise a bounded launch, fresh-storage, and
@@ -815,6 +815,35 @@ provider-offline smoke path under isolated XDG directories and a distinct test i
 evidence, remaining distribution gates, and signing limitations. Keep custom artwork replacement, distribution
 signing, updates, release notes, dependency remediation, schema, IPC, provider/tool behavior, and network policy
 unchanged.
+
+### Implemented shape pending Ubuntu evidence
+
+1. `npm run package:linux` invokes Tauri's DEB-only, non-interactive `--no-sign` build and passes `--locked` through to
+   Cargo. `npm run package:linux:inspect` extracts exactly one DEB with `dpkg-deb --extract` into a temporary directory
+   instead of installing or registering Bottie.
+2. The path-free inspector requires exactly one Bottie ELF executable, records DEB control metadata and archive
+   signing class, extraction-relative hashes and byte counts, ELF architecture and direct shared-library requirements,
+   and packaged `.so` runtime assets. Host paths and maintainer scripts do not serialize into evidence.
+3. `npm run package:linux:smoke` builds the locked code in a temporary Cargo target under the distinct
+   `com.bottie.packaging-smoke` identity. It confines config, data, cache, and runtime state to one process-owned
+   temporary XDG tree, writes only bounded local-provider settings, and launches the extracted executable against one
+   process-owned loopback endpoint that accepts then rejects every connection.
+4. The bounded runner requires a fresh SQLite store, rejected provider discovery, three seconds of continued
+   liveness, process-group termination, and read-only database integrity/schema counts before removing the entire
+   temporary build, extraction, and XDG tree.
+5. An Ubuntu 22.04 pull-request workflow installs only the Tauri desktop prerequisites, runs the dependency-free Node
+   contracts, launches the real smoke path under an isolated Xvfb/D-Bus session, and retains the unsigned DEB plus
+   path-free JSON evidence for seven days. It does not install Bottie or publish a release.
+
+The real Ubuntu build, package inspection, and launch evidence remain pending on the pull-request runner. Do not mark
+the roadmap item complete or treat the unsigned package as distributable until that workflow is green and its exact
+evidence is recorded here.
+
+### Explicit exclusions
+
+Do not replace custom artwork; add distribution signing, repository publishing, updates, release notes, notice
+generation, or dependency/terms remediation; change schema, IPC, provider/tool behavior, network policy, credentials,
+or live-store content; or present the unsigned DEB as an end-user release.
 
 ## Most recently completed product slice: Windows packaging and smoke test
 

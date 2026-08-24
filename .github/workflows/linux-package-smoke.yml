@@ -1,0 +1,71 @@
+name: Linux packaging smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/linux-package-smoke.yml"
+      - "package-lock.json"
+      - "package.json"
+      - "scripts/linux-package.contract.mjs"
+      - "scripts/linux-package.mjs"
+      - "src/**"
+      - "src-tauri/**"
+      - "static/**"
+      - "svelte.config.js"
+      - "tsconfig.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-and-smoke:
+    name: Locked DEB and isolated smoke
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      BOTTIE_LINUX_ARTIFACT_DIRECTORY: package/linux
+      BOTTIE_LINUX_EVIDENCE_PATH: package/linux-package-evidence.json
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Linux desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            dbus-x11 \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            xvfb
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Verify Linux package contracts
+        run: |
+          node --check scripts/linux-package.mjs
+          node --check scripts/linux-package.contract.mjs
+          npm run package:linux:test
+
+      - name: Build, inspect, and smoke-test unsigned DEB
+        run: dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke
+
+      - name: Upload bounded package evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottie-linux-package-smoke
+          path: |
+            package/linux-package-evidence.json
+            package/linux/*.deb
+          if-no-files-found: error
+          retention-days: 7
