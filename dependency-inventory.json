@@ -8,7 +8,7 @@
     ],
     "rustLockPackages": 649,
     "npmLockPackages": 157,
-    "limitation": "Rust entries are the union of locked macOS arm64/x64 normal and build graphs. The Cargo.lock count is a conservative all-platform superset; Windows and Linux remain release checks."
+    "limitation": "Rust entries are the union of locked macOS arm64/x64 normal and build graphs. The Cargo.lock count is a conservative all-platform superset; per-platform resolved-graph review remains a release check."
   },
   "inputs": {
     "package.json": "a056a45d2857475797d2d58bf0ba8bbc8f15aaac2036f5c223929eae1005a849",
@@ -17,7 +17,7 @@
     "src-tauri/Cargo.lock": "c6e998ad12ec418c35d843cdfa45b17048e01a1c1dc9cd8b5ff01d8c1dc5f2a2",
     "src-tauri/tauri.conf.json": "8ce519514de51b0214756cabae06225c0f96e50eba716c3354eb3e6723806513",
     "src-tauri/src/semantic_indexer.rs": "b77287aa3a30340f90b66f8b18ce825c90eb02e5769ead3f78b1326ece9c85b5",
-    "scripts/dependency-inventory.mjs": "061e7bd348c985d44e5d0b72ba6be36daea4b448146b7f8c00c73ab7be532b69",
+    "scripts/dependency-inventory.mjs": "0a8ef0a1a6969ffcd7098b328e5e1cbb0f18522ddc5af0c7f97766d9e6806aa9",
     "src-tauri/icons/32x32.png": "1c6782dc65c8111c12cbc1882a0fea5e71ab8e51b18da2ce9580f5c88860ed02",
     "src-tauri/icons/128x128.png": "19b4fec485db7df51a691fcce72a3dd6f983e754fc4262da7154e4a4c688f69e",
     "src-tauri/icons/128x128@2x.png": "6c7660390d65217fe8de0892862254f47aee77e0af7096c75b8bfe168c5403f7",

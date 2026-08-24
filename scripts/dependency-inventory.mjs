@@ -220,7 +220,7 @@ export function buildInventory(repositoryRoot = REPOSITORY_ROOT) {
       npmLockPackages: Object.keys(packageLock.packages ?? {}).filter(Boolean).length,
       limitation:
         "Rust entries are the union of locked macOS arm64/x64 normal and build graphs. " +
-        "The Cargo.lock count is a conservative all-platform superset; Windows and Linux remain release checks.",
+        "The Cargo.lock count is a conservative all-platform superset; per-platform resolved-graph review remains a release check.",
     },
     inputs: Object.fromEntries(HASHED_INPUTS.map((path) => [path, sha256(join(repositoryRoot, path))])),
     securityRelevantFeatures: SECURITY_RELEVANT_FEATURES,
