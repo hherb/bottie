@@ -1,5 +1,6 @@
 <script lang="ts">
   import { isTauri } from "@tauri-apps/api/core";
+  import { onMount } from "svelte";
 
   import AppearancePreferences from "$lib/AppearancePreferences.svelte";
   import Icon from "$lib/Icon.svelte";
@@ -7,7 +8,7 @@
   import LocalmailSettingsControl from "$lib/LocalmailSettingsControl.svelte";
   import ConversationRetentionControl from "$lib/ConversationRetentionControl.svelte";
   import WebNetworkPolicyControl from "$lib/WebNetworkPolicyControl.svelte";
-  import { DEFAULT_PROVIDER_SETTINGS } from "$lib/presentation";
+  import { DEFAULT_PROVIDER_SETTINGS, diagnosticTime } from "$lib/presentation";
   import {
     exportDiagnostics,
     getDiagnostics,
@@ -25,6 +26,7 @@
     type WebSearchProviderId,
   } from "$lib/inference";
   import { cloneWebNetworkPolicy } from "$lib/web-policy";
+  import { focusFirstModalControl, trapModalFocus } from "$lib/modal-focus";
   import type { AppearancePreferences as AppearancePreferenceValues } from "$lib/appearance";
   import { CONNECTION_POLICY, PROVIDER_SETTINGS, SEARCH_PROVIDER_SETTINGS } from "$lib/provider-settings-options";
 
@@ -82,6 +84,9 @@
     brave: false,
     exa: false,
   });
+  let dialog = $state<HTMLDivElement>();
+
+  onMount(() => focusFirstModalControl(dialog));
 
   $effect(() => {
     if (!draftInitialized) {
@@ -94,14 +99,6 @@
     void refreshDiagnostics();
     void refreshCredentialStatus();
   });
-
-  /** Returns a compact local time for one diagnostic timestamp. */
-  function diagnosticTime(timestampMs: number): string {
-    return new Date(timestampMs).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
 
   /** Refreshes the secret-redacted session diagnostic list. */
   async function refreshDiagnostics(): Promise<void> {
@@ -154,6 +151,12 @@
   /** Closes the dialog unless a settings write is active. */
   function close(): void {
     if (!settingsSaving) onclose();
+  }
+
+  /** Handles modal dismissal and focus containment from every Settings control. */
+  function handleWindowKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape") close();
+    else trapModalFocus(event, dialog);
   }
 
   /** Tests one draft endpoint without changing the active provider configuration. */
@@ -218,11 +221,18 @@
   }
 </script>
 
-<svelte:window onkeydown={(event) => event.key === "Escape" && close()} />
+<svelte:window onkeydown={handleWindowKeydown} />
 
 <div class="settings-layer">
-  <button class="settings-scrim" aria-label="Close provider settings" onclick={close}></button>
-  <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="provider-settings-title">
+  <button class="settings-scrim" aria-label="Close provider settings" tabindex="-1" onclick={close}></button>
+  <div
+    bind:this={dialog}
+    class="settings-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="provider-settings-title"
+    aria-describedby="provider-settings-description"
+  >
     <header class="settings-header">
       <div>
         <span class="eyebrow">Local and native configuration</span>
@@ -236,7 +246,7 @@
     <form class="settings-content" onsubmit={save}>
       <AppearancePreferences {appearance} onchange={onappearancechange} />
 
-      <p class="settings-intro">
+      <p id="provider-settings-description" class="settings-intro">
         Local routes require loopback endpoints. Cloud routes require HTTPS and keep API keys in the operating-system
         credential vault; keys are never returned to the interface.
       </p>
@@ -308,7 +318,12 @@
             >
           </div>
           {#if test.message}
-            <p class:error={test.status === "error"} class:success={test.status === "success"} class="test-result">
+            <p
+              class:error={test.status === "error"}
+              class:success={test.status === "success"}
+              class="test-result"
+              role={test.status === "error" ? "alert" : "status"}
+            >
               {test.message}
             </p>
           {/if}
@@ -399,7 +414,12 @@
             Connection test sends one fixed bounded probe and does not expose search results.
           </p>
           {#if test.message}
-            <p class:error={test.status === "error"} class:success={test.status === "success"} class="test-result">
+            <p
+              class:error={test.status === "error"}
+              class:success={test.status === "success"}
+              class="test-result"
+              role={test.status === "error" ? "alert" : "status"}
+            >
               {test.message}
             </p>
           {/if}
@@ -460,9 +480,9 @@
       </section>
 
       {#if !isTauri()}
-        <p class="settings-error">Provider settings are read-only in the browser preview.</p>
+        <p class="settings-error" role="status">Provider settings are read-only in the browser preview.</p>
       {:else if isGenerating}
-        <p class="settings-error">Stop the active generation before changing provider settings.</p>
+        <p class="settings-error" role="status">Stop the active generation before changing provider settings.</p>
       {:else if settingsError}
         <p class="settings-error" role="alert">{settingsError}</p>
       {/if}

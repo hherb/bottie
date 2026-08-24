@@ -70,7 +70,13 @@
   }
 </script>
 
-<aside class:closed={!open} class="context-panel" aria-label="Conversation context">
+<aside
+  class:closed={!open}
+  class="context-panel"
+  aria-label="Conversation context"
+  aria-hidden={!open}
+  inert={!open ? true : undefined}
+>
   <div class="context-header">
     <div>
       <span class="eyebrow">This conversation</span>

@@ -44,7 +44,7 @@
   font-size: 16px;
 }
 .command-search input::placeholder {
-  color: #74727e;
+  color: var(--subtle-text);
 }
 .command-search > kbd {
   padding: 4px 7px;
@@ -121,7 +121,7 @@
   min-height: 37px;
   padding: 0 16px;
   border-top: 1px solid var(--line);
-  color: #74717d;
+  color: var(--subtle-text);
   font-size: 8.5px;
 }
 .command-footer span:last-child {

@@ -247,7 +247,7 @@
 .flow-step small {
   overflow: hidden;
   margin-top: 3px;
-  color: #777581;
+  color: var(--subtle-text);
   font-size: 7.5px;
   text-overflow: ellipsis;
   white-space: nowrap;

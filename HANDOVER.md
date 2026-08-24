@@ -242,8 +242,8 @@ EmbeddingGemma terms, artwork provenance, and Windows/Linux verification. The ke
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
-Dark themes plus Comfortable and Compact density are now complete. The next bounded product slice is refined
-empty/offline/error states. Do not bundle dependency upgrades or remediation, Email provenance cards,
+Dark themes plus Comfortable and Compact density are now complete. Refined empty/offline/error states and the focused
+WebView accessibility audit are also complete. Do not bundle dependency upgrades or remediation, Email provenance cards,
 attachment download or opening, Localmail administration, outbound mail, migration-recovery UI, a new feature schema,
 automatic retrieval injection, model-cache deletion, packaging, signing, updates, or release work.
 
@@ -268,7 +268,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/keyboard-command-palette`.
+branch `codex/accessibility-audit`.
 
 ## Current implementation
 
@@ -804,16 +804,76 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: focused accessibility audit and reduced-motion verification
+## Next bounded product slice: performance tests for long conversations and large histories
 
-Audit the existing conversation shell, composer, navigation, Context, Settings, first-run, recovery, and command-palette
-surfaces as one WebView-only accessibility slice. Verify keyboard order and focus return, accessible names and state,
-status announcements, dark/light contrast, zoom containment, and reduced-motion behavior at the desktop and native
-minimum viewports. Fix only presentation semantics and styling found by that audit. Keep native/provider contracts,
-retry and recovery policy, persistence, IPC/schema, dependencies, network behavior, performance testing, native menu
-or tray work, packaging, signing, updates, and release work unchanged.
+Add reproducible performance fixtures and budgets for loading, searching, switching, rendering, and scrolling long
+selected lineages plus large active/Archived conversation lists. Measure before changing behavior, then fix only a
+demonstrated bottleneck behind the existing storage, branch, search, and WebView contracts. Keep schema, provider/tool
+behavior, network access, native menu/tray work, packaging, signing, updates, and release work unchanged.
 
-## Most recently completed product slice: refined empty, offline, and error states
+## Most recently completed product slice: focused accessibility audit and reduced-motion verification
+
+### Goal
+
+Audit the existing conversation shell, composer, navigation, Context, Settings, first-run, recovery, and command
+palette as one WebView-only slice, then correct only presentation semantics and styling found by that audit.
+
+### Implemented shape
+
+1. Collapsed responsive conversation navigation and Context are now removed from keyboard and assistive-technology
+   navigation. Closing either overlay restores focus to its toolbar toggle.
+2. Settings now receives initial focus, describes its routing boundary, traps Tab/Shift+Tab, announces test and error
+   outcomes, and restores the visible invoking control. A hidden mobile-sidebar invoker falls back to the visible
+   conversation toggle. The existing first-run modal retains its own focus trap and remount focus.
+3. Command-palette options remain owned by the focused combobox through `aria-activedescendant` instead of adding a
+   second Tab sequence. Its bounded help text now describes the dialog, and Escape still restores the exact invoker.
+4. Conversation action disclosures identify their controlled region, focus the first action on open, return focus on
+   Escape, and restore the Manage control after rename cancellation. Existing lifecycle and forget actions are
+   unchanged.
+5. Composer guidance is programmatically associated with the message field and announced politely when attachment
+   readiness changes. Recovery exposes busy state and distinguishes failure alerts from ordinary progress.
+6. One dark/light `--subtle-text` token raises small supporting copy to at least the WCAG 4.5:1 normal-text contrast
+   ratio. Global focus treatment now covers inputs, selects, links, and disclosures as well as buttons and textareas;
+   the existing reduced-motion policy still collapses all animation/transition duration and removes ambient effects.
+
+### Acceptance and explicit exclusions
+
+- Keyboard order, focus entry/containment/return, accessible names/state, and status announcements are explicit across
+  the audited surfaces.
+- Dark and light supporting-text tokens meet 4.5:1 against their base backgrounds. Desktop, native-minimum, and
+  zoom-equivalent layouts remain horizontally contained.
+- Collapsed responsive panels expose no visible focus targets. The reduced-motion override remains deterministic and
+  introduces no replacement motion.
+- No native/provider contract, retry or recovery policy, persistence, IPC/schema, dependency, network behavior,
+  performance work, native menu/tray behavior, packaging, signing, update, or release behavior changed.
+
+### Verification completed
+
+Focused TDD first failed across eight accessibility contracts. Rendered component tests now cover collapsed Context
+semantics, Settings description, command-palette ownership, composer guidance, conversation disclosure ownership, and
+recovery busy/status/alert behavior. A CSS policy test verifies dark/light contrast, hidden responsive navigation, and
+the global reduced-motion override. Prettier accepts all tracked frontend and script sources; `svelte-check` reports
+zero errors or warnings; all 33 root Vitest files and 112 tests pass; and the production build succeeds.
+
+Cargo formatting and compilation pass. The unchanged Rust suite has 416 tests: 387 pass by default and 29 loopback,
+public-network, credential, or live-provider checks remain explicitly ignored. `git diff --check` is clean.
+
+The browser preview was reviewed at 1320 x 820 and the 720 x 620 native minimum in dark and light themes, plus a
+660 x 410 zoom-equivalent layout. Exact DOM measurements show zero horizontal document overflow. Collapsed sidebar and
+Context controls have zero visible focus targets; Settings and command-palette focus containment/return were exercised;
+Settings remains internally scrollable at the zoom-equivalent size. The browser console reported no warnings or
+errors. Parsed and tested reduced-motion rules cap all animation and transition duration at 0.01 ms, limit iteration to
+one, disable smooth scrolling, and remove ambient decoration; the host OS did not expose an enabled reduced-motion
+preference for a separate live-media-query run.
+
+The native development app compiled, development-signed, launched against the existing store, and stopped cleanly.
+Immutable read-only inspection returned schema version 21, `quick_check=ok`, zero foreign-key failures, an exact
+21-row migration ledger, 18 conversations, 100 messages, 44 provider runs, and 29 matched tool invocation/result rows.
+This WebView-only slice adds no schema or live-store mutation. Native controls were not synthetically clicked; focused
+rendered coverage and the browser interaction audit exercise the changed presentation contracts. Live-provider tests
+are not applicable because the slice changes no provider networking or wire mapping.
+
+## Prior completed product slice: refined empty, offline, and error states
 
 ### Goal
 

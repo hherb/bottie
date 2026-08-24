@@ -15,7 +15,7 @@
 }
 .diagnostics-empty {
   margin: 12px 0 2px;
-  color: #65636e;
+  color: var(--subtle-text);
   font-size: 8.5px;
 }
 .diagnostics-export-feedback {

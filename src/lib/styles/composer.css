@@ -90,7 +90,7 @@
 }
 .more-files {
   align-self: center;
-  color: #777581;
+  color: var(--subtle-text);
   font-size: 9px;
 }
 textarea {
@@ -109,7 +109,7 @@ textarea {
   line-height: 1.5;
 }
 textarea::placeholder {
-  color: #6e6c77;
+  color: var(--subtle-text);
 }
 textarea:disabled {
   cursor: not-allowed;
@@ -179,14 +179,14 @@ textarea:disabled {
 }
 .composer-note {
   margin: 7px auto 0;
-  color: #55535d;
+  color: var(--subtle-text);
   font-size: 8px;
   text-align: center;
 }
 .email-boundary-note {
   width: min(760px, 100%);
   margin: 5px auto 0;
-  color: #777581;
+  color: var(--subtle-text);
   font-size: 8px;
   line-height: 1.45;
   text-align: center;

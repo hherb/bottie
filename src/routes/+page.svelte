@@ -48,6 +48,7 @@
   const state = new PageState();
   let appearanceController: AppearanceController | null = null;
   let commandPaletteInvoker: HTMLElement | null = null;
+  let settingsInvoker: HTMLElement | null = null;
 
   onMount(() => {
     appearanceController = createAppearanceController({
@@ -99,6 +100,40 @@
     document.querySelector<HTMLElement>(selector)?.focus();
   }
 
+  /** Opens Settings and retains a still-mounted invoking control for focus restoration. */
+  function openSettings(invoker: HTMLElement | null): void {
+    settingsInvoker = invoker;
+    state.showSettings = true;
+    state.showSidebar = false;
+  }
+
+  /** Closes Settings, refreshes Email readiness, and restores the invoking control when possible. */
+  async function closeSettings(): Promise<void> {
+    state.showSettings = false;
+    void state.email.refresh();
+    await tick();
+    if (settingsInvoker?.isConnected && getComputedStyle(settingsInvoker).visibility !== "hidden") {
+      settingsInvoker.focus();
+    } else if (settingsInvoker) {
+      document.querySelector<HTMLElement>("#conversation-sidebar-toggle")?.focus();
+    }
+    settingsInvoker = null;
+  }
+
+  /** Closes responsive conversation navigation and returns focus to its toolbar toggle. */
+  async function closeSidebar(): Promise<void> {
+    state.showSidebar = false;
+    await tick();
+    document.querySelector<HTMLElement>("#conversation-sidebar-toggle")?.focus();
+  }
+
+  /** Closes Context from its own control and returns focus to the toolbar toggle. */
+  async function closeContext(): Promise<void> {
+    state.showContext = false;
+    await tick();
+    document.querySelector<HTMLElement>("#context-panel-toggle")?.focus();
+  }
+
   /** Returns the current command registry from shell-owned reactive availability. */
   function commandItems(): CommandPaletteItem[] {
     return state.commandPalette.items({
@@ -112,6 +147,7 @@
   async function runCommand(id: CommandId): Promise<void> {
     const command = commandItems().find((item) => item.id === id);
     if (!command || command.disabledReason) return;
+    const invoker = commandPaletteInvoker;
     await closeCommandPalette(false);
     if (id === "new-chat") {
       await state.startNewChat();
@@ -124,10 +160,7 @@
       await tick();
       document.querySelector<HTMLElement>("#context-panel-toggle")?.focus();
     } else {
-      state.showSettings = true;
-      state.showSidebar = false;
-      await tick();
-      document.querySelector<HTMLElement>(".settings-dialog button")?.focus();
+      openSettings(invoker);
     }
   }
 
@@ -187,7 +220,7 @@
       isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
       newChatShortcut={commandItems().find((item) => item.id === "new-chat")?.shortcut ?? "Ctrl N"}
       searchShortcut={commandItems().find((item) => item.id === "search-conversations")?.shortcut ?? "Ctrl ⇧ F"}
-      onclose={() => (state.showSidebar = false)}
+      onclose={() => void closeSidebar()}
       onnewchat={() => void state.startNewChat()}
       onselectconversation={(conversationId) => void state.openConversation(conversationId)}
       onsearch={(query) => void state.history.search(query)}
@@ -206,10 +239,7 @@
       }}
       onrestoreconversation={(conversationId) => void state.history.restore(conversationId)}
       onforgetconversation={(conversationId) => void state.history.forget(conversationId)}
-      onopensettings={() => {
-        state.showSettings = true;
-        state.showSidebar = false;
-      }}
+      onopensettings={(invoker) => openSettings(invoker)}
     />
 
     <main class="workspace">
@@ -332,7 +362,7 @@
       attachmentActionsDisabled={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
       memoryCitations={state.memory.citations(state.messages)}
       webSources={state.web.sources(state.messages)}
-      onclose={() => (state.showContext = false)}
+      onclose={() => void closeContext()}
       onadd={() => void state.attachment.openPicker()}
       onremove={(id) => state.attachment.remove(id)}
       onkeep={(attachmentId) => void state.keepDraftAttachmentInConversation(attachmentId)}
@@ -359,7 +389,7 @@
         canComplete={state.canSend}
         isSaving={state.firstRun.isSaving}
         error={state.firstRun.error}
-        onopensettings={() => (state.showSettings = true)}
+        onopensettings={() => openSettings(null)}
         oncomplete={() =>
           void state.firstRun.complete(state.canSend, (settings) => (state.providerSettings = settings))}
       />
@@ -371,10 +401,7 @@
         appearance={state.appearance}
         isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
         onappearancechange={updateAppearance}
-        onclose={() => {
-          state.showSettings = false;
-          void state.email.refresh();
-        }}
+        onclose={() => void closeSettings()}
         onsaved={(settings) => state.applyProviderSettings(settings)}
       />
     {/if}

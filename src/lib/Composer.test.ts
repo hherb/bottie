@@ -59,6 +59,9 @@ describe("Composer", () => {
     const html = renderedComposer(true, false);
 
     expect(html).toMatch(/<textarea(?![^>]* disabled)/);
+    expect(html).toContain('aria-describedby="composer-guidance composer-email-guidance"');
+    expect(html).toContain('id="composer-guidance"');
+    expect(html).toContain('aria-live="polite"');
     expect(html).toMatch(/<button[^>]*class="send-button"[^>]* disabled/);
   });
 

@@ -20,6 +20,39 @@ function attachment(id: string, name: string): Attachment {
 }
 
 describe("ContextPanel", () => {
+  it("removes a closed panel from keyboard and assistive-technology navigation", () => {
+    const html = render(ContextPanel, {
+      props: {
+        open: false,
+        attachments: [],
+        conversationAttachments: [],
+        messageAttachments: [],
+        canKeepInConversation: false,
+        selectedModel: undefined,
+        selectedProviderEndpoint: "127.0.0.1:11434",
+        providerStatus: "available",
+        isLocalRoute: true,
+        webEnabled: false,
+        isAddingAttachments: false,
+        attachmentFeedback: null,
+        attachmentFailed: false,
+        attachmentActionsDisabled: false,
+        memoryCitations: [],
+        webSources: [],
+        onclose: vi.fn(),
+        onadd: vi.fn(),
+        onremove: vi.fn(),
+        onkeep: vi.fn(),
+        onremoveconversation: vi.fn(),
+        onremovemessage: vi.fn(),
+        onremovememory: vi.fn(),
+        onremovewebsource: vi.fn(),
+      },
+    }).body;
+
+    expect(html).toMatch(/<aside[^>]*aria-hidden="true"[^>]*inert/);
+  });
+
   it("distinguishes next-message, conversation, and message attachment ownership", () => {
     const draft = attachment("draft", "draft.txt");
     const conversation = attachment("conversation", "conversation.txt");

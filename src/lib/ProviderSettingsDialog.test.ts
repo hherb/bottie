@@ -37,6 +37,9 @@ describe("ProviderSettingsDialog", () => {
     expect(html).toContain("System");
     expect(html).toContain("Comfortable");
     expect(html).toContain("Compact");
+    expect(html).toContain('aria-describedby="provider-settings-description"');
+    expect(html).toContain('id="provider-settings-description"');
+    expect(html.match(/Local routes require loopback endpoints\./g)).toHaveLength(1);
     expect(html).not.toContain("Enable web search tool");
   });
 });
