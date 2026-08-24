@@ -11,7 +11,7 @@
     "limitation": "Rust entries are the union of locked macOS arm64/x64 normal and build graphs. The Cargo.lock count is a conservative all-platform superset; Windows and Linux remain release checks."
   },
   "inputs": {
-    "package.json": "f26f86ff534ad1931d844cb11658b07e102cfd1acbe4fb674d86605495ae7fd0",
+    "package.json": "9532e435446ce4d357a46ca3351087efdeb9eb391ad3eac5a086643afa44ae9c",
     "package-lock.json": "b9bc6c566bb14eb271000789e3f05f87adc7d7821c258f3ced02584e4ed67312",
     "src-tauri/Cargo.toml": "c2b29077e7b11c102dddcb3cf4ad8eb2a5eca6cad29f952511c4715914a7fcf8",
     "src-tauri/Cargo.lock": "c6e998ad12ec418c35d843cdfa45b17048e01a1c1dc9cd8b5ff01d8c1dc5f2a2",

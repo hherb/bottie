@@ -247,39 +247,39 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 
 Outcome: bottie is safe and comfortable enough for sustained daily use.
 
-- first-run provider and privacy setup (complete);
-- automatic backup rotation, corruption recovery, and staged migration promotion rollback (complete);
-- crash-safe partial messages and interrupted indexing recovery (complete);
-- structured local diagnostics with redaction and opt-in export (complete);
-- first-party Localmail HTTPS origin, explicit certificate trust, bounded connection testing, and vault-held bearer
-  authentication foundation (complete);
-- first-party Localmail `search_email` contract with closed filters, one pinned authenticated search call, bounded
-  inert path-free summaries, and no email-body or attachment-content exposure (complete);
-- first-party Localmail `open_email` contract over exact search-result identities with one pinned authenticated detail
-  call, external images disabled, bounded inert header/body text, and no HTML or attachment-byte exposure (complete);
-- provider-independent closed Localmail tool definitions, strict raw conversion into the existing connector requests,
-  safe read-only policy entries, and bounded redacted dispatch (complete);
-- off-by-default session Email enablement for explicitly tool-capable Ollama models, with configured native trust and
-  credential gating, bounded multi-round execution, durable audit, and explicit loopback/Localmail disclosure
-  (complete);
-- explicit OpenAI-compatible Email mapping with exact Chat Completions call/result correlation, the same configured
-  native trust and loop bounds, and cloud-provider/Localmail delivery disclosure (complete);
-- explicit Anthropic-compatible Email mapping with exact Messages `tool_use`/`tool_result` block correlation,
+- [x] first-run provider and privacy setup;
+- [x] automatic backup rotation, corruption recovery, and staged migration promotion rollback;
+- [x] crash-safe partial messages and interrupted indexing recovery;
+- [x] structured local diagnostics with redaction and opt-in export;
+- [x] first-party Localmail HTTPS origin, explicit certificate trust, bounded connection testing, and vault-held bearer
+  authentication foundation;
+- [x] first-party Localmail `search_email` contract with closed filters, one pinned authenticated search call, bounded
+  inert path-free summaries, and no email-body or attachment-content exposure;
+- [x] first-party Localmail `open_email` contract over exact search-result identities with one pinned authenticated
+  detail call, external images disabled, bounded inert header/body text, and no HTML or attachment-byte exposure;
+- [x] provider-independent closed Localmail tool definitions, strict raw conversion into the existing connector
+  requests, safe read-only policy entries, and bounded redacted dispatch;
+- [x] off-by-default session Email enablement for explicitly tool-capable Ollama models, with configured native trust
+  and credential gating, bounded multi-round execution, durable audit, and explicit loopback/Localmail disclosure;
+- [x] explicit OpenAI-compatible Email mapping with exact Chat Completions call/result correlation, the same configured
+  native trust and loop bounds, and cloud-provider/Localmail delivery disclosure;
+- [x] explicit Anthropic-compatible Email mapping with exact Messages `tool_use`/`tool_result` block correlation,
   preserved thinking state, the same configured native trust and loop bounds, and cloud-provider/Localmail delivery
-  disclosure (complete);
-- explicit oMLX Email mapping through its discovered Chat Completions tool route, with exact call/result correlation,
-  the same configured native trust and loop bounds, and loopback-provider/Localmail delivery disclosure (complete);
-- CSP and Tauri capability review (complete);
-- secret-vault and filesystem-boundary tests (complete);
-- dependency and licence review with a locked macOS Rust/npm inventory, native/runtime asset review, and explicit
-  release gates (complete);
-- keyboard shortcuts and command palette (complete);
-- themes and density options (complete);
-- refined empty/offline/error states (complete);
-- accessibility audit and reduced-motion verification (complete);
-- performance tests for long conversations and large histories (complete);
-- macOS, Windows, and Linux packaging and smoke tests;
-- custom bottie application icon, signing, updates, and release notes.
+  disclosure;
+- [x] explicit oMLX Email mapping through its discovered Chat Completions tool route, with exact call/result
+  correlation, the same configured native trust and loop bounds, and loopback-provider/Localmail delivery disclosure;
+- [x] CSP and Tauri capability review;
+- [x] secret-vault and filesystem-boundary tests;
+- [x] dependency and licence review with a locked macOS Rust/npm inventory, native/runtime asset review, and explicit
+  release gates;
+- [x] keyboard shortcuts and command palette;
+- [x] themes and density options;
+- [x] refined empty/offline/error states;
+- [x] accessibility audit and reduced-motion verification;
+- [x] performance tests for long conversations and large histories;
+- [x] macOS packaging and smoke test;
+- [ ] Windows and Linux packaging and smoke tests;
+- [ ] custom bottie application icon, distribution signing, notarization, updates, and release notes.
 
 ## Milestone 7 — Local voice conversations
 

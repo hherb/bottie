@@ -172,6 +172,35 @@ not add to the default test duration:
 npm run performance:test
 ```
 
+### macOS package verification
+
+On a macOS host with dependencies installed from the checked-in lockfiles, build and inspect the arm64 application
+bundle with:
+
+```sh
+npm run dependencies:check
+npm run package:macos
+npm run package:macos:sign-development
+npm run package:macos:inspect
+```
+
+The build is app-only, non-interactive, skips distribution signing, and passes `--locked` to Cargo. The optional
+development-signing step uses the same identity-selection policy as `npm run tauri dev`, adds no timestamp or
+notarization, and prints no certificate identity. Inspection reports only bundle-relative paths and hashes, public
+plist metadata, architecture, signing class, and packaged native runtime files.
+
+Run the bounded launch/storage/provider-offline check separately:
+
+```sh
+npm run package:macos:smoke
+```
+
+The smoke command compiles the same locked code under the distinct `com.bottie.packaging-smoke` identity, refuses to
+replace a pre-existing support directory, points both local providers at one rejecting loopback endpoint, and removes
+only that test identity's Application Support data after termination. Fresh release executables can remain in macOS
+execution-policy evaluation for up to the command's two-minute startup allowance. This workflow does not produce a
+notarized or end-user-distributable release.
+
 Live-provider tests are ignored by default because they require explicitly configured local services and, in some
 cases, credentials. See [`HANDOVER.md`](HANDOVER.md) for the current test inventory and the evidence recorded for the
 latest completed slice.
