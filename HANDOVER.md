@@ -808,15 +808,75 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: custom application icon
+## Next bounded product slice: macOS distribution signing and notarization
 
-Replace Tauri's default application icon with one approved Bottie mark across the WebView favicon plus macOS, Windows,
-and Linux package surfaces. Record source provenance and redistribution rights, generate deterministic platform assets,
-verify required sizes/alpha plus installed-package placement, and retain the existing CSP and path-free package
-evidence. Keep distribution signing, notarization, updates, release notes, notice generation, dependency remediation,
-schema, IPC, provider/tool behavior, and network policy unchanged.
+Add one credential-free repository contract for Developer ID signing, hardened-runtime entitlements, notarization
+submission, stapling, and Gatekeeper verification of the existing macOS application bundle. Accept signing and Apple
+notary credentials only from the invoking host or protected CI secrets, retain identity-free path-safe evidence, and
+keep unsigned local packaging available. Do not publish a release, add update delivery, change Windows/Linux signing,
+rewrite the application identifier, add release notes or notice generation, remediate unrelated dependencies, or
+change schema, IPC, providers, tools, credentials, or network policy in the same slice.
 
-## Most recently completed product slice: Linux packaging and smoke test
+## Most recently completed product slice: custom application icon
+
+### Goal
+
+Replace Tauri's default artwork with one approved Bottie mark across the WebView favicon plus macOS, Windows, and Linux
+package surfaces while making source provenance, redistribution rights, generation, and installed-package evidence
+reproducible and path-free.
+
+### Implemented shape
+
+1. `assets/bottie-logo-kit` retains the editable colour SVG master, reviewed 512-pixel RGBA generation source, exact
+   64-pixel favicon source, project ownership, and MIT redistribution statement. The dependency inventory hashes those
+   sources and now classifies the delivered artwork as compatible rather than an unresolved release review.
+2. `npm run icons:generate` invokes only the repository-locked Tauri CLI, copies only desktop outputs, and
+   canonicalizes complete ICNS chunks because the upstream generator emits identical chunks in unstable order.
+   `npm run icons:check` regenerates in a process-owned temporary directory, verifies exact bytes, and removes every
+   unselected mobile output.
+3. The checked-in desktop contract requires fifteen square 8-bit RGBA PNGs from 30 through 512 pixels, a complete
+   ICNS container, a non-empty ICO directory, and the exact reviewed 64-pixel favicon. Tauri now explicitly selects
+   the 32, 64, 128, 256, ICNS, and ICO assets for platform bundling without changing CSP or WebView permissions.
+4. macOS package inspection continues to require `Contents/Resources/icon.icns`. Linux inspection requires the one
+   packaged desktop launcher's main-binary `Icon=bottie` identity, then requires 32, 64, 128, and high-density
+   256-pixel marks at Tauri's exact hicolor paths, including `256x256@2`. Windows reads only public associated-icon
+   dimensions from the administratively extracted `bottie.exe`. No host path enters evidence.
+5. The Windows and Linux pull-request workflows regenerate and compare the artwork before their real locked package
+   and isolated smoke paths, so missing or stale installed icons fail the same jobs that retain package evidence.
+
+### Acceptance and explicit exclusions
+
+The source, favicon, generated PNGs, ICNS, and ICO are bounded, transparent, reproducible, and reviewable. The real
+unsigned macOS bundle contains the canonical ICNS at its required path. Windows/Linux contract fixtures fail closed on
+missing installed icons; their real package placement remains the responsibility of the matching PR jobs rather than
+being inferred from a macOS host.
+
+Do not add distribution signing, notarization, update delivery, repository publishing, release notes, notice
+generation, dependency remediation, schema or IPC changes, provider/tool behavior, credential access, or network
+policy changes to this slice.
+
+### Verification completed
+
+Five focused icon tests cover the approved sources, exact locked generator arguments, the fifteen desktop PNG sizes,
+8-bit alpha, PNG parsing, ICNS canonicalization, platform-container validity, and exact favicon identity. Linux and
+Windows package contract suites pass eight tests each, including missing installed-icon rejection
+and the path-redacted Windows associated-icon probe. `npm run icons:check` and the regenerated dependency inventory
+match the repository state.
+
+Prettier accepts every tracked frontend/script source, `svelte-check` reports zero errors and warnings, all 36 default
+Vitest files pass 126 tests, and the production build succeeds; three frontend performance cases remain opt-in. Cargo
+formatting and compilation pass. The full Rust suite contains 417 tests: 387 pass and 30 loopback, public-network,
+credential, live-provider, or performance tests remain explicitly ignored.
+
+The locked unsigned arm64 macOS build contains a 163,986-byte canonical `Contents/Resources/icon.icns` with SHA-256
+`ade7ecb16cc578d9d0af8f405fe9f14ee988a637a092670b79efc86e001727c1`. Bundle inspection requires that exact path;
+extracting its largest representation produced a transparent 1024 x 1024 approved Bottie mark. The built WebView
+favicon has SHA-256 `767a2c4f8d4610411f9ba48fc9479d01ea40b7bd80e9b7daf002094914ab8fb8`, exactly matching the reviewed
+source. Browser preview at 1280 x 720 served that path, retained a 1280-pixel document width without overflow, and
+reported no console warnings or errors. The slice changes no schema, live store, provider traffic, or credentials, so
+native store/provider interaction and live-provider tests were not applicable.
+
+## Prior completed product slice: Linux packaging and smoke test
 
 ### Goal
 

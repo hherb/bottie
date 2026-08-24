@@ -157,6 +157,7 @@ Run the standard validation suite before submitting a change:
 ```sh
 npm run format:check
 npm run dependencies:check
+npm run icons:check
 npm run check
 npm test
 npm run build
@@ -178,6 +179,7 @@ On a macOS host with dependencies installed from the checked-in lockfiles, build
 bundle with:
 
 ```sh
+npm run icons:check
 npm run dependencies:check
 npm run package:macos
 npm run package:macos:sign-development
@@ -186,8 +188,9 @@ npm run package:macos:inspect
 
 The build is app-only, non-interactive, skips distribution signing, and passes `--locked` to Cargo. The optional
 development-signing step uses the same identity-selection policy as `npm run tauri dev`, adds no timestamp or
-notarization, and prints no certificate identity. Inspection reports only bundle-relative paths and hashes, public
-plist metadata, architecture, signing class, and packaged native runtime files.
+notarization, and prints no certificate identity. Inspection requires the generated Bottie ICNS at its application
+bundle path and reports only bundle-relative paths and hashes, public plist metadata, architecture, signing class, and
+packaged native runtime files.
 
 Run the bounded launch/storage/provider-offline check separately:
 
@@ -206,6 +209,7 @@ notarized or end-user-distributable release.
 On a Windows host with dependencies installed from the checked-in lockfiles, build and inspect the unsigned x64 MSI:
 
 ```powershell
+npm run icons:check
 npm run dependencies:check
 npm run package:windows:test
 npm run package:windows
@@ -214,8 +218,9 @@ npm run package:windows:inspect
 
 The build is MSI-only, non-interactive, skips code signing, and passes `--locked` to Cargo. Inspection uses an
 administrative `msiexec` extraction instead of installing Bottie, reports the MSI separately, and inventories only the
-app directory containing `bottie.exe`. Evidence includes relative paths and hashes, PE architecture, Authenticode
-classification, and loose native runtime files without certificate identities or host paths.
+app directory containing `bottie.exe`. Evidence includes relative paths and hashes, PE architecture, public dimensions
+from the executable's associated Bottie icon, Authenticode classification, and loose native runtime files without
+certificate identities or host paths.
 
 Run the bounded launch/storage/provider-offline check separately:
 
@@ -235,6 +240,7 @@ On an Ubuntu host with the Tauri Linux desktop prerequisites and dependencies in
 lockfiles, build and inspect the unsigned DEB:
 
 ```sh
+npm run icons:check
 npm run dependencies:check
 npm run package:linux:test
 npm run package:linux
@@ -242,9 +248,10 @@ npm run package:linux:inspect
 ```
 
 The build is DEB-only, non-interactive, skips package signing, and passes `--locked` to Cargo. Inspection extracts the
-DEB without installing Bottie and reports only archive metadata, extraction-relative payload paths and hashes, ELF
-architecture and direct shared-library requirements, and packaged native runtime files. Host paths and maintainer
-scripts are excluded from the JSON evidence.
+DEB without installing Bottie and requires the generated 32, 64, 128, and high-density 256 pixel Bottie marks at their
+exact hicolor application paths, including Tauri's `256x256@2` directory. It reports only archive metadata,
+extraction-relative payload paths and hashes, ELF architecture and direct shared-library requirements, and packaged
+native runtime files. Host paths and maintainer scripts are excluded from the JSON evidence.
 
 Run the bounded launch/storage/provider-offline check separately under an available display and D-Bus session:
 

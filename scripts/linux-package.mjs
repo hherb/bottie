@@ -19,6 +19,7 @@ const SMOKE_SETTLE_MS = 3_000;
 const SMOKE_POLL_MS = 100;
 const TERMINATION_TIMEOUT_MS = 5_000;
 const MAX_CAPTURED_OUTPUT_BYTES = 16_384;
+const MAX_DESKTOP_ENTRY_BYTES = 65_536;
 const ELF_MACHINE_OFFSET = 18;
 const ELF_HEADER_MINIMUM_BYTES = 20;
 const ELF_SIGNATURE_BYTES = Buffer.from([0x7f, 0x45, 0x4c, 0x46]);
@@ -28,6 +29,7 @@ const ELF_MACHINES = new Map([
   [0x3e, "x86_64"],
   [0xb7, "aarch64"],
 ]);
+const INSTALLED_ICON_DIRECTORIES = ["32x32", "64x64", "128x128", "256x256@2"];
 
 /** Returns the exact locked, DEB-only Tauri arguments used by the package command. */
 export function linuxBuildArguments() {
@@ -61,6 +63,18 @@ export function smokeXdgDirectories(root) {
     support: join(root, "data", SMOKE_IDENTIFIER),
     settings: join(root, "config", SMOKE_IDENTIFIER, "providers.json"),
   };
+}
+
+/** Reads one closed Bottie icon identity from a packaged freedesktop launcher. */
+export function packagedLinuxIconName(desktopEntry) {
+  const names = desktopEntry
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("Icon="))
+    .map((line) => line.slice("Icon=".length));
+  if (names.length !== 1 || names[0] !== LINUX_EXECUTABLE_NAME) {
+    throw new Error("The Linux desktop launcher has an invalid Bottie icon identity.");
+  }
+  return names[0];
 }
 
 /** Converts a host-relative path into a portable package-evidence path. */
@@ -120,6 +134,24 @@ export async function inspectExtractedLinuxBundle(bundlePath) {
     .filter((file) => /(^|\/)[^/]+\.so(?:\..+)?$/.test(file.path))
     .map((file) => file.path)
     .sort();
+  const desktopEntries = files.filter(
+    (file) => /^usr\/share\/applications\/[^/]+\.desktop$/.test(file.path) && file.type === "file",
+  );
+  if (desktopEntries.length !== 1 || desktopEntries[0].size > MAX_DESKTOP_ENTRY_BYTES) {
+    throw new Error("The Linux bundle must contain one bounded desktop launcher.");
+  }
+  const desktopEntryPath = join(root, ...desktopEntries[0].path.split("/"));
+  const iconName = packagedLinuxIconName(await readFile(desktopEntryPath, "utf8"));
+  const expectedInstalledIcons = INSTALLED_ICON_DIRECTORIES.map(
+    (directory) => `usr/share/icons/hicolor/${directory}/apps/${iconName}.png`,
+  ).sort();
+  const installedIcons = files
+    .filter((file) => /^usr\/share\/icons\/hicolor\/\d+x\d+(?:@2)?\/apps\/[^/]+\.png$/.test(file.path))
+    .map((file) => file.path)
+    .sort();
+  if (JSON.stringify(installedIcons) !== JSON.stringify(expectedInstalledIcons)) {
+    throw new Error(`The Linux bundle has an invalid Bottie application icon set: ${JSON.stringify(installedIcons)}.`);
+  }
   const digest = createHash("sha256");
   for (const file of files) digest.update(`${file.type}\0${file.path}\0${file.sha256}\0`);
   const executablePath = join(root, ...executables[0].path.split("/"));
@@ -128,6 +160,7 @@ export async function inspectExtractedLinuxBundle(bundlePath) {
     bundleDigest: digest.digest("hex"),
     executable: executables[0].path,
     fileCount: files.length,
+    installedIcons,
     totalBytes: files.reduce((total, file) => total + file.size, 0),
     nativeRuntimeAssets,
     files,

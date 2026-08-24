@@ -19,6 +19,7 @@ const SMOKE_SETTLE_MS = 3_000;
 const SMOKE_POLL_MS = 100;
 const TERMINATION_TIMEOUT_MS = 5_000;
 const MAX_CAPTURED_OUTPUT_BYTES = 16_384;
+const MAX_EMBEDDED_ICON_DIMENSION = 256;
 const PE_OFFSET_POSITION = 0x3c;
 const PE_MACHINE_OFFSET = 4;
 const PE_SIGNATURE_BYTES = Buffer.from([0x50, 0x45, 0x00, 0x00]);
@@ -60,6 +61,33 @@ export function classifyAuthenticodeStatus(status) {
   if (status === "NotSigned") return "unsigned";
   if (status === "Valid") return "identified";
   return "untrusted";
+}
+
+/** Returns the bounded PowerShell probe for an installed executable's embedded icon. */
+export function embeddedIconPowerShellScript() {
+  return [
+    "Add-Type -AssemblyName System.Drawing.Common",
+    "$icon = [System.Drawing.Icon]::ExtractAssociatedIcon($env:BOTTIE_WINDOWS_INSPECT_PATH)",
+    "if ($null -eq $icon) { throw 'The Bottie executable has no associated icon.' }",
+    'Write-Output "$($icon.Width)x$($icon.Height)"',
+  ].join("; ");
+}
+
+/** Parses bounded public dimensions returned by the installed executable icon probe. */
+export function parseEmbeddedIconDimensions(output) {
+  const match = /^(\d+)x(\d+)$/.exec(output);
+  const width = Number(match?.[1]);
+  const height = Number(match?.[2]);
+  if (
+    !match ||
+    width < 1 ||
+    height < 1 ||
+    width > MAX_EMBEDDED_ICON_DIMENSION ||
+    height > MAX_EMBEDDED_ICON_DIMENSION
+  ) {
+    throw new Error("The packaged Bottie executable returned invalid embedded-icon evidence.");
+  }
+  return { height, width };
 }
 
 /** Converts a host-relative path into a portable package-evidence path. */
@@ -135,6 +163,16 @@ function inspectAuthenticode(path) {
   return { classification: classifyAuthenticodeStatus(status), verifies: status === "Valid" };
 }
 
+/** Extracts only public dimensions from the installed executable's embedded icon resource. */
+function inspectEmbeddedIcon(path) {
+  const output = runHostCommand(
+    "pwsh.exe",
+    ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", embeddedIconPowerShellScript()],
+    { env: { ...process.env, BOTTIE_WINDOWS_INSPECT_PATH: path } },
+  ).trim();
+  return parseEmbeddedIconDimensions(output);
+}
+
 /** Reads the architecture from one Portable Executable without invoking host tooling. */
 async function inspectPortableExecutableArchitecture(path) {
   const bytes = await readFile(path);
@@ -179,6 +217,7 @@ async function inspectWindowsMsi(msiPath, extractedDirectory) {
     payload: {
       ...payload,
       architecture: await inspectPortableExecutableArchitecture(executablePath),
+      embeddedIcon: inspectEmbeddedIcon(executablePath),
       signature: inspectAuthenticode(executablePath),
     },
   };
