@@ -280,7 +280,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] macOS packaging and smoke test;
 - [x] Windows packaging and smoke test;
 - [x] Linux packaging and smoke test;
-- [ ] custom bottie application icon, distribution signing, notarization, updates, and release notes.
+- [x] custom bottie application icon with deterministic WebView and platform package assets;
+- [ ] distribution signing, notarization, updates, and release notes.
 
 ## Milestone 7 — Local voice conversations
 

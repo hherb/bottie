@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Bottie logo mark</title>
+  <desc id="desc">A geometric letter B with a speech-bubble counter, orbital sweep, and coral spark.</desc>
+  <defs>
+    <mask id="bubble-cutout">
+      <rect width="512" height="512" fill="white"/>
+      <path d="M174 177h114c45 0 76 29 76 70v30c0 41-31 70-76 70h-49l-46 39 10-39h-29c-45 0-76-29-76-70v-30c0-41 31-70 76-70Z" fill="black"/>
+    </mask>
+  </defs>
+  <path fill="#2437A5" mask="url(#bubble-cutout)" d="M100 65h170c95 0 150 47 150 125 0 45-24 80-65 102 51 19 83 59 83 113 0 77-63 107-163 107H100V65Z"/>
+  <path d="M53 344C124 441 310 452 441 323" fill="none" stroke="#2437A5" stroke-width="24" stroke-linecap="round"/>
+  <path fill="#FF675C" d="M422 59c5 25 18 38 43 43-25 5-38 18-43 43-5-25-18-38-43-43 25-5 38-18 43-43Z"/>
+</svg>

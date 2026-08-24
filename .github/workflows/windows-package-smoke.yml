@@ -6,6 +6,9 @@ on:
       - ".github/workflows/windows-package-smoke.yml"
       - "package-lock.json"
       - "package.json"
+      - "assets/bottie-logo-kit/**"
+      - "scripts/application-icons.mjs"
+      - "scripts/application-icons.test.mjs"
       - "scripts/windows-package.contract.mjs"
       - "scripts/windows-package.mjs"
       - "src/**"
@@ -42,6 +45,7 @@ jobs:
 
       - name: Verify Windows package contracts
         run: |
+          npm run icons:check
           node --check scripts/windows-package.mjs
           node --check scripts/windows-package.contract.mjs
           npm run package:windows:test

@@ -25,6 +25,15 @@ async function createExtractedBundleFixture() {
   await mkdir(join(directory, "usr", "bin"), { recursive: true });
   await mkdir(join(directory, "usr", "lib", "bottie"), { recursive: true });
   await mkdir(join(directory, "usr", "share", "applications"), { recursive: true });
+  for (const size of [32, 128, 256]) {
+    await mkdir(join(directory, "usr", "share", "icons", "hicolor", `${size}x${size}`, "apps"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(directory, "usr", "share", "icons", "hicolor", `${size}x${size}`, "apps", "bottie.png"),
+      `icon-${size}`,
+    );
+  }
   await writeFile(join(directory, "usr", "bin", "bottie"), minimalElf("x86_64"));
   await writeFile(join(directory, "usr", "lib", "bottie", "libonnxruntime.so.1"), "native runtime");
   await writeFile(join(directory, "usr", "share", "applications", "bottie.desktop"), "[Desktop Entry]\n");
@@ -66,9 +75,21 @@ describe("Linux package evidence", () => {
     assert.equal(inspection.executable, "usr/bin/bottie");
     assert.equal(inspection.architecture, "x86_64");
     assert.deepEqual(inspection.nativeRuntimeAssets, ["usr/lib/bottie/libonnxruntime.so.1"]);
+    assert.deepEqual(inspection.installedIcons, [
+      "usr/share/icons/hicolor/128x128/apps/bottie.png",
+      "usr/share/icons/hicolor/256x256/apps/bottie.png",
+      "usr/share/icons/hicolor/32x32/apps/bottie.png",
+    ]);
     assert.deepEqual(
       inspection.files.map((file) => file.path),
-      ["usr/bin/bottie", "usr/lib/bottie/libonnxruntime.so.1", "usr/share/applications/bottie.desktop"],
+      [
+        "usr/bin/bottie",
+        "usr/lib/bottie/libonnxruntime.so.1",
+        "usr/share/applications/bottie.desktop",
+        "usr/share/icons/hicolor/128x128/apps/bottie.png",
+        "usr/share/icons/hicolor/256x256/apps/bottie.png",
+        "usr/share/icons/hicolor/32x32/apps/bottie.png",
+      ],
     );
     assert.equal(
       inspection.files.some((file) => file.path.includes(bundle)),
@@ -86,6 +107,13 @@ describe("Linux package evidence", () => {
     await writeFile(join(bundle, "opt", "bottie", "bottie"), minimalElf("aarch64"));
 
     await assert.rejects(inspectExtractedLinuxBundle(bundle), /exactly one Bottie executable/);
+  });
+
+  it("rejects an extracted payload with an incomplete installed icon set", async () => {
+    const bundle = await createExtractedBundleFixture();
+    await rm(join(bundle, "usr", "share", "icons", "hicolor", "128x128"), { recursive: true });
+
+    await assert.rejects(inspectExtractedLinuxBundle(bundle), /missing one or more required Bottie application icons/);
   });
 
   it("creates separate process-owned XDG roots and a distinct application identity", () => {

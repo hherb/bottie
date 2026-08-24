@@ -28,6 +28,11 @@ const ELF_MACHINES = new Map([
   [0x3e, "x86_64"],
   [0xb7, "aarch64"],
 ]);
+const EXPECTED_INSTALLED_ICONS = [
+  "usr/share/icons/hicolor/128x128/apps/bottie.png",
+  "usr/share/icons/hicolor/256x256/apps/bottie.png",
+  "usr/share/icons/hicolor/32x32/apps/bottie.png",
+];
 
 /** Returns the exact locked, DEB-only Tauri arguments used by the package command. */
 export function linuxBuildArguments() {
@@ -120,6 +125,13 @@ export async function inspectExtractedLinuxBundle(bundlePath) {
     .filter((file) => /(^|\/)[^/]+\.so(?:\..+)?$/.test(file.path))
     .map((file) => file.path)
     .sort();
+  const installedIcons = files
+    .filter((file) => /^usr\/share\/icons\/hicolor\/\d+x\d+\/apps\/bottie\.png$/.test(file.path))
+    .map((file) => file.path)
+    .sort();
+  if (JSON.stringify(installedIcons) !== JSON.stringify(EXPECTED_INSTALLED_ICONS)) {
+    throw new Error("The Linux bundle is missing one or more required Bottie application icons.");
+  }
   const digest = createHash("sha256");
   for (const file of files) digest.update(`${file.type}\0${file.path}\0${file.sha256}\0`);
   const executablePath = join(root, ...executables[0].path.split("/"));
@@ -128,6 +140,7 @@ export async function inspectExtractedLinuxBundle(bundlePath) {
     bundleDigest: digest.digest("hex"),
     executable: executables[0].path,
     fileCount: files.length,
+    installedIcons,
     totalBytes: files.reduce((total, file) => total + file.size, 0),
     nativeRuntimeAssets,
     files,

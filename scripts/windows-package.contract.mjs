@@ -6,9 +6,11 @@ import { afterEach, describe, it } from "node:test";
 
 import {
   classifyAuthenticodeStatus,
+  embeddedIconPowerShellScript,
   inspectExtractedWindowsBundle,
   msiAdministrativeInstallArguments,
   offlineProviderSettings,
+  parseEmbeddedIconDimensions,
   windowsBuildArguments,
   windowsSmokeBuildArguments,
 } from "./windows-package.mjs";
@@ -92,6 +94,19 @@ describe("Windows package evidence", () => {
     assert.equal(classifyAuthenticodeStatus("NotSigned"), "unsigned");
     assert.equal(classifyAuthenticodeStatus("Valid"), "identified");
     assert.equal(classifyAuthenticodeStatus("UnknownError"), "untrusted");
+  });
+
+  it("extracts only public embedded-icon dimensions from the installed executable", () => {
+    const script = embeddedIconPowerShellScript();
+
+    assert.match(script, /ExtractAssociatedIcon/);
+    assert.match(script, /BOTTIE_WINDOWS_INSPECT_PATH/);
+    assert.match(script, /Width/);
+    assert.match(script, /Height/);
+    assert.doesNotMatch(script, /Write-Output.*INSPECT_PATH/);
+    assert.deepEqual(parseEmbeddedIconDimensions("32x32"), { height: 32, width: 32 });
+    assert.throws(() => parseEmbeddedIconDimensions("0x32"), /invalid embedded-icon evidence/);
+    assert.throws(() => parseEmbeddedIconDimensions("path 32x32"), /invalid embedded-icon evidence/);
   });
 
   it("creates completed local-provider settings that can reach only the isolated endpoint", () => {

@@ -15,11 +15,18 @@ const RUST_TARGETS = ["aarch64-apple-darwin", "x86_64-apple-darwin"];
 const REVIEWED_DATE = "2026-08-24";
 const APPLICATION_ASSETS = [
   "src-tauri/icons/32x32.png",
+  "src-tauri/icons/64x64.png",
   "src-tauri/icons/128x128.png",
   "src-tauri/icons/128x128@2x.png",
   "src-tauri/icons/icon.icns",
   "src-tauri/icons/icon.ico",
   "static/favicon.png",
+];
+const APPLICATION_ASSET_SOURCES = [
+  "assets/bottie-logo-kit/README.md",
+  "assets/bottie-logo-kit/bottie-icon-512.png",
+  "assets/bottie-logo-kit/bottie-mark-color.svg",
+  "assets/bottie-logo-kit/favicon-64.png",
 ];
 const HASHED_INPUTS = [
   "package.json",
@@ -29,6 +36,8 @@ const HASHED_INPUTS = [
   "src-tauri/tauri.conf.json",
   "src-tauri/src/semantic_indexer.rs",
   "scripts/dependency-inventory.mjs",
+  "scripts/application-icons.mjs",
+  ...APPLICATION_ASSET_SOURCES,
   ...APPLICATION_ASSETS,
 ];
 const REVIEW_REQUIRED_LICENCES = ["MPL-2.0", "Python-2.0"];
@@ -260,10 +269,13 @@ function reviewedAssets(repositoryRoot) {
     {
       name: "Bottie application icons and browser favicon",
       version: "repository snapshot",
-      licence: "",
-      classification: "review-required",
+      licence: "MIT",
+      classification: "compatible",
       delivery: "Bundled in platform applications or the compiled frontend.",
-      source: null,
+      source: "assets/bottie-logo-kit/README.md",
+      generationSources: Object.fromEntries(
+        APPLICATION_ASSET_SOURCES.map((path) => [path, sha256(join(repositoryRoot, path))]),
+      ),
       files: Object.fromEntries(APPLICATION_ASSETS.map((path) => [path, sha256(join(repositoryRoot, path))])),
     },
     {

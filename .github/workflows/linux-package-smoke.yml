@@ -6,6 +6,9 @@ on:
       - ".github/workflows/linux-package-smoke.yml"
       - "package-lock.json"
       - "package.json"
+      - "assets/bottie-logo-kit/**"
+      - "scripts/application-icons.mjs"
+      - "scripts/application-icons.test.mjs"
       - "scripts/linux-package.contract.mjs"
       - "scripts/linux-package.mjs"
       - "src/**"
@@ -53,6 +56,7 @@ jobs:
 
       - name: Verify Linux package contracts
         run: |
+          npm run icons:check
           node --check scripts/linux-package.mjs
           node --check scripts/linux-package.contract.mjs
           npm run package:linux:test

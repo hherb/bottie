@@ -11,19 +11,25 @@
     "limitation": "Rust entries are the union of locked macOS arm64/x64 normal and build graphs. The Cargo.lock count is a conservative all-platform superset; per-platform resolved-graph review remains a release check."
   },
   "inputs": {
-    "package.json": "a056a45d2857475797d2d58bf0ba8bbc8f15aaac2036f5c223929eae1005a849",
+    "package.json": "f578e8b1ed38c4953b55247d0c6423d4a0653c0361a61e9c52c439edbbedc8da",
     "package-lock.json": "b9bc6c566bb14eb271000789e3f05f87adc7d7821c258f3ced02584e4ed67312",
     "src-tauri/Cargo.toml": "c2b29077e7b11c102dddcb3cf4ad8eb2a5eca6cad29f952511c4715914a7fcf8",
     "src-tauri/Cargo.lock": "c6e998ad12ec418c35d843cdfa45b17048e01a1c1dc9cd8b5ff01d8c1dc5f2a2",
-    "src-tauri/tauri.conf.json": "8ce519514de51b0214756cabae06225c0f96e50eba716c3354eb3e6723806513",
+    "src-tauri/tauri.conf.json": "f3bb2b8231c777162c28594718d42376570f7cd1ee404af53e16a7785d81929e",
     "src-tauri/src/semantic_indexer.rs": "b77287aa3a30340f90b66f8b18ce825c90eb02e5769ead3f78b1326ece9c85b5",
-    "scripts/dependency-inventory.mjs": "0a8ef0a1a6969ffcd7098b328e5e1cbb0f18522ddc5af0c7f97766d9e6806aa9",
-    "src-tauri/icons/32x32.png": "1c6782dc65c8111c12cbc1882a0fea5e71ab8e51b18da2ce9580f5c88860ed02",
-    "src-tauri/icons/128x128.png": "19b4fec485db7df51a691fcce72a3dd6f983e754fc4262da7154e4a4c688f69e",
-    "src-tauri/icons/128x128@2x.png": "6c7660390d65217fe8de0892862254f47aee77e0af7096c75b8bfe168c5403f7",
-    "src-tauri/icons/icon.icns": "3dc10493b7de48a61de58f768f8a5708d3a44a068c148cedf0502b9b9b71ba5d",
-    "src-tauri/icons/icon.ico": "392206b573a809997f3ff16fe68f456a52e931c372107eade9572b329bbe3321",
-    "static/favicon.png": "5146ed79b486cb9e1cdcdd7814cd22ae78e70ceb30fa06b4cd9a16cf121bc9e6"
+    "scripts/dependency-inventory.mjs": "fe3137598cb5dbd9be52f1143bd2dd2fc09b9afa55d2fe42dbac564411100612",
+    "scripts/application-icons.mjs": "1307b7f746a9ef9f6920739934fd8a4aea6886f3d735e58dc0c5c016fb8ee275",
+    "assets/bottie-logo-kit/README.md": "69e80eb92e33b48d41438f7eddd4274411dbaeb0f35daed18acfc2e61b649262",
+    "assets/bottie-logo-kit/bottie-icon-512.png": "91e8f85833b157f9a2530ad97925ed9c45484b3bd6f45c596879ab0648238a1e",
+    "assets/bottie-logo-kit/bottie-mark-color.svg": "b13001902fd696ea021da2a112e824a95fe2007c2a51c52a8b83edee2abe57d6",
+    "assets/bottie-logo-kit/favicon-64.png": "767a2c4f8d4610411f9ba48fc9479d01ea40b7bd80e9b7daf002094914ab8fb8",
+    "src-tauri/icons/32x32.png": "4ed9793922b570dd1180d39bc29df6a84f6432c48d0389cc8df7e222d4eeddd7",
+    "src-tauri/icons/64x64.png": "4c0fa2249921fac5d0524a80d6eafc42339b768adce08b7013de62f65cff44cd",
+    "src-tauri/icons/128x128.png": "0b7619f59224bbdc71c082f736a8575d83dbfc784c505aef8cae8e02078c8646",
+    "src-tauri/icons/128x128@2x.png": "8b889e5d614096b2dd1aa1dec5104331422a748b673abd0789137d946bb3231a",
+    "src-tauri/icons/icon.icns": "ade7ecb16cc578d9d0af8f405fe9f14ee988a637a092670b79efc86e001727c1",
+    "src-tauri/icons/icon.ico": "48f29ff6a83bc682fd040c9b0923c616aa9d0f6e38c55256f854d912360cafe3",
+    "static/favicon.png": "767a2c4f8d4610411f9ba48fc9479d01ea40b7bd80e9b7daf002094914ab8fb8"
   },
   "securityRelevantFeatures": [
     {
@@ -76,17 +82,24 @@
     {
       "name": "Bottie application icons and browser favicon",
       "version": "repository snapshot",
-      "licence": "",
-      "classification": "review-required",
+      "licence": "MIT",
+      "classification": "compatible",
       "delivery": "Bundled in platform applications or the compiled frontend.",
-      "source": null,
+      "source": "assets/bottie-logo-kit/README.md",
+      "generationSources": {
+        "assets/bottie-logo-kit/README.md": "69e80eb92e33b48d41438f7eddd4274411dbaeb0f35daed18acfc2e61b649262",
+        "assets/bottie-logo-kit/bottie-icon-512.png": "91e8f85833b157f9a2530ad97925ed9c45484b3bd6f45c596879ab0648238a1e",
+        "assets/bottie-logo-kit/bottie-mark-color.svg": "b13001902fd696ea021da2a112e824a95fe2007c2a51c52a8b83edee2abe57d6",
+        "assets/bottie-logo-kit/favicon-64.png": "767a2c4f8d4610411f9ba48fc9479d01ea40b7bd80e9b7daf002094914ab8fb8"
+      },
       "files": {
-        "src-tauri/icons/32x32.png": "1c6782dc65c8111c12cbc1882a0fea5e71ab8e51b18da2ce9580f5c88860ed02",
-        "src-tauri/icons/128x128.png": "19b4fec485db7df51a691fcce72a3dd6f983e754fc4262da7154e4a4c688f69e",
-        "src-tauri/icons/128x128@2x.png": "6c7660390d65217fe8de0892862254f47aee77e0af7096c75b8bfe168c5403f7",
-        "src-tauri/icons/icon.icns": "3dc10493b7de48a61de58f768f8a5708d3a44a068c148cedf0502b9b9b71ba5d",
-        "src-tauri/icons/icon.ico": "392206b573a809997f3ff16fe68f456a52e931c372107eade9572b329bbe3321",
-        "static/favicon.png": "5146ed79b486cb9e1cdcdd7814cd22ae78e70ceb30fa06b4cd9a16cf121bc9e6"
+        "src-tauri/icons/32x32.png": "4ed9793922b570dd1180d39bc29df6a84f6432c48d0389cc8df7e222d4eeddd7",
+        "src-tauri/icons/64x64.png": "4c0fa2249921fac5d0524a80d6eafc42339b768adce08b7013de62f65cff44cd",
+        "src-tauri/icons/128x128.png": "0b7619f59224bbdc71c082f736a8575d83dbfc784c505aef8cae8e02078c8646",
+        "src-tauri/icons/128x128@2x.png": "8b889e5d614096b2dd1aa1dec5104331422a748b673abd0789137d946bb3231a",
+        "src-tauri/icons/icon.icns": "ade7ecb16cc578d9d0af8f405fe9f14ee988a637a092670b79efc86e001727c1",
+        "src-tauri/icons/icon.ico": "48f29ff6a83bc682fd040c9b0923c616aa9d0f6e38c55256f854d912360cafe3",
+        "static/favicon.png": "767a2c4f8d4610411f9ba48fc9479d01ea40b7bd80e9b7daf002094914ab8fb8"
       }
     },
     {
@@ -131,10 +144,10 @@
     }
   ],
   "summary": {
-    "compatible": 10,
+    "compatible": 11,
     "notice-required": 543,
     "unknown": 0,
-    "review-required": 9
+    "review-required": 8
   },
   "rust": [
     {
