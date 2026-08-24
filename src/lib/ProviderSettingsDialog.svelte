@@ -295,7 +295,7 @@
                   : credential?.configured && credential.biometricProtected && credential.unlocked
                     ? "Touch ID verified; credential unlocked for this Bottie session."
                     : credential?.configured && credential.biometricProtected
-                      ? "Protected by Touch ID; unlocks on first use this session."
+                      ? "Protected by Touch ID; Bottie unlocks saved credentials together at app start."
                       : credential?.configured
                         ? "Credential configured in the OS vault."
                         : "No credential configured."}
@@ -397,7 +397,7 @@
                 : credential.configured && credential.biometricProtected && credential.unlocked
                   ? "Touch ID verified; credential unlocked for this Bottie session."
                   : credential.configured && credential.biometricProtected
-                    ? "Protected by Touch ID; unlocks on first use this session."
+                    ? "Protected by Touch ID; Bottie unlocks saved credentials together at app start."
                     : credential.configured
                       ? "Credential configured in the OS vault."
                       : "No credential configured."}

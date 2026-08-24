@@ -84,7 +84,8 @@ Status: complete
 
 - [x] native adapters instead of forcing both APIs through one request shape;
 - [x] generic OpenAI-compatible and Anthropic-compatible endpoint profiles;
-- [x] API keys stored in the operating system credential vault, with Touch ID session unlock on macOS;
+- [x] API keys stored in the operating system credential vault, with one Touch ID unlock at macOS app start and
+  process-memory caching for the session;
 - [x] explicit local/cloud routing indicator before sending;
 - [x] usage and cost metadata where providers return it.
 

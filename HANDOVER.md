@@ -488,8 +488,8 @@ The remote adapters:
 - use separate native OpenAI Chat Completions and Anthropic Messages request and stream shapes;
 - validate configurable HTTPS roots, reject embedded credentials/query/fragment values, and disable redirects;
 - retrieve API keys just in time from the operating-system credential vault without returning them to Svelte;
-- require Touch ID for the first read of each saved credential per macOS app session, then retain the unlocked value only
-  in process memory;
+- request Touch ID once at macOS app start, then warm every configured cloud, search, and Localmail credential into
+  process-only memory for the session;
 - discover remote models and normalize answer, reasoning, usage, cancellation, and provider errors;
 - map the three closed native memory definitions into OpenAI Chat Completions only after explicit Memory enablement and
   advertised model capability, reconstruct streamed call fragments, and correlate `tool_call_id` results exactly;

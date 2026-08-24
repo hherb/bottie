@@ -96,7 +96,8 @@ Additional safeguards include:
 - no general HTTP client exposed to the WebView;
 - loopback-only validation for local inference providers;
 - explicit cloud routing and first-run privacy disclosure;
-- macOS Touch ID gating for the first read of each saved cloud credential per session;
+- one macOS Touch ID prompt at app start, followed by process-memory caching of all configured credentials for the
+  session;
 - public-network and destination policy checks for web tools;
 - certificate pinning, disabled redirects, and disabled ambient proxies for Localmail;
 - fixed call, round, response-size, aggregate-output, and deadline ceilings for native tools.
