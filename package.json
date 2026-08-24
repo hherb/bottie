@@ -18,6 +18,7 @@
     "package:macos:sign-development": "node scripts/macos-package.mjs --development-sign",
     "package:macos:inspect": "node scripts/macos-package.mjs --inspect",
     "package:macos:smoke": "node scripts/macos-package.mjs --smoke",
+    "package:macos:distribution": "node scripts/macos-distribution.mjs --run",
     "package:windows": "node scripts/windows-package.mjs --build",
     "package:windows:inspect": "node scripts/windows-package.mjs --inspect",
     "package:windows:smoke": "node scripts/windows-package.mjs --smoke",

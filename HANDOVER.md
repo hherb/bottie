@@ -272,7 +272,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/linux-packaging-smoke`.
+branch `codex/macos-distribution-signing`.
 
 ## Current implementation
 
@@ -808,16 +808,88 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: macOS distribution signing and notarization
+## Next bounded product slice: release-candidate notes and gate manifest
+
+Add one versioned release-notes source plus a deterministic, path-safe release-candidate manifest that consumes the
+existing dependency/licence, artwork, package, and macOS distribution evidence and fails closed when a required gate
+is absent, stale, unsigned, unnotarized, or identity-bearing. Keep the contract offline and credential-free. Do not
+publish a release, add update delivery, generate or rotate signing keys, add Windows/Linux distribution signing,
+rewrite the application identifier, remediate unrelated dependencies, or change schema, IPC, providers, tools,
+credentials, Localmail, or Web policy in the same slice.
+
+## Most recently completed product slice: macOS distribution signing and notarization
+
+### Goal
 
 Add one credential-free repository contract for Developer ID signing, hardened-runtime entitlements, notarization
-submission, stapling, and Gatekeeper verification of the existing macOS application bundle. Accept signing and Apple
-notary credentials only from the invoking host or protected CI secrets, retain identity-free path-safe evidence, and
-keep unsigned local packaging available. Do not publish a release, add update delivery, change Windows/Linux signing,
-rewrite the application identifier, add release notes or notice generation, remediate unrelated dependencies, or
-change schema, IPC, providers, tools, credentials, or network policy in the same slice.
+submission, stapling, and Gatekeeper verification of the existing macOS application bundle while keeping unsigned
+local packaging available.
 
-## Most recently completed product slice: custom application icon
+### Implemented shape
+
+1. `src-tauri/Entitlements.plist` is an intentionally empty entitlement dictionary: the distribution signature enables
+   hardened runtime without adding debug, unsigned-memory, library-validation, application/team identity, or keychain
+   group exceptions. Tauri's macOS bundle configuration points to that reviewed file without changing
+   `com.bottie.app`.
+2. `npm run package:macos:distribution` first rebuilds the existing locked, app-only unsigned bundle. It selects only a
+   Developer ID Application identity from the invoking host, requires an explicit fingerprint or label when more than
+   one is usable, then signs the exact bundle with hardened runtime, the reviewed entitlements, and a secure timestamp.
+   Signing never uses `--deep`; strict deep verification checks the completed bundle instead.
+3. Notarization accepts exactly one host-owned credential mode: an existing `notarytool` keychain profile or a complete
+   App Store Connect team API key path, key ID, and issuer ID supplied through the process environment. One temporary
+   ZIP is submitted with structured output and a 30-minute client wait; only Apple's exact Accepted status continues.
+   A private-key path inside the checkout is rejected, and the ZIP is removed after the attempt.
+4. The accepted application receives and validates its stapled ticket, then must pass `spctl` as Notarized Developer
+   ID software. Raw `security`, `codesign`, `notarytool`, `stapler`, and Gatekeeper output remains process-local.
+   Evidence contains only public bundle metadata, relative inventory and hashes, signature-policy booleans, normalized
+   acceptance states, and the submitted archive's hash and byte count.
+5. A manual-only GitHub workflow binds real signing to the protected `macos-distribution` environment. It imports the
+   PKCS #12 certificate and notary key only into runner-temporary files and a temporary keychain, uploads only the
+   identity-free evidence JSON for seven days, and removes the credentials even after failure. Pull requests, pushes,
+   and releases cannot trigger it.
+6. Existing `package:macos`, development-signing, inspection, and isolated smoke commands remain unchanged, so local
+   unsigned packaging and the current development workflow require no distribution credentials.
+
+### Acceptance and explicit exclusions
+
+The repository contains no Developer ID certificate, private key, notary credential, team identifier, or private
+updater material. Distribution signing is a separate explicit command, uses the existing application identity, and
+does not upload the signed application as a GitHub artifact or release. The only retained CI artifact is bounded,
+path-safe, identity-free verification evidence.
+
+Do not treat this contract as an actual Bottie release. This slice adds no update delivery, Windows/Linux signing,
+repository release, release notes, notice generation, dependency remediation, schema or IPC change, provider/tool or
+credential behavior, Localmail change, or network-policy change.
+
+### Verification completed
+
+Twelve focused tests cover Developer ID identity selection, ambiguity and missing-identity failure, secure timestamp
+and hardened-runtime signing arguments, minimal credential-free entitlements, unchanged application identity, exact
+host-notary credential modes, bounded structured submission, fail-closed accepted-status parsing, stapling and ticket
+validation, identity-free Gatekeeper classification, rejection of host-absolute bundle symlinks, and the manual
+protected-CI trigger/evidence boundary. The test first failed because the distribution module did not exist, then
+passed after the smallest contract was implemented.
+
+`plutil` accepts the entitlement plist, `actionlint` accepts the manual GitHub workflow, local `stapler` and
+`notarytool` help confirm the checked-in command forms, and the script passes Node syntax and formatting checks.
+Prettier accepts every tracked frontend/script source; `svelte-check` reports zero errors and warnings; all 37 default
+Vitest files pass 138 tests while three performance cases remain opt-in; and the production frontend build succeeds.
+The regenerated dependency inventory matches the locked offline graph, and deterministic icon verification passes.
+Cargo formatting and compilation pass. The full Rust suite contains 417 tests: 387 pass and 30 loopback,
+public-network, credential, live-provider, or performance cases remain explicitly ignored; the zero-case doc-test
+phase also passes.
+
+The normal Cargo target was initially owned by pre-existing native development activity, so compilation was also
+exercised offline in an isolated target. After the normal lock cleared, the exact standard `cargo check` and
+`cargo test` commands passed. The current pre-existing PR #100 unsigned arm64 bundle still inspects through path-safe
+evidence as `com.bottie.app`, version `0.1.0`, with the approved ICNS and expected non-distribution ad-hoc signature
+state; it was not rebuilt or presented as this slice's package proof.
+
+No Developer ID Application certificate or Apple notary credentials were supplied for this run, so no real Apple
+submission, ticket stapling, or Gatekeeper acceptance is claimed. The protected workflow is deliberately not
+dispatched, and no release artifact is published.
+
+## Prior completed product slice: custom application icon
 
 ### Goal
 
@@ -5733,7 +5805,7 @@ does not alter release signing.
 
 ## Known housekeeping
 
-- Tauri's default application icons and favicon remain; replace them in the branding/distribution phase.
+- The deterministic Bottie icon set is checked in and package-verified across macOS, Windows, and Linux.
 - The repository tracks GitHub remote `origin`.
 - The first commit contains the full greenfield scaffold and first UI slice.
 - Generated frontend output, `node_modules`, Rust targets, environment files, and generated Tauri capability schemas are ignored.

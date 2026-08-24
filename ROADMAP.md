@@ -281,7 +281,9 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] Windows packaging and smoke test;
 - [x] Linux packaging and smoke test;
 - [x] custom bottie application icon with deterministic WebView and platform package assets;
-- [ ] distribution signing, notarization, updates, and release notes.
+- [x] credential-free macOS Developer ID signing, hardened-runtime, notarization, stapling, and Gatekeeper contract;
+- [ ] versioned release notes plus a fail-closed release-candidate gate manifest;
+- [ ] Windows/Linux distribution signing, signed update delivery, and release publication.
 
 ## Milestone 7 — Local voice conversations
 

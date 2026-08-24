@@ -11,11 +11,11 @@
     "limitation": "Rust entries are the union of locked macOS arm64/x64 normal and build graphs. The Cargo.lock count is a conservative all-platform superset; per-platform resolved-graph review remains a release check."
   },
   "inputs": {
-    "package.json": "f578e8b1ed38c4953b55247d0c6423d4a0653c0361a61e9c52c439edbbedc8da",
+    "package.json": "04efa878aa311c205659b82699ea047bb98b672d2aabba6fc2d328449c5cd54a",
     "package-lock.json": "b9bc6c566bb14eb271000789e3f05f87adc7d7821c258f3ced02584e4ed67312",
     "src-tauri/Cargo.toml": "c2b29077e7b11c102dddcb3cf4ad8eb2a5eca6cad29f952511c4715914a7fcf8",
     "src-tauri/Cargo.lock": "c6e998ad12ec418c35d843cdfa45b17048e01a1c1dc9cd8b5ff01d8c1dc5f2a2",
-    "src-tauri/tauri.conf.json": "f3bb2b8231c777162c28594718d42376570f7cd1ee404af53e16a7785d81929e",
+    "src-tauri/tauri.conf.json": "1bcf896d5a440303f5a908c61e3041ce23fc097311d53520bda231463ae46ada",
     "src-tauri/src/semantic_indexer.rs": "b77287aa3a30340f90b66f8b18ce825c90eb02e5769ead3f78b1326ece9c85b5",
     "scripts/dependency-inventory.mjs": "fe3137598cb5dbd9be52f1143bd2dd2fc09b9afa55d2fe42dbac564411100612",
     "scripts/application-icons.mjs": "1307b7f746a9ef9f6920739934fd8a4aea6886f3d735e58dc0c5c016fb8ee275",
