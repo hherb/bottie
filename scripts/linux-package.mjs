@@ -404,23 +404,40 @@ function buildLinuxBundle(repositoryRoot, arguments_, targetDirectory) {
   if (result.status !== 0) throw new Error("The locked unsigned Linux DEB build failed.");
 }
 
-/** Builds, extracts, inspects, and smoke-tests one isolated DEB. */
+/** Combines the real product-package inspection with a separately isolated smoke outcome. */
+export function combineLinuxPackageEvidence(bundle, smoke) {
+  if (bundle?.installer?.metadata?.package !== "bottie") {
+    throw new Error("Release evidence must describe the real Bottie package.");
+  }
+  return { bundle, smoke };
+}
+
+/** Builds and inspects the product DEB, then smoke-tests a separate application identity. */
 async function runLinuxSmoke(repositoryRoot) {
   const temporaryRoot = await mkdtemp(join(tmpdir(), "bottie-linux-smoke-"));
   try {
-    const targetDirectory = join(temporaryRoot, "target");
-    const extractedDirectory = join(temporaryRoot, "extracted");
+    const packageTargetDirectory = join(temporaryRoot, "package-target");
+    const packageExtractedDirectory = join(temporaryRoot, "package-extracted");
+    const smokeTargetDirectory = join(temporaryRoot, "smoke-target");
+    const smokeExtractedDirectory = join(temporaryRoot, "smoke-extracted");
     const smokeRoot = join(temporaryRoot, "xdg");
-    await mkdir(extractedDirectory);
-    buildLinuxBundle(repositoryRoot, linuxSmokeBuildArguments(), targetDirectory);
-    const debPath = await findSingleDeb(join(targetDirectory, "release", "bundle", "deb"));
+    await mkdir(packageExtractedDirectory);
+    await mkdir(smokeExtractedDirectory);
+
+    buildLinuxBundle(repositoryRoot, linuxBuildArguments(), packageTargetDirectory);
+    const debPath = await findSingleDeb(join(packageTargetDirectory, "release", "bundle", "deb"));
     if (process.env.BOTTIE_LINUX_ARTIFACT_DIRECTORY) {
       const artifactDirectory = resolve(repositoryRoot, process.env.BOTTIE_LINUX_ARTIFACT_DIRECTORY);
       await mkdir(artifactDirectory, { recursive: true });
       await copyFile(debPath, join(artifactDirectory, basename(debPath)));
     }
-    const bundle = await inspectLinuxDeb(debPath, extractedDirectory);
-    return { bundle, smoke: await smokeLinuxBundle(extractedDirectory, bundle, smokeRoot) };
+    const bundle = await inspectLinuxDeb(debPath, packageExtractedDirectory);
+
+    buildLinuxBundle(repositoryRoot, linuxSmokeBuildArguments(), smokeTargetDirectory);
+    const smokeDebPath = await findSingleDeb(join(smokeTargetDirectory, "release", "bundle", "deb"));
+    const smokeBundle = await inspectLinuxDeb(smokeDebPath, smokeExtractedDirectory);
+    const smoke = await smokeLinuxBundle(smokeExtractedDirectory, smokeBundle, smokeRoot);
+    return combineLinuxPackageEvidence(bundle, smoke);
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }

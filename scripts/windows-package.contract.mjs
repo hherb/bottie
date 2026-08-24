@@ -6,6 +6,7 @@ import { afterEach, describe, it } from "node:test";
 
 import {
   classifyAuthenticodeStatus,
+  combineWindowsPackageEvidence,
   embeddedIconPowerShellScript,
   inspectExtractedWindowsBundle,
   msiAdministrativeInstallArguments,
@@ -36,6 +37,18 @@ async function createExtractedBundleFixture() {
 }
 
 describe("Windows package evidence", () => {
+  it("combines the real Bottie package inspection with only the isolated smoke outcome", () => {
+    const bundle = { payload: { applicationDirectory: "PFiles/bottie" } };
+    const smoke = { terminated: true };
+
+    assert.deepEqual(combineWindowsPackageEvidence(bundle, smoke), { bundle, smoke });
+    assert.throws(
+      () =>
+        combineWindowsPackageEvidence({ payload: { applicationDirectory: "PFiles/bottie-packaging-smoke" } }, smoke),
+      /real Bottie package/,
+    );
+  });
+
   it("binds retained evidence to the checked-out release version and schema", () => {
     assert.deepEqual(versionedPackageEvidence("0.9.0", { bundle: {}, smoke: {} }), {
       schemaVersion: 1,
