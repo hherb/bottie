@@ -233,12 +233,12 @@ bundled UI, Tauri IPC, inline component styles, and Bottie's opaque attachment-p
 forms, objects, base-URL changes, unused asset schemes, and blob/data images. Secret-vault and filesystem-boundary
 contract coverage is now also complete. Saved and absent credential status is collected without reading secret values;
 provider settings, diagnostics, attachment ingestion and previews, export, backup, and restore expose exact typed,
-path-free IPC shapes under adversarial fixtures. Secret-bearing native command inputs reject unknown fields. The next
-bounded slice is now complete: Bottie has a deterministic locked macOS Rust/npm dependency inventory, reviewed
+path-free IPC shapes under adversarial fixtures. Secret-bearing native command inputs reject unknown fields. The
+dependency-review slice is complete: Bottie has a deterministic locked macOS Rust/npm dependency inventory, reviewed
 security-sensitive Cargo features and native/runtime assets, authoritative licence sources, explicit classification,
 and six release gates. Current resolved package metadata has no unknown licence declaration, but distribution remains
 blocked on Bottie's own licence text, a generated notice bundle, ONNX Runtime notice evidence, pinned and accepted
-EmbeddingGemma terms, artwork provenance, and per-platform resolved-graph review. The keyboard-shortcut slice is now
+EmbeddingGemma terms, and per-platform resolved-graph review. The keyboard-shortcut slice is now
 complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
@@ -272,7 +272,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/macos-distribution-signing`.
+branch `codex/release-candidate-0.9.0`.
 
 ## Current implementation
 
@@ -808,16 +808,63 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: release-candidate notes and gate manifest
+## Next bounded product slice: release-gate licence and runtime-asset remediation
 
-Add one versioned release-notes source plus a deterministic, path-safe release-candidate manifest that consumes the
-existing dependency/licence, artwork, package, and macOS distribution evidence and fails closed when a required gate
-is absent, stale, unsigned, unnotarized, or identity-bearing. Keep the contract offline and credential-free. Do not
-publish a release, add update delivery, generate or rotate signing keys, add Windows/Linux distribution signing,
-rewrite the application identifier, remediate unrelated dependencies, or change schema, IPC, providers, tools,
-credentials, Localmail, or Web policy in the same slice.
+Resolve the repository-owned licence text, deterministic third-party notice bundle, exact packaged ONNX Runtime notice
+evidence, pinned EmbeddingGemma snapshot/terms flow, and Windows/Linux resolved-graph review required by the 0.9.0
+release-candidate manifest. Preserve the current runtime behavior and application identity. Do not publish a release,
+add update delivery, generate or rotate signing keys, add Windows/Linux distribution signing, or change schema, IPC,
+providers, tools, Localmail, or Web policy in the same slice.
 
-## Most recently completed product slice: macOS distribution signing and notarization
+## Most recently completed product slice: 0.9.0 beta notes and release-candidate gate
+
+### Goal
+
+Prepare Bottie 0.9.0 as an informed beta-testing candidate while making repository publication impossible to mistake
+for ordinary source/package validation.
+
+### Implemented shape
+
+1. The npm, Cargo, Cargo lock, and Tauri application versions now agree on `0.9.0`. `RELEASES/0.9.0.md` is the single
+   tester-facing beta source, with ready-to-test capabilities, cautions, and explicit distribution conditions.
+2. `npm run release:candidate` reads only fixed repository sources and the existing ignored platform evidence paths,
+   emits `package/release-candidate-manifest.json`, and exits non-zero unless every normalized gate passes. The manifest
+   has no timestamp, host path, certificate identity, team identity, credential, or raw command output.
+3. Exact gates cover notes and three-way application-version agreement; byte-current dependency inventory inputs;
+   unresolved dependency classifications; root licence and third-party notices; reviewed artwork source/output hashes;
+   macOS Developer ID, hardened runtime, secure timestamp, notarization, stapling, and Gatekeeper evidence; and current
+   Windows/Linux package, icon, isolated-smoke, and verified distribution-signature evidence.
+4. Windows and Linux package evidence now carries schema version 1 plus the checked-out application version. Existing
+   unsigned package commands and PR workflows remain unchanged and therefore cannot satisfy the distribution gates.
+5. Missing or malformed evidence becomes a stable failed gate. Only allowlisted public metadata, architecture, sizes,
+   hashes, signature classes, normalized acceptance booleans, and smoke results enter the candidate manifest.
+
+### Current gate result and explicit exclusions
+
+The local 0.9.0 manifest passes release-notes, version-alignment, current dependency-inventory, and artwork gates. It
+correctly fails dependency review, licence/notices, macOS distribution evidence, and Windows/Linux package/distribution
+evidence. No tag or GitHub release was created, no signing/notary workflow was dispatched, and no package was uploaded
+or presented to testers.
+
+Do not bypass failed gates with a GitHub pre-release checkbox. This slice adds no signing credential, Windows/Linux
+distribution signing, update key or delivery, notice generation, dependency/model remediation, schema or IPC change,
+provider/tool/credential behavior, Localmail change, or network-policy change.
+
+### Verification completed
+
+Focused pure tests cover strict beta-note parsing, deterministic accepted output, missing/stale/unsigned/unnotarized
+failure, and removal of host paths and signer identities. Windows and Linux contract suites each add one version/schema
+evidence case. The offline command writes the expected blocked manifest for the current checkout; its exact failures
+are recorded above. Prettier accepts every tracked frontend/script source; `svelte-check` reports zero errors and
+warnings; all 38 default Vitest files pass 142 tests while one file and three performance cases remain opt-in; and the
+production frontend build succeeds. The regenerated locked dependency inventory and deterministic icon set match.
+Windows and Linux package contract suites each pass nine tests. Cargo formatting and compilation pass. The full Rust
+suite contains 419 tests: 389 pass and 30 loopback, public-network, credential, live-provider, or performance cases
+remain explicitly ignored; the zero-case doc-test phase also passes. Browser and native launch checks are not
+applicable because this slice changes version/release metadata and offline package evidence only, with no rendered or
+runtime product behavior.
+
+## Prior completed product slice: macOS distribution signing and notarization
 
 ### Goal
 

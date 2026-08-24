@@ -37,6 +37,7 @@ const HASHED_INPUTS = [
   "src-tauri/src/semantic_indexer.rs",
   "scripts/dependency-inventory.mjs",
   "scripts/application-icons.mjs",
+  "scripts/release-candidate.mjs",
   ...APPLICATION_ASSET_SOURCES,
   ...APPLICATION_ASSETS,
 ];

@@ -412,13 +412,24 @@ async function emitEvidence(repositoryRoot, evidence) {
   console.log(output.trimEnd());
 }
 
+/** Adds the checked-out application version and evidence schema without exposing a source path. */
+export function versionedPackageEvidence(version, evidence) {
+  return { ...evidence, schemaVersion: 1, version };
+}
+
+/** Reads the checked-out application version before emitting package evidence. */
+async function versionedEvidence(repositoryRoot, evidence) {
+  const config = JSON.parse(await readFile(join(repositoryRoot, "src-tauri", "tauri.conf.json"), "utf8"));
+  return versionedPackageEvidence(config.version, evidence);
+}
+
 /** Dispatches package build, inspection, and smoke modes. */
 async function main() {
   if (process.platform !== "win32") throw new Error("The Windows package workflow requires a Windows host.");
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const [mode, suppliedPath] = process.argv.slice(2);
   if (mode === "--smoke") {
-    await emitEvidence(repositoryRoot, await runWindowsSmoke(repositoryRoot));
+    await emitEvidence(repositoryRoot, await versionedEvidence(repositoryRoot, await runWindowsSmoke(repositoryRoot)));
     return;
   }
   const temporaryRoot = await mkdtemp(join(tmpdir(), "bottie-windows-inspect-"));
@@ -426,7 +437,10 @@ async function main() {
     const msiDirectory = resolve(repositoryRoot, DEFAULT_MSI_DIRECTORY);
     if (mode === "--build") buildWindowsBundle(repositoryRoot, windowsBuildArguments());
     const msiPath = suppliedPath ? resolve(repositoryRoot, suppliedPath) : await findSingleMsi(msiDirectory);
-    await emitEvidence(repositoryRoot, await inspectWindowsMsi(msiPath, temporaryRoot));
+    await emitEvidence(
+      repositoryRoot,
+      await versionedEvidence(repositoryRoot, await inspectWindowsMsi(msiPath, temporaryRoot)),
+    );
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }

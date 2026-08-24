@@ -11,6 +11,7 @@ import {
   offlineProviderSettings,
   packagedLinuxIconName,
   smokeXdgDirectories,
+  versionedPackageEvidence,
 } from "./linux-package.mjs";
 
 const temporaryDirectories = [];
@@ -50,6 +51,15 @@ function minimalElf(architecture) {
 }
 
 describe("Linux package evidence", () => {
+  it("binds retained evidence to the checked-out release version and schema", () => {
+    assert.deepEqual(versionedPackageEvidence("0.9.0", { bundle: {}, smoke: {} }), {
+      schemaVersion: 1,
+      version: "0.9.0",
+      bundle: {},
+      smoke: {},
+    });
+  });
+
   it("keeps the build locked, DEB-only, unsigned, and non-interactive", () => {
     assert.deepEqual(linuxBuildArguments(), ["build", "--bundles", "deb", "--no-sign", "--ci", "--", "--locked"]);
   });

@@ -419,13 +419,24 @@ async function emitEvidence(repositoryRoot, evidence) {
   console.log(output.trimEnd());
 }
 
+/** Adds the checked-out application version and evidence schema without exposing a source path. */
+export function versionedPackageEvidence(version, evidence) {
+  return { ...evidence, schemaVersion: 1, version };
+}
+
+/** Reads the checked-out application version before emitting package evidence. */
+async function versionedEvidence(repositoryRoot, evidence) {
+  const config = JSON.parse(await readFile(join(repositoryRoot, "src-tauri", "tauri.conf.json"), "utf8"));
+  return versionedPackageEvidence(config.version, evidence);
+}
+
 /** Dispatches package build, inspection, and smoke modes. */
 async function main() {
   if (process.platform !== "linux") throw new Error("The Linux package workflow requires a Linux host.");
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const [mode, suppliedPath] = process.argv.slice(2);
   if (mode === "--smoke") {
-    await emitEvidence(repositoryRoot, await runLinuxSmoke(repositoryRoot));
+    await emitEvidence(repositoryRoot, await versionedEvidence(repositoryRoot, await runLinuxSmoke(repositoryRoot)));
     return;
   }
   const temporaryRoot = await mkdtemp(join(tmpdir(), "bottie-linux-inspect-"));
@@ -433,7 +444,10 @@ async function main() {
     const debDirectory = resolve(repositoryRoot, DEFAULT_DEB_DIRECTORY);
     if (mode === "--build") buildLinuxBundle(repositoryRoot, linuxBuildArguments());
     const debPath = suppliedPath ? resolve(repositoryRoot, suppliedPath) : await findSingleDeb(debDirectory);
-    await emitEvidence(repositoryRoot, await inspectLinuxDeb(debPath, temporaryRoot));
+    await emitEvidence(
+      repositoryRoot,
+      await versionedEvidence(repositoryRoot, await inspectLinuxDeb(debPath, temporaryRoot)),
+    );
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
