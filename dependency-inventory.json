@@ -23,7 +23,7 @@
     "scripts/application-icons.mjs": "1307b7f746a9ef9f6920739934fd8a4aea6886f3d735e58dc0c5c016fb8ee275",
     "scripts/release-candidate.mjs": "24d3caea3c2ab80b15380b2495b68a1cc76dacdc9311b0d10d833df79769dd88",
     "scripts/release-candidate-runtime.mjs": "bab0720610eeb980a85a151d10078b919ca7c261fec1f1f111108ba6a60b21aa",
-    "scripts/release-assets.mjs": "2e0990f79148729b88ac505f10bd336d9aa34b020df056e86038e1413176f143",
+    "scripts/release-assets.mjs": "012f36ccc07a1778a54a5fffd7a5bef4826a434d1c2f87cedf160d5d289d625b",
     "scripts/third-party-notices.mjs": "a0a8916c36f0c8eb951a79c9438d9db47ae546e319050b4a0d621dcfcaa9b375",
     "scripts/macos-package.mjs": "43abb9566e69a98245d5cc1efcf33062ae4302e5c2c2b96fe8e9881283e5c90f",
     "scripts/windows-package.mjs": "cd773d4aef125de641440ff78fd8080948f17dcc6b78eb65af1d89e1abca1801",

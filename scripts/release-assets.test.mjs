@@ -4,6 +4,7 @@ import {
   GEMMA_TERMS_ACKNOWLEDGEMENT,
   buildRuntimeAssetManifest,
   buildTermsAcceptanceEvidence,
+  parseTermsAcceptanceArgument,
 } from "./release-assets.mjs";
 
 const SHA = "a".repeat(64);
@@ -53,5 +54,12 @@ describe("release runtime assets", () => {
       termsSha256: manifest.embeddingGemma.terms.sha256,
     });
     expect(serialized).not.toMatch(/time|date|identity|user|path/i);
+  });
+
+  it("parses the documented terms-acceptance CLI argument without dropping its first character", () => {
+    expect(parseTermsAcceptanceArgument(`--accept-gemma-terms=${GEMMA_TERMS_ACKNOWLEDGEMENT}`)).toBe(
+      GEMMA_TERMS_ACKNOWLEDGEMENT,
+    );
+    expect(parseTermsAcceptanceArgument("--check")).toBeNull();
   });
 });

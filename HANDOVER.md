@@ -810,14 +810,14 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: refreshed macOS release-package evidence
+## Next bounded product slice: Developer ID notarization and Gatekeeper evidence
 
-After the release owner independently reads and accepts the reviewed Gemma terms through the documented exact command,
-rebuild the macOS 0.9.0 application with the current licence, third-party notices, and model notice; verify their exact
-hashes in the bundle; then rerun the existing Developer ID, hardened-runtime, secure-timestamp, notarization, stapling,
-and Gatekeeper contract. Do not create or rotate signing credentials, accept legal terms on another person's behalf,
-publish a tag/release, add update delivery, add Windows/Linux distribution signing, or change runtime product behavior,
-schema, IPC, providers, tools, Localmail, or Web policy in that slice.
+The release owner has independently accepted the reviewed Gemma terms through the documented exact command. With
+separate explicit approval for submitting the temporary application archive to Apple, rerun the existing Developer ID,
+hardened-runtime, secure-timestamp, notarization, stapling, and Gatekeeper contract against the current macOS 0.9.0
+bundle. Use only the existing host-owned identity and notary credentials. Do not create, rotate, export, or disclose
+credentials; publish a tag/release; add update delivery or Windows/Linux distribution signing; or change runtime product
+behavior, schema, IPC, providers, tools, Localmail, or Web policy in that slice.
 
 ## Most recently completed product slice: release-gate licence and runtime-asset remediation
 
@@ -847,8 +847,9 @@ resolved-graph gaps without weakening Bottie's release gate or changing its user
    IPC.
 5. `MODEL-NOTICE.txt` records the reviewed 1 April 2026 Gemma terms. The release operator can create ignored,
    non-identifying, timestamp-free evidence only by supplying the exact documented acknowledgement. The release gate
-   binds that evidence to the exact model revision and notice hash and fails closed when it is absent or stale. No
-   acceptance evidence was generated in this slice.
+   binds that evidence to the exact model revision and notice hash and fails closed when it is absent or stale. After
+   independently accepting those terms, the release owner explicitly authorized the exact command and the host-local
+   evidence was generated without an identity, timestamp, host path, or terms body.
 6. Tauri packages the project licence, model notice, and generated third-party notices. macOS, Windows, and Linux
    inspection contracts require one exact copy and retain only their hashes. The release-candidate gate compares those
    hashes with current repository inputs before accepting any platform package.
@@ -856,9 +857,10 @@ resolved-graph gaps without weakening Bottie's release gate or changing its user
 ### Current gate result and explicit exclusions
 
 The regenerated path-free manifest now passes release notes, version alignment, current four-target dependency
-inventory, dependency review, project licence/notices, runtime assets, and artwork. It correctly fails model-terms
-acceptance and the stale/missing macOS, Windows, and Linux package/distribution evidence. No legal terms were accepted,
-no credential was created or rotated, no package was signed or uploaded, and no tag or release was published.
+inventory, dependency review, project licence/notices, runtime assets, model-terms acceptance, current macOS package
+evidence, and artwork. It correctly fails the missing macOS distribution and Windows/Linux package/distribution
+evidence. No credential was created, rotated, exported, or disclosed; no application was submitted to Apple or otherwise
+uploaded; and no tag or release was published.
 
 This slice adds no schema or IPC contract, settings or migration state, provider/tool behavior, Web or Localmail
 policy, update delivery, release publication, or Windows/Linux signing implementation. Existing model-cache content is
@@ -882,10 +884,15 @@ without downloading or using the Gemma model.
 
 The unsigned macOS package built successfully as one arm64 application containing exactly six files. Its project
 licence, model notice, and third-party notice hashes exactly match the current repository inputs; inspection found no
-loose native runtime because ONNX Runtime is statically linked on this target. The bounded smoke app also built, but it
-could not be launched because the active keychains expose no usable Apple Development signing identity. No live model
-download was attempted because the release owner has not created Gemma terms-acceptance evidence. Browser review is
-not applicable because this slice changes no rendered interface, and no Windows/Linux package was built on macOS.
+loose native runtime because ONNX Runtime is statically linked on this target. After explicit authorization to use the
+existing host identity, the distinct `com.bottie.packaging-smoke` application built, development-signed, strictly
+verified, and launched. Its isolated store returned `quick_check=ok`, schema version 21, an exact 21-row migration
+ledger, one profile, and zero conversations; the rejecting loopback provider was contacted once, the app remained live
+through the settle window, terminated cleanly, and removed its process-owned support directory. The signed seven-file
+bundle retained the exact three document hashes and no loose native runtime. No live model download was attempted.
+Developer ID notarization was not run because external submission of the temporary application ZIP to Apple requires
+separate explicit approval. Browser review is not applicable because this slice changes no rendered interface, and no
+Windows/Linux package was built on macOS.
 
 ## Prior completed product slice: 0.9.0 beta notes and release-candidate gate
 

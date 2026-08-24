@@ -13,6 +13,7 @@ const MODEL_NOTICE_PATH = "MODEL-NOTICE.txt";
 const ONNX_RUNTIME_LICENCE_PATH = "third-party/onnxruntime-1.28.0/LICENSE";
 const ONNX_RUNTIME_NOTICES_PATH = "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt";
 const TERMS_EVIDENCE_PATH = "package/model-terms-evidence.json";
+const TERMS_ACCEPTANCE_ARGUMENT = "--accept-gemma-terms=";
 const SCHEMA_VERSION = 1;
 const ONNX_RUNTIME_LICENCE_URL = "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.28.0/LICENSE";
 const ONNX_RUNTIME_NOTICES_URL =
@@ -112,6 +113,12 @@ export function buildTermsAcceptanceEvidence(manifest, acknowledgement) {
   };
 }
 
+/** Extracts the exact legal acknowledgement without relying on a duplicated prefix length. */
+export function parseTermsAcceptanceArgument(argument) {
+  if (!argument?.startsWith(TERMS_ACCEPTANCE_ARGUMENT)) return null;
+  return argument.slice(TERMS_ACCEPTANCE_ARGUMENT.length);
+}
+
 /** Returns one lowercase SHA-256 digest for bytes or text. */
 function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -154,9 +161,9 @@ async function main() {
     console.log("[bottie] runtime-assets.json and MODEL-NOTICE.txt match the reviewed contract.");
     return;
   }
-  const acknowledgement = process.argv.find((argument) => argument.startsWith("--accept-gemma-terms="));
-  if (acknowledgement) {
-    const evidence = buildTermsAcceptanceEvidence(manifest, acknowledgement.slice(22));
+  const acceptanceArgument = process.argv.find((argument) => argument.startsWith(TERMS_ACCEPTANCE_ARGUMENT));
+  if (acceptanceArgument) {
+    const evidence = buildTermsAcceptanceEvidence(manifest, parseTermsAcceptanceArgument(acceptanceArgument));
     const path = join(REPOSITORY_ROOT, TERMS_EVIDENCE_PATH);
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, `${JSON.stringify(evidence, null, 2)}\n`);
