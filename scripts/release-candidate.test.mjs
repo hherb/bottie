@@ -114,7 +114,7 @@ function acceptedInputs() {
           requiredDocuments: { licence: SHA, modelNotice: SHA, thirdPartyNotices: SHA },
         },
       },
-      smoke: acceptedSmoke(),
+      smoke: { ...acceptedSmoke(), isolatedSupportDirectory: undefined, isolatedXdgDirectories: true },
     },
   };
 }

@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { afterEach, describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   classifyAuthenticodeStatus,
+  combineWindowsPackageEvidence,
   embeddedIconPowerShellScript,
   inspectExtractedWindowsBundle,
   msiAdministrativeInstallArguments,
@@ -36,6 +38,27 @@ async function createExtractedBundleFixture() {
 }
 
 describe("Windows package evidence", () => {
+  it("keeps required package documents byte-identical on Windows checkouts", async () => {
+    const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+    const attributes = await readFile(join(repositoryRoot, ".gitattributes"), "utf8");
+
+    for (const path of ["LICENSE", "MODEL-NOTICE.txt", "THIRD-PARTY-NOTICES.txt"]) {
+      assert.match(attributes, new RegExp(`^${path.replace(".", "\\.")} text eol=lf$`, "m"));
+    }
+  });
+
+  it("combines the real Bottie package inspection with only the isolated smoke outcome", () => {
+    const bundle = { payload: { applicationDirectory: "PFiles/bottie" } };
+    const smoke = { terminated: true };
+
+    assert.deepEqual(combineWindowsPackageEvidence(bundle, smoke), { bundle, smoke });
+    assert.throws(
+      () =>
+        combineWindowsPackageEvidence({ payload: { applicationDirectory: "PFiles/bottie-packaging-smoke" } }, smoke),
+      /real Bottie package/,
+    );
+  });
+
   it("binds retained evidence to the checked-out release version and schema", () => {
     assert.deepEqual(versionedPackageEvidence("0.9.0", { bundle: {}, smoke: {} }), {
       schemaVersion: 1,

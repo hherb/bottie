@@ -398,22 +398,39 @@ function buildWindowsBundle(repositoryRoot, arguments_, targetDirectory) {
   if (result.status !== 0) throw new Error("The locked unsigned Windows MSI build failed.");
 }
 
-/** Builds, administratively extracts, inspects, and smoke-tests one isolated MSI. */
+/** Combines the real product-package inspection with a separately isolated smoke outcome. */
+export function combineWindowsPackageEvidence(bundle, smoke) {
+  if (bundle?.payload?.applicationDirectory !== "PFiles/bottie") {
+    throw new Error("Release evidence must describe the real Bottie package.");
+  }
+  return { bundle, smoke };
+}
+
+/** Builds and inspects the product MSI, then smoke-tests a separate application identity. */
 async function runWindowsSmoke(repositoryRoot) {
   const temporaryRoot = await mkdtemp(join(tmpdir(), "bottie-windows-smoke-"));
   try {
-    const targetDirectory = join(temporaryRoot, "target");
-    const extractedDirectory = join(temporaryRoot, "extracted");
-    await mkdir(extractedDirectory);
-    buildWindowsBundle(repositoryRoot, windowsSmokeBuildArguments(), targetDirectory);
-    const msiPath = await findSingleMsi(join(targetDirectory, "release", "bundle", "msi"));
+    const packageTargetDirectory = join(temporaryRoot, "package-target");
+    const packageExtractedDirectory = join(temporaryRoot, "package-extracted");
+    const smokeTargetDirectory = join(temporaryRoot, "smoke-target");
+    const smokeExtractedDirectory = join(temporaryRoot, "smoke-extracted");
+    await mkdir(packageExtractedDirectory);
+    await mkdir(smokeExtractedDirectory);
+
+    buildWindowsBundle(repositoryRoot, windowsBuildArguments(), packageTargetDirectory);
+    const msiPath = await findSingleMsi(join(packageTargetDirectory, "release", "bundle", "msi"));
     if (process.env.BOTTIE_WINDOWS_ARTIFACT_DIRECTORY) {
       const artifactDirectory = resolve(repositoryRoot, process.env.BOTTIE_WINDOWS_ARTIFACT_DIRECTORY);
       await mkdir(artifactDirectory, { recursive: true });
       await copyFile(msiPath, join(artifactDirectory, basename(msiPath)));
     }
-    const bundle = await inspectWindowsMsi(msiPath, extractedDirectory);
-    return { bundle, smoke: await smokeWindowsBundle(extractedDirectory, bundle) };
+    const bundle = await inspectWindowsMsi(msiPath, packageExtractedDirectory);
+
+    buildWindowsBundle(repositoryRoot, windowsSmokeBuildArguments(), smokeTargetDirectory);
+    const smokeMsiPath = await findSingleMsi(join(smokeTargetDirectory, "release", "bundle", "msi"));
+    const smokeBundle = await inspectWindowsMsi(smokeMsiPath, smokeExtractedDirectory);
+    const smoke = await smokeWindowsBundle(smokeExtractedDirectory, smokeBundle);
+    return combineWindowsPackageEvidence(bundle, smoke);
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }

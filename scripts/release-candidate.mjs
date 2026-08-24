@@ -244,7 +244,7 @@ function summarizeSmoke(smoke) {
       quickCheck: normalizedChoice(smoke.database?.quickCheck, ["ok"]),
       schemaVersion: nonNegativeInteger(smoke.database?.schemaVersion),
     },
-    isolatedSupportDirectory: smoke.isolatedSupportDirectory === true,
+    isolatedSupportDirectory: smoke.isolatedSupportDirectory === true || smoke.isolatedXdgDirectories === true,
     offlineProviderConnections: positiveInteger(smoke.offlineProviderConnections),
     remainedRunning: smoke.remainedRunning === true,
     terminated: smoke.terminated === true,
