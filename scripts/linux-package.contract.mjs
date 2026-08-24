@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
@@ -9,6 +9,7 @@ import {
   linuxBuildArguments,
   linuxSmokeBuildArguments,
   offlineProviderSettings,
+  packagedLinuxIconName,
   smokeXdgDirectories,
 } from "./linux-package.mjs";
 
@@ -36,7 +37,7 @@ async function createExtractedBundleFixture() {
   }
   await writeFile(join(directory, "usr", "bin", "bottie"), minimalElf("x86_64"));
   await writeFile(join(directory, "usr", "lib", "bottie", "libonnxruntime.so.1"), "native runtime");
-  await writeFile(join(directory, "usr", "share", "applications", "bottie.desktop"), "[Desktop Entry]\n");
+  await writeFile(join(directory, "usr", "share", "applications", "bottie.desktop"), "[Desktop Entry]\nIcon=bottie\n");
   return directory;
 }
 
@@ -114,6 +115,28 @@ describe("Linux package evidence", () => {
     await rm(join(bundle, "usr", "share", "icons", "hicolor", "128x128"), { recursive: true });
 
     await assert.rejects(inspectExtractedLinuxBundle(bundle), /missing one or more required Bottie application icons/);
+  });
+
+  it("follows the explicit distinct smoke identity from the packaged desktop launcher", async () => {
+    const bundle = await createExtractedBundleFixture();
+    for (const size of [32, 128, 256]) {
+      const iconDirectory = join(bundle, "usr", "share", "icons", "hicolor", `${size}x${size}`, "apps");
+      await rename(join(iconDirectory, "bottie.png"), join(iconDirectory, "bottie-packaging-smoke.png"));
+    }
+    await writeFile(
+      join(bundle, "usr", "share", "applications", "bottie.desktop"),
+      "[Desktop Entry]\nIcon=bottie-packaging-smoke\n",
+    );
+
+    const inspection = await inspectExtractedLinuxBundle(bundle);
+
+    assert.deepEqual(inspection.installedIcons, [
+      "usr/share/icons/hicolor/128x128/apps/bottie-packaging-smoke.png",
+      "usr/share/icons/hicolor/256x256/apps/bottie-packaging-smoke.png",
+      "usr/share/icons/hicolor/32x32/apps/bottie-packaging-smoke.png",
+    ]);
+    assert.equal(packagedLinuxIconName("[Desktop Entry]\nIcon=bottie\n"), "bottie");
+    assert.throws(() => packagedLinuxIconName("[Desktop Entry]\nIcon=other-product\n"), /invalid Bottie icon identity/);
   });
 
   it("creates separate process-owned XDG roots and a distinct application identity", () => {
