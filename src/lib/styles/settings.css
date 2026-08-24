@@ -81,7 +81,7 @@
 .provider-setting-heading small,
 .diagnostics-heading small {
   margin-top: 3px;
-  color: #696772;
+  color: var(--subtle-text);
   font-size: 8px;
 }
 .local-badge {
@@ -124,7 +124,7 @@
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.018);
-  color: #777581;
+  color: var(--subtle-text);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
 }
@@ -182,7 +182,7 @@
 }
 .credential-status {
   margin: 7px 0 0;
-  color: #777581;
+  color: var(--subtle-text);
   font-size: 8px;
 }
 .web-network-policy textarea {
@@ -267,7 +267,7 @@
 }
 .settings-policy small {
   margin-top: 2px;
-  color: #617d7a;
+  color: var(--subtle-text);
   font-size: 7.5px;
 }
 .settings-error {
@@ -371,10 +371,12 @@
     width: 250px;
     transform: translateX(-102%);
     transition: transform 200ms ease;
+    visibility: hidden;
   }
   .sidebar.mobile-open {
     transform: translateX(0);
     box-shadow: 24px 0 60px rgba(0, 0, 0, 0.4);
+    visibility: visible;
   }
   .mobile-scrim {
     position: absolute;

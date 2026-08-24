@@ -9,7 +9,7 @@
   background: radial-gradient(circle at 50% 20%, rgba(143, 125, 247, 0.1), transparent 34%), var(--bg);
 }
 .storage-startup {
-  color: #777581;
+  color: var(--subtle-text);
   font-size: 11px;
   letter-spacing: 0.04em;
 }
@@ -88,7 +88,7 @@
 }
 .recovery-option small {
   margin-top: 4px;
-  color: #777581;
+  color: var(--subtle-text);
   font-size: 9px;
   line-height: 1.4;
 }

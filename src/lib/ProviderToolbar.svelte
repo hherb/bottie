@@ -78,7 +78,12 @@
 </script>
 
 <header class="topbar">
-  <button class="icon-button mobile-menu" aria-label="Open conversations" onclick={onopensidebar}>
+  <button
+    id="conversation-sidebar-toggle"
+    class="icon-button mobile-menu"
+    aria-label="Open conversations"
+    onclick={onopensidebar}
+  >
     <Icon name="menu" size={19} />
   </button>
 

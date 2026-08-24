@@ -31,7 +31,7 @@
     ondeleteconversation: (conversationId: string) => void;
     onrestoreconversation: (conversationId: string) => void;
     onforgetconversation: (conversationId: string) => void;
-    onopensettings: () => void;
+    onopensettings: (invoker: HTMLButtonElement) => void;
   };
 
   let {
@@ -204,11 +204,15 @@
   </nav>
 
   <div class="sidebar-footer">
-    <button class="settings-button" onclick={onopensettings}>
+    <button class="settings-button" onclick={(event) => onopensettings(event.currentTarget)}>
       <Icon name="settings" size={18} />
       <span>Settings</span>
     </button>
-    <button class="profile-button" aria-label="Open profile settings">
+    <button
+      class="profile-button"
+      aria-label="Open Settings for local profile"
+      onclick={(event) => onopensettings(event.currentTarget)}
+    >
       <span class="avatar">HH</span>
       <span class="profile-copy">
         <strong>Local profile</strong>

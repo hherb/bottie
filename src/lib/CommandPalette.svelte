@@ -7,6 +7,7 @@
     type CommandId,
     type CommandPaletteItem,
   } from "./command-palette";
+  import { trapModalFocus } from "./modal-focus";
 
   type Props = {
     items: CommandPaletteItem[];
@@ -55,7 +56,7 @@
       run(filteredItems[activeIndex]);
       return;
     }
-    if (event.key === "Tab") trapFocus(event);
+    if (event.key === "Tab") trapModalFocus(event, layer);
   }
 
   /** Scrolls the active option into view without moving focus away from the search field. */
@@ -63,28 +64,19 @@
     searchInput?.focus();
     layer?.querySelector<HTMLElement>(`[data-command-index="${activeIndex}"]`)?.scrollIntoView({ block: "nearest" });
   }
-
-  /** Retains Tab focus within the modal palette. */
-  function trapFocus(event: KeyboardEvent): void {
-    const controls = Array.from(layer?.querySelectorAll<HTMLElement>("input, button:not([disabled])") ?? []);
-    if (controls.length === 0) return;
-    const first = controls[0];
-    const last = controls[controls.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
 </script>
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
 <div class="command-layer" bind:this={layer}>
   <button class="command-scrim" aria-label="Close command palette" tabindex="-1" onclick={onclose}></button>
-  <div class="command-dialog" role="dialog" aria-modal="true" aria-labelledby="command-palette-title">
+  <div
+    class="command-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="command-palette-title"
+    aria-describedby="command-palette-help"
+  >
     <h2 id="command-palette-title" class="visually-hidden">Command palette</h2>
     <label class="command-search">
       <span class="visually-hidden">Search commands</span>
@@ -112,6 +104,7 @@
           aria-selected={index === activeIndex}
           aria-disabled={Boolean(item.disabledReason)}
           disabled={Boolean(item.disabledReason)}
+          tabindex="-1"
           data-command-index={index}
           onclick={() => run(item)}
           onmousemove={() => {
@@ -128,7 +121,7 @@
         <p class="command-empty" role="status">No commands match “{query.trim()}”.</p>
       {/each}
     </div>
-    <footer class="command-footer">
+    <footer id="command-palette-help" class="command-footer">
       <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
       <span><kbd>Enter</kbd> Run</span>
       <span>Local UI actions only</span>

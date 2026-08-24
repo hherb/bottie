@@ -94,7 +94,7 @@
 .first-run-route em {
   margin-top: 3px;
   overflow: hidden;
-  color: #73717d;
+  color: var(--subtle-text);
   font-size: 9px;
   font-style: normal;
   text-overflow: ellipsis;

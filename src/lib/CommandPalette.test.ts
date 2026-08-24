@@ -21,11 +21,13 @@ describe("CommandPalette", () => {
 
     expect(html).toContain('role="dialog"');
     expect(html).toContain('aria-modal="true"');
+    expect(html).toContain('aria-describedby="command-palette-help"');
     expect(html).toContain('aria-label="Search commands"');
     expect(html).toContain('role="listbox"');
     expect(html).toContain("New conversation");
     expect(html).toContain("⌘ N");
     expect(html).toContain("Finish the current response before starting a new conversation.");
     expect(html).toContain('aria-disabled="true"');
+    expect(html).toContain('tabindex="-1"');
   });
 });

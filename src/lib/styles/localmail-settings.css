@@ -21,7 +21,7 @@
 .localmail-certificate p,
 .localmail-boundary {
   margin: 0;
-  color: #777581;
+  color: var(--subtle-text);
   font-size: 8px;
   line-height: 1.5;
 }

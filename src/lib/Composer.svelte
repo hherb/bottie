@@ -112,6 +112,7 @@
       placeholder={providerStatus === "available"
         ? "Message the selected model…"
         : "Connect a provider to send a message"}
+      aria-describedby={`composer-guidance${emailEnabled || emailUnavailableReason ? " composer-email-guidance" : ""}`}
       aria-label="Message bottie"></textarea>
 
     <div class="composer-toolbar">
@@ -184,12 +185,12 @@
       </button>
     </div>
   </div>
-  <p class="composer-note">
+  <p id="composer-guidance" class="composer-note" aria-live="polite">
     {attachmentNote}
   </p>
   {#if emailEnabled}
-    <p class="email-boundary-note">{emailBoundaryNote}</p>
+    <p id="composer-email-guidance" class="email-boundary-note">{emailBoundaryNote}</p>
   {:else if emailUnavailableReason}
-    <p class="email-boundary-note" role="status">{emailUnavailableReason}</p>
+    <p id="composer-email-guidance" class="email-boundary-note" role="status">{emailUnavailableReason}</p>
   {/if}
 </footer>

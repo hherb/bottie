@@ -14,6 +14,11 @@ export function webSearchProviderName(providerId: WebSearchProviderId): string {
   return providerId === "exa" ? "Exa Search" : "Brave Search";
 }
 
+/** Returns a compact local time for one presentation timestamp. */
+export function diagnosticTime(timestampMs: number): string {
+  return new Date(timestampMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 /** Returns a process-unique numeric key for ephemeral message presentation. */
 export function nextMessageId(): number {
   return ++messageSequence;

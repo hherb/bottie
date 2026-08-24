@@ -51,6 +51,7 @@ describe("ConversationGroup", () => {
       }),
     ).toBe("Exclude from memory");
     expect(included).not.toContain("Memory off");
+    expect(included).toContain('aria-controls="conversation-actions-included"');
     expect(
       conversationMemoryActionLabel({
         id: "excluded",

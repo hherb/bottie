@@ -41,6 +41,7 @@
   let renameTitle = $state("");
   let renameInput = $state<HTMLInputElement>();
   let forgettingId = $state<string | null>(null);
+  let menuInvoker = $state<HTMLButtonElement | null>(null);
 
   /** Opens inline title editing for one conversation. */
   async function beginRename(conversation: ConversationSummary): Promise<void> {
@@ -61,6 +62,14 @@
     renameTitle = "";
   }
 
+  /** Cancels inline title editing and returns focus to the conversation action control. */
+  async function cancelRename(conversationId: string): Promise<void> {
+    renamingId = null;
+    renameTitle = "";
+    await tick();
+    document.querySelector<HTMLButtonElement>(`#conversation-manage-${conversationId}`)?.focus();
+  }
+
   /** Runs one lifecycle action after closing the disclosure menu. */
   function runAction(action: () => void): void {
     openMenuId = null;
@@ -69,17 +78,25 @@
   }
 
   /** Opens or closes one action menu while clearing any stale forget confirmation. */
-  function toggleMenu(conversationId: string): void {
+  async function toggleMenu(conversationId: string, invoker: HTMLButtonElement): Promise<void> {
     const shouldOpen = openMenuId !== conversationId;
     openMenuId = shouldOpen ? conversationId : null;
     forgettingId = null;
+    menuInvoker = shouldOpen ? invoker : null;
+    if (!shouldOpen) return;
+    await tick();
+    document.querySelector<HTMLButtonElement>(`#conversation-actions-${conversationId} button`)?.focus();
   }
 
-  /** Closes the action disclosure from any focused action button. */
-  function handleActionKeydown(event: KeyboardEvent): void {
+  /** Closes the action disclosure and restores the control that opened it. */
+  async function handleActionKeydown(event: KeyboardEvent): Promise<void> {
     if (event.key === "Escape") {
+      event.preventDefault();
       openMenuId = null;
       forgettingId = null;
+      await tick();
+      menuInvoker?.focus();
+      menuInvoker = null;
     }
   }
 </script>
@@ -103,13 +120,13 @@
             {disabled}
             maxlength="80"
             onkeydown={(event) => {
-              if (event.key === "Escape") renamingId = null;
+              if (event.key === "Escape") void cancelRename(conversation.id);
             }}
           />
           <button type="submit" aria-label="Save conversation name" disabled={disabled || !renameTitle.trim()}>
             <Icon name="check" size={15} />
           </button>
-          <button type="button" aria-label="Cancel rename" onclick={() => (renamingId = null)}>
+          <button type="button" aria-label="Cancel rename" onclick={() => void cancelRename(conversation.id)}>
             <Icon name="x" size={14} />
           </button>
         </form>
@@ -124,12 +141,14 @@
           {#if conversation.memoryExcluded}<small class="memory-excluded">Memory off</small>{/if}
         </button>
         <button
+          id={`conversation-manage-${conversation.id}`}
           class="conversation-more"
           aria-label={`Manage ${conversation.title}`}
           aria-expanded={openMenuId === conversation.id}
+          aria-controls={`conversation-actions-${conversation.id}`}
           {disabled}
-          onclick={() => toggleMenu(conversation.id)}
-          onkeydown={handleActionKeydown}
+          onclick={(event) => void toggleMenu(conversation.id, event.currentTarget)}
+          onkeydown={(event) => void handleActionKeydown(event)}
         >
           <Icon name="more" size={16} />
         </button>
@@ -137,28 +156,31 @@
 
       {#if openMenuId === conversation.id}
         <div
+          id={`conversation-actions-${conversation.id}`}
           class="conversation-menu"
           class:forget-open={forgettingId === conversation.id}
           role="group"
           aria-label={`Actions for ${conversation.title}`}
         >
           {#if conversation.lifecycle !== "deleted"}
-            <button onkeydown={handleActionKeydown} onclick={() => beginRename(conversation)}>Rename</button>
+            <button onkeydown={(event) => void handleActionKeydown(event)} onclick={() => beginRename(conversation)}
+              >Rename</button
+            >
             <button
-              onkeydown={handleActionKeydown}
+              onkeydown={(event) => void handleActionKeydown(event)}
               onclick={() => runAction(() => onarchive(conversation.id, conversation.lifecycle !== "archived"))}
             >
               {conversation.lifecycle === "archived" ? "Unarchive" : "Archive"}
             </button>
             <button
-              onkeydown={handleActionKeydown}
+              onkeydown={(event) => void handleActionKeydown(event)}
               onclick={() => runAction(() => onmemoryexclusion(conversation.id, !conversation.memoryExcluded))}
             >
               {conversationMemoryActionLabel(conversation)}
             </button>
             <button
               class="danger"
-              onkeydown={handleActionKeydown}
+              onkeydown={(event) => void handleActionKeydown(event)}
               onclick={() => runAction(() => ondelete(conversation.id))}
             >
               Move to Trash
@@ -168,10 +190,12 @@
               <div class="forget-confirmation" role="alert">
                 <p>{FORGET_CONVERSATION_CONFIRMATION}</p>
                 <div class="forget-confirmation-actions">
-                  <button onkeydown={handleActionKeydown} onclick={() => (forgettingId = null)}>Cancel</button>
+                  <button onkeydown={(event) => void handleActionKeydown(event)} onclick={() => (forgettingId = null)}
+                    >Cancel</button
+                  >
                   <button
                     class="danger"
-                    onkeydown={handleActionKeydown}
+                    onkeydown={(event) => void handleActionKeydown(event)}
                     onclick={() => runAction(() => onforget(conversation.id))}
                   >
                     Forget forever
@@ -179,10 +203,17 @@
                 </div>
               </div>
             {:else}
-              <button onkeydown={handleActionKeydown} onclick={() => runAction(() => onrestore(conversation.id))}>
+              <button
+                onkeydown={(event) => void handleActionKeydown(event)}
+                onclick={() => runAction(() => onrestore(conversation.id))}
+              >
                 Restore
               </button>
-              <button class="danger" onkeydown={handleActionKeydown} onclick={() => (forgettingId = conversation.id)}>
+              <button
+                class="danger"
+                onkeydown={(event) => void handleActionKeydown(event)}
+                onclick={() => (forgettingId = conversation.id)}
+              >
                 {forgetConversationActionLabel()}
               </button>
             {/if}

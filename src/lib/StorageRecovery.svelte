@@ -27,7 +27,7 @@
   }
 </script>
 
-<main class="recovery-screen">
+<main class="recovery-screen" aria-busy={isRestoring}>
   <section class="recovery-card" aria-labelledby="recovery-title">
     <div class="recovery-mark"><Icon name="database" size={28} /></div>
     <p class="recovery-eyebrow">Local data paused</p>
@@ -73,7 +73,7 @@
       </span>
     </p>
     {#if feedback}
-      <p class:error={failed} class="recovery-feedback" role="status">{feedback}</p>
+      <p class:error={failed} class="recovery-feedback" role={failed ? "alert" : "status"}>{feedback}</p>
     {/if}
   </section>
 </main>
