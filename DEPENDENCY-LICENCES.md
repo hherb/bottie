@@ -12,12 +12,14 @@ assets selected by the current Bottie source tree so release work has an explici
 ```sh
 node scripts/dependency-inventory.mjs
 npm run dependencies:check
+npm run notices:check
+npm run release:assets:check
 ```
 
-The check runs `cargo tree --locked --offline` for the macOS arm64 and x64 normal/build graphs, reads npm's version-3
-lockfile directly, hashes the reviewed manifests and application artwork, and compares the result byte-for-byte with
-the committed JSON. It deliberately does not invoke `npm install`, package lifecycle scripts, Cargo builds, or a
-licence web service.
+The check runs `cargo tree --locked --offline` for macOS arm64/x64, Windows x64, and Linux x64 normal/build graphs,
+reads npm's version-3 lockfile directly, hashes the reviewed manifests, package-notice sources, runtime-asset contract,
+and application artwork, and compares the result byte-for-byte with the committed JSON. It deliberately does not
+invoke `npm install`, package lifecycle scripts, Cargo builds, or a licence web service.
 
 The generated record contains, for every resolved entry:
 
@@ -27,14 +29,12 @@ The generated record contains, for every resolved entry:
 - the authoritative crates.io package page or exact integrity-pinned npm registry archive; and
 - input hashes, reviewed application assets, and the security-sensitive direct feature choices.
 
-The Rust report is the union of the currently buildable macOS arm64 and x64 graphs: 399 unique crates, including 29
-direct packages, 376 entries in a normal runtime graph, and 23 build-only entries. `Cargo.lock` contains 649 package
-records as a conservative all-platform superset. The npm lock contains 157 exact package paths: 14 direct packages,
+The Rust report is the union of the four reviewed graphs: 531 unique crates, including 30 direct packages, 503 entries
+in a normal runtime graph, and 28 build-only entries. The macOS arm64 and x64 graphs each contain 399 crates, Windows
+x64 contains 402, and Linux x64 contains 480. `Cargo.lock` contains 649 package records as a conservative superset for
+architectures outside those four release targets. The npm lock contains 157 exact package paths: 14 direct packages,
 eight production-install entries, and 149 development-install entries. npm's `dev` marker describes installation
 scope, not whether a bundler copies code into the final frontend, so all 157 remain in the conservative notice review.
-Windows and Linux locked packaging workflows now verify their final application payloads and native-runtime shapes.
-Per-platform resolved-graph and licence/notice review remains a release task; this inventory does not fetch every
-target-specific package.
 
 The separately deployed `website/` project has its own manifest, lockfile, build, and Node test command. It is not
 linked or bundled into the Tauri desktop application and is outside this inventory. The root Vitest command now
@@ -50,19 +50,26 @@ excludes `website/` and the unrelated repository-root `assets/` workspace so eac
   before release.
 - **Unknown** means the locked metadata contains no declared licence. Unknown entries fail the release gate.
 
-Across 399 Rust packages, 157 npm paths, and six reviewed non-package asset groups, the result is:
+Across 531 Rust packages, 157 npm paths, and six reviewed non-package asset groups, the result is:
 
 | Classification  | Entries | Result                                                                 |
 | --------------- | ------: | ---------------------------------------------------------------------- |
-| Compatible      |      11 | No further technical gap identified by this inventory                  |
-| Notice-required |     543 | Must be represented in the release notice/licence bundle               |
-| Review-required |       8 | Five MPL crates, one Python-2.0 npm package, and two asset groups       |
-| Unknown         |       0 | No missing declaration in either resolved macOS graph or npm lockfile  |
+| Compatible      |      12 | No further technical gap identified by this inventory                  |
+| Notice-required |     682 | Represented in the generated release notice/licence bundle             |
+| Review-required |       0 | Every exact declaration and non-package runtime asset has a disposition |
+| Unknown         |       0 | No missing declaration in any reviewed resolved graph or npm lock path |
 
 No GPL, AGPL, LGPL, or SSPL declaration appears in the reviewed graphs. The five MPL-2.0 runtime-graph crates are
 `cssparser 0.36.0`, `cssparser-macros 0.6.1`, `dtoa-short 0.3.5`, `option-ext 0.2.0`, and `selectors 0.36.1`.
-`argparse 3.0.0` is the one Python-2.0 npm production-install entry. These declarations are not automatically treated as
-incompatible, but release counsel/review must confirm the applicable notice and source-form obligations.
+`argparse 3.0.0` is the one Python-2.0 npm production-install entry. The exact package sources and licence texts are
+included in `THIRD-PARTY-NOTICES.txt`; MPL source-form availability remains the repository's public source tree rather
+than a separately modified or vendored copy.
+
+`third-party/package-licence-texts.json` retains 679 exact locked package identities and 403 deduplicated text bodies.
+The generator prefers each published package's own top-level licence, copying, copyright, and notice files. When a
+workspace or platform-binary package intentionally omits the shared file, it records the authoritative package source
+and uses the matching canonical text from immutable SPDX License List 3.28.0. ONNX Runtime's exact versioned licence
+and complete upstream third-party notice file are appended without localization or truncation.
 
 ## Security-relevant selections
 
@@ -96,20 +103,26 @@ features are fixed in the generated inventory.
 `fastembed 6.0.0` selects `ort`/`ort-sys 2.0.0-rc.13` with the Rustls binary-download feature. That build helper selects
 a target-specific ONNX Runtime 1.28.0 archive from its embedded distribution table, verifies the table's SHA-256, and
 links the native runtime. ONNX Runtime is MIT-licensed and publishes a separate upstream third-party notice file.
-Bottie does not yet capture the final archive identity, extracted licence files, or packaged native artefact in a
-release manifest, so this asset stays review-required.
+Bottie's `runtime-assets.json` records the exact ort-sys-selected archive URL and SHA-256 for macOS arm64, Windows x64,
+and Linux x64. The version-matched upstream licence and complete third-party notice are committed under
+`third-party/onnxruntime-1.28.0/`, hash-bound to the contract, included in `THIRD-PARTY-NOTICES.txt`, and required in
+every inspected package payload.
 
 Authoritative sources: [ONNX Runtime licence](https://github.com/microsoft/onnxruntime/blob/main/LICENSE) and
 [upstream third-party notices](https://github.com/microsoft/onnxruntime/blob/main/ThirdPartyNotices.txt).
 
 ### EmbeddingGemma
 
-Bottie does not bundle model weights in the repository or current executable. When semantic indexing first needs the
-model, FastEmbed downloads `onnx-community/embeddinggemma-300m-ONNX` Q4 files into Bottie's application-owned cache.
-The current API follows the repository's main revision; Bottie does not pin a commit or record the ONNX/data/tokenizer
-hashes. The model card declares the Gemma licence, whose terms include use restrictions and distribution notice
-requirements. Release work must therefore pin and verify the complete model snapshot, present/record the applicable
-terms before first download, and decide whether Bottie or the user is the distributor.
+Bottie does not bundle model weights in the repository or application package. Before FastEmbed loads the model,
+native code fetches only revision `75a84c732f1884df76bec365346230e32f582c82`, streams SHA-256 verification over the
+six exact ONNX/data/tokenizer/config files in `runtime-assets.json`, and then aliases FastEmbed's cache reference to
+that verified snapshot. `MODEL-NOTICE.txt` records the reviewed 1 April 2026 Gemma terms and is bundled beside the
+project licence and third-party notices.
+
+The release operator must personally read and accept those terms. Bottie creates no acceptance evidence by default;
+the exact acknowledgement command documented in `README.md` writes an ignored, identity-free, timestamp-free evidence
+record bound to the model revision and model-notice hash. The release gate fails closed when that record is missing or
+stale. This repository work does not accept the Gemma terms on another person's behalf.
 
 Authoritative sources: [model repository](https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX) and
 [Gemma Terms of Use](https://ai.google.dev/gemma/terms).
@@ -121,18 +134,11 @@ inputs, packaged outputs, exact hashes, and redistribution statement are recorde
 Security, LocalAuthentication, and other frameworks are supplied by the operating system and are not copied into
 Bottie's current app bundle.
 
-## Release-blocking gaps
+## Remaining release gates
 
-1. The repository has no root `LICENSE`/`LICENCE` file. `package.json` says MIT while Bottie's Rust package declares no
-   licence. The copyright holder and exact project licence text must be recorded before distribution.
-2. Bottie has no generated distributable notice/licence bundle. Release packaging must include the exact selected
-   package texts, required copyright notices, MPL handling, and ONNX Runtime's matching third-party notices.
-3. The packaged ONNX Runtime platform archive and its extracted notices must be captured and verified for every
-   release target; a lockfile entry for the Rust wrapper alone is insufficient.
-4. The EmbeddingGemma revision/files are not pinned and the Gemma terms are not presented or accepted through a
-   release-ready product flow.
-5. Windows and Linux package smokes record final payloads, loose native assets, and direct system dependencies, but
-   their complete resolved graphs and platform-specific licence/notice obligations remain unverified.
-
-These are release gates, not reasons to change dependencies in this review slice. Dependency upgrades, replacement,
-vendoring, model-cache behavior, user-facing licence acceptance, packaging, signing, and updates remain separate work.
+The repository licence, generated notice bundle, four-target resolved-graph review, ONNX Runtime evidence, immutable
+EmbeddingGemma snapshot, and terms-evidence mechanism are complete. Publication remains blocked until the release
+operator explicitly accepts the reviewed Gemma terms and fresh macOS, Windows, and Linux packages prove they contain
+the exact current documents. macOS must then pass the existing Developer ID/notarization/stapling/Gatekeeper contract;
+Windows and Linux still require their verified distribution signatures. No signing key, acceptance record, package,
+tag, upload, or release is created by the documentation and generation commands in this slice.

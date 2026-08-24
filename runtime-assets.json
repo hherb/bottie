@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "embeddingGemma": {
+    "repository": "onnx-community/embeddinggemma-300m-ONNX",
+    "revision": "75a84c732f1884df76bec365346230e32f582c82",
+    "variant": "EmbeddingGemma300MQ4",
+    "files": [
+      {
+        "path": "config.json",
+        "sha256": "6e1f06404b7163e0325ed2ea3e6781cde50f4a50b31780a95ad0d30e8404d77b",
+        "size": 1765
+      },
+      {
+        "path": "onnx/model_q4.onnx",
+        "sha256": "ad1dfee81a70f7944b9b9d1cc6e48075b832881cf33fab2f2b248be78f3f0043",
+        "size": 519322
+      },
+      {
+        "path": "onnx/model_q4.onnx_data",
+        "sha256": "599962c3143b040de2dd05e5975be3e9091dd067cacc6a8f7186e3203bab9e02",
+        "size": 196725760
+      },
+      {
+        "path": "special_tokens_map.json",
+        "sha256": "2f7b0adf4fb469770bb1490e3e35df87b1dc578246c5e7e6fc76ecf33213a397",
+        "size": 662
+      },
+      {
+        "path": "tokenizer.json",
+        "sha256": "4dda02faaf32bc91031dc8c88457ac272b00c1016cc679757d1c441b248b9c47",
+        "size": 20323312
+      },
+      {
+        "path": "tokenizer_config.json",
+        "sha256": "3ca953eea6c3c9fcda9cf3df22949ff18b216f7c74bd6459230f3f1013953f3a",
+        "size": 1156830
+      }
+    ],
+    "terms": {
+      "lastModified": "2026-04-01",
+      "notice": "MODEL-NOTICE.txt",
+      "sha256": "d4e49f201ce441098703da8d449a00462bbdcd946a12c1d75f89231a9da2130e",
+      "url": "https://ai.google.dev/gemma/terms"
+    }
+  },
+  "onnxRuntime": {
+    "version": "1.28.0",
+    "selectedBy": "ort-sys 2.0.0-rc.13",
+    "archives": [
+      {
+        "featureSet": "coreml",
+        "sha256": "6934874e2e953576d9c1db47ff1af39c62c4f4220dbe6f988e131f72879674c7",
+        "target": "aarch64-apple-darwin",
+        "url": "https://cdn.pyke.io/0/pyke:ort-rs/ms@1.28.0/aarch64-apple-darwin+coreml.tar.lzma2"
+      },
+      {
+        "featureSet": "directml",
+        "sha256": "f7c654b3729cb9e5ad2a36a0c38e5b48e63bf4eed22968931aed33a0ad0b527d",
+        "target": "x86_64-pc-windows-msvc",
+        "url": "https://cdn.pyke.io/0/pyke:ort-rs/ms@1.28.0/x86_64-pc-windows-msvc+directml.tar.lzma2"
+      },
+      {
+        "featureSet": "none",
+        "sha256": "e454f710f8a49f53aa5b4ff51e3454ae1835777e431c6c35c5255ce6f205fd68",
+        "target": "x86_64-unknown-linux-gnu",
+        "url": "https://cdn.pyke.io/0/pyke:ort-rs/ms@1.28.0/x86_64-unknown-linux-gnu.tar.lzma2"
+      }
+    ],
+    "licence": "third-party/onnxruntime-1.28.0/LICENSE",
+    "licenceSha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+    "thirdPartyNotices": "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt",
+    "thirdPartyNoticesSha256": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2"
+  }
+}

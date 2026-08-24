@@ -38,6 +38,9 @@ async function createExtractedBundleFixture() {
   }
   await writeFile(join(directory, "usr", "bin", "bottie"), minimalElf("x86_64"));
   await writeFile(join(directory, "usr", "lib", "bottie", "libonnxruntime.so.1"), "native runtime");
+  await writeFile(join(directory, "usr", "lib", "bottie", "LICENSE"), "project licence");
+  await writeFile(join(directory, "usr", "lib", "bottie", "MODEL-NOTICE.txt"), "model notice");
+  await writeFile(join(directory, "usr", "lib", "bottie", "THIRD-PARTY-NOTICES.txt"), "third-party notices");
   await writeFile(join(directory, "usr", "share", "applications", "bottie.desktop"), "[Desktop Entry]\nIcon=bottie\n");
   return directory;
 }
@@ -86,6 +89,7 @@ describe("Linux package evidence", () => {
     assert.equal(inspection.executable, "usr/bin/bottie");
     assert.equal(inspection.architecture, "x86_64");
     assert.deepEqual(inspection.nativeRuntimeAssets, ["usr/lib/bottie/libonnxruntime.so.1"]);
+    assert.deepEqual(Object.keys(inspection.requiredDocuments), ["licence", "modelNotice", "thirdPartyNotices"]);
     assert.deepEqual(inspection.installedIcons, [
       "usr/share/icons/hicolor/128x128/apps/bottie.png",
       "usr/share/icons/hicolor/256x256@2/apps/bottie.png",
@@ -97,6 +101,9 @@ describe("Linux package evidence", () => {
       [
         "usr/bin/bottie",
         "usr/lib/bottie/libonnxruntime.so.1",
+        "usr/lib/bottie/LICENSE",
+        "usr/lib/bottie/MODEL-NOTICE.txt",
+        "usr/lib/bottie/THIRD-PARTY-NOTICES.txt",
         "usr/share/applications/bottie.desktop",
         "usr/share/icons/hicolor/128x128/apps/bottie.png",
         "usr/share/icons/hicolor/256x256@2/apps/bottie.png",

@@ -30,6 +30,11 @@ const ELF_MACHINES = new Map([
   [0xb7, "aarch64"],
 ]);
 const INSTALLED_ICON_DIRECTORIES = ["32x32", "64x64", "128x128", "256x256@2"];
+const REQUIRED_DISTRIBUTION_DOCUMENTS = new Map([
+  ["LICENSE", "licence"],
+  ["MODEL-NOTICE.txt", "modelNotice"],
+  ["THIRD-PARTY-NOTICES.txt", "thirdPartyNotices"],
+]);
 
 /** Returns the exact locked, DEB-only Tauri arguments used by the package command. */
 export function linuxBuildArguments() {
@@ -154,6 +159,7 @@ export async function inspectExtractedLinuxBundle(bundlePath) {
   }
   const digest = createHash("sha256");
   for (const file of files) digest.update(`${file.type}\0${file.path}\0${file.sha256}\0`);
+  const requiredDocuments = requiredDistributionDocuments(files);
   const executablePath = join(root, ...executables[0].path.split("/"));
   return {
     architecture: await inspectElfArchitecture(executablePath),
@@ -163,8 +169,20 @@ export async function inspectExtractedLinuxBundle(bundlePath) {
     installedIcons,
     totalBytes: files.reduce((total, file) => total + file.size, 0),
     nativeRuntimeAssets,
+    requiredDocuments,
     files,
   };
+}
+
+/** Requires one exact packaged project licence, model notice, and third-party notice bundle. */
+function requiredDistributionDocuments(files) {
+  const documents = {};
+  for (const [filename, key] of REQUIRED_DISTRIBUTION_DOCUMENTS) {
+    const matches = files.filter((file) => basename(file.path) === filename && file.type === "file");
+    if (matches.length !== 1) throw new Error(`The Linux bundle must contain exactly one ${filename}.`);
+    documents[key] = matches[0].sha256;
+  }
+  return documents;
 }
 
 /** Runs a host command and returns its output or one path-free failure. */

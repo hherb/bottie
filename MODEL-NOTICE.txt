@@ -1,0 +1,11 @@
+EmbeddingGemma model notice
+
+Bottie uses the Q4 ONNX conversion of Google's EmbeddingGemma 300M model only for local semantic-memory indexing.
+The model is downloaded on first use from the immutable repository revision recorded in runtime-assets.json and is
+not bundled with Bottie's source or application packages.
+
+EmbeddingGemma is provided under and subject to the Gemma Terms of Use found at:
+https://ai.google.dev/gemma/terms
+
+The reviewed terms version is dated 1 April 2026. Use of the model is subject to those terms and the incorporated
+Gemma Prohibited Use Policy. Bottie's MIT licence does not replace or modify the Gemma terms.

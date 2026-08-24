@@ -12,6 +12,8 @@
     "performance:native": "cargo test --manifest-path src-tauri/Cargo.toml performance_budget -- --ignored --nocapture",
     "performance:test": "npm run performance:frontend && npm run performance:native",
     "dependencies:check": "node scripts/dependency-inventory.mjs --check",
+    "notices:check": "node scripts/third-party-notices.mjs --check",
+    "release:assets:check": "node scripts/release-assets.mjs --check",
     "icons:generate": "node scripts/application-icons.mjs --generate",
     "icons:check": "node scripts/application-icons.mjs --check",
     "package:macos": "node scripts/macos-package.mjs --build",

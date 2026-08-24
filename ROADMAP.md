@@ -271,8 +271,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
   correlation, the same configured native trust and loop bounds, and loopback-provider/Localmail delivery disclosure;
 - [x] CSP and Tauri capability review;
 - [x] secret-vault and filesystem-boundary tests;
-- [x] dependency and licence review with a locked macOS Rust/npm inventory, native/runtime asset review, and explicit
-  release gates;
+- [x] dependency and licence review with locked macOS/Windows/Linux Rust plus npm graphs, generated distributable
+  notices, pinned native/model runtime assets, and explicit release gates;
 - [x] keyboard shortcuts and command palette;
 - [x] themes and density options;
 - [x] refined empty/offline/error states;

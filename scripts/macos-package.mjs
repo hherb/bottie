@@ -21,6 +21,9 @@ const REQUIRED_BUNDLE_ENTRIES = {
   executable: "Contents/MacOS/bottie",
   icon: "Contents/Resources/icon.icns",
   infoPlist: "Contents/Info.plist",
+  licence: "Contents/Resources/LICENSE",
+  modelNotice: "Contents/Resources/MODEL-NOTICE.txt",
+  thirdPartyNotices: "Contents/Resources/THIRD-PARTY-NOTICES.txt",
 };
 const FRONTEND_ASSET_PREFIX = "Contents/Resources/_up_/";
 const SMOKE_STARTUP_TIMEOUT_MS = 120_000;
@@ -127,6 +130,11 @@ export async function inspectBundleFiles(bundlePath) {
     Object.entries(REQUIRED_BUNDLE_ENTRIES).map(([name, path]) => [name, paths.has(path)]),
   );
   if (Object.values(requiredEntries).includes(false)) throw new Error("The macOS bundle is missing a required entry.");
+  const requiredDocuments = {
+    licence: files.find((file) => file.path === REQUIRED_BUNDLE_ENTRIES.licence).sha256,
+    modelNotice: files.find((file) => file.path === REQUIRED_BUNDLE_ENTRIES.modelNotice).sha256,
+    thirdPartyNotices: files.find((file) => file.path === REQUIRED_BUNDLE_ENTRIES.thirdPartyNotices).sha256,
+  };
   const nativeRuntimeAssets = [...paths]
     .filter((path) => path.startsWith("Contents/Frameworks/") || /\.(?:dylib|so)$/.test(path))
     .sort();
@@ -138,6 +146,7 @@ export async function inspectBundleFiles(bundlePath) {
     totalBytes: files.reduce((total, file) => total + file.size, 0),
     frontendAssetCount: files.filter((file) => file.path.startsWith(FRONTEND_ASSET_PREFIX)).length,
     nativeRuntimeAssets,
+    requiredDocuments,
     requiredEntries,
     files,
     symlinks,

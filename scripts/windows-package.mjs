@@ -28,6 +28,11 @@ const PE_MACHINES = new Map([
   [0x8664, "x86_64"],
   [0xaa64, "aarch64"],
 ]);
+const REQUIRED_DISTRIBUTION_DOCUMENTS = new Map([
+  ["LICENSE", "licence"],
+  ["MODEL-NOTICE.txt", "modelNotice"],
+  ["THIRD-PARTY-NOTICES.txt", "thirdPartyNotices"],
+]);
 
 /** Returns the exact locked, MSI-only Tauri arguments used by the package command. */
 export function windowsBuildArguments() {
@@ -133,6 +138,7 @@ export async function inspectExtractedWindowsBundle(bundlePath) {
     .sort();
   const digest = createHash("sha256");
   for (const file of files) digest.update(`${file.path}\0${file.sha256}\0`);
+  const requiredDocuments = requiredDistributionDocuments(files);
   return {
     applicationDirectory,
     bundleDigest: digest.digest("hex"),
@@ -140,8 +146,20 @@ export async function inspectExtractedWindowsBundle(bundlePath) {
     fileCount: files.length,
     totalBytes: files.reduce((total, file) => total + file.size, 0),
     nativeRuntimeAssets,
+    requiredDocuments,
     files,
   };
+}
+
+/** Requires one exact packaged project licence, model notice, and third-party notice bundle. */
+function requiredDistributionDocuments(files) {
+  const documents = {};
+  for (const [filename, key] of REQUIRED_DISTRIBUTION_DOCUMENTS) {
+    const matches = files.filter((file) => basename(file.path) === filename);
+    if (matches.length !== 1) throw new Error(`The Windows bundle must contain exactly one ${filename}.`);
+    documents[key] = matches[0].sha256;
+  }
+  return documents;
 }
 
 /** Runs a host command and returns its output or one path-free failure. */

@@ -11,7 +11,12 @@ import { fileURLToPath } from "node:url";
 const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const INVENTORY_FILE = "dependency-inventory.json";
 const RUST_MANIFEST = "src-tauri/Cargo.toml";
-const RUST_TARGETS = ["aarch64-apple-darwin", "x86_64-apple-darwin"];
+const RUST_TARGETS = [
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+  "x86_64-unknown-linux-gnu",
+];
 const REVIEWED_DATE = "2026-08-24";
 const APPLICATION_ASSETS = [
   "src-tauri/icons/32x32.png",
@@ -28,6 +33,21 @@ const APPLICATION_ASSET_SOURCES = [
   "assets/bottie-logo-kit/bottie-mark-color.svg",
   "assets/bottie-logo-kit/favicon-64.png",
 ];
+const SPDX_LICENCE_SOURCES = [
+  "third-party/spdx-3.28.0/exceptions/LLVM-exception.txt",
+  "third-party/spdx-3.28.0/licenses/Apache-2.0.txt",
+  "third-party/spdx-3.28.0/licenses/BSD-2-Clause.txt",
+  "third-party/spdx-3.28.0/licenses/BSD-3-Clause.txt",
+  "third-party/spdx-3.28.0/licenses/BSL-1.0.txt",
+  "third-party/spdx-3.28.0/licenses/CDLA-Permissive-2.0.txt",
+  "third-party/spdx-3.28.0/licenses/ISC.txt",
+  "third-party/spdx-3.28.0/licenses/MIT-0.txt",
+  "third-party/spdx-3.28.0/licenses/MIT.txt",
+  "third-party/spdx-3.28.0/licenses/MPL-2.0.txt",
+  "third-party/spdx-3.28.0/licenses/Python-2.0.txt",
+  "third-party/spdx-3.28.0/licenses/Unicode-3.0.txt",
+  "third-party/spdx-3.28.0/licenses/Zlib.txt",
+];
 const HASHED_INPUTS = [
   "package.json",
   "package-lock.json",
@@ -38,10 +58,32 @@ const HASHED_INPUTS = [
   "scripts/dependency-inventory.mjs",
   "scripts/application-icons.mjs",
   "scripts/release-candidate.mjs",
+  "scripts/release-candidate-runtime.mjs",
+  "scripts/release-assets.mjs",
+  "scripts/third-party-notices.mjs",
+  "scripts/macos-package.mjs",
+  "scripts/windows-package.mjs",
+  "scripts/linux-package.mjs",
+  "LICENSE",
+  "MODEL-NOTICE.txt",
+  "THIRD-PARTY-NOTICES.txt",
+  "runtime-assets.json",
+  "third-party/onnxruntime-1.28.0/LICENSE",
+  "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt",
+  "third-party/package-licence-texts.json",
+  ...SPDX_LICENCE_SOURCES,
   ...APPLICATION_ASSET_SOURCES,
   ...APPLICATION_ASSETS,
 ];
 const REVIEW_REQUIRED_LICENCES = ["MPL-2.0", "Python-2.0"];
+const REVIEWED_NOTICE_PACKAGES = new Set([
+  "cargo:cssparser@0.36.0",
+  "cargo:cssparser-macros@0.6.1",
+  "cargo:dtoa-short@0.3.5",
+  "cargo:option-ext@0.2.0",
+  "cargo:selectors@0.36.1",
+  "npm:argparse@3.0.0",
+]);
 const NO_NOTICE_ALTERNATIVES = ["0BSD", "CC0-1.0", "Unlicense"];
 const RECOGNISED_NOTICE_LICENCES = [
   "Apache-2.0",
@@ -121,6 +163,15 @@ export function classifyLicence(licence) {
   return remainder ? "review-required" : "notice-required";
 }
 
+/** Applies a completed human review only to one exact ecosystem/name/version identity. */
+export function classifyReviewedLicence(ecosystem, name, version, licence) {
+  const classification = classifyLicence(licence);
+  if (classification === "review-required" && REVIEWED_NOTICE_PACKAGES.has(`${ecosystem}:${name}@${version}`)) {
+    return "notice-required";
+  }
+  return classification;
+}
+
 /** Parses Cargo tree's stable pipe-delimited package, licence, and feature output. */
 export function parseCargoTree(output) {
   const packages = new Map();
@@ -159,7 +210,7 @@ export function mergeRustInventories(targetInventories) {
         name: entry.name,
         version: entry.version,
         licence: entry.licence,
-        classification: classifyLicence(entry.licence),
+        classification: classifyReviewedLicence("cargo", entry.name, entry.version, entry.licence),
         direct: false,
         scope: "build-only",
         targets: new Set(),
@@ -195,7 +246,7 @@ export function parseNpmLock(lock) {
         name,
         version: metadata.version ?? "unknown",
         licence: metadata.license ?? "",
-        classification: classifyLicence(metadata.license ?? ""),
+        classification: classifyReviewedLicence("npm", name, metadata.version ?? "unknown", metadata.license ?? ""),
         direct: path === `node_modules/${name}` && (runtimeDirect.has(name) || buildDirect.has(name)),
         scope: metadata.dev ? "development-install" : "production-install",
         optional: Boolean(metadata.optional),
@@ -229,8 +280,8 @@ export function buildInventory(repositoryRoot = REPOSITORY_ROOT) {
       rustLockPackages: (cargoLock.match(/^\[\[package\]\]$/gm) ?? []).length,
       npmLockPackages: Object.keys(packageLock.packages ?? {}).filter(Boolean).length,
       limitation:
-        "Rust entries are the union of locked macOS arm64/x64 normal and build graphs. " +
-        "The Cargo.lock count is a conservative all-platform superset; per-platform resolved-graph review remains a release check.",
+        "Rust entries are the union of locked macOS arm64/x64, Windows x64, and Linux x64 normal and build graphs. " +
+        "The Cargo.lock count remains a conservative superset for architectures outside those four reviewed targets.",
     },
     inputs: Object.fromEntries(HASHED_INPUTS.map((path) => [path, sha256(join(repositoryRoot, path))])),
     securityRelevantFeatures: SECURITY_RELEVANT_FEATURES,
@@ -299,21 +350,21 @@ function reviewedAssets(repositoryRoot) {
       name: "Microsoft ONNX Runtime",
       version: "1.28.0 selected by ort-sys 2.0.0-rc.13",
       licence: "MIT plus upstream third-party notices",
-      classification: "review-required",
+      classification: "notice-required",
       delivery:
-        "A platform archive is fetched and hash-checked by ort-sys at build time, then linked for FastEmbed; " +
-        "the final packaged artefact and notices are not yet captured.",
-      source: "https://github.com/microsoft/onnxruntime/blob/main/LICENSE",
+        "The three supported release archives are selected and hash-checked by ort-sys at build time. " +
+        "runtime-assets.json binds their identities to the version-matched licence and upstream notice files.",
+      source: "third-party/onnxruntime-1.28.0/LICENSE",
     },
     {
       name: "EmbeddingGemma 300M Q4 ONNX model",
-      version: "onnx-community/embeddinggemma-300m-ONNX main revision",
+      version: "onnx-community/embeddinggemma-300m-ONNX@75a84c732f1884df76bec365346230e32f582c82",
       licence: "Gemma Terms of Use",
-      classification: "review-required",
+      classification: "notice-required",
       delivery:
-        "Downloaded at runtime into Bottie's application cache; not bundled in this repository or current binary. " +
-        "The repository revision and model file hashes are not pinned by Bottie.",
-      source: "https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX",
+        "Downloaded at runtime into Bottie's application cache; not bundled in this repository or application. " +
+        "runtime-assets.json pins the revision and all six files, and MODEL-NOTICE.txt records the reviewed terms.",
+      source: "runtime-assets.json",
     },
     {
       name: "macOS system frameworks and WebKit",
