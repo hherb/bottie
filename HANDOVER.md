@@ -837,10 +837,10 @@ reproducible and path-free.
 3. The checked-in desktop contract requires fifteen square 8-bit RGBA PNGs from 30 through 512 pixels, a complete
    ICNS container, a non-empty ICO directory, and the exact reviewed 64-pixel favicon. Tauri now explicitly selects
    the 32, 64, 128, 256, ICNS, and ICO assets for platform bundling without changing CSP or WebView permissions.
-4. macOS package inspection continues to require `Contents/Resources/icon.icns`. Linux inspection reads the one
-   packaged desktop launcher's closed Bottie or smoke `Icon=` identity, then requires 32, 64, 128, and 256-pixel marks at
-   the matching exact hicolor paths. Windows reads only public associated-icon dimensions from the administratively
-   extracted `bottie.exe`. No host path enters evidence.
+4. macOS package inspection continues to require `Contents/Resources/icon.icns`. Linux inspection requires the one
+   packaged desktop launcher's main-binary `Icon=bottie` identity, then requires 32, 64, 128, and high-density
+   256-pixel marks at Tauri's exact hicolor paths, including `256x256@2`. Windows reads only public associated-icon
+   dimensions from the administratively extracted `bottie.exe`. No host path enters evidence.
 5. The Windows and Linux pull-request workflows regenerate and compare the artwork before their real locked package
    and isolated smoke paths, so missing or stale installed icons fail the same jobs that retain package evidence.
 

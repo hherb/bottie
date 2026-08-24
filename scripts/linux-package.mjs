@@ -29,8 +29,7 @@ const ELF_MACHINES = new Map([
   [0x3e, "x86_64"],
   [0xb7, "aarch64"],
 ]);
-const ALLOWED_INSTALLED_ICON_NAMES = new Set(["bottie", SMOKE_PRODUCT_NAME]);
-const INSTALLED_ICON_SIZES = [32, 64, 128, 256];
+const INSTALLED_ICON_DIRECTORIES = ["32x32", "64x64", "128x128", "256x256@2"];
 
 /** Returns the exact locked, DEB-only Tauri arguments used by the package command. */
 export function linuxBuildArguments() {
@@ -72,7 +71,7 @@ export function packagedLinuxIconName(desktopEntry) {
     .split(/\r?\n/)
     .filter((line) => line.startsWith("Icon="))
     .map((line) => line.slice("Icon=".length));
-  if (names.length !== 1 || !ALLOWED_INSTALLED_ICON_NAMES.has(names[0])) {
+  if (names.length !== 1 || names[0] !== LINUX_EXECUTABLE_NAME) {
     throw new Error("The Linux desktop launcher has an invalid Bottie icon identity.");
   }
   return names[0];
@@ -143,15 +142,15 @@ export async function inspectExtractedLinuxBundle(bundlePath) {
   }
   const desktopEntryPath = join(root, ...desktopEntries[0].path.split("/"));
   const iconName = packagedLinuxIconName(await readFile(desktopEntryPath, "utf8"));
-  const expectedInstalledIcons = INSTALLED_ICON_SIZES.map(
-    (size) => `usr/share/icons/hicolor/${size}x${size}/apps/${iconName}.png`,
+  const expectedInstalledIcons = INSTALLED_ICON_DIRECTORIES.map(
+    (directory) => `usr/share/icons/hicolor/${directory}/apps/${iconName}.png`,
   ).sort();
   const installedIcons = files
-    .filter((file) => /^usr\/share\/icons\/hicolor\/\d+x\d+\/apps\/[^/]+\.png$/.test(file.path))
+    .filter((file) => /^usr\/share\/icons\/hicolor\/\d+x\d+(?:@2)?\/apps\/[^/]+\.png$/.test(file.path))
     .map((file) => file.path)
     .sort();
   if (JSON.stringify(installedIcons) !== JSON.stringify(expectedInstalledIcons)) {
-    throw new Error("The Linux bundle is missing one or more required Bottie application icons.");
+    throw new Error(`The Linux bundle has an invalid Bottie application icon set: ${JSON.stringify(installedIcons)}.`);
   }
   const digest = createHash("sha256");
   for (const file of files) digest.update(`${file.type}\0${file.path}\0${file.sha256}\0`);

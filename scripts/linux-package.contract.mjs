@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
@@ -26,13 +26,13 @@ async function createExtractedBundleFixture() {
   await mkdir(join(directory, "usr", "bin"), { recursive: true });
   await mkdir(join(directory, "usr", "lib", "bottie"), { recursive: true });
   await mkdir(join(directory, "usr", "share", "applications"), { recursive: true });
-  for (const size of [32, 64, 128, 256]) {
-    await mkdir(join(directory, "usr", "share", "icons", "hicolor", `${size}x${size}`, "apps"), {
+  for (const iconDirectory of ["32x32", "64x64", "128x128", "256x256@2"]) {
+    await mkdir(join(directory, "usr", "share", "icons", "hicolor", iconDirectory, "apps"), {
       recursive: true,
     });
     await writeFile(
-      join(directory, "usr", "share", "icons", "hicolor", `${size}x${size}`, "apps", "bottie.png"),
-      `icon-${size}`,
+      join(directory, "usr", "share", "icons", "hicolor", iconDirectory, "apps", "bottie.png"),
+      `icon-${iconDirectory}`,
     );
   }
   await writeFile(join(directory, "usr", "bin", "bottie"), minimalElf("x86_64"));
@@ -78,7 +78,7 @@ describe("Linux package evidence", () => {
     assert.deepEqual(inspection.nativeRuntimeAssets, ["usr/lib/bottie/libonnxruntime.so.1"]);
     assert.deepEqual(inspection.installedIcons, [
       "usr/share/icons/hicolor/128x128/apps/bottie.png",
-      "usr/share/icons/hicolor/256x256/apps/bottie.png",
+      "usr/share/icons/hicolor/256x256@2/apps/bottie.png",
       "usr/share/icons/hicolor/32x32/apps/bottie.png",
       "usr/share/icons/hicolor/64x64/apps/bottie.png",
     ]);
@@ -89,7 +89,7 @@ describe("Linux package evidence", () => {
         "usr/lib/bottie/libonnxruntime.so.1",
         "usr/share/applications/bottie.desktop",
         "usr/share/icons/hicolor/128x128/apps/bottie.png",
-        "usr/share/icons/hicolor/256x256/apps/bottie.png",
+        "usr/share/icons/hicolor/256x256@2/apps/bottie.png",
         "usr/share/icons/hicolor/32x32/apps/bottie.png",
         "usr/share/icons/hicolor/64x64/apps/bottie.png",
       ],
@@ -116,29 +116,25 @@ describe("Linux package evidence", () => {
     const bundle = await createExtractedBundleFixture();
     await rm(join(bundle, "usr", "share", "icons", "hicolor", "128x128"), { recursive: true });
 
-    await assert.rejects(inspectExtractedLinuxBundle(bundle), /missing one or more required Bottie application icons/);
+    await assert.rejects(inspectExtractedLinuxBundle(bundle), /invalid Bottie application icon set/);
   });
 
-  it("follows the explicit distinct smoke identity from the packaged desktop launcher", async () => {
+  it("keeps the main-binary icon identity when the smoke product identity changes", async () => {
     const bundle = await createExtractedBundleFixture();
-    for (const size of [32, 64, 128, 256]) {
-      const iconDirectory = join(bundle, "usr", "share", "icons", "hicolor", `${size}x${size}`, "apps");
-      await rename(join(iconDirectory, "bottie.png"), join(iconDirectory, "bottie-packaging-smoke.png"));
-    }
-    await writeFile(
-      join(bundle, "usr", "share", "applications", "bottie.desktop"),
-      "[Desktop Entry]\nIcon=bottie-packaging-smoke\n",
-    );
 
     const inspection = await inspectExtractedLinuxBundle(bundle);
 
     assert.deepEqual(inspection.installedIcons, [
-      "usr/share/icons/hicolor/128x128/apps/bottie-packaging-smoke.png",
-      "usr/share/icons/hicolor/256x256/apps/bottie-packaging-smoke.png",
-      "usr/share/icons/hicolor/32x32/apps/bottie-packaging-smoke.png",
-      "usr/share/icons/hicolor/64x64/apps/bottie-packaging-smoke.png",
+      "usr/share/icons/hicolor/128x128/apps/bottie.png",
+      "usr/share/icons/hicolor/256x256@2/apps/bottie.png",
+      "usr/share/icons/hicolor/32x32/apps/bottie.png",
+      "usr/share/icons/hicolor/64x64/apps/bottie.png",
     ]);
     assert.equal(packagedLinuxIconName("[Desktop Entry]\nIcon=bottie\n"), "bottie");
+    assert.throws(
+      () => packagedLinuxIconName("[Desktop Entry]\nIcon=bottie-packaging-smoke\n"),
+      /invalid Bottie icon identity/,
+    );
     assert.throws(() => packagedLinuxIconName("[Desktop Entry]\nIcon=other-product\n"), /invalid Bottie icon identity/);
   });
 
