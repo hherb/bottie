@@ -239,9 +239,9 @@ dependency inventory, reviewed security-sensitive Cargo features and native/runt
 sources, a root MIT licence, and one generated distributable notice bundle. The selected ONNX Runtime archives and
 upstream notices are hash-bound, while the six-file EmbeddingGemma snapshot is revision- and hash-pinned before native
 loading. Package evidence requires exact copies of the project licence, third-party notices, and model notice.
-Distribution remains blocked on explicit release-owner Gemma terms acceptance plus fresh platform package/signature
-evidence; ordinary builds and Codex never create the acceptance record. The keyboard-shortcut slice is now
-complete:
+The release owner has explicitly accepted the reviewed Gemma terms, and the current macOS 0.9.0 bundle has passed
+Developer ID signing, Apple notarization, ticket stapling/validation, and Gatekeeper assessment. Distribution remains
+blocked on fresh Windows/Linux package and verified signature evidence. The keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -274,7 +274,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/release-candidate-0.9.0`.
+branch `codex/release-licence-runtime-assets`.
 
 ## Current implementation
 
@@ -810,14 +810,13 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Developer ID notarization and Gatekeeper evidence
+## Next bounded product slice: fresh Windows and Linux 0.9.0 package evidence
 
-The release owner has independently accepted the reviewed Gemma terms through the documented exact command. With
-separate explicit approval for submitting the temporary application archive to Apple, rerun the existing Developer ID,
-hardened-runtime, secure-timestamp, notarization, stapling, and Gatekeeper contract against the current macOS 0.9.0
-bundle. Use only the existing host-owned identity and notary credentials. Do not create, rotate, export, or disclose
-credentials; publish a tag/release; add update delivery or Windows/Linux distribution signing; or change runtime product
-behavior, schema, IPC, providers, tools, Localmail, or Web policy in that slice.
+Run the existing locked Windows x64 MSI and Ubuntu x64 DEB package/inspection/isolated-smoke workflows against the
+current licence, third-party notices, model notice, icon, version, and runtime-asset contracts. Retain only their
+existing path-free evidence, verify the workflow artifacts, and rerun the release-candidate gate. Do not present the
+unsigned packages as distributable releases; add Windows/Linux signing, update keys or delivery; publish a tag/release;
+or change runtime product behavior, schema, IPC, providers, tools, Localmail, or Web policy in that slice.
 
 ## Most recently completed product slice: release-gate licence and runtime-asset remediation
 
@@ -858,9 +857,10 @@ resolved-graph gaps without weakening Bottie's release gate or changing its user
 
 The regenerated path-free manifest now passes release notes, version alignment, current four-target dependency
 inventory, dependency review, project licence/notices, runtime assets, model-terms acceptance, current macOS package
-evidence, and artwork. It correctly fails the missing macOS distribution and Windows/Linux package/distribution
-evidence. No credential was created, rotated, exported, or disclosed; no application was submitted to Apple or otherwise
-uploaded; and no tag or release was published.
+and Developer ID distribution evidence, and artwork. It correctly fails only the missing Windows/Linux
+package/distribution evidence. No credential was created, rotated, exported, or disclosed. The temporary signed archive
+was submitted only to Apple's notarization service and removed after acceptance; no application package was published,
+and no tag or release was created.
 
 This slice adds no schema or IPC contract, settings or migration state, provider/tool behavior, Web or Localmail
 policy, update delivery, release publication, or Windows/Linux signing implementation. Existing model-cache content is
@@ -874,7 +874,7 @@ asset identities; deliberate terms acknowledgement; stale evidence; package-docu
 overrides; and streamed model size/hash failure. `npm run notices:check`, `npm run release:assets:check`, and
 `npm run dependencies:check` reproduce the committed artefacts offline. Prettier accepts all tracked frontend/script
 sources; `svelte-check` reports zero errors and warnings; the production frontend build succeeds; and all 40 default
-Vitest files pass 148 tests while one file and three performance cases remain opt-in. Windows and Linux package
+Vitest files pass 149 tests while one file and three performance cases remain opt-in. Windows and Linux package
 contract suites each pass nine tests.
 
 Cargo formatting and compilation pass. The full Rust suite contains 420 tests: 390 pass and 30 loopback,
@@ -890,9 +890,15 @@ verified, and launched. Its isolated store returned `quick_check=ok`, schema ver
 ledger, one profile, and zero conversations; the rejecting loopback provider was contacted once, the app remained live
 through the settle window, terminated cleanly, and removed its process-owned support directory. The signed seven-file
 bundle retained the exact three document hashes and no loose native runtime. No live model download was attempted.
-Developer ID notarization was not run because external submission of the temporary application ZIP to Apple requires
-separate explicit approval. Browser review is not applicable because this slice changes no rendered interface, and no
-Windows/Linux package was built on macOS.
+After separate explicit upload authorization, the 0.9.0 `com.bottie.app` arm64 bundle was signed as Developer ID
+Application software with hardened runtime, the reviewed minimal entitlements, and a secure timestamp; strict
+verification passed. Apple accepted the 19,013,633-byte temporary archive, after which the ticket was stapled and
+validated and Gatekeeper accepted the bundle as Notarized Developer ID software. The final eight-file bundle retains the
+exact project-licence, model-notice, and third-party-notice hashes, contains no loose native runtime, and has bundle
+digest `bb7213f4b3058f764bdc88686dcd2c69917e1988fb8d871e94378f49b317886e`. The temporary archive was removed, and
+the retained ignored evidence contains no certificate or team identity, credential, host path, or raw command output.
+Browser review is not applicable because this slice changes no rendered interface, and no Windows/Linux package was
+built on macOS.
 
 ## Prior completed product slice: 0.9.0 beta notes and release-candidate gate
 
