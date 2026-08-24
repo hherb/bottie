@@ -22,7 +22,7 @@ const TERMINATION_TIMEOUT_MS = 5_000;
 const MAX_CAPTURED_OUTPUT_BYTES = 16_384;
 const PE_OFFSET_POSITION = 0x3c;
 const PE_MACHINE_OFFSET = 4;
-const PE_SIGNATURE = "PE\0\0";
+const PE_SIGNATURE_BYTES = Buffer.from([0x50, 0x45, 0x00, 0x00]);
 const PE_MACHINES = new Map([
   [0x014c, "x86"],
   [0x8664, "x86_64"],
@@ -139,7 +139,7 @@ async function inspectPortableExecutableArchitecture(path) {
   }
   const peOffset = bytes.readUInt32LE(PE_OFFSET_POSITION);
   if (bytes.length <= peOffset + PE_MACHINE_OFFSET + 2) throw new Error("The packaged PE header is truncated.");
-  if (bytes.subarray(peOffset, peOffset + PE_MACHINE_OFFSET).toString("binary") !== PE_SIGNATURE) {
+  if (!bytes.subarray(peOffset, peOffset + PE_MACHINE_OFFSET).equals(PE_SIGNATURE_BYTES)) {
     throw new Error("The packaged Bottie executable has an invalid PE signature.");
   }
   const machine = bytes.readUInt16LE(peOffset + PE_MACHINE_OFFSET);
