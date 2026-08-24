@@ -279,8 +279,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] accessibility audit and reduced-motion verification;
 - [x] performance tests for long conversations and large histories;
 - [x] macOS packaging and smoke test;
-- [x] Windows packaging and smoke test;
-- [x] Linux packaging and smoke test;
+- [x] current Windows 0.9.0 packaging, inspection, and isolated smoke evidence;
+- [x] current Linux 0.9.0 packaging, inspection, and isolated smoke evidence;
 - [x] custom bottie application icon with deterministic WebView and platform package assets;
 - [x] credential-free macOS Developer ID signing, hardened-runtime, notarization, stapling, and Gatekeeper contract,
   plus current 0.9.0 host evidence;

@@ -241,7 +241,8 @@ upstream notices are hash-bound, while the six-file EmbeddingGemma snapshot is r
 loading. Package evidence requires exact copies of the project licence, third-party notices, and model notice.
 The release owner has explicitly accepted the reviewed Gemma terms, and the current macOS 0.9.0 bundle has passed
 Developer ID signing, Apple notarization, ticket stapling/validation, and Gatekeeper assessment. Distribution remains
-blocked on fresh Windows/Linux package and verified signature evidence. The keyboard-shortcut slice is now complete:
+blocked only on verified Windows and Linux distribution signatures; fresh 0.9.0 packages, inspection, and isolated
+smoke evidence now pass. The keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -274,7 +275,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/release-licence-runtime-assets`.
+branch `codex/windows-linux-0.9.0-package-evidence`.
 
 ## Current implementation
 
@@ -810,15 +811,82 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: fresh Windows and Linux 0.9.0 package evidence
+## Next bounded product slice: Windows 0.9.0 distribution signing evidence
 
-Run the existing locked Windows x64 MSI and Ubuntu x64 DEB package/inspection/isolated-smoke workflows against the
-current licence, third-party notices, model notice, icon, version, and runtime-asset contracts. Retain only their
-existing path-free evidence, verify the workflow artifacts, and rerun the release-candidate gate. Do not present the
-unsigned packages as distributable releases; add Windows/Linux signing, update keys or delivery; publish a tag/release;
-or change runtime product behavior, schema, IPC, providers, tools, Localmail, or Web policy in that slice.
+Add a protected, manual Windows runner workflow that signs the real 0.9.0 MSI and installed `bottie.exe`, verifies
+both Authenticode signatures independently, and retains only identity-free signature, package, document, icon, and
+isolated-smoke evidence accepted by the existing release-candidate gate. Keep credentials in protected runner secrets
+and never retain certificate labels, subjects, serials, thumbprints, passwords, paths, or raw command output. Do not
+add Linux signing, update keys or delivery, publish a tag/release, or change runtime product behavior, schema, IPC,
+providers, tools, Localmail, or Web policy in that slice.
 
-## Most recently completed product slice: release-gate licence and runtime-asset remediation
+## Most recently completed product slice: fresh Windows and Linux 0.9.0 package evidence
+
+### Goal
+
+Produce current runner-native Windows x64 MSI and Ubuntu x64 DEB package, inspection, and isolated-smoke evidence that
+the release gate can distinguish from deliberately renamed smoke packages, without presenting unsigned artifacts as
+distributable releases.
+
+### Implemented shape
+
+1. Each existing manual workflow now builds, inspects, and uploads the real `bottie` product package. A second locked
+   build retains the distinct `com.bottie.packaging-smoke` identity only for process and storage isolation. The final
+   evidence combines the real package inspection with that separate smoke outcome.
+2. Pure Windows and Linux combination helpers reject a smoke-named bundle before it can become release evidence.
+   Focused contracts require the real `PFiles/bottie` MSI payload or `bottie` Debian package identity.
+3. Root release documents are fixed to canonical LF bytes through `.gitattributes`, so Windows packages contain exact
+   copies of the same project licence, model notice, and third-party notices accepted on macOS and Linux rather than
+   checkout-converted CRLF variants.
+4. Release-candidate smoke normalization accepts either Windows/macOS process-owned support-directory isolation or
+   Linux's exact process-owned XDG isolation field. It retains one common path-free boolean and does not weaken the
+   schema-21 integrity, migration count, profile/conversation count, provider-contact, liveness, or termination gates.
+5. The regenerated locked dependency inventory binds the corrected package and release-gate scripts. Package reports,
+   installers, and the release-candidate manifest remain ignored local/workflow artefacts with no host path, signer
+   identity, credential, certificate detail, or raw command output.
+
+### Current gate result and explicit exclusions
+
+The current manifest passes release notes, version alignment, dependency inventory/review, licence/notices, runtime
+assets, model terms, artwork, macOS distribution, Windows package, and Linux package. It fails only
+`windows-distribution` and `linux-distribution` because the MSI, installed executable, and DEB are explicitly unsigned.
+No tag, release, update key, package publication, signing credential, or certificate was created or used.
+
+This slice adds no product runtime, schema, IPC, settings, provider/tool, Web, Localmail, migration, model-cache, update
+delivery, Linux/Windows signing, or release-publication behavior. The unsigned MSI and DEB are validation artifacts,
+not distributable releases.
+
+### Verification completed
+
+The Windows package contract passes 11 tests and the Linux contract passes 10. Red/green regressions cover separation
+of product-package evidence from the smoke identity, fail-closed product-name checks, canonical LF release documents,
+and exact Linux XDG isolation normalization. `npm run dependencies:check`, `npm run notices:check`, and
+`npm run release:assets:check` pass. The release-candidate command now exits non-zero only for the two expected
+distribution-signature gates.
+
+GitHub Actions run `32731336199` completed on Windows 2025 in 22m5s. The final 17,723,392-byte x86-64 MSI has SHA-256
+`2e890a1dcf0e3ccc3c3ede07783be3a0b4573bf836c10e15e990f64b73cdc28a`; its four-file payload contains the real
+`bottie.exe`, a 32 x 32 embedded icon, exact copies of all three release documents, no loose native runtime, and bundle
+digest `1c8a2b44d8c02ef43fc1012642d6ccf52051b376666313ac4953243e12dda5ee`. Both the MSI and executable are
+explicitly unsigned. The isolated smoke store returned schema 21, `quick_check=ok`, 21 migrations, one profile, zero
+conversations, one rejecting-provider connection, liveness through the settle window, clean termination, and cleanup
+of the process-owned support directory.
+
+GitHub Actions run `32731332265` completed on Ubuntu 24.04 in 14m7s. The final 22,808,858-byte amd64 DEB has SHA-256
+`74fac3a491066339f067c177f335e348bb0659098864e4a88b7b12e47f54c0d0`; its nine-file x86-64 payload contains the
+real `bottie` binary, the four expected hicolor icons, exact copies of all three release documents, no loose native
+runtime, and bundle digest
+`067b362db7da2f373bd3a47c7a0913697a81c91b7d8b023327a1aa8f518d41ba`. The DEB is explicitly unsigned.
+Its isolated XDG smoke produced the same schema, integrity, migration, profile, conversation, provider-contact,
+liveness, termination, and cleanup outcomes as Windows.
+
+Prettier, `svelte-check`, the production frontend build, all 40 default Vitest files with 149 passing tests and three
+opt-in performance cases, Cargo formatting/compilation, and the full Rust suite pass. Rust has 420 tests: 390 pass and
+30 loopback, public-network, credential, live-provider, or performance cases remain ignored; doc tests pass with zero
+cases. Browser and local macOS native review are not applicable because this slice changes only package/evidence
+orchestration; the meaningful native flows ran on the real Windows and Linux package runners.
+
+## Prior completed product slice: release-gate licence and runtime-asset remediation
 
 ### Goal
 
