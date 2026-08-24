@@ -278,7 +278,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] accessibility audit and reduced-motion verification;
 - [x] performance tests for long conversations and large histories;
 - [x] macOS packaging and smoke test;
-- [ ] Windows and Linux packaging and smoke tests;
+- [x] Windows packaging and smoke test;
+- [ ] Linux packaging and smoke test;
 - [ ] custom bottie application icon, distribution signing, notarization, updates, and release notes.
 
 ## Milestone 7 — Local voice conversations

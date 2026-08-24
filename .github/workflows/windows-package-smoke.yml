@@ -1,0 +1,60 @@
+name: Windows packaging smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/windows-package-smoke.yml"
+      - "package-lock.json"
+      - "package.json"
+      - "scripts/windows-package.contract.mjs"
+      - "scripts/windows-package.mjs"
+      - "src/**"
+      - "src-tauri/**"
+      - "static/**"
+      - "svelte.config.js"
+      - "tsconfig.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-and-smoke:
+    name: Locked MSI and isolated smoke
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      BOTTIE_WINDOWS_ARTIFACT_DIRECTORY: package/windows
+      BOTTIE_WINDOWS_EVIDENCE_PATH: package/windows-package-evidence.json
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Verify Windows package contracts
+        run: |
+          node --check scripts/windows-package.mjs
+          node --check scripts/windows-package.contract.mjs
+          npm run package:windows:test
+
+      - name: Build, inspect, and smoke-test unsigned MSI
+        run: npm run package:windows:smoke
+
+      - name: Upload bounded package evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottie-windows-package-smoke
+          path: |
+            package/windows-package-evidence.json
+            package/windows/*.msi
+          if-no-files-found: error
+          retention-days: 7

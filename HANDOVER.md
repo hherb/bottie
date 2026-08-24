@@ -238,7 +238,7 @@ bounded slice is now complete: Bottie has a deterministic locked macOS Rust/npm 
 security-sensitive Cargo features and native/runtime assets, authoritative licence sources, explicit classification,
 and six release gates. Current resolved package metadata has no unknown licence declaration, but distribution remains
 blocked on Bottie's own licence text, a generated notice bundle, packaged ONNX Runtime evidence, pinned and accepted
-EmbeddingGemma terms, artwork provenance, and Windows/Linux verification. The keyboard-shortcut slice is now complete:
+EmbeddingGemma terms, artwork provenance, and Linux verification. The keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -247,8 +247,8 @@ WebView accessibility audit are also complete. Reproducible performance budgets 
 50,000-message native history plus 2,000-row navigation and 600-turn WebView fixtures. All initial budgets passed, so
 the slice deliberately changes no production loading, search, branch, rendering, or scrolling behavior. Do not bundle
 dependency upgrades or remediation, Email provenance cards, attachment download or opening, Localmail administration,
-outbound mail, migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion,
-packaging, signing, updates, or release work.
+outbound mail, migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, Linux
+packaging, custom artwork, distribution signing, updates, or release work.
 
 A 2026-08-24 reliability correction extends the provider-neutral tool-loop deadline from 30 seconds to five minutes.
 Two retained oMLX Email failures showed successful `search_email` results followed by timeout termination while the
@@ -271,7 +271,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/macos-packaging-smoke`.
+branch `codex/windows-packaging-smoke`.
 
 ## Current implementation
 
@@ -807,15 +807,90 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Windows packaging and smoke test
+## Next bounded product slice: Linux packaging and smoke test
 
-Produce one reproducible unsigned/development-signed Windows application bundle from the locked dependency state on a
-Windows host, inspect its packaged resources and native runtime assets, and exercise a bounded launch, fresh-storage,
-and provider-offline smoke path under a distinct test identity. Record exact commands, bundle evidence, remaining
-distribution gates, and signing limitations. Keep Linux packaging, custom artwork replacement, distribution signing,
-updates, release notes, dependency remediation, schema, IPC, provider/tool behavior, and network policy unchanged.
+Produce one reproducible unsigned Linux application bundle from the locked dependency state on an Ubuntu host, inspect
+its packaged resources, ELF dependencies, and native runtime assets, and exercise a bounded launch, fresh-storage, and
+provider-offline smoke path under isolated XDG directories and a distinct test identity. Record exact commands, bundle
+evidence, remaining distribution gates, and signing limitations. Keep custom artwork replacement, distribution
+signing, updates, release notes, dependency remediation, schema, IPC, provider/tool behavior, and network policy
+unchanged.
 
-## Most recently completed product slice: macOS packaging and smoke test
+## Most recently completed product slice: Windows packaging and smoke test
+
+### Goal
+
+Produce one reproducible unsigned Windows MSI from the locked dependency state on a Windows host, inspect only its
+installed application payload and native runtime assets, and exercise a bounded launch/storage/provider-offline smoke
+path without installing over Bottie or touching its live application data.
+
+### Implemented shape
+
+1. `npm run package:windows` invokes Tauri's MSI-only, non-interactive `--no-sign` build and passes `--locked` through
+   to Cargo. `npm run package:windows:inspect` administratively extracts exactly one MSI with `msiexec /a /qn
+   /norestart` into a temporary target instead of installing the product.
+2. The path-free inspector requires exactly one `bottie.exe`, records the extraction-relative application directory,
+   app-relative hashes, byte counts, x86/x64/ARM64 PE architecture, Authenticode class, and loose DLL runtime assets,
+   and reports the installer separately. Certificate identities and host paths are never serialized.
+3. `npm run package:windows:smoke` builds the locked code in a temporary Cargo target under the distinct
+   `com.bottie.packaging-smoke` identity. It refuses to replace a pre-existing roaming-app-data directory, writes only
+   bounded local-provider settings, and launches the administratively extracted executable against one process-owned
+   loopback endpoint that accepts then rejects every connection.
+4. The smoke runner waits up to two minutes for a fresh SQLite store and provider discovery, requires the process to
+   remain live through a three-second settle window, terminates only that process tree, reopens the database read-only
+   through Node's SQLite binding, and removes only the distinct smoke directory and temporary build/extraction tree.
+5. The Windows Server 2025 PR workflow runs seven dependency-free Node contracts before the real build, uploads the
+   unsigned MSI plus path-free JSON evidence for seven days, and retains no smoke profile. It does not publish a release.
+
+### Package and smoke evidence
+
+- The final locked Windows Server 2025 build produced `bottie-packaging-smoke_0.1.0_x64_en-US.msi`, 17,620,992 bytes,
+  with SHA-256 `03ca36ba6527a343a347ade27e36c2e705171cfc326a48c36e5b2ddbfb560e1b`. PowerShell 7 classified the MSI as unsigned,
+  and Authenticode verification did not pass, as required by `--no-sign`.
+- Administrative extraction placed the app under `PFiles/bottie-packaging-smoke`. Its installed payload contains one
+  unsigned x86_64 `bottie.exe`, 49,385,984 bytes, with SHA-256
+  `44c58ae3da53e8a4b82d90555f762e033e8244378df43164d2d4ee69a55f962a` and app-payload digest
+  `f963777b205a887cbcbfeab486581bf04344cdc15f9ea49fe933058f8d3eeee6`. No loose DLL or other native runtime file is
+  installed beside the executable; this does not claim dynamically obtained model-runtime assets are release-cleared.
+- The distinct-identity executable created a fresh schema-21 store with an exact 21-row migration ledger, one built-in
+  profile, zero conversations, and `quick_check=ok`; it contacted the rejecting provider endpoint exactly once,
+  remained live through the settle window, and terminated cleanly. The runner then removed the smoke profile.
+- Workflow run `32683376048` completed the contract, build, extraction, inspection, smoke, evidence-upload, and cleanup
+  steps in 10m39s. The MSI and JSON evidence are retained as the `bottie-windows-package-smoke` CI artifact for seven
+  days; the repository does not treat that unsigned artifact as an end-user release.
+
+### Safety corrections and explicit exclusions
+
+Clean Windows Vitest workers repeatedly failed before registering the packaging tests despite both files passing direct
+Node parsing/import. The dependency-free contracts now use Node's built-in test runner and pass all seven cases on both
+the local host and Windows. The first real build produced the MSI but revealed that evidence collection must use the
+runner's supported PowerShell 7 executable. A subsequent green run showed `msiexec /a` also copies an administrative
+MSI database beside the app tree; the final contract inventories only the directory containing `bottie.exe`, so its
+payload counts and digest do not include that installer copy.
+
+Do not add Linux packaging to this slice, replace custom artwork, add distribution signing, update delivery, release
+notes, notice generation, or dependency/terms remediation, change schema, IPC, provider/tool behavior, network policy,
+credentials, or live-store content, or present the unsigned MSI as distributable.
+
+### Verification completed
+
+Seven Node contracts cover locked MSI arguments, distinct identity, administrative extraction arguments, exact
+app-only relative inventory, duplicate/missing executable rejection, Authenticode classification, and isolated
+provider settings. The final Windows workflow exercised the real release build, MSI production and artifact checksum,
+administrative extraction, PE architecture, Authenticode state, native-runtime inventory, fresh storage, offline
+provider discovery, liveness, process-tree termination, read-only SQLite integrity/schema counts, and cleanup.
+
+Prettier accepts every tracked frontend/script source, the locked dependency inventory matches, `svelte-check` reports
+zero errors or warnings, all 35 default Vitest files pass with one opt-in performance file skipped, 121 tests pass, and
+the three performance budgets remain opt-in. The separate Windows contract suite passes all seven tests. The production
+build and `git diff --check` pass. Cargo formatting and compilation pass. The full Rust suite contains 417 tests: 387
+pass and 30 loopback, public-network, credential, live-provider, or performance tests remain explicitly ignored.
+The cold Windows release compile reports five existing macOS-biometric cfg-related unused/dead-code warnings; no
+credential behavior was changed in this packaging slice. GitHub also notes that the v4 action internals target its
+deprecated Node 20 runtime and are forced to Node 24. Live-provider and credential tests are not applicable because the
+smoke endpoint is process-owned loopback and deliberately rejects every request.
+
+## Prior completed product slice: macOS packaging and smoke test
 
 ### Goal
 
