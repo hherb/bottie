@@ -63,8 +63,13 @@ describe("Windows package evidence", () => {
 
     const inspection = await inspectExtractedWindowsBundle(bundle);
 
-    assert.equal(inspection.executable, "PFiles/bottie/bottie.exe");
-    assert.deepEqual(inspection.nativeRuntimeAssets, ["PFiles/bottie/onnxruntime.dll"]);
+    assert.equal(inspection.applicationDirectory, "PFiles/bottie");
+    assert.equal(inspection.executable, "bottie.exe");
+    assert.deepEqual(inspection.nativeRuntimeAssets, ["onnxruntime.dll"]);
+    assert.deepEqual(
+      inspection.files.map((file) => file.path),
+      ["bottie.exe", "onnxruntime.dll"],
+    );
     assert.equal(
       inspection.files.some((file) => file.path.includes(bundle)),
       false,

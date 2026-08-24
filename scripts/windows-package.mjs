@@ -91,10 +91,14 @@ export async function inspectExtractedWindowsBundle(bundlePath) {
   const root = resolve(bundlePath);
   const status = await lstat(root);
   if (!status.isDirectory()) throw new Error("Expected an administratively extracted Windows bundle directory.");
-  const files = [];
-  await visitExtractedBundle(root, root, files);
-  const executables = files.filter((file) => basename(file.path).toLowerCase() === WINDOWS_EXECUTABLE_NAME);
+  const extractedFiles = [];
+  await visitExtractedBundle(root, root, extractedFiles);
+  const executables = extractedFiles.filter((file) => basename(file.path).toLowerCase() === WINDOWS_EXECUTABLE_NAME);
   if (executables.length !== 1) throw new Error("The Windows bundle must contain exactly one Bottie executable.");
+  const applicationDirectory = dirname(executables[0].path);
+  const applicationRoot = join(root, ...applicationDirectory.split("/"));
+  const files = [];
+  await visitExtractedBundle(applicationRoot, applicationRoot, files);
   const nativeRuntimeAssets = files
     .filter((file) => file.path.toLowerCase().endsWith(".dll"))
     .map((file) => file.path)
@@ -102,8 +106,9 @@ export async function inspectExtractedWindowsBundle(bundlePath) {
   const digest = createHash("sha256");
   for (const file of files) digest.update(`${file.path}\0${file.sha256}\0`);
   return {
+    applicationDirectory,
     bundleDigest: digest.digest("hex"),
-    executable: executables[0].path,
+    executable: basename(executables[0].path),
     fileCount: files.length,
     totalBytes: files.reduce((total, file) => total + file.size, 0),
     nativeRuntimeAssets,
@@ -163,7 +168,7 @@ function extractMsi(msiPath, targetDirectory) {
 async function inspectWindowsMsi(msiPath, extractedDirectory) {
   extractMsi(msiPath, extractedDirectory);
   const payload = await inspectExtractedWindowsBundle(extractedDirectory);
-  const executablePath = join(extractedDirectory, ...payload.executable.split("/"));
+  const executablePath = join(extractedDirectory, ...payload.applicationDirectory.split("/"), payload.executable);
   const installerBytes = await readFile(msiPath);
   return {
     installer: {
@@ -247,7 +252,11 @@ async function smokeWindowsBundle(extractedDirectory, inspection) {
   const supportDirectory = join(roamingAppData, SMOKE_IDENTIFIER);
   const databasePath = join(supportDirectory, "bottie.sqlite3");
   const settingsPath = join(supportDirectory, "providers.json");
-  const executablePath = join(extractedDirectory, ...inspection.payload.executable.split("/"));
+  const executablePath = join(
+    extractedDirectory,
+    ...inspection.payload.applicationDirectory.split("/"),
+    inspection.payload.executable,
+  );
   const endpoint = await startOfflineEndpoint();
   let child;
   let childError;
