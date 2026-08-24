@@ -6,8 +6,8 @@ on:
       - ".github/workflows/windows-package-smoke.yml"
       - "package-lock.json"
       - "package.json"
+      - "scripts/windows-package.contract.mjs"
       - "scripts/windows-package.mjs"
-      - "scripts/windows-package.test.mjs"
       - "src/**"
       - "src-tauri/**"
       - "static/**"
@@ -43,10 +43,8 @@ jobs:
       - name: Verify Windows package contracts
         run: |
           node --check scripts/windows-package.mjs
-          node --check scripts/windows-package.test.mjs
-          node -e "import('./scripts/windows-package.mjs')"
-          npm exec svelte-kit sync
-          npm test -- scripts/windows-package.test.mjs
+          node --check scripts/windows-package.contract.mjs
+          npm run package:windows:test
 
       - name: Build, inspect, and smoke-test unsigned MSI
         run: npm run package:windows:smoke

@@ -1,8 +1,8 @@
+import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, it } from "node:test";
 
 import {
   classifyAuthenticodeStatus,
@@ -31,11 +31,11 @@ async function createExtractedBundleFixture() {
 
 describe("Windows package evidence", () => {
   it("keeps the build locked, MSI-only, unsigned, and non-interactive", () => {
-    expect(windowsBuildArguments()).toEqual(["build", "--bundles", "msi", "--no-sign", "--ci", "--", "--locked"]);
+    assert.deepEqual(windowsBuildArguments(), ["build", "--bundles", "msi", "--no-sign", "--ci", "--", "--locked"]);
   });
 
   it("builds smoke code under a distinct application identity without changing dependency resolution", () => {
-    expect(windowsSmokeBuildArguments()).toEqual([
+    assert.deepEqual(windowsSmokeBuildArguments(), [
       "build",
       "--bundles",
       "msi",
@@ -49,7 +49,7 @@ describe("Windows package evidence", () => {
   });
 
   it("administratively extracts an MSI without installing it", () => {
-    expect(msiAdministrativeInstallArguments("C:\\package\\bottie.msi", "C:\\temp\\extract")).toEqual([
+    assert.deepEqual(msiAdministrativeInstallArguments("C:\\package\\bottie.msi", "C:\\temp\\extract"), [
       "/a",
       "C:\\package\\bottie.msi",
       "/qn",
@@ -63,10 +63,16 @@ describe("Windows package evidence", () => {
 
     const inspection = await inspectExtractedWindowsBundle(bundle);
 
-    expect(inspection.executable).toBe("PFiles/bottie/bottie.exe");
-    expect(inspection.nativeRuntimeAssets).toEqual(["PFiles/bottie/onnxruntime.dll"]);
-    expect(inspection.files.map((file) => file.path)).not.toContain(expect.stringContaining(bundle));
-    expect(inspection.files.every((file) => file.sha256.length === 64)).toBe(true);
+    assert.equal(inspection.executable, "PFiles/bottie/bottie.exe");
+    assert.deepEqual(inspection.nativeRuntimeAssets, ["PFiles/bottie/onnxruntime.dll"]);
+    assert.equal(
+      inspection.files.some((file) => file.path.includes(bundle)),
+      false,
+    );
+    assert.equal(
+      inspection.files.every((file) => file.sha256.length === 64),
+      true,
+    );
   });
 
   it("rejects extracted payloads without exactly one Bottie executable", async () => {
@@ -74,17 +80,17 @@ describe("Windows package evidence", () => {
     await mkdir(join(bundle, "duplicate"));
     await writeFile(join(bundle, "duplicate", "bottie.exe"), "duplicate executable");
 
-    await expect(inspectExtractedWindowsBundle(bundle)).rejects.toThrow("exactly one Bottie executable");
+    await assert.rejects(inspectExtractedWindowsBundle(bundle), /exactly one Bottie executable/);
   });
 
   it("classifies unsigned, valid, and untrusted Authenticode states without retaining signer identities", () => {
-    expect(classifyAuthenticodeStatus("NotSigned")).toBe("unsigned");
-    expect(classifyAuthenticodeStatus("Valid")).toBe("identified");
-    expect(classifyAuthenticodeStatus("UnknownError")).toBe("untrusted");
+    assert.equal(classifyAuthenticodeStatus("NotSigned"), "unsigned");
+    assert.equal(classifyAuthenticodeStatus("Valid"), "identified");
+    assert.equal(classifyAuthenticodeStatus("UnknownError"), "untrusted");
   });
 
   it("creates completed local-provider settings that can reach only the isolated endpoint", () => {
-    expect(offlineProviderSettings(43127)).toEqual({
+    assert.deepEqual(offlineProviderSettings(43127), {
       omlxBaseUrl: "http://127.0.0.1:43127/",
       ollamaBaseUrl: "http://127.0.0.1:43127/",
       setupCompleted: true,
