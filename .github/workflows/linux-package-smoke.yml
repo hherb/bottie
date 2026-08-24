@@ -21,7 +21,7 @@ permissions:
 jobs:
   package-and-smoke:
     name: Locked DEB and isolated smoke
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       BOTTIE_LINUX_ARTIFACT_DIRECTORY: package/linux

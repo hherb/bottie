@@ -831,13 +831,18 @@ unchanged.
 4. The bounded runner requires a fresh SQLite store, rejected provider discovery, three seconds of continued
    liveness, process-group termination, and read-only database integrity/schema counts before removing the entire
    temporary build, extraction, and XDG tree.
-5. An Ubuntu 22.04 pull-request workflow installs only the Tauri desktop prerequisites, runs the dependency-free Node
+5. An Ubuntu 24.04 pull-request workflow installs only the Tauri desktop prerequisites, runs the dependency-free Node
    contracts, launches the real smoke path under an isolated Xvfb/D-Bus session, and retains the unsigned DEB plus
    path-free JSON evidence for seven days. It does not install Bottie or publish a release.
 
 The real Ubuntu build, package inspection, and launch evidence remain pending on the pull-request runner. Do not mark
 the roadmap item complete or treat the unsigned package as distributable until that workflow is green and its exact
 evidence is recorded here.
+
+The first cold build on Ubuntu 22.04 reached final linking but failed because the locked ONNX Runtime archive references
+glibc 2.38 C23 conversion symbols plus newer libstdc++ string symbols that the host's glibc 2.35/GCC 11 runtime cannot
+provide. The workflow therefore targets Ubuntu 24.04 and retains that newer ABI baseline as an explicit package
+compatibility limitation rather than changing or rebuilding the locked dependency.
 
 ### Explicit exclusions
 

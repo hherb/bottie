@@ -255,8 +255,9 @@ dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke
 The smoke command builds under the distinct `com.bottie.packaging-smoke` identity, confines config, data, cache, and
 runtime files to process-owned XDG directories, targets both local providers at one rejecting loopback endpoint,
 verifies the fresh store read-only after termination, and removes the complete temporary tree. The checked-in Ubuntu
-22.04 PR workflow uploads the unsigned DEB and path-free JSON evidence for seven days. It does not install, sign,
-publish, or claim an end-user-distributable release.
+24.04 PR workflow matches the locked ONNX Runtime archive's glibc/libstdc++ ABI requirements and uploads the unsigned
+DEB plus path-free JSON evidence for seven days. It does not install, sign, publish, or claim an end-user-distributable
+release.
 
 Live-provider tests are ignored by default because they require explicitly configured local services and, in some
 cases, credentials. See [`HANDOVER.md`](HANDOVER.md) for the current test inventory and the evidence recorded for the
