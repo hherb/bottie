@@ -201,6 +201,34 @@ only that test identity's Application Support data after termination. Fresh rele
 execution-policy evaluation for up to the command's two-minute startup allowance. This workflow does not produce a
 notarized or end-user-distributable release.
 
+### Windows package verification
+
+On a Windows host with dependencies installed from the checked-in lockfiles, build and inspect the unsigned x64 MSI:
+
+```powershell
+npm run dependencies:check
+npm run package:windows:test
+npm run package:windows
+npm run package:windows:inspect
+```
+
+The build is MSI-only, non-interactive, skips code signing, and passes `--locked` to Cargo. Inspection uses an
+administrative `msiexec` extraction instead of installing Bottie, reports the MSI separately, and inventories only the
+app directory containing `bottie.exe`. Evidence includes relative paths and hashes, PE architecture, Authenticode
+classification, and loose native runtime files without certificate identities or host paths.
+
+Run the bounded launch/storage/provider-offline check separately:
+
+```powershell
+npm run package:windows:smoke
+```
+
+The smoke command builds under the distinct `com.bottie.packaging-smoke` identity, refuses to replace an existing
+smoke profile, targets both local providers at one rejecting process-owned loopback endpoint, verifies the fresh store
+read-only after termination, and removes only temporary build/extraction data plus that test identity's roaming data.
+The checked-in Windows Server 2025 PR workflow uploads the unsigned MSI and path-free JSON evidence for seven days.
+Neither command produces a signed or end-user-distributable release.
+
 Live-provider tests are ignored by default because they require explicitly configured local services and, in some
 cases, credentials. See [`HANDOVER.md`](HANDOVER.md) for the current test inventory and the evidence recorded for the
 latest completed slice.
