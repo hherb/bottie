@@ -57,6 +57,15 @@ pub struct ProviderSettings {
     #[serde(default)]
     /// Last successfully selected provider-owned model.
     pub last_model_id: Option<String>,
+    #[serde(default)]
+    /// Whether supported routes should restore native Memory tools as enabled.
+    pub memory_enabled: bool,
+    #[serde(default)]
+    /// Whether supported routes should restore native Web tools as enabled.
+    pub web_enabled: bool,
+    #[serde(default)]
+    /// Whether supported configured routes should restore native Email tools as enabled.
+    pub email_enabled: bool,
 }
 
 impl Default for ProviderSettings {
@@ -71,6 +80,9 @@ impl Default for ProviderSettings {
             setup_completed: false,
             last_provider_id: None,
             last_model_id: None,
+            memory_enabled: false,
+            web_enabled: false,
+            email_enabled: false,
         }
     }
 }
@@ -96,6 +108,9 @@ impl ProviderSettings {
             setup_completed: self.setup_completed,
             last_provider_id: normalize_provider_id(self.last_provider_id)?,
             last_model_id: normalize_model_id(self.last_model_id)?,
+            memory_enabled: self.memory_enabled,
+            web_enabled: self.web_enabled,
+            email_enabled: self.email_enabled,
         })
     }
 }
@@ -352,6 +367,9 @@ mod tests {
     #[test]
     fn new_defaults_require_first_run_setup() {
         assert!(!ProviderSettings::default().setup_completed);
+        assert!(!ProviderSettings::default().memory_enabled);
+        assert!(!ProviderSettings::default().web_enabled);
+        assert!(!ProviderSettings::default().email_enabled);
     }
 
     #[test]
@@ -387,6 +405,9 @@ mod tests {
         assert_eq!(settings.web_search_provider_id, "brave");
         assert_eq!(settings.web_network_policy, WebNetworkPolicy::default());
         assert!(settings.setup_completed);
+        assert!(!settings.memory_enabled);
+        assert!(!settings.web_enabled);
+        assert!(!settings.email_enabled);
     }
 
     #[test]
@@ -478,12 +499,15 @@ mod tests {
             keys,
             [
                 "anthropicBaseUrl",
+                "emailEnabled",
                 "lastModelId",
                 "lastProviderId",
+                "memoryEnabled",
                 "ollamaBaseUrl",
                 "omlxBaseUrl",
                 "openaiBaseUrl",
                 "setupCompleted",
+                "webEnabled",
                 "webNetworkPolicy",
                 "webSearchProviderId"
             ]

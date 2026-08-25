@@ -122,7 +122,7 @@
         <Icon name="shield" size={16} />
         <span
           ><strong>Explicit context</strong><small
-            >Memory and Web start off for every app session and remain visible.</small
+            >Memory and Web start disabled, then remember choices that remain available.</small
           ></span
         >
       </article>
@@ -130,7 +130,7 @@
 
     <p class="first-run-note">
       Cloud API keys and Web search keys stay in the operating-system credential vault. Finishing setup stores only this
-      acknowledgement and your selected provider/model pair.
+      acknowledgement, your selected provider/model pair, and later Memory, Web, or Email choices.
     </p>
 
     {#if error}<p class="first-run-error" role="alert">{error}</p>{/if}

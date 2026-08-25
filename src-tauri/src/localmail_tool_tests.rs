@@ -69,6 +69,14 @@ fn publishes_two_closed_schemas_without_advertising_them() {
         json!(20)
     );
     assert_eq!(
+        serialized[0]["inputSchema"]["properties"]["sort"]["enum"],
+        json!(["date", "rank"])
+    );
+    assert_eq!(
+        serialized[0]["inputSchema"]["properties"]["sortOrder"]["enum"],
+        json!(["desc", "asc"])
+    );
+    assert_eq!(
         serialized[0]["inputSchema"]["properties"]["filters"]["additionalProperties"],
         json!(false)
     );
@@ -112,6 +120,8 @@ fn converts_json_into_the_exact_existing_connector_requests() {
                 "before": "2026-08-23",
                 "hasAttachments": true
             },
+            "sort": "date",
+            "sortOrder": "asc",
             "resultLimit": 7
         }),
     )
@@ -131,6 +141,8 @@ fn converts_json_into_the_exact_existing_connector_requests() {
                 "before": "2026-08-23",
                 "hasAttachments": true
             },
+            "sort": "date",
+            "sortOrder": "asc",
             "resultLimit": 7
         })
     );
@@ -171,6 +183,10 @@ fn rejects_invalid_shapes_without_reflecting_arguments() {
         (
             "search_email",
             json!({"query": "private", "resultLimit": 1, "filters": {"after": "2026-08-24", "before": "2026-08-23"}}),
+        ),
+        (
+            "search_email",
+            json!({"query": "private", "sort": "rank", "sortOrder": "asc", "resultLimit": 1}),
         ),
         ("open_email", json!({})),
         ("open_email", json!({"messageId": "../42"})),

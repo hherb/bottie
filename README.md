@@ -112,8 +112,9 @@ Additional safeguards include:
 | Anthropic-compatible | Explicit user-configured origin | Yes                     | Yes              |
 
 Features are enabled from discovered or mapped model capabilities rather than model-name guesses. Memory, Web, and
-Email are session-only controls and remain off by default. Email additionally requires a saved, trusted Localmail
-connection and is read-only.
+Email start off for a new installation, then remember the user's last choices across app sessions. A remembered choice
+is effective only while the selected model remains tool-capable; Email additionally requires a saved, trusted
+Localmail connection and remains read-only.
 
 ## Get started
 

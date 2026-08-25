@@ -107,6 +107,9 @@ export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {
   setupCompleted: false,
   lastProviderId: null,
   lastModelId: null,
+  memoryEnabled: false,
+  webEnabled: false,
+  emailEnabled: false,
 };
 
 /** Navigation fixtures retained until durable conversations are implemented. */

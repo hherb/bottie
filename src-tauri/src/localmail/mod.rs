@@ -4,6 +4,7 @@ mod commands;
 mod config;
 mod open;
 mod search;
+mod search_order;
 mod tls;
 
 use std::{path::Path, time::Duration};

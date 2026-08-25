@@ -214,7 +214,7 @@ async fn update_provider_settings(
         "Provider settings saved",
         None,
         Some(concat!(
-            "Inference endpoints, fixed web-search route, and Web destination policy were updated; ",
+            "Non-secret provider routes, Web policy, and remembered tool preferences were updated; ",
             "no credentials stored",
         )),
     )

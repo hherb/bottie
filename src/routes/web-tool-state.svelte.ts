@@ -18,6 +18,11 @@ export class WebToolState {
     this.enabled = false;
   }
 
+  /** Applies one already capability-checked remembered preference. */
+  restore(enabled: boolean): void {
+    this.enabled = enabled;
+  }
+
   /** Toggles native web search only for an idle, mapped, capable route. */
   toggle(available: boolean, isGenerating: boolean): void {
     if (available && !isGenerating) this.enabled = !this.enabled;

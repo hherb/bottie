@@ -18,6 +18,11 @@ export class MemoryContextState {
     this.enabled = false;
   }
 
+  /** Applies one already capability-checked remembered preference. */
+  restore(enabled: boolean): void {
+    this.enabled = enabled;
+  }
+
   /** Toggles native memory tools only for an idle, mapped, capable route. */
   toggle(available: boolean, isGenerating: boolean): void {
     if (available && !isGenerating) this.enabled = !this.enabled;

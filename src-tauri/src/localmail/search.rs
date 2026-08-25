@@ -16,6 +16,7 @@ use crate::{
     inference::ProviderError,
 };
 
+pub(super) use super::search_order::{EmailSearchSort, EmailSearchSortOrder};
 use super::{CertificateMode, build_client, endpoint, load_config, normalize_bearer_token};
 
 /// Maximum Unicode scalar count accepted for one email search query.
@@ -67,6 +68,12 @@ pub(crate) struct SearchEmailRequest {
     /// Optional fixed email metadata filters.
     #[serde(default)]
     pub(super) filters: SearchEmailFilters,
+    /// Localmail ordering criterion, defaulting to date rather than relevance.
+    #[serde(default)]
+    pub(super) sort: EmailSearchSort,
+    /// Localmail ordering direction, defaulting to newest first.
+    #[serde(default)]
+    pub(super) sort_order: EmailSearchSortOrder,
     /// Maximum number of inert summaries to return.
     pub(super) result_limit: u8,
 }
@@ -116,6 +123,10 @@ pub(crate) struct LocalmailSearchRequest {
     pub(super) query: String,
     /// Normalized fixed metadata filters.
     pub(super) filters: LocalmailSearchFilters,
+    /// Explicit current Localmail ordering criterion.
+    pub(super) sort: EmailSearchSort,
+    /// Explicit current Localmail ordering direction.
+    pub(super) sort_order: EmailSearchSortOrder,
     /// Bounded first-page result count.
     pub(super) limit: u8,
 }
@@ -274,6 +285,11 @@ pub(crate) fn validate_search_email_request(
     if !(1..=MAX_EMAIL_RESULTS).contains(&request.result_limit) {
         return Err(invalid_search_request());
     }
+    if request.sort == EmailSearchSort::Rank
+        && request.sort_order == EmailSearchSortOrder::Ascending
+    {
+        return Err(invalid_search_request());
+    }
     let filters = LocalmailSearchFilters {
         from: optional_filter(request.filters.from)?,
         to: optional_filter(request.filters.to)?,
@@ -290,6 +306,8 @@ pub(crate) fn validate_search_email_request(
     Ok(LocalmailSearchRequest {
         query,
         filters,
+        sort: request.sort,
+        sort_order: request.sort_order,
         limit: request.result_limit,
     })
 }

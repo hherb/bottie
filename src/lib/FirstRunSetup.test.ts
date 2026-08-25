@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import FirstRunSetup from "./FirstRunSetup.svelte";
 
 describe("FirstRunSetup", () => {
-  it("discloses the active cloud route and off-by-default context before completion", () => {
+  it("discloses the active cloud route and remembered explicit context before completion", () => {
     const html = render(FirstRunSetup, {
       props: {
         providerName: "OpenAI compatible",
@@ -24,7 +24,7 @@ describe("FirstRunSetup", () => {
     expect(html).toContain("Cloud route");
     expect(html).toContain("Prompts, delivered images, and explicitly enabled tool results go to this provider");
     expect(html).toContain("Conversations, files, and derived memory stay in Bottie’s local storage");
-    expect(html).toContain("Memory and Web start off for every app session");
+    expect(html).toContain("Memory and Web start disabled, then remember choices that remain available");
     expect(html).toContain("Finish setup");
   });
 
