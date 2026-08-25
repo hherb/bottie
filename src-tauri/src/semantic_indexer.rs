@@ -7,6 +7,7 @@ use std::{
     path::PathBuf,
     sync::mpsc::{Receiver, Sender, channel},
     thread,
+    time::Duration,
 };
 
 use fastembed::{EmbeddingModel, TextEmbedding, TextInitOptions};
@@ -26,6 +27,8 @@ use crate::{
 
 const WORKER_THREAD_NAME: &str = "bottie-semantic-indexing";
 const EMBEDDING_RUNTIME_THREADS: usize = 2;
+/// Maximum time a foreground memory lookup waits behind semantic indexing or model preparation.
+const QUERY_EMBEDDING_WAIT: Duration = Duration::from_secs(5);
 const RUNTIME_ASSET_MANIFEST: &str = include_str!("../../runtime-assets.json");
 
 /// Compiled release contract for the only runtime-downloaded model.
@@ -190,8 +193,18 @@ impl SemanticEmbedder for SemanticQueryEmbedder {
                 response,
             })
             .map_err(|_| "embedding_worker".to_owned())?;
-        result.recv().map_err(|_| "embedding_worker".to_owned())?
+        receive_embedding_response(result, QUERY_EMBEDDING_WAIT)
     }
+}
+
+/// Receives one worker-owned query embedding without allowing foreground retrieval to hang.
+fn receive_embedding_response(
+    result: Receiver<Result<Vec<Vec<f32>>, String>>,
+    timeout: Duration,
+) -> Result<Vec<Vec<f32>>, String> {
+    result
+        .recv_timeout(timeout)
+        .map_err(|_| "embedding_worker".to_owned())?
 }
 
 impl SemanticIndexer {
@@ -461,6 +474,15 @@ mod tests {
         assert_eq!(
             verify_model_reader(&b"abd"[..], 3, digest),
             Err("model_integrity".into())
+        );
+    }
+
+    #[test]
+    fn embedding_response_wait_is_bounded() {
+        let (_response, result) = channel::<Result<Vec<Vec<f32>>, String>>();
+        assert_eq!(
+            receive_embedding_response(result, std::time::Duration::ZERO),
+            Err("embedding_worker".into())
         );
     }
 }

@@ -99,13 +99,48 @@ fn search_request_is_closed_normalized_and_bounded() {
     assert_eq!(normalized.filters.before.as_deref(), Some("2026-06-30"));
     assert_eq!(normalized.filters.has_attachment, Some(true));
     assert_eq!(normalized.limit, 7);
+    assert_eq!(normalized.sort, EmailSearchSort::Date);
+    assert_eq!(normalized.sort_order, EmailSearchSortOrder::Descending);
 
     let wire = serde_json::to_value(normalized).expect("wire request");
     assert_eq!(wire["query"], "quarterly budget");
     assert_eq!(wire["filters"]["has_attachment"], true);
     assert_eq!(wire["limit"], 7);
+    assert_eq!(wire["sort"], "date");
+    assert_eq!(wire["sort_order"], "desc");
     assert!(wire.get("cursor").is_none());
     assert!(wire.get("smart").is_none());
+}
+
+#[test]
+fn search_request_allows_explicit_relevance_or_oldest_first_ordering() {
+    let relevant = validate_search_email_request(request(serde_json::json!({
+        "query": "quarterly budget",
+        "sort": "rank",
+        "resultLimit": 5
+    })))
+    .expect("relevance request");
+    assert_eq!(relevant.sort, EmailSearchSort::Rank);
+    assert_eq!(relevant.sort_order, EmailSearchSortOrder::Descending);
+
+    let oldest = validate_search_email_request(request(serde_json::json!({
+        "query": "quarterly budget",
+        "sort": "date",
+        "sortOrder": "asc",
+        "resultLimit": 5
+    })))
+    .expect("oldest-first request");
+    assert_eq!(oldest.sort, EmailSearchSort::Date);
+    assert_eq!(oldest.sort_order, EmailSearchSortOrder::Ascending);
+
+    let invalid = validate_search_email_request(request(serde_json::json!({
+        "query": "quarterly budget",
+        "sort": "rank",
+        "sortOrder": "asc",
+        "resultLimit": 5
+    })))
+    .expect_err("ascending relevance is not defined by Localmail");
+    assert_eq!(invalid.code, ProviderErrorCode::InvalidRequest);
 }
 
 #[test]
@@ -206,6 +241,8 @@ fn fixed_search_request_uses_post_route_sensitive_bearer_and_bounded_body() {
     let body = std::str::from_utf8(body).expect("JSON body");
     assert!(body.contains("\"query\":\"budget\""));
     assert!(body.contains("\"limit\":3"));
+    assert!(body.contains("\"sort\":\"date\""));
+    assert!(body.contains("\"sort_order\":\"desc\""));
     assert!(!body.contains("vault-secret"));
     assert!(!body.contains("cursor"));
     assert!(!body.contains("smart"));
@@ -369,6 +406,8 @@ fn bounded_native_search_uses_only_the_fixed_authenticated_route() {
         assert!(request.contains("\"query\":\"budget review\""));
         assert!(request.contains("\"has_attachment\":true"));
         assert!(request.contains("\"limit\":2"));
+        assert!(request.contains("\"sort\":\"date\""));
+        assert!(request.contains("\"sort_order\":\"desc\""));
         assert!(!request.contains("cursor"));
         assert!(!request.contains("smart"));
 

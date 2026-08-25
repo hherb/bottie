@@ -254,14 +254,17 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] structured local diagnostics with redaction and opt-in export;
 - [x] first-party Localmail HTTPS origin, explicit certificate trust, bounded connection testing, and vault-held bearer
   authentication foundation;
-- [x] first-party Localmail `search_email` contract with closed filters, one pinned authenticated search call, bounded
-  inert path-free summaries, and no email-body or attachment-content exposure;
+- [x] first-party Localmail `search_email` contract with closed filters, explicit current `sort`/`sort_order` mapping,
+  newest-first date order by default, one pinned authenticated search call, bounded inert path-free summaries, and no
+  email-body or attachment-content exposure;
 - [x] first-party Localmail `open_email` contract over exact search-result identities with one pinned authenticated
   detail call, external images disabled, bounded inert header/body text, and no HTML or attachment-byte exposure;
 - [x] provider-independent closed Localmail tool definitions, strict raw conversion into the existing connector
   requests, safe read-only policy entries, and bounded redacted dispatch;
-- [x] off-by-default session Email enablement for explicitly tool-capable Ollama models, with configured native trust
-  and credential gating, bounded multi-round execution, durable audit, and explicit loopback/Localmail disclosure;
+- [x] remembered Memory, Web, and Email preferences that restore only when current provider/model capability and
+  connector-readiness gates permit them;
+- [x] explicitly tool-capable Ollama Email enablement with configured native trust and credential gating, bounded
+  multi-round execution, durable audit, and explicit loopback/Localmail disclosure;
 - [x] explicit OpenAI-compatible Email mapping with exact Chat Completions call/result correlation, the same configured
   native trust and loop bounds, and cloud-provider/Localmail delivery disclosure;
 - [x] explicit Anthropic-compatible Email mapping with exact Messages `tool_use`/`tool_result` block correlation,

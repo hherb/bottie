@@ -206,7 +206,7 @@ explicit native Save dialog, while Rust reapplies credential, path, and content-
 saved/cancelled outcome plus the selected leaf filename. A first-party read-only Localmail connector now owns the HTTPS
 origin, explicit certificate inspection and pinning, bounded server and bearer-authentication tests, vault-only token
 storage, and typed native email-search and exact-result-open contracts. Search validates its complete
-query/filter/result-limit shape
+query/filter/sort/result-limit shape
 before config, credential, or network access, calls only the fixed authenticated `POST /v1/search` route, and returns
 bounded path-free plain-text summaries marked untrusted. No email body, HTML, attachment content, account/folder
 internals, cursor, or score crosses that boundary. Open validates one strict decimal search-result identity before the
@@ -216,8 +216,8 @@ headers, attachment details and bytes, account/folder internals, paths, and cred
 provider-independent layer is now complete: `search_email` and `open_email` have closed definitions, strict raw JSON
 conversion into the existing connector requests, explicit safe read-only policy entries, and one configured native
 executor behind Bottie's existing 64 KiB success/error envelope. Invalid calls fail before Localmail configuration,
-vault, or network access, and connector failures map to fixed redacted categories. One off-by-default session Email
-control now advertises those definitions only to an explicitly tool-capable oMLX, Ollama, OpenAI-compatible, or
+vault, or network access, and connector failures map to fixed redacted categories. One remembered Email control now
+advertises those definitions only to an explicitly tool-capable oMLX, Ollama, OpenAI-compatible, or
 Anthropic-compatible selection after native pinned trust and credential metadata are both present. All four mapped
 providers execute through the configured Localmail dispatcher and retain the existing durable safe audit and
 cancellation/call/round/output/deadline limits. oMLX and Ollama prompts plus bounded Localmail results stay on
@@ -262,6 +262,17 @@ follow-ups can complete while the four-round, eight-call, 64 KiB per-result, 256
 and provider stream-idle limits remain unchanged. The full default Rust suite and the synthetic two-request oMLX Email
 fixture pass. This correction adds no schema, IPC, tool definition, provider mapping, credential, or WebView change.
 
+A 2026-08-25 Memory and Email reliability correction follows the current Localmail `POST /v1/search` contract by
+sending explicit `sort` and `sort_order` values. Bottie's closed `search_email` definition defaults to `date` plus
+`desc`, so matching mail is newest first; it permits relevance order or oldest-first date order only when the model
+selects those user-requested options, and still excludes cursors, smart rewriting, account/folder selection, and
+arbitrary routes. Foreground Memory retrieval now waits at most five seconds for the single semantic worker and falls
+back to bounded lexical results if model preparation or background indexing is busy, preventing a durable tool
+invocation from hanging without a result. Memory, Web, and Email remain false for old or new settings that never stored
+a choice, but each explicit composer choice is now persisted as a non-secret native provider setting and restored on
+the next app session only when current model capability and Localmail readiness still permit it. No credential,
+message content, query, path, vector, or model-cache detail is added to settings or WebView IPC.
+
 Read these files first:
 
 1. `HANDOVER.md`
@@ -303,8 +314,8 @@ branch `codex/windows-linux-0.9.0-package-evidence`.
 - bounded ready-image thumbnails plus explicit local-only extraction and normalization failure presentation;
 - durable extracted-text indexing readiness with honest indexable, unsupported, and blocked presentation;
 - capability-aware normalized JPEG/PNG delivery labels and current-draft blocking for text-only models;
-- a composer with off-by-default Memory, Web, and configured oMLX/Ollama/OpenAI-compatible/Anthropic-compatible Email
-  affordances;
+- a composer with remembered Memory, Web, and configured oMLX/Ollama/OpenAI-compatible/Anthropic-compatible Email
+  preferences, restored only when current native readiness permits them;
 - live normalized inference activity and token streaming;
 - an off-by-default reasoning toggle with low effort when enabled;
 - collapsed reasoning sections that can be expanded independently of answer text;
@@ -334,8 +345,9 @@ branch `codex/windows-linux-0.9.0-package-evidence`.
   HTTPS/allowed-domain/blocked-domain policy, timeout policy, and secret/path-redacted session diagnostics including
   automatic-backup outcomes;
 - a native-only first-run provider/privacy gate that identifies the available selected route, explains provider versus
-  local-data boundaries, keeps Memory and Web off by default, opens full Settings when configuration is needed, and
-  persists completion without credentials or paths;
+  local-data boundaries, explains that Memory and Web start disabled until explicitly selected, opens full Settings
+  when configuration is needed, and persists completion plus later non-secret tool choices without credentials or
+  paths;
 - context-panel open/close behavior;
 - reduced-motion and keyboard-focus support.
 

@@ -95,6 +95,9 @@ export type ProviderSettings = {
   setupCompleted: boolean;
   lastProviderId: ProviderId | null;
   lastModelId: string | null;
+  memoryEnabled: boolean;
+  webEnabled: boolean;
+  emailEnabled: boolean;
 };
 
 /** Stable native provider identities allowed to own an OS-vault credential. */

@@ -48,12 +48,10 @@ import {
   memoryToolsAvailable,
   webToolsAvailable,
 } from "./page-presentation";
-import { MemoryContextState } from "./memory-context-state.svelte";
-import { WebToolState } from "./web-tool-state.svelte";
 import { FirstRunSetupState } from "./first-run-setup-state.svelte";
-import { EmailToolState } from "./email-tool-state.svelte";
 import { ComposerInteractionState } from "./composer-interaction-state";
 import { CommandPaletteState } from "./command-palette-state.svelte";
+import { ToolPreferenceState, type ToolAvailability } from "./tool-preferences";
 
 const IDLE_STAGE = -1;
 const STARTING_STAGE = 0;
@@ -80,9 +78,10 @@ export class PageState {
   providerError = $state<ProviderError | null>(null);
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
-  memory = new MemoryContextState();
-  web = new WebToolState();
-  email = new EmailToolState();
+  tools = new ToolPreferenceState();
+  memory = this.tools.memory;
+  web = this.tools.web;
+  email = this.tools.email;
   providerSettings = $state<ProviderSettings>({ ...DEFAULT_PROVIDER_SETTINGS });
   recovery = new RecoveryState();
   history = new ConversationState();
@@ -133,6 +132,10 @@ export class PageState {
   get emailBoundaryNote(): string {
     return emailToolsBoundaryNote(this.selectedModel);
   }
+  /** Current capability and connector gates for remembered native-tool preferences. */
+  private get toolAvailability(): ToolAvailability {
+    return { memory: this.memoryAvailable, web: this.webAvailable, email: this.emailAvailable };
+  }
   /** Loads native runtime information, persisted settings, and available models. */
   async initialize(): Promise<void> {
     if (!isTauri()) {
@@ -164,6 +167,7 @@ export class PageState {
     }
     const [messages] = await Promise.all([this.history.initialize(), this.refreshModels(), this.email.refresh()]);
     this.messages = messages;
+    this.tools.restore(this.providerSettings, this.toolAvailability);
   }
   /** Releases native event listeners when the page is unmounted. */
   dispose(): void {
@@ -206,9 +210,7 @@ export class PageState {
       this.models = resolved.models;
       const currentSelectionAvailable = this.models.some((model) => modelKey(model) === this.selectedModelKey);
       if (!currentSelectionAvailable) this.selectedModelKey = resolved.selectedModelKey;
-      if (!this.memoryAvailable) this.memory.disable();
-      if (!this.webAvailable) this.web.disable();
-      if (!this.emailAvailable) this.email.disable();
+      this.tools.restore(this.providerSettings, this.toolAvailability);
       this.providerStatus = this.models.length > 0 ? "available" : "offline";
       if (this.models.length === 0) {
         this.providerError = {
@@ -224,6 +226,7 @@ export class PageState {
       this.selectedModelKey = "";
       this.providerStatus = "offline";
       this.providerError = providerErrorFromUnknown(error);
+      this.tools.restore(this.providerSettings, this.toolAvailability);
     }
   }
   /** Switches provider and refreshes only that provider's model list. */
@@ -239,9 +242,7 @@ export class PageState {
   /** Applies and persists a model selection from the toolbar. */
   async changeModel(selectedModelKey: string): Promise<void> {
     this.selectedModelKey = selectedModelKey;
-    if (!this.memoryAvailable) this.memory.disable();
-    if (!this.webAvailable) this.web.disable();
-    if (!this.emailAvailable) this.email.disable();
+    this.tools.restore(this.providerSettings, this.toolAvailability);
     await this.rememberCurrentSelection();
   }
 
@@ -249,6 +250,22 @@ export class PageState {
   async applyProviderSettings(settings: ProviderSettings): Promise<void> {
     this.providerSettings = settings;
     await this.refreshModels();
+  }
+
+  /** Refreshes secret-free Localmail readiness and reapplies the remembered Email preference. */
+  async refreshEmailTools(): Promise<void> {
+    await this.email.refresh();
+    this.tools.restore(this.providerSettings, this.toolAvailability);
+  }
+
+  /** Toggles and persists one native-tool preference without bypassing current readiness. */
+  async toggleTool(tool: "memory" | "web" | "email"): Promise<void> {
+    this.providerSettings = await this.tools.toggle(
+      tool,
+      this.providerSettings,
+      this.toolAvailability,
+      this.isGenerating,
+    );
   }
 
   /** Records the active provider/model pair when it differs from persisted settings. */

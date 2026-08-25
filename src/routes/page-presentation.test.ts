@@ -14,6 +14,7 @@ import {
   selectedProviderEndpoint,
   webToolsAvailable,
 } from "./page-presentation";
+import { restoredToolPreference } from "./tool-preferences";
 
 const attachment: Attachment = {
   id: "attachment-1",
@@ -108,6 +109,12 @@ describe("page presentation", () => {
     );
   });
 
+  it("restores remembered tool preferences only on currently available routes", () => {
+    expect(restoredToolPreference(true, true)).toBe(true);
+    expect(restoredToolPreference(true, false)).toBe(false);
+    expect(restoredToolPreference(false, true)).toBe(false);
+  });
+
   it("keeps draft, conversation, and message scope identities explicit", () => {
     const messages: Message[] = [
       { id: 1, storageId: "message-1", role: "user", content: "Use context", attachments: [attachment] },
@@ -132,6 +139,9 @@ describe("page presentation", () => {
       setupCompleted: true,
       lastProviderId: null,
       lastModelId: null,
+      memoryEnabled: false,
+      webEnabled: false,
+      emailEnabled: false,
     };
 
     expect(selectedProviderEndpoint("ollama", settings)).toBe("127.0.0.1:11434");

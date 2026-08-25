@@ -233,7 +233,7 @@ fn rejects_names_and_arguments_before_storage_or_embedding_work() {
 }
 
 #[test]
-fn redacts_storage_and_embedding_failures_into_stable_categories() {
+fn redacts_storage_failures_and_keeps_lexical_search_available_without_embeddings() {
     let store = test_store();
     let mut embedder = DispatchEmbedder::default();
     let missing = dispatch(
@@ -249,17 +249,14 @@ fn redacts_storage_and_embedding_failures_into_stable_categories() {
     assert!(!error.message.contains("missing"));
 
     embedder.fail = true;
-    let failed = dispatch(
+    let fallback = success_result(dispatch(
         &store,
         &mut embedder,
         "search_memory",
         json!({"query": "north"}),
-    );
-    let MemoryToolExecution::Error { error } = failed else {
-        panic!("embedding failure should return an error envelope");
-    };
-    assert_eq!(error.code, MemoryToolExecutionErrorCode::ExecutionFailed);
-    assert!(!error.message.contains("fixture"));
+    ));
+    assert_eq!(fallback, json!({"matches": []}));
+    assert!(!fallback.to_string().contains("fixture"));
 }
 
 #[test]

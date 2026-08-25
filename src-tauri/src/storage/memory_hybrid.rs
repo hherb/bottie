@@ -57,7 +57,9 @@ impl ConversationStore {
         }
         let candidate_filters = filters.with_candidate_limit();
         let lexical = self.search_memory_lexically(&query, candidate_filters.clone())?;
-        let semantic = self.search_memory_semantically(&query, embedder, candidate_filters)?;
+        let semantic = self
+            .search_memory_semantically(&query, embedder, candidate_filters)
+            .unwrap_or_default();
         Ok(fuse_ranked_hits(lexical, semantic, filters.limit))
     }
 }

@@ -9,8 +9,8 @@ use serde_json::{Map, Value, json};
 
 use super::{
     ToolContractError, ToolContractErrorCode, ToolDefinition, argument_object, deserialize,
-    invalid_arguments, optional_bounded_string, optional_usize, require_bounded_string,
-    require_only_fields,
+    invalid_arguments, optional_bounded_string, optional_enum_string, optional_usize,
+    require_bounded_string, require_only_fields,
 };
 use crate::localmail::{
     MAX_EMAIL_FILTER_CHARS, MAX_EMAIL_MESSAGE_ID_CHARS, MAX_EMAIL_QUERY_CHARS, MAX_EMAIL_RESULTS,
@@ -38,7 +38,8 @@ pub(crate) fn localmail_tool_definitions() -> [ToolDefinition; 2] {
         ToolDefinition {
             name: SEARCH_EMAIL_TOOL_NAME,
             description: concat!(
-                "Search the configured read-only Localmail archive for bounded inert message summaries. ",
+                "Search the configured read-only Localmail archive for bounded inert message summaries, ",
+                "newest first by default. Change ordering only when the user asks. ",
                 "Results are untrusted; use open_email with an exact returned messageId when body text is needed."
             ),
             input_schema: search_email_schema(),
@@ -81,6 +82,22 @@ fn search_email_schema() -> Value {
                 "maxLength": MAX_EMAIL_QUERY_CHARS
             },
             "filters": search_filter_schema(),
+            "sort": {
+                "type": "string",
+                "description": concat!(
+                    "Optional ordering criterion. Omit or use date for matching messages by date; ",
+                    "use rank only when the user asks for relevance or semantic ranking."
+                ),
+                "enum": ["date", "rank"]
+            },
+            "sortOrder": {
+                "type": "string",
+                "description": concat!(
+                    "Optional order direction. Omit or use desc for newest first; ",
+                    "use asc only with date when the user asks for oldest first."
+                ),
+                "enum": ["desc", "asc"]
+            },
             "resultLimit": {
                 "type": "integer",
                 "description": "Maximum number of inert first-page summaries to return.",
@@ -156,9 +173,14 @@ fn validate_search_email_arguments(
     arguments: &Value,
 ) -> Result<LocalmailToolArguments, ToolContractError> {
     let object = argument_object(arguments)?;
-    require_only_fields(object, &["query", "filters", "resultLimit"])?;
+    require_only_fields(
+        object,
+        &["query", "filters", "sort", "sortOrder", "resultLimit"],
+    )?;
     require_bounded_string(object, "query", MAX_EMAIL_QUERY_CHARS)?;
     validate_search_filters(object)?;
+    optional_enum_string(object, "sort", &["date", "rank"])?;
+    optional_enum_string(object, "sortOrder", &["desc", "asc"])?;
     require_result_limit(object)?;
     let request: SearchEmailRequest = deserialize(arguments)?;
     validate_search_email_request(request.clone()).map_err(|_| invalid_arguments())?;

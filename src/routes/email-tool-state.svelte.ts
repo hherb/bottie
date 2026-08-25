@@ -1,8 +1,8 @@
-/** Session-only frontend state for Bottie's explicitly configured Localmail tools. */
+/** Reactive frontend state for Bottie's explicitly configured Localmail tools. */
 
 import { getLocalmailConnectionStatus, localmailToolsConfigured } from "$lib/localmail";
 
-/** Owns off-by-default Email enablement and secret-free connector readiness. */
+/** Owns remembered Email enablement and secret-free connector readiness. */
 export class EmailToolState {
   enabled = $state(false);
   configured = $state(false);
@@ -21,6 +21,11 @@ export class EmailToolState {
   /** Disables Email whenever routing, capability, or connector readiness no longer permits it. */
   disable(): void {
     this.enabled = false;
+  }
+
+  /** Applies one already readiness-checked remembered preference. */
+  restore(enabled: boolean): void {
+    this.enabled = enabled;
   }
 
   /** Toggles Email only for an idle, configured, capable mapped provider route. */

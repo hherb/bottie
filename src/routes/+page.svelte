@@ -112,7 +112,7 @@
   /** Closes Settings, refreshes Email readiness, and restores the invoking control when possible. */
   async function closeSettings(): Promise<void> {
     state.showSettings = false;
-    void state.email.refresh();
+    void state.refreshEmailTools();
     await tick();
     if (settingsInvoker?.isConnected && getComputedStyle(settingsInvoker).visibility !== "hidden") {
       settingsInvoker.focus();
@@ -338,9 +338,9 @@
         onadd={() => void state.attachment.openPicker()}
         onfiles={(event) => state.attachment.addBrowserFiles(event)}
         onremove={(id) => state.attachment.remove(id)}
-        ontogglememory={() => state.memory.toggle(state.memoryAvailable, state.isGenerating)}
-        ontoggleweb={() => state.web.toggle(state.webAvailable, state.isGenerating)}
-        ontoggleemail={() => state.email.toggle(state.emailAvailable, state.isGenerating)}
+        ontogglememory={() => void state.toggleTool("memory")}
+        ontoggleweb={() => void state.toggleTool("web")}
+        ontoggleemail={() => void state.toggleTool("email")}
         oncomposerready={(element) => state.interaction.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />

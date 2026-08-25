@@ -30,6 +30,16 @@ impl SemanticEmbedder for HybridEmbedder {
     }
 }
 
+/// Query embedder fixture representing an unavailable or busy semantic worker.
+struct UnavailableEmbedder;
+
+impl SemanticEmbedder for UnavailableEmbedder {
+    /// Fails every semantic request so hybrid retrieval must retain lexical availability.
+    fn embed(&mut self, _texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+        Err("embedding_worker".into())
+    }
+}
+
 /// Creates one lexical fixture hit.
 fn lexical_hit(source_id: &str, created_at_ms: i64) -> MemoryLexicalHit {
     MemoryLexicalHit {
@@ -224,4 +234,31 @@ fn hybrid_query_enforces_bounds_before_embedding() {
         too_long.expect_err("long query should fail").code,
         "invalid_request"
     );
+}
+
+#[test]
+fn hybrid_query_falls_back_to_lexical_results_when_semantic_embedding_is_unavailable() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let conversation = store
+        .create_conversation("Lexical fallback")
+        .expect("conversation should create");
+    let message_id = append_message(&store, &conversation.id, "violet lighthouse memory");
+
+    let hits = store
+        .search_memory_hybrid(
+            "violet lighthouse",
+            &mut UnavailableEmbedder,
+            super::memory_filters::MemorySearchFilters {
+                source_kind: Some(MemorySourceKind::Message),
+                limit: 5,
+                ..super::memory_filters::MemorySearchFilters::default()
+            },
+        )
+        .expect("lexical retrieval should remain available");
+
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].source_id, message_id);
+    assert!(hits[0].lexical_rank.is_some());
+    assert!(hits[0].semantic_rank.is_none());
 }
