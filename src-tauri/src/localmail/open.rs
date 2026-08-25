@@ -7,7 +7,7 @@ use reqwest::{
     Client, Method, Request, Response, StatusCode,
     header::{ACCEPT, AUTHORIZATION, HeaderValue},
 };
-use serde::{Deserialize, Serialize, de::IgnoredAny};
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use url::Url;
 
@@ -28,6 +28,12 @@ use super::{
 pub(super) const MAX_EMAIL_HEADER_ADDRESSES: usize = 50;
 /// Maximum Unicode scalar count retained from one opened email body.
 pub(super) const MAX_EMAIL_BODY_CHARS: usize = 32 * 1_024;
+/// Maximum number of attachment entries exposed from one opened email.
+pub(crate) const MAX_EMAIL_ATTACHMENTS: usize = 50;
+/// Maximum Unicode scalar count retained from one attachment filename.
+pub(super) const MAX_EMAIL_ATTACHMENT_FILENAME_CHARS: usize = 255;
+/// Maximum Unicode scalar count retained from one attachment media type.
+pub(super) const MAX_EMAIL_ATTACHMENT_CONTENT_TYPE_CHARS: usize = 127;
 /// Maximum UTF-8 bytes accepted from Localmail's fixed message-detail route.
 pub(super) const MAX_EMAIL_OPEN_RESPONSE_BYTES: usize = 512 * 1_024;
 
@@ -69,8 +75,24 @@ pub(crate) struct OpenEmailResponse {
     pub(super) body: Option<String>,
     /// Whether Localmail reports attachments without exposing their metadata or bytes.
     pub(super) has_attachments: bool,
+    /// Bounded safe metadata used to select extracted text without exposing content hashes.
+    pub(super) attachments: Vec<OpenEmailAttachment>,
     /// Fixed marker requiring downstream callers to treat email content as untrusted.
     pub(super) untrusted: bool,
+}
+
+/// Safe attachment metadata correlated by a bounded 1-based message-local number.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct OpenEmailAttachment {
+    /// Stable position within the opened message's attachment list.
+    pub(super) attachment_number: usize,
+    /// Bounded display filename when Localmail supplied one.
+    pub(super) filename: Option<String>,
+    /// Bounded declared media type when Localmail supplied one.
+    pub(super) content_type: Option<String>,
+    /// Original decoded byte size when Localmail supplied one.
+    pub(super) byte_size: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -83,7 +105,14 @@ struct RawOpenResponse {
     date: Option<String>,
     body_text: Option<String>,
     body_html: Option<String>,
-    attachments: Vec<IgnoredAny>,
+    attachments: Vec<RawOpenAttachment>,
+}
+
+#[derive(Deserialize)]
+struct RawOpenAttachment {
+    filename: Option<String>,
+    content_type: Option<String>,
+    size: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -169,7 +198,7 @@ pub(super) fn build_open_http_request(
 }
 
 /// Reads one successful detail response under the connector-specific byte ceiling.
-async fn read_bounded_open_body(response: Response) -> Result<Vec<u8>, ProviderError> {
+pub(super) async fn read_bounded_open_body(response: Response) -> Result<Vec<u8>, ProviderError> {
     match response.status() {
         StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
             return Err(ProviderError::invalid_request(
@@ -236,6 +265,7 @@ pub(super) fn decode_open_response(
         .as_deref()
         .and_then(bounded_body)
         .or_else(|| raw.body_html.as_deref().and_then(html_fallback));
+    let has_attachments = !raw.attachments.is_empty();
     Ok(OpenEmailResponse {
         message_id: raw.id,
         subject: bounded_inline(raw.subject.as_deref(), MAX_EMAIL_SUBJECT_CHARS),
@@ -244,9 +274,31 @@ pub(super) fn decode_open_response(
         cc: map_addresses(raw.cc),
         sent_at,
         body,
-        has_attachments: !raw.attachments.is_empty(),
+        has_attachments,
+        attachments: map_attachments(raw.attachments),
         untrusted: true,
     })
+}
+
+/// Maps a bounded prefix of Localmail attachment metadata while excluding content hashes.
+fn map_attachments(values: Vec<RawOpenAttachment>) -> Vec<OpenEmailAttachment> {
+    values
+        .into_iter()
+        .take(MAX_EMAIL_ATTACHMENTS)
+        .enumerate()
+        .map(|(index, value)| OpenEmailAttachment {
+            attachment_number: index + 1,
+            filename: bounded_inline(
+                value.filename.as_deref(),
+                MAX_EMAIL_ATTACHMENT_FILENAME_CHARS,
+            ),
+            content_type: bounded_inline(
+                value.content_type.as_deref(),
+                MAX_EMAIL_ATTACHMENT_CONTENT_TYPE_CHARS,
+            ),
+            byte_size: value.size,
+        })
+        .collect()
 }
 
 /// Maps one bounded number of address entries while discarding extra server fields.
@@ -287,7 +339,7 @@ fn html_fallback(value: &str) -> Option<String> {
 }
 
 /// Normalizes multiline body content while retaining at most one blank separator line.
-fn bounded_body(value: &str) -> Option<String> {
+pub(super) fn bounded_body(value: &str) -> Option<String> {
     let value = value.replace("\r\n", "\n").replace('\r', "\n");
     let mut normalized = String::new();
     let mut blank_lines = 0_u8;
@@ -315,7 +367,7 @@ fn bounded_body(value: &str) -> Option<String> {
 }
 
 /// Returns one optional normalized inline value truncated without splitting Unicode scalars.
-fn bounded_inline(value: Option<&str>, limit: usize) -> Option<String> {
+pub(super) fn bounded_inline(value: Option<&str>, limit: usize) -> Option<String> {
     let normalized = normalize_inline(value?);
     if normalized.is_empty() {
         return None;

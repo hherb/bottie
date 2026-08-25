@@ -186,10 +186,14 @@ fn streams_an_ollama_email_result_and_final_answer_across_two_requests() {
     assert_eq!(localmail.calls.lock().unwrap().len(), 1);
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
-    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(4));
     assert_eq!(requests[0]["tools"][0]["function"]["name"], "search_email");
     assert_eq!(requests[0]["tools"][1]["function"]["name"], "open_email");
-    assert_eq!(requests[0]["tools"][2]["function"]["name"], "current_time");
+    assert_eq!(
+        requests[0]["tools"][2]["function"]["name"],
+        "read_email_attachment"
+    );
+    assert_eq!(requests[0]["tools"][3]["function"]["name"], "current_time");
     assert_eq!(requests[1]["messages"][2]["role"], "tool");
     assert_eq!(requests[1]["messages"][2]["tool_name"], "search_email");
     assert!(

@@ -7,7 +7,10 @@ use crate::{
     generation_localmail_tools::NativeLocalmailToolExecutor,
     inference::{ChatRequest, ChatRole, ChatTurn, ContentBlock, ProviderError},
     storage::{ConversationStore, SemanticEmbedder},
-    tool_contract::{CURRENT_TIME_TOOL_NAME, OPEN_EMAIL_TOOL_NAME, SEARCH_EMAIL_TOOL_NAME},
+    tool_contract::{
+        CURRENT_TIME_TOOL_NAME, OPEN_EMAIL_TOOL_NAME, READ_EMAIL_ATTACHMENT_TOOL_NAME,
+        SEARCH_EMAIL_TOOL_NAME,
+    },
     tool_dispatch::{
         MemoryToolExecution, dispatch_current_time_tool, dispatch_memory_tool,
         dispatch_web_fetch_tool, dispatch_web_search_tool, policy_error,
@@ -224,7 +227,7 @@ pub(crate) fn dispatch_native_tool(
     }
     if matches!(
         call.tool_name.as_str(),
-        SEARCH_EMAIL_TOOL_NAME | OPEN_EMAIL_TOOL_NAME
+        SEARCH_EMAIL_TOOL_NAME | OPEN_EMAIL_TOOL_NAME | READ_EMAIL_ATTACHMENT_TOOL_NAME
     ) {
         if let Some(localmail) = localmail {
             return localmail.execute(call);

@@ -52,7 +52,7 @@ impl CredentialStore for RejectCredentialAccess {
 }
 
 #[test]
-fn publishes_two_closed_schemas_without_advertising_them() {
+fn publishes_three_closed_schemas_without_advertising_them() {
     let serialized = localmail_tool_definitions()
         .into_iter()
         .map(|definition| serde_json::to_value(definition).unwrap())
@@ -60,6 +60,7 @@ fn publishes_two_closed_schemas_without_advertising_them() {
 
     assert_eq!(serialized[0]["name"], json!("search_email"));
     assert_eq!(serialized[1]["name"], json!("open_email"));
+    assert_eq!(serialized[2]["name"], json!("read_email_attachment"));
     assert_eq!(
         serialized[0]["inputSchema"]["required"],
         json!(["query", "resultLimit"])
@@ -88,6 +89,18 @@ fn publishes_two_closed_schemas_without_advertising_them() {
         serialized[1]["inputSchema"]["additionalProperties"],
         json!(false)
     );
+    assert_eq!(
+        serialized[2]["inputSchema"]["required"],
+        json!(["messageId", "attachmentNumber"])
+    );
+    assert_eq!(
+        serialized[2]["inputSchema"]["properties"]["attachmentNumber"]["minimum"],
+        json!(1)
+    );
+    assert_eq!(
+        serialized[2]["inputSchema"]["additionalProperties"],
+        json!(false)
+    );
 
     let enabled_names = enabled_native_tool_definitions(true, true, false)
         .into_iter()
@@ -95,6 +108,7 @@ fn publishes_two_closed_schemas_without_advertising_them() {
         .collect::<Vec<_>>();
     assert!(!enabled_names.contains(&"search_email"));
     assert!(!enabled_names.contains(&"open_email"));
+    assert!(!enabled_names.contains(&"read_email_attachment"));
 
     let ollama_email_names = enabled_native_tool_definitions(false, false, true)
         .into_iter()
@@ -102,7 +116,12 @@ fn publishes_two_closed_schemas_without_advertising_them() {
         .collect::<Vec<_>>();
     assert_eq!(
         ollama_email_names,
-        vec!["search_email", "open_email", "current_time"]
+        vec![
+            "search_email",
+            "open_email",
+            "read_email_attachment",
+            "current_time"
+        ]
     );
 }
 
@@ -156,6 +175,19 @@ fn converts_json_into_the_exact_existing_connector_requests() {
         serde_json::to_value(request).unwrap(),
         json!({"messageId": "42"})
     );
+
+    let attachment = validate_localmail_tool_arguments(
+        "read_email_attachment",
+        &json!({"messageId": "42", "attachmentNumber": 2}),
+    )
+    .expect("read_email_attachment arguments should validate");
+    let LocalmailToolArguments::ReadEmailAttachment(request) = attachment else {
+        panic!("read_email_attachment should produce its exact connector request");
+    };
+    assert_eq!(
+        serde_json::to_value(request).unwrap(),
+        json!({"messageId": "42", "attachmentNumber": 2})
+    );
 }
 
 #[test]
@@ -194,6 +226,14 @@ fn rejects_invalid_shapes_without_reflecting_arguments() {
             "open_email",
             json!({"messageId": "42", "includeHtml": true}),
         ),
+        (
+            "read_email_attachment",
+            json!({"messageId": "42", "attachmentNumber": 0}),
+        ),
+        (
+            "read_email_attachment",
+            json!({"messageId": "42", "attachmentNumber": 1, "mode": "bytes"}),
+        ),
     ];
 
     for (tool_name, arguments) in cases {
@@ -204,7 +244,7 @@ fn rejects_invalid_shapes_without_reflecting_arguments() {
 }
 
 #[test]
-fn classifies_both_bounded_read_only_tools_as_safe() {
+fn classifies_all_bounded_read_only_email_tools_as_safe() {
     for definition in localmail_tool_definitions() {
         assert_eq!(
             tool_execution_policy(definition.name),
@@ -235,6 +275,9 @@ impl LocalmailToolExecutor for DispatchLocalmailExecutor {
             LocalmailToolArguments::OpenEmail(request) => {
                 json!({"tool": "open_email", "arguments": request})
             }
+            LocalmailToolArguments::ReadEmailAttachment(request) => {
+                json!({"tool": "read_email_attachment", "arguments": request})
+            }
         };
         self.requests.lock().unwrap().push(request);
         self.result.clone()
@@ -254,7 +297,7 @@ fn success_result(execution: MemoryToolExecution) -> Value {
 }
 
 #[test]
-fn dispatches_both_tools_through_the_common_bounded_envelope() {
+fn dispatches_all_email_tools_through_the_common_bounded_envelope() {
     let requests = Arc::new(Mutex::new(Vec::new()));
     let executor = DispatchLocalmailExecutor {
         requests: requests.clone(),
@@ -267,6 +310,10 @@ fn dispatches_both_tools_through_the_common_bounded_envelope() {
             json!({"query": "release notes", "filters": {"hasAttachments": true}, "resultLimit": 3}),
         ),
         ("open_email", json!({"messageId": "42"})),
+        (
+            "read_email_attachment",
+            json!({"messageId": "42", "attachmentNumber": 2}),
+        ),
     ] {
         let execution = tauri::async_runtime::block_on(dispatch_localmail_tool(
             &executor,
@@ -288,6 +335,8 @@ fn dispatches_both_tools_through_the_common_bounded_envelope() {
     assert_eq!(requests[0]["arguments"]["resultLimit"], json!(3));
     assert_eq!(requests[1]["tool"], json!("open_email"));
     assert_eq!(requests[1]["arguments"]["messageId"], json!("42"));
+    assert_eq!(requests[2]["tool"], json!("read_email_attachment"));
+    assert_eq!(requests[2]["arguments"]["attachmentNumber"], json!(2));
 }
 
 #[test]

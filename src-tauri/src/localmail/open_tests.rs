@@ -178,6 +178,17 @@ fn open_response_returns_only_bounded_inert_path_free_content() {
         Some("First line.\n\nSecond line.")
     );
     assert!(response.has_attachments);
+    assert_eq!(response.attachments.len(), 1);
+    assert_eq!(response.attachments[0].attachment_number, 1);
+    assert_eq!(
+        response.attachments[0].filename.as_deref(),
+        Some("secret.pdf")
+    );
+    assert_eq!(
+        response.attachments[0].content_type.as_deref(),
+        Some("application/pdf")
+    );
+    assert_eq!(response.attachments[0].byte_size, Some(5));
     assert!(response.untrusted);
 
     let serialized = serde_json::to_string(&response).expect("path-free response");
@@ -185,14 +196,12 @@ fn open_response_returns_only_bounded_inert_path_free_content() {
         "secret@example.com",
         "HTML must not cross",
         "tracker.example",
-        "secret.pdf",
         "abc",
-        "application/pdf",
         "account-secret",
         "folder-secret",
         "/private/mail/archive",
         "body_html",
-        "attachments",
+        "sha256",
     ] {
         assert!(!serialized.contains(forbidden), "leaked {forbidden}");
     }

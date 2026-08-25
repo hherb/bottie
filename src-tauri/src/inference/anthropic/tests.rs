@@ -208,10 +208,11 @@ fn maps_email_tools_before_the_clock_when_explicitly_enabled() {
     request.email_enabled = true;
     let body = serde_json::to_value(AnthropicToolSession::new(request).unwrap().request).unwrap();
 
-    assert_eq!(body["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(body["tools"].as_array().map(Vec::len), Some(4));
     assert_eq!(body["tools"][0]["name"], "search_email");
     assert_eq!(body["tools"][1]["name"], "open_email");
-    assert_eq!(body["tools"][2]["name"], "current_time");
+    assert_eq!(body["tools"][2]["name"], "read_email_attachment");
+    assert_eq!(body["tools"][3]["name"], "current_time");
 }
 
 #[test]

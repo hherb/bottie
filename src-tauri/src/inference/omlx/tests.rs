@@ -281,10 +281,14 @@ fn maps_clock_memory_web_and_email_definitions_only_through_the_native_session()
     let mut email = live_request("model".into(), "Find the quarterly plan email");
     email.email_enabled = true;
     let email = serde_json::to_value(OmlxToolSession::new(email).unwrap().request).unwrap();
-    assert_eq!(email["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(email["tools"].as_array().map(Vec::len), Some(4));
     assert_eq!(email["tools"][0]["function"]["name"], "search_email");
     assert_eq!(email["tools"][1]["function"]["name"], "open_email");
-    assert_eq!(email["tools"][2]["function"]["name"], "current_time");
+    assert_eq!(
+        email["tools"][2]["function"]["name"],
+        "read_email_attachment"
+    );
+    assert_eq!(email["tools"][3]["function"]["name"], "current_time");
 }
 
 #[test]

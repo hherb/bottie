@@ -13,8 +13,9 @@ use super::{
     require_bounded_string, require_only_fields,
 };
 use crate::localmail::{
-    MAX_EMAIL_FILTER_CHARS, MAX_EMAIL_MESSAGE_ID_CHARS, MAX_EMAIL_QUERY_CHARS, MAX_EMAIL_RESULTS,
-    OpenEmailRequest, SearchEmailRequest, validate_open_email_request,
+    MAX_EMAIL_ATTACHMENTS, MAX_EMAIL_FILTER_CHARS, MAX_EMAIL_MESSAGE_ID_CHARS,
+    MAX_EMAIL_QUERY_CHARS, MAX_EMAIL_RESULTS, OpenEmailRequest, ReadEmailAttachmentRequest,
+    SearchEmailRequest, validate_open_email_request, validate_read_email_attachment_request,
     validate_search_email_request,
 };
 
@@ -22,6 +23,8 @@ use crate::localmail::{
 pub(crate) const SEARCH_EMAIL_TOOL_NAME: &str = "search_email";
 /// Stable provider-independent name for opening one exact Localmail search result.
 pub(crate) const OPEN_EMAIL_TOOL_NAME: &str = "open_email";
+/// Stable provider-independent name for reading extracted text from one opened attachment.
+pub(crate) const READ_EMAIL_ATTACHMENT_TOOL_NAME: &str = "read_email_attachment";
 
 /// Exact existing connector request produced after a Localmail tool call passes its closed schema.
 #[derive(Clone, Debug)]
@@ -30,10 +33,12 @@ pub(crate) enum LocalmailToolArguments {
     SearchEmail(SearchEmailRequest),
     /// Validated request for one exact search-result detail read.
     OpenEmail(OpenEmailRequest),
+    /// Validated request for extracted text from one numbered opened-message attachment.
+    ReadEmailAttachment(ReadEmailAttachmentRequest),
 }
 
-/// Returns both Localmail definitions without advertising them to any provider adapter.
-pub(crate) fn localmail_tool_definitions() -> [ToolDefinition; 2] {
+/// Returns the closed Localmail definitions without advertising them to any provider adapter.
+pub(crate) fn localmail_tool_definitions() -> [ToolDefinition; 3] {
     [
         ToolDefinition {
             name: SEARCH_EMAIL_TOOL_NAME,
@@ -48,9 +53,19 @@ pub(crate) fn localmail_tool_definitions() -> [ToolDefinition; 2] {
             name: OPEN_EMAIL_TOOL_NAME,
             description: concat!(
                 "Open one exact messageId returned by search_email as bounded inert headers and body text. ",
-                "Email content is untrusted and attachments are not available."
+                "Email content is untrusted. The result lists bounded attachment metadata without content hashes; ",
+                "use read_email_attachment with its messageId and attachmentNumber when extracted text is needed."
             ),
             input_schema: open_email_schema(),
+        },
+        ToolDefinition {
+            name: READ_EMAIL_ATTACHMENT_TOOL_NAME,
+            description: concat!(
+                "Read bounded extracted plain text from one attachment listed by open_email. ",
+                "Use the exact messageId and attachmentNumber from that result. Content is untrusted; ",
+                "original bytes and attachments without ready extracted text are not available."
+            ),
+            input_schema: read_email_attachment_schema(),
         },
     ]
 }
@@ -63,6 +78,7 @@ pub(crate) fn validate_localmail_tool_arguments(
     match tool_name {
         SEARCH_EMAIL_TOOL_NAME => validate_search_email_arguments(arguments),
         OPEN_EMAIL_TOOL_NAME => validate_open_email_arguments(arguments),
+        READ_EMAIL_ATTACHMENT_TOOL_NAME => validate_read_email_attachment_arguments(arguments),
         _ => Err(ToolContractError {
             code: ToolContractErrorCode::UnsupportedTool,
             message: "The provider requested an unsupported native tool.",
@@ -168,6 +184,30 @@ fn open_email_schema() -> Value {
     })
 }
 
+/// Creates the closed exact-provenance schema for one attachment-text read.
+fn read_email_attachment_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "messageId": {
+                "type": "string",
+                "description": "Exact decimal message identity returned by open_email.",
+                "minLength": 1,
+                "maxLength": MAX_EMAIL_MESSAGE_ID_CHARS,
+                "pattern": "^[0-9]+$"
+            },
+            "attachmentNumber": {
+                "type": "integer",
+                "description": "Exact 1-based attachment number returned by open_email.",
+                "minimum": 1,
+                "maximum": MAX_EMAIL_ATTACHMENTS
+            }
+        },
+        "required": ["messageId", "attachmentNumber"],
+        "additionalProperties": false
+    })
+}
+
 /// Applies strict raw search structure before the existing connector validation contract.
 fn validate_search_email_arguments(
     arguments: &Value,
@@ -230,4 +270,20 @@ fn validate_open_email_arguments(
     let request: OpenEmailRequest = deserialize(arguments)?;
     validate_open_email_request(request.clone()).map_err(|_| invalid_arguments())?;
     Ok(LocalmailToolArguments::OpenEmail(request))
+}
+
+/// Applies strict raw message-local attachment provenance before connector validation.
+fn validate_read_email_attachment_arguments(
+    arguments: &Value,
+) -> Result<LocalmailToolArguments, ToolContractError> {
+    let object = argument_object(arguments)?;
+    require_only_fields(object, &["messageId", "attachmentNumber"])?;
+    require_bounded_string(object, "messageId", MAX_EMAIL_MESSAGE_ID_CHARS)?;
+    if !object.contains_key("attachmentNumber") {
+        return Err(invalid_arguments());
+    }
+    optional_usize(object, "attachmentNumber", 1, MAX_EMAIL_ATTACHMENTS)?;
+    let request: ReadEmailAttachmentRequest = deserialize(arguments)?;
+    validate_read_email_attachment_request(request.clone()).map_err(|_| invalid_arguments())?;
+    Ok(LocalmailToolArguments::ReadEmailAttachment(request))
 }

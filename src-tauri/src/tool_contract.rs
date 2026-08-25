@@ -24,8 +24,8 @@ pub(crate) use current_time::{
 };
 pub(crate) use localmail::localmail_tool_definitions;
 pub(crate) use localmail::{
-    LocalmailToolArguments, OPEN_EMAIL_TOOL_NAME, SEARCH_EMAIL_TOOL_NAME,
-    validate_localmail_tool_arguments,
+    LocalmailToolArguments, OPEN_EMAIL_TOOL_NAME, READ_EMAIL_ATTACHMENT_TOOL_NAME,
+    SEARCH_EMAIL_TOOL_NAME, validate_localmail_tool_arguments,
 };
 pub(crate) use web_fetch::{validate_web_fetch_tool_arguments, web_fetch_tool_definition};
 
