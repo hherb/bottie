@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use crate::{
     credentials::CredentialStore,
     inference::{ProviderError, ProviderErrorCode},
-    localmail::{open_email_native, search_email_native},
+    localmail::{open_email_native, read_email_attachment_native, search_email_native},
     storage::{ConversationStore, SemanticEmbedder, StorageError},
     tool_contract::{
         LocalmailToolArguments, MemoryToolArguments, ToolContractError, ToolContractErrorCode,
@@ -55,6 +55,9 @@ impl LocalmailToolExecutor for ConfiguredLocalmailToolExecutor<'_> {
             ),
             LocalmailToolArguments::OpenEmail(request) => serde_json::to_value(
                 open_email_native(self.config_path, self.credentials, request).await?,
+            ),
+            LocalmailToolArguments::ReadEmailAttachment(request) => serde_json::to_value(
+                read_email_attachment_native(self.config_path, self.credentials, request).await?,
             ),
         };
         result.map_err(|_| {

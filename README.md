@@ -57,8 +57,8 @@ only the typed information it needs to render the interface.
 - Let capable models use opt-in memory, web search, web fetch, and read-only Localmail tools.
 - Search through Brave Search or Exa Search while keeping API keys in the operating-system credential vault.
 - Fetch only validated public HTTP(S) pages through a proxy-free, redirect-limited native client.
-- Search and open email through an explicitly pinned Localmail connection without exposing credentials or raw mail
-  internals to the WebView.
+- Search and open email, then read already extracted attachment text, through an explicitly pinned Localmail connection
+  without exposing credentials, attachment hashes, raw bytes, or mail internals to the WebView.
 - Review each tool call, stable outcome, duration, and retained result in the conversation audit.
 
 ## Keyboard commands
@@ -401,6 +401,7 @@ latest completed slice.
 
 ## Current boundaries
 
-Bottie deliberately does not offer arbitrary MCP execution, approval-required tools, outbound email, attachment access
-through Localmail, automatic memory injection, or office-document extraction beyond DOCX. These are product boundaries,
-not hidden configuration switches. Follow the [roadmap](ROADMAP.md) for planned work and its security gates.
+Bottie deliberately does not offer arbitrary MCP execution, approval-required tools, outbound email, original
+attachment download or opening through Localmail, automatic memory injection, or office-document extraction beyond
+DOCX. These are product boundaries, not hidden configuration switches. Follow the [roadmap](ROADMAP.md) for planned
+work and its security gates.

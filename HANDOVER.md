@@ -206,15 +206,17 @@ explicit native Save dialog, while Rust reapplies credential, path, and content-
 saved/cancelled outcome plus the selected leaf filename. A first-party read-only Localmail connector now owns the HTTPS
 origin, explicit certificate inspection and pinning, bounded server and bearer-authentication tests, vault-only token
 storage, and typed native email-search and exact-result-open contracts. Search validates its complete
-query/filter/sort/result-limit shape
-before config, credential, or network access, calls only the fixed authenticated `POST /v1/search` route, and returns
+query/filter/sort/result-limit shape before config, credential, or network access, calls only the fixed authenticated
+`POST /v1/search` route, and returns
 bounded path-free plain-text summaries marked untrusted. No email body, HTML, attachment content, account/folder
 internals, cursor, or score crosses that boundary. Open validates one strict decimal search-result identity before the
 same native state, calls only `GET /v1/messages/{id}` with compact headers and external images disabled, and returns
 bounded inert subject, address, UTC date, body, and attachment-presence fields. HTML, external-image URLs, Bcc, full
-headers, attachment details and bytes, account/folder internals, paths, and credentials remain excluded. The next
-provider-independent layer is now complete: `search_email` and `open_email` have closed definitions, strict raw JSON
-conversion into the existing connector requests, explicit safe read-only policy entries, and one configured native
+headers, attachment content hashes and bytes, account/folder internals, paths, and credentials remain excluded. Open
+returns a bounded attachment list containing only a 1-based number, safe filename, media type, and byte size. The next
+provider-independent layer is now complete: `search_email`, `open_email`, and `read_email_attachment` have closed
+definitions, strict raw JSON conversion into the existing connector requests, explicit safe read-only policy entries,
+and one configured native
 executor behind Bottie's existing 64 KiB success/error envelope. Invalid calls fail before Localmail configuration,
 vault, or network access, and connector failures map to fixed redacted categories. One remembered Email control now
 advertises those definitions only to an explicitly tool-capable oMLX, Ollama, OpenAI-compatible, or
@@ -222,8 +224,9 @@ Anthropic-compatible selection after native pinned trust and credential metadata
 providers execute through the configured Localmail dispatcher and retain the existing durable safe audit and
 cancellation/call/round/output/deadline limits. oMLX and Ollama prompts plus bounded Localmail results stay on
 loopback; OpenAI-compatible and Anthropic-compatible prompts plus bounded results use the selected visible cloud route.
-In every case, only model-selected queries and exact message identities go to the pinned Localmail server. Anthropic
-Messages preserve exact `tool_use` identities, immediate correlated `tool_result` blocks, and ordered
+In every case, only model-selected queries, exact message identities, and numbered attachment selections go to the
+pinned Localmail server. Anthropic Messages preserve exact `tool_use` identities, immediate correlated `tool_result`
+blocks, and ordered
 thinking/redacted-thinking state.
 oMLX uses its discovered Chat Completions-compatible route without enabling endpoint-owned MCP or arbitrary server
 tools. Bottie's CSP and Tauri capability review is also complete. The main WebView now receives only the two core event
@@ -250,7 +253,8 @@ Dark themes plus Comfortable and Compact density are now complete. Refined empty
 WebView accessibility audit are also complete. Reproducible performance budgets now cover a 2,000-conversation,
 50,000-message native history plus 2,000-row navigation and 600-turn WebView fixtures. All initial budgets passed, so
 the slice deliberately changes no production loading, search, branch, rendering, or scrolling behavior. Do not bundle
-dependency upgrades or remediation, Email provenance cards, attachment download or opening, Localmail administration,
+dependency upgrades or remediation, Email provenance cards, original Localmail attachment download or opening,
+Localmail administration,
 outbound mail, migration-recovery UI, a new feature schema, automatic retrieval injection, model-cache deletion, Linux
 packaging, custom artwork, distribution signing, updates, or release work.
 
@@ -272,6 +276,27 @@ invocation from hanging without a result. Memory, Web, and Email remain false fo
 a choice, but each explicit composer choice is now persisted as a non-secret native provider setting and restored on
 the next app session only when current model capability and Localmail readiness still permit it. No credential,
 message content, query, path, vector, or model-cache detail is added to settings or WebView IPC.
+
+A 2026-08-25 Localmail attachment-text slice lets an Email-enabled model inspect already extracted attachment content
+without adding raw-file download or exposing Localmail content hashes. `open_email` now returns at most fifty bounded
+attachment metadata entries with 1-based message-local numbers. The closed safe `read_email_attachment` tool accepts
+only an exact prior `messageId` plus one of those numbers, re-fetches the fixed compact message route through Bottie's
+pinned bearer-authenticated client, resolves the SHA-256 inside Rust, and requests only
+`GET /v1/attachments/{sha256}/text`. The result contains safe metadata and at most 12,288 normalized Unicode scalars,
+marks content untrusted, and reports truncation. Hashes, bearer credentials, origins, original bytes, native paths, and
+raw responses remain outside provider arguments and WebView IPC. Attachments without ready Localmail extraction are
+unavailable; Bottie does not fall back to downloading or parsing the original file. The tool is advertised in the same
+order and under the same explicit Email readiness, call/round/deadline, durable-audit, and 64 KiB result boundaries for
+oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible routes.
+
+Focused TDD first failed on the missing attachment-text module, response metadata, tool variant, definition, policy,
+and provider routing. The finished default Rust suite passes 398 tests with 31 documented opt-in/live tests ignored;
+`npm run format:check`, `npm run check`, `npm test` (156 passed, 3 skipped), `npm run build`, Cargo formatting, and
+Cargo check also pass. The only UI change is longer provider/Localmail disclosure copy; focused rendered tests pass,
+but browser presentation was not re-reviewed. The opt-in live test then used Bottie's saved pinned configuration and
+vault credential against the laptop's Localmail service. It examined one bounded search result and one PDF attachment
+under 1 MiB, returned 1,573 extracted characters without truncation, and logged no bearer, hash, message identity,
+filename, subject, or extracted content. The same test remains ignored by default and requires explicit live access.
 
 Read these files first:
 

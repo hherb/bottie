@@ -16,8 +16,8 @@ function renderedComposer(
   emailAvailable = false,
   emailEnabled = false,
   emailBoundaryNote = [
-    "Your prompt stays with Ollama on loopback; model-selected email queries and exact message IDs go only",
-    "to your pinned Localmail server.",
+    "Your prompt stays with Ollama on loopback; model-selected email queries, exact message IDs, and attachment",
+    "selections go only to your pinned Localmail server.",
   ].join(" "),
   emailUnavailableReason = "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
 ): string {
@@ -103,7 +103,7 @@ describe("Composer", () => {
     expect(enabled).toMatch(/aria-label="Disable web search"[^>]*aria-pressed="true"/);
     expect(enabled).toMatch(/aria-label="Disable email tools"[^>]*aria-pressed="true"/);
     expect(enabled).toContain("Your prompt stays with Ollama on loopback");
-    expect(enabled).toMatch(/exact message IDs go only to your\s+pinned Localmail server/);
+    expect(enabled).toMatch(/attachment\s+selections go only to your pinned Localmail server/);
     expect(unavailable).toMatch(/aria-label="Memory tools require a supported tool-capable model"[^>]* disabled/);
     expect(unavailable).toMatch(/aria-label="Web search requires a supported tool-capable model"[^>]* disabled/);
     expect(unavailable).toMatch(
@@ -117,12 +117,12 @@ describe("Composer", () => {
   it("discloses cloud prompt and bounded result delivery for OpenAI-compatible Email", () => {
     const boundary = [
       "Your prompt and bounded Localmail tool results go to the selected OpenAI-compatible cloud endpoint;",
-      "model-selected email queries and exact message IDs go only to your pinned Localmail server.",
+      "model-selected email queries, exact message IDs, and attachment selections go only to your pinned Localmail server.",
     ].join(" ");
     const html = renderedComposer(true, true, [], false, false, false, false, true, true, boundary);
 
     expect(html).toContain("selected OpenAI-compatible cloud endpoint");
     expect(html).toContain("bounded Localmail tool results");
-    expect(html).toMatch(/email queries and exact message IDs go only to your\s+pinned Localmail server/);
+    expect(html).toMatch(/attachment selections go only to your\s+pinned Localmail server/);
   });
 });

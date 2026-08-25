@@ -227,10 +227,11 @@ fn streams_anthropic_email_result_after_preserved_reasoning_blocks() {
     assert_eq!(localmail.calls.lock().unwrap().len(), 1);
     let requests = requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
-    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(3));
+    assert_eq!(requests[0]["tools"].as_array().map(Vec::len), Some(4));
     assert_eq!(requests[0]["tools"][0]["name"], "search_email");
     assert_eq!(requests[0]["tools"][1]["name"], "open_email");
-    assert_eq!(requests[0]["tools"][2]["name"], "current_time");
+    assert_eq!(requests[0]["tools"][2]["name"], "read_email_attachment");
+    assert_eq!(requests[0]["tools"][3]["name"], "current_time");
     let assistant_blocks = &requests[1]["messages"][1]["content"];
     assert_eq!(assistant_blocks[0]["type"], "thinking");
     assert_eq!(assistant_blocks[0]["thinking"], "Check Localmail");

@@ -95,17 +95,17 @@ describe("page presentation", () => {
       "prompt and bounded Localmail tool results go to the selected OpenAI-compatible cloud endpoint",
     );
     expect(emailToolsBoundaryNote(model("openai", true))).toContain(
-      "email queries and exact message IDs go only to your pinned Localmail server",
+      "email queries, exact message IDs, and attachment selections go only to your pinned Localmail server",
     );
     expect(emailToolsBoundaryNote(model("anthropic", true))).toContain(
       "prompt and bounded Localmail tool results go to the selected Anthropic-compatible cloud endpoint",
     );
     expect(emailToolsBoundaryNote(model("anthropic", true))).toContain(
-      "email queries and exact message IDs go only to your pinned Localmail server",
+      "email queries, exact message IDs, and attachment selections go only to your pinned Localmail server",
     );
     expect(emailToolsBoundaryNote(model("omlx", true))).toContain("prompt stays with oMLX on loopback");
     expect(emailToolsBoundaryNote(model("omlx", true))).toContain(
-      "email queries and exact message IDs go only to your pinned Localmail server",
+      "email queries, exact message IDs, and attachment selections go only to your pinned Localmail server",
     );
   });
 

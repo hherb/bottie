@@ -259,6 +259,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
   email-body or attachment-content exposure;
 - [x] first-party Localmail `open_email` contract over exact search-result identities with one pinned authenticated
   detail call, external images disabled, bounded inert header/body text, and no HTML or attachment-byte exposure;
+- [x] first-party Localmail extracted attachment-text reading through exact message-local attachment numbers, with
+  hashes resolved only in Rust, one fixed pinned `/text` request, bounded untrusted text, and no raw-byte fallback;
 - [x] provider-independent closed Localmail tool definitions, strict raw conversion into the existing connector
   requests, safe read-only policy entries, and bounded redacted dispatch;
 - [x] remembered Memory, Web, and Email preferences that restore only when current provider/model capability and

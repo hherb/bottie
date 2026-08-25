@@ -1,5 +1,6 @@
 //! First-party Localmail trust, bearer authentication, and bounded inert email reading.
 
+mod attachment_text;
 mod commands;
 mod config;
 mod open;
@@ -19,12 +20,16 @@ use crate::{
     credentials::{CredentialStore, LOCALMAIL_CREDENTIAL_ID},
     inference::ProviderError,
 };
+pub(crate) use attachment_text::{
+    ReadEmailAttachmentRequest, read_email_attachment_native,
+    validate_read_email_attachment_request,
+};
 pub(crate) use commands::{
     get_localmail_connection_status, open_email, probe_localmail_connection, search_email,
     test_localmail_connection, update_localmail_connection,
 };
 use config::{LocalmailConfig, load_config, save_config};
-pub(crate) use open::validate_open_email_request;
+pub(crate) use open::{MAX_EMAIL_ATTACHMENTS, validate_open_email_request};
 pub(crate) use open::{OpenEmailRequest, open_email_native};
 pub(crate) use search::{
     MAX_EMAIL_FILTER_CHARS, MAX_EMAIL_MESSAGE_ID_CHARS, MAX_EMAIL_QUERY_CHARS, MAX_EMAIL_RESULTS,
@@ -351,6 +356,8 @@ fn localmail_internal_error() -> ProviderError {
     ProviderError::internal("Bottie could not prepare the Localmail connection.", None)
 }
 
+#[cfg(test)]
+mod attachment_text_tests;
 #[cfg(test)]
 mod open_tests;
 #[cfg(test)]

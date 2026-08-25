@@ -23,22 +23,22 @@ const EMAIL_PROVIDER_REASON = [
 /** Exact enabled disclosure for an OpenAI-compatible generation. */
 const OPENAI_EMAIL_BOUNDARY_NOTE = [
   "Your prompt and bounded Localmail tool results go to the selected OpenAI-compatible cloud endpoint;",
-  "model-selected email queries and exact message IDs go only to your pinned Localmail server.",
+  "model-selected email queries, exact message IDs, and attachment selections go only to your pinned Localmail server.",
 ].join(" ");
 /** Exact enabled disclosure for an Anthropic-compatible generation. */
 const ANTHROPIC_EMAIL_BOUNDARY_NOTE = [
   "Your prompt and bounded Localmail tool results go to the selected Anthropic-compatible cloud endpoint;",
-  "model-selected email queries and exact message IDs go only to your pinned Localmail server.",
+  "model-selected email queries, exact message IDs, and attachment selections go only to your pinned Localmail server.",
 ].join(" ");
 /** Exact enabled disclosure for an Ollama generation. */
 const OLLAMA_EMAIL_BOUNDARY_NOTE = [
-  "Your prompt stays with Ollama on loopback; model-selected email queries and exact message IDs go only",
-  "to your pinned Localmail server.",
+  "Your prompt stays with Ollama on loopback; model-selected email queries, exact message IDs, and attachment",
+  "selections go only to your pinned Localmail server.",
 ].join(" ");
 /** Exact enabled disclosure for an oMLX generation. */
 const OMLX_EMAIL_BOUNDARY_NOTE = [
-  "Your prompt stays with oMLX on loopback; model-selected email queries and exact message IDs go only",
-  "to your pinned Localmail server.",
+  "Your prompt stays with oMLX on loopback; model-selected email queries, exact message IDs, and attachment",
+  "selections go only to your pinned Localmail server.",
 ].join(" ");
 
 /** Flattens visible message associations while retaining their owning durable identities. */
