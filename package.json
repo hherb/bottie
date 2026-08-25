@@ -32,6 +32,7 @@
     "package:linux:inspect": "node scripts/linux-package.mjs --inspect",
     "package:linux:smoke": "node scripts/linux-package.mjs --smoke",
     "package:linux:test": "node --test scripts/linux-package.contract.mjs",
+    "package:linux:distribution": "node scripts/linux-distribution.mjs --run",
     "release:candidate": "node scripts/release-candidate.mjs --write",
     "format": "prettier --write \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",

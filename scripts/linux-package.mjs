@@ -10,6 +10,8 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { classifyDebianSignatureMembers } from "./linux-signature.mjs";
+
 const DEFAULT_DEB_DIRECTORY = "src-tauri/target/release/bundle/deb";
 const LINUX_EXECUTABLE_NAME = "bottie";
 const SMOKE_IDENTIFIER = "com.bottie.packaging-smoke";
@@ -212,8 +214,7 @@ function inspectDebianMetadata(debPath) {
 /** Classifies the DEB archive signature from its portable archive members. */
 function inspectDebianSignature(debPath) {
   const members = runHostCommand("ar", ["t", debPath]).split(/\r?\n/).filter(Boolean);
-  const verifies = members.some((member) => member.startsWith("_gpg"));
-  return { classification: verifies ? "identified" : "unsigned", verifies };
+  return classifyDebianSignatureMembers(members);
 }
 
 /** Finds exactly one DEB below a Tauri bundle directory. */

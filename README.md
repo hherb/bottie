@@ -297,7 +297,9 @@ build, MakeAppx pack/unpack inspection, exact public identity and reviewed paylo
 Certification Kit run all passed. The 18,114,084-byte unsigned MSIX has SHA-256
 `145eb83446aa58d97b8eaf3babcd8cd3f673a03626ff6b36c5a075db5b32d0e6`; the downloaded bounded evidence and WACK report
 match their retained hashes. This is local certification-kit evidence, not Microsoft Store certification, signing, or
-publication.
+publication. The exact reviewed package has since been submitted through Partner Center and is awaiting Microsoft's
+certification decision. No account, submission, package-SID, or government-ID material is retained in this repository;
+the release gate remains closed until Microsoft reports the matching package as published.
 
 ### Alternative direct-download MSI signing
 
@@ -349,6 +351,27 @@ verifies the fresh store read-only after termination, and removes the complete t
 24.04 PR workflow matches the locked ONNX Runtime archive's glibc/libstdc++ ABI requirements and uploads the unsigned
 DEB plus path-free JSON evidence for seven days. It does not install, sign, publish, or claim an end-user-distributable
 release.
+
+The separate manual `Linux distribution validation` workflow is the only checked-in path that consumes Linux signing
+credentials. Its protected `linux-distribution` environment requires a base64-encoded OpenPGP private key and its
+passphrase in `BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64` and `BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE`. The job first builds,
+inspects, and smoke-tests the unsigned product bytes, then imports the key only into runner-temporary storage. It adds
+exactly one embedded `origin` signature with `debsigs`, exports only the matching public key into a temporary policy,
+and requires `debsig-verify` to accept the signed DEB through caller-owned policy and keyring roots. Merely finding an
+`_gpg*` archive member is classified as identified but unverified and cannot pass the release gate.
+
+Run the same protected contract on an already prepared Ubuntu host only when the signing key, temporary policy, and
+public keyring have been configured outside the repository:
+
+```sh
+npm run package:linux:distribution
+```
+
+The command replaces only the ignored Linux evidence file's installer size, SHA-256, and normalized
+`identified`/`verifies` state after independent verification. It retains no key ID, fingerprint, user identity,
+passphrase, private-key bytes, trust-root path, or raw signing output. The manual workflow uploads only that bounded
+evidence for seven days and removes both signing material and package bytes even after failure. Its presence is a
+credential-free contract, not proof that a current Linux distribution has been signed.
 
 ## 0.9.0 beta release candidate
 

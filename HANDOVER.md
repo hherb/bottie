@@ -244,8 +244,9 @@ upstream notices are hash-bound, while the six-file EmbeddingGemma snapshot is r
 loading. Package evidence requires exact copies of the project licence, third-party notices, and model notice.
 The release owner has explicitly accepted the reviewed Gemma terms, and the current macOS 0.9.0 bundle has passed
 Developer ID signing, Apple notarization, ticket stapling/validation, and Gatekeeper assessment. Distribution remains
-blocked only on verified Windows and Linux distribution signatures; fresh 0.9.0 packages, inspection, and isolated
-smoke evidence now pass. The keyboard-shortcut slice is now complete:
+blocked on Microsoft certification/publication of the already submitted reviewed Store MSIX and current credentialed
+Linux signature evidence; fresh 0.9.0 packages, inspection, and isolated smoke evidence now pass. The
+keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -310,8 +311,8 @@ Read these files first:
 8. `src-tauri/src/lib.rs`
 9. `src-tauri/tauri.conf.json`
 
-The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is on local
-branch `codex/windows-linux-0.9.0-package-evidence`.
+The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current release-engineering slice is
+on local branch `codex/linux-distribution-signing`.
 
 ## Current implementation
 
@@ -848,18 +849,65 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded release slice: Microsoft Store submission and publication evidence
+## Next bounded release slice: current Linux distribution-signature evidence
 
-After explicit authorization for the authenticated Partner Center action, submit only the exact reviewed Windows
-Store MSIX whose SHA-256 is `145eb83446aa58d97b8eaf3babcd8cd3f673a03626ff6b36c5a075db5b32d0e6` under the
-existing `ThoughtAgency.bottie` identity and request Microsoft certification. Keep account login, government-ID
-material, package SID, and other private account data out of the repository and retained evidence. Do not mark the
-release published until Partner Center reports that exact package as published. Then record only the schema version,
-Bottie version, identity-name hash, exact MSIX hash, and `published` state required by the release-candidate gate.
+After explicit authorization for GitHub-hosted runner/source egress and only after the protected
+`linux-distribution` environment has its existing private-key and passphrase secrets configured, manually dispatch
+`Linux distribution validation` from the exact reviewed commit. Require the locked Ubuntu 24.04 product package,
+independent payload inspection, distinct-identity smoke, exactly one embedded OpenPGP `origin` signature, and a passing
+`debsig-verify` policy/keyring check. Review the retained path-free evidence before installing it under ignored
+`/package`; do not retain key identity, private material, passphrase, runner paths, or raw GnuPG output.
 
-Do not bundle Linux signing, update delivery, a tag/release, automatic Partner Center credentials, or runtime product
-changes into that slice. The current WACK pass is local certification-kit evidence; it is not Microsoft Store
-certification or publication.
+Do not bundle Microsoft approval polling, Store publication evidence, signed update delivery, a tag/release, public
+artifact publication, repository-held keys, or runtime product changes. Source contracts and unsigned package smoke do
+not count as current signing evidence.
+
+## Most recently completed release-engineering slice: protected Linux distribution-signing contract
+
+### Goal
+
+Add one fail-closed, credential-free source contract for signing Bottie's already bounded Linux package on a protected
+manual runner, independently verifying the embedded signature, and emitting only the normalized evidence required by
+the release gate.
+
+### Implemented shape
+
+1. `npm run package:linux:distribution` accepts only an explicit Linux `--run` path. It requires one 16- or 40-digit
+   OpenPGP key identity plus absolute policy and public-keyring roots outside the repository, and never reads private
+   key bytes itself.
+2. The command signs exactly one ignored DEB with `debsigs --sign=origin`, verifies it separately with
+   `debsig-verify --policies-dir ... --keyrings-dir ...`, and requires exactly one `_gpgorigin` archive member.
+3. Ordinary package inspection now treats `_gpg*` presence as identified but unverified. Only a successful independent
+   verification can replace the evidence signature with `classification=identified` and `verifies=true`; the signed
+   package size and SHA-256 replace their unsigned values without changing payload or isolated-smoke evidence.
+4. The manual-only `linux-distribution` workflow builds, inspects, and smoke-tests unsigned product bytes before
+   importing one protected private key into runner-temporary storage. It creates a temporary public verification policy,
+   uses a non-interactive passphrase wrapper only for signing, uploads only bounded evidence, and always removes key and
+   package bytes.
+5. The dependency inventory binds the new security-sensitive signer module. README, release notes, roadmap, and this
+   handover distinguish the completed source contract from pending credentialed runner evidence.
+
+### Explicit exclusions
+
+No protected workflow was dispatched, signing credential configured or accessed, DEB signed, signed package retained
+or published, Microsoft approval polled, Store evidence added, updater configured, tag/release published, or runtime
+product behavior changed. The release-candidate gate must remain closed without real verified Linux evidence and
+matching Microsoft publication evidence.
+
+### Verification completed
+
+TDD first failed because the Linux distribution module and workflow did not exist. Five focused Vitest contracts now
+cover exact `origin` signing and independent verification arguments, protected path/identity validation, normalized
+evidence replacement, and the manual environment/cleanup boundary. Eleven dependency-free Linux package contracts
+also prove that embedded signature presence alone remains unverified. `actionlint` and its embedded shell analysis pass
+for the manual workflow, and the regenerated dependency inventory matches the locked offline graph.
+
+`npm run format:check`, `npm run check`, `npm test` (42 files and 161 tests passed; one file and three performance tests
+skipped), and `npm run build` pass. Cargo formatting and compilation pass. The Rust suite has 429 tests: 398 pass by
+default and 31 loopback, public-network, credential, live-provider, or performance tests remain ignored; doc tests pass
+with zero cases. No browser or native-app review was required because this slice changes only release tooling and
+documentation. The protected workflow was deliberately not dispatched, so no credentialed Linux signature evidence
+is claimed.
 
 ## Most recently completed release-engineering slice: current Windows Store MSIX runner evidence
 
