@@ -1,3 +1,7 @@
+/* eslint-disable @next/next/no-img-element -- These screenshots are pre-sized WebP assets with fixed dimensions. */
+
+import ProductTour, { localmailUrl } from "./product-tour";
+
 const githubUrl = "https://github.com/hherb/bottie";
 
 export default function Home() {
@@ -13,6 +17,7 @@ export default function Home() {
         </a>
 
         <nav aria-label="Primary navigation">
+          <a href="#in-action">In action</a>
           <a href="#capabilities">Capabilities</a>
           <a href="#roadmap">Roadmap</a>
           <a className="nav-cta" href={githubUrl} rel="noreferrer">
@@ -58,72 +63,21 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="product-stage" aria-label="Preview of the Bottie desktop app">
+        <div className="product-stage">
           <div className="stage-glow" />
-          <div className="app-window">
-            <div className="window-bar">
-              <span className="window-brand">
-                <i className="mini-core" /> bottie
-              </span>
-              <span className="route-pill">
-                <i /> Local · Ollama
-              </span>
-            </div>
-            <div className="window-body">
-              <aside className="mock-sidebar">
-                <button type="button">
-                  ＋ <span>New conversation</span>
-                </button>
-                <small>RECENT</small>
-                <p className="active">Launch research</p>
-                <p>Product notes</p>
-                <p>Weekend reading</p>
-              </aside>
-              <div className="mock-chat">
-                <div className="chat-label">TODAY</div>
-                <div className="message-row user-message">
-                  <span className="avatar user-avatar">Y</span>
-                  <div>
-                    <strong>You</strong>
-                    <p>Compare my launch notes with the latest research.</p>
-                  </div>
-                </div>
-                <div className="message-row">
-                  <span className="avatar bot-avatar">
-                    <i className="mini-core" />
-                  </span>
-                  <div>
-                    <strong>
-                      Bottie <small>just now</small>
-                    </strong>
-                    <p>
-                      I found three useful connections. Your notes favour a focused desktop release, and the current
-                      research supports that direction.
-                    </p>
-                    <div className="source-strip">
-                      <span>⌁ 2 memories</span>
-                      <span>◎ 3 web sources</span>
-                      <span>✓ inspected</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="composer-preview">
-                  <span>Ask Bottie anything…</span>
-                  <div>
-                    <b>＋</b>
-                    <b className="tool-on">Memory</b>
-                    <b className="tool-on">Web</b>
-                    <b>↑</b>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <figure className="product-screenshot hero-screenshot">
+            <img
+              src="/screenshots/bottie-tools.webp"
+              width="2200"
+              height="1434"
+              alt="Bottie listing available tools beside a visible privacy route"
+            />
+          </figure>
           <div className="context-card memory-card">
-            <span className="card-icon">⌁</span>
+            <span className="card-icon">◎</span>
             <div>
-              <strong>Memory found</strong>
-              <small>Launch direction · 94% match</small>
+              <strong>Tools you can see</strong>
+              <small>Memory · web · email · files</small>
             </div>
           </div>
           <div className="context-card privacy-card">
@@ -153,6 +107,8 @@ export default function Home() {
           </span>
         </div>
       </section>
+
+      <ProductTour />
 
       <section className="section capabilities" id="capabilities">
         <div className="section-heading">
@@ -397,7 +353,7 @@ export default function Home() {
             <h3>A private, connected AI workspace</h3>
             <p>
               Real local and cloud inference, durable conversations, files, memory, web research, email reading through
-              Localmail, citations, and recovery foundations.
+              the separately installed Localmail app, citations, and recovery foundations.
             </p>
             <div className="roadmap-tags">
               <span>Local + cloud</span>
@@ -447,6 +403,7 @@ export default function Home() {
         </div>
         <p className="roadmap-note">
           Roadmap items describe active direction, not release commitments. Bottie is currently a developer preview.
+          Email capabilities require <a href={localmailUrl}>Localmail</a> to be installed and configured separately.
         </p>
       </section>
 

@@ -1,0 +1,171 @@
+.product-screenshot {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: #0d0d12;
+  box-shadow: 0 35px 80px rgba(0, 0, 0, 0.42);
+}
+
+.product-screenshot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.hero-screenshot {
+  z-index: 2;
+  border-radius: 19px;
+  transform: rotateY(-4deg) rotateX(1deg);
+}
+
+.hero-screenshot::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  content: "";
+}
+
+.product-tour {
+  padding-bottom: 45px;
+}
+
+.tour-heading {
+  margin-bottom: 42px;
+}
+
+.tour-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.tour-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.034), rgba(255, 255, 255, 0.012));
+}
+
+.tour-card-wide {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1.42fr) minmax(280px, 0.58fr);
+  align-items: center;
+}
+
+.tour-card .product-screenshot {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.tour-card-wide .product-screenshot {
+  align-self: stretch;
+  border-right: 1px solid var(--line);
+  border-bottom: 0;
+}
+
+.tour-card-wide .product-screenshot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tour-copy {
+  padding: 30px 32px 34px;
+}
+
+.tour-card-wide .tour-copy {
+  padding: 46px;
+}
+
+.tour-copy h3 {
+  margin: 0;
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.16;
+  letter-spacing: -0.035em;
+}
+
+.tour-copy > p:not(.feature-tag) {
+  margin: 15px 0 0;
+  color: #8f8b96;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.tour-card-email {
+  border-color: rgba(98, 223, 207, 0.15);
+  background:
+    radial-gradient(circle at 85% 100%, rgba(98, 223, 207, 0.07), transparent 40%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.034), rgba(255, 255, 255, 0.012));
+}
+
+.inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  color: #9ce4db;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.inline-link:hover {
+  color: #c7fff8;
+}
+
+.roadmap-note a {
+  color: #9186ce;
+  text-decoration: underline;
+  text-decoration-color: rgba(155, 140, 255, 0.34);
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 980px) {
+  .tour-card-wide {
+    display: block;
+  }
+
+  .tour-card-wide .product-screenshot {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tour-card-wide .product-screenshot img {
+    height: auto;
+  }
+
+  .tour-card-wide .tour-copy {
+    padding: 30px 32px 34px;
+  }
+}
+
+@media (max-width: 680px) {
+  .hero-screenshot {
+    border-radius: 13px;
+    transform: none;
+  }
+
+  .tour-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tour-card-wide {
+    grid-column: auto;
+  }
+
+  .tour-copy,
+  .tour-card-wide .tour-copy {
+    padding: 25px 24px 29px;
+  }
+
+  .tour-copy h3 {
+    font-size: 23px;
+  }
+}
