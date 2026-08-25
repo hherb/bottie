@@ -811,23 +811,64 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded evidence slice: Partner Center identity and current Windows Store MSIX runner evidence
+## Next bounded release slice: Microsoft Store submission and publication evidence
 
-The release owner has created and verified the Individual Microsoft Store developer account, completed the required
-agreement directly, and reserved Bottie. Partner Center assigned Package Identity Name `ThoughtAgency.bottie`,
-Publisher `CN=728BB523-5388-44C6-BEEE-EC334B12A1D6`, and Publisher Display Name `ThoughtAgency`; the repository's strict
-identity/manifest helper accepts those exact case-sensitive public values for Bottie `0.9.0` as Store version
-`1.9.0.0`. The account login, government-ID material, calculated package family name, and package SID are not retained.
+After explicit authorization for the authenticated Partner Center action, submit only the exact reviewed Windows
+Store MSIX whose SHA-256 is `145eb83446aa58d97b8eaf3babcd8cd3f673a03626ff6b36c5a075db5b32d0e6` under the
+existing `ThoughtAgency.bottie` identity and request Microsoft certification. Keep account login, government-ID
+material, package SID, and other private account data out of the repository and retained evidence. Do not mark the
+release published until Partner Center reports that exact package as published. Then record only the schema version,
+Bottie version, identity-name hash, exact MSIX hash, and `published` state required by the release-candidate gate.
 
-After those public identity values are available and the release owner explicitly authorizes GitHub-hosted runner
-source egress, dispatch `Windows Store MSIX validation` at the exact merged commit. Require current Windows x64 proof
-that Microsoft MakeAppx accepts and independently unpacks the real unsigned `bottie` MSIX, the manifest and package
-identity are exact, the executable and reviewed documents/artwork are present, the block map is SHA2-256, and Windows
-App Certification Kit passes. Retain the unsigned MSIX, bounded evidence, and certification report for at most seven
-days. Do not submit to Partner Center, request certification, publish a Store listing, add a signing credential, add
-Linux signing or update delivery, publish a tag/release, or change runtime product behavior in that evidence slice.
+Do not bundle Linux signing, update delivery, a tag/release, automatic Partner Center credentials, or runtime product
+changes into that slice. The current WACK pass is local certification-kit evidence; it is not Microsoft Store
+certification or publication.
 
-## Most recently completed release-engineering slice: Microsoft Store MSIX packaging contract
+## Most recently completed release-engineering slice: current Windows Store MSIX runner evidence
+
+### Goal
+
+Produce current Windows-native proof that Microsoft MakeAppx accepts and independently unpacks Bottie's real unsigned
+x64 Store MSIX under the exact reserved identity, and that Windows App Certification Kit passes, without signing,
+submitting, or publishing the package.
+
+### Current evidence
+
+The manual `Windows Store MSIX validation` workflow run
+[`32821812167`](https://github.com/hherb/bottie/actions/runs/32821812167) passed on `windows-2025` at package-code commit
+`347b0505d482373a394319ade9b63447f79533a1`. The seven focused Node contracts passed before the locked Tauri release
+build. Microsoft MakeAppx 10.0.26100.0 then packed and independently unpacked the real package. Inspection confirmed
+Store version `1.9.0.0`, x64 PE architecture, exact `ThoughtAgency.bottie` identity and reviewed manifest, all three
+Store artworks, all three reviewed release documents, a SHA2-256 block map, and no package signature.
+
+The retained MSIX is 18,114,084 bytes with SHA-256
+`145eb83446aa58d97b8eaf3babcd8cd3f673a03626ff6b36c5a075db5b32d0e6`. Windows App Certification Kit completed a
+non-partial pass; its retained report hash is
+`801b2fa6daa4cacb8fdce16086bc28bd719308e8e08170a6a1d525117735577c`. Local recomputation matched both hashes in the
+path-free schema-version-1 evidence. The unsigned MSIX, bounded JSON, and WACK report are retained by GitHub for seven
+days and were downloaded only under ignored `/package` for review.
+
+The first merged-commit run exposed that clean Windows Vitest workers could not import the Store contract, so the
+focused suite now follows Bottie's existing Windows/Linux packaging pattern and uses Node's built-in test runner. A
+second run built the real executable and exposed that MakeAppx validates but does not materialize its generated OPC
+content-type footprint in the unpacked payload; the fixture and independent inspection now model the observed unpack
+contract while retaining exact manifest, block-map, architecture, artwork, document, and unsigned-state checks.
+
+The local standard suite has 41 passing Vitest files and 155 tests; one file and three performance cases remain
+opt-in. The focused Node suite has seven passing Store contracts. `svelte-check` reports zero errors or warnings, the
+production build succeeds, and repository formatting passes. Cargo formatting and compilation pass. The full Rust
+suite has 420 tests: 390 pass and 30 loopback, public-network, credential, live-provider, or performance cases remain
+ignored; doc tests pass with zero cases. The regenerated dependency inventory matches the locked offline graph. With
+the runner evidence installed under ignored `/package`, `npm run release:candidate` now blocks only the expected
+`windows-distribution` and `linux-distribution` gates.
+
+### Explicit exclusions
+
+No Store package was submitted, Microsoft certification requested, listing published, credential accessed, signed
+artifact created, Linux signature added, updater configured, tag/release published, or runtime product behavior
+changed. The WACK pass is package-validation evidence only and the unsigned artifact is not a public Store release.
+
+## Prior completed release-engineering slice: Microsoft Store MSIX packaging contract
 
 ### Goal
 
@@ -872,14 +913,15 @@ performance cases remain ignored; doc tests pass with zero cases. The regenerate
 runtime assets, Node syntax, and `actionlint` pass. The release candidate now blocks only the expected
 `windows-package`, `windows-distribution`, and `linux-distribution` gates.
 
-The Windows-only MakeAppx, real PE, package-unpack, and Windows App Certification Kit path has not been dispatched and
-is not claimed as runner evidence.
+At completion of that contract slice, the Windows-only MakeAppx, real PE, package-unpack, and Windows App Certification
+Kit path had not been dispatched. The current runner evidence recorded above supersedes that historical limitation.
 
-No Partner Center account was created, Microsoft agreement accepted, product name reserved, identity value guessed,
-Store package submitted, certification requested, application published, credential accessed, or signed artifact
-created. The earlier protected PFX workflow remains unconfigured only as a future direct-download alternative and is
-not the selected 0.9.0 Windows route. This slice adds no runtime product, schema, IPC, settings, provider/tool, Web,
-Localmail, migration, model-cache, Linux-signing, update-delivery, tag, release, or publication behavior.
+During that contract slice, no Partner Center account was created, Microsoft agreement accepted, product name reserved,
+identity value guessed, Store package submitted, certification requested, application published, credential accessed,
+or signed artifact created. The earlier protected PFX workflow remains unconfigured only as a future direct-download
+alternative and is not the selected 0.9.0 Windows route. This slice adds no runtime product, schema, IPC, settings,
+provider/tool, Web, Localmail, migration, model-cache, Linux-signing, update-delivery, tag, release, or publication
+behavior.
 
 ## Prior completed release-engineering slice: Windows 0.9.0 distribution signing contract
 

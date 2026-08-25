@@ -290,6 +290,14 @@ Certification Kit, and retains only the unsigned MSIX, path-free JSON evidence, 
 days. It uses no certificate, signing secret, Store API, or publication action. Until Microsoft certifies and signs the
 package, the workflow artifact is validation material and cannot be installed as a normal public Store application.
 
+Current Windows-native evidence is workflow run
+[`32821812167`](https://github.com/hherb/bottie/actions/runs/32821812167) at package-code commit `347b050`: the locked x64
+build, MakeAppx pack/unpack inspection, exact public identity and reviewed payload checks, and complete Windows App
+Certification Kit run all passed. The 18,114,084-byte unsigned MSIX has SHA-256
+`145eb83446aa58d97b8eaf3babcd8cd3f673a03626ff6b36c5a075db5b32d0e6`; the downloaded bounded evidence and WACK report
+match their retained hashes. This is local certification-kit evidence, not Microsoft Store certification, signing, or
+publication.
+
 ### Alternative direct-download MSI signing
 
 The separate manual `Windows distribution validation` workflow is retained as an unconfigured alternative for a
