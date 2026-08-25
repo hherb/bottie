@@ -27,7 +27,7 @@
     "package:windows:test": "node --test scripts/windows-package.contract.mjs",
     "package:windows:distribution": "node scripts/windows-distribution.mjs --run",
     "package:windows:store": "node scripts/windows-store.mjs --build",
-    "package:windows:store:test": "vitest run scripts/windows-store.test.mjs --pool=forks --maxWorkers=1",
+    "package:windows:store:test": "node --test scripts/windows-store.contract.mjs",
     "package:linux": "node scripts/linux-package.mjs --build",
     "package:linux:inspect": "node scripts/linux-package.mjs --inspect",
     "package:linux:smoke": "node scripts/linux-package.mjs --smoke",
