@@ -6,7 +6,6 @@ import { afterEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  classifyAuthenticodeStatus,
   combineWindowsPackageEvidence,
   embeddedIconPowerShellScript,
   inspectExtractedWindowsBundle,
@@ -17,6 +16,7 @@ import {
   windowsSmokeBuildArguments,
   versionedPackageEvidence,
 } from "./windows-package.mjs";
+import { classifyAuthenticodeStatus, parseAuthenticodeEvidence } from "./windows-signature.mjs";
 
 const temporaryDirectories = [];
 
@@ -131,6 +131,21 @@ describe("Windows package evidence", () => {
     assert.equal(classifyAuthenticodeStatus("NotSigned"), "unsigned");
     assert.equal(classifyAuthenticodeStatus("Valid"), "identified");
     assert.equal(classifyAuthenticodeStatus("UnknownError"), "untrusted");
+  });
+
+  it("retains only verification and timestamp booleans from structured Authenticode inspection", () => {
+    assert.deepEqual(
+      parseAuthenticodeEvidence(
+        JSON.stringify({ status: "Valid", timestamped: true, subject: "Private Publisher", thumbprint: "SECRET" }),
+      ),
+      { classification: "identified", timestamped: true, verifies: true },
+    );
+    assert.deepEqual(parseAuthenticodeEvidence(JSON.stringify({ status: "NotSigned", timestamped: false })), {
+      classification: "unsigned",
+      timestamped: false,
+      verifies: false,
+    });
+    assert.throws(() => parseAuthenticodeEvidence("not-json"), /structured Authenticode/);
   });
 
   it("extracts only public embedded-icon dimensions from the installed executable", () => {

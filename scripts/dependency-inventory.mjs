@@ -63,6 +63,8 @@ const HASHED_INPUTS = [
   "scripts/third-party-notices.mjs",
   "scripts/macos-package.mjs",
   "scripts/windows-package.mjs",
+  "scripts/windows-signature.mjs",
+  "scripts/windows-distribution.mjs",
   "scripts/linux-package.mjs",
   "LICENSE",
   "MODEL-NOTICE.txt",

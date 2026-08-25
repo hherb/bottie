@@ -25,6 +25,7 @@
     "package:windows:inspect": "node scripts/windows-package.mjs --inspect",
     "package:windows:smoke": "node scripts/windows-package.mjs --smoke",
     "package:windows:test": "node --test scripts/windows-package.contract.mjs",
+    "package:windows:distribution": "node scripts/windows-distribution.mjs --run",
     "package:linux": "node scripts/linux-package.mjs --build",
     "package:linux:inspect": "node scripts/linux-package.mjs --inspect",
     "package:linux:smoke": "node scripts/linux-package.mjs --smoke",

@@ -85,14 +85,18 @@ function acceptedInputs() {
       schemaVersion: 1,
       version: VERSION,
       bundle: {
-        installer: { sha256: SHA, signature: { classification: "identified", verifies: true }, size: 10 },
+        installer: {
+          sha256: SHA,
+          signature: { classification: "identified", timestamped: true, verifies: true },
+          size: 10,
+        },
         payload: {
           applicationDirectory: "PFiles/bottie",
           architecture: "x86_64",
           bundleDigest: SHA,
           embeddedIcon: { height: 32, width: 32 },
           requiredDocuments: { licence: SHA, modelNotice: SHA, thirdPartyNotices: SHA },
-          signature: { classification: "identified", verifies: true },
+          signature: { classification: "identified", timestamped: true, verifies: true },
         },
       },
       smoke: acceptedSmoke(),
@@ -175,6 +179,20 @@ describe("release candidate gate", () => {
       "linux-package": false,
       "macos-distribution": false,
       "windows-distribution": false,
+    });
+  });
+
+  it("requires independent timestamped Windows installer and payload signatures", () => {
+    const inputs = acceptedInputs();
+    inputs.windowsPackage.bundle.payload.signature.timestamped = false;
+
+    const manifest = buildReleaseCandidateManifest(inputs);
+    const windowsDistribution = manifest.gates.find((gate) => gate.id === "windows-distribution");
+
+    expect(windowsDistribution).toEqual({
+      failure: "missing-or-unsigned-windows-package",
+      id: "windows-distribution",
+      passed: false,
     });
   });
 

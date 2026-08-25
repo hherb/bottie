@@ -229,6 +229,7 @@ function summarizeInstaller(installer) {
 function summarizeSignature(signature) {
   return {
     classification: normalizedChoice(signature?.classification, ["identified", "unsigned", "untrusted"]),
+    timestamped: signature?.timestamped === true,
     verifies: signature?.verifies === true,
   };
 }
@@ -295,8 +296,10 @@ function acceptsWindowsPackage(evidence, version, documents, runtimeAssets) {
 function acceptsWindowsDistribution(evidence) {
   return Boolean(
     evidence?.installer.signature.classification === "identified" &&
+    evidence.installer.signature.timestamped &&
     evidence.installer.signature.verifies &&
     evidence.payloadSignature.classification === "identified" &&
+    evidence.payloadSignature.timestamped &&
     evidence.payloadSignature.verifies,
   );
 }
