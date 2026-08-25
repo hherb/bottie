@@ -90,7 +90,7 @@ describe("Windows Store MSIX", () => {
     assert.ok(escaped.includes("<PublisherDisplayName>Herb &amp; Co</PublisherDisplayName>"));
   });
 
-  it("inspects only the required unsigned x64 payload and public package metadata", async () => {
+  it("inspects the required MakeAppx-unpacked x64 payload and public package metadata", async () => {
     const root = await mkdtemp(join(tmpdir(), "bottie-msix-fixture-"));
     temporaryDirectories.push(root);
     await mkdir(join(root, "Assets"));
@@ -100,7 +100,6 @@ describe("Windows Store MSIX", () => {
       '<BlockMap HashMethod="http://www.w3.org/2001/04/xmlenc#sha256" />',
     );
     await writeFile(join(root, "bottie.exe"), peFixture(0x8664));
-    await writeFile(join(root, "[Content_Types].xml"), "content types");
     for (const name of ["StoreLogo.png", "Square44x44Logo.png", "Square150x150Logo.png"]) {
       await writeFile(join(root, "Assets", name), name);
     }
