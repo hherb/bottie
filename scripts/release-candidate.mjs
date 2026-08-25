@@ -21,7 +21,8 @@ const DEPENDENCY_INVENTORY_PATH = "dependency-inventory.json";
 const RUNTIME_ASSETS_PATH = "runtime-assets.json";
 const MODEL_TERMS_EVIDENCE_PATH = "package/model-terms-evidence.json";
 const MACOS_EVIDENCE_PATH = "package/macos-distribution-evidence.json";
-const WINDOWS_EVIDENCE_PATH = "package/windows-package-evidence.json";
+const WINDOWS_STORE_EVIDENCE_PATH = "package/windows-store/windows-store-evidence.json";
+const WINDOWS_STORE_PUBLICATION_PATH = "package/windows-store/windows-store-publication-evidence.json";
 const LINUX_EVIDENCE_PATH = "package/linux-package-evidence.json";
 const OUTPUT_PATH = "package/release-candidate-manifest.json";
 const LICENCE_PATH = "LICENSE";
@@ -49,7 +50,8 @@ export function buildReleaseCandidateManifest(inputs) {
   const notes = parseReleaseNotes(inputs.releaseNotes);
   const dependency = inputs.dependencyInventory;
   const macos = summarizeMacos(inputs.macosDistribution);
-  const windows = summarizeWindows(inputs.windowsPackage);
+  const windows = summarizeWindowsStore(inputs.windowsStorePackage);
+  const windowsPublication = summarizeWindowsStorePublication(inputs.windowsStorePublication);
   const linux = summarizeLinux(inputs.linuxPackage);
   const versionsMatch =
     notes.version === inputs.version &&
@@ -68,6 +70,12 @@ export function buildReleaseCandidateManifest(inputs) {
     inputs.requiredDocuments,
   );
   const modelTermsAccepted = acceptsModelTerms(inputs.runtimeAssets, inputs.modelTermsAcceptance);
+  const windowsStorePackageAccepted = acceptsWindowsStorePackage(
+    windows,
+    inputs.version,
+    inputs.requiredDocuments,
+    inputs.runtimeAssets,
+  );
 
   const gates = [
     gate("release-notes", notes.version === inputs.version && notes.channel === "beta", "invalid-release-notes"),
@@ -83,12 +91,12 @@ export function buildReleaseCandidateManifest(inputs) {
       acceptsMacos(macos, inputs.version, inputs.requiredDocuments, inputs.runtimeAssets),
       "missing-unsigned-or-unnotarized-macos",
     ),
+    gate("windows-package", windowsStorePackageAccepted, "missing-or-stale-windows-store-package"),
     gate(
-      "windows-package",
-      acceptsWindowsPackage(windows, inputs.version, inputs.requiredDocuments, inputs.runtimeAssets),
-      "missing-or-stale-windows-package",
+      "windows-distribution",
+      windowsStorePackageAccepted && acceptsWindowsStorePublication(windows, windowsPublication),
+      "missing-or-unpublished-windows-store-package",
     ),
-    gate("windows-distribution", acceptsWindowsDistribution(windows), "missing-or-unsigned-windows-package"),
     gate(
       "linux-package",
       acceptsLinuxPackage(linux, inputs.version, inputs.requiredDocuments, inputs.runtimeAssets),
@@ -179,23 +187,41 @@ function summarizeMacos(evidence) {
   };
 }
 
-/** Selects only public Windows package, signature, and isolated-smoke evidence. */
-function summarizeWindows(evidence) {
+/** Selects only public unsigned Store-package and local certification evidence. */
+function summarizeWindowsStore(evidence) {
+  if (!evidence) return null;
+  const identityName = boundedString(evidence.identity?.name, 50);
+  return {
+    schemaVersion: evidence.schemaVersion ?? null,
+    version: normalizedVersion(evidence.version),
+    packageVersion: storeVersionOrNull(evidence.packageVersion),
+    architecture: normalizedChoice(evidence.architecture, ["x86_64"]),
+    packageDigest: shaOrNull(evidence.packageDigest),
+    identityNameSha256: identityName ? sha256(identityName) : null,
+    msix: { sha256: shaOrNull(evidence.msix?.sha256), size: positiveInteger(evidence.msix?.size) },
+    requiredAssets: {
+      square44: evidence.requiredAssets?.["Square44x44Logo.png"] === true,
+      square150: evidence.requiredAssets?.["Square150x150Logo.png"] === true,
+      store: evidence.requiredAssets?.["StoreLogo.png"] === true,
+    },
+    requiredDocuments: summarizeDocuments(evidence.requiredDocuments),
+    certificationKit: {
+      passed: evidence.certificationKit?.passed === true,
+      reportSha256: shaOrNull(evidence.certificationKit?.reportSha256),
+    },
+    signed: evidence.signed === true,
+  };
+}
+
+/** Selects only proof that Microsoft published the exact reviewed Store package. */
+function summarizeWindowsStorePublication(evidence) {
   if (!evidence) return null;
   return {
     schemaVersion: evidence.schemaVersion ?? null,
     version: normalizedVersion(evidence.version),
-    product: evidence.bundle?.payload?.applicationDirectory === "PFiles/bottie" ? "bottie" : null,
-    architecture: normalizedChoice(evidence.bundle?.payload?.architecture, ["aarch64", "x86_64"]),
-    bundleDigest: shaOrNull(evidence.bundle?.payload?.bundleDigest),
-    embeddedIcon: {
-      height: positiveInteger(evidence.bundle?.payload?.embeddedIcon?.height),
-      width: positiveInteger(evidence.bundle?.payload?.embeddedIcon?.width),
-    },
-    installer: summarizeInstaller(evidence.bundle?.installer),
-    payloadSignature: summarizeSignature(evidence.bundle?.payload?.signature),
-    requiredDocuments: summarizeDocuments(evidence.bundle?.payload?.requiredDocuments),
-    smoke: summarizeSmoke(evidence.smoke),
+    identityNameSha256: shaOrNull(evidence.identityNameSha256),
+    msixSha256: shaOrNull(evidence.msixSha256),
+    status: normalizedChoice(evidence.status, ["published"]),
   };
 }
 
@@ -275,32 +301,33 @@ function acceptsMacos(evidence, version, documents, runtimeAssets) {
   );
 }
 
-/** Validates the versioned Windows payload and its isolated offline smoke. */
-function acceptsWindowsPackage(evidence, version, documents, runtimeAssets) {
+/** Validates the exact unsigned Store package and complete local certification result. */
+function acceptsWindowsStorePackage(evidence, version, documents, runtimeAssets) {
   return Boolean(
     evidence?.schemaVersion === SCHEMA_VERSION &&
     evidence.version === version &&
-    evidence.product === "bottie" &&
-    evidence.architecture &&
-    evidence.bundleDigest &&
-    evidence.embeddedIcon.height > 0 &&
-    evidence.embeddedIcon.width > 0 &&
-    evidence.installer.sha256 &&
-    evidence.installer.size > 0 &&
+    evidence.packageVersion === storePackageVersion(version) &&
+    evidence.architecture === "x86_64" &&
+    evidence.packageDigest &&
+    evidence.identityNameSha256 &&
+    evidence.msix.sha256 &&
+    evidence.msix.size > 0 &&
+    Object.values(evidence.requiredAssets).every(Boolean) &&
     acceptsPackagedDocuments(evidence.requiredDocuments, documents, runtimeAssets) &&
-    acceptsSmoke(evidence.smoke),
+    evidence.certificationKit.passed &&
+    evidence.certificationKit.reportSha256 &&
+    !evidence.signed,
   );
 }
 
-/** Requires both the Windows installer and installed executable to verify. */
-function acceptsWindowsDistribution(evidence) {
+/** Requires Microsoft publication proof for the same identity, version, and reviewed MSIX bytes. */
+function acceptsWindowsStorePublication(evidence, publication) {
   return Boolean(
-    evidence?.installer.signature.classification === "identified" &&
-    evidence.installer.signature.timestamped &&
-    evidence.installer.signature.verifies &&
-    evidence.payloadSignature.classification === "identified" &&
-    evidence.payloadSignature.timestamped &&
-    evidence.payloadSignature.verifies,
+    publication?.schemaVersion === SCHEMA_VERSION &&
+    publication.version === evidence?.version &&
+    publication.identityNameSha256 === evidence.identityNameSha256 &&
+    publication.msixSha256 === evidence.msix.sha256 &&
+    publication.status === "published",
   );
 }
 
@@ -370,7 +397,8 @@ function loadInputs(repositoryRoot) {
     },
     modelTermsAcceptance: readOptionalJson(join(repositoryRoot, MODEL_TERMS_EVIDENCE_PATH)),
     macosDistribution: readOptionalJson(join(repositoryRoot, MACOS_EVIDENCE_PATH)),
-    windowsPackage: readOptionalJson(join(repositoryRoot, WINDOWS_EVIDENCE_PATH)),
+    windowsStorePackage: readOptionalJson(join(repositoryRoot, WINDOWS_STORE_EVIDENCE_PATH)),
+    windowsStorePublication: readOptionalJson(join(repositoryRoot, WINDOWS_STORE_PUBLICATION_PATH)),
     linuxPackage: readOptionalJson(join(repositoryRoot, LINUX_EVIDENCE_PATH)),
   };
 }
@@ -458,6 +486,25 @@ function allowedStrings(value, allowed) {
 /** Returns one numeric application version or null. */
 function normalizedVersion(value) {
   return typeof value === "string" && SEMVER_PATTERN.test(value) ? value : null;
+}
+
+/** Maps product semver into the Store's non-zero-major, zero-revision package version. */
+function storePackageVersion(version) {
+  const match = SEMVER_PATTERN.exec(version);
+  if (!match) return null;
+  const components = version.split(".").map(Number);
+  const mapped = [components[0] + 1, components[1], components[2], 0];
+  return mapped.every((component) => component >= 0 && component <= 65_535) ? mapped.join(".") : null;
+}
+
+/** Returns only one exact valid Store version string. */
+function storeVersionOrNull(value) {
+  return typeof value === "string" && /^([1-9]\d*)\.(\d+)\.(\d+)\.0$/.test(value) ? value : null;
+}
+
+/** Returns one bounded non-empty public string without carrying unselected metadata. */
+function boundedString(value, maximumLength) {
+  return typeof value === "string" && value.length > 0 && value.length <= maximumLength ? value : null;
 }
 
 /** Returns one allowlisted public state or null. */

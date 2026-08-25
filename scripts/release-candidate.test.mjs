@@ -6,6 +6,8 @@ import { buildReleaseCandidateManifest, parseReleaseNotes } from "./release-cand
 
 const VERSION = "0.9.0";
 const SHA = "a".repeat(64);
+const STORE_IDENTITY = "12345HorstHerb.Bottie";
+const STORE_IDENTITY_SHA = createHash("sha256").update(STORE_IDENTITY).digest("hex");
 const NOTES = `# Bottie 0.9.0 beta
 
 Version: 0.9.0
@@ -81,25 +83,29 @@ function acceptedInputs() {
         verifies: true,
       },
     },
-    windowsPackage: {
+    windowsStorePackage: {
       schemaVersion: 1,
       version: VERSION,
-      bundle: {
-        installer: {
-          sha256: SHA,
-          signature: { classification: "identified", timestamped: true, verifies: true },
-          size: 10,
-        },
-        payload: {
-          applicationDirectory: "PFiles/bottie",
-          architecture: "x86_64",
-          bundleDigest: SHA,
-          embeddedIcon: { height: 32, width: 32 },
-          requiredDocuments: { licence: SHA, modelNotice: SHA, thirdPartyNotices: SHA },
-          signature: { classification: "identified", timestamped: true, verifies: true },
-        },
+      packageVersion: "1.9.0.0",
+      architecture: "x86_64",
+      packageDigest: SHA,
+      identity: { name: STORE_IDENTITY, publisherDisplayName: "Horst Herb" },
+      msix: { sha256: SHA, size: 10 },
+      requiredAssets: {
+        "Square44x44Logo.png": true,
+        "Square150x150Logo.png": true,
+        "StoreLogo.png": true,
       },
-      smoke: acceptedSmoke(),
+      requiredDocuments: { licence: SHA, modelNotice: SHA, thirdPartyNotices: SHA },
+      certificationKit: { passed: true, reportSha256: SHA },
+      signed: false,
+    },
+    windowsStorePublication: {
+      schemaVersion: 1,
+      version: VERSION,
+      identityNameSha256: STORE_IDENTITY_SHA,
+      msixSha256: SHA,
+      status: "published",
     },
     linuxPackage: {
       schemaVersion: 1,
@@ -141,7 +147,7 @@ describe("release candidate gate", () => {
     expect(() => parseReleaseNotes(NOTES.replace("Version: 0.9.0", "Version: latest"))).toThrow(/version/);
   });
 
-  it("produces a deterministic accepted manifest from current signed evidence", () => {
+  it("produces a deterministic accepted manifest from current distribution evidence", () => {
     const inputs = acceptedInputs();
 
     const first = buildReleaseCandidateManifest(inputs);
@@ -163,7 +169,7 @@ describe("release candidate gate", () => {
     const inputs = acceptedInputs();
     inputs.currentInputHashes["package.json"] = "b".repeat(64);
     inputs.macosDistribution.notarization.ticketValid = false;
-    inputs.windowsPackage.bundle.installer.signature = { classification: "unsigned", verifies: false };
+    inputs.windowsStorePackage.certificationKit.passed = false;
     inputs.linuxPackage = null;
     inputs.requiredDocuments.notices = null;
     inputs.modelTermsAcceptance = null;
@@ -182,15 +188,15 @@ describe("release candidate gate", () => {
     });
   });
 
-  it("requires independent timestamped Windows installer and payload signatures", () => {
+  it("requires Microsoft publication proof for the exact certified Store package", () => {
     const inputs = acceptedInputs();
-    inputs.windowsPackage.bundle.payload.signature.timestamped = false;
+    inputs.windowsStorePublication.msixSha256 = "b".repeat(64);
 
     const manifest = buildReleaseCandidateManifest(inputs);
     const windowsDistribution = manifest.gates.find((gate) => gate.id === "windows-distribution");
 
     expect(windowsDistribution).toEqual({
-      failure: "missing-or-unsigned-windows-package",
+      failure: "missing-or-unpublished-windows-store-package",
       id: "windows-distribution",
       passed: false,
     });
@@ -199,8 +205,8 @@ describe("release candidate gate", () => {
   it("does not retain host paths, certificate identities, or unselected evidence", () => {
     const inputs = acceptedInputs();
     inputs.macosDistribution.privatePath = "/Users/private/build/bottie.app";
-    inputs.windowsPackage.signer = "Private Person (SECRETTEAM)";
-    inputs.windowsPackage.bundle.payload.architecture = "/Users/private/architecture";
+    inputs.windowsStorePackage.publisher = "Private Person (SECRETTEAM)";
+    inputs.windowsStorePackage.privatePath = "/Users/private/architecture";
     inputs.linuxPackage.bundle.installer.metadata.package = "C:\\private\\package";
 
     const serialized = JSON.stringify(buildReleaseCandidateManifest(inputs));
