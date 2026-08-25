@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./capabilities.css";
 @import "./roadmap.css";
+@import "./showcase.css";
 @import "./responsive.css";
 
 :root {

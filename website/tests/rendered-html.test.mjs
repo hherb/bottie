@@ -26,6 +26,12 @@ test("server-renders the complete Bottie landing page", async () => {
   const html = await response.text();
   assert.match(html, /<title>Bottie — Your context\. Your models\. Your rules\.<\/title>/i);
   assert.match(html, /Local-first AI, thoughtfully connected/);
+  assert.match(html, /Bottie in action/);
+  assert.match(html, /screenshots\/bottie-web-research\.webp/);
+  assert.match(html, /screenshots\/bottie-memory\.webp/);
+  assert.match(html, /screenshots\/bottie-email\.webp/);
+  assert.match(html, /Email search and reading require a separate installation of Localmail/);
+  assert.match(html, /href="https:\/\/github\.com\/hherb\/localmail"/);
   assert.match(html, /Available in the developer preview/);
   assert.match(html, /A boundary you can see/);
   assert.match(html, /Where Bottie is going/);
