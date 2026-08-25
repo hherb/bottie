@@ -43,8 +43,8 @@ export default function Home() {
             what leaves your machine.
           </p>
           <div className="hero-actions">
-            <a className="button button-primary" href="#capabilities">
-              Explore Bottie <span>↓</span>
+            <a className="button button-primary" href="#in-action">
+              See Bottie in action <span>↓</span>
             </a>
             <a className="button button-secondary" href={githubUrl} rel="noreferrer">
               View the project <span>↗</span>
