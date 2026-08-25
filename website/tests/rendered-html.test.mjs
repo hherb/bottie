@@ -26,6 +26,8 @@ test("server-renders the complete Bottie landing page", async () => {
   const html = await response.text();
   assert.match(html, /<title>Bottie — Your context\. Your models\. Your rules\.<\/title>/i);
   assert.match(html, /Local-first AI, thoughtfully connected/);
+  assert.match(html, /href="#in-action">See Bottie in action/);
+  assert.doesNotMatch(html, /href="#capabilities">Explore Bottie/);
   assert.match(html, /Bottie in action/);
   assert.match(html, /screenshots\/bottie-web-research\.webp/);
   assert.match(html, /screenshots\/bottie-memory\.webp/);
