@@ -296,9 +296,12 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
   Certification Kit workflow contract;
 - [x] Individual Microsoft Store developer registration and Bottie product-name/identity reservation;
 - [x] current Windows Store MSIX runner build, independent inspection, and Windows App Certification Kit pass;
+- [x] exact reviewed Microsoft Store package submitted for certification;
+- [ ] Microsoft Store certification and publication;
+- [x] protected manual Linux embedded-OpenPGP signing contract with independent policy/keyring verification;
+- [ ] current credentialed Linux distribution-signature evidence;
 - [x] versioned 0.9.0 beta release notes plus a deterministic path-free release-candidate gate manifest;
-- [ ] Microsoft Store submission, certification, and publication, Linux distribution signing, signed update delivery,
-  and release publication outside the Store.
+- [ ] signed update delivery and release publication outside the Store.
 
 ## Milestone 7 — Local voice conversations
 

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, it } from "node:test";
 
+import { classifyDebianSignatureMembers } from "./linux-signature.mjs";
 import {
   combineLinuxPackageEvidence,
   inspectExtractedLinuxBundle,
@@ -55,6 +56,17 @@ function minimalElf(architecture) {
 }
 
 describe("Linux package evidence", () => {
+  it("does not treat an embedded signature member as cryptographic verification", () => {
+    assert.deepEqual(classifyDebianSignatureMembers(["debian-binary", "control.tar.gz", "data.tar.gz"]), {
+      classification: "unsigned",
+      verifies: false,
+    });
+    assert.deepEqual(classifyDebianSignatureMembers(["debian-binary", "control.tar.gz", "data.tar.gz", "_gpgorigin"]), {
+      classification: "identified",
+      verifies: false,
+    });
+  });
+
   it("combines the real Bottie package inspection with only the isolated smoke outcome", () => {
     const bundle = { installer: { metadata: { package: "bottie" } } };
     const smoke = { terminated: true };

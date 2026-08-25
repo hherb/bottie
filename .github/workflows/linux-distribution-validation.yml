@@ -1,0 +1,135 @@
+name: Linux distribution validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sign-and-verify:
+    name: OpenPGP-signed DEB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: linux-distribution
+    env:
+      BOTTIE_LINUX_ARTIFACT_DIRECTORY: package/linux
+      BOTTIE_LINUX_EVIDENCE_PATH: package/linux-package-evidence.json
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Linux desktop and signature dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            dbus-x11 \
+            debsigs \
+            debsig-verify \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            xvfb
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Verify credential-free distribution contracts
+        run: |
+          npm run icons:check
+          node --check scripts/linux-package.mjs
+          node --check scripts/linux-distribution.mjs
+          npm run package:linux:test
+          npm test -- scripts/linux-distribution.test.mjs scripts/release-candidate.test.mjs
+
+      - name: Build, inspect, and smoke-test unsigned product bytes
+        run: dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke
+
+      - name: Prepare protected Linux signing material
+        shell: bash
+        env:
+          BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64: ${{ secrets.BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64 }}
+          BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE: ${{ secrets.BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          signing_root="$RUNNER_TEMP/bottie-linux-signing"
+          gnupg_home="$signing_root/gnupg"
+          private_key_path="$signing_root/private-key.asc"
+          passphrase_path="$signing_root/passphrase"
+          wrapper_directory="$signing_root/bin"
+          mkdir -p "$gnupg_home" "$wrapper_directory"
+          chmod 700 "$signing_root" "$gnupg_home" "$wrapper_directory"
+          test -n "$BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64"
+          test -n "$BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE"
+          printf '%s' "$BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64" | base64 --decode > "$private_key_path"
+          printf '%s' "$BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE" > "$passphrase_path"
+          chmod 600 "$private_key_path" "$passphrase_path"
+          if ! /usr/bin/gpg --batch --homedir "$gnupg_home" --pinentry-mode loopback \
+            --passphrase-file "$passphrase_path" --import "$private_key_path" >/dev/null 2>&1; then
+            echo "Protected Linux signing key import failed." >&2
+            exit 1
+          fi
+          fingerprint="$(/usr/bin/gpg --batch --homedir "$gnupg_home" --with-colons --list-secret-keys 2>/dev/null | \
+            awk -F: '$1 == "sec" { primary = 1; next } primary && $1 == "fpr" { print $10; exit }')"
+          test "${#fingerprint}" -eq 40
+          key_id="${fingerprint: -16}"
+          policies_directory="$signing_root/policies"
+          keyrings_directory="$signing_root/keyrings"
+          mkdir -p "$policies_directory/$key_id" "$keyrings_directory/$key_id"
+          /usr/bin/gpg --batch --homedir "$gnupg_home" --export "$fingerprint" \
+            > "$keyrings_directory/$key_id/bottie.pgp"
+          test -s "$keyrings_directory/$key_id/bottie.pgp"
+          policy_path="$policies_directory/$key_id/bottie.pol"
+          {
+            echo '<?xml version="1.0"?>'
+            echo '<!DOCTYPE Policy SYSTEM "https://www.debian.org/debsig/1.0/policy.dtd">'
+            echo '<Policy xmlns="https://www.debian.org/debsig/1.0/">'
+            echo "  <Origin Name=\"Bottie\" id=\"$fingerprint\" Description=\"Bottie Linux distribution\"/>"
+            echo '  <Selection>'
+            echo "    <Required Type=\"origin\" File=\"bottie.pgp\" id=\"$fingerprint\"/>"
+            echo '  </Selection>'
+            echo '  <Verification MinOptional="0">'
+            echo "    <Required Type=\"origin\" File=\"bottie.pgp\" id=\"$fingerprint\"/>"
+            echo '  </Verification>'
+            echo '</Policy>'
+          } > "$policy_path"
+          {
+            echo '#!/usr/bin/env bash'
+            echo "exec /usr/bin/gpg --batch --pinentry-mode loopback \\"
+            echo "  --passphrase-file \"\$BOTTIE_LINUX_SIGNING_PASSPHRASE_PATH\" \"\$@\""
+          } > "$wrapper_directory/gpg"
+          chmod 700 "$wrapper_directory/gpg"
+          {
+            echo "BOTTIE_LINUX_SIGNING_KEY_ID=$key_id"
+            echo "BOTTIE_LINUX_SIGNING_KEYRINGS_DIR=$keyrings_directory"
+            echo "BOTTIE_LINUX_SIGNING_PASSPHRASE_PATH=$passphrase_path"
+            echo "BOTTIE_LINUX_SIGNING_POLICIES_DIR=$policies_directory"
+            echo "GNUPGHOME=$gnupg_home"
+          } >> "$GITHUB_ENV"
+          echo "$wrapper_directory" >> "$GITHUB_PATH"
+
+      - name: Sign and independently verify Linux distribution
+        run: npm run package:linux:distribution
+
+      - name: Upload identity-free evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottie-linux-distribution-evidence
+          path: package/linux-package-evidence.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove protected Linux signing material and package bytes
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/bottie-linux-signing"
+          rm -rf package/linux
