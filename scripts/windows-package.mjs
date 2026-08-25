@@ -10,6 +10,8 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parseAuthenticodeEvidence } from "./windows-signature.mjs";
+
 const DEFAULT_MSI_DIRECTORY = "src-tauri/target/release/bundle/msi";
 const WINDOWS_EXECUTABLE_NAME = "bottie.exe";
 const SMOKE_IDENTIFIER = "com.bottie.packaging-smoke";
@@ -59,13 +61,6 @@ export function offlineProviderSettings(port) {
     lastProviderId: "omlx",
     lastModelId: "packaging-offline-smoke",
   };
-}
-
-/** Classifies Authenticode status without retaining certificate or publisher identities. */
-export function classifyAuthenticodeStatus(status) {
-  if (status === "NotSigned") return "unsigned";
-  if (status === "Valid") return "identified";
-  return "untrusted";
 }
 
 /** Returns the bounded PowerShell probe for an installed executable's embedded icon. */
@@ -173,12 +168,14 @@ function runHostCommand(command, arguments_, options = {}) {
 function inspectAuthenticode(path) {
   const script = [
     "$signature = Get-AuthenticodeSignature -LiteralPath $env:BOTTIE_WINDOWS_INSPECT_PATH",
-    "$signature.Status.ToString()",
+    "$evidence = [pscustomobject]@{ status = $signature.Status.ToString(); " +
+      "timestamped = ($null -ne $signature.TimeStamperCertificate) }",
+    "$evidence | ConvertTo-Json -Compress",
   ].join("; ");
-  const status = runHostCommand("pwsh.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], {
+  const output = runHostCommand("pwsh.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], {
     env: { ...process.env, BOTTIE_WINDOWS_INSPECT_PATH: path },
   }).trim();
-  return { classification: classifyAuthenticodeStatus(status), verifies: status === "Valid" };
+  return parseAuthenticodeEvidence(output);
 }
 
 /** Extracts only public dimensions from the installed executable's embedded icon resource. */
@@ -207,7 +204,7 @@ async function inspectPortableExecutableArchitecture(path) {
 }
 
 /** Finds exactly one MSI below a Tauri bundle directory. */
-async function findSingleMsi(directory) {
+export async function findSingleMsi(directory) {
   const files = [];
   await visitExtractedBundle(directory, directory, files);
   const installers = files.filter((file) => file.path.toLowerCase().endsWith(".msi"));
@@ -221,7 +218,7 @@ function extractMsi(msiPath, targetDirectory) {
 }
 
 /** Collects installer, payload, architecture, signing, and native-runtime evidence. */
-async function inspectWindowsMsi(msiPath, extractedDirectory) {
+export async function inspectWindowsMsi(msiPath, extractedDirectory) {
   extractMsi(msiPath, extractedDirectory);
   const payload = await inspectExtractedWindowsBundle(extractedDirectory);
   const executablePath = join(extractedDirectory, ...payload.applicationDirectory.split("/"), payload.executable);
@@ -303,7 +300,7 @@ async function inspectSmokeDatabase(databasePath) {
 }
 
 /** Launches an extracted distinct-identity payload with one rejecting provider endpoint. */
-async function smokeWindowsBundle(extractedDirectory, inspection) {
+export async function smokeWindowsBundle(extractedDirectory, inspection) {
   const roamingAppData = process.env.APPDATA;
   if (!roamingAppData) throw new Error("The Windows roaming application-data directory is unavailable.");
   const supportDirectory = join(roamingAppData, SMOKE_IDENTIFIER);
@@ -388,7 +385,7 @@ async function smokeWindowsBundle(extractedDirectory, inspection) {
 }
 
 /** Builds a locked Windows MSI through the existing cross-platform Tauri wrapper. */
-function buildWindowsBundle(repositoryRoot, arguments_, targetDirectory) {
+export function buildWindowsBundle(repositoryRoot, arguments_, targetDirectory) {
   const script = join(repositoryRoot, "scripts", "macos-development-signing.mjs");
   const result = spawnSync(process.execPath, [script, "--tauri", ...arguments_], {
     cwd: repositoryRoot,

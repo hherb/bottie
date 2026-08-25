@@ -261,6 +261,20 @@ read-only after termination, and removes only temporary build/extraction data pl
 The checked-in Windows Server 2025 PR workflow uploads the unsigned MSI and path-free JSON evidence for seven days.
 Neither command produces a signed or end-user-distributable release.
 
+The separate manual `Windows distribution validation` workflow is the only checked-in path that consumes Windows
+signing credentials. Its protected `windows-distribution` environment must provide
+`BOTTIE_WINDOWS_SIGNING_PFX_BASE64` and `BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD`; the certificate is written only
+under runner-temporary storage, and the password is exposed only to the signing step. The job performs one locked
+no-bundle product build, applies SHA-256 Authenticode plus an RFC 3161 timestamp to `bottie.exe`, bundles that exact
+signed executable into an otherwise unsigned MSI, and then signs and independently verifies the MSI. A separate
+`com.bottie.packaging-smoke` build supplies the isolated launch/storage/provider-offline result.
+
+The workflow uploads only `package/windows-package-evidence.json` for seven days and always removes the temporary PFX.
+It never uploads the signed MSI or retains certificate labels, subjects, serials, thumbprints, passwords, host paths,
+or raw SignTool output. The release-candidate gate requires both the installer and extracted executable signatures to
+be identified, securely timestamped, and independently valid. The workflow is credential-dependent and manual; its
+presence does not claim that a current Windows distribution has been signed or published.
+
 ### Linux package verification
 
 On an Ubuntu host with the Tauri Linux desktop prerequisites and dependencies installed from the checked-in

@@ -1,6 +1,6 @@
 # bottie handover
 
-Last verified: 2026-08-24
+Last verified: 2026-08-25
 
 ## Start here
 
@@ -811,16 +811,76 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded product slice: Windows 0.9.0 distribution signing evidence
+## Next bounded evidence slice: current Windows 0.9.0 protected-runner evidence
 
-Add a protected, manual Windows runner workflow that signs the real 0.9.0 MSI and installed `bottie.exe`, verifies
-both Authenticode signatures independently, and retains only identity-free signature, package, document, icon, and
-isolated-smoke evidence accepted by the existing release-candidate gate. Keep credentials in protected runner secrets
-and never retain certificate labels, subjects, serials, thumbprints, passwords, paths, or raw command output. Do not
-add Linux signing, update keys or delivery, publish a tag/release, or change runtime product behavior, schema, IPC,
-providers, tools, Localmail, or Web policy in that slice.
+After this workflow is merged, and only when the release owner has configured the protected `windows-distribution`
+environment and explicitly authorized use of its credentials, dispatch the manual workflow at the exact merged commit.
+Require current Windows x64 evidence for the real 0.9.0 MSI and installed `bottie.exe`: both signatures must be
+identified, RFC 3161 timestamped, and independently valid; package documents, icon, architecture, payload digest, and
+the distinct-identity smoke must still satisfy the current release gate. Retain only the identity-free JSON evidence,
+not the installer, certificate detail, credentials, host paths, or raw command output. Do not add Linux signing,
+update keys or delivery, publish a tag/release, or change runtime product behavior in that evidence slice.
 
-## Most recently completed product slice: fresh Windows and Linux 0.9.0 package evidence
+## Most recently completed release-engineering slice: Windows 0.9.0 distribution signing contract
+
+### Goal
+
+Add one protected manual Windows path that signs the real 0.9.0 executable before MSI bundling, signs the resulting
+installer separately, verifies both Authenticode signatures independently, and emits only release-gate-compatible,
+identity-free package and isolated-smoke evidence.
+
+### Implemented shape
+
+1. `npm run package:windows:distribution` performs one locked Tauri `--no-bundle --no-sign` product build, signs
+   `bottie.exe` with SHA-256 Authenticode and a fixed RFC 3161 SHA-256 timestamp, then invokes MSI-only bundling with
+   automatic signing disabled so the signed executable is the exact payload input. It signs the resulting MSI
+   separately.
+2. SignTool applies Windows default authentication policy to each file independently with all embedded signatures
+   checked. Administrative extraction then rechecks the installed executable through structured PowerShell evidence.
+   Each retained signature contains only `identified`, `timestamped`, and `verifies` policy state; certificate labels,
+   subjects, serials, thumbprints, passwords, paths, and raw command output never serialize.
+3. The protected `windows-distribution` environment exposes the base64 PFX only to one runner-temporary preparation
+   step and its password only to the signing step. The workflow always removes the temporary PFX and uploads only
+   `package/windows-package-evidence.json` for seven days. It does not retain or publish the signed MSI.
+4. A second locked build preserves the distinct `com.bottie.packaging-smoke` identity for fresh roaming-storage,
+   rejecting-loopback-provider, liveness, termination, and cleanup proof. Only that smoke outcome is combined with the
+   real signed package inspection.
+5. The release-candidate gate now requires a secure timestamp as well as independent valid classifications for both
+   Windows signatures. The regenerated dependency inventory binds the signing implementation and release-gate policy
+   without changing resolved dependencies.
+
+### Current gate result and explicit exclusions
+
+The current local manifest passes release notes, version alignment, dependency inventory/review, licence/notices,
+runtime assets, model terms, artwork, macOS distribution, Windows package, and Linux package. It still fails only
+`windows-distribution` and `linux-distribution` because the retained PR #105 Windows and Linux evidence is unsigned.
+The new protected workflow was not dispatched, no Windows signing credential or certificate was accessed, and no
+signed Windows artifact or runner evidence is claimed.
+
+This slice adds no runtime product, schema, IPC, settings, provider/tool, Web, Localmail, migration, model-cache,
+Linux-signing, update-delivery, tag, release, or publication behavior. It creates no signing or update key and does not
+make an unsigned or source-tested package distributable.
+
+### Verification completed
+
+TDD first failed because the Windows distribution module was absent. Five focused distribution tests now cover the
+locked build-before-bundle sequence, SHA-256/RFC 3161 SignTool arguments, independent executable/MSI verification,
+complete external protected credentials, and the manual environment-gated evidence-only workflow. The Windows package
+contract passes 12 tests, including structured identity-free timestamp inspection. Five release-candidate tests require
+both Windows timestamps and signatures and discard injected signer/path material. `actionlint` accepts the workflow;
+Node syntax, Prettier, the regenerated dependency inventory, notices, and runtime-asset checks pass. The local release
+candidate exits non-zero only for the expected Windows and Linux distribution gates.
+
+The standard frontend suite has 41 passing files and 155 tests; one file and three performance cases remain opt-in.
+`svelte-check` reports zero errors or warnings, and the production build succeeds. Cargo formatting and compilation
+pass. The full Rust suite has 420 tests: 390 pass and 30 loopback, public-network, credential, live-provider, or
+performance cases remain ignored; doc tests pass with zero cases.
+
+Browser, local macOS native, and live-provider review are not applicable because this slice changes only Windows
+package/signing orchestration and evidence normalization. The meaningful credential-dependent Windows build,
+signature, extraction, and smoke path remains unverified until an explicitly authorized protected workflow dispatch.
+
+## Prior completed product slice: fresh Windows and Linux 0.9.0 package evidence
 
 ### Goal
 

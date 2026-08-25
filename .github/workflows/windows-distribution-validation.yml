@@ -1,0 +1,69 @@
+name: Windows distribution validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sign-and-verify:
+    name: Authenticode MSI and installed executable
+    runs-on: windows-2025
+    timeout-minutes: 60
+    environment: windows-distribution
+    env:
+      BOTTIE_WINDOWS_EVIDENCE_PATH: package/windows-package-evidence.json
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Verify credential-free distribution contracts
+        run: |
+          node --check scripts/windows-distribution.mjs
+          npm test -- scripts/windows-distribution.test.mjs scripts/release-candidate.test.mjs
+
+      - name: Prepare protected Windows signing material
+        shell: pwsh
+        env:
+          BOTTIE_WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.BOTTIE_WINDOWS_SIGNING_PFX_BASE64 }}
+        run: |
+          $certificatePath = Join-Path $env:RUNNER_TEMP "bottie-windows-signing.pfx"
+          $certificateBytes = [Convert]::FromBase64String($env:BOTTIE_WINDOWS_SIGNING_PFX_BASE64)
+          [IO.File]::WriteAllBytes($certificatePath, $certificateBytes)
+          $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName |
+            Select-Object -Last 1 -ExpandProperty FullName
+          if ([string]::IsNullOrWhiteSpace($signTool)) { throw "The Windows SDK SignTool is unavailable." }
+          "BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PATH=$certificatePath" | Out-File $env:GITHUB_ENV -Append
+          "BOTTIE_WINDOWS_SIGNTOOL_PATH=$signTool" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Sign, verify, inspect, and smoke-test Windows distribution
+        env:
+          BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: npm run package:windows:distribution
+
+      - name: Upload identity-free evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottie-windows-distribution-evidence
+          path: package/windows-package-evidence.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove protected Windows signing material
+        if: always()
+        shell: pwsh
+        run: |
+          $certificatePath = Join-Path $env:RUNNER_TEMP "bottie-windows-signing.pfx"
+          Remove-Item -LiteralPath $certificatePath -Force -ErrorAction SilentlyContinue
