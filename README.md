@@ -261,8 +261,40 @@ read-only after termination, and removes only temporary build/extraction data pl
 The checked-in Windows Server 2025 PR workflow uploads the unsigned MSI and path-free JSON evidence for seven days.
 Neither command produces a signed or end-user-distributable release.
 
-The separate manual `Windows distribution validation` workflow is the only checked-in path that consumes Windows
-signing credentials. Its protected `windows-distribution` environment must provide
+### Microsoft Store MSIX verification
+
+Bottie's selected Windows 0.9.0 distribution route is a Microsoft-hosted Store MSIX, not the direct-download MSI.
+The release owner has created the Individual Partner Center account and reserved Bottie. Partner Center assigned the
+following exact case-sensitive identity. These values are public package metadata rather than credentials and must not
+be replaced with the account login, a guessed publisher, the calculated package family name, or the package SID.
+
+On a Windows host with the Windows SDK installed, supply those exact values and build the unsigned Store package:
+
+```powershell
+$env:BOTTIE_WINDOWS_STORE_IDENTITY_NAME = "ThoughtAgency.bottie"
+$env:BOTTIE_WINDOWS_STORE_PUBLISHER = "CN=728BB523-5388-44C6-BEEE-EC334B12A1D6"
+$env:BOTTIE_WINDOWS_STORE_PUBLISHER_DISPLAY_NAME = "ThoughtAgency"
+$env:BOTTIE_WINDOWS_MAKEAPPX_PATH = "<absolute path to makeappx.exe>"
+npm run package:windows:store:test
+npm run package:windows:store
+```
+
+The repository-owned wrapper performs one locked executable-only Tauri build, constructs the reviewed full-trust x64
+layout, invokes Microsoft `MakeAppx.exe`, independently unpacks the result, and checks the exact manifest, executable,
+Store artwork, project licence, model notice, third-party notices, SHA2-256 block map, architecture, and unsigned state.
+Bottie `0.9.0` maps monotonically to Store package version `1.9.0.0` because Microsoft requires a non-zero first
+component and reserves the fourth component.
+
+The manual `Windows Store MSIX validation` workflow accepts the same three public identity inputs, runs the Windows App
+Certification Kit, and retains only the unsigned MSIX, path-free JSON evidence, and certification report for seven
+days. It uses no certificate, signing secret, Store API, or publication action. Until Microsoft certifies and signs the
+package, the workflow artifact is validation material and cannot be installed as a normal public Store application.
+
+### Alternative direct-download MSI signing
+
+The separate manual `Windows distribution validation` workflow is retained as an unconfigured alternative for a
+future direct-download MSI. It is the only checked-in path that consumes Windows signing credentials. Its protected
+`windows-distribution` environment must provide
 `BOTTIE_WINDOWS_SIGNING_PFX_BASE64` and `BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD`; the certificate is written only
 under runner-temporary storage, and the password is exposed only to the signing step. The job performs one locked
 no-bundle product build, applies SHA-256 Authenticode plus an RFC 3161 timestamp to `bottie.exe`, bundles that exact
@@ -272,8 +304,10 @@ signed executable into an otherwise unsigned MSI, and then signs and independent
 The workflow uploads only `package/windows-package-evidence.json` for seven days and always removes the temporary PFX.
 It never uploads the signed MSI or retains certificate labels, subjects, serials, thumbprints, passwords, host paths,
 or raw SignTool output. The release-candidate gate requires both the installer and extracted executable signatures to
-be identified, securely timestamped, and independently valid. The workflow is credential-dependent and manual; its
-presence does not claim that a current Windows distribution has been signed or published.
+be identified, securely timestamped, and independently valid within that alternative workflow's own evidence. The
+0.9.0 release gate no longer accepts that route: it requires the selected Store MSIX and matching Microsoft-publication
+evidence instead. No protected environment or secrets are configured, and the workflow's presence does not claim that
+a current Windows distribution has been signed or published.
 
 ### Linux package verification
 
@@ -321,9 +355,10 @@ npm run release:candidate
 ```
 
 The command always writes an ignored, path-free `package/release-candidate-manifest.json`, then exits non-zero unless
-every version, dependency, artwork, licence/notice, runtime-asset, model-terms, package-smoke, distribution-signature,
-notarization, and Gatekeeper gate passes. It does not sign, upload, tag, or publish anything. Unsigned Windows/Linux
-smoke packages and a source test suite are intentionally insufficient for `ready: true`.
+every version, dependency, artwork, licence/notice, runtime-asset, model-terms, package-smoke, Windows Store package,
+certification/publication, Linux distribution-signature, notarization, and Gatekeeper gate passes. It does not sign,
+upload, tag, or publish anything. An unsigned Store workflow artifact, unsigned Linux smoke package, or source test
+suite is intentionally insufficient for `ready: true`.
 
 The release owner must read the [Gemma Terms of Use](https://ai.google.dev/gemma/terms) before creating model-terms
 evidence. If and only if they accept the reviewed 1 April 2026 terms for this release, the exact acknowledgement is:

@@ -1,0 +1,92 @@
+name: Windows Store MSIX validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      identity_name:
+        description: Exact Package Identity Name
+        required: true
+        type: string
+      publisher:
+        description: Exact Package Publisher
+        required: true
+        type: string
+      publisher_display_name:
+        description: Exact Publisher Display Name
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package-and-certify:
+    name: Unsigned x64 MSIX and certification kit
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      BOTTIE_WINDOWS_STORE_EVIDENCE_PATH: package/windows-store/windows-store-evidence.json
+      BOTTIE_WINDOWS_STORE_IDENTITY_NAME: ${{ inputs.identity_name }}
+      BOTTIE_WINDOWS_STORE_MSIX_PATH: package/windows-store/bottie-0.9.0-x64.msix
+      BOTTIE_WINDOWS_STORE_PUBLISHER: ${{ inputs.publisher }}
+      BOTTIE_WINDOWS_STORE_PUBLISHER_DISPLAY_NAME: ${{ inputs.publisher_display_name }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Locate Windows SDK package and certification tools
+        shell: pwsh
+        run: |
+          $makeAppx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\makeappx.exe" |
+            Sort-Object FullName |
+            Select-Object -Last 1 -ExpandProperty FullName
+          $appCert = "${env:ProgramFiles(x86)}\Windows Kits\10\App Certification Kit\appcert.exe"
+          if ([string]::IsNullOrWhiteSpace($makeAppx)) { throw "Microsoft MakeAppx is unavailable." }
+          if (-not (Test-Path -LiteralPath $appCert -PathType Leaf)) {
+            throw "Windows App Certification Kit is unavailable."
+          }
+          "BOTTIE_WINDOWS_MAKEAPPX_PATH=$makeAppx" | Out-File $env:GITHUB_ENV -Append
+          "BOTTIE_WINDOWS_APPCERT_PATH=$appCert" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Verify credential-free MSIX contracts
+        run: |
+          npm run icons:check
+          node --check scripts/windows-store.mjs
+          npm run package:windows:store:test
+
+      - name: Build and inspect unsigned x64 MSIX
+        run: npm run package:windows:store
+
+      - name: Run Windows App Certification Kit
+        shell: pwsh
+        run: |
+          & $env:BOTTIE_WINDOWS_APPCERT_PATH reset
+          if ($LASTEXITCODE -ne 0) { throw "Windows App Certification Kit reset failed." }
+          $packagePath = Resolve-Path "package/windows-store/bottie-0.9.0-x64.msix"
+          $reportPath = Join-Path $PWD "package/windows-store/wack-report.xml"
+          & $env:BOTTIE_WINDOWS_APPCERT_PATH test `
+            -appxpackagepath $packagePath `
+            -reportoutputpath $reportPath
+          if ($LASTEXITCODE -ne 0) { throw "Windows App Certification Kit rejected the MSIX." }
+          node scripts/windows-store.mjs --record-certification package/windows-store/wack-report.xml
+
+      - name: Upload bounded MSIX evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottie-windows-store-msix
+          path: |
+            package/windows-store/bottie-0.9.0-x64.msix
+            package/windows-store/windows-store-evidence.json
+            package/windows-store/wack-report.xml
+          if-no-files-found: error
+          retention-days: 7

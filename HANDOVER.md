@@ -811,17 +811,77 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded evidence slice: current Windows 0.9.0 protected-runner evidence
+## Next bounded evidence slice: Partner Center identity and current Windows Store MSIX runner evidence
 
-After this workflow is merged, and only when the release owner has configured the protected `windows-distribution`
-environment and explicitly authorized use of its credentials, dispatch the manual workflow at the exact merged commit.
-Require current Windows x64 evidence for the real 0.9.0 MSI and installed `bottie.exe`: both signatures must be
-identified, RFC 3161 timestamped, and independently valid; package documents, icon, architecture, payload digest, and
-the distinct-identity smoke must still satisfy the current release gate. Retain only the identity-free JSON evidence,
-not the installer, certificate detail, credentials, host paths, or raw command output. Do not add Linux signing,
-update keys or delivery, publish a tag/release, or change runtime product behavior in that evidence slice.
+The release owner has created and verified the Individual Microsoft Store developer account, completed the required
+agreement directly, and reserved Bottie. Partner Center assigned Package Identity Name `ThoughtAgency.bottie`,
+Publisher `CN=728BB523-5388-44C6-BEEE-EC334B12A1D6`, and Publisher Display Name `ThoughtAgency`; the repository's strict
+identity/manifest helper accepts those exact case-sensitive public values for Bottie `0.9.0` as Store version
+`1.9.0.0`. The account login, government-ID material, calculated package family name, and package SID are not retained.
 
-## Most recently completed release-engineering slice: Windows 0.9.0 distribution signing contract
+After those public identity values are available and the release owner explicitly authorizes GitHub-hosted runner
+source egress, dispatch `Windows Store MSIX validation` at the exact merged commit. Require current Windows x64 proof
+that Microsoft MakeAppx accepts and independently unpacks the real unsigned `bottie` MSIX, the manifest and package
+identity are exact, the executable and reviewed documents/artwork are present, the block map is SHA2-256, and Windows
+App Certification Kit passes. Retain the unsigned MSIX, bounded evidence, and certification report for at most seven
+days. Do not submit to Partner Center, request certification, publish a Store listing, add a signing credential, add
+Linux signing or update delivery, publish a tag/release, or change runtime product behavior in that evidence slice.
+
+## Most recently completed release-engineering slice: Microsoft Store MSIX packaging contract
+
+### Goal
+
+Replace the unconfigured direct-download signing plan for Windows 0.9.0 with one credential-free Microsoft Store MSIX
+path that binds exact Partner Center public identity, builds locked product bytes, validates the package independently,
+and stops before any account, legal, certification, or publication action.
+
+### Implemented shape
+
+1. `npm run package:windows:store` performs one locked Tauri executable-only x64 build, stages only `bottie.exe`, the
+   three reviewed release documents, and the checked-in Store, 44-pixel, and 150-pixel artwork, then invokes the
+   caller-selected Windows SDK `MakeAppx.exe` without signing.
+2. A deterministic full-trust desktop manifest uses `packagedClassicApp`, medium integrity, `runFullTrust`, Windows
+   Desktop 10.0.19041 or newer, and exactly one Bottie entry point. The Package Identity Name, Publisher, and Publisher
+   Display Name are mandatory case-sensitive Partner Center inputs. They are public metadata, not secrets, but no
+   guessed fallback or repository default exists.
+3. Bottie semantic versions map monotonically into the Store's four numeric fields by adding one to the semantic major
+   and reserving the fourth component as zero. Bottie `0.9.0` therefore packages as `1.9.0.0`; Bottie `1.0.0` will
+   package as `2.0.0.0` without changing the user-facing product version.
+4. The builder independently unpacks the output and fails closed unless the reviewed manifest is byte-exact, the
+   block map uses SHA2-256, the executable is x64, every required payload appears once, and `AppxSignature.p7x` is
+   absent. Evidence retains only public identity name/display name, counts, sizes, hashes, required-entry state, and
+   the unsigned classification—never host paths or a signing credential.
+5. The manual `Windows Store MSIX validation` workflow accepts only the three public identity fields, locates the
+   installed Windows SDK tools, runs the focused contracts, builds and inspects the MSIX, then invokes Windows App
+   Certification Kit. It has read-only repository permission, no automatic trigger, environment, secret, signing,
+   Store API, submission, or publication step, and retains its bounded artifacts for seven days.
+6. The release-candidate gate now accepts Windows package evidence only from this unsigned Store MSIX plus a complete
+   passing certification-kit report. Distribution still fails until a separate schema-versioned publication record
+   matches the exact package hash, public identity-name hash, and version with `published` state. The prior signed-MSI
+   evidence can no longer make the selected 0.9.0 route ready.
+
+### Current evidence and explicit exclusions
+
+The local focused suite passes seven MSIX contracts covering locked build/MakeAppx arguments, version mapping and
+bounds, closed identity inputs, escaped full-trust manifest output, independent unsigned x64 payload inspection, the
+manual credential-free workflow, and complete path-free certification-report reduction. The standard frontend suite
+has 42 passing files and 162 tests; one file and three performance cases remain opt-in. `svelte-check` reports zero
+errors or warnings, the production build succeeds, and repository formatting passes. Cargo formatting and compilation
+pass. The full Rust suite has 420 tests: 390 pass and 30 loopback, public-network, credential, live-provider, or
+performance cases remain ignored; doc tests pass with zero cases. The regenerated dependency inventory, notices,
+runtime assets, Node syntax, and `actionlint` pass. The release candidate now blocks only the expected
+`windows-package`, `windows-distribution`, and `linux-distribution` gates.
+
+The Windows-only MakeAppx, real PE, package-unpack, and Windows App Certification Kit path has not been dispatched and
+is not claimed as runner evidence.
+
+No Partner Center account was created, Microsoft agreement accepted, product name reserved, identity value guessed,
+Store package submitted, certification requested, application published, credential accessed, or signed artifact
+created. The earlier protected PFX workflow remains unconfigured only as a future direct-download alternative and is
+not the selected 0.9.0 Windows route. This slice adds no runtime product, schema, IPC, settings, provider/tool, Web,
+Localmail, migration, model-cache, Linux-signing, update-delivery, tag, release, or publication behavior.
+
+## Prior completed release-engineering slice: Windows 0.9.0 distribution signing contract
 
 ### Goal
 
