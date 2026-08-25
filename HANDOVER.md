@@ -813,10 +813,11 @@ contract. Live-provider tests were not applicable because this slice changes no 
 
 ## Next bounded evidence slice: Partner Center identity and current Windows Store MSIX runner evidence
 
-The release owner must first create the free Microsoft Store developer account, choose the correct Individual or
-Company account type, accept Microsoft's agreement personally, reserve the product name, and copy the exact
-case-sensitive Package Identity Name, Publisher, and Publisher Display Name from Partner Center. Do not guess those
-values, automate identity verification, accept legal terms for the owner, or retain government-ID material.
+The release owner has created and verified the Individual Microsoft Store developer account, completed the required
+agreement directly, and reserved Bottie. Partner Center assigned Package Identity Name `ThoughtAgency.bottie`,
+Publisher `CN=728BB523-5388-44C6-BEEE-EC334B12A1D6`, and Publisher Display Name `ThoughtAgency`; the repository's strict
+identity/manifest helper accepts those exact case-sensitive public values for Bottie `0.9.0` as Store version
+`1.9.0.0`. The account login, government-ID material, calculated package family name, and package SID are not retained.
 
 After those public identity values are available and the release owner explicitly authorizes GitHub-hosted runner
 source egress, dispatch `Windows Store MSIX validation` at the exact merged commit. Require current Windows x64 proof

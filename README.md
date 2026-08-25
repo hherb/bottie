@@ -264,16 +264,16 @@ Neither command produces a signed or end-user-distributable release.
 ### Microsoft Store MSIX verification
 
 Bottie's selected Windows 0.9.0 distribution route is a Microsoft-hosted Store MSIX, not the direct-download MSI.
-After the release owner creates the Partner Center account and reserves the product name, copy the exact case-sensitive
-Package Identity Name, Publisher, and Publisher Display Name from the product identity page. These values are public
-package metadata rather than credentials, but they must not be guessed or committed as provisional values.
+The release owner has created the Individual Partner Center account and reserved Bottie. Partner Center assigned the
+following exact case-sensitive identity. These values are public package metadata rather than credentials and must not
+be replaced with the account login, a guessed publisher, the calculated package family name, or the package SID.
 
 On a Windows host with the Windows SDK installed, supply those exact values and build the unsigned Store package:
 
 ```powershell
-$env:BOTTIE_WINDOWS_STORE_IDENTITY_NAME = "<Package Identity Name>"
-$env:BOTTIE_WINDOWS_STORE_PUBLISHER = "<Publisher>"
-$env:BOTTIE_WINDOWS_STORE_PUBLISHER_DISPLAY_NAME = "<Publisher Display Name>"
+$env:BOTTIE_WINDOWS_STORE_IDENTITY_NAME = "ThoughtAgency.bottie"
+$env:BOTTIE_WINDOWS_STORE_PUBLISHER = "CN=728BB523-5388-44C6-BEEE-EC334B12A1D6"
+$env:BOTTIE_WINDOWS_STORE_PUBLISHER_DISPLAY_NAME = "ThoughtAgency"
 $env:BOTTIE_WINDOWS_MAKEAPPX_PATH = "<absolute path to makeappx.exe>"
 npm run package:windows:store:test
 npm run package:windows:store
