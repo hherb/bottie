@@ -115,6 +115,10 @@ describe("Linux distribution signing", () => {
     expect(workflow).toContain("BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64");
     expect(workflow).toContain("BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE");
     expect(workflow).toContain("package/linux-package-evidence.json");
+    expect(workflow).toContain('mkdir -p "$policies_directory/$fingerprint" "$keyrings_directory/$fingerprint"');
+    expect(workflow).toContain('echo "::add-mask::$fingerprint"');
+    expect(workflow).toContain('echo "::add-mask::$key_id"');
+    expect(workflow).not.toContain('mkdir -p "$policies_directory/$key_id"');
     expect(workflow).toContain("if: always()");
     expect(workflow).not.toMatch(/pull_request:|push:|release:/);
     expect(workflow).not.toMatch(/package\/linux\/.*\.deb/);

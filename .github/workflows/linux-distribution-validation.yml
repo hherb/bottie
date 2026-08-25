@@ -83,11 +83,23 @@ jobs:
           key_id="${fingerprint: -16}"
           policies_directory="$signing_root/policies"
           keyrings_directory="$signing_root/keyrings"
-          mkdir -p "$policies_directory/$key_id" "$keyrings_directory/$key_id"
+          echo "::add-mask::$fingerprint"
+          echo "::add-mask::$key_id"
+          for protected_value in \
+            "$signing_root" \
+            "$gnupg_home" \
+            "$private_key_path" \
+            "$passphrase_path" \
+            "$wrapper_directory" \
+            "$policies_directory" \
+            "$keyrings_directory"; do
+            echo "::add-mask::$protected_value"
+          done
+          mkdir -p "$policies_directory/$fingerprint" "$keyrings_directory/$fingerprint"
           /usr/bin/gpg --batch --homedir "$gnupg_home" --export "$fingerprint" \
-            > "$keyrings_directory/$key_id/bottie.pgp"
-          test -s "$keyrings_directory/$key_id/bottie.pgp"
-          policy_path="$policies_directory/$key_id/bottie.pol"
+            > "$keyrings_directory/$fingerprint/bottie.pgp"
+          test -s "$keyrings_directory/$fingerprint/bottie.pgp"
+          policy_path="$policies_directory/$fingerprint/bottie.pol"
           {
             echo '<?xml version="1.0"?>'
             echo '<!DOCTYPE Policy SYSTEM "https://www.debian.org/debsig/1.0/policy.dtd">'
