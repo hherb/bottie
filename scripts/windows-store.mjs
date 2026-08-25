@@ -152,10 +152,10 @@ export async function summarizeExtractedMsix(rootPath, identity, version) {
   if (!blockMap.includes("http://www.w3.org/2001/04/xmlenc#sha256")) {
     throw new Error("The MSIX block map must use SHA2-256.");
   }
+  // MakeAppx validates but does not materialize its generated OPC content-type footprint when unpacking.
   requirePaths(files, [
     "AppxBlockMap.xml",
     "AppxManifest.xml",
-    "[Content_Types].xml",
     "bottie.exe",
     ...REQUIRED_ASSETS.map(([name]) => `Assets/${name}`),
     ...REQUIRED_DOCUMENTS.keys(),

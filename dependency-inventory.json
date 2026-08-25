@@ -13,7 +13,7 @@
     "limitation": "Rust entries are the union of locked macOS arm64/x64, Windows x64, and Linux x64 normal and build graphs. The Cargo.lock count remains a conservative superset for architectures outside those four reviewed targets."
   },
   "inputs": {
-    "package.json": "48a42d3e9ffd997d3405b63eab889688ddfe846c868c78cefadd819c30f719bf",
+    "package.json": "f27a2c510af1d90df46ad608038d88bb2b50710dfd6ed33f56852f2b95b5235e",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
     "src-tauri/Cargo.toml": "f73bd494384f4493e954418621ba56c2bccc690856de39f9f8345ba79f3d7d64",
     "src-tauri/Cargo.lock": "0225b11ac04aac1d44b944de6bc5ff61e9b30445a4522ed3ac1608befac97bbf",
@@ -29,7 +29,7 @@
     "scripts/windows-package.mjs": "0f614dac9be5b0c443426e5cd48d9988701467fc19fec1d0e5156ae4e439aea0",
     "scripts/windows-signature.mjs": "1247e1a276635865bd6eb8a16d8e2e4f90df03e83a8a31d03ee0d5f6387f7d96",
     "scripts/windows-distribution.mjs": "ae9bf24a16a585410ba12b475268d385a8a487120f95fb02c1563c09150ae86b",
-    "scripts/windows-store.mjs": "cda6db7515a9d38c05d74e7248b0fd276cd11ce40d2aa440043b12a55cceb3b8",
+    "scripts/windows-store.mjs": "66a4ec5fca1d6c50608be1ee6a8cbd718af83f9e1e7501289857c9cabcffd63f",
     "scripts/linux-package.mjs": "a40eaefb5235feb301c4e54edaac4add7057bd84bf634cc505aed2cf34005f14",
     "LICENSE": "6f78c7d9d21c1432be2769ec843d045e00a87cf94c90c0cf325b932628772884",
     "MODEL-NOTICE.txt": "d4e49f201ce441098703da8d449a00462bbdcd946a12c1d75f89231a9da2130e",
