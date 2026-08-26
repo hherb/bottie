@@ -6,6 +6,7 @@ import {
   resolveSigningConfiguration,
   signAndVerifyLinuxDistribution,
   signingArguments,
+  verificationFailureMessage,
   verificationArguments,
   verifiedLinuxDistributionEvidence,
 } from "./linux-distribution.mjs";
@@ -46,6 +47,12 @@ describe("Linux distribution signing", () => {
       KEYRINGS_DIRECTORY,
       DEB_PATH,
     ]);
+    expect(verificationFailureMessage(10)).toBe("Linux distribution origin signature is unavailable.");
+    expect(verificationFailureMessage(11)).toBe("Linux distribution verification policy root is unavailable.");
+    expect(verificationFailureMessage(12)).toBe("Linux distribution verification policy did not select the signature.");
+    expect(verificationFailureMessage(13)).toBe("Linux distribution signature verification failed.");
+    expect(verificationFailureMessage(14)).toBe("Linux distribution verification backend failed.");
+    expect(verificationFailureMessage(1)).toBe("Linux distribution verification failed.");
   });
 
   it("distinguishes signing, archive inspection, and independent verification", () => {
@@ -59,7 +66,13 @@ describe("Linux distribution signing", () => {
     signAndVerifyLinuxDistribution(
       configuration,
       DEB_PATH,
-      (command, arguments_, failureMessage) => operations.push({ command, arguments_, failureMessage }),
+      (command, arguments_, failureMessage, environment) =>
+        operations.push({
+          command,
+          arguments_,
+          environment,
+          failureMessage: typeof failureMessage === "function" ? failureMessage(13) : failureMessage,
+        }),
       (debPath) => operations.push({ command: "inspect-origin-signature", arguments_: [debPath] }),
     );
 
@@ -67,13 +80,15 @@ describe("Linux distribution signing", () => {
       {
         command: "debsigs",
         arguments_: ["--sign=origin", `--default-key=${KEY_ID}`, DEB_PATH],
+        environment: undefined,
         failureMessage: "Linux distribution signing failed.",
       },
       { command: "inspect-origin-signature", arguments_: [DEB_PATH] },
       {
         command: "debsig-verify",
         arguments_: ["--policies-dir", POLICIES_DIRECTORY, "--keyrings-dir", KEYRINGS_DIRECTORY, DEB_PATH],
-        failureMessage: "Linux distribution verification failed.",
+        environment: { DEBSIG_GNUPG_PROGRAM: "/usr/bin/gpg" },
+        failureMessage: "Linux distribution signature verification failed.",
       },
     ]);
   });

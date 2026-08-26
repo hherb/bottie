@@ -31,7 +31,7 @@
     "scripts/windows-distribution.mjs": "ae9bf24a16a585410ba12b475268d385a8a487120f95fb02c1563c09150ae86b",
     "scripts/windows-store.mjs": "66a4ec5fca1d6c50608be1ee6a8cbd718af83f9e1e7501289857c9cabcffd63f",
     "scripts/linux-package.mjs": "460d5ee04d8a4865e887b089393cee7bcc44d958b16e18858a7a2cca0f8c41a6",
-    "scripts/linux-distribution.mjs": "ea039a889cde09e6706814692fc856dfbe6ffc2b63e81d1422ea4d6f52c50c2d",
+    "scripts/linux-distribution.mjs": "19f146d1368c31dc54f7a9e708fec12ece260950ebc676e8331fc6fbe07b8df0",
     "scripts/linux-signature.mjs": "88af11881e5bf27aa8d496aa86a2d4db32946dc1832e562e5d0f64d97dcc330f",
     "LICENSE": "6f78c7d9d21c1432be2769ec843d045e00a87cf94c90c0cf325b932628772884",
     "MODEL-NOTICE.txt": "d4e49f201ce441098703da8d449a00462bbdcd946a12c1d75f89231a9da2130e",

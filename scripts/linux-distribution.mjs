@@ -26,6 +26,24 @@ export function verificationArguments(policiesDirectory, keyringsDirectory, debP
   return ["--policies-dir", policiesDirectory, "--keyrings-dir", keyringsDirectory, debPath];
 }
 
+/** Maps debsig-verify's documented statuses into fixed identity- and path-free failures. */
+export function verificationFailureMessage(status) {
+  switch (status) {
+    case 10:
+      return "Linux distribution origin signature is unavailable.";
+    case 11:
+      return "Linux distribution verification policy root is unavailable.";
+    case 12:
+      return "Linux distribution verification policy did not select the signature.";
+    case 13:
+      return "Linux distribution signature verification failed.";
+    case 14:
+      return "Linux distribution verification backend failed.";
+    default:
+      return "Linux distribution verification failed.";
+  }
+}
+
 /** Reports whether one resolved path is inside the repository checkout. */
 function isRepositoryPath(repositoryRoot, candidate) {
   const relativePath = relative(resolve(repositoryRoot), resolve(candidate));
@@ -85,9 +103,14 @@ export function verifiedLinuxDistributionEvidence(evidence, signedPackage) {
 }
 
 /** Runs one host tool while discarding identity-, path-, and credential-bearing output. */
-function runHostCommand(command, arguments_, failureMessage) {
-  const result = spawnSync(command, arguments_, { encoding: "utf8" });
-  if (result.error || result.status !== 0) throw new Error(failureMessage);
+function runHostCommand(command, arguments_, failureMessage, environment = {}) {
+  const result = spawnSync(command, arguments_, {
+    encoding: "utf8",
+    env: { ...process.env, ...environment },
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(typeof failureMessage === "function" ? failureMessage(result.status) : failureMessage);
+  }
   return `${result.stdout ?? ""}${result.stderr ?? ""}`;
 }
 
@@ -113,7 +136,8 @@ export function signAndVerifyLinuxDistribution(
   commandRunner(
     "debsig-verify",
     verificationArguments(configuration.policiesDirectory, configuration.keyringsDirectory, debPath),
-    "Linux distribution verification failed.",
+    verificationFailureMessage,
+    { DEBSIG_GNUPG_PROGRAM: "/usr/bin/gpg" },
   );
 }
 
