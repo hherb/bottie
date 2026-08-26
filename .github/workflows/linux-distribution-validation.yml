@@ -83,6 +83,8 @@ jobs:
           key_id="${fingerprint: -16}"
           policies_directory="$signing_root/policies"
           keyrings_directory="$signing_root/keyrings"
+          signing_probe_path="$signing_root/signing-probe"
+          signature_probe_path="$signing_root/signing-probe.sig"
           echo "::add-mask::$fingerprint"
           echo "::add-mask::$key_id"
           for protected_value in \
@@ -92,9 +94,19 @@ jobs:
             "$passphrase_path" \
             "$wrapper_directory" \
             "$policies_directory" \
-            "$keyrings_directory"; do
+            "$keyrings_directory" \
+            "$signing_probe_path" \
+            "$signature_probe_path"; do
             echo "::add-mask::$protected_value"
           done
+          printf '%s\n' "bottie-linux-signing-probe-v1" > "$signing_probe_path"
+          if ! /usr/bin/gpg --batch --homedir "$gnupg_home" --pinentry-mode loopback \
+            --passphrase-file "$passphrase_path" --local-user "$fingerprint" \
+            --output "$signature_probe_path" --detach-sign "$signing_probe_path" >/dev/null 2>&1; then
+            echo "Protected Linux signing key cannot create a signature." >&2
+            exit 1
+          fi
+          test -s "$signature_probe_path"
           mkdir -p "$policies_directory/$fingerprint" "$keyrings_directory/$fingerprint"
           /usr/bin/gpg --batch --homedir "$gnupg_home" --export "$fingerprint" \
             > "$keyrings_directory/$fingerprint/bottie.pgp"

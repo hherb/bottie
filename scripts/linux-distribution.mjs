@@ -85,20 +85,36 @@ export function verifiedLinuxDistributionEvidence(evidence, signedPackage) {
 }
 
 /** Runs one host tool while discarding identity-, path-, and credential-bearing output. */
-function runHostCommand(command, arguments_) {
+function runHostCommand(command, arguments_, failureMessage) {
   const result = spawnSync(command, arguments_, { encoding: "utf8" });
-  if (result.error || result.status !== 0) throw new Error("Linux distribution signing or verification failed.");
+  if (result.error || result.status !== 0) throw new Error(failureMessage);
   return `${result.stdout ?? ""}${result.stderr ?? ""}`;
 }
 
 /** Requires the signed archive to contain exactly one origin signature and no other embedded signatures. */
 function requireOriginSignature(debPath) {
-  const signatures = runHostCommand("ar", ["t", debPath])
+  const signatures = runHostCommand("ar", ["t", debPath], "Linux distribution archive inspection failed.")
     .split(/\r?\n/)
     .filter((member) => member.startsWith("_gpg"));
   if (signatures.length !== 1 || signatures[0] !== "_gpgorigin") {
     throw new Error("The Linux distribution archive does not contain exactly one origin signature.");
   }
+}
+
+/** Signs, requires the embedded origin member, then independently verifies one DEB. */
+export function signAndVerifyLinuxDistribution(
+  configuration,
+  debPath,
+  commandRunner = runHostCommand,
+  signatureRequirement = requireOriginSignature,
+) {
+  commandRunner("debsigs", signingArguments(configuration.keyId, debPath), "Linux distribution signing failed.");
+  signatureRequirement(debPath);
+  commandRunner(
+    "debsig-verify",
+    verificationArguments(configuration.policiesDirectory, configuration.keyringsDirectory, debPath),
+    "Linux distribution verification failed.",
+  );
 }
 
 /** Finds exactly one regular DEB in the protected workflow's bounded artifact directory. */
@@ -143,12 +159,7 @@ async function runLinuxDistribution(repositoryRoot) {
   );
   const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
   const debPath = await findSingleDeb(artifactDirectory);
-  runHostCommand("debsigs", signingArguments(configuration.keyId, debPath));
-  runHostCommand(
-    "debsig-verify",
-    verificationArguments(configuration.policiesDirectory, configuration.keyringsDirectory, debPath),
-  );
-  requireOriginSignature(debPath);
+  signAndVerifyLinuxDistribution(configuration, debPath);
   const verifiedEvidence = verifiedLinuxDistributionEvidence(evidence, await signedPackageSummary(debPath));
   await writeFile(evidencePath, `${JSON.stringify(verifiedEvidence, null, 2)}\n`, { mode: 0o600 });
 }

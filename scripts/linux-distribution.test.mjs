@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   resolveSigningConfiguration,
+  signAndVerifyLinuxDistribution,
   signingArguments,
   verificationArguments,
   verifiedLinuxDistributionEvidence,
@@ -44,6 +45,36 @@ describe("Linux distribution signing", () => {
       "--keyrings-dir",
       KEYRINGS_DIRECTORY,
       DEB_PATH,
+    ]);
+  });
+
+  it("distinguishes signing, archive inspection, and independent verification", () => {
+    const operations = [];
+    const configuration = {
+      keyId: KEY_ID,
+      keyringsDirectory: KEYRINGS_DIRECTORY,
+      policiesDirectory: POLICIES_DIRECTORY,
+    };
+
+    signAndVerifyLinuxDistribution(
+      configuration,
+      DEB_PATH,
+      (command, arguments_, failureMessage) => operations.push({ command, arguments_, failureMessage }),
+      (debPath) => operations.push({ command: "inspect-origin-signature", arguments_: [debPath] }),
+    );
+
+    expect(operations).toEqual([
+      {
+        command: "debsigs",
+        arguments_: ["--sign=origin", `--default-key=${KEY_ID}`, DEB_PATH],
+        failureMessage: "Linux distribution signing failed.",
+      },
+      { command: "inspect-origin-signature", arguments_: [DEB_PATH] },
+      {
+        command: "debsig-verify",
+        arguments_: ["--policies-dir", POLICIES_DIRECTORY, "--keyrings-dir", KEYRINGS_DIRECTORY, DEB_PATH],
+        failureMessage: "Linux distribution verification failed.",
+      },
     ]);
   });
 
@@ -118,6 +149,9 @@ describe("Linux distribution signing", () => {
     expect(workflow).toContain('mkdir -p "$policies_directory/$fingerprint" "$keyrings_directory/$fingerprint"');
     expect(workflow).toContain('echo "::add-mask::$fingerprint"');
     expect(workflow).toContain('echo "::add-mask::$key_id"');
+    expect(workflow).toContain('printf \'%s\\n\' "bottie-linux-signing-probe-v1" > "$signing_probe_path"');
+    expect(workflow).toContain('--output "$signature_probe_path" --detach-sign "$signing_probe_path"');
+    expect(workflow).toContain("Protected Linux signing key cannot create a signature.");
     expect(workflow).not.toContain('mkdir -p "$policies_directory/$key_id"');
     expect(workflow).toContain("if: always()");
     expect(workflow).not.toMatch(/pull_request:|push:|release:/);
