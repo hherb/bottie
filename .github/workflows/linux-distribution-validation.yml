@@ -65,6 +65,11 @@ jobs:
           private_key_path="$signing_root/private-key.asc"
           passphrase_path="$signing_root/passphrase"
           wrapper_directory="$signing_root/bin"
+          canonical_payload_path="$signing_root/canonical-deb-payload"
+          debsigs_payload_path="$signing_root/debsigs-payload"
+          embedded_signature_path="$signing_root/embedded-origin-signature"
+          public_key_source="$GITHUB_WORKSPACE/distribution/linux/bottie-linux-signing-public.asc"
+          policy_source="$GITHUB_WORKSPACE/distribution/linux/bottie.pol"
           mkdir -p "$gnupg_home" "$wrapper_directory"
           chmod 700 "$signing_root" "$gnupg_home" "$wrapper_directory"
           test -n "$BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64"
@@ -93,6 +98,9 @@ jobs:
             "$private_key_path" \
             "$passphrase_path" \
             "$wrapper_directory" \
+            "$canonical_payload_path" \
+            "$debsigs_payload_path" \
+            "$embedded_signature_path" \
             "$policies_directory" \
             "$keyrings_directory" \
             "$signing_probe_path" \
@@ -107,35 +115,30 @@ jobs:
             exit 1
           fi
           test -s "$signature_probe_path"
+          public_fingerprint="$(/usr/bin/gpg --batch --homedir "$gnupg_home" --with-colons \
+            --show-keys "$public_key_source" 2>/dev/null | \
+            awk -F: '$1 == "pub" { primary = 1; next } primary && $1 == "fpr" { print $10; exit }')"
+          if test "$public_fingerprint" != "$fingerprint"; then
+            echo "Protected Linux signing key does not match the published public key." >&2
+            exit 1
+          fi
           mkdir -p "$policies_directory/$fingerprint" "$keyrings_directory/$fingerprint"
-          /usr/bin/gpg --batch --homedir "$gnupg_home" --export "$fingerprint" \
-            > "$keyrings_directory/$fingerprint/bottie.pgp"
-          test -s "$keyrings_directory/$fingerprint/bottie.pgp"
+          public_keyring_path="$keyrings_directory/$fingerprint/bottie.pgp"
+          /usr/bin/gpg --batch --yes --output "$public_keyring_path" --dearmor "$public_key_source"
+          test -s "$public_keyring_path"
           policy_path="$policies_directory/$fingerprint/bottie.pol"
-          {
-            echo '<?xml version="1.0"?>'
-            echo '<!DOCTYPE Policy SYSTEM "https://www.debian.org/debsig/1.0/policy.dtd">'
-            echo '<Policy xmlns="https://www.debian.org/debsig/1.0/">'
-            echo "  <Origin Name=\"Bottie\" id=\"$fingerprint\" Description=\"Bottie Linux distribution\"/>"
-            echo '  <Selection>'
-            echo "    <Required Type=\"origin\" File=\"bottie.pgp\" id=\"$fingerprint\"/>"
-            echo '  </Selection>'
-            echo '  <Verification MinOptional="0">'
-            echo "    <Required Type=\"origin\" File=\"bottie.pgp\" id=\"$fingerprint\"/>"
-            echo '  </Verification>'
-            echo '</Policy>'
-          } > "$policy_path"
-          {
-            echo '#!/usr/bin/env bash'
-            echo "exec /usr/bin/gpg --batch --pinentry-mode loopback \\"
-            echo "  --passphrase-file \"\$BOTTIE_LINUX_SIGNING_PASSPHRASE_PATH\" \"\$@\""
-          } > "$wrapper_directory/gpg"
-          chmod 700 "$wrapper_directory/gpg"
+          install -m 600 "$policy_source" "$policy_path"
+          test "$(grep -Fc "$fingerprint" "$policy_path")" -eq 3
+          install -m 700 scripts/linux-debsigs-gpg-wrapper.sh "$wrapper_directory/gpg"
           {
             echo "BOTTIE_LINUX_SIGNING_KEY_ID=$key_id"
             echo "BOTTIE_LINUX_SIGNING_KEYRINGS_DIR=$keyrings_directory"
+            echo "BOTTIE_LINUX_SIGNING_PAYLOAD_PATH=$canonical_payload_path"
             echo "BOTTIE_LINUX_SIGNING_PASSPHRASE_PATH=$passphrase_path"
             echo "BOTTIE_LINUX_SIGNING_POLICIES_DIR=$policies_directory"
+            echo "BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH=$public_keyring_path"
+            echo "BOTTIE_LINUX_DEBSIGS_PAYLOAD_PATH=$debsigs_payload_path"
+            echo "BOTTIE_LINUX_EMBEDDED_SIGNATURE_PATH=$embedded_signature_path"
             echo "GNUPGHOME=$gnupg_home"
           } >> "$GITHUB_ENV"
           echo "$wrapper_directory" >> "$GITHUB_PATH"

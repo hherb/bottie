@@ -4,6 +4,7 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { closeSync, openSync, statSync } from "node:fs";
 import { lstat, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +13,10 @@ const DEFAULT_ARTIFACT_DIRECTORY = "package/linux";
 const DEFAULT_EVIDENCE_PATH = "package/linux-package-evidence.json";
 const KEY_ID_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_KEY_ID";
 const KEYRINGS_DIRECTORY_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_KEYRINGS_DIR";
+const PAYLOAD_PATH_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_PAYLOAD_PATH";
 const POLICIES_DIRECTORY_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_POLICIES_DIR";
+const CONTROL_MEMBER_PATTERN = /^control\.tar(?:\.gz|\.xz)?$/;
+const DATA_MEMBER_PATTERN = /^data\.tar(?:\.gz|\.xz|\.bz2|\.lzma)?$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const SIGNING_KEY_PATTERN = /^(?:[A-F0-9]{16}|[A-F0-9]{40})$/;
 
@@ -44,6 +48,30 @@ export function verificationFailureMessage(status) {
   }
 }
 
+/** Selects the exact unsigned DEB members that debsig-verify authenticates, in verifier order. */
+export function canonicalDebianPayloadMembers(archiveMembers) {
+  if (archiveMembers.some((member) => member.startsWith("_gpg"))) {
+    throw new Error("Linux distribution signing requires an unsigned Debian archive.");
+  }
+  if (archiveMembers.filter((member) => member === "debian-binary").length !== 1) {
+    throw new Error("Linux distribution signing requires exactly one debian-binary member.");
+  }
+  const controlMembers = archiveMembers.filter((member) => CONTROL_MEMBER_PATTERN.test(member));
+  if (controlMembers.length !== 1) {
+    throw new Error("Linux distribution signing requires exactly one supported control archive.");
+  }
+  const dataMembers = archiveMembers.filter((member) => DATA_MEMBER_PATTERN.test(member));
+  if (dataMembers.length !== 1) {
+    throw new Error("Linux distribution signing requires exactly one supported data archive.");
+  }
+  return ["debian-binary", controlMembers[0], dataMembers[0]];
+}
+
+/** Returns one independent extraction command per canonical payload member. */
+export function canonicalDebianPayloadExtractionArguments(debPath, archiveMembers) {
+  return canonicalDebianPayloadMembers(archiveMembers).map((member) => ["p", debPath, member]);
+}
+
 /** Reports whether one resolved path is inside the repository checkout. */
 function isRepositoryPath(repositoryRoot, candidate) {
   const relativePath = relative(resolve(repositoryRoot), resolve(candidate));
@@ -57,16 +85,17 @@ export function resolveSigningConfiguration(environment, repositoryRoot) {
   const keyId = environment[KEY_ID_ENVIRONMENT]?.trim().toUpperCase();
   const policiesDirectory = environment[POLICIES_DIRECTORY_ENVIRONMENT]?.trim();
   const keyringsDirectory = environment[KEYRINGS_DIRECTORY_ENVIRONMENT]?.trim();
-  if (!keyId || !policiesDirectory || !keyringsDirectory) {
+  const payloadPath = environment[PAYLOAD_PATH_ENVIRONMENT]?.trim();
+  if (!keyId || !policiesDirectory || !keyringsDirectory || !payloadPath) {
     throw new Error("Protected Linux signing configuration is unavailable.");
   }
   if (!SIGNING_KEY_PATTERN.test(keyId)) throw new Error("The Linux signing key identity is invalid.");
-  for (const directory of [policiesDirectory, keyringsDirectory]) {
-    if (!isAbsolute(directory) || isRepositoryPath(repositoryRoot, directory)) {
-      throw new Error("Linux signing policy and keyring roots must stay outside the repository.");
+  for (const protectedPath of [policiesDirectory, keyringsDirectory, payloadPath]) {
+    if (!isAbsolute(protectedPath) || isRepositoryPath(repositoryRoot, protectedPath)) {
+      throw new Error("Linux signing policy, keyring, and payload paths must stay outside the repository.");
     }
   }
-  return { keyId, keyringsDirectory, policiesDirectory };
+  return { keyId, keyringsDirectory, payloadPath, policiesDirectory };
 }
 
 /** Returns a copy of unsigned package evidence bound to independently verified signed bytes. */
@@ -124,13 +153,39 @@ function requireOriginSignature(debPath) {
   }
 }
 
+/** Writes the verifier's exact three-member payload without depending on archive member order. */
+function writeCanonicalDebianPayload(debPath, payloadPath) {
+  const archiveMembers = runHostCommand("ar", ["t", debPath], "Linux distribution archive inspection failed.")
+    .split(/\r?\n/)
+    .filter(Boolean);
+  const extractions = canonicalDebianPayloadExtractionArguments(debPath, archiveMembers);
+  const payloadDescriptor = openSync(payloadPath, "w", 0o600);
+  try {
+    for (const arguments_ of extractions) {
+      const result = spawnSync("ar", arguments_, {
+        stdio: ["ignore", payloadDescriptor, "ignore"],
+      });
+      if (result.error || result.status !== 0) {
+        throw new Error("Linux distribution canonical payload extraction failed.");
+      }
+    }
+  } finally {
+    closeSync(payloadDescriptor);
+  }
+  if (statSync(payloadPath).size === 0) {
+    throw new Error("Linux distribution canonical payload extraction failed.");
+  }
+}
+
 /** Signs, requires the embedded origin member, then independently verifies one DEB. */
 export function signAndVerifyLinuxDistribution(
   configuration,
   debPath,
   commandRunner = runHostCommand,
   signatureRequirement = requireOriginSignature,
+  payloadWriter = writeCanonicalDebianPayload,
 ) {
+  payloadWriter(debPath, configuration.payloadPath);
   commandRunner("debsigs", signingArguments(configuration.keyId, debPath), "Linux distribution signing failed.");
   signatureRequirement(debPath);
   commandRunner(

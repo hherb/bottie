@@ -855,12 +855,21 @@ After explicit authorization for GitHub-hosted runner/source egress and only aft
 `linux-distribution` environment has its existing private-key and passphrase secrets configured, manually dispatch
 `Linux distribution validation` from the exact reviewed commit. Require the locked Ubuntu 24.04 product package,
 independent payload inspection, distinct-identity smoke, exactly one embedded OpenPGP `origin` signature, and a passing
-`debsig-verify` policy/keyring check. Review the retained path-free evidence before installing it under ignored
-`/package`; do not retain key identity, private material, passphrase, runner paths, or raw GnuPG output.
+`debsig-verify` policy/keyring check. The protected key must match the repository's public-only Bottie certificate;
+the same published certificate must first verify the canonical detached signature with `gpgv` and then the embedded
+signature through the published `debsig` policy. Review the retained path-free evidence before installing it under
+ignored `/package`; do not retain private material, passphrase, runner paths, or raw GnuPG output in evidence.
 
-Do not bundle Microsoft approval polling, Store publication evidence, signed update delivery, a tag/release, public
-artifact publication, repository-held keys, or runtime product changes. Source contracts and unsigned package smoke do
-not count as current signing evidence.
+The previous protected runs established key import, passphrase-backed signing, signature-member insertion, and
+temporary policy/keyring selection, but `debsig-verify` returned status 13. The correction branch
+now reconstructs `debian-binary`, the control archive, and the data archive separately in verifier order rather than
+trusting legacy `debsigs` archive-order input. It verifies that detached signature with the committed public key before
+embedding it. This correction remains source-only until a fresh authorized runner passes all gates and uploads the
+normalized evidence.
+
+Do not bundle Microsoft approval polling, Store publication evidence, signed update delivery, a tag/release,
+signed-package publication, repository-held private keys, or runtime product changes. Source contracts and unsigned
+package smoke do not count as current signing evidence.
 
 ## Most recently completed release-engineering slice: protected Linux distribution-signing contract
 
