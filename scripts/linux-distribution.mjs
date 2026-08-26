@@ -4,7 +4,7 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { closeSync, openSync, statSync } from "node:fs";
+import { closeSync, openSync, readFileSync, statSync } from "node:fs";
 import { lstat, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,8 +13,10 @@ const DEFAULT_ARTIFACT_DIRECTORY = "package/linux";
 const DEFAULT_EVIDENCE_PATH = "package/linux-package-evidence.json";
 const KEY_ID_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_KEY_ID";
 const KEYRINGS_DIRECTORY_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_KEYRINGS_DIR";
+const EMBEDDED_SIGNATURE_PATH_ENVIRONMENT = "BOTTIE_LINUX_EMBEDDED_SIGNATURE_PATH";
 const PAYLOAD_PATH_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_PAYLOAD_PATH";
 const POLICIES_DIRECTORY_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_POLICIES_DIR";
+const PUBLIC_KEYRING_PATH_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH";
 const CONTROL_MEMBER_PATTERN = /^control\.tar(?:\.gz|\.xz)?$/;
 const DATA_MEMBER_PATTERN = /^data\.tar(?:\.gz|\.xz|\.bz2|\.lzma)?$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
@@ -28,6 +30,28 @@ export function signingArguments(keyId, debPath) {
 /** Returns the independent verification command using caller-owned trust roots. */
 export function verificationArguments(policiesDirectory, keyringsDirectory, debPath) {
   return ["--policies-dir", policiesDirectory, "--keyrings-dir", keyringsDirectory, debPath];
+}
+
+/** Returns stock GnuPG's exact detached-signature verification arguments. */
+export function openPgpVerificationArguments(publicKeyringPath, signaturePath, payloadPath) {
+  return [
+    "--no-options",
+    "--no-default-keyring",
+    "--batch",
+    "--no-secmem-warning",
+    "--no-permission-warning",
+    "--no-mdc-warning",
+    "--no-auto-check-trustdb",
+    "--weak-digest",
+    "RIPEMD160",
+    "--weak-digest",
+    "SHA1",
+    "--keyring",
+    publicKeyringPath,
+    "--verify",
+    signaturePath,
+    payloadPath,
+  ];
 }
 
 /** Maps debsig-verify's documented statuses into fixed identity- and path-free failures. */
@@ -83,19 +107,34 @@ function isRepositoryPath(repositoryRoot, candidate) {
 /** Resolves protected signing identity and public verification roots without reading private key bytes. */
 export function resolveSigningConfiguration(environment, repositoryRoot) {
   const keyId = environment[KEY_ID_ENVIRONMENT]?.trim().toUpperCase();
+  const embeddedSignaturePath = environment[EMBEDDED_SIGNATURE_PATH_ENVIRONMENT]?.trim();
   const policiesDirectory = environment[POLICIES_DIRECTORY_ENVIRONMENT]?.trim();
   const keyringsDirectory = environment[KEYRINGS_DIRECTORY_ENVIRONMENT]?.trim();
   const payloadPath = environment[PAYLOAD_PATH_ENVIRONMENT]?.trim();
-  if (!keyId || !policiesDirectory || !keyringsDirectory || !payloadPath) {
+  const publicKeyringPath = environment[PUBLIC_KEYRING_PATH_ENVIRONMENT]?.trim();
+  if (
+    !keyId ||
+    !embeddedSignaturePath ||
+    !policiesDirectory ||
+    !keyringsDirectory ||
+    !payloadPath ||
+    !publicKeyringPath
+  ) {
     throw new Error("Protected Linux signing configuration is unavailable.");
   }
   if (!SIGNING_KEY_PATTERN.test(keyId)) throw new Error("The Linux signing key identity is invalid.");
-  for (const protectedPath of [policiesDirectory, keyringsDirectory, payloadPath]) {
+  for (const protectedPath of [
+    embeddedSignaturePath,
+    policiesDirectory,
+    keyringsDirectory,
+    payloadPath,
+    publicKeyringPath,
+  ]) {
     if (!isAbsolute(protectedPath) || isRepositoryPath(repositoryRoot, protectedPath)) {
-      throw new Error("Linux signing policy, keyring, and payload paths must stay outside the repository.");
+      throw new Error("Linux signing policy, keyring, signature, and payload paths must stay outside the repository.");
     }
   }
-  return { keyId, keyringsDirectory, payloadPath, policiesDirectory };
+  return { embeddedSignaturePath, keyId, keyringsDirectory, payloadPath, policiesDirectory, publicKeyringPath };
 }
 
 /** Returns a copy of unsigned package evidence bound to independently verified signed bytes. */
@@ -143,13 +182,26 @@ function runHostCommand(command, arguments_, failureMessage, environment = {}) {
   return `${result.stdout ?? ""}${result.stderr ?? ""}`;
 }
 
-/** Requires the signed archive to contain exactly one origin signature and no other embedded signatures. */
-function requireOriginSignature(debPath) {
+/** Requires exactly one origin signature whose embedded bytes match the signer output. */
+function requireOriginSignature(debPath, expectedSignaturePath) {
   const signatures = runHostCommand("ar", ["t", debPath], "Linux distribution archive inspection failed.")
     .split(/\r?\n/)
     .filter((member) => member.startsWith("_gpg"));
   if (signatures.length !== 1 || signatures[0] !== "_gpgorigin") {
     throw new Error("The Linux distribution archive does not contain exactly one origin signature.");
+  }
+  const extracted = spawnSync("ar", ["p", debPath, "_gpgorigin"]);
+  try {
+    if (
+      extracted.error ||
+      extracted.status !== 0 ||
+      !Buffer.isBuffer(extracted.stdout) ||
+      !extracted.stdout.equals(readFileSync(expectedSignaturePath))
+    ) {
+      throw new Error();
+    }
+  } catch {
+    throw new Error("The embedded Linux origin signature differs from the signer output.");
   }
 }
 
@@ -187,7 +239,16 @@ export function signAndVerifyLinuxDistribution(
 ) {
   payloadWriter(debPath, configuration.payloadPath);
   commandRunner("debsigs", signingArguments(configuration.keyId, debPath), "Linux distribution signing failed.");
-  signatureRequirement(debPath);
+  signatureRequirement(debPath, configuration.embeddedSignaturePath);
+  commandRunner(
+    "/usr/bin/gpg",
+    openPgpVerificationArguments(
+      configuration.publicKeyringPath,
+      configuration.embeddedSignaturePath,
+      configuration.payloadPath,
+    ),
+    "Embedded Linux origin signature verification failed.",
+  );
   commandRunner(
     "debsig-verify",
     verificationArguments(configuration.policiesDirectory, configuration.keyringsDirectory, debPath),

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalDebianPayloadMembers,
   canonicalDebianPayloadExtractionArguments,
+  openPgpVerificationArguments,
   resolveSigningConfiguration,
   signAndVerifyLinuxDistribution,
   signingArguments,
@@ -18,7 +19,9 @@ const PUBLISHED_FINGERPRINT = "5C1D104ACE472474CE21070B065CFE6D5D9FD8A4";
 const DEB_PATH = "/tmp/bottie_0.9.0_amd64.deb";
 const POLICIES_DIRECTORY = "/runner-temp/policies";
 const KEYRINGS_DIRECTORY = "/runner-temp/keyrings";
+const EMBEDDED_SIGNATURE_PATH = "/runner-temp/embedded-origin-signature";
 const PAYLOAD_PATH = "/runner-temp/canonical-deb-payload";
+const PUBLIC_KEYRING_PATH = "/runner-temp/keyrings/fingerprint/bottie.gpg";
 
 /** Returns minimal unsigned package evidence from the isolated Linux package workflow. */
 function unsignedEvidence() {
@@ -84,15 +87,35 @@ describe("Linux distribution signing", () => {
     expect(verificationFailureMessage(13)).toBe("Linux distribution signature verification failed.");
     expect(verificationFailureMessage(14)).toBe("Linux distribution verification backend failed.");
     expect(verificationFailureMessage(1)).toBe("Linux distribution verification failed.");
+    expect(openPgpVerificationArguments(PUBLIC_KEYRING_PATH, EMBEDDED_SIGNATURE_PATH, PAYLOAD_PATH)).toEqual([
+      "--no-options",
+      "--no-default-keyring",
+      "--batch",
+      "--no-secmem-warning",
+      "--no-permission-warning",
+      "--no-mdc-warning",
+      "--no-auto-check-trustdb",
+      "--weak-digest",
+      "RIPEMD160",
+      "--weak-digest",
+      "SHA1",
+      "--keyring",
+      PUBLIC_KEYRING_PATH,
+      "--verify",
+      EMBEDDED_SIGNATURE_PATH,
+      PAYLOAD_PATH,
+    ]);
   });
 
   it("distinguishes signing, archive inspection, and independent verification", () => {
     const operations = [];
     const configuration = {
+      embeddedSignaturePath: EMBEDDED_SIGNATURE_PATH,
       keyId: KEY_ID,
       keyringsDirectory: KEYRINGS_DIRECTORY,
       payloadPath: PAYLOAD_PATH,
       policiesDirectory: POLICIES_DIRECTORY,
+      publicKeyringPath: PUBLIC_KEYRING_PATH,
     };
 
     signAndVerifyLinuxDistribution(
@@ -105,7 +128,8 @@ describe("Linux distribution signing", () => {
           environment,
           failureMessage: typeof failureMessage === "function" ? failureMessage(13) : failureMessage,
         }),
-      (debPath) => operations.push({ command: "inspect-origin-signature", arguments_: [debPath] }),
+      (debPath, signaturePath) =>
+        operations.push({ command: "inspect-origin-signature", arguments_: [debPath, signaturePath] }),
       (debPath, payloadPath) =>
         operations.push({ command: "write-canonical-payload", arguments_: [debPath, payloadPath] }),
     );
@@ -118,7 +142,16 @@ describe("Linux distribution signing", () => {
         environment: undefined,
         failureMessage: "Linux distribution signing failed.",
       },
-      { command: "inspect-origin-signature", arguments_: [DEB_PATH] },
+      {
+        command: "inspect-origin-signature",
+        arguments_: [DEB_PATH, EMBEDDED_SIGNATURE_PATH],
+      },
+      {
+        command: "/usr/bin/gpg",
+        arguments_: openPgpVerificationArguments(PUBLIC_KEYRING_PATH, EMBEDDED_SIGNATURE_PATH, PAYLOAD_PATH),
+        environment: undefined,
+        failureMessage: "Embedded Linux origin signature verification failed.",
+      },
       {
         command: "debsig-verify",
         arguments_: ["--policies-dir", POLICIES_DIRECTORY, "--keyrings-dir", KEYRINGS_DIRECTORY, DEB_PATH],
@@ -133,26 +166,32 @@ describe("Linux distribution signing", () => {
       resolveSigningConfiguration(
         {
           BOTTIE_LINUX_SIGNING_KEY_ID: KEY_ID.toLowerCase(),
+          BOTTIE_LINUX_EMBEDDED_SIGNATURE_PATH: EMBEDDED_SIGNATURE_PATH,
           BOTTIE_LINUX_SIGNING_POLICIES_DIR: POLICIES_DIRECTORY,
           BOTTIE_LINUX_SIGNING_KEYRINGS_DIR: KEYRINGS_DIRECTORY,
           BOTTIE_LINUX_SIGNING_PAYLOAD_PATH: PAYLOAD_PATH,
+          BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH: PUBLIC_KEYRING_PATH,
         },
         "/repo",
       ),
     ).toEqual({
+      embeddedSignaturePath: EMBEDDED_SIGNATURE_PATH,
       keyId: KEY_ID,
       keyringsDirectory: KEYRINGS_DIRECTORY,
       payloadPath: PAYLOAD_PATH,
       policiesDirectory: POLICIES_DIRECTORY,
+      publicKeyringPath: PUBLIC_KEYRING_PATH,
     });
     expect(() => resolveSigningConfiguration({}, "/repo")).toThrow(/configuration is unavailable/);
     expect(() =>
       resolveSigningConfiguration(
         {
           BOTTIE_LINUX_SIGNING_KEY_ID: KEY_ID,
+          BOTTIE_LINUX_EMBEDDED_SIGNATURE_PATH: EMBEDDED_SIGNATURE_PATH,
           BOTTIE_LINUX_SIGNING_POLICIES_DIR: "/repo/private/policies",
           BOTTIE_LINUX_SIGNING_KEYRINGS_DIR: KEYRINGS_DIRECTORY,
           BOTTIE_LINUX_SIGNING_PAYLOAD_PATH: PAYLOAD_PATH,
+          BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH: PUBLIC_KEYRING_PATH,
         },
         "/repo",
       ),
@@ -213,6 +252,8 @@ describe("Linux distribution signing", () => {
     expect(workflow).toContain("Published Linux public keyring cannot verify protected signatures.");
     expect(workflow).toContain('install -m 700 scripts/linux-debsigs-gpg-wrapper.sh "$wrapper_directory/gpg"');
     expect(signingWrapper).toContain('cat > "$debsigs_payload_path"');
+    expect(signingWrapper).toContain("--batch --armor --pinentry-mode loopback");
+    expect(signingWrapper).toContain("exit 1");
     expect(signingWrapper).toContain('--output "$embedded_signature_path" "$@" < "$canonical_payload_path"');
     expect(signingWrapper).toContain(
       '/usr/bin/gpgv --keyring "$public_keyring_path" "$embedded_signature_path" "$canonical_payload_path"',

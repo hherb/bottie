@@ -863,10 +863,22 @@ ignored `/package`; do not retain private material, passphrase, runner paths, or
 The previous protected runs established key import, passphrase-backed signing, signature-member insertion, and
 temporary policy/keyring selection, but `debsig-verify` returned status 13. Run `32953099601` additionally established
 that legacy `debsigs` and Bottie's explicit reconstruction supplied the same verifier-order payload, and that `gpgv`
-accepted the detached signature before embedding. The remaining correction uses the conventional binary `.gpg`
-keyring expected by stock `debsig-verify` integrations and runs the verifier's exact GnuPG keyring invocation against a
-protected signing probe before package signing. This correction remains source-only until a fresh authorized runner
-passes all gates and uploads the normalized evidence.
+accepted the detached signature before embedding. Run `32964969246` proved that the published OpenPGP certificate in a
+conventional binary `.gpg` keyring also passes stock GnuPG's exact keyring invocation, so the public key and keyring are
+not the remaining failure. Its build, smoke, protected-key preparation, and cleanup passed; the final policy verifier
+still returned status 13 and no evidence was uploaded.
+
+The next source-only correction makes the legacy signer's line-oriented transfer robust by emitting an ASCII-armored
+detached signature, fails if the payload supplied by `debsigs` differs from Bottie's verifier-order reconstruction,
+requires the embedded `_gpgorigin` bytes to equal the signer output, and runs stock GnuPG over that exact signature and
+payload before `debsig-verify`. It remains unverified until a fresh explicitly authorized protected run passes every
+gate and uploads normalized evidence.
+
+Local validation for this correction passes nine focused signing tests, eleven dependency-free Linux package
+contracts, workflow/shell/XML lint, the dependency and release-asset inventories, formatting, Svelte diagnostics,
+42 frontend test files with 165 passing tests and three opt-in performance tests skipped, and the production build.
+Cargo formatting and compilation pass; 398 Rust tests pass and 31 loopback, public-network, credential, live-provider,
+or performance tests remain explicitly ignored. Doc tests pass.
 
 Do not bundle Microsoft approval polling, Store publication evidence, signed update delivery, a tag/release,
 signed-package publication, repository-held private keys, or runtime product changes. Source contracts and unsigned

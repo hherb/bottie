@@ -11,9 +11,10 @@ public_keyring_path="$BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH"
 
 cat > "$debsigs_payload_path"
 if ! cmp -s "$debsigs_payload_path" "$canonical_payload_path"; then
-  echo "Legacy debsigs payload order differed; canonical Debian payload used." >&2
+  echo "Legacy debsigs payload differs from the canonical Debian payload." >&2
+  exit 1
 fi
-/usr/bin/gpg --batch --pinentry-mode loopback \
+/usr/bin/gpg --batch --armor --pinentry-mode loopback \
   --passphrase-file "$BOTTIE_LINUX_SIGNING_PASSPHRASE_PATH" \
   --output "$embedded_signature_path" "$@" < "$canonical_payload_path"
 /usr/bin/gpgv --keyring "$public_keyring_path" "$embedded_signature_path" "$canonical_payload_path" \
