@@ -62,6 +62,7 @@ jobs:
           set -euo pipefail
           signing_root="$RUNNER_TEMP/bottie-linux-signing"
           gnupg_home="$signing_root/gnupg"
+          verification_gnupg_home="$signing_root/verification-gnupg"
           private_key_path="$signing_root/private-key.asc"
           passphrase_path="$signing_root/passphrase"
           wrapper_directory="$signing_root/bin"
@@ -70,8 +71,8 @@ jobs:
           embedded_signature_path="$signing_root/embedded-origin-signature"
           public_key_source="$GITHUB_WORKSPACE/distribution/linux/bottie-linux-signing-public.asc"
           policy_source="$GITHUB_WORKSPACE/distribution/linux/bottie.pol"
-          mkdir -p "$gnupg_home" "$wrapper_directory"
-          chmod 700 "$signing_root" "$gnupg_home" "$wrapper_directory"
+          mkdir -p "$gnupg_home" "$verification_gnupg_home" "$wrapper_directory"
+          chmod 700 "$signing_root" "$gnupg_home" "$verification_gnupg_home" "$wrapper_directory"
           test -n "$BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64"
           test -n "$BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE"
           printf '%s' "$BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64" | base64 --decode > "$private_key_path"
@@ -95,6 +96,7 @@ jobs:
           for protected_value in \
             "$signing_root" \
             "$gnupg_home" \
+            "$verification_gnupg_home" \
             "$private_key_path" \
             "$passphrase_path" \
             "$wrapper_directory" \
@@ -123,9 +125,18 @@ jobs:
             exit 1
           fi
           mkdir -p "$policies_directory/$fingerprint" "$keyrings_directory/$fingerprint"
-          public_keyring_path="$keyrings_directory/$fingerprint/bottie.pgp"
+          public_keyring_path="$keyrings_directory/$fingerprint/bottie.gpg"
           /usr/bin/gpg --batch --yes --output "$public_keyring_path" --dearmor "$public_key_source"
           test -s "$public_keyring_path"
+          if ! GNUPGHOME="$verification_gnupg_home" /usr/bin/gpg \
+            --no-options --no-default-keyring --batch \
+            --no-secmem-warning --no-permission-warning --no-mdc-warning --no-auto-check-trustdb \
+            --weak-digest RIPEMD160 --weak-digest SHA1 \
+            --keyring "$public_keyring_path" --verify "$signature_probe_path" "$signing_probe_path" \
+            >/dev/null 2>&1; then
+            echo "Published Linux public keyring cannot verify protected signatures." >&2
+            exit 1
+          fi
           policy_path="$policies_directory/$fingerprint/bottie.pol"
           install -m 600 "$policy_source" "$policy_path"
           test "$(grep -Fc "$fingerprint" "$policy_path")" -eq 3

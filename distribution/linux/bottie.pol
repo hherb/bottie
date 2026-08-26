@@ -9,14 +9,14 @@
   <Selection>
     <Required
       Type="origin"
-      File="bottie.pgp"
+      File="bottie.gpg"
       id="5C1D104ACE472474CE21070B065CFE6D5D9FD8A4"
     />
   </Selection>
   <Verification MinOptional="0">
     <Required
       Type="origin"
-      File="bottie.pgp"
+      File="bottie.gpg"
       id="5C1D104ACE472474CE21070B065CFE6D5D9FD8A4"
     />
   </Verification>

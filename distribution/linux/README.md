@@ -19,13 +19,13 @@ On Debian or Ubuntu, install `debsig-verify` and run these commands from the rep
 fingerprint=5C1D104ACE472474CE21070B065CFE6D5D9FD8A4
 keyring_staging_directory="$(mktemp -d)"
 gpg --batch --yes --dearmor \
-  --output "$keyring_staging_directory/bottie.pgp" \
+  --output "$keyring_staging_directory/bottie.gpg" \
   distribution/linux/bottie-linux-signing-public.asc
 sudo install -d -m 0755 \
   "/usr/share/debsig/keyrings/$fingerprint" \
   "/etc/debsig/policies/$fingerprint"
-sudo install -m 0644 "$keyring_staging_directory/bottie.pgp" \
-  "/usr/share/debsig/keyrings/$fingerprint/bottie.pgp"
+sudo install -m 0644 "$keyring_staging_directory/bottie.gpg" \
+  "/usr/share/debsig/keyrings/$fingerprint/bottie.gpg"
 sudo install -m 0644 distribution/linux/bottie.pol \
   "/etc/debsig/policies/$fingerprint/bottie.pol"
 rm -r "$keyring_staging_directory"

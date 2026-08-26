@@ -209,6 +209,8 @@ describe("Linux distribution signing", () => {
     expect(workflow).toContain('--output "$signature_probe_path" --detach-sign "$signing_probe_path"');
     expect(workflow).toContain("Protected Linux signing key cannot create a signature.");
     expect(workflow).toContain("Protected Linux signing key does not match the published public key.");
+    expect(workflow).toContain('public_keyring_path="$keyrings_directory/$fingerprint/bottie.gpg"');
+    expect(workflow).toContain("Published Linux public keyring cannot verify protected signatures.");
     expect(workflow).toContain('install -m 700 scripts/linux-debsigs-gpg-wrapper.sh "$wrapper_directory/gpg"');
     expect(signingWrapper).toContain('cat > "$debsigs_payload_path"');
     expect(signingWrapper).toContain('--output "$embedded_signature_path" "$@" < "$canonical_payload_path"');
@@ -233,7 +235,8 @@ describe("Linux distribution signing", () => {
     expect(publicKey).toContain("-----BEGIN PGP PUBLIC KEY BLOCK-----");
     expect(publicKey).not.toContain("PRIVATE KEY");
     expect(policy.match(new RegExp(PUBLISHED_FINGERPRINT, "g"))).toHaveLength(3);
-    expect(policy).toContain('File="bottie.pgp"');
+    expect(policy).toContain('File="bottie.gpg"');
+    expect(policy).not.toContain('File="bottie.pgp"');
     expect(verificationGuide.replaceAll(" ", "")).toContain(PUBLISHED_FINGERPRINT);
     expect(verificationGuide).toContain("24 August 2028");
     expect(verificationGuide).toContain("debsig-verify ./bottie_0.9.0_amd64.deb");

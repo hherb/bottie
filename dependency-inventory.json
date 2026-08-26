@@ -35,7 +35,7 @@
     "scripts/linux-debsigs-gpg-wrapper.sh": "fd68d98f93c0f5b54574b3887aef77532885c3ec0d3ab5116172580e46233860",
     "scripts/linux-signature.mjs": "88af11881e5bf27aa8d496aa86a2d4db32946dc1832e562e5d0f64d97dcc330f",
     "distribution/linux/bottie-linux-signing-public.asc": "ce1c2d119a2c69c8f0725f1ef635ca049c4642e49c9ad395fc54a96bb9c92b89",
-    "distribution/linux/bottie.pol": "b826063b1ad4183a7fdff134c69620e4f3d828174ec8357689f246060c3ef4fb",
+    "distribution/linux/bottie.pol": "e16fc920f2d6875e72c5232fe4992678f5ad5ff0ad61016970055031414da241",
     "LICENSE": "6f78c7d9d21c1432be2769ec843d045e00a87cf94c90c0cf325b932628772884",
     "MODEL-NOTICE.txt": "d4e49f201ce441098703da8d449a00462bbdcd946a12c1d75f89231a9da2130e",
     "THIRD-PARTY-NOTICES.txt": "04b8afa05729cb61963c8205d8bda9eac234abff3136de926be59f1bbcd70463",
