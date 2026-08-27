@@ -864,21 +864,33 @@ The previous protected runs established key import, passphrase-backed signing, s
 temporary policy/keyring selection, but `debsig-verify` returned status 13. Run `32953099601` additionally established
 that legacy `debsigs` and Bottie's explicit reconstruction supplied the same verifier-order payload, and that `gpgv`
 accepted the detached signature before embedding. Run `32964969246` proved that the published OpenPGP certificate in a
-conventional binary `.gpg` keyring also passes stock GnuPG's exact keyring invocation, so the public key and keyring are
-not the remaining failure. Its build, smoke, protected-key preparation, and cleanup passed; the final policy verifier
-still returned status 13 and no evidence was uploaded.
+conventional binary `.gpg` keyring also passes stock GnuPG's exact keyring invocation. Run `33048169287` at `3c01c17`
+then proved the exact embedded bytes equal the signer output but failed at the hardened stock-GnuPG check before
+`debsig-verify`; no evidence was uploaded.
 
-The next source-only correction makes the legacy signer's line-oriented transfer robust by emitting an ASCII-armored
-detached signature, fails if the payload supplied by `debsigs` differs from Bottie's verifier-order reconstruction,
-requires the embedded `_gpgorigin` bytes to equal the signer output, and runs stock GnuPG over that exact signature and
-payload before `debsig-verify`. It remains unverified until a fresh explicitly authorized protected run passes every
-gate and uploads normalized evidence.
+A credential-free reproduction now explains that result: default detached signing uses SHA-256, but the legacy
+`debsigs` 0.1.26 `--openpgp` argument selects SHA-1. `gpgv` accepts that signature, while Bottie's intentional
+`--weak-digest SHA1` verification rejects it. The protected signature was not retained, so this is a high-confidence
+inference rather than packet evidence recovered from the failed artifact.
 
-Local validation for this correction passes nine focused signing tests, eleven dependency-free Linux package
-contracts, workflow/shell/XML lint, the dependency and release-asset inventories, formatting, Svelte diagnostics,
-42 frontend test files with 165 passing tests and three opt-in performance tests skipped, and the production build.
-Cargo formatting and compilation pass; 398 Rust tests pass and 31 loopback, public-network, credential, live-provider,
-or performance tests remain explicitly ignored. Doc tests pass.
+The follow-up source correction validates the exact four legacy arguments before reading protected inputs, discards
+them, reconstructs a bounded `--no-options` SHA-256 signing command, and fails unless the packet digest identifier is
+8. The exact embedded-signature GnuPG check and `debsig-verify` now use a dedicated clean verification home. A new
+credential-free Ubuntu integration generates an ephemeral key and DEB, exercises real `debsigs`, GnuPG, `gpgv`, and
+`debsig-verify`, and proves both SHA-256 success and SHA-1 rejection. It runs in the ungated Linux package-smoke
+workflow as well as before protected preparation. It remains unverified with the protected Bottie key until a fresh,
+separately authorized run passes every gate and uploads normalized evidence. The full failure chronology is in
+`docs/debia_packlage_failure.md`.
+
+TDD first failed on the missing legacy-argument allow-list, inherited verification home, and absent Linux integration
+command. Local validation passes ten focused signing tests plus five release-candidate tests, eleven dependency-free
+Linux package contracts, both workflow lints, shell and policy XML validation, the dependency and release-asset
+inventories, formatting, Svelte diagnostics with zero errors or warnings, 42 frontend test files with 166 passing
+tests and three opt-in tests skipped, and the production build. Cargo formatting and compilation pass; 398 Rust tests
+pass and 31 loopback, public-network, credential, live-provider, or performance tests remain ignored. Doc tests pass
+with zero cases. The real-tool integration is Linux-only and was not run on the local macOS host; its first automatic
+Ubuntu result and a subsequent protected result remain pending. No protected workflow was dispatched for this source
+correction.
 
 Do not bundle Microsoft approval polling, Store publication evidence, signed update delivery, a tag/release,
 signed-package publication, repository-held private keys, or runtime product changes. Source contracts and unsigned

@@ -1,4 +1,6 @@
 import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -22,6 +24,8 @@ const KEYRINGS_DIRECTORY = "/runner-temp/keyrings";
 const EMBEDDED_SIGNATURE_PATH = "/runner-temp/embedded-origin-signature";
 const PAYLOAD_PATH = "/runner-temp/canonical-deb-payload";
 const PUBLIC_KEYRING_PATH = "/runner-temp/keyrings/fingerprint/bottie.gpg";
+const VERIFICATION_GNUPG_HOME = "/runner-temp/verification-gnupg";
+const SIGNING_WRAPPER_PATH = fileURLToPath(new URL("./linux-debsigs-gpg-wrapper.sh", import.meta.url));
 
 /** Returns minimal unsigned package evidence from the isolated Linux package workflow. */
 function unsignedEvidence() {
@@ -73,6 +77,52 @@ describe("Linux distribution signing", () => {
     expect(signingArguments(KEY_ID, DEB_PATH)).toEqual(["--sign=origin", `--default-key=${KEY_ID}`, DEB_PATH]);
   });
 
+  it.skipIf(process.platform === "win32")(
+    "rejects unexpected legacy signer arguments before reading protected paths",
+    () => {
+      const unexpectedArguments = [
+        ["--openpgp", "--detach-sign", `--default-key=${KEY_ID}`],
+        ["--gnupg", "--detach-sign", "--default-key", KEY_ID],
+        ["--detach-sign", "--openpgp", "--default-key", KEY_ID],
+        ["--openpgp", "--detach-sign", "--default-key", "FEDCBA9876543210"],
+        ["--openpgp", "--detach-sign", "--default-key", KEY_ID, "--output", "/tmp/injected"],
+        ["--openpgp", "--detach-sign", "--default-key", KEY_ID, "--digest-algo", "SHA1"],
+      ];
+
+      for (const arguments_ of unexpectedArguments) {
+        const result = spawnSync("bash", [SIGNING_WRAPPER_PATH, ...arguments_], {
+          encoding: "utf8",
+          env: { ...process.env, BOTTIE_LINUX_SIGNING_KEY_ID: KEY_ID },
+          input: "",
+        });
+        expect(result.status).toBe(1);
+        expect(result.stdout).toBe("");
+        expect(result.stderr).toBe("Unexpected legacy debsigs GnuPG arguments.\n");
+      }
+
+      const normalizedResult = spawnSync(
+        "bash",
+        [SIGNING_WRAPPER_PATH, "--openpgp", "--detach-sign", "--default-key", KEY_ID],
+        {
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            BOTTIE_LINUX_DEBSIGS_PAYLOAD_PATH: "/dev/null",
+            BOTTIE_LINUX_EMBEDDED_SIGNATURE_PATH: "/dev/null",
+            BOTTIE_LINUX_SIGNING_KEY_ID: KEY_ID.toLowerCase(),
+            BOTTIE_LINUX_SIGNING_PASSPHRASE_PATH: "/dev/null",
+            BOTTIE_LINUX_SIGNING_PAYLOAD_PATH: "/dev/null",
+            BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH: "/dev/null",
+          },
+          input: "",
+        },
+      );
+      expect(normalizedResult.status).toBe(1);
+      expect(normalizedResult.stdout).toBe("");
+      expect(normalizedResult.stderr).toBe("Linux origin signature creation failed.\n");
+    },
+  );
+
   it("verifies through caller-owned policy and keyring roots", () => {
     expect(verificationArguments(POLICIES_DIRECTORY, KEYRINGS_DIRECTORY, DEB_PATH)).toEqual([
       "--policies-dir",
@@ -116,6 +166,7 @@ describe("Linux distribution signing", () => {
       payloadPath: PAYLOAD_PATH,
       policiesDirectory: POLICIES_DIRECTORY,
       publicKeyringPath: PUBLIC_KEYRING_PATH,
+      verificationGnupgHome: VERIFICATION_GNUPG_HOME,
     };
 
     signAndVerifyLinuxDistribution(
@@ -149,13 +200,13 @@ describe("Linux distribution signing", () => {
       {
         command: "/usr/bin/gpg",
         arguments_: openPgpVerificationArguments(PUBLIC_KEYRING_PATH, EMBEDDED_SIGNATURE_PATH, PAYLOAD_PATH),
-        environment: undefined,
+        environment: { GNUPGHOME: VERIFICATION_GNUPG_HOME },
         failureMessage: "Embedded Linux origin signature verification failed.",
       },
       {
         command: "debsig-verify",
         arguments_: ["--policies-dir", POLICIES_DIRECTORY, "--keyrings-dir", KEYRINGS_DIRECTORY, DEB_PATH],
-        environment: { DEBSIG_GNUPG_PROGRAM: "/usr/bin/gpg" },
+        environment: { DEBSIG_GNUPG_PROGRAM: "/usr/bin/gpg", GNUPGHOME: VERIFICATION_GNUPG_HOME },
         failureMessage: "Linux distribution signature verification failed.",
       },
     ]);
@@ -171,6 +222,7 @@ describe("Linux distribution signing", () => {
           BOTTIE_LINUX_SIGNING_KEYRINGS_DIR: KEYRINGS_DIRECTORY,
           BOTTIE_LINUX_SIGNING_PAYLOAD_PATH: PAYLOAD_PATH,
           BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH: PUBLIC_KEYRING_PATH,
+          BOTTIE_LINUX_VERIFICATION_GNUPG_HOME: VERIFICATION_GNUPG_HOME,
         },
         "/repo",
       ),
@@ -181,6 +233,7 @@ describe("Linux distribution signing", () => {
       payloadPath: PAYLOAD_PATH,
       policiesDirectory: POLICIES_DIRECTORY,
       publicKeyringPath: PUBLIC_KEYRING_PATH,
+      verificationGnupgHome: VERIFICATION_GNUPG_HOME,
     });
     expect(() => resolveSigningConfiguration({}, "/repo")).toThrow(/configuration is unavailable/);
     expect(() =>
@@ -192,6 +245,21 @@ describe("Linux distribution signing", () => {
           BOTTIE_LINUX_SIGNING_KEYRINGS_DIR: KEYRINGS_DIRECTORY,
           BOTTIE_LINUX_SIGNING_PAYLOAD_PATH: PAYLOAD_PATH,
           BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH: PUBLIC_KEYRING_PATH,
+          BOTTIE_LINUX_VERIFICATION_GNUPG_HOME: VERIFICATION_GNUPG_HOME,
+        },
+        "/repo",
+      ),
+    ).toThrow(/outside the repository/);
+    expect(() =>
+      resolveSigningConfiguration(
+        {
+          BOTTIE_LINUX_SIGNING_KEY_ID: KEY_ID,
+          BOTTIE_LINUX_EMBEDDED_SIGNATURE_PATH: EMBEDDED_SIGNATURE_PATH,
+          BOTTIE_LINUX_SIGNING_POLICIES_DIR: POLICIES_DIRECTORY,
+          BOTTIE_LINUX_SIGNING_KEYRINGS_DIR: KEYRINGS_DIRECTORY,
+          BOTTIE_LINUX_SIGNING_PAYLOAD_PATH: PAYLOAD_PATH,
+          BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH: PUBLIC_KEYRING_PATH,
+          BOTTIE_LINUX_VERIFICATION_GNUPG_HOME: "/repo/private/verification-gnupg",
         },
         "/repo",
       ),
@@ -232,6 +300,11 @@ describe("Linux distribution signing", () => {
       new URL("../.github/workflows/linux-distribution-validation.yml", import.meta.url),
       "utf8",
     );
+    const smokeWorkflow = await readFile(
+      new URL("../.github/workflows/linux-package-smoke.yml", import.meta.url),
+      "utf8",
+    );
+    const packageMetadata = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
     const signingWrapper = await readFile(new URL("./linux-debsigs-gpg-wrapper.sh", import.meta.url), "utf8");
 
     expect(workflow).toContain("workflow_dispatch:");
@@ -241,6 +314,14 @@ describe("Linux distribution signing", () => {
     expect(workflow).toContain("distribution/linux/bottie-linux-signing-public.asc");
     expect(workflow).toContain("distribution/linux/bottie.pol");
     expect(workflow).toContain("package/linux-package-evidence.json");
+    expect(packageMetadata.scripts["package:linux:distribution:test:integration"]).toBe(
+      "node scripts/linux-distribution.integration.mjs",
+    );
+    expect(workflow).toContain("npm run package:linux:distribution:test:integration");
+    expect(smokeWorkflow).toContain("scripts/linux-distribution.integration.mjs");
+    expect(smokeWorkflow).toContain("scripts/linux-debsigs-gpg-wrapper.sh");
+    expect(smokeWorkflow).toContain("distribution/linux/**");
+    expect(smokeWorkflow).toContain("npm run package:linux:distribution:test:integration");
     expect(workflow).toContain('mkdir -p "$policies_directory/$fingerprint" "$keyrings_directory/$fingerprint"');
     expect(workflow).toContain('echo "::add-mask::$fingerprint"');
     expect(workflow).toContain('echo "::add-mask::$key_id"');
@@ -250,11 +331,25 @@ describe("Linux distribution signing", () => {
     expect(workflow).toContain("Protected Linux signing key does not match the published public key.");
     expect(workflow).toContain('public_keyring_path="$keyrings_directory/$fingerprint/bottie.gpg"');
     expect(workflow).toContain("Published Linux public keyring cannot verify protected signatures.");
+    expect(workflow).toContain("BOTTIE_LINUX_VERIFICATION_GNUPG_HOME=$verification_gnupg_home");
     expect(workflow).toContain('install -m 700 scripts/linux-debsigs-gpg-wrapper.sh "$wrapper_directory/gpg"');
     expect(signingWrapper).toContain('cat > "$debsigs_payload_path"');
-    expect(signingWrapper).toContain("--batch --armor --pinentry-mode loopback");
+    expect(signingWrapper).toContain("EXPECTED_DEBSIGS_ARGUMENT_COUNT=4");
+    expect(signingWrapper).toContain('"$1" != "--openpgp"');
+    expect(signingWrapper).toContain('"$2" != "--detach-sign"');
+    expect(signingWrapper).toContain('"$3" != "--default-key"');
+    expect(signingWrapper).toContain('"$4" != "$expected_key_id"');
+    expect(signingWrapper).toContain("Unexpected legacy debsigs GnuPG arguments.");
+    expect(signingWrapper).toContain("--no-options --batch --armor --pinentry-mode loopback");
+    expect(signingWrapper).toContain('--local-user "$expected_key_id"');
+    expect(signingWrapper).toContain("SHA256_DIGEST_ALGORITHM=SHA256");
+    expect(signingWrapper).toContain('--digest-algo "$SHA256_DIGEST_ALGORITHM"');
+    expect(signingWrapper).toContain("SHA256_DIGEST_ALGORITHM_ID=8");
+    expect(signingWrapper).toContain("Linux origin signature creation failed.");
+    expect(signingWrapper).toContain("Linux origin signature did not use SHA-256.");
     expect(signingWrapper).toContain("exit 1");
-    expect(signingWrapper).toContain('--output "$embedded_signature_path" "$@" < "$canonical_payload_path"');
+    expect(signingWrapper).not.toContain('"$@"');
+    expect(signingWrapper).not.toContain("gpg --openpgp");
     expect(signingWrapper).toContain(
       '/usr/bin/gpgv --keyring "$public_keyring_path" "$embedded_signature_path" "$canonical_payload_path"',
     );

@@ -17,6 +17,7 @@ const EMBEDDED_SIGNATURE_PATH_ENVIRONMENT = "BOTTIE_LINUX_EMBEDDED_SIGNATURE_PAT
 const PAYLOAD_PATH_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_PAYLOAD_PATH";
 const POLICIES_DIRECTORY_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_POLICIES_DIR";
 const PUBLIC_KEYRING_PATH_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH";
+const VERIFICATION_GNUPG_HOME_ENVIRONMENT = "BOTTIE_LINUX_VERIFICATION_GNUPG_HOME";
 const CONTROL_MEMBER_PATTERN = /^control\.tar(?:\.gz|\.xz)?$/;
 const DATA_MEMBER_PATTERN = /^data\.tar(?:\.gz|\.xz|\.bz2|\.lzma)?$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
@@ -112,13 +113,15 @@ export function resolveSigningConfiguration(environment, repositoryRoot) {
   const keyringsDirectory = environment[KEYRINGS_DIRECTORY_ENVIRONMENT]?.trim();
   const payloadPath = environment[PAYLOAD_PATH_ENVIRONMENT]?.trim();
   const publicKeyringPath = environment[PUBLIC_KEYRING_PATH_ENVIRONMENT]?.trim();
+  const verificationGnupgHome = environment[VERIFICATION_GNUPG_HOME_ENVIRONMENT]?.trim();
   if (
     !keyId ||
     !embeddedSignaturePath ||
     !policiesDirectory ||
     !keyringsDirectory ||
     !payloadPath ||
-    !publicKeyringPath
+    !publicKeyringPath ||
+    !verificationGnupgHome
   ) {
     throw new Error("Protected Linux signing configuration is unavailable.");
   }
@@ -129,12 +132,21 @@ export function resolveSigningConfiguration(environment, repositoryRoot) {
     keyringsDirectory,
     payloadPath,
     publicKeyringPath,
+    verificationGnupgHome,
   ]) {
     if (!isAbsolute(protectedPath) || isRepositoryPath(repositoryRoot, protectedPath)) {
-      throw new Error("Linux signing policy, keyring, signature, and payload paths must stay outside the repository.");
+      throw new Error("Linux signing and verification paths must stay outside the repository.");
     }
   }
-  return { embeddedSignaturePath, keyId, keyringsDirectory, payloadPath, policiesDirectory, publicKeyringPath };
+  return {
+    embeddedSignaturePath,
+    keyId,
+    keyringsDirectory,
+    payloadPath,
+    policiesDirectory,
+    publicKeyringPath,
+    verificationGnupgHome,
+  };
 }
 
 /** Returns a copy of unsigned package evidence bound to independently verified signed bytes. */
@@ -248,12 +260,13 @@ export function signAndVerifyLinuxDistribution(
       configuration.payloadPath,
     ),
     "Embedded Linux origin signature verification failed.",
+    { GNUPGHOME: configuration.verificationGnupgHome },
   );
   commandRunner(
     "debsig-verify",
     verificationArguments(configuration.policiesDirectory, configuration.keyringsDirectory, debPath),
     verificationFailureMessage,
-    { DEBSIG_GNUPG_PROGRAM: "/usr/bin/gpg" },
+    { DEBSIG_GNUPG_PROGRAM: "/usr/bin/gpg", GNUPGHOME: configuration.verificationGnupgHome },
   );
 }
 

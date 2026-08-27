@@ -30,9 +30,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes \
+            binutils \
             dbus-x11 \
             debsigs \
             debsig-verify \
+            dpkg \
+            gnupg \
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libwebkit2gtk-4.1-dev \
@@ -49,6 +52,7 @@ jobs:
           node --check scripts/linux-distribution.mjs
           npm run package:linux:test
           npm test -- scripts/linux-distribution.test.mjs scripts/release-candidate.test.mjs
+          npm run package:linux:distribution:test:integration
 
       - name: Build, inspect, and smoke-test unsigned product bytes
         run: dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke
@@ -148,6 +152,7 @@ jobs:
             echo "BOTTIE_LINUX_SIGNING_PASSPHRASE_PATH=$passphrase_path"
             echo "BOTTIE_LINUX_SIGNING_POLICIES_DIR=$policies_directory"
             echo "BOTTIE_LINUX_SIGNING_PUBLIC_KEYRING_PATH=$public_keyring_path"
+            echo "BOTTIE_LINUX_VERIFICATION_GNUPG_HOME=$verification_gnupg_home"
             echo "BOTTIE_LINUX_DEBSIGS_PAYLOAD_PATH=$debsigs_payload_path"
             echo "BOTTIE_LINUX_EMBEDDED_SIGNATURE_PATH=$embedded_signature_path"
             echo "GNUPGHOME=$gnupg_home"

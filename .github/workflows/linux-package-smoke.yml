@@ -4,13 +4,19 @@ on:
   pull_request:
     paths:
       - ".github/workflows/linux-package-smoke.yml"
+      - ".github/workflows/linux-distribution-validation.yml"
       - "package-lock.json"
       - "package.json"
       - "assets/bottie-logo-kit/**"
       - "scripts/application-icons.mjs"
       - "scripts/application-icons.test.mjs"
+      - "scripts/linux-debsigs-gpg-wrapper.sh"
+      - "scripts/linux-distribution.integration.mjs"
+      - "scripts/linux-distribution.mjs"
+      - "scripts/linux-distribution.test.mjs"
       - "scripts/linux-package.contract.mjs"
       - "scripts/linux-package.mjs"
+      - "distribution/linux/**"
       - "src/**"
       - "src-tauri/**"
       - "static/**"
@@ -44,7 +50,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes \
+            binutils \
             dbus-x11 \
+            debsigs \
+            debsig-verify \
+            dpkg \
+            gnupg \
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libwebkit2gtk-4.1-dev \
@@ -59,7 +70,11 @@ jobs:
           npm run icons:check
           node --check scripts/linux-package.mjs
           node --check scripts/linux-package.contract.mjs
+          node --check scripts/linux-distribution.mjs
+          node --check scripts/linux-distribution.integration.mjs
           npm run package:linux:test
+          npm test -- scripts/linux-distribution.test.mjs
+          npm run package:linux:distribution:test:integration
 
       - name: Build, inspect, and smoke-test unsigned DEB
         run: dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke
