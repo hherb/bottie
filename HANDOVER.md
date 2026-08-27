@@ -645,6 +645,43 @@ The cohesively touched product modules remain at or below 500 lines. The crate c
 `src-tauri/src/lib.rs` remains an existing practical-limit exception; the remaining known indivisible long lines are
 SVG path values in `src/lib/Icon.svelte`.
 
+## Most recently completed maintenance slice: website dependency vulnerability remediation
+
+### Goal
+
+Remove every currently listed Dependabot vulnerability from the separately deployed marketing-site dependency graph,
+including newly disclosed npm advisories found during verification, without force-installing incompatible packages or
+changing Bottie's desktop runtime, trust boundary, schema, provider behavior, or release evidence.
+
+### Implemented shape
+
+1. The website now pins Vite 8.0.16, Wrangler 4.122.0, and Cloudflare's Vite plugin 1.52.0. Their locked graph carries
+   patched `esbuild`, `sharp`, `undici`, and `ws` releases.
+2. Compatible transitive refreshes move `@babel/core`, `brace-expansion`, `fast-uri`, `js-yaml`, and `postcss` beyond
+   every vulnerable range in the 27 open website Dependabot alerts recorded on 2026-08-27.
+3. A post-update npm audit exposed two newer advisory paths not yet present in that GitHub alert list. React,
+   React DOM, and React Server DOM Webpack now use 19.2.8; vinext now uses 1.0.0-beta.8 with its required
+   `@vitejs/plugin-rsc` 0.5.34 peer. The resulting website lockfile reports zero npm vulnerabilities.
+4. The root desktop npm graph is unchanged. Its production graph reports zero vulnerabilities; the remaining
+   development-only `cookie` 0.6 advisory is owned by the latest SvelteKit 2.70.3 dependency contract, for which npm
+   currently offers only a force-style incompatible workaround.
+5. The remaining Linux `glib` 0.18.5 unsoundness advisory is owned by the GTK3 graph in the latest Tauri 2.11.5
+   release. Bottie does not depend on or call `glib::VariantStrIter` directly. Moving to `glib` 0.20 cannot be done
+   independently of Tauri's Linux GUI stack, so this slice records the upstream constraint instead of vendoring or
+   overriding an incompatible Rust dependency.
+
+### Acceptance and exclusions
+
+- The upgraded website graph installs from its lockfile, passes ESLint, builds with vinext/Vite, and passes the
+  rendered production-HTML contracts; `npm audit` reports zero findings in that graph.
+- Root `npm audit --omit=dev` remains clean. RustSec reports no vulnerability-class findings and retains the known
+  `glib` unsoundness warning plus informational unmaintained-package warnings from Tauri's GTK3 and other transitive
+  graphs.
+- Dependabot alerts close only after this change reaches the default branch and GitHub rescans it. The two upstream
+  constraints above must remain visible until SvelteKit and Tauri publish compatible dependency lines.
+- Do not add npm overrides, use `npm audit fix --force`, vendor GTK/glib, replace Tauri's Linux backend, or broaden this
+  maintenance slice into application, website-design, packaging, signing, submission, or publication work.
+
 ## Prior completed product slice: Staged migration and promotion rollback
 
 ### Goal
