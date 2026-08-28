@@ -1,16 +1,15 @@
 # Debian package distribution-signing failures
 
-- Status: source and runner-fixture corrections implemented; protected verification pending
+- Status: resolved; protected signing and independent verification passed
 - Last updated: 28 August 2026
-- Latest dispatched source: `2e8586fb0b6d0301360d5d25ae3050084548f5af`
-- Latest workflow run: [33066322605](https://github.com/hherb/bottie/actions/runs/33066322605)
-- Latest run to reach protected signing: [33048169287](https://github.com/hherb/bottie/actions/runs/33048169287)
+- Validated source: `c5c26d2b0234d01ebe030b1827f587ad7effdfa3`
+- Successful workflow run: [33150663200](https://github.com/hherb/bottie/actions/runs/33150663200)
 
 ## Executive summary
 
-The Linux distribution workflow has failed ten times. The first two failures were secret-format problems: an invalid
-Base64 value, followed by an OpenSSL private-key PEM that was not an OpenPGP secret-key export. Those credential-shape
-problems are now resolved.
+The Linux distribution workflow failed ten times before run 11 passed. The first two failures were secret-format
+problems: an invalid Base64 value, followed by an OpenSSL private-key PEM that was not an OpenPGP secret-key export.
+Those credential-shape problems are resolved.
 
 The following seven runs reached the signing path. Each successive source change removed one ambiguity. The ninth run
 proved that the unsigned DEB build, inspection, isolated smoke test, protected OpenPGP key import, passphrase-backed
@@ -25,25 +24,26 @@ to SHA-1 and recreates the observed `gpgv`-passes/hardened-GnuPG-fails split. Th
 not retained, so the cause remains a high-confidence inference rather than a packet-level fact recovered from that
 artifact.
 
-Source `2e8586f` no longer forwards the legacy GnuPG command. It accepts only the exact four arguments emitted
-by `debsigs` 0.1.26, reconstructs a bounded signing command with SHA-256, checks the resulting packet digest identifier
-is 8, and independently verifies from a dedicated clean GnuPG home. It also adds a credential-free Ubuntu integration
-that exercises the real `debsigs`, GnuPG, `gpgv`, and `debsig-verify` toolchain with an ephemeral test key.
+Source `2e8586f` stopped forwarding the legacy GnuPG command. It accepts only the exact four arguments emitted by
+`debsigs` 0.1.26, reconstructs a bounded signing command with SHA-256, checks that the packet digest identifier is 8,
+and independently verifies from a dedicated clean GnuPG home. It also added a credential-free Ubuntu integration that
+exercises the real `debsigs`, GnuPG, `gpgv`, and `debsig-verify` toolchain with an ephemeral test key.
 
 Run 10 did **not** test that protected signing correction. Eleven package contracts and fifteen focused source tests
 passed, but the new credential-free integration failed before the product build, protected-key preparation, signing,
 verification, or evidence upload. Ubuntu 24.04's `dpkg-deb` defaults to zstd, while Bottie's intentionally bounded
 archive selector and legacy `debsigs` 0.1.26 support the fixture's XZ form, not `control.tar.zst`/`data.tar.zst`. The
-runner fixture had not selected compression explicitly. The current local correction forces XZ, asserts the exact
-unsigned archive members before signing, and emits only an allowlisted failure-stage label if the integration fails
-again. This diagnosis is the strongest source-level explanation; the previous run's deliberately generic message did
-not retain the inner command failure.
+runner fixture had not selected compression explicitly. Source `c5c26d2` forced XZ, asserted the exact unsigned
+archive members before signing, and added allowlisted failure-stage labels.
 
-A fresh Ubuntu result and then a fresh protected run are still required before any Linux distribution evidence can be
-claimed.
+Run 11 passed every gate from that exact source: the real credential-free Ubuntu integration, locked product build,
+inspection and isolated smoke, protected key preparation, fixed SHA-256 origin signing, exact embedded-signature
+verification, `debsig-verify` policy verification, identity-free evidence upload, and cleanup. This successful result
+strongly corroborates the zstd diagnosis for run 10 and proves that the combined signing correction works with the
+configured protected key and passphrase.
 
-No failed run uploaded distribution evidence, and the cleanup step removed protected material and package bytes each
-time. There is still no verified or distributable Linux package.
+The workflow retained only normalized evidence. Its signed DEB was removed during cleanup and was not published, so
+there is current verified Linux distribution-signature evidence but no retained distributable package.
 
 ## Most likely cause of the protected signing failures through run 9
 
@@ -70,7 +70,7 @@ A credential-free local reproduction with a new temporary RSA signing key produc
 - the same GnuPG verification with `--weak-digest SHA1` returned status 2;
 - the hardened verification continued to accept the default SHA-256 signature.
 
-That result explains all otherwise contradictory evidence from the latest protected run:
+That result explains all otherwise contradictory evidence from the latest failed protected run:
 
 1. The simple preparation probe passes because it is signed without `--openpgp` and therefore uses a modern digest.
 2. The wrapper's `gpgv` check passes because it does not mark SHA-1 as weak.
@@ -103,7 +103,7 @@ The current evidence rules out or materially weakens these earlier hypotheses:
 
 The first nine runs passed the credential-free source contracts and unsigned build/inspection/smoke steps; runs 1 and
 2 then failed during protected-key preparation. Run 10 failed in the newly added credential-free integration before
-the unsigned product build. All ten passed cleanup. Evidence upload was skipped in every run.
+the unsigned product build. All ten passed cleanup. Evidence upload was skipped in all ten failed runs.
 
 ### 1. Invalid Base64 secret
 
@@ -191,6 +191,23 @@ the unsigned product build. All ten passed cleanup. Evidence upload was skipped 
   identity- and path-free line.
 - Meaning: this run provides no new evidence about the protected key or the SHA-256 signing correction.
 
+### 11. XZ integration fixture and fixed SHA-256 signing path pass
+
+- Run: [33150663200](https://github.com/hherb/bottie/actions/runs/33150663200)
+- Source: `c5c26d2b0234d01ebe030b1827f587ad7effdfa3`
+- Result: every workflow step passed in 14 minutes 37 seconds.
+- Credential-free proof: the XZ fixture passed the real Ubuntu `debsigs`, GnuPG, `gpgv`, and `debsig-verify`
+  integration before any protected material was prepared.
+- Protected proof: key import, passphrase-backed signing probe, published-certificate match, SHA-256 origin signing,
+  exact embedded-signature verification, and `debsig-verify` policy verification all passed.
+- Evidence: the 1,524-byte artifact archive `bottie-linux-distribution-evidence` (`9677902664`) was uploaded with
+  artifact digest
+  `sha256:297fc666800a91393b56e56219f07e5152446aff9b61544f5b3f6646c2580bc4`. Its normalized installer record is
+  version `0.9.0`, architecture `amd64`, 22,879,288 bytes, SHA-256
+  `e9ba241d23fbbe2c6a54b279ed2746a986f18657fd4dbc317ab9c3b25a48d960`, and
+  `signature={classification: identified, verifies: true}`.
+- Cleanup: protected material and signed package bytes were removed; only the bounded JSON evidence was retained.
+
 ## Source attempts made so far
 
 ### `fd5cb4c` — Fix Linux signature verification roots
@@ -223,7 +240,7 @@ stock-GnuPG verification probe. The probe passed, proving that the public keyrin
 
 Made a `debsigs`-versus-canonical payload mismatch fatal, emitted an ASCII-armored signature for the legacy
 line-oriented transfer, compared the embedded member to signer output byte-for-byte, and added a hardened stock-GnuPG
-check before `debsig-verify`. The latest run passed the equality checks and failed the new GnuPG check. This disproved
+check before `debsig-verify`. Run 9 passed the equality checks and failed the new GnuPG check. This disproved
 payload mismatch, transfer truncation, and embedding rewrite as the primary cause.
 
 ### `2e8586f` — Force SHA-256 Linux distribution signing
@@ -233,7 +250,13 @@ algorithm 8, supplied a dedicated clean verification home, and added the real Ub
 portable contracts passed in run 10, but the integration fixture failed before the protected path because its DEB
 compression was not pinned. Consequently this run neither confirmed nor disproved the protected signing correction.
 
-## Current working correction after run 10
+### `c5c26d2` — Fix Linux signing integration fixture
+
+Forced XZ compression for the real-tool fixture, asserted its exact unsigned archive members, added bounded stage
+diagnostics and fail-closed cleanup reporting, and moved both Linux workflows to Node-24 action majors. Run 11 passed
+the real integration and the protected signing ceremony from this source.
+
+## Resolved correction proven by run 11
 
 The combined correction addresses the reproduced digest failure, the verifier-context mismatch, and the run-10
 fixture defect without weakening any verification policy:
@@ -264,8 +287,7 @@ fixture defect without weakening any verification policy:
 
 TDD for the run-10 follow-up first failed because the XZ fixture contract and bounded integration-stage contract did
 not exist and the Linux workflows still referenced Node-20 action majors. The focused signing suite now passes twelve
-tests locally. The real Ubuntu integration cannot execute on the local macOS host, so the corrected fixture's first
-runner result remains pending.
+tests locally. Run 11 supplied the previously missing Ubuntu and protected-run proof.
 
 The completed local matrix also passes 11 Linux package contracts, both workflow lints, policy XML validation, the
 dependency and release-asset inventories, formatting, Svelte diagnostics with zero errors or warnings, 42 frontend
@@ -279,8 +301,8 @@ remain ignored. Doc tests pass with zero cases. The Node diagnostics emitted onl
 The earlier source tests verified arguments, ordering, failure boundaries, path restrictions, evidence normalization,
 and workflow policy using mocks and dependency-free fixtures. They did not run Ubuntu's real `debsigs` 0.1.26 together
 with GnuPG's digest-policy flags. That is why every source suite could pass while the protected runner failed. The new
-ephemeral Linux integration closes that credential-free toolchain gap on the normal Ubuntu package-smoke runner, while
-the separate protected run remains necessary to prove the configured distribution key and environment.
+ephemeral Linux integration closes that credential-free toolchain gap on the normal Ubuntu package-smoke runner; run
+11 separately proves the configured distribution key and protected environment.
 
 Run 10 exposed a defect in that new integration fixture rather than the protected signing path. Ubuntu Noble documents
 zstd as `dpkg-deb`'s default compression, but legacy `debsigs` accepts the XZ archive form used by Bottie's supported
@@ -299,7 +321,8 @@ The current workflow source updates the Linux jobs to
 [`actions/setup-node@v6`](https://github.com/actions/setup-node), and
 [`actions/upload-artifact@v7`](https://github.com/actions/upload-artifact). These action majors run on GitHub's Node-24
 action runtime; `node-version: 22` intentionally remains Bottie's project runtime. The workflow does not use
-`ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` or otherwise suppress the warning.
+`ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` or otherwise suppress the warning. Run 11 emitted no Node-20 action-runtime
+deprecation warning.
 
 ## Secondary cause to keep controlled
 
@@ -311,17 +334,17 @@ clean verification home to both the exact GnuPG check and `debsig-verify`.
 ASCII armor is unlikely to be the cause: the embedded bytes match the signer output, and both GnuPG and `gpgv` support
 armored detached signatures.
 
-## Remaining proof and release boundary
+## Resolved proof and remaining release boundary
 
 The correction deliberately keeps the SHA-1 rejection and does not add `--allow-weak-digest-algos`. The source and
-portable tests can prove the fail-closed command boundary; the automatic Ubuntu integration can prove the real
-credential-free toolchain. Neither proves that the repository's protected environment is correctly configured.
+portable tests prove the fail-closed command boundary; run 11 proves the real Ubuntu toolchain and configured protected
+environment work together at source `c5c26d2`.
 
-After the source change is reviewed and published, a new protected workflow dispatch still requires separate explicit
-authorization. That run is the only proof that the configured private key, passphrase, current runner packages, and
-current source work together. Until it passes, do not upload, publish, or describe a DEB as verified distribution
-output.
+The Linux distribution-signature evidence gate is satisfied by the reviewed JSON installed under ignored `/package`.
+That evidence does not retain the signed DEB and does not authorize package publication, a tag, a release, or update
+delivery. Any final release package must be rebuilt and revalidated from the exact current release source rather than
+reusing deleted runner bytes or treating this evidence-only workflow as publication.
 
-The protected success criterion remains unchanged: exactly one `_gpgorigin`, a modern OpenPGP digest, successful
-stock-GnuPG verification over the verifier-order payload, successful `debsig-verify` policy verification, normalized
-identity-free evidence upload, and unconditional cleanup.
+The evidence schema does not embed its Git commit or workflow-run provenance. Retain run `33150663200` and source
+`c5c26d2b0234d01ebe030b1827f587ad7effdfa3` alongside the JSON because the normalized release manifest cannot by itself
+distinguish stale same-version evidence.

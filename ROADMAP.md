@@ -300,7 +300,7 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [ ] Microsoft Store certification and publication;
 - [x] protected manual Linux embedded-OpenPGP signing contract with a published public certificate and independent
   canonical-payload, policy, and keyring verification;
-- [ ] current credentialed Linux distribution-signature evidence;
+- [x] current credentialed Linux distribution-signature evidence;
 - [x] versioned 0.9.0 beta release notes plus a deterministic path-free release-candidate gate manifest;
 - [ ] signed update delivery and release publication outside the Store.
 
