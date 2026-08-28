@@ -355,10 +355,12 @@ release.
 The separate manual `Linux distribution validation` workflow is the only checked-in path that consumes Linux signing
 credentials. Its protected `linux-distribution` environment requires a base64-encoded OpenPGP private key and its
 passphrase in `BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64` and `BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE`. The job first builds,
-inspects, and smoke-tests the unsigned product bytes, then imports the key only into runner-temporary storage. It adds
-exactly one embedded `origin` signature with `debsigs`, exports only the matching public key into a temporary policy,
-and requires `debsig-verify` to accept the signed DEB through caller-owned policy and keyring roots. Merely finding an
-`_gpg*` archive member is classified as identified but unverified and cannot pass the release gate.
+inspects, and smoke-tests the unsigned product bytes, then imports the key only into runner-temporary storage. It
+requires that private key to match Bottie's [published Linux public key](distribution/linux/README.md), signs the
+canonical `debian-binary`, control-archive, and data-archive bytes, verifies the detached signature with `gpgv`, embeds
+exactly one `origin` signature with `debsigs`, and finally requires `debsig-verify` to accept the signed DEB through the
+published policy and public key. Merely finding an `_gpg*` archive member is classified as identified but unverified
+and cannot pass the release gate.
 
 Run the same protected contract on an already prepared Ubuntu host only when the signing key, temporary policy, and
 public keyring have been configured outside the repository:

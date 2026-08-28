@@ -3,6 +3,8 @@ node_modules
 /build
 /.svelte-kit
 /package
+/bottie-linux-signing-private.asc
+/signing_key.pem
 /src-tauri/target
 /src-tauri/gen/schemas
 .env

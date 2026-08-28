@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!DOCTYPE Policy SYSTEM "https://www.debian.org/debsig/1.0/policy.dtd">
+<Policy xmlns="https://www.debian.org/debsig/1.0/">
+  <Origin
+    Name="Bottie"
+    id="5C1D104ACE472474CE21070B065CFE6D5D9FD8A4"
+    Description="Bottie Linux distribution"
+  />
+  <Selection>
+    <Required
+      Type="origin"
+      File="bottie.gpg"
+      id="5C1D104ACE472474CE21070B065CFE6D5D9FD8A4"
+    />
+  </Selection>
+  <Verification MinOptional="0">
+    <Required
+      Type="origin"
+      File="bottie.gpg"
+      id="5C1D104ACE472474CE21070B065CFE6D5D9FD8A4"
+    />
+  </Verification>
+</Policy>

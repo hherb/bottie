@@ -243,10 +243,10 @@ sources, a root MIT licence, and one generated distributable notice bundle. The 
 upstream notices are hash-bound, while the six-file EmbeddingGemma snapshot is revision- and hash-pinned before native
 loading. Package evidence requires exact copies of the project licence, third-party notices, and model notice.
 The release owner has explicitly accepted the reviewed Gemma terms, and the current macOS 0.9.0 bundle has passed
-Developer ID signing, Apple notarization, ticket stapling/validation, and Gatekeeper assessment. Distribution remains
-blocked on Microsoft certification/publication of the already submitted reviewed Store MSIX and current credentialed
-Linux signature evidence; fresh 0.9.0 packages, inspection, and isolated smoke evidence now pass. The
-keyboard-shortcut slice is now complete:
+Developer ID signing, Apple notarization, ticket stapling/validation, and Gatekeeper assessment. Current credentialed
+Linux distribution-signature evidence now passes at `c5c26d2` in workflow run `33150663200`. Distribution remains
+blocked on Microsoft certification/publication of the already submitted reviewed Store MSIX; fresh 0.9.0 packages,
+inspection, and isolated smoke evidence pass. The keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -312,7 +312,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current release-engineering slice is
-on local branch `codex/linux-distribution-signing`.
+on local branch `codex/linux-distribution-evidence`.
 
 ## Current implementation
 
@@ -886,20 +886,85 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded release slice: current Linux distribution-signature evidence
+## Next bounded release slice: Microsoft Store certification and publication evidence
 
-After explicit authorization for GitHub-hosted runner/source egress and only after the protected
-`linux-distribution` environment has its existing private-key and passphrase secrets configured, manually dispatch
-`Linux distribution validation` from the exact reviewed commit. Require the locked Ubuntu 24.04 product package,
-independent payload inspection, distinct-identity smoke, exactly one embedded OpenPGP `origin` signature, and a passing
-`debsig-verify` policy/keyring check. Review the retained path-free evidence before installing it under ignored
-`/package`; do not retain key identity, private material, passphrase, runner paths, or raw GnuPG output.
+After explicit authorization for Partner Center access, confirm the current certification/publication state of the
+already submitted exact Store package. Record only bounded status and public listing evidence. Do not create or replace
+a submission, alter listing/package/reservation state, enable publication, or treat the existing MakeAppx/WACK pass as
+Microsoft certification without separate authorization and visible Partner Center proof.
 
-Do not bundle Microsoft approval polling, Store publication evidence, signed update delivery, a tag/release, public
-artifact publication, repository-held keys, or runtime product changes. Source contracts and unsigned package smoke do
-not count as current signing evidence.
+## Most recently completed release-engineering slice: current Linux distribution-signature evidence
 
-## Most recently completed release-engineering slice: protected Linux distribution-signing contract
+Authorized workflow run `33150663200` completed from exact source
+`c5c26d2b0234d01ebe030b1827f587ad7effdfa3` in 14 minutes 37 seconds. The locked Ubuntu 24.04 product build, independent
+payload inspection, distinct-identity smoke, protected-key preparation, fixed SHA-256 origin signing, exact embedded
+signature verification, published `debsig` policy verification, bounded evidence upload, and unconditional cleanup all
+passed. The preceding credential-free integration also passed against the runner's real `debsigs`, GnuPG, `gpgv`, and
+`debsig-verify` before any protected material was accessed.
+
+The previous protected runs established key import, passphrase-backed signing, signature-member insertion, and
+temporary policy/keyring selection, but `debsig-verify` returned status 13. Run `32953099601` additionally established
+that legacy `debsigs` and Bottie's explicit reconstruction supplied the same verifier-order payload, and that `gpgv`
+accepted the detached signature before embedding. Run `32964969246` proved that the published OpenPGP certificate in a
+conventional binary `.gpg` keyring also passes stock GnuPG's exact keyring invocation. Run `33048169287` at `3c01c17`
+then proved the exact embedded bytes equal the signer output but failed at the hardened stock-GnuPG check before
+`debsig-verify`; no evidence was uploaded.
+
+A credential-free reproduction now explains that result: default detached signing uses SHA-256, but the legacy
+`debsigs` 0.1.26 `--openpgp` argument selects SHA-1. `gpgv` accepts that signature, while Bottie's intentional
+`--weak-digest SHA1` verification rejects it. The protected signature was not retained, so this is a high-confidence
+inference rather than packet evidence recovered from the failed artifact.
+
+Source `2e8586f` validates the exact four legacy arguments before reading protected inputs, discards them, reconstructs
+a bounded `--no-options` SHA-256 signing command, and fails unless the packet digest identifier is 8. The exact
+embedded-signature GnuPG check and `debsig-verify` use a dedicated clean verification home. It also added a
+credential-free Ubuntu integration that generates an ephemeral key and DEB, exercises real `debsigs`, GnuPG, `gpgv`,
+and `debsig-verify`, and tests both SHA-256 success and SHA-1 rejection.
+
+Authorized run `33066322605` at `2e8586f` did not reach the protected signing ceremony. Eleven dependency-free package
+contracts and fifteen focused source tests passed, then `package:linux:distribution:test:integration` failed with its
+single bounded generic line. The unsigned product build, protected-key preparation, protected signing, independent
+verification, and evidence upload were skipped; cleanup passed. This result therefore neither confirms nor disproves
+the SHA-256 correction with the protected Bottie key.
+
+The strongest source-level explanation was the integration fixture's unpinned compression: Ubuntu 24.04 defaults
+`dpkg-deb` to zstd, but Bottie's bounded canonical selector and legacy `debsigs` 0.1.26 accept the fixture's XZ form,
+not `control.tar.zst`/`data.tar.zst`. Source `c5c26d2` forces `-Zxz`, asserts the exact unsigned archive members,
+and retains an allowlisted stage label on future integration failure without retaining raw command output, identities,
+or paths. The two Linux workflows also move to the current Node-24 action runtimes (`checkout@v6`, `setup-node@v6`, and
+`upload-artifact@v7`) while keeping Node 22 for Bottie's own commands. The deprecation warning in run `33066322605` was
+not causal: action setup and all preceding Node checks completed successfully. Run `33150663200` emitted no Node-20
+action-runtime deprecation warning.
+
+TDD for this follow-up first failed on the absent XZ fixture contract, bounded stage contract, and current action
+majors. Twelve focused signing tests pass locally, and run `33150663200` supplies the real Ubuntu and protected-key
+proof. The full failure chronology is in `docs/debia_packlage_failure.md`.
+
+Local validation passes twelve focused signing tests plus five release-candidate tests, eleven dependency-free Linux
+package contracts, both Linux workflow lints, Node syntax checks, shell syntax and ShellCheck, policy XML validation,
+the dependency and release-asset inventories, formatting, Svelte diagnostics with zero errors or warnings, 42 frontend
+test files with 168 passing tests and three opt-in tests skipped, and the production build. Cargo formatting and
+compilation pass; 398 Rust tests pass and 31 loopback, public-network, credential, live-provider, or performance tests
+remain ignored. Doc tests pass with zero cases. The only local Node diagnostic was the existing non-failing
+`DEP0205 module.register()` warning.
+
+The reviewed artifact `bottie-linux-distribution-evidence` (`9677902664`) is a 1,524-byte archive with artifact digest
+`sha256:297fc666800a91393b56e56219f07e5152446aff9b61544f5b3f6646c2580bc4`. Its installed, ignored evidence records
+Bottie `0.9.0`, amd64, a 22,879,288-byte installer with SHA-256
+`e9ba241d23fbbe2c6a54b279ed2746a986f18657fd4dbc317ab9c3b25a48d960`, and
+`signature={classification: identified, verifies: true}`. It contains no host path, signing identity, fingerprint, key
+ID, passphrase, or secret. `npm run release:candidate` now passes both Linux gates in this isolated worktree and remains
+blocked only by the deliberately absent model-terms, macOS, and Windows evidence.
+
+The evidence schema does not embed its Git commit or workflow-run provenance, so retain the exact run URL and source
+above alongside it; the normalized manifest alone cannot distinguish stale same-version evidence. The workflow removed
+the signed DEB and protected material and retained only JSON evidence. No signed package was published or retained.
+
+Do not bundle Microsoft approval polling, Store publication evidence, signed update delivery, a tag/release,
+signed-package publication, repository-held private keys, or runtime product changes. Source contracts and unsigned
+package smoke alone do not count as current signing evidence.
+
+## Prior completed release-engineering slice: protected Linux distribution-signing contract
 
 ### Goal
 
@@ -921,15 +986,16 @@ the release gate.
    importing one protected private key into runner-temporary storage. It creates a temporary public verification policy,
    uses a non-interactive passphrase wrapper only for signing, uploads only bounded evidence, and always removes key and
    package bytes.
-5. The dependency inventory binds the new security-sensitive signer module. README, release notes, roadmap, and this
-   handover distinguish the completed source contract from pending credentialed runner evidence.
+5. The dependency inventory binds the new security-sensitive signer module. At completion of that contract slice,
+   README, release notes, roadmap, and this handover distinguished the completed source contract from then-pending
+   credentialed runner evidence.
 
 ### Explicit exclusions
 
-No protected workflow was dispatched, signing credential configured or accessed, DEB signed, signed package retained
-or published, Microsoft approval polled, Store evidence added, updater configured, tag/release published, or runtime
-product behavior changed. The release-candidate gate must remain closed without real verified Linux evidence and
-matching Microsoft publication evidence.
+During that contract slice, no protected workflow was dispatched, signing credential configured or accessed, DEB
+signed, signed package retained or published, Microsoft approval polled, Store evidence added, updater configured,
+tag/release published, or runtime product behavior changed. At that point the release-candidate gate correctly
+remained closed without real verified Linux evidence and matching Microsoft publication evidence.
 
 ### Verification completed
 
@@ -943,10 +1009,10 @@ for the manual workflow, and the regenerated dependency inventory matches the lo
 skipped), and `npm run build` pass. Cargo formatting and compilation pass. The Rust suite has 429 tests: 398 pass by
 default and 31 loopback, public-network, credential, live-provider, or performance tests remain ignored; doc tests pass
 with zero cases. No browser or native-app review was required because this slice changes only release tooling and
-documentation. The protected workflow was deliberately not dispatched, so no credentialed Linux signature evidence
-is claimed.
+documentation. During that slice the protected workflow was deliberately not dispatched, so it claimed no
+credentialed Linux signature evidence; run `33150663200` above supersedes that historical limitation.
 
-## Most recently completed release-engineering slice: current Windows Store MSIX runner evidence
+## Prior completed release-engineering slice: current Windows Store MSIX runner evidence
 
 ### Goal
 
