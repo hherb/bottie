@@ -8,13 +8,17 @@ import {
 
 const SHA_A = "a".repeat(64);
 const SHA_B = "b".repeat(64);
-const SIGNATURE_A = `untrusted comment: signature from minisign secret key
+const RAW_SIGNATURE_A = `untrusted comment: signature from minisign secret key
 RWQf6LRCGA9i59SLOFxz6NxvASXDJeRtuZykwQepbDEGt87ig1BNpWaVWuNrm73YiIiJbq71Wi+dP9eKL8OC351vwIasSSbXxwA=
 trusted comment: timestamp:1555779966\tfile:bottie
 QtKMXWyYcwdpZAlPF7tE2ENJkRd1ujvKjlj1m9RtHTBnZPa5WKU5uWRs5GoP5M/VqE81QFuMKI5k/SfNQUaOAA==`;
-const SIGNATURE_B = SIGNATURE_A.replace("59SL", "58SL");
-const PUBLIC_KEY = `untrusted comment: minisign public key E7620F1842B4E81F
-RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3`;
+const SIGNATURE_A = Buffer.from(RAW_SIGNATURE_A).toString("base64");
+const SIGNATURE_B = Buffer.from(RAW_SIGNATURE_A.replace("59SL", "58SL")).toString("base64");
+const PUBLIC_KEY = Buffer.from(
+  `untrusted comment: minisign public key: E7620F1842B4E81F
+RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3
+`,
+).toString("base64");
 
 const ARTIFACTS = [
   {
@@ -84,7 +88,7 @@ describe("signed update delivery", () => {
     expect(() =>
       buildStaticUpdateManifest({
         ...input,
-        artifacts: [{ ...ARTIFACTS[0], signature: "R".repeat(64) }],
+        artifacts: [{ ...ARTIFACTS[0], signature: Buffer.from("R".repeat(64)).toString("base64") }],
       }),
     ).toThrow(/minisign/);
   });

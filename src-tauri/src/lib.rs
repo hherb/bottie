@@ -25,6 +25,8 @@ mod tool_contract;
 mod tool_dispatch;
 mod tool_loop;
 mod tool_policy;
+#[cfg(desktop)]
+mod updater;
 mod web_fetch;
 mod web_policy;
 pub mod web_search;
@@ -44,6 +46,8 @@ mod tool_dispatch_tests;
 mod tool_loop_tests;
 #[cfg(test)]
 mod tool_policy_tests;
+#[cfg(test)]
+mod updater_tests;
 #[cfg(test)]
 mod web_policy_tests;
 
@@ -465,6 +469,12 @@ pub fn run() {
         })
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            #[cfg(desktop)]
+            {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+                app.manage(updater::UpdaterState::default());
+            }
             let settings_path = app.path().app_config_dir()?.join("providers.json");
             let localmail_config_path = app.path().app_config_dir()?.join("localmail.json");
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
@@ -581,7 +591,13 @@ pub fn run() {
             forget_conversation,
             discover_models,
             start_chat,
-            cancel_chat
+            cancel_chat,
+            #[cfg(desktop)]
+            updater::check_for_update,
+            #[cfg(desktop)]
+            updater::install_update,
+            #[cfg(desktop)]
+            updater::cancel_update_operation
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

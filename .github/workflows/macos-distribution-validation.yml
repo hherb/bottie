@@ -59,6 +59,9 @@ jobs:
           echo "BOTTIE_APPLE_NOTARY_KEY_PATH=$NOTARY_KEY_PATH" >> "$GITHUB_ENV"
 
       - name: Sign, notarize, staple, and verify
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run package:macos:distribution
 
       - name: Upload identity-free evidence

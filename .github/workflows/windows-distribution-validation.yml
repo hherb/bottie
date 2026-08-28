@@ -51,6 +51,8 @@ jobs:
       - name: Sign, verify, inspect, and smoke-test Windows distribution
         env:
           BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run package:windows:distribution
 
       - name: Upload identity-free evidence

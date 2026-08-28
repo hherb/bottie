@@ -5,10 +5,11 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { inspectBundleFiles } from "./macos-package.mjs";
+import { inspectBundleFiles, macosUpdaterBuildArguments } from "./macos-package.mjs";
+import { signUpdaterArtifact } from "./updater-artifact.mjs";
 
 const DEVELOPER_ID_APPLICATION_PREFIX = "Developer ID Application:";
 const DEFAULT_BUNDLE_PATH = "src-tauri/target/release/bundle/macos/bottie.app";
@@ -16,6 +17,7 @@ const DEFAULT_EVIDENCE_PATH = "package/macos-distribution-evidence.json";
 const ENTITLEMENTS_PATH = "src-tauri/Entitlements.plist";
 const NOTARIZATION_ARCHIVE_PATH = "package/macos/bottie-notarization.zip";
 const NOTARIZATION_TIMEOUT = "30m";
+const UPDATER_ARCHIVE_PATH = "src-tauri/target/release/bundle/macos/bottie.app.tar.gz";
 
 /** Selects one usable Developer ID Application identity without returning its certificate label. */
 export function selectDeveloperIdApplicationIdentity(output, requestedIdentity = "") {
@@ -114,6 +116,11 @@ export function staplerArguments(mode, bundlePath) {
   return ["stapler", mode, "-v", bundlePath];
 }
 
+/** Returns the final-app archive command used before production updater signing. */
+export function updaterArchiveArguments(bundlePath, archivePath) {
+  return ["-czf", archivePath, "-C", dirname(bundlePath), basename(bundlePath)];
+}
+
 /** Reduces Gatekeeper output to accepted notarized-Developer-ID evidence without identities or paths. */
 export function classifyGatekeeperAssessment(status, output) {
   const accepted = status === 0 && /source=Notarized Developer ID/i.test(output);
@@ -136,10 +143,10 @@ function runStructuredHostCommand(command, arguments_) {
 
 /** Builds the same locked unsigned application bundle used by local packaging. */
 function buildUnsignedBundle(repositoryRoot) {
-  const script = join(repositoryRoot, "scripts", "macos-package.mjs");
-  const result = spawnSync(process.execPath, [script, "--build"], {
+  const script = join(repositoryRoot, "scripts", "macos-development-signing.mjs");
+  const result = spawnSync(process.execPath, [script, "--tauri", ...macosUpdaterBuildArguments()], {
     cwd: repositoryRoot,
-    stdio: ["ignore", "ignore", "inherit"],
+    stdio: "inherit",
   });
   if (result.error || result.status !== 0) throw new Error("The locked unsigned macOS bundle build failed.");
 }
@@ -173,6 +180,14 @@ async function createNotarizationArchive(bundlePath, archivePath) {
   runHostCommand("ditto", ["-c", "-k", "--keepParent", bundlePath, archivePath]);
   const bytes = await readFile(archivePath);
   return { sha256: createHash("sha256").update(bytes).digest("hex"), size: bytes.length };
+}
+
+/** Recreates and signs the updater archive only after notarization and ticket stapling. */
+async function createUpdaterArchive(repositoryRoot, bundlePath, archivePath) {
+  await rm(archivePath, { force: true });
+  await rm(`${archivePath}.sig`, { force: true });
+  runHostCommand("tar", updaterArchiveArguments(bundlePath, archivePath));
+  await signUpdaterArtifact(repositoryRoot, archivePath);
 }
 
 /** Submits the archive, staples its ticket, and verifies the final Gatekeeper decision. */
@@ -240,6 +255,7 @@ async function runDistribution(repositoryRoot) {
   try {
     const archive = await createNotarizationArchive(bundlePath, archivePath);
     const notarization = notarizeAndVerify(bundlePath, archivePath, authenticationArguments);
+    await createUpdaterArchive(repositoryRoot, bundlePath, resolve(repositoryRoot, UPDATER_ARCHIVE_PATH));
     const evidence = await createDistributionEvidence(bundlePath, entitlementsPath, archive, notarization);
     await mkdir(dirname(evidencePath), { recursive: true });
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });

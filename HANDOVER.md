@@ -245,8 +245,8 @@ loading. Package evidence requires exact copies of the project licence, third-pa
 The release owner has explicitly accepted the reviewed Gemma terms, and the current macOS 0.9.0 bundle has passed
 Developer ID signing, Apple notarization, ticket stapling/validation, and Gatekeeper assessment. Current credentialed
 Linux distribution-signature evidence now passes at `c5c26d2` in workflow run `33150663200`. Microsoft rejected the
-Store submission because its screenshots showed Bottie on macOS rather than Windows. Store work is postponed until
-current Windows screenshots can be captured; the rejected submission is neither certification nor publication
+Store submission because its screenshots showed Bottie on macOS rather than Windows. Store work is deferred until
+further notice from the release owner; the rejected submission is neither certification nor publication
 evidence. Fresh 0.9.0 packages, inspection, and isolated smoke evidence pass. The keyboard-shortcut slice is now
 complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
@@ -888,20 +888,66 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded release slice: production updater trust bootstrap
+## Next bounded release slice: protected updater artifact evidence
 
-After explicit authorization to create a production updater credential, generate one password-protected Tauri updater
-key outside the repository, establish a separately recoverable backup, and commit only its public half. Add the locked
-desktop updater dependency and Rust-owned, user-controlled check/install boundary against Bottie's fixed HTTPS GitHub
-`latest.json` endpoint. Enable Tauri v2 updater artifacts only for the protected distribution path, test invalid
-signature, no-update, timeout, cancellation, downgrade, and path-free error behavior, and keep all updater bytes,
-signatures, URLs, and private-key material out of WebView IPC.
+After explicit authorization for GitHub protected-environment secret configuration and hosted-runner/source egress,
+configure the already referenced updater signing credential, rebuild each supported distribution artifact from exact
+current source, and retain bounded evidence that the final notarized, Authenticode-signed, or embedded-OpenPGP-signed
+artifact also has a valid Tauri updater signature bound to its exact final bytes and SHA-256. Keep the private key and
+password outside source, logs, command arguments, artifacts, and retained evidence.
 
-Do not create a tag or GitHub Release, publish `latest.json` or release assets, dispatch a credentialed workflow, poll
-Partner Center, create replacement Store submission state, or claim Windows certification. Microsoft Store work stays
-postponed until Bottie can capture current Windows screenshots.
+Do not create a tag or GitHub Release, upload release assets, publish `latest.json`, enable automatic update checks,
+poll Partner Center, create replacement Store submission state, or claim Windows certification. Microsoft Store work
+remains deferred until the release owner gives further notice.
 
-## Most recently completed release-engineering slice: credential-free signed update delivery contract
+## Most recently completed release-engineering slice: production updater trust bootstrap
+
+### Goal
+
+Establish Bottie's production updater trust root and a narrow, user-controlled native check/install path without
+publishing an update, configuring hosted secrets, dispatching a protected workflow, or changing Microsoft Store state.
+
+### Implemented shape
+
+1. The release owner explicitly authorized creation of a password-protected production Tauri updater key. A first
+   locally exposed password/key pair was immediately rotated before either half entered source or distribution. The
+   replacement encrypted private key is outside the repository with a byte-identical separately recoverable backup;
+   its password is in macOS Keychain. Only the replacement public key and its documented SHA-256 are committed.
+2. The exact locked desktop updater plugin is initialized with a non-networking empty base configuration. Rust alone
+   supplies the embedded public key and fixed HTTPS GitHub `latest.json` endpoint, enforces a 15-second deadline and
+   strict SemVer upgrades, rechecks the reviewed version before install, and exposes only bounded path-free status,
+   version, optional link-free notes, and cancellation state to the WebView. No updater capability or JavaScript
+   updater dependency exists.
+3. Settings provides explicit Check for updates, Install update, and Cancel actions. Browser preview disables the
+   native action. The disclosure states that checks contact GitHub only when requested and that authenticity is
+   verified before installation.
+4. Protected macOS, Windows, and Linux distribution paths reference updater secrets but are not configured or
+   dispatched. They create updater artifacts only in the protected overlay and Tauri-sign the exact final bytes after
+   platform signing/notarization, Authenticode verification, or embedded OpenPGP/debsig verification respectively.
+5. The signed-update delivery contract now models Tauri's actual canonical base64 minisign public-key and `.sig`
+   files. It validates decoded structure while hashing and publishing the exact encoded bytes.
+
+### Acceptance, verification, and exclusions
+
+Focused Rust tests cover no-update, strict upgrade/downgrade behavior, invalid-signature and timeout redaction,
+cancellation, and bounded URL-free notes. Source contracts cover native-only configuration, generated public-key
+shape, protected credential boundaries, exact final-byte signing order on all platforms, and canonical update-manifest
+inputs. Prettier, Svelte diagnostics, the production build, Cargo formatting and compilation, the full frontend and
+Rust suites, dependency inventory, third-party notices, workflow YAML parsing, and the focused updater contracts pass.
+`npm run release:candidate` remains blocked by the expected current-source `macos-distribution`, `windows-package`,
+`windows-distribution`, `linux-package`, and `linux-distribution` evidence gates; no stale package evidence was treated
+as proof for this changed source.
+
+The Settings surface was visually reviewed at 1320 x 820 and the 720 x 620 native minimum. It remains contained with
+no horizontal document overflow or browser-console warning/error; browser preview correctly disables Check. The
+native development app compiled, development-signed, initialized the updater plugin, and remained running without a
+startup error. The slice adds no schema or live-store mutation.
+
+No hosted secret was configured, workflow dispatched, updater artifact built with the production credential, live
+manifest fetched, update downloaded or installed, tag or GitHub Release created, asset or `latest.json` published, or
+Store state inspected or changed. The protected artifact sequence remains source-tested rather than runner-proven.
+
+## Prior completed release-engineering slice: credential-free signed update delivery contract
 
 ### Goal
 
@@ -926,8 +972,8 @@ updater key, runtime update client, signed updater artifact, tag, release, uploa
    key and password must stay outside the repository and be recoverably backed up before its public half is embedded;
    loss prevents future updates for installed builds, while disclosure breaks their trust boundary.
 5. The stale Store status is reconciled with the release owner's current report: Microsoft rejected screenshots that
-   showed macOS rather than Windows. Certification/publication is postponed until current Windows screenshots are
-   available, and the rejected submission does not satisfy any release gate.
+   showed macOS rather than Windows. Certification/publication remains deferred until further release-owner notice,
+   and the rejected submission does not satisfy any release gate.
 
 ### Acceptance, verification, and exclusions
 

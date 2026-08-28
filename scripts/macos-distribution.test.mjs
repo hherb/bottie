@@ -12,8 +12,10 @@ import {
   resolveNotaryAuthentication,
   selectDeveloperIdApplicationIdentity,
   staplerArguments,
+  updaterArchiveArguments,
 } from "./macos-distribution.mjs";
 import { inspectBundleFiles } from "./macos-package.mjs";
+import { macosUpdaterBuildArguments } from "./macos-package.mjs";
 
 const IDENTITIES = `
   1) AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA "Apple Development: Example One (TEAMONE)"
@@ -22,6 +24,31 @@ const IDENTITIES = `
 `;
 
 describe("macOS distribution signing and notarization", () => {
+  it("creates updater artifacts only in the protected distribution build", () => {
+    expect(macosUpdaterBuildArguments()).toContain("src-tauri/tauri.updater.conf.json");
+    expect(updaterArchiveArguments("/bundle/bottie.app", "/bundle/bottie.app.tar.gz")).toEqual([
+      "-czf",
+      "/bundle/bottie.app.tar.gz",
+      "-C",
+      "/bundle",
+      "bottie.app",
+    ]);
+  });
+
+  it("keeps production updater signing in the same protected manual environment", async () => {
+    const workflow = await readFile(
+      new URL("../.github/workflows/macos-distribution-validation.yml", import.meta.url),
+      "utf8",
+    );
+
+    expect(workflow).toContain("environment: macos-distribution");
+    expect(workflow).toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY");
+    expect(workflow).toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD");
+    const signingStep = workflow.indexOf("- name: Sign, notarize, staple, and verify");
+    expect(workflow.slice(0, signingStep)).not.toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY");
+    expect(workflow).not.toMatch(/push:|pull_request:|release:/);
+  });
+
   it("selects only a Developer ID Application identity and never returns its label", () => {
     expect(selectDeveloperIdApplicationIdentity(IDENTITIES)).toBe("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB");
     expect(() => selectDeveloperIdApplicationIdentity("0 valid identities found")).toThrow(/Developer ID Application/);

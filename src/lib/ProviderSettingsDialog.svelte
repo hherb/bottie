@@ -5,6 +5,7 @@
   import AppearancePreferences from "$lib/AppearancePreferences.svelte";
   import Icon from "$lib/Icon.svelte";
   import MemoryIndexControl from "$lib/MemoryIndexControl.svelte";
+  import UpdateControl from "$lib/UpdateControl.svelte";
   import LocalmailSettingsControl from "$lib/LocalmailSettingsControl.svelte";
   import ConversationRetentionControl from "$lib/ConversationRetentionControl.svelte";
   import WebNetworkPolicyControl from "$lib/WebNetworkPolicyControl.svelte";
@@ -442,6 +443,7 @@
       <MemoryIndexControl disabled={isGenerating || settingsSaving} />
 
       <ConversationRetentionControl disabled={isGenerating || settingsSaving} />
+      <UpdateControl />
 
       <section class="diagnostics" aria-label="Recent native diagnostics">
         <div class="diagnostics-heading">

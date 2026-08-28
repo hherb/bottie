@@ -37,6 +37,21 @@ export function macosBuildArguments() {
   return ["build", "--bundles", "app", "--no-sign", "--ci", "--", "--locked"];
 }
 
+/** Returns the protected distribution build that alone creates Tauri v2 updater artifacts. */
+export function macosUpdaterBuildArguments() {
+  return [
+    "build",
+    "--bundles",
+    "app",
+    "--no-sign",
+    "--ci",
+    "--config",
+    "src-tauri/tauri.updater.conf.json",
+    "--",
+    "--locked",
+  ];
+}
+
 /** Returns a locked build that isolates smoke storage under a distinct application identity. */
 export function macosSmokeBuildArguments() {
   const config = JSON.stringify({ identifier: SMOKE_IDENTIFIER, productName: SMOKE_PRODUCT_NAME });

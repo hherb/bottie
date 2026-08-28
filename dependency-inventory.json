@@ -8,45 +8,53 @@
       "x86_64-pc-windows-msvc",
       "x86_64-unknown-linux-gnu"
     ],
-    "rustLockPackages": 649,
+    "rustLockPackages": 660,
     "npmLockPackages": 157,
     "limitation": "Rust entries are the union of locked macOS arm64/x64, Windows x64, and Linux x64 normal and build graphs. The Cargo.lock count remains a conservative superset for architectures outside those four reviewed targets."
   },
   "inputs": {
     "package.json": "83c186c3ce731e88ad32cd2a0211c638b2ca5e2f0611a8b1e32a713c71abf953",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
-    "src-tauri/Cargo.toml": "f73bd494384f4493e954418621ba56c2bccc690856de39f9f8345ba79f3d7d64",
-    "src-tauri/Cargo.lock": "0225b11ac04aac1d44b944de6bc5ff61e9b30445a4522ed3ac1608befac97bbf",
-    "src-tauri/tauri.conf.json": "765d41df7220cd87803d043e690ac992a3d051a58b8b46c3e187bf3812060764",
+    "src-tauri/Cargo.toml": "859f4e279ab24114234256a614fc1836e407d55e701302cb03ce8bfe4542ac50",
+    "src-tauri/Cargo.lock": "5e0d2c2f2325c26d939e039a83534322a63fc0baac4a0a4e8a5024b37cd64a49",
+    "src-tauri/tauri.conf.json": "6b4e00f0d589e64b8f59ebcb2cbaa8de84a302cc5fd3fd071bf43f3e659320bb",
+    "src-tauri/tauri.updater.conf.json": "c1d7d16c801bc2b87747d5b0a71f8fae927122e4897453eea23e51e98b191e33",
     "src-tauri/src/semantic_indexer.rs": "37cc38d5ac94f3556fde8a18a6a6b0e5b69fccc6ed32128e23c1d8688ed339ec",
-    "scripts/dependency-inventory.mjs": "094d18a1338d8bc4db47c25dec6985e11ab73e282c9a315394920a5b98d6013c",
+    "src-tauri/src/updater.rs": "d5eaae60314be6be41c7da88544d90d4a537bc23f6ed8c8d0a9c0c76aa5bddd5",
+    "scripts/dependency-inventory.mjs": "6b5d4d1d40c614a39a76bac99071d939a67c989e406ed4b83d341af1d8b150b6",
     "scripts/application-icons.mjs": "1307b7f746a9ef9f6920739934fd8a4aea6886f3d735e58dc0c5c016fb8ee275",
     "scripts/release-candidate.mjs": "03e54bb19a1b8901ab8e95046f160b5ae812ed59dba5126bc1ae97a3699365f2",
     "scripts/release-candidate-runtime.mjs": "bab0720610eeb980a85a151d10078b919ca7c261fec1f1f111108ba6a60b21aa",
     "scripts/release-assets.mjs": "012f36ccc07a1778a54a5fffd7a5bef4826a434d1c2f87cedf160d5d289d625b",
-    "scripts/update-delivery.mjs": "691ee7af9e2b13cb49483d3a79ac0052a449d5b1ce32fe012c2e23e673e774e1",
+    "scripts/update-delivery.mjs": "045ea89af32a33c511d204574e5e034d92b8a0c9da0cfeda6f49d0447d19f0d3",
+    "scripts/updater-artifact.mjs": "12f06b84659829e34168bfc811df1d2a527142457c52433f27e2e2246087037e",
     "scripts/third-party-notices.mjs": "a0a8916c36f0c8eb951a79c9438d9db47ae546e319050b4a0d621dcfcaa9b375",
-    "scripts/macos-package.mjs": "43abb9566e69a98245d5cc1efcf33062ae4302e5c2c2b96fe8e9881283e5c90f",
+    "scripts/macos-package.mjs": "c1b4951e676662cc548f1925507ca693cdcf2a3976f33346411dee857f3c1781",
+    "scripts/macos-distribution.mjs": "a13e94638a4985343abe83066d6cf4613c7027b0d74d97bf1a7b6262dde58565",
     "scripts/windows-package.mjs": "0f614dac9be5b0c443426e5cd48d9988701467fc19fec1d0e5156ae4e439aea0",
     "scripts/windows-signature.mjs": "1247e1a276635865bd6eb8a16d8e2e4f90df03e83a8a31d03ee0d5f6387f7d96",
-    "scripts/windows-distribution.mjs": "ae9bf24a16a585410ba12b475268d385a8a487120f95fb02c1563c09150ae86b",
+    "scripts/windows-distribution.mjs": "5007b2e73dbb80e2694a4b14200d6e36bacbb11467fbb53718491c8e132218db",
     "scripts/windows-store.mjs": "66a4ec5fca1d6c50608be1ee6a8cbd718af83f9e1e7501289857c9cabcffd63f",
     "scripts/linux-package.mjs": "460d5ee04d8a4865e887b089393cee7bcc44d958b16e18858a7a2cca0f8c41a6",
-    "scripts/linux-distribution.mjs": "ab4bd0ef214a0948a32d3d978f226c18fbbd77c1908539481c3513318ff2b697",
+    "scripts/linux-distribution.mjs": "793352ea98fb48183491080bb7759d5fcb79b1fca6c54785a5adaac3ceb41374",
     "scripts/linux-distribution-integration-contract.mjs": "51d55c78e4237a23aceccb6a56166326161eb649b92349cd320fa7bef4438607",
     "scripts/linux-distribution.integration.mjs": "32125f07286eefbdf0339411aa4cd7c37202b4675c902ed1d61f9b84f3055979",
     "scripts/linux-debsigs-gpg-wrapper.sh": "8cc2a665a2646e355bef7bdc3fe1de199b71c41d04bd09514c7917f6f0bd539f",
     "scripts/linux-signature.mjs": "88af11881e5bf27aa8d496aa86a2d4db32946dc1832e562e5d0f64d97dcc330f",
     "distribution/linux/bottie-linux-signing-public.asc": "ce1c2d119a2c69c8f0725f1ef635ca049c4642e49c9ad395fc54a96bb9c92b89",
     "distribution/linux/bottie.pol": "e16fc920f2d6875e72c5232fe4992678f5ad5ff0ad61016970055031414da241",
-    "distribution/update/README.md": "8559e68001002678f7ce8dd621d20ec25682661f4347f7ad48df8bb7f2e66d6c",
+    "distribution/update/README.md": "eb53aaf19339a1eeac2dcaf4115f0dac818eced39188c7fcffcb5c2f938d045b",
+    "distribution/update/bottie-updater.pub": "fd4adf69a4bea10958a0f63f0658083fa29bfad10c48c792877dcdcdb8c6355c",
+    ".github/workflows/macos-distribution-validation.yml": "41ea99f21a5e10d6f6b51aac5695f88213e0626ee8a98f070f98d46e45cd6c0b",
+    ".github/workflows/windows-distribution-validation.yml": "0db2ce3841a2fef740d2b23f1bd81df7fb763941c276029105f1a75077ab2119",
+    ".github/workflows/linux-distribution-validation.yml": "77ac5573e6a29a62129a3dc875605e51e3ca76269e4347f7b5ad6d3a83747674",
     "LICENSE": "6f78c7d9d21c1432be2769ec843d045e00a87cf94c90c0cf325b932628772884",
     "MODEL-NOTICE.txt": "d4e49f201ce441098703da8d449a00462bbdcd946a12c1d75f89231a9da2130e",
-    "THIRD-PARTY-NOTICES.txt": "04b8afa05729cb61963c8205d8bda9eac234abff3136de926be59f1bbcd70463",
+    "THIRD-PARTY-NOTICES.txt": "aed4002768e14950346df3622e0dc1889148b4e01932c682605ead0c15cb6b54",
     "runtime-assets.json": "7644b8c67b37410ec720d6d5f58ec211a50021daa5f2aab14434533ccf227ddb",
     "third-party/onnxruntime-1.28.0/LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
-    "third-party/package-licence-texts.json": "919c82a280f4a340a07ae73e7f833cf33a25007cd14044d4bd55486feb0a495f",
+    "third-party/package-licence-texts.json": "5dae8e29a12f9b9be47aa819c731814b83bda56da008716d23c8a64897989dcf",
     "third-party/spdx-3.28.0/exceptions/LLVM-exception.txt": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e",
     "third-party/spdx-3.28.0/licenses/Apache-2.0.txt": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
     "third-party/spdx-3.28.0/licenses/BSD-2-Clause.txt": "017b5ee48f680e82cba79141c7895a1f02b856df2512225f5c427fe36765ef0b",
@@ -186,7 +194,7 @@
   ],
   "summary": {
     "compatible": 12,
-    "notice-required": 682,
+    "notice-required": 691,
     "unknown": 0,
     "review-required": 0
   },
@@ -2528,6 +2536,21 @@
       "source": "https://crates.io/crates/field-offset/0.3.6"
     },
     {
+      "name": "filetime",
+      "version": "0.2.29",
+      "licence": "MIT/Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/filetime/0.2.29"
+    },
+    {
       "name": "find-msvc-tools",
       "version": "0.1.11",
       "licence": "MIT OR Apache-2.0",
@@ -4421,6 +4444,22 @@
       "source": "https://crates.io/crates/minimal-lexical/0.2.1"
     },
     {
+      "name": "minisign-verify",
+      "version": "0.2.5",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/minisign-verify/0.2.5"
+    },
+    {
       "name": "miniz_oxide",
       "version": "0.8.9",
       "licence": "MIT OR Zlib OR Apache-2.0",
@@ -4797,11 +4836,16 @@
         "NSButton",
         "NSCell",
         "NSColor",
+        "NSColorPanel",
         "NSControl",
+        "NSController",
         "NSDragging",
         "NSEvent",
         "NSGraphics",
         "NSImage",
+        "NSInputManager",
+        "NSKeyValueBinding",
+        "NSLayoutManager",
         "NSMenu",
         "NSMenuItem",
         "NSOpenGLView",
@@ -4815,7 +4859,12 @@
         "NSRunningApplication",
         "NSSavePanel",
         "NSScreen",
+        "NSSpellProtocol",
+        "NSText",
+        "NSTextContainer",
+        "NSTextContent",
         "NSTextFinder",
+        "NSTextInputClient",
         "NSTextView",
         "NSUserActivity",
         "NSUserInterfaceItemIdentification",
@@ -5134,6 +5183,30 @@
       "source": "https://crates.io/crates/objc2-local-authentication/0.3.2"
     },
     {
+      "name": "objc2-osa-kit",
+      "version": "0.3.2",
+      "licence": "Zlib OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "features": [
+        "OSALanguage",
+        "OSALanguageInstance",
+        "OSAScript",
+        "OSAScriptController",
+        "OSAScriptView",
+        "alloc",
+        "bitflags",
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/objc2-osa-kit/0.3.2"
+    },
+    {
       "name": "objc2-security",
       "version": "0.3.2",
       "licence": "Zlib OR Apache-2.0 OR MIT",
@@ -5350,6 +5423,25 @@
         "tls-rustls-no-provider"
       ],
       "source": "https://crates.io/crates/ort-sys/2.0.0-rc.13"
+    },
+    {
+      "name": "osakit",
+      "version": "0.3.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "features": [
+        "declare-script",
+        "full",
+        "stable",
+        "unstable"
+      ],
+      "source": "https://crates.io/crates/osakit/0.3.1"
     },
     {
       "name": "pango",
@@ -6225,6 +6317,7 @@
         "__tls",
         "json",
         "rustls",
+        "rustls-no-provider",
         "stream"
       ],
       "source": "https://crates.io/crates/reqwest/0.13.4"
@@ -6643,7 +6736,7 @@
       "version": "1.0.28",
       "licence": "MIT OR Apache-2.0",
       "classification": "notice-required",
-      "direct": false,
+      "direct": true,
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
@@ -7449,6 +7542,24 @@
       "source": "https://crates.io/crates/tao/0.35.3"
     },
     {
+      "name": "tar",
+      "version": "0.4.46",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "xattr"
+      ],
+      "source": "https://crates.io/crates/tar/0.4.46"
+    },
+    {
       "name": "target-lexicon",
       "version": "0.12.16",
       "licence": "Apache-2.0 WITH LLVM-exception",
@@ -7598,6 +7709,26 @@
       ],
       "features": [],
       "source": "https://crates.io/crates/tauri-plugin-fs/2.5.1"
+    },
+    {
+      "name": "tauri-plugin-updater",
+      "version": "2.10.1",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": true,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "rustls-tls",
+        "zip"
+      ],
+      "source": "https://crates.io/crates/tauri-plugin-updater/2.10.1"
     },
     {
       "name": "tauri-runtime",
@@ -7931,6 +8062,7 @@
         "fs",
         "io-util",
         "libc",
+        "macros",
         "mio",
         "net",
         "rt",
@@ -7938,9 +8070,26 @@
         "socket2",
         "sync",
         "time",
+        "tokio-macros",
         "windows-sys"
       ],
       "source": "https://crates.io/crates/tokio/1.53.1"
+    },
+    {
+      "name": "tokio-macros",
+      "version": "2.7.2",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/tokio-macros/2.7.2"
     },
     {
       "name": "tokio-rustls",
@@ -9568,6 +9717,24 @@
       "source": "https://crates.io/crates/x11-dl/2.21.0"
     },
     {
+      "name": "xattr",
+      "version": "1.6.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "unsupported"
+      ],
+      "source": "https://crates.io/crates/xattr/1.6.1"
+    },
+    {
       "name": "yoke",
       "version": "0.8.3",
       "licence": "Unicode-3.0",
@@ -9809,6 +9976,19 @@
       ],
       "features": [],
       "source": "https://crates.io/crates/zerovec-derive/0.11.5"
+    },
+    {
+      "name": "zip",
+      "version": "4.6.1",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/zip/4.6.1"
     },
     {
       "name": "zip",
