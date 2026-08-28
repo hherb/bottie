@@ -244,9 +244,11 @@ upstream notices are hash-bound, while the six-file EmbeddingGemma snapshot is r
 loading. Package evidence requires exact copies of the project licence, third-party notices, and model notice.
 The release owner has explicitly accepted the reviewed Gemma terms, and the current macOS 0.9.0 bundle has passed
 Developer ID signing, Apple notarization, ticket stapling/validation, and Gatekeeper assessment. Current credentialed
-Linux distribution-signature evidence now passes at `c5c26d2` in workflow run `33150663200`. Distribution remains
-blocked on Microsoft certification/publication of the already submitted reviewed Store MSIX; fresh 0.9.0 packages,
-inspection, and isolated smoke evidence pass. The keyboard-shortcut slice is now complete:
+Linux distribution-signature evidence now passes at `c5c26d2` in workflow run `33150663200`. Microsoft rejected the
+Store submission because its screenshots showed Bottie on macOS rather than Windows. Store work is postponed until
+current Windows screenshots can be captured; the rejected submission is neither certification nor publication
+evidence. Fresh 0.9.0 packages, inspection, and isolated smoke evidence pass. The keyboard-shortcut slice is now
+complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -886,14 +888,69 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded release slice: Microsoft Store certification and publication evidence
+## Next bounded release slice: production updater trust bootstrap
 
-After explicit authorization for Partner Center access, confirm the current certification/publication state of the
-already submitted exact Store package. Record only bounded status and public listing evidence. Do not create or replace
-a submission, alter listing/package/reservation state, enable publication, or treat the existing MakeAppx/WACK pass as
-Microsoft certification without separate authorization and visible Partner Center proof.
+After explicit authorization to create a production updater credential, generate one password-protected Tauri updater
+key outside the repository, establish a separately recoverable backup, and commit only its public half. Add the locked
+desktop updater dependency and Rust-owned, user-controlled check/install boundary against Bottie's fixed HTTPS GitHub
+`latest.json` endpoint. Enable Tauri v2 updater artifacts only for the protected distribution path, test invalid
+signature, no-update, timeout, cancellation, downgrade, and path-free error behavior, and keep all updater bytes,
+signatures, URLs, and private-key material out of WebView IPC.
 
-## Most recently completed release-engineering slice: current Linux distribution-signature evidence
+Do not create a tag or GitHub Release, publish `latest.json` or release assets, dispatch a credentialed workflow, poll
+Partner Center, create replacement Store submission state, or claim Windows certification. Microsoft Store work stays
+postponed until Bottie can capture current Windows screenshots.
+
+## Most recently completed release-engineering slice: credential-free signed update delivery contract
+
+### Goal
+
+Define Bottie's exact static Tauri updater-manifest and retained-publication-evidence boundary before any production
+updater key, runtime update client, signed updater artifact, tag, release, upload, or publication exists.
+
+### Implemented shape
+
+1. `scripts/update-delivery.mjs` accepts only numeric versions, bounded update notes and RFC 3339 publication time,
+   one exact signed artifact per supported desktop target, and immutable
+   `https://github.com/hherb/bottie/releases/download/v<version>/...` asset URLs. It rejects duplicate/unsupported
+   targets, mutable `latest` URLs, query/fragment/credential-bearing destinations, invalid artifact hashes, absent or
+   unbounded signatures, private-key markers, and path-shaped signing input.
+2. The pure builder emits Tauri's deterministic static manifest with sorted platform keys and exact inline signature
+   content. A separate reducer binds retained evidence to the canonical manifest SHA-256, public-key SHA-256, exact
+   target set, and artifact SHA-256 values while retaining no signature, public-key content, URL, filename, host path,
+   operator identity, or timestamp.
+3. Retained evidence accepts only schema 1 `published` state with internally consistent sorted target/artifact
+   bindings. Draft or altered evidence fails closed. `npm run update:contract:test` runs the focused credential-free
+   contract.
+4. `distribution/update/README.md` documents the production key ceremony and external-action boundary. The private
+   key and password must stay outside the repository and be recoverably backed up before its public half is embedded;
+   loss prevents future updates for installed builds, while disclosure breaks their trust boundary.
+5. The stale Store status is reconciled with the release owner's current report: Microsoft rejected screenshots that
+   showed macOS rather than Windows. Certification/publication is postponed until current Windows screenshots are
+   available, and the rejected submission does not satisfy any release gate.
+
+### Acceptance, verification, and exclusions
+
+TDD first failed because the update-delivery module was absent. Four focused tests now cover deterministic ordering,
+immutable exact-tag URLs, duplicate/unsupported target rejection, required signature content, path-free binding, and
+fail-closed altered or non-published evidence. The contract is included in the locked dependency inventory.
+
+The standard validation passes: Prettier; Svelte diagnostics with zero errors or warnings; 43 passing frontend test
+files with 172 tests, plus one file and three performance cases skipped; the production build; Cargo formatting and
+compilation; 398 Rust tests with 31 loopback, public-network, credential, live-provider, or performance tests ignored;
+and doc tests with zero cases. The focused update contract, dependency inventory, third-party notices, and runtime
+release-asset checks pass. The current ignored local evidence makes `npm run release:candidate` fail only the expected
+`windows-distribution` and `linux-distribution` gates: Store publication is absent and the locally installed Linux
+evidence is the older unsigned package record. The successful protected Linux evidence remains documented below and
+was not re-downloaded or substituted during this credential-free slice.
+
+No production updater key was created, read, stored, or backed up. No updater dependency, runtime network request,
+Tauri capability, application configuration, installer/updater artifact, signature, workflow, tag, GitHub Release,
+asset upload, `latest.json` publication, Microsoft submission, or Store state was created or changed. This source
+contract is not signed update delivery or publication evidence. Browser and native interaction checks are not
+applicable because the slice changes no rendered or runtime application behavior.
+
+## Prior completed release-engineering slice: current Linux distribution-signature evidence
 
 Authorized workflow run `33150663200` completed from exact source
 `c5c26d2b0234d01ebe030b1827f587ad7effdfa3` in 14 minutes 37 seconds. The locked Ubuntu 24.04 product build, independent

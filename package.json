@@ -34,6 +34,7 @@
     "package:linux:test": "node --test scripts/linux-package.contract.mjs",
     "package:linux:distribution": "node scripts/linux-distribution.mjs --run",
     "package:linux:distribution:test:integration": "node scripts/linux-distribution.integration.mjs",
+    "update:contract:test": "vitest run scripts/update-delivery.test.mjs --pool=forks --maxWorkers=1",
     "release:candidate": "node scripts/release-candidate.mjs --write",
     "format": "prettier --write \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",

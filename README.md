@@ -394,6 +394,18 @@ certification/publication, Linux distribution-signature, notarization, and Gatek
 upload, tag, or publish anything. An unsigned Store workflow artifact, unsigned Linux smoke package, or source test
 suite is intentionally insufficient for `ready: true`.
 
+The next outside-Store release boundary has a credential-free signed-update contract:
+
+```sh
+npm run update:contract:test
+```
+
+It validates deterministic Tauri static manifests, immutable version-tagged GitHub asset URLs, and path-free evidence
+bound to exact manifest, public-key, and artifact hashes. It does not create an updater key, configure runtime update
+networking, sign or upload an artifact, create a tag or GitHub Release, or publish `latest.json`. Those actions require
+a separately authorized, recoverable production-key ceremony and release workflow. See
+[`distribution/update/README.md`](distribution/update/README.md).
+
 The release owner must read the [Gemma Terms of Use](https://ai.google.dev/gemma/terms) before creating model-terms
 evidence. If and only if they accept the reviewed 1 April 2026 terms for this release, the exact acknowledgement is:
 
