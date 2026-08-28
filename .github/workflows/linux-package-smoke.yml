@@ -11,6 +11,7 @@ on:
       - "scripts/application-icons.mjs"
       - "scripts/application-icons.test.mjs"
       - "scripts/linux-debsigs-gpg-wrapper.sh"
+      - "scripts/linux-distribution-integration-contract.mjs"
       - "scripts/linux-distribution.integration.mjs"
       - "scripts/linux-distribution.mjs"
       - "scripts/linux-distribution.test.mjs"
@@ -38,10 +39,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Use Node 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -71,6 +72,7 @@ jobs:
           node --check scripts/linux-package.mjs
           node --check scripts/linux-package.contract.mjs
           node --check scripts/linux-distribution.mjs
+          node --check scripts/linux-distribution-integration-contract.mjs
           node --check scripts/linux-distribution.integration.mjs
           npm run package:linux:test
           npm test -- scripts/linux-distribution.test.mjs
@@ -80,7 +82,7 @@ jobs:
         run: dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke
 
       - name: Upload bounded package evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bottie-linux-package-smoke
           path: |

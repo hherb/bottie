@@ -1,38 +1,51 @@
 # Debian package distribution-signing failures
 
-- Status: source correction implemented; protected verification pending
-- Last updated: 27 August 2026
-- Latest protected source: `3c01c178aa4d323300b9f7a3430e19f53e7e2b2c`
-- Latest protected run: [33048169287](https://github.com/hherb/bottie/actions/runs/33048169287)
+- Status: source and runner-fixture corrections implemented; protected verification pending
+- Last updated: 28 August 2026
+- Latest dispatched source: `2e8586fb0b6d0301360d5d25ae3050084548f5af`
+- Latest workflow run: [33066322605](https://github.com/hherb/bottie/actions/runs/33066322605)
+- Latest run to reach protected signing: [33048169287](https://github.com/hherb/bottie/actions/runs/33048169287)
 
 ## Executive summary
 
-The protected Linux distribution workflow has failed nine times. The first two failures were secret-format problems:
-an invalid Base64 value, followed by an OpenSSL private-key PEM that was not an OpenPGP secret-key export. Those
-credential-shape problems are now resolved.
+The Linux distribution workflow has failed ten times. The first two failures were secret-format problems: an invalid
+Base64 value, followed by an OpenSSL private-key PEM that was not an OpenPGP secret-key export. Those credential-shape
+problems are now resolved.
 
-The following seven runs reached the signing path. Each successive source change removed one ambiguity. The latest run
-proves that the unsigned DEB build, inspection, isolated smoke test, protected OpenPGP key import, passphrase-backed
+The following seven runs reached the signing path. Each successive source change removed one ambiguity. The ninth run
+proved that the unsigned DEB build, inspection, isolated smoke test, protected OpenPGP key import, passphrase-backed
 signing, public/private key match, public keyring, canonical DEB payload, `_gpgorigin` insertion, and exact embedded
-signature bytes are all working. It then fails when the hardened stock-GnuPG check verifies that exact signature over
-that exact payload.
+signature bytes were all working. It then failed when the hardened stock-GnuPG check verified that exact signature
+over that exact payload.
 
-The most likely cause is now **SHA-1 selection caused by the legacy `debsigs` `--openpgp` signing argument**. Bottie's
-verification command deliberately treats SHA-1 as weak and rejects it. A credential-free reproduction proves that
-this exact argument changes the detached-signature digest from SHA-256 to SHA-1 and recreates the observed
-`gpgv`-passes/hardened-GnuPG-fails split. The failed protected signature itself was not retained, so the cause remains
-a high-confidence inference rather than a packet-level fact recovered from that artifact.
+The most likely cause of the protected signing failures through run 9 is **SHA-1 selection caused by the legacy
+`debsigs` `--openpgp` signing argument**. Bottie's verification command deliberately treats SHA-1 as weak and rejects
+it. A credential-free reproduction proves that this exact argument changes the detached-signature digest from SHA-256
+to SHA-1 and recreates the observed `gpgv`-passes/hardened-GnuPG-fails split. The failed protected signature itself was
+not retained, so the cause remains a high-confidence inference rather than a packet-level fact recovered from that
+artifact.
 
-The working correction no longer forwards the legacy GnuPG command. It accepts only the exact four arguments emitted
+Source `2e8586f` no longer forwards the legacy GnuPG command. It accepts only the exact four arguments emitted
 by `debsigs` 0.1.26, reconstructs a bounded signing command with SHA-256, checks the resulting packet digest identifier
 is 8, and independently verifies from a dedicated clean GnuPG home. It also adds a credential-free Ubuntu integration
-that exercises the real `debsigs`, GnuPG, `gpgv`, and `debsig-verify` toolchain with an ephemeral test key. A fresh
-protected run is still required before any Linux distribution evidence can be claimed.
+that exercises the real `debsigs`, GnuPG, `gpgv`, and `debsig-verify` toolchain with an ephemeral test key.
+
+Run 10 did **not** test that protected signing correction. Eleven package contracts and fifteen focused source tests
+passed, but the new credential-free integration failed before the product build, protected-key preparation, signing,
+verification, or evidence upload. Ubuntu 24.04's `dpkg-deb` defaults to zstd, while Bottie's intentionally bounded
+archive selector and legacy `debsigs` 0.1.26 support the fixture's XZ form, not `control.tar.zst`/`data.tar.zst`. The
+runner fixture had not selected compression explicitly. The current local correction forces XZ, asserts the exact
+unsigned archive members before signing, and emits only an allowlisted failure-stage label if the integration fails
+again. This diagnosis is the strongest source-level explanation; the previous run's deliberately generic message did
+not retain the inner command failure.
+
+A fresh Ubuntu result and then a fresh protected run are still required before any Linux distribution evidence can be
+claimed.
 
 No failed run uploaded distribution evidence, and the cleanup step removed protected material and package bytes each
 time. There is still no verified or distributable Linux package.
 
-## Most likely cause
+## Most likely cause of the protected signing failures through run 9
 
 Ubuntu 24.04 installs legacy `debsigs` 0.1.26 for this workflow. Its signer invokes GnuPG with:
 
@@ -83,13 +96,14 @@ The current evidence rules out or materially weakens these earlier hypotheses:
   `_gpgorigin` bytes equal the signer's output byte-for-byte.
 - **Missing signature member:** the latest attempt requires exactly one `_gpgorigin` member before verification.
 - **The PATH wrapper intercepting `debsig-verify`:** the verifier is forced to use `/usr/bin/gpg`.
-- **Package-build failure:** every run passes locked build, inspection, and distinct-identity smoke testing before
-  signing.
+- **Package-build failure in the protected attempts:** every run that reached signing passed locked build, inspection,
+  and distinct-identity smoke testing first. Run 10 stopped in the credential-free fixture before the product build.
 
-## Protected-run history
+## Workflow-run history
 
-All nine runs passed the credential-free source contracts and unsigned build/inspection/smoke steps unless the run
-failed earlier during protected-key preparation. All nine passed cleanup. Evidence upload was skipped in every run.
+The first nine runs passed the credential-free source contracts and unsigned build/inspection/smoke steps; runs 1 and
+2 then failed during protected-key preparation. Run 10 failed in the newly added credential-free integration before
+the unsigned product build. All ten passed cleanup. Evidence upload was skipped in every run.
 
 ### 1. Invalid Base64 secret
 
@@ -163,6 +177,20 @@ failed earlier during protected-key preparation. All nine passed cleanup. Eviden
   embedded-signature equality all passed. The newly added hardened `/usr/bin/gpg --verify` check rejected those exact
   files before `debsig-verify` ran.
 
+### 10. Credential-free integration fixture likely used Ubuntu's unsupported default compression
+
+- Run: [33066322605](https://github.com/hherb/bottie/actions/runs/33066322605)
+- Source: `2e8586fb0b6d0301360d5d25ae3050084548f5af`
+- Retained failure: `[bottie] credential-free Linux distribution integration failed.`
+- Confirmed boundary: eleven package contracts and fifteen focused source tests passed. The failure occurred in
+  `package:linux:distribution:test:integration`; the unsigned product build, protected-key preparation, protected
+  signing, independent verification, and evidence upload were all skipped. Cleanup passed.
+- Likely cause: Ubuntu 24.04's `dpkg-deb` defaulted the tiny test package to zstd. The fixture did not pass a compression
+  option, while the bounded production archive selector and legacy `debsigs` 0.1.26 do not accept that archive form.
+  The retained log cannot prove the inner gate because the integration intentionally collapsed every error to one
+  identity- and path-free line.
+- Meaning: this run provides no new evidence about the protected key or the SHA-256 signing correction.
+
 ## Source attempts made so far
 
 ### `fd5cb4c` — Fix Linux signature verification roots
@@ -198,10 +226,17 @@ line-oriented transfer, compared the embedded member to signer output byte-for-b
 check before `debsig-verify`. The latest run passed the equality checks and failed the new GnuPG check. This disproved
 payload mismatch, transfer truncation, and embedding rewrite as the primary cause.
 
-## Working correction after `3c01c17`
+### `2e8586f` — Force SHA-256 Linux distribution signing
 
-The current source correction addresses both the reproduced digest failure and the remaining verifier-context
-mismatch without weakening any verification policy:
+Validated the exact legacy signer arguments, rebuilt a fixed SHA-256 GnuPG invocation, required packet digest
+algorithm 8, supplied a dedicated clean verification home, and added the real Ubuntu toolchain integration. The
+portable contracts passed in run 10, but the integration fixture failed before the protected path because its DEB
+compression was not pinned. Consequently this run neither confirmed nor disproved the protected signing correction.
+
+## Current working correction after run 10
+
+The combined correction addresses the reproduced digest failure, the verifier-context mismatch, and the run-10
+fixture defect without weakening any verification policy:
 
 1. The wrapper validates the exact `--openpgp --detach-sign --default-key <key-id>` argument vector expected from
    `debsigs` 0.1.26 before it reads protected paths or standard input. Missing, reordered, mismatched, or injected
@@ -213,33 +248,58 @@ mismatch without weakening any verification policy:
    retains the canonical-payload comparison, and verifies the detached signature with the published public keyring.
 4. The exact embedded-signature GnuPG check and `debsig-verify` now receive a dedicated clean verification
    `GNUPGHOME`; they no longer inherit the private signing home.
-5. A Linux-only credential-free integration generates an ephemeral passphrase-backed RSA key and tiny DEB, then runs
-   the production signing function through Ubuntu's real `debsigs`, GnuPG, `gpgv`, and `debsig-verify`. It requires
-   one `_gpgorigin`, SHA-256, successful hardened and policy verification, and explicit rejection of a generated SHA-1
-   control signature.
+5. A Linux-only credential-free integration generates an ephemeral passphrase-backed RSA key and tiny XZ-compressed
+   DEB, asserts the exact `debian-binary`, `control.tar.xz`, and `data.tar.xz` members, then runs the production signing
+   function through Ubuntu's real `debsigs`, GnuPG, `gpgv`, and `debsig-verify`. It requires one `_gpgorigin`, SHA-256,
+   successful hardened and policy verification, and explicit rejection of a generated SHA-1 control signature.
 6. The real-tool integration runs in the normal ungated Ubuntu package-smoke workflow as well as before protected
-   preparation in the manual distribution workflow. It uses no repository signing credential and removes its entire
-   temporary root and agents.
+   preparation in the manual distribution workflow. It uses no repository signing credential and reports the bounded
+   `cleanup` stage if it cannot stop its temporary GnuPG agents or remove its entire temporary root.
+7. Integration failures retain only one allowlisted stage (`host-preflight`, `fixture-setup`, `ephemeral-key`,
+   `verification-policy`, `fixture-package`, `positive-signature`, `weak-digest-control`, or `cleanup`). Raw command
+   output, identities, and paths remain suppressed.
+8. Both Linux workflows use the current Node-24 action runtimes: `actions/checkout@v6`, `actions/setup-node@v6`, and
+   `actions/upload-artifact@v7`. Bottie's project commands still run on Node 22; the action runtime and project runtime
+   are separate.
 
-TDD first failed on the missing argument allow-list, inconsistent lowercase identity handling, the inherited
-verification home, and the absent Linux integration command. The focused source suite now passes 15 tests across the
-signing and release-candidate contracts; shell syntax and ShellCheck pass. The real Ubuntu integration cannot execute
-on the local macOS host, so its first runner result remains pending.
+TDD for the run-10 follow-up first failed because the XZ fixture contract and bounded integration-stage contract did
+not exist and the Linux workflows still referenced Node-20 action majors. The focused signing suite now passes twelve
+tests locally. The real Ubuntu integration cannot execute on the local macOS host, so the corrected fixture's first
+runner result remains pending.
 
 The completed local matrix also passes 11 Linux package contracts, both workflow lints, policy XML validation, the
 dependency and release-asset inventories, formatting, Svelte diagnostics with zero errors or warnings, 42 frontend
-test files with 166 passing tests and three opt-in tests skipped, and the production build. Cargo formatting and
+test files with 168 passing tests and three opt-in tests skipped, and the production build. Cargo formatting and
 compilation pass; 398 Rust tests pass and 31 loopback, public-network, credential, live-provider, or performance tests
 remain ignored. Doc tests pass with zero cases. The Node diagnostics emitted only the existing non-failing
 `DEP0205 module.register()` deprecation warning.
 
-## Why local tests did not catch this
+## Why the portable tests and run 10 failed differently
 
 The earlier source tests verified arguments, ordering, failure boundaries, path restrictions, evidence normalization,
 and workflow policy using mocks and dependency-free fixtures. They did not run Ubuntu's real `debsigs` 0.1.26 together
 with GnuPG's digest-policy flags. That is why every source suite could pass while the protected runner failed. The new
 ephemeral Linux integration closes that credential-free toolchain gap on the normal Ubuntu package-smoke runner, while
 the separate protected run remains necessary to prove the configured distribution key and environment.
+
+Run 10 exposed a defect in that new integration fixture rather than the protected signing path. Ubuntu Noble documents
+zstd as `dpkg-deb`'s default compression, but legacy `debsigs` accepts the XZ archive form used by Bottie's supported
+canonical payload. See the
+[Ubuntu 24.04 `dpkg-deb` manual](https://manpages.ubuntu.com/manpages/noble/man1/dpkg-deb.1.html). Portable source tests
+could assert that XZ is required, but only a real Ubuntu invocation revealed that the fixture had omitted `-Zxz`.
+
+## Node action-runtime warning
+
+Run 10 also displayed GitHub's Node-20 action-runtime deprecation warning for `actions/checkout@v4` and
+`actions/setup-node@v4`. It was not the failure: both actions completed, setup selected Node 22.23.2, and all Node
+commands before the integration ran successfully. The workflow exited 1 only when the integration command failed.
+
+The current workflow source updates the Linux jobs to
+[`actions/checkout@v6`](https://github.com/actions/checkout),
+[`actions/setup-node@v6`](https://github.com/actions/setup-node), and
+[`actions/upload-artifact@v7`](https://github.com/actions/upload-artifact). These action majors run on GitHub's Node-24
+action runtime; `node-version: 22` intentionally remains Bottie's project runtime. The workflow does not use
+`ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION` or otherwise suppress the warning.
 
 ## Secondary cause to keep controlled
 

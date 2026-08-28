@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Use Node 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -50,6 +50,8 @@ jobs:
           npm run icons:check
           node --check scripts/linux-package.mjs
           node --check scripts/linux-distribution.mjs
+          node --check scripts/linux-distribution-integration-contract.mjs
+          node --check scripts/linux-distribution.integration.mjs
           npm run package:linux:test
           npm test -- scripts/linux-distribution.test.mjs scripts/release-candidate.test.mjs
           npm run package:linux:distribution:test:integration
@@ -163,7 +165,7 @@ jobs:
         run: npm run package:linux:distribution
 
       - name: Upload identity-free evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bottie-linux-distribution-evidence
           path: package/linux-package-evidence.json

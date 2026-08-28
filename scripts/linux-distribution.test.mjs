@@ -5,6 +5,11 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  LINUX_DISTRIBUTION_INTEGRATION_STAGES,
+  linuxDistributionFixtureBuildArguments,
+  linuxDistributionIntegrationFailureMessage,
+} from "./linux-distribution-integration-contract.mjs";
+import {
   canonicalDebianPayloadMembers,
   canonicalDebianPayloadExtractionArguments,
   openPgpVerificationArguments,
@@ -26,6 +31,30 @@ const PAYLOAD_PATH = "/runner-temp/canonical-deb-payload";
 const PUBLIC_KEYRING_PATH = "/runner-temp/keyrings/fingerprint/bottie.gpg";
 const VERIFICATION_GNUPG_HOME = "/runner-temp/verification-gnupg";
 const SIGNING_WRAPPER_PATH = fileURLToPath(new URL("./linux-debsigs-gpg-wrapper.sh", import.meta.url));
+
+describe("Linux distribution integration contract", () => {
+  it("forces the fixture into the archive format supported by legacy debsigs", () => {
+    expect(linuxDistributionFixtureBuildArguments("/tmp/package-root", "/tmp/bottie.deb")).toEqual([
+      "--root-owner-group",
+      "-Zxz",
+      "--build",
+      "/tmp/package-root",
+      "/tmp/bottie.deb",
+    ]);
+  });
+
+  it("reports only allowlisted integration stages", () => {
+    expect(linuxDistributionIntegrationFailureMessage(LINUX_DISTRIBUTION_INTEGRATION_STAGES.fixturePackage)).toBe(
+      "[bottie] credential-free Linux distribution integration failed at fixture-package.",
+    );
+    expect(linuxDistributionIntegrationFailureMessage("/runner/private/signing-key.asc")).toBe(
+      "[bottie] credential-free Linux distribution integration failed at unknown.",
+    );
+    expect(linuxDistributionIntegrationFailureMessage(LINUX_DISTRIBUTION_INTEGRATION_STAGES.cleanup)).toBe(
+      "[bottie] credential-free Linux distribution integration failed at cleanup.",
+    );
+  });
+});
 
 /** Returns minimal unsigned package evidence from the isolated Linux package workflow. */
 function unsignedEvidence() {
@@ -319,6 +348,7 @@ describe("Linux distribution signing", () => {
     );
     expect(workflow).toContain("npm run package:linux:distribution:test:integration");
     expect(smokeWorkflow).toContain("scripts/linux-distribution.integration.mjs");
+    expect(smokeWorkflow).toContain("scripts/linux-distribution-integration-contract.mjs");
     expect(smokeWorkflow).toContain("scripts/linux-debsigs-gpg-wrapper.sh");
     expect(smokeWorkflow).toContain("distribution/linux/**");
     expect(smokeWorkflow).toContain("npm run package:linux:distribution:test:integration");
@@ -358,6 +388,12 @@ describe("Linux distribution signing", () => {
     expect(workflow).toContain("if: always()");
     expect(workflow).not.toMatch(/pull_request:|push:|release:/);
     expect(workflow).not.toMatch(/package\/linux\/.*\.deb/);
+    for (const linuxWorkflow of [workflow, smokeWorkflow]) {
+      expect(linuxWorkflow).toContain("actions/checkout@v6");
+      expect(linuxWorkflow).toContain("actions/setup-node@v6");
+      expect(linuxWorkflow).toContain("actions/upload-artifact@v7");
+      expect(linuxWorkflow).not.toMatch(/actions\/(?:checkout|setup-node|upload-artifact)@v4/);
+    }
   });
 
   it("publishes a public-only verification root and matching install policy", async () => {

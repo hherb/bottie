@@ -68,6 +68,7 @@ const HASHED_INPUTS = [
   "scripts/windows-store.mjs",
   "scripts/linux-package.mjs",
   "scripts/linux-distribution.mjs",
+  "scripts/linux-distribution-integration-contract.mjs",
   "scripts/linux-distribution.integration.mjs",
   "scripts/linux-debsigs-gpg-wrapper.sh",
   "scripts/linux-signature.mjs",

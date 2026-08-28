@@ -873,24 +873,38 @@ A credential-free reproduction now explains that result: default detached signin
 `--weak-digest SHA1` verification rejects it. The protected signature was not retained, so this is a high-confidence
 inference rather than packet evidence recovered from the failed artifact.
 
-The follow-up source correction validates the exact four legacy arguments before reading protected inputs, discards
-them, reconstructs a bounded `--no-options` SHA-256 signing command, and fails unless the packet digest identifier is
-8. The exact embedded-signature GnuPG check and `debsig-verify` now use a dedicated clean verification home. A new
-credential-free Ubuntu integration generates an ephemeral key and DEB, exercises real `debsigs`, GnuPG, `gpgv`, and
-`debsig-verify`, and proves both SHA-256 success and SHA-1 rejection. It runs in the ungated Linux package-smoke
-workflow as well as before protected preparation. It remains unverified with the protected Bottie key until a fresh,
-separately authorized run passes every gate and uploads normalized evidence. The full failure chronology is in
-`docs/debia_packlage_failure.md`.
+Source `2e8586f` validates the exact four legacy arguments before reading protected inputs, discards them, reconstructs
+a bounded `--no-options` SHA-256 signing command, and fails unless the packet digest identifier is 8. The exact
+embedded-signature GnuPG check and `debsig-verify` use a dedicated clean verification home. It also added a
+credential-free Ubuntu integration that generates an ephemeral key and DEB, exercises real `debsigs`, GnuPG, `gpgv`,
+and `debsig-verify`, and tests both SHA-256 success and SHA-1 rejection.
 
-TDD first failed on the missing legacy-argument allow-list, inherited verification home, and absent Linux integration
-command. Local validation passes ten focused signing tests plus five release-candidate tests, eleven dependency-free
-Linux package contracts, both workflow lints, shell and policy XML validation, the dependency and release-asset
-inventories, formatting, Svelte diagnostics with zero errors or warnings, 42 frontend test files with 166 passing
-tests and three opt-in tests skipped, and the production build. Cargo formatting and compilation pass; 398 Rust tests
-pass and 31 loopback, public-network, credential, live-provider, or performance tests remain ignored. Doc tests pass
-with zero cases. The real-tool integration is Linux-only and was not run on the local macOS host; its first automatic
-Ubuntu result and a subsequent protected result remain pending. No protected workflow was dispatched for this source
-correction.
+Authorized run `33066322605` at `2e8586f` did not reach the protected signing ceremony. Eleven dependency-free package
+contracts and fifteen focused source tests passed, then `package:linux:distribution:test:integration` failed with its
+single bounded generic line. The unsigned product build, protected-key preparation, protected signing, independent
+verification, and evidence upload were skipped; cleanup passed. This result therefore neither confirms nor disproves
+the SHA-256 correction with the protected Bottie key.
+
+The strongest source-level explanation is the integration fixture's unpinned compression: Ubuntu 24.04 defaults
+`dpkg-deb` to zstd, but Bottie's bounded canonical selector and legacy `debsigs` 0.1.26 accept the fixture's XZ form,
+not `control.tar.zst`/`data.tar.zst`. The current follow-up forces `-Zxz`, asserts the exact unsigned archive members,
+and retains an allowlisted stage label on future integration failure without retaining raw command output, identities,
+or paths. The two Linux workflows also move to the current Node-24 action runtimes (`checkout@v6`, `setup-node@v6`, and
+`upload-artifact@v7`) while keeping Node 22 for Bottie's own commands. The deprecation warning in run `33066322605` was
+not causal: action setup and all preceding Node checks completed successfully.
+
+TDD for this follow-up first failed on the absent XZ fixture contract, bounded stage contract, and current action
+majors. Twelve focused signing tests now pass locally. The corrected real-tool integration is Linux-only and cannot run
+on the local macOS host; its next Ubuntu result and a subsequent protected result remain pending. The full failure
+chronology is in `docs/debia_packlage_failure.md`.
+
+Local validation passes twelve focused signing tests plus five release-candidate tests, eleven dependency-free Linux
+package contracts, both Linux workflow lints, Node syntax checks, shell syntax and ShellCheck, policy XML validation,
+the dependency and release-asset inventories, formatting, Svelte diagnostics with zero errors or warnings, 42 frontend
+test files with 168 passing tests and three opt-in tests skipped, and the production build. Cargo formatting and
+compilation pass; 398 Rust tests pass and 31 loopback, public-network, credential, live-provider, or performance tests
+remain ignored. Doc tests pass with zero cases. The only local Node diagnostic was the existing non-failing
+`DEP0205 module.register()` warning.
 
 Do not bundle Microsoft approval polling, Store publication evidence, signed update delivery, a tag/release,
 signed-package publication, repository-held private keys, or runtime product changes. Source contracts and unsigned
