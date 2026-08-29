@@ -8,6 +8,7 @@ const PRIVATE_KEY_CONTENT_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY";
 const PRIVATE_KEY_PATH_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY_PATH";
 const PRIVATE_KEY_PASSWORD_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY_PASSWORD";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const PLATFORM_SIGNING_ENVIRONMENT_PATTERN = /^(?:TAURI_SIGNING_|BOTTIE_(?:APPLE|LINUX|WINDOWS)_)/;
 const SUPPORTED_TARGETS = new Set(["darwin-aarch64", "linux-x86_64", "windows-x86_64"]);
 
 /** Validates one protected private-key source and password without reading either value. */
@@ -54,11 +55,9 @@ export function updaterVerificationArguments(repositoryRoot, artifactPath, signa
 
 /** Removes private updater signing inputs before invoking the public verification process. */
 export function publicUpdaterVerificationEnvironment(environment) {
-  const sanitized = { ...environment };
-  delete sanitized[PRIVATE_KEY_CONTENT_ENVIRONMENT];
-  delete sanitized[PRIVATE_KEY_PATH_ENVIRONMENT];
-  delete sanitized[PRIVATE_KEY_PASSWORD_ENVIRONMENT];
-  return sanitized;
+  return Object.fromEntries(
+    Object.entries(environment).filter(([name]) => !PLATFORM_SIGNING_ENVIRONMENT_PATTERN.test(name)),
+  );
 }
 
 /** Parses only the native verifier's exact path-free cryptographic evidence shape. */

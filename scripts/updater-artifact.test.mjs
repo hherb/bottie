@@ -76,6 +76,9 @@ describe("protected updater artifact signing", () => {
 
   it("removes every private signing value before invoking the public verifier", () => {
     const environment = publicUpdaterVerificationEnvironment({
+      BOTTIE_APPLE_NOTARY_KEY_P8: "apple-private-key",
+      BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE: "linux-passphrase",
+      BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD: "windows-password",
       PATH: "/usr/bin",
       SAFE_BUILD_VALUE: "retained",
       TAURI_SIGNING_PRIVATE_KEY: "encrypted-private-key-content",
@@ -84,7 +87,7 @@ describe("protected updater artifact signing", () => {
     });
 
     expect(environment).toEqual({ PATH: "/usr/bin", SAFE_BUILD_VALUE: "retained" });
-    expect(JSON.stringify(environment)).not.toMatch(/private-key|password|bottie\.key/);
+    expect(JSON.stringify(environment)).not.toMatch(/private-key|passphrase|password|bottie\.key/);
   });
 
   it("invokes the locked native verifier with only public and artifact paths", () => {
