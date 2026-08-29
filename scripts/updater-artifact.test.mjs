@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   bindUpdaterArtifactEvidence,
   parseUpdaterArtifactEvidence,
+  publicUpdaterVerificationEnvironment,
   requireUpdaterSigningEnvironment,
   updaterSigningArguments,
   updaterVerificationArguments,
@@ -71,6 +72,19 @@ describe("protected updater artifact signing", () => {
 
     expect(arguments_).toEqual(["--tauri", "signer", "sign", "/runner/final-artifact"]);
     expect(arguments_.join(" ")).not.toMatch(/password|private-key/);
+  });
+
+  it("removes every private signing value before invoking the public verifier", () => {
+    const environment = publicUpdaterVerificationEnvironment({
+      PATH: "/usr/bin",
+      SAFE_BUILD_VALUE: "retained",
+      TAURI_SIGNING_PRIVATE_KEY: "encrypted-private-key-content",
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "protected-password",
+      TAURI_SIGNING_PRIVATE_KEY_PATH: "/secure/bottie.key",
+    });
+
+    expect(environment).toEqual({ PATH: "/usr/bin", SAFE_BUILD_VALUE: "retained" });
+    expect(JSON.stringify(environment)).not.toMatch(/private-key|password|bottie\.key/);
   });
 
   it("invokes the locked native verifier with only public and artifact paths", () => {

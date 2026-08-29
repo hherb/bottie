@@ -28,7 +28,7 @@
     "scripts/release-candidate-runtime.mjs": "bab0720610eeb980a85a151d10078b919ca7c261fec1f1f111108ba6a60b21aa",
     "scripts/release-assets.mjs": "012f36ccc07a1778a54a5fffd7a5bef4826a434d1c2f87cedf160d5d289d625b",
     "scripts/update-delivery.mjs": "045ea89af32a33c511d204574e5e034d92b8a0c9da0cfeda6f49d0447d19f0d3",
-    "scripts/updater-artifact.mjs": "0f6d1aaa234bca62acc11fd3b8a6b4daa797ddafde683122fa1756888b856385",
+    "scripts/updater-artifact.mjs": "3d70327c0fe2a50dd2aaef37a45e161c7475df6e034dfe77e91f704500b2a71e",
     "scripts/third-party-notices.mjs": "a0a8916c36f0c8eb951a79c9438d9db47ae546e319050b4a0d621dcfcaa9b375",
     "scripts/macos-package.mjs": "c1b4951e676662cc548f1925507ca693cdcf2a3976f33346411dee857f3c1781",
     "scripts/macos-distribution.mjs": "8f13ee3db50f61bd9a71f760657cd5717ad604db0ae8d5a5ca680ab4b6629377",

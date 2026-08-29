@@ -52,6 +52,15 @@ export function updaterVerificationArguments(repositoryRoot, artifactPath, signa
   ];
 }
 
+/** Removes private updater signing inputs before invoking the public verification process. */
+export function publicUpdaterVerificationEnvironment(environment) {
+  const sanitized = { ...environment };
+  delete sanitized[PRIVATE_KEY_CONTENT_ENVIRONMENT];
+  delete sanitized[PRIVATE_KEY_PATH_ENVIRONMENT];
+  delete sanitized[PRIVATE_KEY_PASSWORD_ENVIRONMENT];
+  return sanitized;
+}
+
 /** Parses only the native verifier's exact path-free cryptographic evidence shape. */
 export function parseUpdaterArtifactEvidence(output) {
   let evidence;
@@ -103,14 +112,15 @@ export async function signUpdaterArtifact(repositoryRoot, artifactPath, environm
   });
   if (result.error || result.status !== 0) throw new Error("Tauri updater signing failed.");
   await requireRegularFile(signaturePath);
-  return verifyUpdaterArtifact(repositoryRoot, artifactPath, signaturePath);
+  return verifyUpdaterArtifact(repositoryRoot, artifactPath, signaturePath, environment);
 }
 
 /** Cryptographically verifies one Tauri signature and returns only bounded path-free evidence. */
-function verifyUpdaterArtifact(repositoryRoot, artifactPath, signaturePath) {
+function verifyUpdaterArtifact(repositoryRoot, artifactPath, signaturePath, environment) {
   const result = spawnSync("cargo", updaterVerificationArguments(repositoryRoot, artifactPath, signaturePath), {
     cwd: repositoryRoot,
     encoding: "utf8",
+    env: publicUpdaterVerificationEnvironment(environment),
   });
   const evidence = parseUpdaterArtifactEvidence(result.stdout ?? "");
   if (result.error || result.status !== 0 || !evidence) {
