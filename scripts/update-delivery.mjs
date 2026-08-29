@@ -156,7 +156,8 @@ function requirePublicationDate(value) {
 
 /** Requires the complete four-line minisign signature that Tauri embeds in its static manifest. */
 function requireArtifactSignature(value) {
-  const text = requireSigningText(value, "Update artifact signature");
+  const encoded = requireEncodedSigningText(value, "Update artifact signature");
+  const text = decodeSigningText(encoded, "Update artifact signature");
   const lines = text.split("\n");
   if (
     lines.length !== 4 ||
@@ -167,28 +168,43 @@ function requireArtifactSignature(value) {
   ) {
     throw new Error("Update artifact signature must contain one complete minisign signature.");
   }
-  return text;
+  return encoded;
 }
 
-/** Requires the complete two-line minisign public key content that Tauri embeds in the application. */
+/** Requires the generated base64 public-key file content that Tauri embeds in the application. */
 function requirePublicKey(value) {
-  const text = requireSigningText(value, "Updater public key");
+  const encoded = requireEncodedSigningText(value, "Updater public key");
+  const text = decodeSigningText(encoded, "Updater public key");
   const lines = text.split("\n");
   if (
-    lines.length !== 2 ||
-    !/^untrusted comment: minisign public key [A-F0-9]{16}$/.test(lines[0]) ||
+    (lines.length !== 2 && !(lines.length === 3 && lines[2] === "")) ||
+    !/^untrusted comment: minisign public key: [A-F0-9]{16}$/.test(lines[0]) ||
     !lines[1].startsWith("RW") ||
     !isBase64(lines[1])
   ) {
     throw new Error("Updater public key must contain one complete minisign public key.");
   }
+  return encoded;
+}
+
+/** Requires canonical generated base64 file content instead of a path or decoded signing text. */
+function requireEncodedSigningText(value, label) {
+  const text = requireBoundedText(value, label, MIN_SIGNING_TEXT_LENGTH, MAX_SIGNING_TEXT_LENGTH).trim();
+  if (!isBase64(text) || Buffer.from(text, "base64").toString("base64") !== text) {
+    throw new Error(`${label} must contain canonical generated base64 content.`);
+  }
   return text;
 }
 
-/** Rejects paths, private material, control bytes, and unbounded signing text. */
-function requireSigningText(value, label) {
-  const text = requireBoundedText(value, label, MIN_SIGNING_TEXT_LENGTH, MAX_SIGNING_TEXT_LENGTH);
-  if (/PRIVATE KEY|BEGIN [A-Z ]*PRIVATE/i.test(text) || /^(?:\.{0,2}\/|[A-Za-z]:\\|\\\\)/.test(text)) {
+/** Decodes generated signing content while rejecting invalid UTF-8, paths, and private material. */
+function decodeSigningText(encoded, label) {
+  const bytes = Buffer.from(encoded, "base64");
+  const text = bytes.toString("utf8");
+  if (
+    !Buffer.from(text, "utf8").equals(bytes) ||
+    /PRIVATE KEY|BEGIN [A-Z ]*PRIVATE/i.test(text) ||
+    /^(?:\.{0,2}\/|[A-Za-z]:\\|\\\\)/.test(text)
+  ) {
     throw new Error(`${label} must be public inline content, not private material or a path.`);
   }
   return text;

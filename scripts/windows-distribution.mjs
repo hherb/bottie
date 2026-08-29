@@ -17,6 +17,7 @@ import {
   versionedPackageEvidence,
   windowsSmokeBuildArguments,
 } from "./windows-package.mjs";
+import { signUpdaterArtifact } from "./updater-artifact.mjs";
 
 const DEFAULT_EVIDENCE_PATH = "package/windows-package-evidence.json";
 const SIGNING_CERTIFICATE_PATH_ENVIRONMENT = "BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PATH";
@@ -32,7 +33,7 @@ export function distributionBuildArguments() {
 
 /** Returns the MSI-only bundling step that preserves the already signed product executable. */
 export function distributionBundleArguments() {
-  return ["bundle", "--bundles", "msi", "--no-sign", "--ci"];
+  return ["bundle", "--bundles", "msi", "--no-sign", "--ci", "--config", "src-tauri/tauri.updater.conf.json"];
 }
 
 /** Returns one SHA-256 Authenticode signing command with a fixed RFC 3161 timestamp service. */
@@ -126,6 +127,7 @@ async function runSignedProduct(repositoryRoot, temporaryRoot, signToolPath, cre
   buildWindowsBundle(repositoryRoot, distributionBundleArguments(), targetDirectory);
   const msiPath = await findSingleMsi(join(targetDirectory, "release", "bundle", "msi"));
   signAndVerify(signToolPath, credentials, msiPath);
+  await signUpdaterArtifact(repositoryRoot, msiPath);
   return inspectWindowsMsi(msiPath, extractedDirectory);
 }
 

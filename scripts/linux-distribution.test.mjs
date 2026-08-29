@@ -75,6 +75,20 @@ function unsignedEvidence() {
 }
 
 describe("Linux distribution signing", () => {
+  it("keeps updater signing in the protected manual Linux environment", async () => {
+    const workflow = await readFile(
+      new URL("../.github/workflows/linux-distribution-validation.yml", import.meta.url),
+      "utf8",
+    );
+
+    expect(workflow).toContain("environment: linux-distribution");
+    expect(workflow).toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY");
+    expect(workflow).toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD");
+    const signingStep = workflow.indexOf("- name: Sign and independently verify Linux distribution");
+    expect(workflow.slice(0, signingStep)).not.toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY");
+    expect(workflow).not.toMatch(/push:|pull_request:|release:/);
+  });
+
   it("selects exactly one canonical Debian payload in verifier order", () => {
     expect(canonicalDebianPayloadMembers(["data.tar.xz", "debian-binary", "control.tar.gz"])).toEqual([
       "debian-binary",

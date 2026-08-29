@@ -297,14 +297,14 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] Individual Microsoft Store developer registration and Bottie product-name/identity reservation;
 - [x] current Windows Store MSIX runner build, independent inspection, and Windows App Certification Kit pass;
 - [x] exact reviewed Microsoft Store package submitted for certification;
-- [ ] Microsoft Store certification and publication (postponed after rejection until Windows screenshots are
-  available);
+- [ ] Microsoft Store certification and publication (deferred after rejection until further release-owner notice);
 - [x] protected manual Linux embedded-OpenPGP signing contract with a published public certificate and independent
   canonical-payload, policy, and keyring verification;
 - [x] current credentialed Linux distribution-signature evidence;
 - [x] versioned 0.9.0 beta release notes plus a deterministic path-free release-candidate gate manifest;
 - [x] credential-free signed-update manifest and path-free publication-evidence contract;
-- [ ] production updater trust key, Rust-owned update delivery, and release publication outside the Store.
+- [x] recoverably backed-up production updater trust key plus Rust-owned, user-controlled update checks and installs;
+- [ ] protected signed updater-artifact evidence and release publication outside the Store.
 
 ## Milestone 7 — Local voice conversations
 

@@ -17,7 +17,15 @@ const INSTALLER_PATH = "C:\\target\\release\\bundle\\msi\\bottie.msi";
 describe("Windows distribution signing", () => {
   it("builds locked product bytes once, then bundles the signed executable without automatic signing", () => {
     expect(distributionBuildArguments()).toEqual(["build", "--no-bundle", "--no-sign", "--ci", "--", "--locked"]);
-    expect(distributionBundleArguments()).toEqual(["bundle", "--bundles", "msi", "--no-sign", "--ci"]);
+    expect(distributionBundleArguments()).toEqual([
+      "bundle",
+      "--bundles",
+      "msi",
+      "--no-sign",
+      "--ci",
+      "--config",
+      "src-tauri/tauri.updater.conf.json",
+    ]);
   });
 
   it("uses SHA-256 Authenticode and RFC 3161 timestamps for each exact artifact", () => {
@@ -77,6 +85,10 @@ describe("Windows distribution signing", () => {
     expect(workflow).toContain("environment: windows-distribution");
     expect(workflow).toContain("BOTTIE_WINDOWS_SIGNING_PFX_BASE64");
     expect(workflow).toContain("BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD");
+    expect(workflow).toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY");
+    expect(workflow).toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD");
+    const signingStep = workflow.indexOf("- name: Sign, verify, inspect, and smoke-test Windows distribution");
+    expect(workflow.slice(0, signingStep)).not.toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY");
     expect(workflow).toContain("package/windows-package-evidence.json");
     expect(workflow).toContain("if: always()");
     expect(workflow).not.toMatch(

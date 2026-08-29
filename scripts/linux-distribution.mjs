@@ -9,6 +9,8 @@ import { lstat, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { signUpdaterArtifact } from "./updater-artifact.mjs";
+
 const DEFAULT_ARTIFACT_DIRECTORY = "package/linux";
 const DEFAULT_EVIDENCE_PATH = "package/linux-package-evidence.json";
 const KEY_ID_ENVIRONMENT = "BOTTIE_LINUX_SIGNING_KEY_ID";
@@ -313,6 +315,7 @@ async function runLinuxDistribution(repositoryRoot) {
   const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
   const debPath = await findSingleDeb(artifactDirectory);
   signAndVerifyLinuxDistribution(configuration, debPath);
+  await signUpdaterArtifact(repositoryRoot, debPath);
   const verifiedEvidence = verifiedLinuxDistributionEvidence(evidence, await signedPackageSummary(debPath));
   await writeFile(evidencePath, `${JSON.stringify(verifiedEvidence, null, 2)}\n`, { mode: 0o600 });
 }

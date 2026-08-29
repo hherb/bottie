@@ -75,6 +75,15 @@ Settings includes local System, Light, and Dark theme choices plus Comfortable a
 apply immediately without reconnecting a provider and stay on the current device. New and invalid preference state
 falls back to Bottie's existing dark, comfortable presentation; System follows OS color changes only while selected.
 
+## Application updates
+
+Settings provides one explicit **Check for updates** action. Bottie contacts only its fixed HTTPS GitHub release
+manifest from native Rust, returns bounded version and release-note text, and downloads nothing until the user chooses
+**Install update** for that exact reviewed version. Rust rechecks the candidate before installation, rejects equal or
+older versions, verifies the downloaded artifact with Bottie's embedded production public key, and keeps manifest and
+artifact URLs, signatures, bytes, filesystem paths, and private-key material out of WebView IPC. No update manifest or
+signed updater artifact is published yet, so this source capability is not evidence of a working release channel.
+
 ## The trust boundary
 
 Bottie is local-first, not local-only. The interface makes the selected provider and enabled context routes visible
@@ -101,6 +110,8 @@ Additional safeguards include:
 - public-network and destination policy checks for web tools;
 - certificate pinning, disabled redirects, and disabled ambient proxies for Localmail;
 - fixed call, round, response-size, aggregate-output, and deadline ceilings for native tools.
+- no updater plugin permissions or JavaScript updater binding in the WebView; only Bottie's narrow native
+  check/install/cancel commands are registered.
 
 ## Provider support
 
@@ -224,11 +235,14 @@ npm run package:macos:distribution
 The command rebuilds the same locked app-only bundle, signs it with the checked-in minimal hardened-runtime
 entitlements and a secure timestamp, submits one temporary ZIP through `notarytool`, staples and validates the ticket,
 and requires Gatekeeper to accept the final bundle. It removes the submission ZIP and writes only path-safe,
-identity-free JSON evidence under the ignored `package` directory. It does not publish or upload Bottie as a release.
+identity-free JSON evidence under the ignored `package` directory. The protected build also requires Bottie's updater
+private key and password through Tauri's signing environment, recreates the updater archive only after notarization
+and ticket stapling, and signs those exact final bytes. It does not publish or upload Bottie as a release.
 
 The manual `macOS distribution validation` GitHub workflow provides the same contract through the protected
 `macos-distribution` environment. It expects environment secrets for the base64 PKCS #12 Developer ID certificate,
-its password, a temporary-keychain password, and the notary team API key, key ID, and issuer ID. The job imports those
+its password, a temporary-keychain password, the notary team API key, key ID, and issuer ID, plus
+`BOTTIE_UPDATER_SIGNING_PRIVATE_KEY` and `BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD`. The job imports protected
 values only into runner-temporary storage, uploads only the bounded evidence JSON for seven days, and deletes the
 temporary keychain and credential files even after failure.
 
@@ -297,9 +311,11 @@ build, MakeAppx pack/unpack inspection, exact public identity and reviewed paylo
 Certification Kit run all passed. The 18,114,084-byte unsigned MSIX has SHA-256
 `145eb83446aa58d97b8eaf3babcd8cd3f673a03626ff6b36c5a075db5b32d0e6`; the downloaded bounded evidence and WACK report
 match their retained hashes. This is local certification-kit evidence, not Microsoft Store certification, signing, or
-publication. The exact reviewed package has since been submitted through Partner Center and is awaiting Microsoft's
-certification decision. No account, submission, package-SID, or government-ID material is retained in this repository;
-the release gate remains closed until Microsoft reports the matching package as published.
+publication. Microsoft rejected the exact reviewed submission because its screenshots showed macOS rather than
+Windows. Store certification and publication remain deferred until further notice from the release owner. No account,
+submission,
+package-SID, or government-ID material is retained in this repository; the release gate remains closed until a future
+matching package is certified and published.
 
 ### Alternative direct-download MSI signing
 
@@ -307,9 +323,11 @@ The separate manual `Windows distribution validation` workflow is retained as an
 future direct-download MSI. It is the only checked-in path that consumes Windows signing credentials. Its protected
 `windows-distribution` environment must provide
 `BOTTIE_WINDOWS_SIGNING_PFX_BASE64` and `BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD`; the certificate is written only
-under runner-temporary storage, and the password is exposed only to the signing step. The job performs one locked
+under runner-temporary storage, and the password is exposed only to the signing step. It also requires the two
+protected updater-signing secrets named above. The job performs one locked
 no-bundle product build, applies SHA-256 Authenticode plus an RFC 3161 timestamp to `bottie.exe`, bundles that exact
-signed executable into an otherwise unsigned MSI, and then signs and independently verifies the MSI. A separate
+signed executable into an otherwise unsigned MSI, then signs and independently verifies the MSI before creating its
+Tauri updater signature over those exact final bytes. A separate
 `com.bottie.packaging-smoke` build supplies the isolated launch/storage/provider-offline result.
 
 The workflow uploads only `package/windows-package-evidence.json` for seven days and always removes the temporary PFX.
@@ -355,12 +373,13 @@ release.
 The separate manual `Linux distribution validation` workflow is the only checked-in path that consumes Linux signing
 credentials. Its protected `linux-distribution` environment requires a base64-encoded OpenPGP private key and its
 passphrase in `BOTTIE_LINUX_SIGNING_PRIVATE_KEY_BASE64` and `BOTTIE_LINUX_SIGNING_KEY_PASSPHRASE`. The job first builds,
-inspects, and smoke-tests the unsigned product bytes, then imports the key only into runner-temporary storage. It
+inspects, and smoke-tests the unsigned product bytes, then imports the key only into runner-temporary storage. The
+same protected environment also requires the two updater-signing secrets. It
 requires that private key to match Bottie's [published Linux public key](distribution/linux/README.md), signs the
 canonical `debian-binary`, control-archive, and data-archive bytes, verifies the detached signature with `gpgv`, embeds
-exactly one `origin` signature with `debsigs`, and finally requires `debsig-verify` to accept the signed DEB through the
-published policy and public key. Merely finding an `_gpg*` archive member is classified as identified but unverified
-and cannot pass the release gate.
+exactly one `origin` signature with `debsigs`, requires `debsig-verify` to accept the signed DEB through the published
+policy and public key, and only then signs those final DEB bytes for Tauri update delivery. Merely finding an `_gpg*`
+archive member is classified as identified but unverified and cannot pass the release gate.
 
 Run the same protected contract on an already prepared Ubuntu host only when the signing key, temporary policy, and
 public keyring have been configured outside the repository:
@@ -394,16 +413,17 @@ certification/publication, Linux distribution-signature, notarization, and Gatek
 upload, tag, or publish anything. An unsigned Store workflow artifact, unsigned Linux smoke package, or source test
 suite is intentionally insufficient for `ready: true`.
 
-The next outside-Store release boundary has a credential-free signed-update contract:
+The outside-Store release boundary has a credential-free signed-update contract:
 
 ```sh
 npm run update:contract:test
 ```
 
-It validates deterministic Tauri static manifests, immutable version-tagged GitHub asset URLs, and path-free evidence
-bound to exact manifest, public-key, and artifact hashes. It does not create an updater key, configure runtime update
-networking, sign or upload an artifact, create a tag or GitHub Release, or publish `latest.json`. Those actions require
-a separately authorized, recoverable production-key ceremony and release workflow. See
+It validates deterministic Tauri static manifests, canonical base64 Tauri signature/public-key file content,
+immutable version-tagged GitHub asset URLs, and path-free evidence bound to exact manifest, public-key, and artifact
+hashes. The authorized production-key ceremony and Rust-owned runtime boundary are complete. The remaining protected
+workflow action is to build and validate current final updater artifacts, then separately authorize any tag, GitHub
+Release, upload, or `latest.json` publication. See
 [`distribution/update/README.md`](distribution/update/README.md).
 
 The release owner must read the [Gemma Terms of Use](https://ai.google.dev/gemma/terms) before creating model-terms
