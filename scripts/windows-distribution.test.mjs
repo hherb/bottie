@@ -53,6 +53,15 @@ describe("Windows distribution signing", () => {
     expect(signToolVerifyArguments(INSTALLER_PATH)).toEqual(["verify", "/pa", "/all", "/v", INSTALLER_PATH]);
   });
 
+  it("binds verified updater evidence to the exact Authenticode-signed MSI", async () => {
+    const script = await readFile(new URL("./windows-distribution.mjs", import.meta.url), "utf8");
+
+    expect(script).toContain('bindUpdaterArtifactEvidence(updater, "windows-x86_64", bundle.installer.sha256)');
+    expect(script.indexOf("signAndVerify(signToolPath, credentials, msiPath)")).toBeLessThan(
+      script.indexOf('bindUpdaterArtifactEvidence(updater, "windows-x86_64", bundle.installer.sha256)'),
+    );
+  });
+
   it("requires one complete protected credential pair outside the repository", () => {
     expect(
       resolveSigningCredentials(

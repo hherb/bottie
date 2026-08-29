@@ -89,6 +89,15 @@ describe("Linux distribution signing", () => {
     expect(workflow).not.toMatch(/push:|pull_request:|release:/);
   });
 
+  it("binds verified updater evidence to the exact embedded-OpenPGP-signed DEB", async () => {
+    const script = await readFile(new URL("./linux-distribution.mjs", import.meta.url), "utf8");
+
+    expect(script).toContain('bindUpdaterArtifactEvidence(updater, "linux-x86_64", signedPackage.sha256)');
+    expect(script.indexOf("signAndVerifyLinuxDistribution(configuration, debPath)")).toBeLessThan(
+      script.indexOf('bindUpdaterArtifactEvidence(updater, "linux-x86_64", signedPackage.sha256)'),
+    );
+  });
+
   it("selects exactly one canonical Debian payload in verifier order", () => {
     expect(canonicalDebianPayloadMembers(["data.tar.xz", "debian-binary", "control.tar.gz"])).toEqual([
       "debian-binary",

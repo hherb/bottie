@@ -35,6 +35,18 @@ describe("macOS distribution signing and notarization", () => {
     ]);
   });
 
+  it("retains cryptographically verified updater evidence for the final notarized archive", async () => {
+    const script = await readFile(new URL("./macos-distribution.mjs", import.meta.url), "utf8");
+
+    expect(script).toContain('bindUpdaterArtifactEvidence(updater, "darwin-aarch64")');
+    expect(script.indexOf("const notarization = notarizeAndVerify(")).toBeLessThan(
+      script.indexOf("const updater = await createUpdaterArchive("),
+    );
+    expect(script.indexOf("const updater = await createUpdaterArchive(")).toBeLessThan(
+      script.indexOf("const evidence = await createDistributionEvidence("),
+    );
+  });
+
   it("keeps production updater signing in the same protected manual environment", async () => {
     const workflow = await readFile(
       new URL("../.github/workflows/macos-distribution-validation.yml", import.meta.url),
