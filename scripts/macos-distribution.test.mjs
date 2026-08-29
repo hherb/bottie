@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyGatekeeperAssessment,
   distributionSigningArguments,
+  macosUpdaterTarget,
   notarySubmitArguments,
   parseNotaryResult,
   resolveNotaryAuthentication,
@@ -33,6 +34,25 @@ describe("macOS distribution signing and notarization", () => {
       "/bundle",
       "bottie.app",
     ]);
+  });
+
+  it("maps only one exact native architecture into its Tauri updater target", () => {
+    expect(macosUpdaterTarget(["arm64"])).toBe("darwin-aarch64");
+    expect(macosUpdaterTarget(["x86_64"])).toBe("darwin-x86_64");
+    expect(() => macosUpdaterTarget(["arm64", "x86_64"])).toThrow(/single supported architecture/);
+    expect(() => macosUpdaterTarget(["i386"])).toThrow(/single supported architecture/);
+  });
+
+  it("retains cryptographically verified updater evidence for the final notarized archive", async () => {
+    const script = await readFile(new URL("./macos-distribution.mjs", import.meta.url), "utf8");
+
+    expect(script).toContain("bindUpdaterArtifactEvidence(updater, macosUpdaterTarget(architectures))");
+    expect(script.indexOf("const notarization = notarizeAndVerify(")).toBeLessThan(
+      script.indexOf("const updater = await createUpdaterArchive("),
+    );
+    expect(script.indexOf("const updater = await createUpdaterArchive(")).toBeLessThan(
+      script.indexOf("const evidence = await createDistributionEvidence("),
+    );
   });
 
   it("keeps production updater signing in the same protected manual environment", async () => {

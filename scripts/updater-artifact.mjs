@@ -7,6 +7,9 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 const PRIVATE_KEY_CONTENT_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY";
 const PRIVATE_KEY_PATH_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY_PATH";
 const PRIVATE_KEY_PASSWORD_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY_PASSWORD";
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const PLATFORM_SIGNING_ENVIRONMENT_PATTERN = /^(?:TAURI_SIGNING_|BOTTIE_(?:APPLE|LINUX|WINDOWS)_)/;
+const SUPPORTED_TARGETS = new Set(["darwin-aarch64", "darwin-x86_64", "linux-x86_64", "windows-x86_64"]);
 
 /** Validates one protected private-key source and password without reading either value. */
 export function requireUpdaterSigningEnvironment(environment, repositoryRoot) {
@@ -32,6 +35,68 @@ export function updaterSigningArguments(artifactPath) {
   return ["--tauri", "signer", "sign", artifactPath];
 }
 
+/** Returns the locked native verifier arguments for exact artifact, signature, and public-key files. */
+export function updaterVerificationArguments(repositoryRoot, artifactPath, signaturePath) {
+  return [
+    "run",
+    "--quiet",
+    "--locked",
+    "--manifest-path",
+    join(repositoryRoot, "src-tauri", "Cargo.toml"),
+    "--bin",
+    "bottie-updater-evidence",
+    "--",
+    "--verify",
+    artifactPath,
+    signaturePath,
+    join(repositoryRoot, "distribution", "update", "bottie-updater.pub"),
+  ];
+}
+
+/** Removes private updater signing inputs before invoking the public verification process. */
+export function publicUpdaterVerificationEnvironment(environment) {
+  return Object.fromEntries(
+    Object.entries(environment).filter(([name]) => !PLATFORM_SIGNING_ENVIRONMENT_PATTERN.test(name)),
+  );
+}
+
+/** Parses only the native verifier's exact path-free cryptographic evidence shape. */
+export function parseUpdaterArtifactEvidence(output) {
+  let evidence;
+  try {
+    evidence = JSON.parse(output);
+  } catch {
+    return null;
+  }
+  if (
+    !hasExactKeys(evidence, ["artifact", "publicKeySha256", "schemaVersion", "signature"]) ||
+    evidence.schemaVersion !== 1 ||
+    !hasExactKeys(evidence.artifact, ["sha256", "size"]) ||
+    !isSha256(evidence.artifact.sha256) ||
+    !Number.isSafeInteger(evidence.artifact.size) ||
+    evidence.artifact.size <= 0 ||
+    !isSha256(evidence.publicKeySha256) ||
+    !hasExactKeys(evidence.signature, ["format", "sha256", "verifies"]) ||
+    evidence.signature.format !== "minisign" ||
+    !isSha256(evidence.signature.sha256) ||
+    evidence.signature.verifies !== true
+  ) {
+    return null;
+  }
+  return evidence;
+}
+
+/** Binds verified updater evidence to one supported release target and optional final distribution hash. */
+export function bindUpdaterArtifactEvidence(evidence, target, expectedArtifactSha256) {
+  const verified = parseUpdaterArtifactEvidence(JSON.stringify(evidence));
+  if (!verified) throw new Error("Verified updater artifact evidence is invalid.");
+  if (!SUPPORTED_TARGETS.has(target)) throw new Error("Updater artifact target is unsupported.");
+  if (expectedArtifactSha256 !== undefined && verified.artifact.sha256 !== expectedArtifactSha256) {
+    throw new Error("Updater evidence does not match the final artifact bytes.");
+  }
+  return { ...verified, target };
+}
+
 /** Signs one final platform artifact and returns only its adjacent signature path. */
 export async function signUpdaterArtifact(repositoryRoot, artifactPath, environment = process.env) {
   requireUpdaterSigningEnvironment(environment, repositoryRoot);
@@ -46,7 +111,33 @@ export async function signUpdaterArtifact(repositoryRoot, artifactPath, environm
   });
   if (result.error || result.status !== 0) throw new Error("Tauri updater signing failed.");
   await requireRegularFile(signaturePath);
-  return signaturePath;
+  return verifyUpdaterArtifact(repositoryRoot, artifactPath, signaturePath, environment);
+}
+
+/** Cryptographically verifies one Tauri signature and returns only bounded path-free evidence. */
+function verifyUpdaterArtifact(repositoryRoot, artifactPath, signaturePath, environment) {
+  const result = spawnSync("cargo", updaterVerificationArguments(repositoryRoot, artifactPath, signaturePath), {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    env: publicUpdaterVerificationEnvironment(environment),
+  });
+  const evidence = parseUpdaterArtifactEvidence(result.stdout ?? "");
+  if (result.error || result.status !== 0 || !evidence) {
+    throw new Error("Tauri updater signature verification failed.");
+  }
+  return evidence;
+}
+
+/** Returns true only for an ordinary object with the exact expected key set. */
+function hasExactKeys(value, keys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const actual = Object.keys(value).sort();
+  return actual.length === keys.length && actual.every((key, index) => key === [...keys].sort()[index]);
+}
+
+/** Reports whether a value is one lowercase SHA-256 digest. */
+function isSha256(value) {
+  return typeof value === "string" && SHA256_PATTERN.test(value);
 }
 
 /** Requires one regular protected artifact while retaining no path in the failure. */

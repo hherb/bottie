@@ -17,7 +17,7 @@ import {
   versionedPackageEvidence,
   windowsSmokeBuildArguments,
 } from "./windows-package.mjs";
-import { signUpdaterArtifact } from "./updater-artifact.mjs";
+import { bindUpdaterArtifactEvidence, signUpdaterArtifact } from "./updater-artifact.mjs";
 
 const DEFAULT_EVIDENCE_PATH = "package/windows-package-evidence.json";
 const SIGNING_CERTIFICATE_PATH_ENVIRONMENT = "BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PATH";
@@ -127,8 +127,8 @@ async function runSignedProduct(repositoryRoot, temporaryRoot, signToolPath, cre
   buildWindowsBundle(repositoryRoot, distributionBundleArguments(), targetDirectory);
   const msiPath = await findSingleMsi(join(targetDirectory, "release", "bundle", "msi"));
   signAndVerify(signToolPath, credentials, msiPath);
-  await signUpdaterArtifact(repositoryRoot, msiPath);
-  return inspectWindowsMsi(msiPath, extractedDirectory);
+  const updater = await signUpdaterArtifact(repositoryRoot, msiPath);
+  return { bundle: await inspectWindowsMsi(msiPath, extractedDirectory), updater };
 }
 
 /** Reads the checked-out numeric application version. */
@@ -158,12 +158,16 @@ async function runWindowsDistribution(repositoryRoot) {
   await requireRegularFile(signToolPath, "Windows SDK SignTool executable");
   const temporaryRoot = await mkdtemp(join(tmpdir(), "bottie-windows-distribution-"));
   try {
-    const bundle = await runSignedProduct(repositoryRoot, temporaryRoot, signToolPath, credentials);
+    const { bundle, updater } = await runSignedProduct(repositoryRoot, temporaryRoot, signToolPath, credentials);
     const smoke = await runIsolatedSmoke(repositoryRoot, temporaryRoot);
-    const evidence = versionedPackageEvidence(
+    const packageEvidence = versionedPackageEvidence(
       await applicationVersion(repositoryRoot),
       combineWindowsPackageEvidence(bundle, smoke),
     );
+    const evidence = {
+      ...packageEvidence,
+      updater: bindUpdaterArtifactEvidence(updater, "windows-x86_64", bundle.installer.sha256),
+    };
     await emitEvidence(repositoryRoot, evidence);
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });

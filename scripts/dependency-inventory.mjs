@@ -57,6 +57,7 @@ const HASHED_INPUTS = [
   "src-tauri/tauri.updater.conf.json",
   "src-tauri/src/semantic_indexer.rs",
   "src-tauri/src/updater.rs",
+  "src-tauri/src/updater_evidence.rs",
   "scripts/dependency-inventory.mjs",
   "scripts/application-icons.mjs",
   "scripts/release-candidate.mjs",

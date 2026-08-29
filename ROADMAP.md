@@ -304,7 +304,9 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] versioned 0.9.0 beta release notes plus a deterministic path-free release-candidate gate manifest;
 - [x] credential-free signed-update manifest and path-free publication-evidence contract;
 - [x] recoverably backed-up production updater trust key plus Rust-owned, user-controlled update checks and installs;
-- [ ] protected signed updater-artifact evidence and release publication outside the Store.
+- [x] native final-byte minisign verification plus current protected Linux x64 updater-artifact evidence;
+- [ ] current protected macOS and Windows updater-artifact evidence (platform credentials remain unconfigured);
+- [ ] signed updater release publication outside the Store.
 
 ## Milestone 7 — Local voice conversations
 

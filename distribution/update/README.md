@@ -62,8 +62,22 @@ Ordinary build/package commands do not create updater artifacts. `src-tauri/taur
 protected distribution paths. Because Bottie's platform trust steps alter bundle bytes, each protected path creates
 the Tauri signature last: after notarization/stapling for the final macOS updater archive, after Authenticode for the
 final MSI, and after embedded OpenPGP verification for the final DEB. Protected GitHub workflows reference
-`BOTTIE_UPDATER_SIGNING_PRIVATE_KEY` and `BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD`; configuring those environment
-secrets and dispatching a runner remain separate explicit actions and were not performed in this slice.
+`BOTTIE_UPDATER_SIGNING_PRIVATE_KEY` and `BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD`.
+
+After signing, `bottie-updater-evidence` streams the exact final artifact through the locked `minisign-verify` crate
+against the committed public key. The verifier process receives none of the Tauri, Apple, Windows, or Linux signing
+environment variables. Retained evidence contains only the target, exact artifact size/SHA-256, signature-file
+SHA-256, public-key-file SHA-256, minisign format, and verified state; it contains no signature text, credential,
+identity, filename, or host path.
+
+On 2026-08-30, required-reviewer macOS and Windows environments were created and the existing updater key/password
+were configured in all three protected environments after explicit authorization. Linux run
+[`33279780950`](https://github.com/hherb/bottie/actions/runs/33279780950) passed from exact source `2bb1ead`, including
+embedded OpenPGP verification followed by cryptographic updater verification. The final 23,442,642-byte DEB/updater
+SHA-256 is `e24788260e1688b373ead30fdde985c3974a3eba921b8d3675c16f2e40862eec`; the verified public-key SHA-256 is
+`fd4adf69a4bea10958a0f63f0658083fa29bfad10c48c792877dcdcdb8c6355c`. The DEB and `.sig` were removed after evidence
+upload. macOS still lacks hosted Apple platform secrets, and Windows lacks an Authenticode PFX/password, so neither
+workflow has been dispatched and no evidence is claimed for those targets.
 
 Creating a tag, GitHub Release, release asset, or `latest.json` publication is a separate external action. A green
 contract test, generated manifest, draft release, or uploaded workflow artifact is not publication evidence.

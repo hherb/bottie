@@ -83,6 +83,9 @@ manifest from native Rust, returns bounded version and release-note text, and do
 older versions, verifies the downloaded artifact with Bottie's embedded production public key, and keeps manifest and
 artifact URLs, signatures, bytes, filesystem paths, and private-key material out of WebView IPC. No update manifest or
 signed updater artifact is published yet, so this source capability is not evidence of a working release channel.
+Protected platform builds now independently verify each generated minisign signature against the exact final artifact
+and committed public key, then retain only path-free hashes, byte size, target, format, and verified state. Current
+protected evidence exists for Linux x64 only; macOS and direct-download Windows remain credential-gated.
 
 ## The trust boundary
 
@@ -237,7 +240,8 @@ entitlements and a secure timestamp, submits one temporary ZIP through `notaryto
 and requires Gatekeeper to accept the final bundle. It removes the submission ZIP and writes only path-safe,
 identity-free JSON evidence under the ignored `package` directory. The protected build also requires Bottie's updater
 private key and password through Tauri's signing environment, recreates the updater archive only after notarization
-and ticket stapling, and signs those exact final bytes. It does not publish or upload Bottie as a release.
+and ticket stapling, signs those exact final bytes, removes all platform-signing variables before native minisign
+verification, and records only bounded path-free evidence. It does not publish or upload Bottie as a release.
 
 The manual `macOS distribution validation` GitHub workflow provides the same contract through the protected
 `macos-distribution` environment. It expects environment secrets for the base64 PKCS #12 Developer ID certificate,
@@ -245,6 +249,10 @@ its password, a temporary-keychain password, the notary team API key, key ID, an
 `BOTTIE_UPDATER_SIGNING_PRIVATE_KEY` and `BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD`. The job imports protected
 values only into runner-temporary storage, uploads only the bounded evidence JSON for seven days, and deletes the
 temporary keychain and credential files even after failure.
+
+The protected environment and updater secrets are configured, but its Developer ID PKCS #12, temporary-keychain
+password, and notarization API-key secrets are not. The workflow therefore remains undispatched until those existing
+platform credentials are explicitly configured; source tests are not macOS distribution evidence.
 
 ### Windows package verification
 
@@ -327,7 +335,8 @@ under runner-temporary storage, and the password is exposed only to the signing 
 protected updater-signing secrets named above. The job performs one locked
 no-bundle product build, applies SHA-256 Authenticode plus an RFC 3161 timestamp to `bottie.exe`, bundles that exact
 signed executable into an otherwise unsigned MSI, then signs and independently verifies the MSI before creating its
-Tauri updater signature over those exact final bytes. A separate
+Tauri updater signature over those exact final bytes. It then verifies the updater signature natively with every
+platform-signing environment variable removed and requires the updater hash to equal the inspected MSI hash. A separate
 `com.bottie.packaging-smoke` build supplies the isolated launch/storage/provider-offline result.
 
 The workflow uploads only `package/windows-package-evidence.json` for seven days and always removes the temporary PFX.
@@ -335,8 +344,9 @@ It never uploads the signed MSI or retains certificate labels, subjects, serials
 or raw SignTool output. The release-candidate gate requires both the installer and extracted executable signatures to
 be identified, securely timestamped, and independently valid within that alternative workflow's own evidence. The
 0.9.0 release gate no longer accepts that route: it requires the selected Store MSIX and matching Microsoft-publication
-evidence instead. No protected environment or secrets are configured, and the workflow's presence does not claim that
-a current Windows distribution has been signed or published.
+evidence instead. The required-reviewer environment and updater secrets are configured, but no Authenticode PFX or
+password is configured. The workflow's presence does not claim that a current Windows distribution has been signed or
+published.
 
 ### Linux package verification
 
@@ -380,6 +390,13 @@ canonical `debian-binary`, control-archive, and data-archive bytes, verifies the
 exactly one `origin` signature with `debsigs`, requires `debsig-verify` to accept the signed DEB through the published
 policy and public key, and only then signs those final DEB bytes for Tauri update delivery. Merely finding an `_gpg*`
 archive member is classified as identified but unverified and cannot pass the release gate.
+
+Protected workflow run [`33279780950`](https://github.com/hherb/bottie/actions/runs/33279780950) passed from exact
+source `2bb1ead`. Its identity-free evidence binds the 23,442,642-byte final DEB and updater artifact to the same
+SHA-256 `e24788260e1688b373ead30fdde985c3974a3eba921b8d3675c16f2e40862eec`, independently verifies the minisign
+signature against public-key SHA-256 `fd4adf69a4bea10958a0f63f0658083fa29bfad10c48c792877dcdcdb8c6355c`, and records no
+signature content, credential, identity, or host path. The workflow removed the DEB and protected material after
+uploading the evidence JSON; this is not release publication.
 
 Run the same protected contract on an already prepared Ubuntu host only when the signing key, temporary policy, and
 public keyring have been configured outside the repository:

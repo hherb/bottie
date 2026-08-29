@@ -9,7 +9,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { fileURLToPath } from "node:url";
 
 import { inspectBundleFiles, macosUpdaterBuildArguments } from "./macos-package.mjs";
-import { signUpdaterArtifact } from "./updater-artifact.mjs";
+import { bindUpdaterArtifactEvidence, signUpdaterArtifact } from "./updater-artifact.mjs";
 
 const DEVELOPER_ID_APPLICATION_PREFIX = "Developer ID Application:";
 const DEFAULT_BUNDLE_PATH = "src-tauri/target/release/bundle/macos/bottie.app";
@@ -121,6 +121,13 @@ export function updaterArchiveArguments(bundlePath, archivePath) {
   return ["-czf", archivePath, "-C", dirname(bundlePath), basename(bundlePath)];
 }
 
+/** Maps one exact packaged architecture to Tauri's matching static-manifest target. */
+export function macosUpdaterTarget(architectures) {
+  if (architectures.length === 1 && architectures[0] === "arm64") return "darwin-aarch64";
+  if (architectures.length === 1 && architectures[0] === "x86_64") return "darwin-x86_64";
+  throw new Error("macOS updater evidence requires one single supported architecture.");
+}
+
 /** Reduces Gatekeeper output to accepted notarized-Developer-ID evidence without identities or paths. */
 export function classifyGatekeeperAssessment(status, output) {
   const accepted = status === 0 && /source=Notarized Developer ID/i.test(output);
@@ -187,7 +194,7 @@ async function createUpdaterArchive(repositoryRoot, bundlePath, archivePath) {
   await rm(archivePath, { force: true });
   await rm(`${archivePath}.sig`, { force: true });
   runHostCommand("tar", updaterArchiveArguments(bundlePath, archivePath));
-  await signUpdaterArtifact(repositoryRoot, archivePath);
+  return signUpdaterArtifact(repositoryRoot, archivePath);
 }
 
 /** Submits the archive, staples its ticket, and verifies the final Gatekeeper decision. */
@@ -211,7 +218,7 @@ function notarizeAndVerify(bundlePath, archivePath, authenticationArguments) {
 }
 
 /** Produces one path-safe, identity-free record of the final stapled bundle. */
-async function createDistributionEvidence(bundlePath, entitlementsPath, archive, notarization) {
+async function createDistributionEvidence(bundlePath, entitlementsPath, archive, notarization, updater) {
   const executable = readPlistValue(bundlePath, "CFBundleExecutable");
   const architectures = runHostCommand("lipo", ["-archs", join(bundlePath, "Contents", "MacOS", executable)])
     .trim()
@@ -230,6 +237,7 @@ async function createDistributionEvidence(bundlePath, entitlementsPath, archive,
       ...inspectDistributionSignature(bundlePath),
       entitlementsSha256: createHash("sha256").update(entitlements).digest("hex"),
     },
+    updater: bindUpdaterArtifactEvidence(updater, macosUpdaterTarget(architectures)),
   };
 }
 
@@ -255,8 +263,12 @@ async function runDistribution(repositoryRoot) {
   try {
     const archive = await createNotarizationArchive(bundlePath, archivePath);
     const notarization = notarizeAndVerify(bundlePath, archivePath, authenticationArguments);
-    await createUpdaterArchive(repositoryRoot, bundlePath, resolve(repositoryRoot, UPDATER_ARCHIVE_PATH));
-    const evidence = await createDistributionEvidence(bundlePath, entitlementsPath, archive, notarization);
+    const updater = await createUpdaterArchive(
+      repositoryRoot,
+      bundlePath,
+      resolve(repositoryRoot, UPDATER_ARCHIVE_PATH),
+    );
+    const evidence = await createDistributionEvidence(bundlePath, entitlementsPath, archive, notarization, updater);
     await mkdir(dirname(evidencePath), { recursive: true });
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
     return evidence;
