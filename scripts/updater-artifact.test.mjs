@@ -130,6 +130,7 @@ describe("protected updater artifact signing", () => {
       ...evidence,
       target: "linux-x86_64",
     });
+    expect(bindUpdaterArtifactEvidence(evidence, "darwin-x86_64", SHA_A).target).toBe("darwin-x86_64");
     expect(() => bindUpdaterArtifactEvidence(evidence, "linux-x86_64", SHA_B)).toThrow(/final artifact/);
     expect(() => bindUpdaterArtifactEvidence(evidence, "android-aarch64", SHA_A)).toThrow(/target/);
   });

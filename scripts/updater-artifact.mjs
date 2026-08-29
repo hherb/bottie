@@ -9,7 +9,7 @@ const PRIVATE_KEY_PATH_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY_PATH";
 const PRIVATE_KEY_PASSWORD_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY_PASSWORD";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const PLATFORM_SIGNING_ENVIRONMENT_PATTERN = /^(?:TAURI_SIGNING_|BOTTIE_(?:APPLE|LINUX|WINDOWS)_)/;
-const SUPPORTED_TARGETS = new Set(["darwin-aarch64", "linux-x86_64", "windows-x86_64"]);
+const SUPPORTED_TARGETS = new Set(["darwin-aarch64", "darwin-x86_64", "linux-x86_64", "windows-x86_64"]);
 
 /** Validates one protected private-key source and password without reading either value. */
 export function requireUpdaterSigningEnvironment(environment, repositoryRoot) {

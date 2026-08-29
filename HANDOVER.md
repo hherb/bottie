@@ -1,6 +1,6 @@
 # bottie handover
 
-Last verified: 2026-08-25
+Last verified: 2026-08-30
 
 ## Start here
 
@@ -888,13 +888,58 @@ slice adds no schema or live-store mutation. The real macOS Save-panel cancellat
 synthetically clicked; native path-backed coverage proves the exact write/cancellation and path-redacted outcome
 contract. Live-provider tests were not applicable because this slice changes no provider networking or wire mapping.
 
-## Next bounded release slice: protected updater artifact evidence
+## Current bounded release slice: protected updater artifact evidence
 
-After explicit authorization for GitHub protected-environment secret configuration and hosted-runner/source egress,
-configure the already referenced updater signing credential, rebuild each supported distribution artifact from exact
-current source, and retain bounded evidence that the final notarized, Authenticode-signed, or embedded-OpenPGP-signed
-artifact also has a valid Tauri updater signature bound to its exact final bytes and SHA-256. Keep the private key and
-password outside source, logs, command arguments, artifacts, and retained evidence.
+### Goal
+
+Prove that Bottie's protected platform-distribution paths apply a valid Tauri updater signature to each exact final
+artifact only after its platform trust operation, while retaining no key, password, signature content, host path, or
+signer identity. Publishing an updater channel and all Microsoft Store activity remain separate.
+
+### Implemented shape
+
+1. A small Rust `bottie-updater-evidence` binary now streams the exact final artifact through the same locked
+   `minisign-verify` implementation used by Tauri's updater graph. It decodes only canonical generated public-key and
+   `.sig` files, verifies the signature cryptographically, and emits exact artifact size/SHA-256, signature-file
+   SHA-256, public-key-file SHA-256, format, and verified state without retaining signing text or paths.
+2. The protected Node signer accepts either key content or one absolute outside-repository key path, passes no secret
+   through command arguments, and invokes the public verifier only after Tauri creates the adjacent signature. Before
+   that verifier starts, every `TAURI_SIGNING_*`, `BOTTIE_APPLE_*`, `BOTTIE_WINDOWS_*`, and `BOTTIE_LINUX_*` variable
+   is removed from its environment.
+3. macOS evidence maps exactly one inspected `arm64` or `x86_64` executable to `darwin-aarch64` or
+   `darwin-x86_64`; universal, unknown, or mixed architectures fail closed. Windows binds the final
+   Authenticode-verified MSI to `windows-x86_64`; Linux binds the final embedded-OpenPGP-verified DEB to
+   `linux-x86_64`. Windows and Linux additionally require the updater artifact hash and size to equal the already
+   independently inspected installer bytes.
+4. Required-reviewer `macos-distribution` and `windows-distribution` GitHub environments now exist alongside the
+   existing protected Linux environment. The existing encrypted updater key and Keychain-held password were added as
+   environment secrets to all three without exposing either value. The Linux OpenPGP secrets remain independently
+   scoped; no Apple or Windows platform-signing credential was created or inferred.
+
+### Verification and current limit
+
+Protected Linux workflow run `33279780950` completed from exact source
+`2bb1ead840ab8626bd6fa632adb0249cb9c49d44` in 11 minutes 36 seconds. The locked build, package inspection, isolated
+smoke, protected OpenPGP import/signing, canonical-payload verification, embedded-signature byte match,
+`debsig-verify`, Tauri signing, native minisign verification, evidence upload, and unconditional cleanup all passed.
+The retained evidence records a 23,442,642-byte `linux-x86_64` artifact with matching installer/updater SHA-256
+`e24788260e1688b373ead30fdde985c3974a3eba921b8d3675c16f2e40862eec`, signature-file SHA-256
+`1a60779270a95e0eb709f5abf522d1f7c698eefe059067839d5cd507f10dc0a5`, and the committed public-key SHA-256
+`fd4adf69a4bea10958a0f63f0658083fa29bfad10c48c792877dcdcdb8c6355c`. No DEB or `.sig` was retained or published.
+
+Focused source coverage includes exact verifier invocation and output shape, final-byte/target binding, invalid or
+changed signatures, unsupported targets, mismatched installer hashes, final platform-operation ordering, and removal
+of all platform-signing variables before public verification. Prettier, Svelte diagnostics, the production build,
+Cargo formatting and compilation, 189 frontend tests, 404 default Rust library tests, the native verifier fixture,
+dependency inventory, and third-party notices pass. Thirty-one loopback, public-network, credential, live-provider,
+or performance Rust checks and three frontend performance cases remain opt-in.
+
+The macOS and Windows evidence legs remain open. The protected macOS environment lacks its Developer ID PKCS #12,
+temporary-keychain password, and notarization API-key secrets; a separate local credential-backed Apple notarization
+upload was not authorized. The protected Windows environment lacks an Authenticode PFX and password. Dispatching
+either workflow now would be a known credential failure. Complete this same bounded slice only after the release owner
+separately authorizes the chosen Apple submission route and supplies/configures an existing Windows direct-download
+signing credential. Do not generate or buy a certificate implicitly.
 
 Do not create a tag or GitHub Release, upload release assets, publish `latest.json`, enable automatic update checks,
 poll Partner Center, create replacement Store submission state, or claim Windows certification. Microsoft Store work

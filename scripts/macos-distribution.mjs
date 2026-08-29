@@ -121,6 +121,13 @@ export function updaterArchiveArguments(bundlePath, archivePath) {
   return ["-czf", archivePath, "-C", dirname(bundlePath), basename(bundlePath)];
 }
 
+/** Maps one exact packaged architecture to Tauri's matching static-manifest target. */
+export function macosUpdaterTarget(architectures) {
+  if (architectures.length === 1 && architectures[0] === "arm64") return "darwin-aarch64";
+  if (architectures.length === 1 && architectures[0] === "x86_64") return "darwin-x86_64";
+  throw new Error("macOS updater evidence requires one single supported architecture.");
+}
+
 /** Reduces Gatekeeper output to accepted notarized-Developer-ID evidence without identities or paths. */
 export function classifyGatekeeperAssessment(status, output) {
   const accepted = status === 0 && /source=Notarized Developer ID/i.test(output);
@@ -230,7 +237,7 @@ async function createDistributionEvidence(bundlePath, entitlementsPath, archive,
       ...inspectDistributionSignature(bundlePath),
       entitlementsSha256: createHash("sha256").update(entitlements).digest("hex"),
     },
-    updater: bindUpdaterArtifactEvidence(updater, "darwin-aarch64"),
+    updater: bindUpdaterArtifactEvidence(updater, macosUpdaterTarget(architectures)),
   };
 }
 
