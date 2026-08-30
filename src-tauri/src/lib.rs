@@ -283,7 +283,7 @@ fn get_microphone_status(state: State<'_, AppState>) -> MicrophoneStatus {
 #[tauri::command]
 /// Starts session-only native capture after an explicit WebView user action.
 fn start_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
-    if state.speech.is_speaking() {
+    if state.speech.blocks_microphone_capture() {
         return state.microphone.status();
     }
     state.microphone.start()

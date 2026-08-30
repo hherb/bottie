@@ -680,9 +680,11 @@ sending text/audio to a provider, selecting an output device, adding barge-in, o
 3. Each completed assistant response has an explicit Play/Stop action. A compact local-voice picker is visible above
    the conversation. Safe Markdown tokens are reduced to normalized visible text without destinations or formatting
    syntax before Rust applies the 32 KiB UTF-8 ceiling. Selection, text, and active-response state are session-only.
-4. Bottie disables capture while its speech is active and rejects playback during native capture. Conversation,
-   branch, generation, and page-lifecycle changes stop stale speech. These are narrow overlap guards, not automatic
-   barge-in or an acoustic-feedback policy.
+4. Bottie disables capture while its speech is active and rejects playback during native capture. The native capture
+   interlock remains fail-closed after speech start, status, or stop errors until the engine positively confirms idle
+   or a later stop succeeds. Message submission acquires its synchronous persistence guard before awaiting speech
+   shutdown, preventing duplicate prompts. Conversation, branch, generation, and page-lifecycle changes stop stale
+   speech. These are narrow overlap guards, not automatic barge-in or an acoustic-feedback policy.
 5. Linux package runners install `libspeechd-dev`; DEB metadata retains Tauri's WebKit/GTK dependencies, adds
    `libspeechd2` plus `speech-dispatcher`, and recommends `speech-dispatcher-espeak-ng`. macOS and Windows use installed
    local voices without adding WebView capabilities.
@@ -690,11 +692,12 @@ sending text/audio to a provider, selecting an output device, adding barge-in, o
 ### Acceptance and exclusions
 
 Focused Rust tests cover blank/oversized text, UTF-8 ceilings, bounded/sanitized voice metadata, opaque identity
-mapping, exact selection, play/stop lifecycle, unchanged state after invalid selection/text, and absence of utterance
-text from serialized status. Frontend tests cover Markdown-to-speech normalization, byte limits, fixed feedback,
-selectable voice presentation, and response-specific Play/Stop state. The runtime contract rejects Web Speech and
-WebView audio APIs, keeps the capability allowlist audio-free, pins `tts` 0.26.3, and requires Linux build/runtime
-prerequisites. Dependency inventory and distributable notices include the new locked graph.
+mapping, exact selection, play/stop lifecycle, fail-closed microphone blocking after uncertain engine failures,
+unchanged state after invalid selection/text, and absence of utterance text from serialized status. Frontend tests
+cover Markdown-to-speech normalization, byte limits, fixed feedback, selectable voice presentation, response-specific
+Play/Stop state, and duplicate submission prevention while speech shutdown is pending. The runtime contract rejects
+Web Speech and WebView audio APIs, keeps the capability allowlist audio-free, pins `tts` 0.26.3, and requires Linux
+build/runtime prerequisites. Dependency inventory and distributable notices include the new locked graph.
 
 This slice does not add barge-in, automatic playback, provider audio, audio content blocks, generated-audio retention,
 voice-selection persistence, playback rate/pitch/volume controls, output-device selection, microphone-device
@@ -703,8 +706,8 @@ submission, certification, or publication.
 
 ### Verification completed
 
-The full frontend suite passes 211 tests with 3 skipped; Prettier reports no changes, Svelte diagnostics report 0
-errors and 0 warnings, and the production build passes. The Rust library suite passes 424 tests with 33 intentionally
+The full frontend suite passes 212 tests with 3 skipped; Prettier reports no changes, Svelte diagnostics report 0
+errors and 0 warnings, and the production build passes. The Rust library suite passes 427 tests with 33 intentionally
 ignored, the updater-evidence test passes separately, and `cargo fmt --check` plus `cargo check` pass. Locked offline
 dependency inventory and distributable notice checks pass after adding the platform speech graph. Cargo 1.96 reports
 the upstream macOS-only `block` 0.1.6 dependency as future-incompatible; current builds and tests pass, and Bottie's

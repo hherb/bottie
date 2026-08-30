@@ -94,6 +94,7 @@ struct SpeechState {
     voices: Vec<SpeechVoice>,
     voice_selections: Vec<(String, String)>,
     selected_voice_id: Option<String>,
+    playback_may_be_active: bool,
     phase: SpeechPhase,
     error_code: Option<SpeechErrorCode>,
 }
@@ -113,6 +114,7 @@ impl Default for SpeechState {
             voices: Vec::new(),
             voice_selections: Vec::new(),
             selected_voice_id: None,
+            playback_may_be_active: false,
             phase: SpeechPhase::Idle,
             error_code: None,
         }
@@ -120,23 +122,17 @@ impl Default for SpeechState {
 }
 
 impl SpeechController {
-    /// Reports whether Bottie's local engine is currently playing an utterance.
-    pub(crate) fn is_speaking(&self) -> bool {
-        self.status().phase == SpeechPhase::Speaking
+    /// Blocks capture until local playback is positively confirmed idle or stopped.
+    pub(crate) fn blocks_microphone_capture(&self) -> bool {
+        let mut state = lock(&self.shared);
+        state.refresh_playback();
+        state.playback_may_be_active
     }
 
     /// Returns the current state and refreshes only the engine's speaking flag.
     pub(crate) fn status(&self) -> SpeechStatus {
         let mut state = lock(&self.shared);
-        if state.phase == SpeechPhase::Speaking {
-            let speaking = state.backend.as_mut().map(|backend| backend.is_speaking());
-            match speaking {
-                Some(Ok(true)) => {}
-                Some(Ok(false)) => state.phase = SpeechPhase::Idle,
-                Some(Err(code)) => state.fail(code),
-                None => state.fail(SpeechErrorCode::Unavailable),
-            }
-        }
+        state.refresh_playback();
         state.status()
     }
 
@@ -175,6 +171,7 @@ impl SpeechController {
         let text = validated_speech_text(text)?;
         let mut state = lock(&self.shared);
         state.ensure_ready()?;
+        state.playback_may_be_active = true;
         state
             .backend
             .as_mut()
@@ -189,12 +186,13 @@ impl SpeechController {
     /// Stops current Bottie speech without touching microphone capture or other audio.
     pub(crate) fn stop(&self) -> SpeechStatus {
         let mut state = lock(&self.shared);
-        if let Some(backend) = state.backend.as_mut()
-            && let Err(code) = backend.stop()
-        {
-            state.fail(code);
-            return state.status();
+        if let Some(backend) = state.backend.as_mut() {
+            if let Err(code) = backend.stop() {
+                state.fail(code);
+                return state.status();
+            }
         }
+        state.playback_may_be_active = false;
         state.phase = SpeechPhase::Idle;
         state.error_code = None;
         state.status()
@@ -212,6 +210,26 @@ impl SpeechController {
 }
 
 impl SpeechState {
+    fn refresh_playback(&mut self) {
+        if !self.playback_may_be_active {
+            return;
+        }
+        let speaking = self.backend.as_mut().map(|backend| backend.is_speaking());
+        match speaking {
+            Some(Ok(true)) => {
+                self.phase = SpeechPhase::Speaking;
+                self.error_code = None;
+            }
+            Some(Ok(false)) => {
+                self.playback_may_be_active = false;
+                self.phase = SpeechPhase::Idle;
+                self.error_code = None;
+            }
+            Some(Err(code)) => self.fail(code),
+            None => self.fail(SpeechErrorCode::Unavailable),
+        }
+    }
+
     fn ensure_ready(&mut self) -> Result<(), SpeechCommandError> {
         if self.backend.is_none() {
             self.backend = Some(Box::new(
@@ -246,9 +264,11 @@ impl SpeechState {
                 .map_err(|code| self.fail_command(code))?;
             self.selected_voice_id = Some(default_voice_id);
         }
-        self.error_code = None;
-        if self.phase == SpeechPhase::Error {
-            self.phase = SpeechPhase::Idle;
+        if !self.playback_may_be_active {
+            self.error_code = None;
+            if self.phase == SpeechPhase::Error {
+                self.phase = SpeechPhase::Idle;
+            }
         }
         Ok(())
     }

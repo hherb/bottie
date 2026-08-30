@@ -127,6 +127,69 @@ fn rejected_voice_and_text_leave_existing_selection_unchanged() {
 }
 
 #[test]
+fn microphone_capture_stays_blocked_until_failed_status_can_confirm_idle() {
+    let backend = RecordingBackend::default();
+    let record = backend.record.clone();
+    let controller = SpeechController::with_backend(Box::new(backend));
+    controller.list_voices().unwrap();
+    controller.speak("Keep capture separate.").unwrap();
+
+    record.lock().unwrap().is_speaking_error = true;
+    assert!(controller.blocks_microphone_capture());
+    assert_eq!(controller.status().phase, SpeechPhase::Error);
+
+    let mut record = record.lock().unwrap();
+    record.is_speaking_error = false;
+    record.speaking = false;
+    drop(record);
+
+    assert!(!controller.blocks_microphone_capture());
+    assert_eq!(controller.status().phase, SpeechPhase::Idle);
+}
+
+#[test]
+fn microphone_capture_stays_blocked_until_stop_succeeds() {
+    let backend = RecordingBackend::default();
+    let record = backend.record.clone();
+    let controller = SpeechController::with_backend(Box::new(backend));
+    controller.list_voices().unwrap();
+    controller.speak("Stop this safely.").unwrap();
+
+    record.lock().unwrap().stop_error = true;
+    assert_eq!(controller.stop().phase, SpeechPhase::Error);
+    assert!(controller.blocks_microphone_capture());
+
+    record.lock().unwrap().stop_error = false;
+    assert_eq!(controller.stop().phase, SpeechPhase::Idle);
+    assert!(!controller.blocks_microphone_capture());
+}
+
+#[test]
+fn failed_speech_start_blocks_capture_only_while_playback_state_is_unknown() {
+    let backend = RecordingBackend::default();
+    let record = backend.record.clone();
+    let controller = SpeechController::with_backend(Box::new(backend));
+    controller.list_voices().unwrap();
+
+    let mut backend = record.lock().unwrap();
+    backend.speak_error = true;
+    backend.is_speaking_error = true;
+    drop(backend);
+
+    assert_eq!(
+        controller.speak("Fail closed."),
+        Err(SpeechCommandError::PlaybackFailed)
+    );
+    assert!(controller.blocks_microphone_capture());
+
+    let mut backend = record.lock().unwrap();
+    backend.is_speaking_error = false;
+    backend.speaking = false;
+    drop(backend);
+    assert!(!controller.blocks_microphone_capture());
+}
+
+#[test]
 #[ignore = "requires the host operating system's local speech engine"]
 fn host_local_speech_engine_lists_bounded_voices_without_playing_audio() {
     let controller = SpeechController::default();
@@ -155,6 +218,9 @@ struct BackendRecord {
     spoken: Vec<String>,
     stop_count: usize,
     speaking: bool,
+    speak_error: bool,
+    stop_error: bool,
+    is_speaking_error: bool,
 }
 
 impl SpeechBackend for RecordingBackend {
@@ -180,6 +246,9 @@ impl SpeechBackend for RecordingBackend {
 
     fn speak(&mut self, text: &str) -> Result<(), SpeechErrorCode> {
         let mut record = self.record.lock().unwrap();
+        if record.speak_error {
+            return Err(SpeechErrorCode::PlaybackFailed);
+        }
         record.spoken.push(text.into());
         record.speaking = true;
         Ok(())
@@ -187,12 +256,19 @@ impl SpeechBackend for RecordingBackend {
 
     fn stop(&mut self) -> Result<(), SpeechErrorCode> {
         let mut record = self.record.lock().unwrap();
+        if record.stop_error {
+            return Err(SpeechErrorCode::PlaybackFailed);
+        }
         record.stop_count += 1;
         record.speaking = false;
         Ok(())
     }
 
     fn is_speaking(&mut self) -> Result<bool, SpeechErrorCode> {
-        Ok(self.record.lock().unwrap().speaking)
+        let record = self.record.lock().unwrap();
+        if record.is_speaking_error {
+            return Err(SpeechErrorCode::PlaybackFailed);
+        }
+        Ok(record.speaking)
     }
 }

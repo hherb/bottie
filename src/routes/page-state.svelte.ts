@@ -305,9 +305,9 @@ export class PageState {
     if (!submittedPrompt || this.isGenerating || !this.canSend || !this.attachmentsCanSubmit) {
       return;
     }
+    this.isPersistingMessage = true;
     if (this.speech.status.phase === "speaking") await this.speech.stop();
     const submittedAttachments = this.attachment.beginSubmission();
-    this.isPersistingMessage = true;
     const runContext = await this.history.persistUserMessage(
       submittedPrompt,
       submittedAttachments.map((attachment) => attachment.id),
