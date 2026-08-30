@@ -80,13 +80,15 @@ falls back to Bottie's existing dark, comfortable presentation; System follows O
 The composer has an explicit **Record voice** action in the native desktop app. Bottie does not open the default
 microphone or request operating-system permission until that action is chosen. Rust then downmixes native PCM into one
 bounded, session-only in-memory capture for at most 60 seconds and 32 MiB. The WebView receives only capture phase,
-permission state, duration, input level, sample rate, channel count, and retained byte size—never audio samples or an
-input-device identity. **Stop** retains the capture only until it is discarded, replaced, or Bottie exits; **Discard**
-clears it immediately.
+permission state, duration, input level, sample rate, channel count, retained byte size, and bounded speech/silence
+timing—never audio samples, detector thresholds, or an input-device identity. A native energy detector analyzes 20 ms
+frames with separate onset and release confirmation so brief peaks and pauses do not flicker the state. The composer
+calmly reports **Listening for speech** or **Speech detected**, then summarizes detected speech time. **Stop** retains
+the capture only until it is discarded, replaced, or Bottie exits; **Discard** clears it immediately.
 
-This first voice slice does not transcribe, persist, play, attach, or send the capture to a provider. Voice activity
-detection, local speech-to-text, audio message blocks, device selection, and playback remain roadmap work. The browser
-preview renders the control for layout review but cannot request microphone access.
+Voice capture does not transcribe, persist, play, attach, or send audio to a provider. Local speech-to-text, audio
+message blocks, device selection, and playback remain roadmap work. The browser preview renders the control for layout
+review but cannot request microphone access.
 
 ## Application updates
 
