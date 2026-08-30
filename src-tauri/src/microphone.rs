@@ -1,5 +1,7 @@
 //! Bounded native microphone capture with path-free WebView status.
 
+mod vad;
+
 use std::{
     sync::{
         Arc, Mutex, MutexGuard,
@@ -15,6 +17,8 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use serde::Serialize;
+
+use vad::{VoiceActivity, VoiceActivityDetector, VoiceSegment};
 
 const MAX_CAPTURE_DURATION: Duration = Duration::from_secs(60);
 const MAX_RETAINED_BYTES: usize = 32 * 1024 * 1024;
@@ -81,6 +85,8 @@ pub(crate) struct MicrophoneStatus {
     channels: Option<u16>,
     retained_byte_size: u64,
     input_level: f32,
+    voice_activity: Option<VoiceActivity>,
+    voice_segments: Vec<VoiceSegment>,
     error_code: Option<MicrophoneErrorCode>,
 }
 
@@ -115,6 +121,7 @@ struct CaptureBuffer {
     sample_rate_hz: u32,
     source_channels: u16,
     max_samples: usize,
+    voice_detector: VoiceActivityDetector,
 }
 
 impl Default for MicrophoneController {
@@ -245,6 +252,14 @@ impl CaptureState {
                 .as_ref()
                 .map_or(0, CaptureBuffer::retained_byte_size),
             input_level: self.input_level,
+            voice_activity: self
+                .buffer
+                .as_ref()
+                .map(|buffer| buffer.voice_detector.activity()),
+            voice_segments: self
+                .buffer
+                .as_ref()
+                .map_or_else(Vec::new, CaptureBuffer::voice_segments),
             error_code: self.error_code,
         }
     }
@@ -277,6 +292,7 @@ impl CaptureBuffer {
             sample_rate_hz,
             source_channels,
             max_samples,
+            voice_detector: VoiceActivityDetector::new(sample_rate_hz),
         }
     }
 
@@ -294,9 +310,14 @@ impl CaptureBuffer {
                 .map(|sample| f32::from_sample(*sample))
                 .sum::<f32>()
                 / channels as f32;
-            let mono = mono.clamp(-1.0, 1.0);
+            let mono = if mono.is_finite() {
+                mono.clamp(-1.0, 1.0)
+            } else {
+                0.0
+            };
             peak = peak.max(mono.abs());
             self.samples.push(mono);
+            self.voice_detector.push(mono);
         }
         peak
     }
@@ -319,6 +340,10 @@ impl CaptureBuffer {
 
     fn retained_byte_size(&self) -> u64 {
         self.samples.len().saturating_mul(FLOAT_SAMPLE_BYTES) as u64
+    }
+
+    fn voice_segments(&self) -> Vec<VoiceSegment> {
+        self.voice_detector.segments(self.samples.len())
     }
 }
 

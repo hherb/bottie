@@ -10,6 +10,16 @@ export type MicrophonePermission = "prompt" | "granted" | "denied" | "unavailabl
 export type MicrophoneErrorCode =
   "permission_denied" | "device_unavailable" | "device_busy" | "unsupported_format" | "capture_failed";
 
+/** Stable path-free classification produced by Bottie's native voice activity detector. */
+export type VoiceActivity = "silence" | "speech";
+
+/** One contiguous path-free activity range within the bounded capture. */
+export type VoiceSegment = {
+  activity: VoiceActivity;
+  startMs: number;
+  endMs: number;
+};
+
 /** Bounded native capture metadata that deliberately omits audio samples and device identity. */
 export type MicrophoneStatus = {
   phase: MicrophonePhase;
@@ -20,6 +30,8 @@ export type MicrophoneStatus = {
   channels: number | null;
   retainedByteSize: number;
   inputLevel: number;
+  voiceActivity: VoiceActivity | null;
+  voiceSegments: VoiceSegment[];
   errorCode: MicrophoneErrorCode | null;
 };
 
@@ -33,6 +45,8 @@ export const INITIAL_MICROPHONE_STATUS: MicrophoneStatus = {
   channels: null,
   retainedByteSize: 0,
   inputLevel: 0,
+  voiceActivity: null,
+  voiceSegments: [],
   errorCode: null,
 };
 
@@ -66,13 +80,23 @@ export function formatMicrophoneDuration(durationMs: number): string {
 export function microphoneFeedback(status: MicrophoneStatus): string {
   if (status.phase === "starting") return "Waiting for microphone permission…";
   if (status.phase === "recording") {
+    const activity = status.voiceActivity === "speech" ? "Speech detected" : "Listening for speech";
     return [
       "Recording locally",
+      activity,
       `${formatMicrophoneDuration(status.durationMs)} of ${formatMicrophoneDuration(status.maxDurationMs)}`,
     ].join(" · ");
   }
   if (status.phase === "captured") {
-    return `Voice capture · ${formatMicrophoneDuration(status.durationMs)} · held only in native memory`;
+    const speechMs = status.voiceSegments
+      .filter((segment) => segment.activity === "speech")
+      .reduce((total, segment) => total + Math.max(0, segment.endMs - segment.startMs), 0);
+    return [
+      "Voice capture",
+      formatMicrophoneDuration(status.durationMs),
+      `${formatMicrophoneDuration(speechMs)} speech`,
+      "held only in native memory",
+    ].join(" · ");
   }
   if (status.errorCode === "permission_denied") {
     return "Microphone access was denied. Allow Bottie in system privacy settings, then try again.";

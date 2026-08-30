@@ -11,6 +11,8 @@ const IDLE_STATUS: MicrophoneStatus = {
   channels: null,
   retainedByteSize: 0,
   inputLevel: 0,
+  voiceActivity: null,
+  voiceSegments: [],
   errorCode: null,
 };
 
@@ -31,8 +33,10 @@ describe("microphone presentation", () => {
         durationMs: 3_420,
         sampleRateHz: 48_000,
         channels: 1,
+        voiceActivity: "speech",
+        voiceSegments: [{ activity: "speech", startMs: 0, endMs: 3_420 }],
       }),
-    ).toBe("Recording locally · 0:03 of 1:00");
+    ).toBe("Recording locally · Speech detected · 0:03 of 1:00");
     expect(
       microphoneFeedback({
         ...IDLE_STATUS,
@@ -40,8 +44,29 @@ describe("microphone presentation", () => {
         permission: "granted",
         durationMs: 3_420,
         retainedByteSize: 656_640,
+        voiceActivity: "silence",
+        voiceSegments: [
+          { activity: "silence", startMs: 0, endMs: 420 },
+          { activity: "speech", startMs: 420, endMs: 2_920 },
+          { activity: "silence", startMs: 2_920, endMs: 3_420 },
+        ],
       }),
-    ).toBe("Voice capture · 0:03 · held only in native memory");
+    ).toBe("Voice capture · 0:03 · 0:02 speech · held only in native memory");
+  });
+
+  it("describes silence calmly without exposing detector internals", () => {
+    expect(
+      microphoneFeedback({
+        ...IDLE_STATUS,
+        phase: "recording",
+        permission: "granted",
+        durationMs: 800,
+        sampleRateHz: 48_000,
+        channels: 1,
+        voiceActivity: "silence",
+        voiceSegments: [{ activity: "silence", startMs: 0, endMs: 800 }],
+      }),
+    ).toBe("Recording locally · Listening for speech · 0:00 of 1:00");
   });
 
   it("maps stable native errors without reflecting backend details", () => {

@@ -13,6 +13,8 @@ const IDLE_STATUS: MicrophoneStatus = {
   channels: null,
   retainedByteSize: 0,
   inputLevel: 0,
+  voiceActivity: null,
+  voiceSegments: [],
   errorCode: null,
 };
 
@@ -42,12 +44,15 @@ describe("MicrophoneControl", () => {
       sampleRateHz: 48_000,
       channels: 1,
       inputLevel: 0.42,
+      voiceActivity: "speech",
+      voiceSegments: [{ activity: "speech", startMs: 0, endMs: 3_420 }],
     });
 
     expect(html).toContain('aria-label="Stop voice capture"');
     expect(html).toContain("Recording locally");
     expect(html).toContain('role="progressbar"');
     expect(html).toContain('aria-valuenow="42"');
+    expect(html).toContain("Speech detected");
   });
 
   it("keeps a completed capture visibly session-only and discardable", () => {
@@ -57,9 +62,16 @@ describe("MicrophoneControl", () => {
       permission: "granted",
       durationMs: 3_420,
       retainedByteSize: 656_640,
+      voiceActivity: "silence",
+      voiceSegments: [
+        { activity: "silence", startMs: 0, endMs: 420 },
+        { activity: "speech", startMs: 420, endMs: 2_920 },
+        { activity: "silence", startMs: 2_920, endMs: 3_420 },
+      ],
     });
 
     expect(html).toContain("held only in native memory");
+    expect(html).toContain("0:02 speech");
     expect(html).toContain('aria-label="Discard voice capture"');
     expect(html).toContain("Record again");
     expect(html).not.toContain("Send voice");

@@ -249,7 +249,9 @@ Store submission because its screenshots showed Bottie on macOS rather than Wind
 further notice from the release owner; the rejected submission is neither certification nor publication
 evidence. Fresh 0.9.0 packages, inspection, and isolated smoke evidence pass. Milestone 7 has begun with one explicit
 Rust-owned default-microphone capture: samples stay in bounded session-only native memory, the WebView sees only
-path-free status, and no transcription, persistence, playback, attachment, or provider delivery exists yet. The
+path-free status, and no transcription, persistence, playback, attachment, or provider delivery exists yet. A bounded
+native energy detector now classifies 20 ms frames into stable speech and silence ranges, exposes only millisecond
+timing, and drives calm live and captured summaries without returning audio or detector internals. The
 keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
@@ -316,8 +318,8 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is bounded
-local microphone capture on local branch `codex/local-audio-capture`; the current release-engineering slice remains
-limited by the explicit credential and publication boundaries below.
+native voice activity detection on local branch `codex/native-voice-activity-detection`; the current
+release-engineering slice remains limited by the explicit credential and publication boundaries below.
 
 ## Current implementation
 
@@ -650,64 +652,61 @@ The cohesively touched product modules remain at or below 500 lines. The crate c
 `src-tauri/src/lib.rs` remains an existing practical-limit exception; the remaining known indivisible long lines are
 SVG path values in `src/lib/Icon.svelte`.
 
-## Current bounded product slice: local microphone capture
+## Current bounded product slice: native voice activity detection
 
 ### Goal
 
-Begin Milestone 7 with one explicit, private default-microphone capture path that keeps permission and samples native,
-shows calm path-free state in the composer, and stops before speech recognition, persistence, playback, provider
-delivery, or a general WebView media capability.
+Add deterministic native voice activity detection over Bottie's existing bounded in-memory microphone capture. Return
+only path-free speech and silence timing, show calm live and captured state, and keep samples and detector internals in
+Rust while stopping before transcription, persistence, playback, or provider delivery.
 
 ### Implemented shape
 
-1. One Rust-owned CPAL worker opens the default input only after the user chooses **Record voice**. macOS packages now
-   carry a clear `NSMicrophoneUsageDescription`; Windows and Linux use their native input backends without exposing a
-   browser media API or adding Tauri microphone permissions.
-2. Native input is downmixed to mono `f32` PCM and retained only in process memory. Capture stops at the shorter of 60
-   seconds or 32 MiB, automatically stops at the limit, and is erased when discarded, replaced, or the process exits.
-   Nothing is written to SQLite or the filesystem.
-3. The WebView receives only phase, authorization state, elapsed/maximum duration, sample rate, source channel count,
-   current bounded input level, retained byte size, and one stable error code. Samples, backend messages, device names
-   and IDs, filesystem paths, and native worker identity never serialize through IPC.
-4. The composer requests permission only behind a labelled action, prevents sending while permission/capture is
-   active, exposes a clear Stop control and accessible input-level meter, and labels completed data as held only in
-   native memory. Discard clears the capture immediately; Record again replaces it.
-5. `default-run = "bottie"` restores unambiguous `tauri dev` startup after PR #118 added the separate updater-evidence
-   binary. A focused contract protects that native development path.
+1. A pure streaming detector consumes the already-downmixed mono `f32` samples without retaining another audio copy.
+   It uses 20 ms RMS frames, confirms speech onset across 60 ms, and confirms silence release across 200 ms so brief
+   peaks and natural speech pauses do not flicker or fragment the result.
+2. The detector retains sample-offset ranges internally and materializes only `speech`/`silence` plus start/end
+   milliseconds. The 60-second capture contract makes 512 segments a hard upper bound; non-finite backend samples are
+   normalized to silence before retention or classification.
+3. `MicrophoneStatus` adds only current activity and bounded segment timing. Audio samples, thresholds, frame energy,
+   backend messages, device identity, paths, hashes, and worker identity remain native-only. Idle/discarded state has
+   neither activity nor segments.
+4. While recording, the existing composer status calmly reports **Listening for speech** or **Speech detected**. A
+   stopped capture reports its total duration and detected speech time while retaining the existing native-memory and
+   discard wording. Browser media authority remains absent.
 
 ### Acceptance and exclusions
 
-Pure native tests cover stereo downmixing, duration and memory ceilings, exact path-free serialization, stable error
-mapping, and irreversible discard. Frontend tests cover explicit permission wording, active capture, accessible level
-state, session-only completion, discard, and the absence of a send-voice action. Runtime source contracts require the
-macOS purpose string and reject WebView `getUserMedia`, `MediaRecorder`, audio context, or microphone capability use.
+Pure native tests cover exact range timing, onset/release hysteresis, brief peak and pause suppression, non-finite
+sample handling, the full-window segment bound, exact path-free serialization, and discard. Frontend tests cover calm
+live activity and captured speech duration in addition to the existing explicit permission, session-only, accessible
+level, and discard behavior. Runtime source contracts require the narrow serialized range shape and continue to
+reject WebView `getUserMedia`, `MediaRecorder`, audio context, or microphone capability use.
 
-This slice does not add voice activity detection, transcription, transcript editing, audio content blocks, durable or
-optional audio retention, playback, text-to-speech, device selection, provider delivery, or Store manifest changes.
-It does not dispatch a protected workflow, publish a release/update, or resume Microsoft Store certification.
+This slice does not add transcription, transcript editing, audio content blocks, durable or optional audio retention,
+playback, text-to-speech, device selection, provider delivery, or Store manifest changes. It does not dispatch a
+protected workflow, publish a release/update, or resume Microsoft Store certification.
 
 ### Verification completed
 
-The complete Rust library suite passed with 408 tests and 31 explicit opt-in tests ignored. The desktop frontend suite
-passed with 198 tests and three skips. `cargo check`, Rust formatting, Prettier, Svelte diagnostics, the production
-frontend build, dependency inventory, third-party notices, and release-asset checks all passed. Linux packaging
-workflows now install CPAL's required ALSA development headers; no protected distribution workflow was dispatched.
+The complete Rust library suite passes 412 tests with 31 explicit opt-in/live tests ignored; the separate
+updater-evidence binary test also passes. The desktop frontend suite passes 199 tests with three skips. `cargo check`,
+Rust formatting, Prettier, Svelte diagnostics, and the production frontend build all pass. Eight focused native tests
+cover the detector and ten focused microphone presentation/runtime assertions pass.
 
-The browser preview was reviewed at 1320 x 820 and the 720 x 620 native minimum. The composer and microphone control
-remained contained without horizontal overflow, including with the compact Context overlay, and the browser console
-reported no warnings or errors. Browser preview correctly leaves capture unavailable because only native Tauri IPC can
-open the device. The native app compiled, development-signed, and launched after the explicit `default-run` fix. A
-manual operating-system permission decision and real-device Record/Stop/Discard interaction remain to be confirmed on
-hardware; this is not claimed as completed evidence.
-
-Immutable read-only inspection of the existing live store returned schema version 21 and `quick_check=ok`. This slice
-adds no schema, filesystem audio, provider call, protected signing, publication, or Microsoft Store action.
+This slice adds no schema, filesystem audio, provider call, protected signing, publication, or Microsoft Store action.
+The browser preview was reviewed at 1320 x 820 and the 720 x 620 native minimum. The composer, microphone control, and
+feedback remained contained without horizontal overflow, including with the compact Context overlay; the browser
+console reported no warnings or errors. The native app compiled, development-signed, and launched cleanly. A real
+microphone permission decision and detector-accuracy review remain to be exercised deliberately on hardware and are
+not claimed as completed evidence.
 
 ### Next bounded slice
 
-Add native voice activity detection over the existing bounded in-memory PCM capture. Return only path-free speech and
-silence segment timing plus calm UI state; keep raw samples native and continue to exclude transcription, persistence,
-audio content blocks, playback, provider delivery, device selection, and Store work.
+Add one bounded Rust-owned local streaming speech-to-text path over the native PCM and activity ranges. Return only
+path-free partial/final transcript state and visible turn timing; keep audio session-only and continue to exclude
+transcript correction, persistence, audio content blocks, playback, provider delivery, device selection, and Store
+work.
 
 ## Most recently completed maintenance slice: website dependency vulnerability remediation
 
