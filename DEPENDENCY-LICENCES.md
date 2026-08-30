@@ -50,7 +50,7 @@ excludes `website/` and the unrelated repository-root `assets/` workspace so eac
   before release.
 - **Unknown** means the locked metadata contains no declared licence. Unknown entries fail the release gate.
 
-Across 531 Rust packages, 157 npm paths, and six reviewed non-package asset groups, the result is:
+Across 566 Rust packages, 157 npm paths, and seven reviewed non-package asset groups, the result is:
 
 | Classification  | Entries | Result                                                                 |
 | --------------- | ------: | ---------------------------------------------------------------------- |
@@ -65,7 +65,7 @@ No GPL, AGPL, LGPL, or SSPL declaration appears in the reviewed graphs. The five
 included in `THIRD-PARTY-NOTICES.txt`; MPL source-form availability remains the repository's public source tree rather
 than a separately modified or vendored copy.
 
-`third-party/package-licence-texts.json` retains 679 exact locked package identities and 403 deduplicated text bodies.
+`third-party/package-licence-texts.json` retains 712 exact locked package identities and 428 deduplicated text bodies.
 The generator prefers each published package's own top-level licence, copying, copyright, and notice files. When a
 workspace or platform-binary package intentionally omits the shared file, it records the authoritative package source
 and uses the matching canonical text from immutable SPDX License List 3.28.0. ONNX Runtime's exact versioned licence
@@ -79,6 +79,8 @@ and complete upstream third-party notice file are appended without localization 
 - `rusqlite`: `backup` and `bundled` compile SQLite into Bottie and enable its online-backup API.
 - `fastembed`: defaults off; the Hugging Face and ONNX Runtime download paths use Rustls, with ORT selected as a
   checksum-pinned build input.
+- `whisper-rs`: exact version 0.16.0 owns the bundled whisper.cpp native runtime; Bottie separately pins and verifies
+  the downloaded model while limiting recognition to two native inference threads.
 - `image`: defaults off; only the reviewed JPEG and PNG decoders are compiled.
 - `zip`: defaults off; `deflate-flate2` limits DOCX and portable export archive support to DEFLATE.
 - `lopdf`: defaults off, excluding its optional encryption and time features.
@@ -126,6 +128,17 @@ stale. This repository work does not accept the Gemma terms on another person's 
 
 Authoritative sources: [model repository](https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX) and
 [Gemma Terms of Use](https://ai.google.dev/gemma/terms).
+
+### Whisper tiny Q5
+
+Bottie does not bundle speech-model weights. Only after explicit microphone capture produces a speech range, native
+code downloads `ggml-tiny-q5_1.bin` from immutable `ggerganov/whisper.cpp` revision
+`5359861c739e955e79d9a303bcbc70fb988958b1` into the app-owned speech-model cache. Before `whisper-rs 0.16.0` loads it,
+the file must match the exact 32,152,673-byte size and SHA-256 in `runtime-assets.json`. The multilingual Q5 model and
+upstream whisper.cpp licence are MIT; the reviewed licence is committed under `third-party/whisper.cpp-model/` and
+included in the distributable third-party notice bundle. No legal acceptance ceremony is required.
+
+Authoritative source: [whisper.cpp model repository](https://huggingface.co/ggerganov/whisper.cpp).
 
 ### Application artwork and platform frameworks
 

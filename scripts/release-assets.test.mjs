@@ -8,10 +8,15 @@ import {
 } from "./release-assets.mjs";
 
 const SHA = "a".repeat(64);
+const ASSET_HASHES = {
+  onnxRuntimeLicenceSha256: SHA,
+  onnxRuntimeNoticesSha256: SHA,
+  whisperModelLicenceSha256: SHA,
+};
 
 describe("release runtime assets", () => {
   it("pins every runtime-downloaded EmbeddingGemma file to one immutable revision", () => {
-    const manifest = buildRuntimeAssetManifest({ onnxRuntimeLicenceSha256: SHA, onnxRuntimeNoticesSha256: SHA });
+    const manifest = buildRuntimeAssetManifest(ASSET_HASHES);
 
     expect(manifest.embeddingGemma.repository).toBe("onnx-community/embeddinggemma-300m-ONNX");
     expect(manifest.embeddingGemma.revision).toMatch(/^[a-f0-9]{40}$/);
@@ -26,8 +31,22 @@ describe("release runtime assets", () => {
     expect(manifest.embeddingGemma.files.every((file) => file.sha256.match(/^[a-f0-9]{64}$/))).toBe(true);
   });
 
+  it("pins the multilingual Whisper tiny Q5 model and its reviewed MIT licence", () => {
+    const manifest = buildRuntimeAssetManifest(ASSET_HASHES);
+
+    expect(manifest.whisperTinyQ5.repository).toBe("ggerganov/whisper.cpp");
+    expect(manifest.whisperTinyQ5.revision).toMatch(/^[a-f0-9]{40}$/);
+    expect(manifest.whisperTinyQ5.variant).toBe("tiny-q5_1-multilingual");
+    expect(manifest.whisperTinyQ5.file).toEqual({
+      path: "ggml-tiny-q5_1.bin",
+      sha256: "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7",
+      size: 32_152_673,
+    });
+    expect(manifest.whisperTinyQ5.licence).toMatchObject({ sha256: SHA, spdx: "MIT" });
+  });
+
   it("records the four supported ONNX Runtime archives and exact reviewed notices", () => {
-    const manifest = buildRuntimeAssetManifest({ onnxRuntimeLicenceSha256: SHA, onnxRuntimeNoticesSha256: SHA });
+    const manifest = buildRuntimeAssetManifest(ASSET_HASHES);
 
     expect(manifest.onnxRuntime.version).toBe("1.28.0");
     expect(manifest.onnxRuntime.archives.map((archive) => archive.target)).toEqual([
@@ -41,7 +60,7 @@ describe("release runtime assets", () => {
   });
 
   it("requires one exact explicit Gemma terms acknowledgement and emits no identity or timestamp", () => {
-    const manifest = buildRuntimeAssetManifest({ onnxRuntimeLicenceSha256: SHA, onnxRuntimeNoticesSha256: SHA });
+    const manifest = buildRuntimeAssetManifest(ASSET_HASHES);
 
     expect(() => buildTermsAcceptanceEvidence(manifest, "yes")).toThrow(/exact Gemma terms acknowledgement/);
     const evidence = buildTermsAcceptanceEvidence(manifest, GEMMA_TERMS_ACKNOWLEDGEMENT);

@@ -248,10 +248,13 @@ Linux distribution-signature evidence now passes at `c5c26d2` in workflow run `3
 Store submission because its screenshots showed Bottie on macOS rather than Windows. Store work is deferred until
 further notice from the release owner; the rejected submission is neither certification nor publication
 evidence. Fresh 0.9.0 packages, inspection, and isolated smoke evidence pass. Milestone 7 has begun with one explicit
-Rust-owned default-microphone capture: samples stay in bounded session-only native memory, the WebView sees only
-path-free status, and no transcription, persistence, playback, attachment, or provider delivery exists yet. A bounded
+Rust-owned default-microphone capture: samples stay in bounded session-only native memory and the WebView sees only
+path-free status. A bounded
 native energy detector now classifies 20 ms frames into stable speech and silence ranges, exposes only millisecond
-timing, and drives calm live and captured summaries without returning audio or detector internals. The
+timing, and drives calm live and captured summaries without returning audio or detector internals. One dedicated Rust
+worker now performs local streaming speech recognition with an exact hash-pinned multilingual Whisper tiny Q5 model.
+It replaces bounded partial transcript ranges while recording, finalizes them after Stop, and keeps PCM, model/cache
+details, and inference state native; neither audio nor transcript text is persisted or sent to a provider. The
 keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
@@ -318,7 +321,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is bounded
-native voice activity detection on local branch `codex/native-voice-activity-detection`; the current
+local streaming speech-to-text on local branch `codex/local-streaming-speech-to-text`; the current
 release-engineering slice remains limited by the explicit credential and publication boundaries below.
 
 ## Current implementation
@@ -652,61 +655,67 @@ The cohesively touched product modules remain at or below 500 lines. The crate c
 `src-tauri/src/lib.rs` remains an existing practical-limit exception; the remaining known indivisible long lines are
 SVG path values in `src/lib/Icon.svelte`.
 
-## Current bounded product slice: native voice activity detection
+## Current bounded product slice: local streaming speech-to-text
 
 ### Goal
 
-Add deterministic native voice activity detection over Bottie's existing bounded in-memory microphone capture. Return
-only path-free speech and silence timing, show calm live and captured state, and keep samples and detector internals in
-Rust while stopping before transcription, persistence, playback, or provider delivery.
+Add one bounded Rust-owned local streaming speech-to-text path over Bottie's existing native PCM and activity ranges.
+Return only path-free partial/final transcript state and visible turn timing, keep audio session-only, and stop before
+transcript correction, persistence, audio content blocks, playback, provider delivery, or device selection.
 
 ### Implemented shape
 
-1. A pure streaming detector consumes the already-downmixed mono `f32` samples without retaining another audio copy.
-   It uses 20 ms RMS frames, confirms speech onset across 60 ms, and confirms silence release across 200 ms so brief
-   peaks and natural speech pauses do not flicker or fragment the result.
-2. The detector retains sample-offset ranges internally and materializes only `speech`/`silence` plus start/end
-   milliseconds. The 60-second capture contract makes 512 segments a hard upper bound; non-finite backend samples are
-   normalized to silence before retention or classification.
-3. `MicrophoneStatus` adds only current activity and bounded segment timing. Audio samples, thresholds, frame energy,
-   backend messages, device identity, paths, hashes, and worker identity remain native-only. Idle/discarded state has
-   neither activity nor segments.
-4. While recording, the existing composer status calmly reports **Listening for speech** or **Speech detected**. A
-   stopped capture reports its total duration and detected speech time while retaining the existing native-memory and
-   discard wording. Browser media authority remains absent.
+1. A dedicated process-lifetime Rust worker owns `whisper-rs 0.16.0` and stays model-free until explicit capture first
+   produces speech. Capture snapshots are coalesced behind a one-slot wake channel, trimmed to the detector's first and
+   last speech timing, resampled natively to 16 kHz, and replaced every 1.5 seconds instead of forming an unbounded
+   inference queue. Stop schedules the exact bounded final snapshot.
+2. The multilingual Whisper tiny Q5 file is downloaded into Bottie's app-owned speech cache from immutable
+   `ggerganov/whisper.cpp` revision `5359861c739e955e79d9a303bcbc70fb988958b1`. Native code streams size and SHA-256
+   verification against `runtime-assets.json` before loading the model. Model/cache paths, bytes, hashes, repository
+   details, runtime messages, PCM, and detector internals never enter IPC.
+3. `MicrophoneStatus` exposes only `idle`/`listening`/`preparing_model`/`transcribing`/`ready`/`error`, one fixed error
+   category, and at most 32 transcript segments and 4,000 UTF-8 bytes with text, start/end milliseconds, and explicit
+   partial/final state. Monotonic capture and job identities reject results from a discarded or replaced capture.
+4. The composer shows calm preparation/error state, accessible live partial/final transcript ranges, and visible
+   minute/second timing. Capture controls stay bounded while native work is active; Discard remains available and
+   immediately clears the retained capture, pending snapshot, transcript, and visible state. An already executing
+   inference copy remains bounded and native until that pass returns; its stale result is rejected. Browser media
+   authority remains absent.
 
 ### Acceptance and exclusions
 
-Pure native tests cover exact range timing, onset/release hysteresis, brief peak and pause suppression, non-finite
-sample handling, the full-window segment bound, exact path-free serialization, and discard. Frontend tests cover calm
-live activity and captured speech duration in addition to the existing explicit permission, session-only, accessible
-level, and discard behavior. Runtime source contracts require the narrow serialized range shape and continue to
-reject WebView `getUserMedia`, `MediaRecorder`, audio context, or microphone capability use.
+Pure native tests cover speech-window trimming, linear resampling, model size/hash verification, bounded UTF-8 output,
+partial/final state, stale-result rejection, exact path-free serialization, and discard. Frontend tests cover local
+model preparation, transcript timing/finality, action bounds, and fixed error presentation. Runtime source contracts
+require the recognizer, immutable asset, count/text ceilings, and absent WebView `getUserMedia`, `MediaRecorder`, audio
+context, or microphone capability use.
 
-This slice does not add transcription, transcript editing, audio content blocks, durable or optional audio retention,
-playback, text-to-speech, device selection, provider delivery, or Store manifest changes. It does not dispatch a
-protected workflow, publish a release/update, or resume Microsoft Store certification.
+This slice does not add transcript correction or insertion into the composer, persistence, audio content blocks,
+durable or optional audio retention, playback, text-to-speech, device selection, provider delivery, or Store manifest
+changes. It does not dispatch a protected workflow, publish a release/update, or resume Microsoft Store certification.
 
 ### Verification completed
 
-The complete Rust library suite passes 412 tests with 31 explicit opt-in/live tests ignored; the separate
-updater-evidence binary test also passes. The desktop frontend suite passes 199 tests with three skips. `cargo check`,
-Rust formatting, Prettier, Svelte diagnostics, and the production frontend build all pass. Eight focused native tests
-cover the detector and ten focused microphone presentation/runtime assertions pass.
+The complete Rust suite passes 416 tests with 32 intentionally ignored, and the updater evidence test also passes;
+`cargo fmt --check` and `cargo check` pass. The frontend suite passes 203 tests with 3 skipped, Prettier reports no
+changes, Svelte diagnostics report 0 errors and 0 warnings, and the production build passes. Dependency inventory,
+third-party notices, and runtime-asset contract checks pass. The ignored live recognition test was run explicitly and
+successfully downloaded, verified, loaded, and executed the pinned model against a synthetic five-second tone.
 
-This slice adds no schema, filesystem audio, provider call, protected signing, publication, or Microsoft Store action.
-The browser preview was reviewed at 1320 x 820 and the 720 x 620 native minimum. The composer, microphone control, and
-feedback remained contained without horizontal overflow, including with the compact Context overlay; the browser
-console reported no warnings or errors. The native app compiled, development-signed, and launched cleanly. A real
-microphone permission decision and detector-accuracy review remain to be exercised deliberately on hardware and are
-not claimed as completed evidence.
+The rendered composer was reviewed at 1320 x 820 and 720 x 620: its bounded transcript panel stayed within the composer
+without horizontal overflow, including with the Context overlay open, and the browser console remained clear. A
+development-signed native build launched successfully, and the existing immutable database remained at schema 21 with
+`quick_check=ok`. That native launch did not request microphone permission or exercise real hardware capture, so
+transcript accuracy, real-device latency, and microphone integration remain unverified. Discard clears retained capture,
+pending work, and visible transcript state immediately; a PCM copy already executing in the bounded worker is released
+when that pass returns, and its stale result is ignored. No provider delivery, protected workflow, release publication,
+or Microsoft Store certification action was performed.
 
 ### Next bounded slice
 
-Add one bounded Rust-owned local streaming speech-to-text path over the native PCM and activity ranges. Return only
-path-free partial/final transcript state and visible turn timing; keep audio session-only and continue to exclude
-transcript correction, persistence, audio content blocks, playback, provider delivery, device selection, and Store
-work.
+Add explicit session-only transcript correction and visible voice-turn boundaries without persisting transcript or
+audio, creating audio content blocks, sending either to a provider, adding playback, selecting devices, or resuming
+Store work.
 
 ## Most recently completed maintenance slice: website dependency vulnerability remediation
 

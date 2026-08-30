@@ -8,13 +8,16 @@ describe("native microphone runtime contract", () => {
     const frontendFiles = (await readdir(frontendRoot, { recursive: true })).filter(
       (file) => /\.(svelte|ts)$/.test(file) && !file.endsWith(".test.ts"),
     );
-    const [frontendSources, native, voiceActivity, capability, cargoManifest] = await Promise.all([
-      Promise.all(frontendFiles.map((file) => readFile(new URL(file, frontendRoot), "utf8"))),
-      readFile(new URL("../src-tauri/src/microphone.rs", import.meta.url), "utf8"),
-      readFile(new URL("../src-tauri/src/microphone/vad.rs", import.meta.url), "utf8"),
-      readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"),
-      readFile(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8"),
-    ]);
+    const [frontendSources, native, voiceActivity, transcription, capability, cargoManifest, runtimeAssets] =
+      await Promise.all([
+        Promise.all(frontendFiles.map((file) => readFile(new URL(file, frontendRoot), "utf8"))),
+        readFile(new URL("../src-tauri/src/microphone.rs", import.meta.url), "utf8"),
+        readFile(new URL("../src-tauri/src/microphone/vad.rs", import.meta.url), "utf8"),
+        readFile(new URL("../src-tauri/src/microphone/transcription.rs", import.meta.url), "utf8"),
+        readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"),
+        readFile(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8"),
+        readFile(new URL("../runtime-assets.json", import.meta.url), "utf8"),
+      ]);
     const frontend = frontendSources.join("\n");
 
     expect(frontend).not.toMatch(/getUserMedia|MediaRecorder|AudioContext/);
@@ -29,8 +32,16 @@ describe("native microphone runtime contract", () => {
     pub(super) end_ms: u64,
 }`);
     expect(voiceActivity).not.toMatch(/pub\(super\) (?:samples|device|path|backend)/i);
+    expect(transcription).toContain("MAX_TRANSCRIPT_SEGMENTS");
+    expect(transcription).toContain("MAX_TRANSCRIPT_TEXT_BYTES");
+    expect(transcription).toContain("WhisperContext");
+    expect(transcription).toContain("verify_model_reader");
+    expect(transcription).toContain("install_logging_hooks");
+    expect(runtimeAssets).toContain('"whisperTinyQ5"');
+    expect(runtimeAssets).toContain('"ggml-tiny-q5_1.bin"');
     expect(capability).not.toMatch(/microphone|media|audio/i);
     expect(cargoManifest).toContain('default-run = "bottie"');
+    expect(cargoManifest).toContain('whisper-rs = "=0.16.0"');
   });
 
   it("installs the native Linux audio headers in packaging runners", async () => {

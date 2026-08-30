@@ -43,6 +43,22 @@
       "url": "https://ai.google.dev/gemma/terms"
     }
   },
+  "whisperTinyQ5": {
+    "repository": "ggerganov/whisper.cpp",
+    "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+    "variant": "tiny-q5_1-multilingual",
+    "file": {
+      "path": "ggml-tiny-q5_1.bin",
+      "sha256": "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7",
+      "size": 32152673
+    },
+    "licence": {
+      "path": "third-party/whisper.cpp-model/LICENSE",
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+      "source": "https://huggingface.co/ggerganov/whisper.cpp",
+      "spdx": "MIT"
+    }
+  },
   "onnxRuntime": {
     "version": "1.28.0",
     "selectedBy": "ort-sys 2.0.0-rc.13",

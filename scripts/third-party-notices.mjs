@@ -12,6 +12,7 @@ const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const OUTPUT_PATH = "THIRD-PARTY-NOTICES.txt";
 const ONNX_RUNTIME_LICENCE_PATH = "third-party/onnxruntime-1.28.0/LICENSE";
 const ONNX_RUNTIME_NOTICES_PATH = "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt";
+const WHISPER_MODEL_LICENCE_PATH = "third-party/whisper.cpp-model/LICENSE";
 const DIVIDER = "=".repeat(80);
 const LICENCE_FILE_PATTERN = /^(?:licen[cs]e|copying|copyright|notice)(?:[-._].*)?$/i;
 const SPDX_VERSION = "v3.28.0";
@@ -32,7 +33,7 @@ const SPDX_LICENCES = [
 const SPDX_EXCEPTIONS = ["LLVM-exception"];
 
 /** Builds one sorted notice document and shares identical licence bodies between package identities. */
-export function buildThirdPartyNotices({ packages, onnxRuntimeLicence, onnxRuntimeNotices }) {
+export function buildThirdPartyNotices({ packages, onnxRuntimeLicence, onnxRuntimeNotices, whisperModelLicence = "" }) {
   const texts = new Map();
   for (const package_ of [...packages].sort(comparePackages)) {
     if (package_.texts.length === 0) {
@@ -59,7 +60,8 @@ export function buildThirdPartyNotices({ packages, onnxRuntimeLicence, onnxRunti
       `text and the package's authoritative source URL.\n\n` +
       `${DIVIDER}\n\n${packageSections}\n${DIVIDER}\n\n` +
       `Microsoft ONNX Runtime 1.28.0 licence\n\n${onnxRuntimeLicence}\n${DIVIDER}\n\n` +
-      `Microsoft ONNX Runtime 1.28.0 upstream third-party notices\n\n${onnxRuntimeNotices}`,
+      `Microsoft ONNX Runtime 1.28.0 upstream third-party notices\n\n${onnxRuntimeNotices}\n${DIVIDER}\n\n` +
+      `Whisper tiny Q5 multilingual model (ggerganov/whisper.cpp) licence\n\n${whisperModelLicence}`,
   );
 }
 
@@ -204,6 +206,7 @@ async function main() {
     packages,
     onnxRuntimeLicence: readFileSync(join(REPOSITORY_ROOT, ONNX_RUNTIME_LICENCE_PATH), "utf8"),
     onnxRuntimeNotices: readFileSync(join(REPOSITORY_ROOT, ONNX_RUNTIME_NOTICES_PATH), "utf8"),
+    whisperModelLicence: readFileSync(join(REPOSITORY_ROOT, WHISPER_MODEL_LICENCE_PATH), "utf8"),
   });
   const path = join(REPOSITORY_ROOT, OUTPUT_PATH);
   if (process.argv.includes("--check")) {

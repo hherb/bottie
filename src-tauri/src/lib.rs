@@ -506,6 +506,7 @@ pub fn run() {
             let localmail_config_path = app.path().app_config_dir()?.join("localmail.json");
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
             let embedding_cache_path = app.path().app_data_dir()?.join("embedding-models");
+            let speech_model_cache_path = app.path().app_data_dir()?.join("speech-models");
             let startup = ConversationStore::initialize_for_app(database_path)
                 .map_err(|error| std::io::Error::other(error.message))?;
             let diagnostics = Diagnostics::default();
@@ -557,7 +558,7 @@ pub fn run() {
                 providers: tauri::async_runtime::RwLock::new(providers),
                 settings_path,
                 localmail_config_path,
-                microphone: MicrophoneController::default(),
+                microphone: MicrophoneController::new(speech_model_cache_path),
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 diagnostics,
                 credentials,

@@ -83,12 +83,20 @@ bounded, session-only in-memory capture for at most 60 seconds and 32 MiB. The W
 permission state, duration, input level, sample rate, channel count, retained byte size, and bounded speech/silence
 timing—never audio samples, detector thresholds, or an input-device identity. A native energy detector analyzes 20 ms
 frames with separate onset and release confirmation so brief peaks and pauses do not flicker the state. The composer
-calmly reports **Listening for speech** or **Speech detected**, then summarizes detected speech time. **Stop** retains
-the capture only until it is discarded, replaced, or Bottie exits; **Discard** clears it immediately.
+calmly reports **Listening for speech** or **Speech detected**. A dedicated Rust worker recognizes bounded
+speech-containing snapshots with the pinned multilingual Whisper tiny Q5 model, replaces partial results while capture
+continues, and makes the stopped result final. The WebView receives at most 32 path-free transcript ranges and 4,000
+UTF-8 bytes of transcript text with visible start/end timing; model paths, hashes, runtime details, and PCM stay native.
+**Stop** retains the capture and final transcript only until they are discarded, replaced, or Bottie exits;
+**Discard** clears the retained capture, pending snapshot, and visible transcript immediately. If one native inference
+pass is already executing, its bounded PCM copy is released when that pass returns and its stale result is ignored.
 
-Voice capture does not transcribe, persist, play, attach, or send audio to a provider. Local speech-to-text, audio
-message blocks, device selection, and playback remain roadmap work. The browser preview renders the control for layout
-review but cannot request microphone access.
+The speech model is downloaded only after explicit capture first produces speech, from the immutable repository
+revision and file identity in `runtime-assets.json`, into Bottie's app-owned cache. Native code verifies its exact
+32,152,673-byte SHA-256 contract before loading it. Voice audio and transcript text are not persisted, attached,
+played, inserted into a conversation, or sent to a provider. Transcript correction, audio message blocks, device
+selection, and playback remain roadmap work. The browser preview renders the control for layout review but cannot
+request microphone access or run recognition.
 
 ## Application updates
 
@@ -111,7 +119,7 @@ before a request leaves the application.
 | --------------------------------- | --------------------------------------------------------------- |
 | UI-safe typed state               | Conversations, indexes, backups, and recovery                   |
 | Path-free file metadata           | Paths, bytes, extraction, image normalization, and hashes       |
-| Path-free voice-capture metadata  | Microphone access and bounded session-only PCM samples          |
+| Path-free voice/transcript state  | Microphone, PCM, model cache, and local speech inference         |
 | Credential status and diagnostics | Vault access, provider authentication, and sensitive logs       |
 | Context cards and audit summaries | Tool policy, network clients, deadlines, and durable audit data |
 
@@ -132,6 +140,7 @@ Additional safeguards include:
 - no updater plugin permissions or JavaScript updater binding in the WebView; only Bottie's narrow native
   check/install/cancel commands are registered.
 - no WebView media-capture capability; microphone access and sample retention remain behind narrow Rust commands.
+- local speech recognition downloads one hash-pinned model only after explicit capture; no audio reaches its source.
 
 ## Provider support
 
@@ -486,7 +495,7 @@ latest completed slice.
 - [`LICENSE`](LICENSE) and [`THIRD-PARTY-NOTICES.txt`](THIRD-PARTY-NOTICES.txt) — distributable project and locked
   dependency terms
 - [`MODEL-NOTICE.txt`](MODEL-NOTICE.txt) and [`runtime-assets.json`](runtime-assets.json) — reviewed Gemma terms notice
-  plus immutable model/ONNX Runtime identities
+  plus immutable EmbeddingGemma, Whisper, and ONNX Runtime identities
 - [`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) — tester-facing 0.9.0 beta notes and distribution cautions
 - [`MIGRATION-ROLLBACK.md`](MIGRATION-ROLLBACK.md) — forward-only migration and recovery contract
 

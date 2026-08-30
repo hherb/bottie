@@ -315,7 +315,8 @@ Outcome: users can hold interruptible, private voice conversations without requi
 - [x] Rust-owned default-input capture behind an explicit Record voice action, with operating-system permission,
   bounded session-only PCM retention, path-free status, Stop/Discard controls, and no provider delivery;
 - [x] bounded native voice activity detection with path-free speech/silence timing and calm live/captured state;
-- [ ] local streaming speech-to-text;
+- [x] local streaming speech-to-text with a pinned multilingual Whisper tiny Q5 model, bounded partial/final transcript
+  ranges, visible timing, app-owned cache verification, and session-only audio/text state;
 - [ ] transcript correction and visible turn boundaries;
 - [ ] local text-to-speech with selectable voices;
 - [ ] barge-in and end-to-end cancellation;

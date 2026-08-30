@@ -8,28 +8,28 @@
       "x86_64-pc-windows-msvc",
       "x86_64-unknown-linux-gnu"
     ],
-    "rustLockPackages": 677,
+    "rustLockPackages": 686,
     "npmLockPackages": 157,
     "limitation": "Rust entries are the union of locked macOS arm64/x64, Windows x64, and Linux x64 normal and build graphs. The Cargo.lock count remains a conservative superset for architectures outside those four reviewed targets."
   },
   "inputs": {
     "package.json": "83c186c3ce731e88ad32cd2a0211c638b2ca5e2f0611a8b1e32a713c71abf953",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
-    "src-tauri/Cargo.toml": "b35e78da47ffde35b15f2c2c2dd92305cf0b210ea42af095cc28a098a983cf55",
-    "src-tauri/Cargo.lock": "17f99f67e7715f5c952c779411134bf4dee231b430951075b7c055295632bc59",
+    "src-tauri/Cargo.toml": "81a2581a70801470767e77d3b1aa642fce4c6a797c7a76be3870047b895473af",
+    "src-tauri/Cargo.lock": "4bf51c93f9c9ca704ea4408153c4fbdb1821a96acd03753e355502edb72a1d74",
     "src-tauri/tauri.conf.json": "6b4e00f0d589e64b8f59ebcb2cbaa8de84a302cc5fd3fd071bf43f3e659320bb",
     "src-tauri/tauri.updater.conf.json": "c1d7d16c801bc2b87747d5b0a71f8fae927122e4897453eea23e51e98b191e33",
     "src-tauri/src/semantic_indexer.rs": "37cc38d5ac94f3556fde8a18a6a6b0e5b69fccc6ed32128e23c1d8688ed339ec",
     "src-tauri/src/updater.rs": "d5eaae60314be6be41c7da88544d90d4a537bc23f6ed8c8d0a9c0c76aa5bddd5",
     "src-tauri/src/updater_evidence.rs": "9c740591d18175d221b67579022b16a820f068ae3cdadd6030c9be318790a7cc",
-    "scripts/dependency-inventory.mjs": "25577a7669bc64337ec768dcf3f4c9231d5a134b652523f8a6a7ee3fae692501",
+    "scripts/dependency-inventory.mjs": "1b9503c9d7467c8bdab3334956e532661b6dd2834b3711397bdd733bb4e1c794",
     "scripts/application-icons.mjs": "1307b7f746a9ef9f6920739934fd8a4aea6886f3d735e58dc0c5c016fb8ee275",
     "scripts/release-candidate.mjs": "03e54bb19a1b8901ab8e95046f160b5ae812ed59dba5126bc1ae97a3699365f2",
     "scripts/release-candidate-runtime.mjs": "bab0720610eeb980a85a151d10078b919ca7c261fec1f1f111108ba6a60b21aa",
-    "scripts/release-assets.mjs": "012f36ccc07a1778a54a5fffd7a5bef4826a434d1c2f87cedf160d5d289d625b",
+    "scripts/release-assets.mjs": "3fd1d22bea31d3fa3652daba7823f0c8b6ff08e20196994414d98e22b42d7932",
     "scripts/update-delivery.mjs": "045ea89af32a33c511d204574e5e034d92b8a0c9da0cfeda6f49d0447d19f0d3",
     "scripts/updater-artifact.mjs": "d9515970caa917629413f18a988fc5afeff837aa7914e71c824a9a645faa6287",
-    "scripts/third-party-notices.mjs": "a0a8916c36f0c8eb951a79c9438d9db47ae546e319050b4a0d621dcfcaa9b375",
+    "scripts/third-party-notices.mjs": "bf769a0524526d5fc43244c77144b2088c198ffea400f4b22249d8c76ff88360",
     "scripts/macos-package.mjs": "c1b4951e676662cc548f1925507ca693cdcf2a3976f33346411dee857f3c1781",
     "scripts/macos-distribution.mjs": "a3cdb075ab538a3762eb4391796f0c618b0121c917540c5c4a8f6a8e2890be17",
     "scripts/windows-package.mjs": "0f614dac9be5b0c443426e5cd48d9988701467fc19fec1d0e5156ae4e439aea0",
@@ -51,11 +51,12 @@
     ".github/workflows/linux-distribution-validation.yml": "07c1e56a09ded15ce7db0446fc5cb55bf1140fccdc6d03c90642db186b62a255",
     "LICENSE": "6f78c7d9d21c1432be2769ec843d045e00a87cf94c90c0cf325b932628772884",
     "MODEL-NOTICE.txt": "d4e49f201ce441098703da8d449a00462bbdcd946a12c1d75f89231a9da2130e",
-    "THIRD-PARTY-NOTICES.txt": "ff46b655943e183c0fd3ddbd48ea005775065bf257d9efebc534125c6def9b82",
-    "runtime-assets.json": "7644b8c67b37410ec720d6d5f58ec211a50021daa5f2aab14434533ccf227ddb",
+    "THIRD-PARTY-NOTICES.txt": "3dfe73f7f08c94fd10ace235f3aaeef5d4a6aeb0a82d5a11da0f9868cd335350",
+    "runtime-assets.json": "3816bbfb99c3ab19e9b39e77f3bed42c1f20748c51c2bf4645d6d8a36e6d2fe0",
     "third-party/onnxruntime-1.28.0/LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
-    "third-party/package-licence-texts.json": "9728d0aa9a3cfa232d788bba03df4ff315c6635dd740f0f10ed8aa62078837f3",
+    "third-party/whisper.cpp-model/LICENSE": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+    "third-party/package-licence-texts.json": "354d30f1c0eb06bb858a7cb47c53bdfb4b1538f0876acf77dcd812fc71c0eac6",
     "third-party/spdx-3.28.0/exceptions/LLVM-exception.txt": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e",
     "third-party/spdx-3.28.0/licenses/Apache-2.0.txt": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
     "third-party/spdx-3.28.0/licenses/BSD-2-Clause.txt": "017b5ee48f680e82cba79141c7895a1f02b856df2512225f5c427fe36765ef0b",
@@ -185,6 +186,14 @@
       "source": "runtime-assets.json"
     },
     {
+      "name": "Whisper tiny multilingual Q5 model",
+      "version": "ggerganov/whisper.cpp@5359861c739e955e79d9a303bcbc70fb988958b1",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "delivery": "Downloaded only after explicit voice capture into Bottie's application cache; not bundled in this repository or application. runtime-assets.json pins the revision, file size, SHA-256, and reviewed licence.",
+      "source": "third-party/whisper.cpp-model/LICENSE"
+    },
+    {
       "name": "macOS system frameworks and WebKit",
       "version": "Operating-system supplied",
       "licence": "Platform terms",
@@ -194,8 +203,8 @@
     }
   ],
   "summary": {
-    "compatible": 12,
-    "notice-required": 708,
+    "compatible": 14,
+    "notice-required": 716,
     "unknown": 0,
     "review-required": 0
   },
@@ -715,6 +724,27 @@
       "source": "https://crates.io/crates/base64/0.23.1"
     },
     {
+      "name": "bindgen",
+      "version": "0.72.1",
+      "licence": "BSD-3-Clause",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "logging",
+        "prettyplease",
+        "runtime"
+      ],
+      "source": "https://crates.io/crates/bindgen/0.72.1"
+    },
+    {
       "name": "bit-set",
       "version": "0.8.0",
       "licence": "Apache-2.0 OR MIT",
@@ -1168,6 +1198,22 @@
       "source": "https://crates.io/crates/cc/1.4.3"
     },
     {
+      "name": "cexpr",
+      "version": "0.6.0",
+      "licence": "Apache-2.0/MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cexpr/0.6.0"
+    },
+    {
       "name": "cfb",
       "version": "0.7.3",
       "licence": "MIT",
@@ -1291,6 +1337,38 @@
         "block-padding"
       ],
       "source": "https://crates.io/crates/cipher/0.5.2"
+    },
+    {
+      "name": "clang-sys",
+      "version": "1.9.1",
+      "licence": "Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "clang_10_0",
+        "clang_11_0",
+        "clang_3_5",
+        "clang_3_6",
+        "clang_3_7",
+        "clang_3_8",
+        "clang_3_9",
+        "clang_4_0",
+        "clang_5_0",
+        "clang_6_0",
+        "clang_7_0",
+        "clang_8_0",
+        "clang_9_0",
+        "libloading",
+        "runtime"
+      ],
+      "source": "https://crates.io/crates/clang-sys/1.9.1"
     },
     {
       "name": "cmake",
@@ -4014,6 +4092,22 @@
     },
     {
       "name": "itertools",
+      "version": "0.13.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/itertools/0.13.0"
+    },
+    {
+      "name": "itertools",
       "version": "0.14.0",
       "licence": "MIT OR Apache-2.0",
       "classification": "notice-required",
@@ -4233,6 +4327,22 @@
         "pkg-config"
       ],
       "source": "https://crates.io/crates/libdbus-sys/0.2.7"
+    },
+    {
+      "name": "libloading",
+      "version": "0.8.9",
+      "licence": "ISC",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/libloading/0.8.9"
     },
     {
       "name": "libsqlite3-sys",
@@ -6060,6 +6170,24 @@
       "source": "https://crates.io/crates/precomputed-hash/0.1.1"
     },
     {
+      "name": "prettyplease",
+      "version": "0.2.37",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "verbatim"
+      ],
+      "source": "https://crates.io/crates/prettyplease/0.2.37"
+    },
+    {
       "name": "proc-macro-crate",
       "version": "1.3.1",
       "licence": "MIT OR Apache-2.0",
@@ -7247,6 +7375,25 @@
         "oid"
       ],
       "source": "https://crates.io/crates/sha2/0.11.0"
+    },
+    {
+      "name": "shlex",
+      "version": "1.3.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/shlex/1.3.0"
     },
     {
       "name": "shlex",
@@ -9366,6 +9513,40 @@
         "std"
       ],
       "source": "https://crates.io/crates/weezl/0.2.1"
+    },
+    {
+      "name": "whisper-rs",
+      "version": "0.16.0",
+      "licence": "Unlicense",
+      "classification": "compatible",
+      "direct": true,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/whisper-rs/0.16.0"
+    },
+    {
+      "name": "whisper-rs-sys",
+      "version": "0.15.0",
+      "licence": "Unlicense",
+      "classification": "compatible",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/whisper-rs-sys/0.15.0"
     },
     {
       "name": "winapi",

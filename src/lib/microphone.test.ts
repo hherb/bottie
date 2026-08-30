@@ -13,6 +13,9 @@ const IDLE_STATUS: MicrophoneStatus = {
   inputLevel: 0,
   voiceActivity: null,
   voiceSegments: [],
+  transcriptionPhase: "idle",
+  transcriptSegments: [],
+  transcriptionErrorCode: null,
   errorCode: null,
 };
 
@@ -67,6 +70,26 @@ describe("microphone presentation", () => {
         voiceSegments: [{ activity: "silence", startMs: 0, endMs: 800 }],
       }),
     ).toBe("Recording locally · Listening for speech · 0:00 of 1:00");
+  });
+
+  it("describes bounded local partial and final transcription state", () => {
+    expect(
+      microphoneFeedback({
+        ...IDLE_STATUS,
+        phase: "recording",
+        permission: "granted",
+        transcriptionPhase: "preparing_model",
+      }),
+    ).toContain("Preparing the local speech model");
+    expect(
+      microphoneFeedback({
+        ...IDLE_STATUS,
+        phase: "captured",
+        permission: "granted",
+        transcriptionPhase: "ready",
+        transcriptSegments: [{ text: "Hello locally", startMs: 420, endMs: 2_920, isFinal: true }],
+      }),
+    ).toContain("Transcript ready locally");
   });
 
   it("maps stable native errors without reflecting backend details", () => {
