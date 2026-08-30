@@ -317,7 +317,7 @@
         prompt={state.prompt}
         isGenerating={state.isGenerating}
         canCompose={state.canSend}
-        canSend={state.canSend && state.attachmentsCanSubmit}
+        canSend={state.canSend && !state.microphone.isActive && state.attachmentsCanSubmit}
         attachmentNote={composerAttachmentNote(
           nextRequestAttachments(state.attachment.items, state.history.conversationAttachments),
           state.selectedModel,
@@ -331,6 +331,8 @@
         emailEnabled={state.email.enabled}
         emailBoundaryNote={state.emailBoundaryNote}
         emailUnavailableReason={state.emailUnavailableReason}
+        microphoneStatus={state.microphone.status}
+        microphoneAvailable={state.microphone.available}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.interaction.resizeComposer()}
         onkeydown={(event) => state.interaction.handleKeydown(event, () => void state.sendMessage())}
@@ -341,6 +343,9 @@
         ontogglememory={() => void state.toggleTool("memory")}
         ontoggleweb={() => void state.toggleTool("web")}
         ontoggleemail={() => void state.toggleTool("email")}
+        onstartmicrophone={() => void state.microphone.start()}
+        onstopmicrophone={() => void state.microphone.stop()}
+        ondiscardmicrophone={() => void state.microphone.discard()}
         oncomposerready={(element) => state.interaction.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />

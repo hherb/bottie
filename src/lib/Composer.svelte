@@ -1,8 +1,10 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
+  import MicrophoneControl from "$lib/MicrophoneControl.svelte";
   import { attachmentFailure } from "$lib/attachment";
   import { MAX_COMPOSER_ATTACHMENTS, type Attachment, type ProviderStatus } from "$lib/presentation";
+  import type { MicrophoneStatus } from "$lib/microphone";
 
   type Props = {
     attachments: Attachment[];
@@ -20,6 +22,8 @@
     emailEnabled: boolean;
     emailBoundaryNote: string;
     emailUnavailableReason: string;
+    microphoneStatus: MicrophoneStatus;
+    microphoneAvailable: boolean;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -30,6 +34,9 @@
     ontogglememory: () => void;
     ontoggleweb: () => void;
     ontoggleemail: () => void;
+    onstartmicrophone: () => void;
+    onstopmicrophone: () => void;
+    ondiscardmicrophone: () => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -50,6 +57,8 @@
     emailEnabled,
     emailBoundaryNote,
     emailUnavailableReason,
+    microphoneStatus,
+    microphoneAvailable,
     onprompt,
     oninput,
     onkeydown,
@@ -60,6 +69,9 @@
     ontogglememory,
     ontoggleweb,
     ontoggleemail,
+    onstartmicrophone,
+    onstopmicrophone,
+    ondiscardmicrophone,
     oncomposerready,
     onattachmentinputready,
   }: Props = $props();
@@ -184,6 +196,13 @@
         {/if}
       </button>
     </div>
+    <MicrophoneControl
+      status={microphoneStatus}
+      disabled={!microphoneAvailable || isGenerating}
+      onstart={onstartmicrophone}
+      onstop={onstopmicrophone}
+      ondiscard={ondiscardmicrophone}
+    />
   </div>
   <p id="composer-guidance" class="composer-note" aria-live="polite">
     {attachmentNote}

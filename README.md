@@ -75,6 +75,19 @@ Settings includes local System, Light, and Dark theme choices plus Comfortable a
 apply immediately without reconnecting a provider and stay on the current device. New and invalid preference state
 falls back to Bottie's existing dark, comfortable presentation; System follows OS color changes only while selected.
 
+## Local voice capture
+
+The composer has an explicit **Record voice** action in the native desktop app. Bottie does not open the default
+microphone or request operating-system permission until that action is chosen. Rust then downmixes native PCM into one
+bounded, session-only in-memory capture for at most 60 seconds and 32 MiB. The WebView receives only capture phase,
+permission state, duration, input level, sample rate, channel count, and retained byte size—never audio samples or an
+input-device identity. **Stop** retains the capture only until it is discarded, replaced, or Bottie exits; **Discard**
+clears it immediately.
+
+This first voice slice does not transcribe, persist, play, attach, or send the capture to a provider. Voice activity
+detection, local speech-to-text, audio message blocks, device selection, and playback remain roadmap work. The browser
+preview renders the control for layout review but cannot request microphone access.
+
 ## Application updates
 
 Settings provides one explicit **Check for updates** action. Bottie contacts only its fixed HTTPS GitHub release
@@ -96,6 +109,7 @@ before a request leaves the application.
 | --------------------------------- | --------------------------------------------------------------- |
 | UI-safe typed state               | Conversations, indexes, backups, and recovery                   |
 | Path-free file metadata           | Paths, bytes, extraction, image normalization, and hashes       |
+| Path-free voice-capture metadata  | Microphone access and bounded session-only PCM samples          |
 | Credential status and diagnostics | Vault access, provider authentication, and sensitive logs       |
 | Context cards and audit summaries | Tool policy, network clients, deadlines, and durable audit data |
 
@@ -115,6 +129,7 @@ Additional safeguards include:
 - fixed call, round, response-size, aggregate-output, and deadline ceilings for native tools.
 - no updater plugin permissions or JavaScript updater binding in the WebView; only Bottie's narrow native
   check/install/cancel commands are registered.
+- no WebView media-capture capability; microphone access and sample retention remain behind narrow Rust commands.
 
 ## Provider support
 

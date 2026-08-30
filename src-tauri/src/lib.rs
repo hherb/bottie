@@ -16,6 +16,7 @@ mod generation_usage;
 mod generation_web_tools;
 mod inference;
 mod localmail;
+mod microphone;
 mod provider_registry;
 mod semantic_indexer;
 mod storage;
@@ -75,6 +76,7 @@ use localmail::{
     get_localmail_connection_status, open_email, probe_localmail_connection, search_email,
     test_localmail_connection, update_localmail_connection,
 };
+use microphone::{MicrophoneController, MicrophoneStatus};
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use semantic_indexer::SemanticIndexer;
 use storage::ConversationStore;
@@ -106,6 +108,7 @@ struct AppState {
     providers: tauri::async_runtime::RwLock<ProviderSet>,
     settings_path: PathBuf,
     localmail_config_path: PathBuf,
+    microphone: MicrophoneController,
     runs: ActiveRuns,
     diagnostics: Diagnostics,
     credentials: Arc<dyn CredentialStore>,
@@ -266,6 +269,30 @@ async fn complete_first_run_setup(
     )
     .await;
     Ok(settings)
+}
+
+#[tauri::command]
+/// Returns bounded native microphone state without samples or device identity.
+fn get_microphone_status(state: State<'_, AppState>) -> MicrophoneStatus {
+    state.microphone.status()
+}
+
+#[tauri::command]
+/// Starts session-only native capture after an explicit WebView user action.
+fn start_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
+    state.microphone.start()
+}
+
+#[tauri::command]
+/// Stops native capture while retaining only its bounded in-memory PCM buffer.
+fn stop_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
+    state.microphone.stop()
+}
+
+#[tauri::command]
+/// Discards the current native PCM buffer without persisting or forwarding it.
+fn discard_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
+    state.microphone.discard()
 }
 
 #[tauri::command]
@@ -530,6 +557,7 @@ pub fn run() {
                 providers: tauri::async_runtime::RwLock::new(providers),
                 settings_path,
                 localmail_config_path,
+                microphone: MicrophoneController::default(),
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 diagnostics,
                 credentials,
@@ -548,6 +576,10 @@ pub fn run() {
             update_provider_settings,
             remember_provider_selection,
             complete_first_run_setup,
+            get_microphone_status,
+            start_microphone_capture,
+            stop_microphone_capture,
+            discard_microphone_capture,
             test_provider_connection,
             test_web_search_connection,
             get_localmail_connection_status,

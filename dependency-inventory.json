@@ -8,15 +8,15 @@
       "x86_64-pc-windows-msvc",
       "x86_64-unknown-linux-gnu"
     ],
-    "rustLockPackages": 660,
+    "rustLockPackages": 677,
     "npmLockPackages": 157,
     "limitation": "Rust entries are the union of locked macOS arm64/x64, Windows x64, and Linux x64 normal and build graphs. The Cargo.lock count remains a conservative superset for architectures outside those four reviewed targets."
   },
   "inputs": {
     "package.json": "83c186c3ce731e88ad32cd2a0211c638b2ca5e2f0611a8b1e32a713c71abf953",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
-    "src-tauri/Cargo.toml": "c3721f481110ca945639f2cc0c44d503dc699b2aa5efbdf2340483087c3ba9e5",
-    "src-tauri/Cargo.lock": "224f9059162a30ab23220a7820e30085e147b159532e1e28c272fca9675d64e7",
+    "src-tauri/Cargo.toml": "b35e78da47ffde35b15f2c2c2dd92305cf0b210ea42af095cc28a098a983cf55",
+    "src-tauri/Cargo.lock": "17f99f67e7715f5c952c779411134bf4dee231b430951075b7c055295632bc59",
     "src-tauri/tauri.conf.json": "6b4e00f0d589e64b8f59ebcb2cbaa8de84a302cc5fd3fd071bf43f3e659320bb",
     "src-tauri/tauri.updater.conf.json": "c1d7d16c801bc2b87747d5b0a71f8fae927122e4897453eea23e51e98b191e33",
     "src-tauri/src/semantic_indexer.rs": "37cc38d5ac94f3556fde8a18a6a6b0e5b69fccc6ed32128e23c1d8688ed339ec",
@@ -48,14 +48,14 @@
     "distribution/update/bottie-updater.pub": "fd4adf69a4bea10958a0f63f0658083fa29bfad10c48c792877dcdcdb8c6355c",
     ".github/workflows/macos-distribution-validation.yml": "41ea99f21a5e10d6f6b51aac5695f88213e0626ee8a98f070f98d46e45cd6c0b",
     ".github/workflows/windows-distribution-validation.yml": "0db2ce3841a2fef740d2b23f1bd81df7fb763941c276029105f1a75077ab2119",
-    ".github/workflows/linux-distribution-validation.yml": "77ac5573e6a29a62129a3dc875605e51e3ca76269e4347f7b5ad6d3a83747674",
+    ".github/workflows/linux-distribution-validation.yml": "07c1e56a09ded15ce7db0446fc5cb55bf1140fccdc6d03c90642db186b62a255",
     "LICENSE": "6f78c7d9d21c1432be2769ec843d045e00a87cf94c90c0cf325b932628772884",
     "MODEL-NOTICE.txt": "d4e49f201ce441098703da8d449a00462bbdcd946a12c1d75f89231a9da2130e",
-    "THIRD-PARTY-NOTICES.txt": "aed4002768e14950346df3622e0dc1889148b4e01932c682605ead0c15cb6b54",
+    "THIRD-PARTY-NOTICES.txt": "ff46b655943e183c0fd3ddbd48ea005775065bf257d9efebc534125c6def9b82",
     "runtime-assets.json": "7644b8c67b37410ec720d6d5f58ec211a50021daa5f2aab14434533ccf227ddb",
     "third-party/onnxruntime-1.28.0/LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
-    "third-party/package-licence-texts.json": "5dae8e29a12f9b9be47aa819c731814b83bda56da008716d23c8a64897989dcf",
+    "third-party/package-licence-texts.json": "9728d0aa9a3cfa232d788bba03df4ff315c6635dd740f0f10ed8aa62078837f3",
     "third-party/spdx-3.28.0/exceptions/LLVM-exception.txt": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e",
     "third-party/spdx-3.28.0/licenses/Apache-2.0.txt": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
     "third-party/spdx-3.28.0/licenses/BSD-2-Clause.txt": "017b5ee48f680e82cba79141c7895a1f02b856df2512225f5c427fe36765ef0b",
@@ -195,7 +195,7 @@
   ],
   "summary": {
     "compatible": 12,
-    "notice-required": 691,
+    "notice-required": 708,
     "unknown": 0,
     "review-required": 0
   },
@@ -336,6 +336,35 @@
         "alloc"
       ],
       "source": "https://crates.io/crates/allocator-api2/0.2.21"
+    },
+    {
+      "name": "alsa",
+      "version": "0.11.0",
+      "licence": "Apache-2.0/MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/alsa/0.11.0"
+    },
+    {
+      "name": "alsa-sys",
+      "version": "0.4.0",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/alsa-sys/0.4.0"
     },
     {
       "name": "anyhow",
@@ -1436,6 +1465,41 @@
       "source": "https://crates.io/crates/core-graphics-types/0.2.0"
     },
     {
+      "name": "coreaudio-rs",
+      "version": "0.14.2",
+      "licence": "MIT/Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "features": [
+        "audio_toolbox",
+        "core_audio"
+      ],
+      "source": "https://crates.io/crates/coreaudio-rs/0.14.2"
+    },
+    {
+      "name": "cpal",
+      "version": "0.18.2",
+      "licence": "Apache-2.0",
+      "classification": "notice-required",
+      "direct": true,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/cpal/0.18.2"
+    },
+    {
       "name": "cpubits",
       "version": "0.1.1",
       "licence": "MIT OR Apache-2.0",
@@ -1806,6 +1870,25 @@
         "serde"
       ],
       "source": "https://crates.io/crates/dary_heap/0.3.9"
+    },
+    {
+      "name": "dasp_sample",
+      "version": "0.11.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/dasp_sample/0.11.0"
     },
     {
       "name": "dbus",
@@ -4287,6 +4370,22 @@
       "source": "https://crates.io/crates/lzma-rust2/0.15.8"
     },
     {
+      "name": "mach2",
+      "version": "0.6.0",
+      "licence": "BSD-2-Clause OR MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/mach2/0.6.0"
+    },
+    {
       "name": "macro_rules_attribute",
       "version": "0.2.3",
       "licence": "Apache-2.0 OR MIT OR Zlib",
@@ -4882,6 +4981,78 @@
       "source": "https://crates.io/crates/objc2-app-kit/0.3.2"
     },
     {
+      "name": "objc2-audio-toolbox",
+      "version": "0.3.2",
+      "licence": "Zlib OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "features": [
+        "AUComponent",
+        "AudioCodec",
+        "AudioComponent",
+        "AudioFormat",
+        "AudioOutputUnit",
+        "AudioServices",
+        "AudioSession",
+        "AudioUnitProperties",
+        "alloc",
+        "bitflags",
+        "libc",
+        "objc2-core-audio",
+        "objc2-core-audio-types",
+        "objc2-core-foundation",
+        "std"
+      ],
+      "source": "https://crates.io/crates/objc2-audio-toolbox/0.3.2"
+    },
+    {
+      "name": "objc2-core-audio",
+      "version": "0.3.2",
+      "licence": "Zlib OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "features": [
+        "AudioHardware",
+        "AudioHardwareDeprecated",
+        "alloc",
+        "objc2",
+        "objc2-core-audio-types",
+        "objc2-foundation",
+        "std"
+      ],
+      "source": "https://crates.io/crates/objc2-core-audio/0.3.2"
+    },
+    {
+      "name": "objc2-core-audio-types",
+      "version": "0.3.2",
+      "licence": "Zlib OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "features": [
+        "CoreAudioBaseTypes",
+        "alloc",
+        "bitflags",
+        "objc2",
+        "std"
+      ],
+      "source": "https://crates.io/crates/objc2-core-audio-types/0.3.2"
+    },
+    {
       "name": "objc2-core-foundation",
       "version": "0.3.2",
       "licence": "Zlib OR Apache-2.0 OR MIT",
@@ -4895,26 +5066,56 @@
       "features": [
         "CFArray",
         "CFAttributedString",
+        "CFAvailability",
+        "CFBag",
         "CFBase",
+        "CFBinaryHeap",
+        "CFBitVector",
+        "CFBundle",
+        "CFByteOrder",
         "CFCGTypes",
         "CFCalendar",
         "CFCharacterSet",
         "CFData",
         "CFDate",
+        "CFDateFormatter",
         "CFDictionary",
         "CFError",
+        "CFFileDescriptor",
         "CFFileSecurity",
         "CFLocale",
         "CFMachPort",
         "CFMessagePort",
+        "CFNotificationCenter",
+        "CFNumber",
+        "CFNumberFormatter",
+        "CFPlugIn",
+        "CFPlugInCOM",
+        "CFPreferences",
+        "CFPropertyList",
         "CFRunLoop",
         "CFSet",
+        "CFSocket",
         "CFStream",
         "CFString",
+        "CFStringEncodingExt",
+        "CFStringTokenizer",
+        "CFTimeZone",
+        "CFTree",
         "CFURL",
+        "CFURLAccess",
+        "CFURLEnumerator",
+        "CFUUID",
         "CFUserNotification",
+        "CFUtilities",
+        "CFXMLNode",
+        "CFXMLParser",
         "alloc",
         "bitflags",
+        "block2",
+        "default",
+        "dispatch2",
+        "libc",
         "objc2",
         "std"
       ],
@@ -9262,6 +9463,41 @@
       "source": "https://crates.io/crates/windows/0.61.3"
     },
     {
+      "name": "windows",
+      "version": "0.62.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "Win32",
+        "Win32_Devices",
+        "Win32_Devices_Properties",
+        "Win32_Foundation",
+        "Win32_Media",
+        "Win32_Media_Audio",
+        "Win32_Media_KernelStreaming",
+        "Win32_Media_Multimedia",
+        "Win32_Security",
+        "Win32_System",
+        "Win32_System_Com",
+        "Win32_System_Com_StructuredStorage",
+        "Win32_System_Performance",
+        "Win32_System_SystemServices",
+        "Win32_System_Threading",
+        "Win32_System_Variant",
+        "Win32_UI",
+        "Win32_UI_Shell",
+        "Win32_UI_Shell_PropertiesSystem",
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows/0.62.2"
+    },
+    {
       "name": "windows_x86_64_msvc",
       "version": "0.52.6",
       "licence": "MIT OR Apache-2.0",
@@ -9301,6 +9537,21 @@
       "source": "https://crates.io/crates/windows-collections/0.2.0"
     },
     {
+      "name": "windows-collections",
+      "version": "0.3.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows-collections/0.3.2"
+    },
+    {
       "name": "windows-core",
       "version": "0.61.2",
       "licence": "MIT OR Apache-2.0",
@@ -9317,6 +9568,22 @@
       "source": "https://crates.io/crates/windows-core/0.61.2"
     },
     {
+      "name": "windows-core",
+      "version": "0.62.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows-core/0.62.2"
+    },
+    {
       "name": "windows-future",
       "version": "0.2.1",
       "licence": "MIT OR Apache-2.0",
@@ -9328,6 +9595,21 @@
       ],
       "features": [],
       "source": "https://crates.io/crates/windows-future/0.2.1"
+    },
+    {
+      "name": "windows-future",
+      "version": "0.3.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows-future/0.3.2"
     },
     {
       "name": "windows-implement",
@@ -9411,6 +9693,21 @@
       "source": "https://crates.io/crates/windows-numerics/0.2.0"
     },
     {
+      "name": "windows-numerics",
+      "version": "0.3.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows-numerics/0.3.1"
+    },
+    {
       "name": "windows-result",
       "version": "0.3.4",
       "licence": "MIT OR Apache-2.0",
@@ -9426,6 +9723,21 @@
       "source": "https://crates.io/crates/windows-result/0.3.4"
     },
     {
+      "name": "windows-result",
+      "version": "0.4.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows-result/0.4.1"
+    },
+    {
       "name": "windows-strings",
       "version": "0.4.2",
       "licence": "MIT OR Apache-2.0",
@@ -9439,6 +9751,21 @@
         "std"
       ],
       "source": "https://crates.io/crates/windows-strings/0.4.2"
+    },
+    {
+      "name": "windows-strings",
+      "version": "0.5.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/windows-strings/0.5.1"
     },
     {
       "name": "windows-sys",
@@ -9578,6 +9905,19 @@
       ],
       "features": [],
       "source": "https://crates.io/crates/windows-threading/0.1.0"
+    },
+    {
+      "name": "windows-threading",
+      "version": "0.2.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/windows-threading/0.2.1"
     },
     {
       "name": "windows-version",

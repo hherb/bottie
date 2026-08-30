@@ -14,6 +14,7 @@
     | "image"
     | "mail"
     | "menu"
+    | "microphone"
     | "more"
     | "new-chat"
     | "paperclip"
@@ -100,6 +101,9 @@
     <path d="m4 7 8 6 8-6" />
   {:else if name === "menu"}
     <path d="M4 7h16M4 12h16M4 17h16" />
+  {:else if name === "microphone"}
+    <rect x="9" y="3" width="6" height="12" rx="3" />
+    <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
   {:else if name === "more"}
     <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
     <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />

@@ -2,6 +2,7 @@ import { render } from "svelte/server";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Attachment } from "./presentation";
+import { INITIAL_MICROPHONE_STATUS } from "./microphone";
 import Composer from "./Composer.svelte";
 
 /** Renders the composer with inert callbacks and the requested interaction eligibility. */
@@ -38,6 +39,8 @@ function renderedComposer(
       emailEnabled,
       emailBoundaryNote,
       emailUnavailableReason,
+      microphoneStatus: INITIAL_MICROPHONE_STATUS,
+      microphoneAvailable: true,
       onprompt: vi.fn(),
       oninput: vi.fn(),
       onkeydown: vi.fn(),
@@ -48,6 +51,9 @@ function renderedComposer(
       ontogglememory: vi.fn(),
       ontoggleweb: vi.fn(),
       ontoggleemail: vi.fn(),
+      onstartmicrophone: vi.fn(),
+      onstopmicrophone: vi.fn(),
+      ondiscardmicrophone: vi.fn(),
       oncomposerready: vi.fn(),
       onattachmentinputready: vi.fn(),
     },
