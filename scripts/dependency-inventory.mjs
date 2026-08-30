@@ -91,6 +91,7 @@ const HASHED_INPUTS = [
   "runtime-assets.json",
   "third-party/onnxruntime-1.28.0/LICENSE",
   "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt",
+  "third-party/whisper.cpp-model/LICENSE",
   "third-party/package-licence-texts.json",
   ...SPDX_LICENCE_SOURCES,
   ...APPLICATION_ASSET_SOURCES,
@@ -386,6 +387,16 @@ function reviewedAssets(repositoryRoot) {
         "Downloaded at runtime into Bottie's application cache; not bundled in this repository or application. " +
         "runtime-assets.json pins the revision and all six files, and MODEL-NOTICE.txt records the reviewed terms.",
       source: "runtime-assets.json",
+    },
+    {
+      name: "Whisper tiny multilingual Q5 model",
+      version: "ggerganov/whisper.cpp@5359861c739e955e79d9a303bcbc70fb988958b1",
+      licence: "MIT",
+      classification: "notice-required",
+      delivery:
+        "Downloaded only after explicit voice capture into Bottie's application cache; not bundled in this repository " +
+        "or application. runtime-assets.json pins the revision, file size, SHA-256, and reviewed licence.",
+      source: "third-party/whisper.cpp-model/LICENSE",
     },
     {
       name: "macOS system frameworks and WebKit",

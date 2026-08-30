@@ -1,23 +1,27 @@
 //! Bounded native microphone capture with path-free WebView status.
 
+mod capture;
+mod transcription;
 mod vad;
 
 use std::{
+    path::PathBuf,
     sync::{
         Arc, Mutex, MutexGuard,
-        mpsc::{self, Receiver, RecvTimeoutError, Sender},
+        mpsc::{self, Sender},
     },
     thread::{self, JoinHandle},
     time::Duration,
 };
 
-use cpal::{
-    Device, Error, ErrorKind, FromSample, I24, Sample, SampleFormat, SizedSample, Stream,
-    StreamConfig, U24,
-    traits::{DeviceTrait, HostTrait, StreamTrait},
-};
+use cpal::{FromSample, Sample};
 use serde::Serialize;
 
+use capture::capture_worker;
+use transcription::{
+    RawTranscriptSegment, TranscriptSegment, TranscriptionErrorCode, TranscriptionJob,
+    TranscriptionPhase, TranscriptionWorker,
+};
 use vad::{VoiceActivity, VoiceActivityDetector, VoiceSegment};
 
 const MAX_CAPTURE_DURATION: Duration = Duration::from_secs(60);
@@ -87,6 +91,9 @@ pub(crate) struct MicrophoneStatus {
     input_level: f32,
     voice_activity: Option<VoiceActivity>,
     voice_segments: Vec<VoiceSegment>,
+    transcription_phase: TranscriptionPhase,
+    transcript_segments: Vec<TranscriptSegment>,
+    transcription_error_code: Option<TranscriptionErrorCode>,
     error_code: Option<MicrophoneErrorCode>,
 }
 
@@ -94,6 +101,7 @@ pub(crate) struct MicrophoneStatus {
 pub(crate) struct MicrophoneController {
     shared: Arc<Mutex<CaptureState>>,
     worker: Mutex<Worker>,
+    transcription: Option<TranscriptionWorker>,
 }
 
 #[derive(Default)]
@@ -114,6 +122,14 @@ struct CaptureState {
     buffer: Option<CaptureBuffer>,
     input_level: f32,
     error_code: Option<MicrophoneErrorCode>,
+    capture_id: u64,
+    transcription_generation: u64,
+    applied_transcription_generation: u64,
+    transcription_phase: TranscriptionPhase,
+    transcript_segments: Vec<TranscriptSegment>,
+    transcription_error_code: Option<TranscriptionErrorCode>,
+    pending_transcription: Option<TranscriptionJob>,
+    next_transcription_ms: u64,
 }
 
 struct CaptureBuffer {
@@ -129,11 +145,23 @@ impl Default for MicrophoneController {
         Self {
             shared: Arc::new(Mutex::new(CaptureState::default())),
             worker: Mutex::new(Worker::default()),
+            transcription: None,
         }
     }
 }
 
 impl MicrophoneController {
+    /// Starts the process-lifetime local speech worker without loading its model before user capture.
+    pub(crate) fn new(model_cache_path: PathBuf) -> Self {
+        let shared = Arc::new(Mutex::new(CaptureState::default()));
+        let transcription = TranscriptionWorker::start(model_cache_path, shared.clone());
+        Self {
+            shared,
+            worker: Mutex::new(Worker::default()),
+            transcription: Some(transcription),
+        }
+    }
+
     /// Returns the current path-free capture state.
     pub(crate) fn status(&self) -> MicrophoneStatus {
         lock(&self.shared).status()
@@ -150,9 +178,13 @@ impl MicrophoneController {
         lock(&self.shared).begin_starting();
         let (commands, receiver) = mpsc::channel();
         let shared = self.shared.clone();
+        let transcription_wake = self
+            .transcription
+            .as_ref()
+            .map(TranscriptionWorker::wake_handle);
         match thread::Builder::new()
             .name("bottie-microphone".into())
-            .spawn(move || capture_worker(shared, receiver))
+            .spawn(move || capture_worker(shared, receiver, transcription_wake))
         {
             Ok(handle) => {
                 worker.commands = Some(commands);
@@ -184,11 +216,13 @@ impl MicrophoneController {
 
 impl CaptureState {
     fn begin_starting(&mut self) {
+        self.capture_id = self.capture_id.wrapping_add(1);
         self.phase = MicrophonePhase::Starting;
         self.permission = MicrophonePermission::Prompt;
         self.buffer = None;
         self.input_level = 0.0;
         self.error_code = None;
+        self.clear_transcription(TranscriptionPhase::Idle);
     }
 
     fn begin_recording(&mut self, sample_rate_hz: u32, channels: u16) {
@@ -197,6 +231,7 @@ impl CaptureState {
         self.buffer = Some(CaptureBuffer::new(sample_rate_hz, channels));
         self.input_level = 0.0;
         self.error_code = None;
+        self.clear_transcription(TranscriptionPhase::Listening);
     }
 
     fn finish(&mut self) {
@@ -214,7 +249,11 @@ impl CaptureState {
     }
 
     fn reset(&mut self) {
-        *self = Self::default();
+        let next_capture_id = self.capture_id.wrapping_add(1);
+        *self = Self {
+            capture_id: next_capture_id,
+            ..Self::default()
+        };
     }
 
     fn limit_reached(&self) -> bool {
@@ -232,6 +271,85 @@ impl CaptureState {
             return;
         };
         self.input_level = buffer.append(input);
+    }
+
+    fn schedule_transcription(&mut self, is_final: bool) -> bool {
+        let Some(buffer) = self.buffer.as_ref() else {
+            return false;
+        };
+        let duration_ms = buffer.duration_ms();
+        if !is_final && duration_ms < self.next_transcription_ms {
+            return false;
+        }
+        self.next_transcription_ms =
+            duration_ms.saturating_add(transcription::TRANSCRIPTION_INTERVAL_MS);
+        let Some(job) = TranscriptionJob::from_capture(
+            self.capture_id,
+            self.transcription_generation.wrapping_add(1),
+            is_final,
+            &buffer.samples,
+            buffer.sample_rate_hz,
+            &buffer.voice_segments(),
+        ) else {
+            if is_final {
+                self.transcription_phase = TranscriptionPhase::Ready;
+                self.transcript_segments.clear();
+            }
+            return false;
+        };
+        self.transcription_generation = job.generation();
+        self.pending_transcription = Some(job);
+        self.transcription_phase = TranscriptionPhase::PreparingModel;
+        self.transcription_error_code = None;
+        true
+    }
+
+    fn take_pending_transcription(&mut self) -> Option<TranscriptionJob> {
+        self.pending_transcription.take()
+    }
+
+    fn mark_transcribing(&mut self, capture_id: u64, generation: u64) {
+        if self.capture_id == capture_id && generation >= self.applied_transcription_generation {
+            self.transcription_phase = TranscriptionPhase::Transcribing;
+        }
+    }
+
+    fn apply_transcription(
+        &mut self,
+        capture_id: u64,
+        generation: u64,
+        is_final: bool,
+        result: Result<Vec<RawTranscriptSegment>, TranscriptionErrorCode>,
+    ) {
+        if self.capture_id != capture_id || generation < self.applied_transcription_generation {
+            return;
+        }
+        self.applied_transcription_generation = generation;
+        match result {
+            Ok(segments) => {
+                self.transcript_segments = transcription::bounded_segments(segments, is_final);
+                self.transcription_phase = if is_final {
+                    TranscriptionPhase::Ready
+                } else {
+                    TranscriptionPhase::Transcribing
+                };
+                self.transcription_error_code = None;
+            }
+            Err(code) => {
+                self.transcription_phase = TranscriptionPhase::Error;
+                self.transcription_error_code = Some(code);
+            }
+        }
+    }
+
+    fn clear_transcription(&mut self, phase: TranscriptionPhase) {
+        self.transcription_generation = 0;
+        self.applied_transcription_generation = 0;
+        self.transcription_phase = phase;
+        self.transcript_segments.clear();
+        self.transcription_error_code = None;
+        self.pending_transcription = None;
+        self.next_transcription_ms = transcription::TRANSCRIPTION_INTERVAL_MS;
     }
 
     fn status(&self) -> MicrophoneStatus {
@@ -260,6 +378,9 @@ impl CaptureState {
                 .buffer
                 .as_ref()
                 .map_or_else(Vec::new, CaptureBuffer::voice_segments),
+            transcription_phase: self.transcription_phase,
+            transcript_segments: self.transcript_segments.clone(),
+            transcription_error_code: self.transcription_error_code,
             error_code: self.error_code,
         }
     }
@@ -344,111 +465,6 @@ impl CaptureBuffer {
 
     fn voice_segments(&self) -> Vec<VoiceSegment> {
         self.voice_detector.segments(self.samples.len())
-    }
-}
-
-fn capture_worker(shared: Arc<Mutex<CaptureState>>, receiver: Receiver<CaptureCommand>) {
-    let host = cpal::default_host();
-    let Some(device) = host.default_input_device() else {
-        lock(&shared).fail(MicrophoneErrorCode::DeviceUnavailable);
-        return;
-    };
-    let config = match device.default_input_config() {
-        Ok(config) => config,
-        Err(error) => {
-            lock(&shared).fail(error_code(error.kind()));
-            return;
-        }
-    };
-    let sample_rate_hz = config.sample_rate();
-    let channels = config.channels();
-    let sample_format = config.sample_format();
-    let stream = match build_input_stream(&device, config.config(), sample_format, shared.clone()) {
-        Ok(stream) => stream,
-        Err(error) => {
-            lock(&shared).fail(error);
-            return;
-        }
-    };
-    lock(&shared).begin_recording(sample_rate_hz, channels);
-    if let Err(error) = stream.play() {
-        lock(&shared).fail(error_code(error.kind()));
-        return;
-    }
-
-    let discard = loop {
-        if lock(&shared).phase == MicrophonePhase::Error || lock(&shared).limit_reached() {
-            break false;
-        }
-        match receiver.recv_timeout(CAPTURE_WORKER_POLL) {
-            Ok(CaptureCommand::Stop) => break false,
-            Ok(CaptureCommand::Discard) | Err(RecvTimeoutError::Disconnected) => break true,
-            Err(RecvTimeoutError::Timeout) => {}
-        }
-    };
-    drop(stream);
-    let mut state = lock(&shared);
-    if discard {
-        state.reset();
-    } else {
-        state.finish();
-    }
-}
-
-fn build_input_stream(
-    device: &Device,
-    config: StreamConfig,
-    format: SampleFormat,
-    shared: Arc<Mutex<CaptureState>>,
-) -> Result<Stream, MicrophoneErrorCode> {
-    match format {
-        SampleFormat::I8 => build_typed_stream::<i8>(device, config, shared),
-        SampleFormat::I16 => build_typed_stream::<i16>(device, config, shared),
-        SampleFormat::I24 => build_typed_stream::<I24>(device, config, shared),
-        SampleFormat::I32 => build_typed_stream::<i32>(device, config, shared),
-        SampleFormat::I64 => build_typed_stream::<i64>(device, config, shared),
-        SampleFormat::U8 => build_typed_stream::<u8>(device, config, shared),
-        SampleFormat::U16 => build_typed_stream::<u16>(device, config, shared),
-        SampleFormat::U24 => build_typed_stream::<U24>(device, config, shared),
-        SampleFormat::U32 => build_typed_stream::<u32>(device, config, shared),
-        SampleFormat::U64 => build_typed_stream::<u64>(device, config, shared),
-        SampleFormat::F32 => build_typed_stream::<f32>(device, config, shared),
-        SampleFormat::F64 => build_typed_stream::<f64>(device, config, shared),
-        _ => Err(MicrophoneErrorCode::UnsupportedFormat),
-    }
-}
-
-fn build_typed_stream<T>(
-    device: &Device,
-    config: StreamConfig,
-    shared: Arc<Mutex<CaptureState>>,
-) -> Result<Stream, MicrophoneErrorCode>
-where
-    T: Copy + Sample + SizedSample,
-    f32: FromSample<T>,
-{
-    let error_state = shared.clone();
-    device
-        .build_input_stream::<T, _, _>(
-            config,
-            move |input, _| lock(&shared).append(input),
-            move |error: Error| lock(&error_state).fail(error_code(error.kind())),
-            None,
-        )
-        .map_err(|error| error_code(error.kind()))
-}
-
-fn error_code(kind: ErrorKind) -> MicrophoneErrorCode {
-    match kind {
-        ErrorKind::PermissionDenied => MicrophoneErrorCode::PermissionDenied,
-        ErrorKind::DeviceNotAvailable | ErrorKind::HostUnavailable => {
-            MicrophoneErrorCode::DeviceUnavailable
-        }
-        ErrorKind::DeviceBusy => MicrophoneErrorCode::DeviceBusy,
-        ErrorKind::UnsupportedConfig
-        | ErrorKind::UnsupportedOperation
-        | ErrorKind::InvalidInput => MicrophoneErrorCode::UnsupportedFormat,
-        _ => MicrophoneErrorCode::CaptureFailed,
     }
 }
 

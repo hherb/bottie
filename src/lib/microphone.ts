@@ -20,6 +20,20 @@ export type VoiceSegment = {
   endMs: number;
 };
 
+/** Path-free lifecycle of Bottie's native local speech recognizer. */
+export type TranscriptionPhase = "idle" | "listening" | "preparing_model" | "transcribing" | "ready" | "error";
+
+/** Stable local-recognition failures without model, cache, or runtime details. */
+export type TranscriptionErrorCode = "model_unavailable" | "model_integrity" | "recognition_failed";
+
+/** One bounded local transcript range whose finality is explicit. */
+export type TranscriptSegment = {
+  text: string;
+  startMs: number;
+  endMs: number;
+  isFinal: boolean;
+};
+
 /** Bounded native capture metadata that deliberately omits audio samples and device identity. */
 export type MicrophoneStatus = {
   phase: MicrophonePhase;
@@ -32,6 +46,9 @@ export type MicrophoneStatus = {
   inputLevel: number;
   voiceActivity: VoiceActivity | null;
   voiceSegments: VoiceSegment[];
+  transcriptionPhase: TranscriptionPhase;
+  transcriptSegments: TranscriptSegment[];
+  transcriptionErrorCode: TranscriptionErrorCode | null;
   errorCode: MicrophoneErrorCode | null;
 };
 
@@ -47,6 +64,9 @@ export const INITIAL_MICROPHONE_STATUS: MicrophoneStatus = {
   inputLevel: 0,
   voiceActivity: null,
   voiceSegments: [],
+  transcriptionPhase: "idle",
+  transcriptSegments: [],
+  transcriptionErrorCode: null,
   errorCode: null,
 };
 
@@ -79,6 +99,18 @@ export function formatMicrophoneDuration(durationMs: number): string {
 /** Returns one calm trust-boundary or failure message from path-free native state. */
 export function microphoneFeedback(status: MicrophoneStatus): string {
   if (status.phase === "starting") return "Waiting for microphone permission…";
+  if (status.transcriptionPhase === "preparing_model") {
+    return "Preparing the local speech model · audio remains only in native memory";
+  }
+  if (status.transcriptionPhase === "error") {
+    if (status.transcriptionErrorCode === "model_integrity") {
+      return "The local speech model failed its integrity check. Discard this capture and try again.";
+    }
+    if (status.transcriptionErrorCode === "model_unavailable") {
+      return "The local speech model is unavailable. Check your connection, then record again.";
+    }
+    return "Local speech recognition failed. The captured audio remains only in native memory.";
+  }
   if (status.phase === "recording") {
     const activity = status.voiceActivity === "speech" ? "Speech detected" : "Listening for speech";
     return [
@@ -88,6 +120,12 @@ export function microphoneFeedback(status: MicrophoneStatus): string {
     ].join(" · ");
   }
   if (status.phase === "captured") {
+    if (status.transcriptionPhase === "ready" && status.transcriptSegments.length > 0) {
+      return "Transcript ready locally · audio held only in native memory";
+    }
+    if (status.transcriptionPhase === "ready") {
+      return "No speech was transcribed · audio held only in native memory";
+    }
     const speechMs = status.voiceSegments
       .filter((segment) => segment.activity === "speech")
       .reduce((total, segment) => total + Math.max(0, segment.endMs - segment.startMs), 0);

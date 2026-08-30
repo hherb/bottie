@@ -11,6 +11,7 @@ describe("third-party notice generation", () => {
       ],
       onnxRuntimeLicence: "ORT licence\n",
       onnxRuntimeNotices: "ORT notices\n",
+      whisperModelLicence: "Whisper model MIT licence\n",
     });
 
     expect(notice.indexOf("cargo:alpha@1.0.0")).toBeLessThan(notice.indexOf("npm:zeta@2.0.0"));
@@ -18,6 +19,7 @@ describe("third-party notice generation", () => {
     expect(notice).toContain("Used by: cargo:alpha@1.0.0, npm:zeta@2.0.0");
     expect(notice).toContain("ORT licence");
     expect(notice).toContain("ORT notices");
+    expect(notice).toContain("Whisper model MIT licence");
     expect(notice.endsWith("\n")).toBe(true);
   });
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/** Maintains Bottie's deterministic ONNX Runtime and EmbeddingGemma release-asset contract. */
+/** Maintains Bottie's deterministic native runtime and downloaded-model asset contract. */
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -12,6 +12,7 @@ const RUNTIME_ASSET_PATH = "runtime-assets.json";
 const MODEL_NOTICE_PATH = "MODEL-NOTICE.txt";
 const ONNX_RUNTIME_LICENCE_PATH = "third-party/onnxruntime-1.28.0/LICENSE";
 const ONNX_RUNTIME_NOTICES_PATH = "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt";
+const WHISPER_MODEL_LICENCE_PATH = "third-party/whisper.cpp-model/LICENSE";
 const TERMS_EVIDENCE_PATH = "package/model-terms-evidence.json";
 const TERMS_ACCEPTANCE_ARGUMENT = "--accept-gemma-terms=";
 const SCHEMA_VERSION = 1;
@@ -46,6 +47,17 @@ const EMBEDDING_GEMMA_FILES = [
   ["tokenizer_config.json", 1156830, "3ca953eea6c3c9fcda9cf3df22949ff18b216f7c74bd6459230f3f1013953f3a"],
 ];
 
+const WHISPER_TINY_Q5 = {
+  repository: "ggerganov/whisper.cpp",
+  revision: "5359861c739e955e79d9a303bcbc70fb988958b1",
+  variant: "tiny-q5_1-multilingual",
+  file: {
+    path: "ggml-tiny-q5_1.bin",
+    sha256: "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7",
+    size: 32_152_673,
+  },
+};
+
 const ONNX_RUNTIME_ARCHIVES = [
   [
     "aarch64-apple-darwin",
@@ -68,7 +80,11 @@ const ONNX_RUNTIME_ARCHIVES = [
 ];
 
 /** Builds the path-free immutable runtime-asset record from reviewed document hashes. */
-export function buildRuntimeAssetManifest({ onnxRuntimeLicenceSha256, onnxRuntimeNoticesSha256 }) {
+export function buildRuntimeAssetManifest({
+  onnxRuntimeLicenceSha256,
+  onnxRuntimeNoticesSha256,
+  whisperModelLicenceSha256,
+}) {
   return {
     schemaVersion: SCHEMA_VERSION,
     embeddingGemma: {
@@ -81,6 +97,15 @@ export function buildRuntimeAssetManifest({ onnxRuntimeLicenceSha256, onnxRuntim
         notice: MODEL_NOTICE_PATH,
         sha256: sha256(MODEL_NOTICE),
         url: "https://ai.google.dev/gemma/terms",
+      },
+    },
+    whisperTinyQ5: {
+      ...WHISPER_TINY_Q5,
+      licence: {
+        path: WHISPER_MODEL_LICENCE_PATH,
+        sha256: whisperModelLicenceSha256,
+        source: "https://huggingface.co/ggerganov/whisper.cpp",
+        spdx: "MIT",
       },
     },
     onnxRuntime: {
@@ -143,9 +168,11 @@ async function main() {
   }
   const licence = readFileSync(join(REPOSITORY_ROOT, ONNX_RUNTIME_LICENCE_PATH));
   const notices = readFileSync(join(REPOSITORY_ROOT, ONNX_RUNTIME_NOTICES_PATH));
+  const whisperModelLicence = readFileSync(join(REPOSITORY_ROOT, WHISPER_MODEL_LICENCE_PATH));
   const manifest = buildRuntimeAssetManifest({
     onnxRuntimeLicenceSha256: sha256(licence),
     onnxRuntimeNoticesSha256: sha256(notices),
+    whisperModelLicenceSha256: sha256(whisperModelLicence),
   });
   const outputs = new Map([
     [MODEL_NOTICE_PATH, MODEL_NOTICE],

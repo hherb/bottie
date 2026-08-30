@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
-  import { microphoneFeedback, type MicrophoneStatus } from "$lib/microphone";
+  import { formatMicrophoneDuration, microphoneFeedback, type MicrophoneStatus } from "$lib/microphone";
 
   let {
     status,
@@ -16,7 +16,13 @@
     ondiscard: () => void;
   } = $props();
 
-  const busy = $derived(status.phase === "starting" || status.phase === "recording");
+  const busy = $derived(
+    status.phase === "starting" ||
+      status.phase === "recording" ||
+      status.transcriptionPhase === "preparing_model" ||
+      status.transcriptionPhase === "transcribing",
+  );
+  const hasError = $derived(status.phase === "error" || status.transcriptionPhase === "error");
   const levelPercent = $derived(Math.round(Math.max(0, Math.min(1, status.inputLevel)) * 100));
 </script>
 
@@ -55,10 +61,20 @@
   {/if}
 </div>
 
-<p
-  class:error={status.phase === "error"}
-  class="microphone-feedback"
-  role={status.phase === "error" ? "alert" : "status"}
->
+<p class:error={hasError} class="microphone-feedback" role={hasError ? "alert" : "status"}>
   {microphoneFeedback(status)}
 </p>
+
+{#if status.transcriptSegments.length > 0}
+  <ol class="voice-transcript" aria-label="Local voice transcript" aria-live="polite">
+    {#each status.transcriptSegments as segment}
+      <li>
+        <span class="transcript-time"
+          >{formatMicrophoneDuration(segment.startMs)}–{formatMicrophoneDuration(segment.endMs)}</span
+        >
+        <span>{segment.text}</span>
+        {#if !segment.isFinal}<span class="partial-transcript">Partial</span>{/if}
+      </li>
+    {/each}
+  </ol>
+{/if}

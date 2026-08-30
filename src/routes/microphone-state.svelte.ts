@@ -30,7 +30,12 @@ export class MicrophoneState {
 
   /** Whether permission or native audio capture currently owns the microphone action. */
   get isActive(): boolean {
-    return this.status.phase === "starting" || this.status.phase === "recording";
+    return (
+      this.status.phase === "starting" ||
+      this.status.phase === "recording" ||
+      this.status.transcriptionPhase === "preparing_model" ||
+      this.status.transcriptionPhase === "transcribing"
+    );
   }
 
   /** Begins capture only from the composer's explicit user action. */
