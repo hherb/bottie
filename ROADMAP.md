@@ -320,7 +320,8 @@ Outcome: users can hold interruptible, private voice conversations without requi
 - [x] session-only transcript correction and visible numbered turn boundaries;
 - [x] bounded local text-to-speech with explicit assistant-response playback, selectable system voices, opaque native
   identities, and no generated-audio retention;
-- [ ] barge-in and end-to-end cancellation;
+- [x] explicit barge-in that stops Bottie's local playback, cancels active provider/tool work through the existing
+  durable cancellation boundary, and serializes new generation registration against native capture;
 - [ ] audio content blocks and optional local audio retention;
 - [ ] latency, device selection, and acoustic feedback controls;
 - [ ] full text fallback and accessibility support.

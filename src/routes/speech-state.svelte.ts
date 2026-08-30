@@ -66,8 +66,8 @@ export class SpeechState {
   }
 
   /** Stops only Bottie's local speech and clears the active response marker. */
-  async stop(): Promise<void> {
-    if (!this.nativeAvailable) return;
+  async stop(): Promise<boolean> {
+    if (!this.nativeAvailable) return false;
     try {
       this.status = await stopSpeech();
     } catch {
@@ -75,6 +75,7 @@ export class SpeechState {
     }
     this.activeMessageId = null;
     this.stopPolling();
+    return this.status.phase === "idle";
   }
 
   /** Stops local polling and playback when the page is unmounted. */

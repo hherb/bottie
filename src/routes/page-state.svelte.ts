@@ -506,6 +506,13 @@ export class PageState {
     if (reply) reply.meta = "Stopping · saving partial response";
     if (runId) void cancelChat(runId);
   }
+  /** Interrupts active Bottie output before starting one explicit local voice capture. */
+  async startMicrophoneCapture(): Promise<void> {
+    if (this.microphone.isActive) return;
+    if (this.isGenerating) this.stopGenerating();
+    if (this.speech.status.phase === "speaking" && !(await this.speech.stop())) return;
+    await this.microphone.start();
+  }
   /** Sends the draft or cancels the current stream according to generation state. */
   handleSendButton(): void {
     if (this.isGenerating) this.stopGenerating();

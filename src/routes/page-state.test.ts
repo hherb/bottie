@@ -34,8 +34,8 @@ describe("PageState message submission", () => {
     let resolveStop = () => {};
     const stop = vi.spyOn(state.speech, "stop").mockImplementation(
       () =>
-        new Promise<void>((resolve) => {
-          resolveStop = resolve;
+        new Promise<boolean>((resolve) => {
+          resolveStop = () => resolve(true);
         }),
     );
     const persist = vi.spyOn(state.history, "persistUserMessage").mockResolvedValue(null);
@@ -50,5 +50,49 @@ describe("PageState message submission", () => {
 
     expect(persist).toHaveBeenCalledOnce();
     expect(state.isPersistingMessage).toBe(false);
+  });
+});
+
+describe("PageState voice barge-in", () => {
+  it("requests generation cancellation before awaiting playback shutdown and capture", async () => {
+    const state = new PageState();
+    state.isGenerating = true;
+    state.speech.status = { phase: "speaking", selectedVoiceId: "local-voice-001", errorCode: null };
+
+    const order: string[] = [];
+    const cancel = vi.spyOn(state, "stopGenerating").mockImplementation(() => {
+      order.push("cancel");
+    });
+    let resolveStop = () => {};
+    vi.spyOn(state.speech, "stop").mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          order.push("stop_playback");
+          resolveStop = () => resolve(true);
+        }),
+    );
+    const capture = vi.spyOn(state.microphone, "start").mockImplementation(async () => {
+      order.push("start_capture");
+    });
+
+    const bargeIn = state.startMicrophoneCapture();
+
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(capture).not.toHaveBeenCalled();
+    resolveStop();
+    await bargeIn;
+
+    expect(order).toEqual(["cancel", "stop_playback", "start_capture"]);
+  });
+
+  it("keeps capture fail-closed when local playback cannot be stopped", async () => {
+    const state = new PageState();
+    state.speech.status = { phase: "speaking", selectedVoiceId: "local-voice-001", errorCode: null };
+    vi.spyOn(state.speech, "stop").mockResolvedValue(false);
+    const capture = vi.spyOn(state.microphone, "start").mockResolvedValue();
+
+    await state.startMicrophoneCapture();
+
+    expect(capture).not.toHaveBeenCalled();
   });
 });

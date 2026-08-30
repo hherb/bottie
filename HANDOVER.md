@@ -1,6 +1,6 @@
 # bottie handover
 
-Last verified: 2026-08-30
+Last verified: 2026-08-31
 
 ## Start here
 
@@ -259,8 +259,12 @@ transcript now exposes numbered, timed voice-turn boundaries and accepts an expl
 time. Corrected text remains bounded native session state, is visibly marked, and clears on Discard, a new capture, or
 process exit. Bounded local text-to-speech now gives every completed assistant response an explicit Play/Stop action
 and one selectable process-lifetime local voice. Rust alone owns the platform engine and identifiers; the WebView sees
-only bounded voice labels, language tags, opaque selection tokens, and path-free playback state. The keyboard-shortcut
-slice is now complete:
+only bounded voice labels, language tags, opaque selection tokens, and path-free playback state. While Bottie is
+speaking or generating, the explicit Record action now becomes Interrupt & record. Rust serializes capture against
+provider-run registration, stops local playback, cancels every registered provider and native-tool run through the
+existing durable cancellation path, and keeps capture fail-closed if playback cannot be positively stopped. A
+generation racing with active capture is rejected before registration. The
+keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -325,8 +329,8 @@ Read these files first:
 8. `src-tauri/src/lib.rs`
 9. `src-tauri/tauri.conf.json`
 
-The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is bounded
-local text-to-speech with selectable system voices on local branch `codex/local-text-to-speech`; the current
+The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is explicit
+voice barge-in and end-to-end cancellation on local branch `codex/voice-barge-in`; the current
 release-engineering slice remains limited by the explicit credential and publication boundaries below.
 
 ## Current implementation
@@ -657,10 +661,70 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
 The cohesively touched product modules remain at or below 500 lines. The crate composition root
-`src-tauri/src/lib.rs` and the 530-line frontend orchestration root `src/routes/page-state.svelte.ts` remain existing
+`src-tauri/src/lib.rs` and the 537-line frontend orchestration root `src/routes/page-state.svelte.ts` remain existing
 practical-limit exceptions; the remaining known indivisible long lines are SVG path values in `src/lib/Icon.svelte`.
 
-## Current bounded product slice: local text-to-speech with selectable voices
+## Current bounded product slice: explicit voice barge-in and end-to-end cancellation
+
+### Goal
+
+Let one explicit native Record action interrupt Bottie's local playback and active provider generation before starting
+bounded session-only capture, without adding provider audio, audio content blocks or retention, device selection,
+automatic listening/playback, release publication, protected workflow dispatch, or Store work.
+
+### Implemented shape
+
+1. While Bottie is speaking or generating, the available Record action becomes **Interrupt & record** with an explicit
+   accessible interruption label. Ordinary Record/Record again presentation is unchanged when Bottie is idle.
+2. The page requests the existing provider cancellation immediately, then awaits a positive local-playback stop before
+   starting capture. A failed playback stop keeps capture fail-closed instead of allowing overlapping local audio.
+3. Rust owns the authoritative boundary. One interaction mutex serializes capture against provider-run registration;
+   capture drains every registered run, raises each native-tool cancellation signal, aborts provider I/O, stops local
+   speech, and only then opens the existing bounded default-input path.
+4. Provider start checks capture before setup and rechecks it while holding the same registration guard. If capture won
+   the race, the accepted durable run closes as a fixed `invalid_request` failure before becoming active. If generation
+   registered first, capture removes and aborts it through the ordinary durable cancelled-run path.
+5. Cancellation still saves the terminal provider-run checkpoint before the WebView receives `cancelled`. PCM, local
+   transcripts, utterance text, provider/tool payloads, run identities, paths, and device identities retain their
+   existing native-only or bounded path-free boundaries.
+
+### Acceptance and exclusions
+
+Focused frontend tests cover the cancellation/playback/capture ordering, failure to stop playback, enabled and
+explicit interruption presentation, and the existing duplicate-submission guard. Focused Rust tests cover fail-closed
+playback shutdown and draining every registered provider/tool abort handle. The ordinary generation and capture
+contracts retain their existing bounds and cancellation lifecycle.
+
+This slice does not add provider audio, audio content blocks, generated or captured audio retention, automatic
+listening/playback, acoustic echo handling, playback settings, input/output device selection, transcript insertion,
+release/update publication, protected workflow dispatch, or Microsoft Store polling, submission, certification, or
+publication.
+
+### Verification completed
+
+`npm run format:check`, `npm run check`, `npm test` (216 passed, 3 skipped), `npm run build`, Cargo formatting, and
+`cargo check --manifest-path src-tauri/Cargo.toml` pass. `cargo test --manifest-path src-tauri/Cargo.toml --no-run`
+also compiles both final Rust test executables. The focused playback-shutdown and active-run cancellation tests passed
+before the cancellation helper was moved unchanged into its cohesive 52-line module. Final Rust test execution and a
+native development launch remain unverified because macOS blocks newly linked local executables until they receive a
+real Apple Development identity; this run did not access that credential. Cargo continues to report only the accepted
+upstream macOS-only `block` 0.1.6 future-incompatibility warning.
+
+The local-playback fixture was reviewed at 1320 x 820 and 720 x 620, with the compact Context overlay both open and
+closed. The Interrupt & record action remained contained, document and body scroll widths matched their client widths,
+and the browser console reported no warnings or errors. Immutable read-only inspection of the existing store returned
+schema version 21 and `quick_check=ok`; this slice adds no migration or storage write. Audible playback-to-capture,
+live provider cancellation, Windows, and Linux native interaction remain unverified. Microsoft Store work remains
+explicitly deferred, and no release, protected workflow, Store polling, submission, certification, or publication
+action was performed.
+
+### Next bounded slice
+
+Add provider-neutral audio content blocks and an explicit optional local audio-retention policy, without weakening the
+current native-only capture boundary, silently retaining audio, selecting devices, adding automatic listening/playback,
+publishing a release/update, dispatching a protected workflow, or resuming Store work.
+
+## Previous completed product slice: local text-to-speech with selectable voices
 
 ### Goal
 
@@ -723,12 +787,6 @@ this slice adds no storage migration or write. Real audible Play/Stop interactio
 Dispatcher playback/package installation, and cross-platform voice quality remain unverified. No microphone capture,
 provider delivery, protected workflow, release/update publication, Microsoft Store polling, submission, certification,
 or publication action was performed.
-
-### Next bounded slice
-
-Add explicit barge-in and end-to-end cancellation so starting native capture stops Bottie's local playback and active
-provider generation through their existing cancellation boundaries, without adding provider audio, audio content
-blocks or retention, device selection, automatic listening/playback, release publication, or Store work.
 
 ## Previous completed product slice: session-only transcript correction and voice-turn boundaries
 

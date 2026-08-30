@@ -18,6 +18,7 @@ mod inference;
 mod localmail;
 mod microphone;
 mod provider_registry;
+mod run_cancellation;
 mod semantic_indexer;
 mod speech;
 mod storage;
@@ -66,8 +67,7 @@ use credentials::{
     provider_credential_statuses,
 };
 use diagnostics::{DiagnosticEntry, Diagnostics, export_diagnostics, record_diagnostic, sanitized};
-use futures_util::future::AbortHandle;
-use generation::{cancel_chat, start_chat};
+use generation::start_chat;
 use inference::{
     AnthropicProvider, InferenceProvider, ModelInfo, OllamaProvider, OmlxProvider, OpenAiProvider,
     ProviderError, ProviderSettings, load_provider_settings, persist_completed_first_run_setup,
@@ -79,6 +79,7 @@ use localmail::{
 };
 use microphone::{MicrophoneController, MicrophoneStatus, TranscriptCorrectionError};
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
+use run_cancellation::{ActiveRuns, cancel_all_chats, cancel_chat};
 use semantic_indexer::SemanticIndexer;
 use speech::{SpeechCommandError, SpeechController, SpeechStatus, SpeechVoice};
 use storage::ConversationStore;
@@ -96,16 +97,8 @@ use storage_commands::{
     set_conversation_retention_period,
 };
 use tauri::{Manager, State};
-use tool_loop::ToolLoopCancellation;
 use web_search_commands::test_web_search_connection;
 
-/// Cancellation handles shared by provider I/O and native tool work for one accepted generation.
-struct ActiveRun {
-    abort_handle: AbortHandle,
-    tool_cancellation: ToolLoopCancellation,
-}
-
-type ActiveRuns = Arc<tauri::async_runtime::Mutex<HashMap<String, ActiveRun>>>;
 struct AppState {
     providers: tauri::async_runtime::RwLock<ProviderSet>,
     settings_path: PathBuf,
@@ -113,6 +106,7 @@ struct AppState {
     microphone: MicrophoneController,
     speech: SpeechController,
     runs: ActiveRuns,
+    voice_interaction: tauri::async_runtime::Mutex<()>,
     diagnostics: Diagnostics,
     credentials: Arc<dyn CredentialStore>,
     conversations: ConversationStore,
@@ -281,12 +275,14 @@ fn get_microphone_status(state: State<'_, AppState>) -> MicrophoneStatus {
 }
 
 #[tauri::command]
-/// Starts session-only native capture after an explicit WebView user action.
-fn start_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
-    if state.speech.blocks_microphone_capture() {
-        return state.microphone.status();
-    }
-    state.microphone.start()
+/// Interrupts Bottie's active output, then starts session-only capture after explicit user action.
+async fn start_microphone_capture(
+    state: State<'_, AppState>,
+) -> Result<MicrophoneStatus, SpeechCommandError> {
+    let _voice_guard = state.voice_interaction.lock().await;
+    cancel_all_chats(&state.runs).await;
+    state.speech.stop_before_microphone_capture()?;
+    Ok(state.microphone.start())
 }
 
 #[tauri::command]
@@ -616,6 +612,7 @@ pub fn run() {
                 microphone: MicrophoneController::new(speech_model_cache_path),
                 speech: SpeechController::default(),
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
+                voice_interaction: tauri::async_runtime::Mutex::new(()),
                 diagnostics,
                 credentials,
                 conversations,

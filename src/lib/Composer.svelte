@@ -24,6 +24,7 @@
     emailUnavailableReason: string;
     microphoneStatus: MicrophoneStatus;
     microphoneAvailable: boolean;
+    microphoneWillInterrupt: boolean;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -60,6 +61,7 @@
     emailUnavailableReason,
     microphoneStatus,
     microphoneAvailable,
+    microphoneWillInterrupt,
     onprompt,
     oninput,
     onkeydown,
@@ -200,7 +202,8 @@
     </div>
     <MicrophoneControl
       status={microphoneStatus}
-      disabled={!microphoneAvailable || isGenerating}
+      disabled={!microphoneAvailable}
+      willInterrupt={microphoneWillInterrupt}
       onstart={onstartmicrophone}
       onstop={onstopmicrophone}
       ondiscard={ondiscardmicrophone}
