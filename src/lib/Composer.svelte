@@ -37,6 +37,7 @@
     onstartmicrophone: () => void;
     onstopmicrophone: () => void;
     ondiscardmicrophone: () => void;
+    oncorrectmicrophone: (turnIndex: number, text: string) => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -72,6 +73,7 @@
     onstartmicrophone,
     onstopmicrophone,
     ondiscardmicrophone,
+    oncorrectmicrophone,
     oncomposerready,
     onattachmentinputready,
   }: Props = $props();
@@ -202,6 +204,7 @@
       onstart={onstartmicrophone}
       onstop={onstopmicrophone}
       ondiscard={ondiscardmicrophone}
+      oncorrect={oncorrectmicrophone}
     />
   </div>
   <p id="composer-guidance" class="composer-note" aria-live="polite">

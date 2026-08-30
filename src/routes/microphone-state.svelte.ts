@@ -3,6 +3,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 
 import {
+  correctMicrophoneTranscript,
   discardMicrophoneCapture,
   getMicrophoneStatus,
   INITIAL_MICROPHONE_STATUS,
@@ -69,6 +70,16 @@ export class MicrophoneState {
       this.failClosed();
     }
     this.stopPolling();
+  }
+
+  /** Replaces one final voice turn while keeping the corrected text in native session memory only. */
+  async correct(turnIndex: number, text: string): Promise<void> {
+    if (!this.available || this.status.transcriptionPhase !== "ready") return;
+    try {
+      this.status = await correctMicrophoneTranscript(turnIndex, text);
+    } catch {
+      await this.refresh();
+    }
   }
 
   /** Releases the local timer; native samples remain governed by the explicit discard action or process lifetime. */

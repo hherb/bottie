@@ -317,7 +317,7 @@ Outcome: users can hold interruptible, private voice conversations without requi
 - [x] bounded native voice activity detection with path-free speech/silence timing and calm live/captured state;
 - [x] local streaming speech-to-text with a pinned multilingual Whisper tiny Q5 model, bounded partial/final transcript
   ranges, visible timing, app-owned cache verification, and session-only audio/text state;
-- [ ] transcript correction and visible turn boundaries;
+- [x] session-only transcript correction and visible numbered turn boundaries;
 - [ ] local text-to-speech with selectable voices;
 - [ ] barge-in and end-to-end cancellation;
 - [ ] audio content blocks and optional local audio retention;

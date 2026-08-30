@@ -100,12 +100,120 @@ fn exposes_bounded_partial_and_final_transcript_segments_without_native_metadata
     assert_eq!(final_status.transcription_phase, TranscriptionPhase::Ready);
     assert_eq!(final_status.transcript_segments[0].text, "final words");
     assert!(final_status.transcript_segments[0].is_final);
+    assert!(!final_status.transcript_segments[0].is_corrected);
 
-    let json = serde_json::to_value(final_status).unwrap().to_string();
+    let json = serde_json::to_value(final_status).unwrap();
+    assert_eq!(json["transcriptSegments"][0]["isCorrected"], false);
+    let json = json.to_string();
     assert!(!json.contains("model_path"));
     assert!(!json.contains("model_hash"));
     assert!(!json.contains("samples"));
     assert!(!json.contains("device"));
+}
+
+#[test]
+fn corrects_only_final_ready_turns_with_bounded_session_text() {
+    let mut state = CaptureState::default();
+    state.begin_recording(16_000, 1);
+    state.finish();
+    state.apply_transcription(
+        state.capture_id,
+        1,
+        true,
+        Ok(vec![
+            RawTranscriptSegment {
+                text: "first draft".into(),
+                start_ms: 100,
+                end_ms: 700,
+            },
+            RawTranscriptSegment {
+                text: "second draft".into(),
+                start_ms: 900,
+                end_ms: 1_500,
+            },
+        ]),
+    );
+
+    assert_eq!(
+        state.correct_transcript(1, "  corrected second turn  "),
+        Ok(())
+    );
+    let corrected = state.status();
+    assert_eq!(corrected.transcript_segments[0].text, "first draft");
+    assert!(!corrected.transcript_segments[0].is_corrected);
+    assert_eq!(
+        corrected.transcript_segments[1].text,
+        "corrected second turn"
+    );
+    assert!(corrected.transcript_segments[1].is_corrected);
+    assert_eq!(corrected.transcript_segments[1].start_ms, 900);
+    assert_eq!(corrected.transcript_segments[1].end_ms, 1_500);
+
+    let before_rejections = state.status();
+    assert_eq!(
+        state.correct_transcript(2, "missing turn"),
+        Err(TranscriptCorrectionError::TurnUnavailable)
+    );
+    assert_eq!(
+        state.correct_transcript(0, "   "),
+        Err(TranscriptCorrectionError::InvalidText)
+    );
+    assert_eq!(
+        state.correct_transcript(0, &"x".repeat(MAX_TRANSCRIPT_TURN_BYTES + 1)),
+        Err(TranscriptCorrectionError::InvalidText)
+    );
+    assert_eq!(state.status(), before_rejections);
+
+    state.reset();
+    assert!(state.status().transcript_segments.is_empty());
+    assert_eq!(state.status().transcription_phase, TranscriptionPhase::Idle);
+}
+
+#[test]
+fn rejects_correction_that_would_exceed_the_aggregate_transcript_limit() {
+    let mut state = CaptureState::default();
+    state.begin_recording(16_000, 1);
+    state.finish();
+    state.apply_transcription(
+        state.capture_id,
+        1,
+        true,
+        Ok((0..8)
+            .map(|index| RawTranscriptSegment {
+                text: "x".repeat(500),
+                start_ms: index * 600,
+                end_ms: index * 600 + 500,
+            })
+            .collect()),
+    );
+
+    assert_eq!(
+        state.correct_transcript(0, &"y".repeat(MAX_TRANSCRIPT_TURN_BYTES)),
+        Err(TranscriptCorrectionError::InvalidText)
+    );
+    assert_eq!(state.status().transcript_segments[0].text.len(), 500);
+}
+
+#[test]
+fn rejects_correction_until_final_transcription_is_ready() {
+    let mut state = CaptureState::default();
+    state.begin_recording(16_000, 1);
+    state.apply_transcription(
+        state.capture_id,
+        1,
+        false,
+        Ok(vec![RawTranscriptSegment {
+            text: "partial words".into(),
+            start_ms: 0,
+            end_ms: 400,
+        }]),
+    );
+
+    assert_eq!(
+        state.correct_transcript(0, "premature correction"),
+        Err(TranscriptCorrectionError::TranscriptNotReady)
+    );
+    assert_eq!(state.status().transcript_segments[0].text, "partial words");
 }
 
 #[test]

@@ -87,6 +87,11 @@ calmly reports **Listening for speech** or **Speech detected**. A dedicated Rust
 speech-containing snapshots with the pinned multilingual Whisper tiny Q5 model, replaces partial results while capture
 continues, and makes the stopped result final. The WebView receives at most 32 path-free transcript ranges and 4,000
 UTF-8 bytes of transcript text with visible start/end timing; model paths, hashes, runtime details, and PCM stay native.
+After Stop makes the transcript final, every range is shown as a numbered voice turn. Each turn has an explicit
+correction field; Rust accepts only non-blank replacements of at most 512 UTF-8 bytes while retaining the turn timing
+and 4,000-byte transcript ceiling. Corrected turns are visibly marked. Partial turns cannot be edited, and corrections
+remain only in the same native session slot.
+
 **Stop** retains the capture and final transcript only until they are discarded, replaced, or Bottie exits;
 **Discard** clears the retained capture, pending snapshot, and visible transcript immediately. If one native inference
 pass is already executing, its bounded PCM copy is released when that pass returns and its stale result is ignored.
@@ -94,7 +99,7 @@ pass is already executing, its bounded PCM copy is released when that pass retur
 The speech model is downloaded only after explicit capture first produces speech, from the immutable repository
 revision and file identity in `runtime-assets.json`, into Bottie's app-owned cache. Native code verifies its exact
 32,152,673-byte SHA-256 contract before loading it. Voice audio and transcript text are not persisted, attached,
-played, inserted into a conversation, or sent to a provider. Transcript correction, audio message blocks, device
+played, inserted into a conversation, or sent to a provider. Local text-to-speech, audio message blocks, device
 selection, and playback remain roadmap work. The browser preview renders the control for layout review but cannot
 request microphone access or run recognition.
 

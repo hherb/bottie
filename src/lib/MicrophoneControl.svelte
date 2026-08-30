@@ -1,6 +1,12 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
-  import { formatMicrophoneDuration, microphoneFeedback, type MicrophoneStatus } from "$lib/microphone";
+  import {
+    formatMicrophoneDuration,
+    MAX_TRANSCRIPT_TURN_BYTES,
+    microphoneFeedback,
+    normalizeTranscriptCorrection,
+    type MicrophoneStatus,
+  } from "$lib/microphone";
 
   let {
     status,
@@ -8,12 +14,14 @@
     onstart,
     onstop,
     ondiscard,
+    oncorrect,
   }: {
     status: MicrophoneStatus;
     disabled: boolean;
     onstart: () => void;
     onstop: () => void;
     ondiscard: () => void;
+    oncorrect: (turnIndex: number, text: string) => void;
   } = $props();
 
   const busy = $derived(
@@ -67,13 +75,39 @@
 
 {#if status.transcriptSegments.length > 0}
   <ol class="voice-transcript" aria-label="Local voice transcript" aria-live="polite">
-    {#each status.transcriptSegments as segment}
-      <li>
+    {#each status.transcriptSegments as segment, turnIndex}
+      <li aria-label={`Voice turn ${turnIndex + 1}`}>
+        <span class="transcript-turn">Turn {turnIndex + 1}</span>
         <span class="transcript-time"
           >{formatMicrophoneDuration(segment.startMs)}–{formatMicrophoneDuration(segment.endMs)}</span
         >
-        <span>{segment.text}</span>
-        {#if !segment.isFinal}<span class="partial-transcript">Partial</span>{/if}
+        {#if status.transcriptionPhase === "ready" && segment.isFinal}
+          <form
+            class="transcript-correction"
+            onsubmit={(event) => {
+              event.preventDefault();
+              const input = event.currentTarget.elements.namedItem("correction") as HTMLInputElement;
+              const text = normalizeTranscriptCorrection(input.value);
+              input.setCustomValidity(text ? "" : "Keep this correction within 512 UTF-8 bytes.");
+              if (text) oncorrect(turnIndex, text);
+              else input.reportValidity();
+            }}
+          >
+            <input
+              name="correction"
+              aria-label={`Correct voice turn ${turnIndex + 1}`}
+              value={segment.text}
+              maxlength={MAX_TRANSCRIPT_TURN_BYTES}
+              required
+              oninput={(event) => event.currentTarget.setCustomValidity("")}
+            />
+            <button aria-label={`Save correction for voice turn ${turnIndex + 1}`} type="submit">Save</button>
+          </form>
+          {#if segment.isCorrected}<span class="corrected-transcript">Corrected</span>{/if}
+        {:else}
+          <span>{segment.text}</span>
+          <span class="partial-transcript">Partial</span>
+        {/if}
       </li>
     {/each}
   </ol>

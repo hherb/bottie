@@ -39,6 +39,7 @@
 
   import { PageState } from "./page-state.svelte";
   import { applyPerformancePreview } from "./performance-preview";
+  import { applyVoicePreview } from "./voice-preview";
   import {
     inferenceStages,
     messageAttachmentAssociations,
@@ -52,7 +53,10 @@
   let settingsInvoker: HTMLElement | null = null;
 
   onMount(() => {
-    if (import.meta.env.DEV) applyPerformancePreview(state, window.location.search);
+    if (import.meta.env.DEV) {
+      applyPerformancePreview(state, window.location.search);
+      applyVoicePreview(state, window.location.search);
+    }
     appearanceController = createAppearanceController({
       root: document.documentElement,
       storage: window.localStorage,
@@ -346,6 +350,7 @@
         onstartmicrophone={() => void state.microphone.start()}
         onstopmicrophone={() => void state.microphone.stop()}
         ondiscardmicrophone={() => void state.microphone.discard()}
+        oncorrectmicrophone={(turnIndex, text) => void state.microphone.correct(turnIndex, text)}
         oncomposerready={(element) => state.interaction.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />

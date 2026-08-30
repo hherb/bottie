@@ -254,8 +254,10 @@ native energy detector now classifies 20 ms frames into stable speech and silenc
 timing, and drives calm live and captured summaries without returning audio or detector internals. One dedicated Rust
 worker now performs local streaming speech recognition with an exact hash-pinned multilingual Whisper tiny Q5 model.
 It replaces bounded partial transcript ranges while recording, finalizes them after Stop, and keeps PCM, model/cache
-details, and inference state native; neither audio nor transcript text is persisted or sent to a provider. The
-keyboard-shortcut slice is now complete:
+details, and inference state native; neither audio nor transcript text is persisted or sent to a provider. The stopped
+transcript now exposes numbered, timed voice-turn boundaries and accepts an explicit correction for one final turn at a
+time. Corrected text remains bounded native session state, is visibly marked, and clears on Discard, a new capture, or
+process exit. The keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -321,7 +323,8 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is bounded
-local streaming speech-to-text on local branch `codex/local-streaming-speech-to-text`; the current
+session-only transcript correction and voice-turn boundaries on local branch
+`codex/transcript-correction-turn-boundaries`; the current
 release-engineering slice remains limited by the explicit credential and publication boundaries below.
 
 ## Current implementation
@@ -655,7 +658,63 @@ The cohesively touched product modules remain at or below 500 lines. The crate c
 `src-tauri/src/lib.rs` remains an existing practical-limit exception; the remaining known indivisible long lines are
 SVG path values in `src/lib/Icon.svelte`.
 
-## Current bounded product slice: local streaming speech-to-text
+## Current bounded product slice: session-only transcript correction and voice-turn boundaries
+
+### Goal
+
+Let the user visibly distinguish and correct final local voice turns without inserting transcript text into the
+composer, persisting transcript or audio, creating audio content blocks, sending either to a provider, adding playback,
+selecting devices, or resuming Store work.
+
+### Implemented shape
+
+1. Each bounded recognizer segment is presented as one numbered voice turn with its existing native start/end timing.
+   Partial turns remain visible and explicitly non-editable; correction becomes available only after Stop has produced
+   the final `ready` transcript.
+2. One narrow `correct_microphone_transcript` command accepts only a zero-based turn index and replacement text. Rust
+   rejects corrections unless the capture is stopped and final, rejects missing turns plus blank or oversized UTF-8,
+   retains the existing timing/finality boundary, caps each turn at 512 bytes and the complete transcript at 4,000
+   bytes, and returns only the updated path-free status.
+3. Corrected turns carry one `isCorrected` presentation flag and a calm visible label. The correction stays with the
+   native process-lifetime capture slot and clears through the existing Discard, Record again, or process-exit
+   boundaries. PCM, model/cache details, filesystem paths, native identities, and detector internals remain absent.
+
+### Acceptance and exclusions
+
+Focused Rust tests cover a valid middle-turn replacement, whitespace normalization, unchanged timing, explicit
+correction state, missing-turn, blank, oversized, and non-final rejection, and unchanged state after rejected input.
+Frontend rendering tests cover numbered final and partial boundaries, final-only correction controls, corrected state,
+timing, and absence of native details. The runtime contract retains absent WebView media authority and now requires the
+native correction and corrected-state boundaries.
+
+This slice does not insert transcript text into the composer, persist transcript or audio, create audio content blocks,
+retain audio durably or optionally, add playback or text-to-speech, select devices, send any voice data to a provider,
+change Store manifests, dispatch a protected workflow, publish a release/update, or resume Microsoft Store
+certification.
+
+### Verification completed
+
+The full frontend suite passes 206 tests with 3 skipped; Prettier reports no changes, Svelte diagnostics report 0
+errors and 0 warnings, and the production build passes. The Rust library suite passes 419 tests with 32 intentionally
+ignored, the updater-evidence test passes separately, and `cargo fmt --check` plus `cargo check` pass. Focused
+correction coverage includes the per-turn and aggregate UTF-8 ceilings, final-state gating, unchanged rejected state,
+discard/reset, accessible rendering, and the explicit development-only browser fixture.
+
+The final-transcript fixture was visually reviewed at 1320 x 820 and the 720 x 620 native minimum, both with and
+without the responsive Context overlay. Three numbered correction rows, their Save actions, timing, and the corrected
+label remained contained; document and transcript scroll widths matched their client widths, and the browser console
+reported no warnings or errors. A development-signed native build compiled and launched without requesting microphone
+permission. Immutable read-only inspection of the existing store returned schema version 21 and `quick_check=ok`; the
+slice adds no storage migration or write. Real-device capture, transcript accuracy, microphone latency, and native
+correction interaction remain unverified. No provider delivery, protected workflow, release publication, updater
+publication, Microsoft Store polling, submission, certification, or publication action was performed.
+
+### Next bounded slice
+
+Add bounded local text-to-speech with an explicit playback action and selectable local voices, without adding
+barge-in, provider audio, audio content blocks or retention, device selection, release publication, or Store work.
+
+## Previous completed product slice: local streaming speech-to-text
 
 ### Goal
 
@@ -711,11 +770,9 @@ pending work, and visible transcript state immediately; a PCM copy already execu
 when that pass returns, and its stale result is ignored. No provider delivery, protected workflow, release publication,
 or Microsoft Store certification action was performed.
 
-### Next bounded slice
+### Follow-up
 
-Add explicit session-only transcript correction and visible voice-turn boundaries without persisting transcript or
-audio, creating audio content blocks, sending either to a provider, adding playback, selecting devices, or resuming
-Store work.
+The session-only transcript correction and visible voice-turn boundary slice is completed and recorded above.
 
 ## Most recently completed maintenance slice: website dependency vulnerability remediation
 

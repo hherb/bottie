@@ -54,6 +54,7 @@ function renderedComposer(
       onstartmicrophone: vi.fn(),
       onstopmicrophone: vi.fn(),
       ondiscardmicrophone: vi.fn(),
+      oncorrectmicrophone: vi.fn(),
       oncomposerready: vi.fn(),
       onattachmentinputready: vi.fn(),
     },

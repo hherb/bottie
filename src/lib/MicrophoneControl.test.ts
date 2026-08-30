@@ -24,7 +24,7 @@ const IDLE_STATUS: MicrophoneStatus = {
 /** Renders the microphone control with inert actions and one path-free native status. */
 function rendered(status: MicrophoneStatus, disabled = false): string {
   return render(MicrophoneControl, {
-    props: { status, disabled, onstart: vi.fn(), onstop: vi.fn(), ondiscard: vi.fn() },
+    props: { status, disabled, onstart: vi.fn(), onstop: vi.fn(), ondiscard: vi.fn(), oncorrect: vi.fn() },
   }).body;
 }
 
@@ -88,8 +88,8 @@ describe("MicrophoneControl", () => {
       durationMs: 3_420,
       transcriptionPhase: "ready",
       transcriptSegments: [
-        { text: "Hello there", startMs: 420, endMs: 1_800, isFinal: true },
-        { text: "General Kenobi", startMs: 1_900, endMs: 3_100, isFinal: true },
+        { text: "Hello there", startMs: 420, endMs: 1_800, isFinal: true, isCorrected: false },
+        { text: "General Kenobi", startMs: 1_900, endMs: 3_100, isFinal: true, isCorrected: true },
       ],
     });
 
@@ -98,7 +98,27 @@ describe("MicrophoneControl", () => {
     expect(html).toContain("General Kenobi");
     expect(html).toContain("0:00–0:01");
     expect(html).toContain("0:01–0:03");
+    expect(html).toContain("Turn 1");
+    expect(html).toContain("Turn 2");
+    expect(html).toContain('aria-label="Correct voice turn 1"');
+    expect(html).toContain('aria-label="Save correction for voice turn 1"');
+    expect(html).toContain("Corrected");
     expect(html).not.toMatch(/model path|sample|hash/i);
+  });
+
+  it("keeps partial turns visible but non-editable", () => {
+    const html = rendered({
+      ...IDLE_STATUS,
+      phase: "recording",
+      permission: "granted",
+      transcriptionPhase: "transcribing",
+      transcriptSegments: [{ text: "Still listening", startMs: 420, endMs: 1_800, isFinal: false, isCorrected: false }],
+    });
+
+    expect(html).toContain("Turn 1");
+    expect(html).toContain("Still listening");
+    expect(html).toContain("Partial");
+    expect(html).not.toContain("Correct voice turn 1");
   });
 
   it("keeps capture actions bounded while the native recognizer is preparing", () => {
