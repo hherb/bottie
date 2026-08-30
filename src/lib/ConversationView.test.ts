@@ -27,6 +27,11 @@ describe("ConversationView", () => {
         canGenerate: true,
         branches: [],
         currentBranchId: null,
+        speechAvailable: true,
+        speechVoices: [{ id: "voice.en-au", name: "Karen", language: "en-AU" }],
+        speechStatus: { phase: "idle", selectedVoiceId: "voice.en-au", errorCode: null },
+        speakingMessageId: null,
+        microphoneCapturing: false,
         onretry: vi.fn(),
         onselectbranch: vi.fn(),
         oneditmessage: vi.fn(),
@@ -34,6 +39,9 @@ describe("ConversationView", () => {
         onretryresponse: vi.fn(),
         onrateresponse: vi.fn(),
         onremoveattachment: vi.fn(),
+        onspeakresponse: vi.fn(),
+        onstopspeech: vi.fn(),
+        onselectspeechvoice: vi.fn(),
         onscrollready: vi.fn(),
       },
     }).body;
@@ -42,5 +50,49 @@ describe("ConversationView", () => {
     expect(html).toContain("Response needs attention");
     expect(html).toContain("Generation failed before any response was saved.");
     expect(html).toContain('aria-label="Retry response"');
+    expect(html).toContain('aria-label="Local playback voice"');
+    expect(html).toContain("Karen · en-AU");
+    expect(html).toContain('aria-label="Play response aloud"');
+    expect(html).toContain("playback stays on this device");
+  });
+
+  it("renders an explicit stop action only for the response playing locally", () => {
+    const html = render(ConversationView, {
+      props: {
+        messages: [
+          { id: 1, storageId: "response-1", role: "assistant", content: "First response." },
+          { id: 2, storageId: "response-2", role: "assistant", content: "Second response." },
+        ],
+        providerStatus: "available",
+        providerError: null,
+        selectedModel: undefined,
+        activeStage: -1,
+        inferenceStages: [],
+        isGenerating: false,
+        canGenerate: true,
+        branches: [],
+        currentBranchId: null,
+        speechAvailable: true,
+        speechVoices: [{ id: "voice.en-au", name: "Karen", language: "en-AU" }],
+        speechStatus: { phase: "speaking", selectedVoiceId: "voice.en-au", errorCode: null },
+        speakingMessageId: 2,
+        microphoneCapturing: false,
+        onretry: vi.fn(),
+        onselectbranch: vi.fn(),
+        oneditmessage: vi.fn(),
+        onregenerate: vi.fn(),
+        onretryresponse: vi.fn(),
+        onrateresponse: vi.fn(),
+        onremoveattachment: vi.fn(),
+        onspeakresponse: vi.fn(),
+        onstopspeech: vi.fn(),
+        onselectspeechvoice: vi.fn(),
+        onscrollready: vi.fn(),
+      },
+    }).body;
+
+    expect(html.match(/aria-label="Play response aloud"/g)).toHaveLength(1);
+    expect(html.match(/aria-label="Stop local playback"/g)).toHaveLength(1);
+    expect(html).toContain("Playing locally · use Stop to end playback");
   });
 });

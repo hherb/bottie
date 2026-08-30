@@ -7,6 +7,13 @@
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
   import ToolActivity from "$lib/ToolActivity.svelte";
   import { renderAssistantMarkdown } from "$lib/markdown";
+  import {
+    assistantSpeechText,
+    speechFeedback,
+    speechTextWithinLimit,
+    type SpeechStatus,
+    type SpeechVoice,
+  } from "$lib/speech";
   import { webSourcesForMessage } from "$lib/web-provenance";
   import type { ConversationBranch } from "$lib/storage";
   import { attachmentFailure, attachmentStatusLabel } from "$lib/attachment";
@@ -26,6 +33,11 @@
     canGenerate: boolean;
     branches: ConversationBranch[];
     currentBranchId: string | null;
+    speechAvailable: boolean;
+    speechVoices: SpeechVoice[];
+    speechStatus: SpeechStatus;
+    speakingMessageId: number | null;
+    microphoneCapturing: boolean;
     onretry: () => void;
     onselectbranch: (branchId: string) => void;
     oneditmessage: (message: Message, text: string) => void;
@@ -33,6 +45,9 @@
     onretryresponse: (responseId: number) => void;
     onrateresponse: (responseId: number, rating: ResponseRating) => void;
     onremoveattachment: (messageId: string, attachmentId: string) => void;
+    onspeakresponse: (messageId: number, markdown: string) => void;
+    onstopspeech: () => void;
+    onselectspeechvoice: (voiceId: string) => void;
     onscrollready: (element: HTMLDivElement) => void;
   };
 
@@ -47,6 +62,11 @@
     canGenerate,
     branches,
     currentBranchId,
+    speechAvailable,
+    speechVoices,
+    speechStatus,
+    speakingMessageId,
+    microphoneCapturing,
     onretry,
     onselectbranch,
     oneditmessage,
@@ -54,6 +74,9 @@
     onretryresponse,
     onrateresponse,
     onremoveattachment,
+    onspeakresponse,
+    onstopspeech,
+    onselectspeechvoice,
     onscrollready,
   }: Props = $props();
   let messageScroll: HTMLDivElement;
@@ -111,8 +134,33 @@
       </label>
     {/if}
 
+    {#if speechAvailable}
+      <div class:error={speechStatus.phase === "error"} class="local-speech-toolbar" aria-label="Local voice playback">
+        <label>
+          <Icon name="speaker" size={14} />
+          <span>Local voice</span>
+          <select
+            aria-label="Local playback voice"
+            value={speechStatus.selectedVoiceId ?? ""}
+            disabled={speechVoices.length === 0 || speechStatus.phase === "speaking"}
+            onchange={(event) => onselectspeechvoice(event.currentTarget.value)}
+          >
+            {#if speechVoices.length === 0}<option value="">No voices available</option>{/if}
+            {#each speechVoices as voice (voice.id)}
+              <option value={voice.id}>{voice.name} · {voice.language || "Unknown language"}</option>
+            {/each}
+          </select>
+        </label>
+        <span role={speechStatus.phase === "error" ? "alert" : "status"}>
+          {speechFeedback(speechStatus, speechVoices.length)}
+        </span>
+      </div>
+    {/if}
+
     {#each messages as message (message.id)}
       {@const webCitationUrls = new Set(webSourcesForMessage(message).map((source) => source.url))}
+      {@const speechText = message.role === "assistant" ? assistantSpeechText(message.content) : ""}
+      {@const speechPlayable = speechTextWithinLimit(speechText)}
       <article class:assistant={message.role === "assistant"} class:error={message.error} class="message">
         <div class="message-avatar" class:user-avatar={message.role === "user"}>
           {#if message.role === "assistant"}<span class="mini-core"></span>{:else}<span>HH</span>{/if}
@@ -249,6 +297,27 @@
           {:else if message.role === "assistant" && (message.content !== "" || message.retryable)}
             <div class="message-actions">
               {#if message.content !== ""}
+                {#if speechAvailable}
+                  <button
+                    class:active-playback={speakingMessageId === message.id && speechStatus.phase === "speaking"}
+                    aria-label={speakingMessageId === message.id && speechStatus.phase === "speaking"
+                      ? "Stop local playback"
+                      : speechPlayable
+                        ? "Play response aloud"
+                        : "Response is too long to play aloud"}
+                    aria-pressed={speakingMessageId === message.id && speechStatus.phase === "speaking"}
+                    disabled={!speechPlayable || speechVoices.length === 0 || isGenerating || microphoneCapturing}
+                    onclick={() =>
+                      speakingMessageId === message.id && speechStatus.phase === "speaking"
+                        ? onstopspeech()
+                        : onspeakresponse(message.id, message.content)}
+                  >
+                    <Icon
+                      name={speakingMessageId === message.id && speechStatus.phase === "speaking" ? "stop" : "speaker"}
+                      size={15}
+                    />
+                  </button>
+                {/if}
                 <button
                   aria-label={copyFeedback?.messageId === message.id && copyFeedback.succeeded
                     ? message.reasoning

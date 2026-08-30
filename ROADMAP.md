@@ -318,7 +318,8 @@ Outcome: users can hold interruptible, private voice conversations without requi
 - [x] local streaming speech-to-text with a pinned multilingual Whisper tiny Q5 model, bounded partial/final transcript
   ranges, visible timing, app-owned cache verification, and session-only audio/text state;
 - [x] session-only transcript correction and visible numbered turn boundaries;
-- [ ] local text-to-speech with selectable voices;
+- [x] bounded local text-to-speech with explicit assistant-response playback, selectable system voices, opaque native
+  identities, and no generated-audio retention;
 - [ ] barge-in and end-to-end cancellation;
 - [ ] audio content blocks and optional local audio retention;
 - [ ] latency, device selection, and acoustic feedback controls;

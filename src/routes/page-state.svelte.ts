@@ -52,6 +52,7 @@ import { FirstRunSetupState } from "./first-run-setup-state.svelte";
 import { ComposerInteractionState } from "./composer-interaction-state";
 import { CommandPaletteState } from "./command-palette-state.svelte";
 import { MicrophoneState } from "./microphone-state.svelte";
+import { SpeechState } from "./speech-state.svelte";
 import { ToolPreferenceState, type ToolAvailability } from "./tool-preferences";
 
 const IDLE_STAGE = -1;
@@ -91,6 +92,7 @@ export class PageState {
   interaction = new ComposerInteractionState();
   commandPalette = new CommandPaletteState();
   microphone = new MicrophoneState();
+  speech = new SpeechState();
 
   private generationRun = 0;
   private cancellationRequested = false;
@@ -172,6 +174,7 @@ export class PageState {
       this.refreshModels(),
       this.email.refresh(),
       this.microphone.initialize(),
+      this.speech.initialize(),
     ]);
     this.messages = messages;
     this.tools.restore(this.providerSettings, this.toolAvailability);
@@ -180,10 +183,12 @@ export class PageState {
   dispose(): void {
     this.attachment.dispose();
     this.microphone.dispose();
+    this.speech.dispose();
   }
   /** Opens one persisted conversation from the sidebar. */
   async openConversation(conversationId: string): Promise<void> {
     if (this.isGenerating) return;
+    if (this.speech.status.phase === "speaking") await this.speech.stop();
     const messages = await this.history.open(conversationId);
     if (messages) {
       this.messages = messages;
@@ -194,6 +199,7 @@ export class PageState {
   /** Opens the preserved branch selected from native conversation-search results. */
   async openSearchResult(result: import("$lib/storage").ConversationSearchResult): Promise<void> {
     if (this.isGenerating) return;
+    if (this.speech.status.phase === "speaking") await this.speech.stop();
     const messages = await this.history.openSearchResult(result);
     if (messages) {
       this.messages = messages;
@@ -299,8 +305,9 @@ export class PageState {
     if (!submittedPrompt || this.isGenerating || !this.canSend || !this.attachmentsCanSubmit) {
       return;
     }
-    const submittedAttachments = this.attachment.beginSubmission();
     this.isPersistingMessage = true;
+    if (this.speech.status.phase === "speaking") await this.speech.stop();
+    const submittedAttachments = this.attachment.beginSubmission();
     const runContext = await this.history.persistUserMessage(
       submittedPrompt,
       submittedAttachments.map((attachment) => attachment.id),
@@ -346,6 +353,7 @@ export class PageState {
   /** Forks one durable user request and generates a response on the new selected branch. */
   async editAndRegenerate(message: Message, text: string): Promise<void> {
     if (!message.storageId || this.isGenerating || !this.canSend || !this.conversationAttachmentsCanSubmit) return;
+    if (this.speech.status.phase === "speaking") await this.speech.stop();
     const branched = await this.history.branchFromUserMessage(message.storageId, text);
     if (!branched) return;
     this.messages = branched.messages;
@@ -419,6 +427,7 @@ export class PageState {
   /** Selects one preserved branch when generation is idle. */
   async selectConversationBranch(branchId: string): Promise<void> {
     if (this.isGenerating || this.isPersistingMessage || branchId === this.history.currentBranchId) return;
+    if (this.speech.status.phase === "speaking") await this.speech.stop();
     const messages = await this.history.selectBranch(branchId);
     if (messages) {
       this.messages = messages;
@@ -505,6 +514,7 @@ export class PageState {
   /** Clears the active thread; its first submitted prompt creates durable storage. */
   async startNewChat(): Promise<void> {
     if (this.activeRunId) void cancelChat(this.activeRunId);
+    if (this.speech.status.phase === "speaking") await this.speech.stop();
     this.messages = [];
     await this.history.startNew();
     this.activeStage = IDLE_STAGE;

@@ -19,6 +19,7 @@ mod localmail;
 mod microphone;
 mod provider_registry;
 mod semantic_indexer;
+mod speech;
 mod storage;
 mod storage_commands;
 mod stream_channel;
@@ -79,6 +80,7 @@ use localmail::{
 use microphone::{MicrophoneController, MicrophoneStatus, TranscriptCorrectionError};
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use semantic_indexer::SemanticIndexer;
+use speech::{SpeechCommandError, SpeechController, SpeechStatus, SpeechVoice};
 use storage::ConversationStore;
 use storage_commands::{
     add_conversation_attachments, append_conversation_message, backup_conversation_store,
@@ -109,6 +111,7 @@ struct AppState {
     settings_path: PathBuf,
     localmail_config_path: PathBuf,
     microphone: MicrophoneController,
+    speech: SpeechController,
     runs: ActiveRuns,
     diagnostics: Diagnostics,
     credentials: Arc<dyn CredentialStore>,
@@ -280,6 +283,9 @@ fn get_microphone_status(state: State<'_, AppState>) -> MicrophoneStatus {
 #[tauri::command]
 /// Starts session-only native capture after an explicit WebView user action.
 fn start_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
+    if state.speech.blocks_microphone_capture() {
+        return state.microphone.status();
+    }
     state.microphone.start()
 }
 
@@ -303,6 +309,45 @@ fn correct_microphone_transcript(
     state: State<'_, AppState>,
 ) -> Result<MicrophoneStatus, TranscriptCorrectionError> {
     state.microphone.correct_transcript(turn_index, &text)
+}
+
+#[tauri::command]
+/// Returns current local speech state without utterance text or backend detail.
+fn get_speech_status(state: State<'_, AppState>) -> SpeechStatus {
+    state.speech.status()
+}
+
+#[tauri::command]
+/// Lazily lists bounded local voices without device or filesystem identity.
+fn list_speech_voices(state: State<'_, AppState>) -> Result<Vec<SpeechVoice>, SpeechCommandError> {
+    state.speech.list_voices()
+}
+
+#[tauri::command]
+/// Selects one exact engine-provided voice for this process lifetime.
+fn select_speech_voice(
+    voice_id: String,
+    state: State<'_, AppState>,
+) -> Result<SpeechStatus, SpeechCommandError> {
+    state.speech.select_voice(&voice_id)
+}
+
+#[tauri::command]
+/// Plays one bounded text payload through the selected local voice after explicit user action.
+fn speak_text(
+    text: String,
+    state: State<'_, AppState>,
+) -> Result<SpeechStatus, SpeechCommandError> {
+    if state.microphone.is_capturing() {
+        return Err(SpeechCommandError::MicrophoneActive);
+    }
+    state.speech.speak(&text)
+}
+
+#[tauri::command]
+/// Stops only Bottie's current local speech playback.
+fn stop_speech(state: State<'_, AppState>) -> SpeechStatus {
+    state.speech.stop()
 }
 
 #[tauri::command]
@@ -569,6 +614,7 @@ pub fn run() {
                 settings_path,
                 localmail_config_path,
                 microphone: MicrophoneController::new(speech_model_cache_path),
+                speech: SpeechController::default(),
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 diagnostics,
                 credentials,
@@ -592,6 +638,11 @@ pub fn run() {
             stop_microphone_capture,
             discard_microphone_capture,
             correct_microphone_transcript,
+            get_speech_status,
+            list_speech_voices,
+            select_speech_voice,
+            speak_text,
+            stop_speech,
             test_provider_connection,
             test_web_search_connection,
             get_localmail_connection_status,

@@ -48,6 +48,12 @@
       "hardenedRuntime": true,
       "entitlements": "Entitlements.plist"
     },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libspeechd2", "speech-dispatcher"],
+        "recommends": ["speech-dispatcher-espeak-ng"]
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",

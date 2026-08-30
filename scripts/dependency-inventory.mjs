@@ -167,6 +167,12 @@ const SECURITY_RELEVANT_FEATURES = [
     manifestSelection: "LAContext,block2; macOS only",
     consequence: "The native biometric boundary is compiled only on macOS.",
   },
+  {
+    package: "tts",
+    manifestSelection: "crate defaults; exact 0.26.3",
+    consequence:
+      "Local playback uses only the target-native AVFoundation, WinRT, or Speech Dispatcher backend behind Rust IPC.",
+  },
 ];
 
 /** Returns the review classification for one declared licence expression. */

@@ -306,6 +306,12 @@
         canGenerate={state.canSend && state.conversationAttachmentsCanSubmit}
         branches={state.history.branches}
         currentBranchId={state.history.currentBranchId}
+        speechAvailable={state.speech.available}
+        speechVoices={state.speech.voices}
+        speechStatus={state.speech.status}
+        speakingMessageId={state.speech.activeMessageId}
+        microphoneCapturing={state.microphone.status.phase === "starting" ||
+          state.microphone.status.phase === "recording"}
         onretry={() => void state.refreshModels()}
         onselectbranch={(branchId) => void state.selectConversationBranch(branchId)}
         oneditmessage={(message, text) => void state.editAndRegenerate(message, text)}
@@ -313,6 +319,9 @@
         onretryresponse={(responseId) => void state.regenerateResponse(responseId, true)}
         onrateresponse={(responseId, rating) => void state.history.rateResponse(state.messages, responseId, rating)}
         onremoveattachment={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
+        onspeakresponse={(messageId, markdown) => void state.speech.speak(messageId, markdown)}
+        onstopspeech={() => void state.speech.stop()}
+        onselectspeechvoice={(voiceId) => void state.speech.selectVoice(voiceId)}
         onscrollready={(element) => state.interaction.setMessageScroll(element)}
       />
 
@@ -336,7 +345,7 @@
         emailBoundaryNote={state.emailBoundaryNote}
         emailUnavailableReason={state.emailUnavailableReason}
         microphoneStatus={state.microphone.status}
-        microphoneAvailable={state.microphone.available}
+        microphoneAvailable={state.microphone.available && state.speech.status.phase !== "speaking"}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.interaction.resizeComposer()}
         onkeydown={(event) => state.interaction.handleKeydown(event, () => void state.sendMessage())}
