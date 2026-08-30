@@ -247,8 +247,10 @@ Developer ID signing, Apple notarization, ticket stapling/validation, and Gateke
 Linux distribution-signature evidence now passes at `c5c26d2` in workflow run `33150663200`. Microsoft rejected the
 Store submission because its screenshots showed Bottie on macOS rather than Windows. Store work is deferred until
 further notice from the release owner; the rejected submission is neither certification nor publication
-evidence. Fresh 0.9.0 packages, inspection, and isolated smoke evidence pass. The keyboard-shortcut slice is now
-complete:
+evidence. Fresh 0.9.0 packages, inspection, and isolated smoke evidence pass. Milestone 7 has begun with one explicit
+Rust-owned default-microphone capture: samples stay in bounded session-only native memory, the WebView sees only
+path-free status, and no transcription, persistence, playback, attachment, or provider delivery exists yet. The
+keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -313,8 +315,9 @@ Read these files first:
 8. `src-tauri/src/lib.rs`
 9. `src-tauri/tauri.conf.json`
 
-The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current release-engineering slice is
-on local branch `codex/linux-distribution-evidence`.
+The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is bounded
+local microphone capture on local branch `codex/local-audio-capture`; the current release-engineering slice remains
+limited by the explicit credential and publication boundaries below.
 
 ## Current implementation
 
@@ -646,6 +649,65 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 The cohesively touched product modules remain at or below 500 lines. The crate composition root
 `src-tauri/src/lib.rs` remains an existing practical-limit exception; the remaining known indivisible long lines are
 SVG path values in `src/lib/Icon.svelte`.
+
+## Current bounded product slice: local microphone capture
+
+### Goal
+
+Begin Milestone 7 with one explicit, private default-microphone capture path that keeps permission and samples native,
+shows calm path-free state in the composer, and stops before speech recognition, persistence, playback, provider
+delivery, or a general WebView media capability.
+
+### Implemented shape
+
+1. One Rust-owned CPAL worker opens the default input only after the user chooses **Record voice**. macOS packages now
+   carry a clear `NSMicrophoneUsageDescription`; Windows and Linux use their native input backends without exposing a
+   browser media API or adding Tauri microphone permissions.
+2. Native input is downmixed to mono `f32` PCM and retained only in process memory. Capture stops at the shorter of 60
+   seconds or 32 MiB, automatically stops at the limit, and is erased when discarded, replaced, or the process exits.
+   Nothing is written to SQLite or the filesystem.
+3. The WebView receives only phase, authorization state, elapsed/maximum duration, sample rate, source channel count,
+   current bounded input level, retained byte size, and one stable error code. Samples, backend messages, device names
+   and IDs, filesystem paths, and native worker identity never serialize through IPC.
+4. The composer requests permission only behind a labelled action, prevents sending while permission/capture is
+   active, exposes a clear Stop control and accessible input-level meter, and labels completed data as held only in
+   native memory. Discard clears the capture immediately; Record again replaces it.
+5. `default-run = "bottie"` restores unambiguous `tauri dev` startup after PR #118 added the separate updater-evidence
+   binary. A focused contract protects that native development path.
+
+### Acceptance and exclusions
+
+Pure native tests cover stereo downmixing, duration and memory ceilings, exact path-free serialization, stable error
+mapping, and irreversible discard. Frontend tests cover explicit permission wording, active capture, accessible level
+state, session-only completion, discard, and the absence of a send-voice action. Runtime source contracts require the
+macOS purpose string and reject WebView `getUserMedia`, `MediaRecorder`, audio context, or microphone capability use.
+
+This slice does not add voice activity detection, transcription, transcript editing, audio content blocks, durable or
+optional audio retention, playback, text-to-speech, device selection, provider delivery, or Store manifest changes.
+It does not dispatch a protected workflow, publish a release/update, or resume Microsoft Store certification.
+
+### Verification completed
+
+The complete Rust library suite passed with 408 tests and 31 explicit opt-in tests ignored. The desktop frontend suite
+passed with 198 tests and three skips. `cargo check`, Rust formatting, Prettier, Svelte diagnostics, the production
+frontend build, dependency inventory, third-party notices, and release-asset checks all passed. Linux packaging
+workflows now install CPAL's required ALSA development headers; no protected distribution workflow was dispatched.
+
+The browser preview was reviewed at 1320 x 820 and the 720 x 620 native minimum. The composer and microphone control
+remained contained without horizontal overflow, including with the compact Context overlay, and the browser console
+reported no warnings or errors. Browser preview correctly leaves capture unavailable because only native Tauri IPC can
+open the device. The native app compiled, development-signed, and launched after the explicit `default-run` fix. A
+manual operating-system permission decision and real-device Record/Stop/Discard interaction remain to be confirmed on
+hardware; this is not claimed as completed evidence.
+
+Immutable read-only inspection of the existing live store returned schema version 21 and `quick_check=ok`. This slice
+adds no schema, filesystem audio, provider call, protected signing, publication, or Microsoft Store action.
+
+### Next bounded slice
+
+Add native voice activity detection over the existing bounded in-memory PCM capture. Return only path-free speech and
+silence segment timing plus calm UI state; keep raw samples native and continue to exclude transcription, persistence,
+audio content blocks, playback, provider delivery, device selection, and Store work.
 
 ## Most recently completed maintenance slice: website dependency vulnerability remediation
 

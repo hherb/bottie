@@ -51,6 +51,7 @@ import {
 import { FirstRunSetupState } from "./first-run-setup-state.svelte";
 import { ComposerInteractionState } from "./composer-interaction-state";
 import { CommandPaletteState } from "./command-palette-state.svelte";
+import { MicrophoneState } from "./microphone-state.svelte";
 import { ToolPreferenceState, type ToolAvailability } from "./tool-preferences";
 
 const IDLE_STAGE = -1;
@@ -89,6 +90,7 @@ export class PageState {
   firstRun = new FirstRunSetupState();
   interaction = new ComposerInteractionState();
   commandPalette = new CommandPaletteState();
+  microphone = new MicrophoneState();
 
   private generationRun = 0;
   private cancellationRequested = false;
@@ -165,13 +167,19 @@ export class PageState {
       this.providerStatus = "offline";
       return;
     }
-    const [messages] = await Promise.all([this.history.initialize(), this.refreshModels(), this.email.refresh()]);
+    const [messages] = await Promise.all([
+      this.history.initialize(),
+      this.refreshModels(),
+      this.email.refresh(),
+      this.microphone.initialize(),
+    ]);
     this.messages = messages;
     this.tools.restore(this.providerSettings, this.toolAvailability);
   }
   /** Releases native event listeners when the page is unmounted. */
   dispose(): void {
     this.attachment.dispose();
+    this.microphone.dispose();
   }
   /** Opens one persisted conversation from the sidebar. */
   async openConversation(conversationId: string): Promise<void> {
