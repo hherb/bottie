@@ -24,7 +24,9 @@
     | "search"
     | "settings"
     | "shield"
+    | "speaker"
     | "sparkles"
+    | "stop"
     | "thumbs-down"
     | "thumbs-up"
     | "trash"
@@ -133,10 +135,15 @@
   {:else if name === "shield"}
     <path d="M12 3 5 6v5c0 4.6 2.9 8.2 7 10 4.1-1.8 7-5.4 7-10V6z" />
     <path d="m9 12 2 2 4-4" />
+  {:else if name === "speaker"}
+    <path d="M5 10v4h3l4 4V6L8 10z" />
+    <path d="M15 9a4 4 0 0 1 0 6M17.5 6.5a8 8 0 0 1 0 11" />
   {:else if name === "sparkles"}
     <path
       d="m12 3 1.3 3.7L17 8l-3.7 1.3L12 13l-1.3-3.7L7 8l3.7-1.3zM18.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8zM5.5 14l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"
     />
+  {:else if name === "stop"}
+    <rect x="6" y="6" width="12" height="12" rx="2" />
   {:else if name === "thumbs-down"}
     <path
       d="M7 4v11H4a2 2 0 0 1-2-2V7a3 3 0 0 1 3-3zM7 14l4 7 1.5-.8a3 3 0 0 0 1.4-3.6L13.3 15H19a2 2 0 0 0 2-2.4l-1-6A3 3 0 0 0 17 4H7"

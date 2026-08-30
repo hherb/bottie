@@ -67,6 +67,37 @@ describe("native microphone runtime contract", () => {
     for (const workflow of workflows) expect(workflow).toContain("libasound2-dev");
   });
 
+  it("keeps local text-to-speech behind bounded Rust commands", async () => {
+    const frontendRoot = new URL("../src/", import.meta.url);
+    const frontendFiles = (await readdir(frontendRoot, { recursive: true })).filter(
+      (file) => /\.(svelte|ts)$/.test(file) && !file.endsWith(".test.ts"),
+    );
+    const [frontendSources, native, capability, cargoManifest, tauriConfig, workflows] = await Promise.all([
+      Promise.all(frontendFiles.map((file) => readFile(new URL(file, frontendRoot), "utf8"))),
+      readFile(new URL("../src-tauri/src/speech.rs", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"),
+      Promise.all([
+        readFile(new URL("../.github/workflows/linux-package-smoke.yml", import.meta.url), "utf8"),
+        readFile(new URL("../.github/workflows/linux-distribution-validation.yml", import.meta.url), "utf8"),
+      ]),
+    ]);
+
+    expect(frontendSources.join("\n")).not.toMatch(/speechSynthesis|SpeechSynthesisUtterance|AudioContext/);
+    expect(native).toContain("MAX_SPEECH_TEXT_BYTES");
+    expect(native).toContain("MAX_SPEECH_VOICES");
+    expect(native).toContain("struct SpeechVoice");
+    expect(native).toContain("struct SpeechStatus");
+    expect(native).toContain("tts::Tts");
+    expect(capability).not.toMatch(/speech|audio/i);
+    expect(cargoManifest).toContain('tts = "=0.26.3"');
+    expect(tauriConfig).toContain('"libspeechd2"');
+    expect(tauriConfig).toContain('"speech-dispatcher"');
+    expect(tauriConfig).toContain('"speech-dispatcher-espeak-ng"');
+    for (const workflow of workflows) expect(workflow).toContain("libspeechd-dev");
+  });
+
   it("declares one clear macOS microphone purpose without cloud speech authority", async () => {
     const infoPlist = await readFile(new URL("../src-tauri/Info.plist", import.meta.url), "utf8");
 

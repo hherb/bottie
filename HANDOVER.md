@@ -257,7 +257,10 @@ It replaces bounded partial transcript ranges while recording, finalizes them af
 details, and inference state native; neither audio nor transcript text is persisted or sent to a provider. The stopped
 transcript now exposes numbered, timed voice-turn boundaries and accepts an explicit correction for one final turn at a
 time. Corrected text remains bounded native session state, is visibly marked, and clears on Discard, a new capture, or
-process exit. The keyboard-shortcut slice is now complete:
+process exit. Bounded local text-to-speech now gives every completed assistant response an explicit Play/Stop action
+and one selectable process-lifetime local voice. Rust alone owns the platform engine and identifiers; the WebView sees
+only bounded voice labels, language tags, opaque selection tokens, and path-free playback state. The keyboard-shortcut
+slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
 disabled reasons, modal gating, and Escape focus restoration stay entirely in the WebView. Local System, Light, and
@@ -323,8 +326,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is bounded
-session-only transcript correction and voice-turn boundaries on local branch
-`codex/transcript-correction-turn-boundaries`; the current
+local text-to-speech with selectable system voices on local branch `codex/local-text-to-speech`; the current
 release-engineering slice remains limited by the explicit credential and publication boundaries below.
 
 ## Current implementation
@@ -655,10 +657,77 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
 The cohesively touched product modules remain at or below 500 lines. The crate composition root
-`src-tauri/src/lib.rs` remains an existing practical-limit exception; the remaining known indivisible long lines are
-SVG path values in `src/lib/Icon.svelte`.
+`src-tauri/src/lib.rs` and the 530-line frontend orchestration root `src/routes/page-state.svelte.ts` remain existing
+practical-limit exceptions; the remaining known indivisible long lines are SVG path values in `src/lib/Icon.svelte`.
 
-## Current bounded product slice: session-only transcript correction and voice-turn boundaries
+## Current bounded product slice: local text-to-speech with selectable voices
+
+### Goal
+
+Let the user explicitly play one completed assistant response through a selectable local system voice without using a
+WebView speech API, retaining generated audio, persisting the selection or utterance, creating audio content blocks,
+sending text/audio to a provider, selecting an output device, adding barge-in, or resuming Store work.
+
+### Implemented shape
+
+1. One process-lifetime `SpeechController` lazily initializes the platform speech engine only when Bottie lists local
+   voices. macOS uses AVFoundation, Windows uses WinRT, and Linux uses Speech Dispatcher. Rust caps the list at 128,
+   bounds every display field, replaces platform identifiers with process-local `local-voice-NNN` tokens, and retains
+   the selected platform identifier only inside the native controller.
+2. Narrow `get_speech_status`, `list_speech_voices`, `select_speech_voice`, `speak_text`, and `stop_speech` commands
+   expose only `idle`/`speaking`/fixed error state, bounded names and language tags, opaque tokens, and the selected
+   token. Status never echoes utterance text, audio, paths, engine details, native identities, or output-device state.
+3. Each completed assistant response has an explicit Play/Stop action. A compact local-voice picker is visible above
+   the conversation. Safe Markdown tokens are reduced to normalized visible text without destinations or formatting
+   syntax before Rust applies the 32 KiB UTF-8 ceiling. Selection, text, and active-response state are session-only.
+4. Bottie disables capture while its speech is active and rejects playback during native capture. Conversation,
+   branch, generation, and page-lifecycle changes stop stale speech. These are narrow overlap guards, not automatic
+   barge-in or an acoustic-feedback policy.
+5. Linux package runners install `libspeechd-dev`; DEB metadata retains Tauri's WebKit/GTK dependencies, adds
+   `libspeechd2` plus `speech-dispatcher`, and recommends `speech-dispatcher-espeak-ng`. macOS and Windows use installed
+   local voices without adding WebView capabilities.
+
+### Acceptance and exclusions
+
+Focused Rust tests cover blank/oversized text, UTF-8 ceilings, bounded/sanitized voice metadata, opaque identity
+mapping, exact selection, play/stop lifecycle, unchanged state after invalid selection/text, and absence of utterance
+text from serialized status. Frontend tests cover Markdown-to-speech normalization, byte limits, fixed feedback,
+selectable voice presentation, and response-specific Play/Stop state. The runtime contract rejects Web Speech and
+WebView audio APIs, keeps the capability allowlist audio-free, pins `tts` 0.26.3, and requires Linux build/runtime
+prerequisites. Dependency inventory and distributable notices include the new locked graph.
+
+This slice does not add barge-in, automatic playback, provider audio, audio content blocks, generated-audio retention,
+voice-selection persistence, playback rate/pitch/volume controls, output-device selection, microphone-device
+selection, transcript insertion, release/update publication, protected workflow dispatch, or Microsoft Store polling,
+submission, certification, or publication.
+
+### Verification completed
+
+The full frontend suite passes 211 tests with 3 skipped; Prettier reports no changes, Svelte diagnostics report 0
+errors and 0 warnings, and the production build passes. The Rust library suite passes 424 tests with 33 intentionally
+ignored, the updater-evidence test passes separately, and `cargo fmt --check` plus `cargo check` pass. Locked offline
+dependency inventory and distributable notice checks pass after adding the platform speech graph. Cargo 1.96 reports
+the upstream macOS-only `block` 0.1.6 dependency as future-incompatible; current builds and tests pass, and Bottie's
+pinned cross-platform `tts` 0.26.3 dependency retains that upstream constraint.
+
+The local-playback fixture was visually reviewed at 1320 x 820 and the 720 x 620 native minimum, both with and without
+the responsive Context overlay. The selector, local-only status, and response-specific Play/Stop control remained
+contained; body and conversation scroll widths matched their client widths, and the browser console reported no
+warnings or errors. The ignored no-audio host probe was run explicitly: macOS initialized its local speech engine,
+returned installed voices through bounded opaque tokens, and remained idle. A development-signed native build compiled
+and launched. Immutable read-only inspection of the existing store returned schema version 21 and `quick_check=ok`;
+this slice adds no storage migration or write. Real audible Play/Stop interaction, Windows WinRT playback, Linux Speech
+Dispatcher playback/package installation, and cross-platform voice quality remain unverified. No microphone capture,
+provider delivery, protected workflow, release/update publication, Microsoft Store polling, submission, certification,
+or publication action was performed.
+
+### Next bounded slice
+
+Add explicit barge-in and end-to-end cancellation so starting native capture stops Bottie's local playback and active
+provider generation through their existing cancellation boundaries, without adding provider audio, audio content
+blocks or retention, device selection, automatic listening/playback, release publication, or Store work.
+
+## Previous completed product slice: session-only transcript correction and voice-turn boundaries
 
 ### Goal
 
@@ -709,10 +778,9 @@ slice adds no storage migration or write. Real-device capture, transcript accura
 correction interaction remain unverified. No provider delivery, protected workflow, release publication, updater
 publication, Microsoft Store polling, submission, certification, or publication action was performed.
 
-### Next bounded slice
+### Follow-up
 
-Add bounded local text-to-speech with an explicit playback action and selectable local voices, without adding
-barge-in, provider audio, audio content blocks or retention, device selection, release publication, or Store work.
+The bounded local text-to-speech and selectable-voice slice is completed and recorded above.
 
 ## Previous completed product slice: local streaming speech-to-text
 

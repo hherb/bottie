@@ -2,16 +2,29 @@
 
 import type { PageState } from "./page-state.svelte";
 
-const VOICE_PREVIEW_VALUE = "final-transcript";
+const TRANSCRIPT_PREVIEW_VALUE = "final-transcript";
+const PLAYBACK_PREVIEW_VALUE = "local-playback";
 
 /** Reports whether a query explicitly requests the final-transcript fixture. */
 export function voicePreviewRequested(search: string): boolean {
-  return new URLSearchParams(search).get("voice") === VOICE_PREVIEW_VALUE;
+  const value = new URLSearchParams(search).get("voice");
+  return value === TRANSCRIPT_PREVIEW_VALUE || value === PLAYBACK_PREVIEW_VALUE;
 }
 
 /** Applies deterministic path-free voice turns to the disconnected browser preview only. */
 export function applyVoicePreview(state: PageState, search: string): boolean {
   if (!voicePreviewRequested(search)) return false;
+  if (new URLSearchParams(search).get("voice") === PLAYBACK_PREVIEW_VALUE) {
+    state.speech.applyPreview(
+      [
+        { id: "voice.en-au", name: "Karen", language: "en-AU" },
+        { id: "voice.en-gb", name: "Daniel", language: "en-GB" },
+        { id: "voice.fr-fr", name: "Thomas", language: "fr-FR" },
+      ],
+      { phase: "speaking", selectedVoiceId: "voice.en-au", errorCode: null },
+    );
+    return true;
+  }
   state.microphone.status = {
     phase: "captured",
     permission: "granted",

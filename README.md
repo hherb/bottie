@@ -98,10 +98,20 @@ pass is already executing, its bounded PCM copy is released when that pass retur
 
 The speech model is downloaded only after explicit capture first produces speech, from the immutable repository
 revision and file identity in `runtime-assets.json`, into Bottie's app-owned cache. Native code verifies its exact
-32,152,673-byte SHA-256 contract before loading it. Voice audio and transcript text are not persisted, attached,
-played, inserted into a conversation, or sent to a provider. Local text-to-speech, audio message blocks, device
-selection, and playback remain roadmap work. The browser preview renders the control for layout review but cannot
-request microphone access or run recognition.
+32,152,673-byte SHA-256 contract before loading it. Captured audio and transcript text are not persisted, attached,
+inserted into a conversation, played, or sent to a provider.
+
+Every completed assistant response also has an explicit **Play response aloud** action. Rust lazily enumerates the
+device's local voices and exposes at most 128 bounded names, language tags, and process-local opaque selection tokens;
+platform identifiers remain native. The selected voice lasts only for the Bottie process. Playback accepts at most
+32 KiB of visible text derived from the response's safe Markdown tokens, so link destinations and formatting syntax
+are not spoken. The WebView receives only `idle`, `speaking`, or fixed error state and never receives generated audio,
+engine details, output-device identity, or the retained utterance. **Stop local playback** ends only Bottie's current
+utterance. Starting capture is disabled while Bottie is speaking, and playback is rejected while native capture is
+active; barge-in remains separate roadmap work. Playback stops when the user changes conversation or branch, starts a
+new generation, or closes the page. Linux packages depend on Speech Dispatcher and recommend its eSpeak NG voices;
+macOS and Windows use their installed system voices. The browser preview can render deterministic voice controls for
+layout review but cannot capture, recognize, or play audio.
 
 ## Application updates
 
@@ -124,7 +134,7 @@ before a request leaves the application.
 | --------------------------------- | --------------------------------------------------------------- |
 | UI-safe typed state               | Conversations, indexes, backups, and recovery                   |
 | Path-free file metadata           | Paths, bytes, extraction, image normalization, and hashes       |
-| Path-free voice/transcript state  | Microphone, PCM, model cache, and local speech inference         |
+| Path-free voice/transcript state  | Microphone, PCM, speech engines, and local speech inference      |
 | Credential status and diagnostics | Vault access, provider authentication, and sensitive logs       |
 | Context cards and audit summaries | Tool policy, network clients, deadlines, and durable audit data |
 
@@ -146,6 +156,7 @@ Additional safeguards include:
   check/install/cancel commands are registered.
 - no WebView media-capture capability; microphone access and sample retention remain behind narrow Rust commands.
 - local speech recognition downloads one hash-pinned model only after explicit capture; no audio reaches its source.
+- local playback uses narrow Rust commands and opaque voice tokens; no WebView speech or audio API is authorized.
 
 ## Provider support
 

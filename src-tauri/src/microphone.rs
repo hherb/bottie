@@ -170,6 +170,14 @@ impl MicrophoneController {
         lock(&self.shared).status()
     }
 
+    /// Reports whether native input is starting or actively recording.
+    pub(crate) fn is_capturing(&self) -> bool {
+        matches!(
+            lock(&self.shared).phase,
+            MicrophonePhase::Starting | MicrophonePhase::Recording
+        )
+    }
+
     /// Starts one default-input capture only after the WebView's explicit user action.
     pub(crate) fn start(&self) -> MicrophoneStatus {
         let mut worker = lock(&self.worker);
