@@ -8,16 +8,25 @@ describe("native microphone runtime contract", () => {
     const frontendFiles = (await readdir(frontendRoot, { recursive: true })).filter(
       (file) => /\.(svelte|ts)$/.test(file) && !file.endsWith(".test.ts"),
     );
-    const [frontendSources, native, voiceActivity, transcription, capability, cargoManifest, runtimeAssets] =
-      await Promise.all([
-        Promise.all(frontendFiles.map((file) => readFile(new URL(file, frontendRoot), "utf8"))),
-        readFile(new URL("../src-tauri/src/microphone.rs", import.meta.url), "utf8"),
-        readFile(new URL("../src-tauri/src/microphone/vad.rs", import.meta.url), "utf8"),
-        readFile(new URL("../src-tauri/src/microphone/transcription.rs", import.meta.url), "utf8"),
-        readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"),
-        readFile(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8"),
-        readFile(new URL("../runtime-assets.json", import.meta.url), "utf8"),
-      ]);
+    const [
+      frontendSources,
+      native,
+      correction,
+      voiceActivity,
+      transcription,
+      capability,
+      cargoManifest,
+      runtimeAssets,
+    ] = await Promise.all([
+      Promise.all(frontendFiles.map((file) => readFile(new URL(file, frontendRoot), "utf8"))),
+      readFile(new URL("../src-tauri/src/microphone.rs", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/src/microphone/correction.rs", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/src/microphone/vad.rs", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/src/microphone/transcription.rs", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8"),
+      readFile(new URL("../runtime-assets.json", import.meta.url), "utf8"),
+    ]);
     const frontend = frontendSources.join("\n");
 
     expect(frontend).not.toMatch(/getUserMedia|MediaRecorder|AudioContext/);
@@ -25,6 +34,10 @@ describe("native microphone runtime contract", () => {
     expect(native).toContain("MAX_RETAINED_BYTES");
     expect(native).toContain("retained_byte_size");
     expect(native).toContain("voice_segments");
+    expect(native).toContain("mod correction");
+    expect(correction).toContain("MAX_TRANSCRIPT_TURN_BYTES");
+    expect(correction).toContain("MAX_TRANSCRIPT_TEXT_BYTES");
+    expect(correction).toContain("correct_transcript");
     expect(voiceActivity).toContain("MAX_VOICE_SEGMENTS");
     expect(voiceActivity).toContain(`pub(super) struct VoiceSegment {
     pub(super) activity: VoiceActivity,
@@ -34,6 +47,7 @@ describe("native microphone runtime contract", () => {
     expect(voiceActivity).not.toMatch(/pub\(super\) (?:samples|device|path|backend)/i);
     expect(transcription).toContain("MAX_TRANSCRIPT_SEGMENTS");
     expect(transcription).toContain("MAX_TRANSCRIPT_TEXT_BYTES");
+    expect(transcription).toContain("is_corrected");
     expect(transcription).toContain("WhisperContext");
     expect(transcription).toContain("verify_model_reader");
     expect(transcription).toContain("install_logging_hooks");

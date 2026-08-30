@@ -28,7 +28,6 @@ const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
 const MODEL_RUNTIME_THREADS: i32 = 2;
 pub(super) const MAX_TRANSCRIPT_SEGMENTS: usize = 32;
 pub(super) const MAX_TRANSCRIPT_TEXT_BYTES: usize = 4_000;
-const MAX_SEGMENT_TEXT_BYTES: usize = 512;
 const RUNTIME_ASSET_MANIFEST: &str = include_str!("../../../runtime-assets.json");
 
 /// Path-free lifecycle for local speech recognition.
@@ -70,6 +69,8 @@ pub(super) struct TranscriptSegment {
     pub(super) start_ms: u64,
     pub(super) end_ms: u64,
     pub(super) is_final: bool,
+    /// Whether the user replaced this final turn during the current process session.
+    pub(super) is_corrected: bool,
 }
 
 /// Untrusted raw recognizer output before text and range limits are applied.
@@ -330,13 +331,17 @@ pub(super) fn bounded_segments(
     segments
         .into_iter()
         .filter_map(|segment| {
-            let text = truncate_utf8(segment.text.trim(), remaining.min(MAX_SEGMENT_TEXT_BYTES));
+            let text = truncate_utf8(
+                segment.text.trim(),
+                remaining.min(super::MAX_TRANSCRIPT_TURN_BYTES),
+            );
             remaining = remaining.saturating_sub(text.len());
             (!text.is_empty() && segment.end_ms >= segment.start_ms).then_some(TranscriptSegment {
                 text,
                 start_ms: segment.start_ms,
                 end_ms: segment.end_ms,
                 is_final,
+                is_corrected: false,
             })
         })
         .take(MAX_TRANSCRIPT_SEGMENTS)

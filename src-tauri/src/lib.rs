@@ -76,7 +76,7 @@ use localmail::{
     get_localmail_connection_status, open_email, probe_localmail_connection, search_email,
     test_localmail_connection, update_localmail_connection,
 };
-use microphone::{MicrophoneController, MicrophoneStatus};
+use microphone::{MicrophoneController, MicrophoneStatus, TranscriptCorrectionError};
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use semantic_indexer::SemanticIndexer;
 use storage::ConversationStore;
@@ -293,6 +293,16 @@ fn stop_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
 /// Discards the current native PCM buffer without persisting or forwarding it.
 fn discard_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
     state.microphone.discard()
+}
+
+#[tauri::command]
+/// Replaces one final local transcript turn in bounded session-only native memory.
+fn correct_microphone_transcript(
+    turn_index: usize,
+    text: String,
+    state: State<'_, AppState>,
+) -> Result<MicrophoneStatus, TranscriptCorrectionError> {
+    state.microphone.correct_transcript(turn_index, &text)
 }
 
 #[tauri::command]
@@ -581,6 +591,7 @@ pub fn run() {
             start_microphone_capture,
             stop_microphone_capture,
             discard_microphone_capture,
+            correct_microphone_transcript,
             test_provider_connection,
             test_web_search_connection,
             get_localmail_connection_status,

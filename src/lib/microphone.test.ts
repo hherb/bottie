@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMicrophoneDuration, microphoneFeedback, type MicrophoneStatus } from "./microphone";
+import {
+  formatMicrophoneDuration,
+  microphoneFeedback,
+  normalizeTranscriptCorrection,
+  type MicrophoneStatus,
+} from "./microphone";
 
 const IDLE_STATUS: MicrophoneStatus = {
   phase: "idle",
@@ -20,6 +25,13 @@ const IDLE_STATUS: MicrophoneStatus = {
 };
 
 describe("microphone presentation", () => {
+  it("normalizes transcript corrections within the shared UTF-8 boundary", () => {
+    expect(normalizeTranscriptCorrection("  corrected turn  ")).toBe("corrected turn");
+    expect(normalizeTranscriptCorrection("   ")).toBeNull();
+    expect(normalizeTranscriptCorrection("é".repeat(256))).toHaveLength(256);
+    expect(normalizeTranscriptCorrection(`é${"a".repeat(511)}`)).toBeNull();
+  });
+
   it("formats bounded capture durations without exposing native audio", () => {
     expect(formatMicrophoneDuration(0)).toBe("0:00");
     expect(formatMicrophoneDuration(3_420)).toBe("0:03");
@@ -87,7 +99,7 @@ describe("microphone presentation", () => {
         phase: "captured",
         permission: "granted",
         transcriptionPhase: "ready",
-        transcriptSegments: [{ text: "Hello locally", startMs: 420, endMs: 2_920, isFinal: true }],
+        transcriptSegments: [{ text: "Hello locally", startMs: 420, endMs: 2_920, isFinal: true, isCorrected: false }],
       }),
     ).toContain("Transcript ready locally");
   });

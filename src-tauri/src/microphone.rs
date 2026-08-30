@@ -1,6 +1,7 @@
 //! Bounded native microphone capture with path-free WebView status.
 
 mod capture;
+mod correction;
 mod transcription;
 mod vad;
 
@@ -18,6 +19,8 @@ use cpal::{FromSample, Sample};
 use serde::Serialize;
 
 use capture::capture_worker;
+use correction::MAX_TRANSCRIPT_TURN_BYTES;
+pub(crate) use correction::TranscriptCorrectionError;
 use transcription::{
     RawTranscriptSegment, TranscriptSegment, TranscriptionErrorCode, TranscriptionJob,
     TranscriptionPhase, TranscriptionWorker,

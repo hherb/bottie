@@ -32,7 +32,11 @@ export type TranscriptSegment = {
   startMs: number;
   endMs: number;
   isFinal: boolean;
+  isCorrected: boolean;
 };
+
+/** Maximum UTF-8 byte length accepted for one session-only transcript correction. */
+export const MAX_TRANSCRIPT_TURN_BYTES = 512;
 
 /** Bounded native capture metadata that deliberately omits audio samples and device identity. */
 export type MicrophoneStatus = {
@@ -88,6 +92,18 @@ export async function stopMicrophoneCapture(): Promise<MicrophoneStatus> {
 /** Clears the native session-only PCM buffer without returning any sample. */
 export async function discardMicrophoneCapture(): Promise<MicrophoneStatus> {
   return invoke<MicrophoneStatus>("discard_microphone_capture");
+}
+
+/** Replaces one final transcript turn in bounded session-only native memory. */
+export async function correctMicrophoneTranscript(turnIndex: number, text: string): Promise<MicrophoneStatus> {
+  return invoke<MicrophoneStatus>("correct_microphone_transcript", { turnIndex, text });
+}
+
+/** Trims one correction and rejects blank or over-limit UTF-8 before native validation. */
+export function normalizeTranscriptCorrection(value: string): string | null {
+  const normalized = value.trim();
+  if (!normalized || new TextEncoder().encode(normalized).byteLength > MAX_TRANSCRIPT_TURN_BYTES) return null;
+  return normalized;
 }
 
 /** Formats a native millisecond duration as a stable minutes-and-seconds label. */
