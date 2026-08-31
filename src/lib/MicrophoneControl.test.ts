@@ -22,9 +22,17 @@ const IDLE_STATUS: MicrophoneStatus = {
 };
 
 /** Renders the microphone control with inert actions and one path-free native status. */
-function rendered(status: MicrophoneStatus, disabled = false): string {
+function rendered(status: MicrophoneStatus, disabled = false, willInterrupt = false): string {
   return render(MicrophoneControl, {
-    props: { status, disabled, onstart: vi.fn(), onstop: vi.fn(), ondiscard: vi.fn(), oncorrect: vi.fn() },
+    props: {
+      status,
+      disabled,
+      willInterrupt,
+      onstart: vi.fn(),
+      onstop: vi.fn(),
+      ondiscard: vi.fn(),
+      oncorrect: vi.fn(),
+    },
   }).body;
 }
 
@@ -36,6 +44,14 @@ describe("MicrophoneControl", () => {
     expect(html).toContain("Record voice");
     expect(html).toContain("requested only when you choose Record voice");
     expect(html).not.toContain("getUserMedia");
+  });
+
+  it("labels Record as an explicit interruption when Bottie is producing output", () => {
+    const html = rendered(IDLE_STATUS, false, true);
+
+    expect(html).toContain('aria-label="Interrupt Bottie and record voice locally"');
+    expect(html).toContain("Interrupt &amp; record");
+    expect(html).not.toMatch(/aria-label="Interrupt Bottie and record voice locally"[^>]*disabled/);
   });
 
   it("shows a clear stop action and bounded local activity while recording", () => {

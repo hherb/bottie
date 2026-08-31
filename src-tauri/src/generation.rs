@@ -4,7 +4,7 @@ use futures_util::future::{AbortHandle, Abortable};
 use tauri::{State, ipc::Channel};
 
 use crate::{
-    ActiveRun, AppState,
+    AppState,
     diagnostics::{record_diagnostic, sanitized},
     generation_localmail_tools::{configured_localmail_tools, email_tools_enabled},
     generation_tools::stream_native_tools,
@@ -17,6 +17,7 @@ use crate::{
         ReasoningEffort, StreamEvent, Usage,
     },
     provider_registry::{RoutedProvider, routed_provider},
+    run_cancellation::ActiveRun,
     storage::{
         ConversationStore, NewProviderRun, ProviderAttachmentContext, ProviderImageFormat,
         ProviderRunContext, ProviderRunState, StoredReasoningEffort, StoredRole, StoredUsage,
@@ -33,6 +34,11 @@ pub(crate) async fn start_chat(
     context: ProviderRunContext,
     on_event: Channel<StreamEvent>,
 ) -> Result<ChatRun, ProviderError> {
+    if state.microphone.is_capturing() {
+        return Err(ProviderError::invalid_request(
+            "Stop or discard local voice capture before sending a message.",
+        ));
+    }
     let request = normalize_provider_request(request);
     let providers = state.providers.read().await.clone();
     let run_id = uuid::Uuid::new_v4().to_string();
@@ -208,13 +214,29 @@ pub(crate) async fn start_chat(
     request.email_enabled = supports_email_tools;
     let (abort_handle, abort_registration) = AbortHandle::new_pair();
     let tool_cancellation = ToolLoopCancellation::default();
-    state.runs.lock().await.insert(
-        run_id.clone(),
-        ActiveRun {
-            abort_handle,
-            tool_cancellation: tool_cancellation.clone(),
-        },
-    );
+    {
+        let _voice_guard = state.voice_interaction.lock().await;
+        if state.microphone.is_capturing() {
+            let error = ProviderError::invalid_request(
+                "Stop or discard local voice capture before sending a message.",
+            );
+            finish_provider_run(
+                &state.conversations,
+                &run_id,
+                ProviderRunState::Failed,
+                Some(error.code.as_str()),
+                None,
+            )?;
+            return Err(error);
+        }
+        state.runs.lock().await.insert(
+            run_id.clone(),
+            ActiveRun {
+                abort_handle,
+                tool_cancellation: tool_cancellation.clone(),
+            },
+        );
+    }
 
     let runs = state.runs.clone();
     let diagnostics = state.diagnostics.clone();
@@ -429,21 +451,6 @@ fn chat_role(role: StoredRole) -> ChatRole {
     match role {
         StoredRole::User => ChatRole::User,
         StoredRole::Assistant => ChatRole::Assistant,
-    }
-}
-
-#[tauri::command]
-/// Cancels an active generation by its opaque run identity.
-pub(crate) async fn cancel_chat(
-    run_id: String,
-    state: State<'_, AppState>,
-) -> Result<bool, ProviderError> {
-    if let Some(run) = state.runs.lock().await.remove(&run_id) {
-        run.tool_cancellation.cancel();
-        run.abort_handle.abort();
-        Ok(true)
-    } else {
-        Ok(false)
     }
 }
 

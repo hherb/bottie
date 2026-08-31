@@ -107,6 +107,8 @@ fn controller_selects_voices_plays_and_stops_without_echoing_text() {
 
     assert_eq!(controller.stop().phase, SpeechPhase::Idle);
     assert_eq!(record.lock().unwrap().stop_count, 1);
+    assert_eq!(controller.stop_before_microphone_capture(), Ok(()));
+    assert_eq!(record.lock().unwrap().stop_count, 1);
 }
 
 #[test]
@@ -161,6 +163,26 @@ fn microphone_capture_stays_blocked_until_stop_succeeds() {
 
     record.lock().unwrap().stop_error = false;
     assert_eq!(controller.stop().phase, SpeechPhase::Idle);
+    assert!(!controller.blocks_microphone_capture());
+}
+
+#[test]
+fn microphone_barge_in_reports_whether_playback_stopped_safely() {
+    let backend = RecordingBackend::default();
+    let record = backend.record.clone();
+    let controller = SpeechController::with_backend(Box::new(backend));
+    controller.list_voices().unwrap();
+    controller.speak("Interrupt this locally.").unwrap();
+
+    record.lock().unwrap().stop_error = true;
+    assert_eq!(
+        controller.stop_before_microphone_capture(),
+        Err(SpeechCommandError::PlaybackFailed),
+    );
+    assert!(controller.blocks_microphone_capture());
+
+    record.lock().unwrap().stop_error = false;
+    assert_eq!(controller.stop_before_microphone_capture(), Ok(()));
     assert!(!controller.blocks_microphone_capture());
 }
 

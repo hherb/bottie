@@ -345,7 +345,8 @@
         emailBoundaryNote={state.emailBoundaryNote}
         emailUnavailableReason={state.emailUnavailableReason}
         microphoneStatus={state.microphone.status}
-        microphoneAvailable={state.microphone.available && state.speech.status.phase !== "speaking"}
+        microphoneAvailable={state.microphone.available}
+        microphoneWillInterrupt={state.isGenerating || state.speech.status.phase === "speaking"}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.interaction.resizeComposer()}
         onkeydown={(event) => state.interaction.handleKeydown(event, () => void state.sendMessage())}
@@ -356,7 +357,7 @@
         ontogglememory={() => void state.toggleTool("memory")}
         ontoggleweb={() => void state.toggleTool("web")}
         ontoggleemail={() => void state.toggleTool("email")}
-        onstartmicrophone={() => void state.microphone.start()}
+        onstartmicrophone={() => void state.startMicrophoneCapture()}
         onstopmicrophone={() => void state.microphone.stop()}
         ondiscardmicrophone={() => void state.microphone.discard()}
         oncorrectmicrophone={(turnIndex, text) => void state.microphone.correct(turnIndex, text)}

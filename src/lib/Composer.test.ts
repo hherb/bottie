@@ -21,12 +21,14 @@ function renderedComposer(
     "selections go only to your pinned Localmail server.",
   ].join(" "),
   emailUnavailableReason = "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
+  isGenerating = false,
+  microphoneWillInterrupt = false,
 ): string {
   return render(Composer, {
     props: {
       attachments,
       prompt: "Describe this image",
-      isGenerating: false,
+      isGenerating,
       canCompose,
       canSend,
       attachmentNote: "Wait for image normalization to finish before sending.",
@@ -41,6 +43,7 @@ function renderedComposer(
       emailUnavailableReason,
       microphoneStatus: INITIAL_MICROPHONE_STATUS,
       microphoneAvailable: true,
+      microphoneWillInterrupt,
       onprompt: vi.fn(),
       oninput: vi.fn(),
       onkeydown: vi.fn(),
@@ -74,6 +77,27 @@ describe("Composer", () => {
 
   it("disables text input when the provider and model cannot accept a prompt", () => {
     expect(renderedComposer(false, false)).toMatch(/<textarea[^>]* disabled/);
+  });
+
+  it("keeps explicit voice barge-in available during provider generation", () => {
+    const html = renderedComposer(
+      true,
+      true,
+      [],
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      "Email unavailable.",
+      "Email unavailable.",
+      true,
+      true,
+    );
+
+    expect(html).toContain('aria-label="Interrupt Bottie and record voice locally"');
+    expect(html).not.toMatch(/aria-label="Interrupt Bottie and record voice locally"[^>]*disabled/);
   });
 
   it("keeps one ready thumbnail and failure explanation attached to its draft chip", () => {

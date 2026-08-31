@@ -11,6 +11,7 @@
   let {
     status,
     disabled,
+    willInterrupt,
     onstart,
     onstop,
     ondiscard,
@@ -18,6 +19,7 @@
   }: {
     status: MicrophoneStatus;
     disabled: boolean;
+    willInterrupt: boolean;
     onstart: () => void;
     onstop: () => void;
     ondiscard: () => void;
@@ -50,14 +52,21 @@
       <span style={`--input-level: ${levelPercent}%`}></span>
     </span>
   {:else}
-    <button class="voice-action" aria-label="Record voice locally" disabled={disabled || busy} onclick={onstart}>
+    <button
+      class="voice-action"
+      aria-label={willInterrupt ? "Interrupt Bottie and record voice locally" : "Record voice locally"}
+      disabled={disabled || busy}
+      onclick={onstart}
+    >
       <Icon name="microphone" size={17} />
       <span
         >{status.phase === "captured"
           ? "Record again"
           : status.phase === "starting"
             ? "Waiting…"
-            : "Record voice"}</span
+            : willInterrupt
+              ? "Interrupt & record"
+              : "Record voice"}</span
       >
     </button>
   {/if}

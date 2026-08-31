@@ -122,7 +122,8 @@ impl Default for SpeechState {
 }
 
 impl SpeechController {
-    /// Blocks capture until local playback is positively confirmed idle or stopped.
+    #[cfg(test)]
+    /// Reports whether capture must remain blocked after an uncertain playback outcome.
     pub(crate) fn blocks_microphone_capture(&self) -> bool {
         let mut state = lock(&self.shared);
         state.refresh_playback();
@@ -185,17 +186,27 @@ impl SpeechController {
 
     /// Stops current Bottie speech without touching microphone capture or other audio.
     pub(crate) fn stop(&self) -> SpeechStatus {
+        let _ = self.stop_before_microphone_capture();
+        lock(&self.shared).status()
+    }
+
+    /// Stops Bottie's playback and confirms the microphone may start without overlap.
+    pub(crate) fn stop_before_microphone_capture(&self) -> Result<(), SpeechCommandError> {
         let mut state = lock(&self.shared);
+        if !state.playback_may_be_active {
+            state.phase = SpeechPhase::Idle;
+            state.error_code = None;
+            return Ok(());
+        }
         if let Some(backend) = state.backend.as_mut() {
             if let Err(code) = backend.stop() {
-                state.fail(code);
-                return state.status();
+                return Err(state.fail_command(code));
             }
         }
         state.playback_may_be_active = false;
         state.phase = SpeechPhase::Idle;
         state.error_code = None;
-        state.status()
+        Ok(())
     }
 
     #[cfg(test)]
