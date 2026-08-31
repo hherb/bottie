@@ -705,10 +705,11 @@ publication.
 `npm run format:check`, `npm run check`, `npm test` (216 passed, 3 skipped), `npm run build`, Cargo formatting, and
 `cargo check --manifest-path src-tauri/Cargo.toml` pass. `cargo test --manifest-path src-tauri/Cargo.toml --no-run`
 also compiles both final Rust test executables. The focused playback-shutdown and active-run cancellation tests passed
-before the cancellation helper was moved unchanged into its cohesive 52-line module. Final Rust test execution and a
-native development launch remain unverified because macOS blocks newly linked local executables until they receive a
-real Apple Development identity; this run did not access that credential. Cargo continues to report only the accepted
-upstream macOS-only `block` 0.1.6 future-incompatibility warning.
+before the cancellation helper was moved unchanged into its cohesive 52-line module. With explicit release-owner
+authorization, `npm run tauri dev` selected the existing Apple Development identity, development-signed and strictly
+verified the freshly linked Bottie executable, and launched the current branch successfully. Final Rust test execution
+remains unverified because the newly linked test executables were not development-signed. Cargo continues to report
+only the accepted upstream macOS-only `block` 0.1.6 future-incompatibility warning.
 
 The local-playback fixture was reviewed at 1320 x 820 and 720 x 620, with the compact Context overlay both open and
 closed. The Interrupt & record action remained contained, document and body scroll widths matched their client widths,
