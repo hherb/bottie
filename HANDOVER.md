@@ -4,9 +4,9 @@ Last verified: 2026-09-01
 
 ## Start here
 
-PR #126 is merged. The implemented and reviewed bounded input-device-selection slice is on
+PR #126 is merged. Draft PR #127 contains the implemented and reviewed bounded input-device-selection slice on
 `codex/input-device-selection`, based on synchronized `origin/main` merge commit `8293c16`. Milestones 0–6 are
-complete; Milestone 7 is the active roadmap work. A draft PR is authorized and will be recorded here after creation.
+complete; Milestone 7 is the active roadmap work.
 
 The next session should implement only the bounded explicit transcript-to-text fallback slice below. Do not replay
 completed slices or use this handover as a historical record; Git history, `ROADMAP.md`, and `README.md` retain that
