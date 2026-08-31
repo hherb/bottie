@@ -351,6 +351,9 @@
         microphoneAudioUnavailableReason={state.audioUnavailableReason ?? ""}
         microphoneSendAudio={state.microphone.sendAudio}
         microphoneRetainAudio={state.microphone.retainAudio}
+        microphoneDeviceList={state.microphone.deviceList}
+        microphoneDevicesLoaded={state.microphone.devicesLoaded}
+        microphoneDeviceListFailed={state.microphone.deviceListFailed}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.interaction.resizeComposer()}
         onkeydown={(event) => state.interaction.handleKeydown(event, () => void state.sendMessage())}
@@ -367,6 +370,8 @@
         oncorrectmicrophone={(turnIndex, text) => void state.microphone.correct(turnIndex, text)}
         ontogglesendmicrophoneaudio={() => state.microphone.toggleSendAudio(state.audioUnavailableReason === null)}
         ontoggleretainmicrophoneaudio={() => state.microphone.toggleRetainAudio()}
+        onloadmicrophonedevices={() => void state.microphone.loadDevices()}
+        onselectmicrophonedevice={(token) => void state.microphone.selectDevice(token)}
         oncomposerready={(element) => state.interaction.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />

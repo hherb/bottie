@@ -2,7 +2,7 @@ import { render } from "svelte/server";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Attachment } from "./presentation";
-import { INITIAL_MICROPHONE_STATUS } from "./microphone";
+import { INITIAL_MICROPHONE_DEVICE_LIST, INITIAL_MICROPHONE_STATUS } from "./microphone";
 import Composer from "./Composer.svelte";
 
 /** Renders the composer with inert callbacks and the requested interaction eligibility. */
@@ -48,6 +48,9 @@ function renderedComposer(
       microphoneAudioUnavailableReason: "Choose an audio-capable model to send this recording.",
       microphoneSendAudio: false,
       microphoneRetainAudio: false,
+      microphoneDeviceList: INITIAL_MICROPHONE_DEVICE_LIST,
+      microphoneDevicesLoaded: false,
+      microphoneDeviceListFailed: false,
       onprompt: vi.fn(),
       oninput: vi.fn(),
       onkeydown: vi.fn(),
@@ -64,6 +67,8 @@ function renderedComposer(
       oncorrectmicrophone: vi.fn(),
       ontogglesendmicrophoneaudio: vi.fn(),
       ontoggleretainmicrophoneaudio: vi.fn(),
+      onloadmicrophonedevices: vi.fn(),
+      onselectmicrophonedevice: vi.fn(),
       oncomposerready: vi.fn(),
       onattachmentinputready: vi.fn(),
     },

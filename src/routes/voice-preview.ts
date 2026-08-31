@@ -5,12 +5,16 @@ import type { PageState } from "./page-state.svelte";
 const TRANSCRIPT_PREVIEW_VALUE = "final-transcript";
 const PLAYBACK_PREVIEW_VALUE = "local-playback";
 const AUDIO_CONTENT_PREVIEW_VALUE = "audio-content";
+const INPUT_DEVICES_PREVIEW_VALUE = "input-devices";
 
 /** Reports whether a query explicitly requests the final-transcript fixture. */
 export function voicePreviewRequested(search: string): boolean {
   const value = new URLSearchParams(search).get("voice");
   return (
-    value === TRANSCRIPT_PREVIEW_VALUE || value === PLAYBACK_PREVIEW_VALUE || value === AUDIO_CONTENT_PREVIEW_VALUE
+    value === TRANSCRIPT_PREVIEW_VALUE ||
+    value === PLAYBACK_PREVIEW_VALUE ||
+    value === AUDIO_CONTENT_PREVIEW_VALUE ||
+    value === INPUT_DEVICES_PREVIEW_VALUE
   );
 }
 
@@ -18,6 +22,19 @@ export function voicePreviewRequested(search: string): boolean {
 export function applyVoicePreview(state: PageState, search: string): boolean {
   if (!voicePreviewRequested(search)) return false;
   const value = new URLSearchParams(search).get("voice");
+  if (value === INPUT_DEVICES_PREVIEW_VALUE) {
+    state.microphone.deviceList = {
+      devices: [
+        { token: "system-default", label: "System default", isSystemDefault: true },
+        { token: "local-input-preview-1", label: "MacBook microphone", isSystemDefault: false },
+        { token: "local-input-preview-2", label: "Studio USB microphone", isSystemDefault: false },
+      ],
+      selectedToken: "local-input-preview-2",
+      selectionAvailable: true,
+    };
+    state.microphone.devicesLoaded = true;
+    return true;
+  }
   if (value === PLAYBACK_PREVIEW_VALUE) {
     state.speech.applyPreview(
       [

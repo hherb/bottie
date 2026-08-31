@@ -4,7 +4,7 @@
   import MicrophoneControl from "$lib/MicrophoneControl.svelte";
   import { attachmentFailure } from "$lib/attachment";
   import { MAX_COMPOSER_ATTACHMENTS, type Attachment, type ProviderStatus } from "$lib/presentation";
-  import type { MicrophoneStatus } from "$lib/microphone";
+  import type { MicrophoneInputDeviceList, MicrophoneStatus } from "$lib/microphone";
 
   type Props = {
     attachments: Attachment[];
@@ -29,6 +29,9 @@
     microphoneAudioUnavailableReason: string;
     microphoneSendAudio: boolean;
     microphoneRetainAudio: boolean;
+    microphoneDeviceList: MicrophoneInputDeviceList;
+    microphoneDevicesLoaded: boolean;
+    microphoneDeviceListFailed: boolean;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -45,6 +48,8 @@
     oncorrectmicrophone: (turnIndex: number, text: string) => void;
     ontogglesendmicrophoneaudio: () => void;
     ontoggleretainmicrophoneaudio: () => void;
+    onloadmicrophonedevices: () => void;
+    onselectmicrophonedevice: (token: string) => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -72,6 +77,9 @@
     microphoneAudioUnavailableReason,
     microphoneSendAudio,
     microphoneRetainAudio,
+    microphoneDeviceList,
+    microphoneDevicesLoaded,
+    microphoneDeviceListFailed,
     onprompt,
     oninput,
     onkeydown,
@@ -88,6 +96,8 @@
     oncorrectmicrophone,
     ontogglesendmicrophoneaudio,
     ontoggleretainmicrophoneaudio,
+    onloadmicrophonedevices,
+    onselectmicrophonedevice,
     oncomposerready,
     onattachmentinputready,
   }: Props = $props();
@@ -220,12 +230,17 @@
       audioUnavailableReason={microphoneAudioUnavailableReason}
       sendAudio={microphoneSendAudio}
       retainAudio={microphoneRetainAudio}
+      deviceList={microphoneDeviceList}
+      devicesLoaded={microphoneDevicesLoaded}
+      deviceListFailed={microphoneDeviceListFailed}
       onstart={onstartmicrophone}
       onstop={onstopmicrophone}
       ondiscard={ondiscardmicrophone}
       oncorrect={oncorrectmicrophone}
       ontogglesendaudio={ontogglesendmicrophoneaudio}
       ontoggleretainaudio={ontoggleretainmicrophoneaudio}
+      onloaddevices={onloadmicrophonedevices}
+      onselectdevice={onselectmicrophonedevice}
     />
   </div>
   <p id="composer-guidance" class="composer-note" aria-live="polite">

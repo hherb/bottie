@@ -6,9 +6,13 @@ import {
   correctMicrophoneTranscript,
   discardMicrophoneCapture,
   getMicrophoneStatus,
+  INITIAL_MICROPHONE_DEVICE_LIST,
   INITIAL_MICROPHONE_STATUS,
+  listMicrophoneInputDevices,
+  selectMicrophoneInputDevice,
   startMicrophoneCapture,
   stopMicrophoneCapture,
+  type MicrophoneInputDeviceList,
   type MicrophoneStatus,
 } from "$lib/microphone";
 
@@ -17,18 +21,55 @@ const STATUS_POLL_INTERVAL_MS = 150;
 /** Owns native microphone actions and bounded status polling for the composer. */
 export class MicrophoneState {
   status = $state<MicrophoneStatus>({ ...INITIAL_MICROPHONE_STATUS });
+  deviceList = $state<MicrophoneInputDeviceList>({
+    ...INITIAL_MICROPHONE_DEVICE_LIST,
+    devices: [...INITIAL_MICROPHONE_DEVICE_LIST.devices],
+  });
+  devicesLoaded = $state(false);
+  deviceListFailed = $state(false);
   sendAudio = $state(false);
   retainAudio = $state(false);
   readonly available = isTauri();
 
   private pollTimer?: ReturnType<typeof setInterval>;
   private pollInFlight = false;
+  private deviceRequestInFlight = false;
 
   /** Reads status without requesting permission or opening an input device. */
   async initialize(): Promise<void> {
     if (!this.available) return;
     await this.refresh();
     if (this.isActive) this.startPolling();
+  }
+
+  /** Lazily discovers bounded microphone choices after the user's explicit action. */
+  async loadDevices(): Promise<void> {
+    if (!this.available || this.isActive || this.deviceRequestInFlight) return;
+    this.deviceRequestInFlight = true;
+    this.deviceListFailed = false;
+    try {
+      this.deviceList = await listMicrophoneInputDevices();
+      this.devicesLoaded = true;
+    } catch {
+      this.deviceListFailed = true;
+    } finally {
+      this.deviceRequestInFlight = false;
+    }
+  }
+
+  /** Selects one current opaque microphone token for this app session only. */
+  async selectDevice(token: string): Promise<void> {
+    if (!this.available || this.isActive || this.deviceRequestInFlight) return;
+    this.deviceRequestInFlight = true;
+    this.deviceListFailed = false;
+    try {
+      this.deviceList = await selectMicrophoneInputDevice(token);
+      this.devicesLoaded = true;
+    } catch {
+      this.deviceListFailed = true;
+    } finally {
+      this.deviceRequestInFlight = false;
+    }
   }
 
   /** Whether permission or native audio capture currently owns the microphone action. */

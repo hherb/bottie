@@ -7,6 +7,7 @@ describe("voice preview", () => {
     expect(voicePreviewRequested("?voice=final-transcript")).toBe(true);
     expect(voicePreviewRequested("?voice=local-playback")).toBe(true);
     expect(voicePreviewRequested("?voice=audio-content")).toBe(true);
+    expect(voicePreviewRequested("?voice=input-devices")).toBe(true);
     expect(voicePreviewRequested("?voice=other")).toBe(false);
     expect(voicePreviewRequested("")).toBe(false);
   });

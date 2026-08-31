@@ -139,5 +139,15 @@ describe("microphone presentation", () => {
         errorCode: "device_unavailable",
       }),
     ).toBe("No microphone is available. Connect or enable an input device, then try again.");
+    expect(
+      microphoneFeedback({
+        ...IDLE_STATUS,
+        phase: "error",
+        permission: "unavailable",
+        errorCode: "selected_device_unavailable",
+      }),
+    ).toBe(
+      "The selected microphone is no longer available. Choose another microphone or System default, then try again.",
+    );
   });
 });

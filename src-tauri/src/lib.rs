@@ -78,7 +78,10 @@ use localmail::{
     get_localmail_connection_status, open_email, probe_localmail_connection, search_email,
     test_localmail_connection, update_localmail_connection,
 };
-use microphone::{MicrophoneController, MicrophoneStatus, TranscriptCorrectionError};
+use microphone::{
+    MicrophoneController, MicrophoneDeviceCommandError, MicrophoneInputDeviceList,
+    MicrophoneStatus, TranscriptCorrectionError,
+};
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use run_cancellation::{ActiveRuns, cancel_all_chats, cancel_chat};
 use semantic_indexer::SemanticIndexer;
@@ -273,6 +276,23 @@ async fn complete_first_run_setup(
 /// Returns bounded native microphone state without samples or device identity.
 fn get_microphone_status(state: State<'_, AppState>) -> MicrophoneStatus {
     state.microphone.status()
+}
+
+#[tauri::command]
+/// Lazily returns bounded process-local microphone choices without native identifiers.
+fn list_microphone_input_devices(
+    state: State<'_, AppState>,
+) -> Result<MicrophoneInputDeviceList, MicrophoneDeviceCommandError> {
+    state.microphone.list_input_devices()
+}
+
+#[tauri::command]
+/// Selects one current opaque microphone token for this process lifetime.
+fn select_microphone_input_device(
+    token: String,
+    state: State<'_, AppState>,
+) -> Result<MicrophoneInputDeviceList, MicrophoneDeviceCommandError> {
+    state.microphone.select_input_device(&token)
 }
 
 #[tauri::command]
@@ -632,6 +652,8 @@ pub fn run() {
             remember_provider_selection,
             complete_first_run_setup,
             get_microphone_status,
+            list_microphone_input_devices,
+            select_microphone_input_device,
             start_microphone_capture,
             stop_microphone_capture,
             discard_microphone_capture,

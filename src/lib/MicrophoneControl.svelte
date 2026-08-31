@@ -6,6 +6,7 @@
     microphoneFeedback,
     microphoneLatencyFeedback,
     normalizeTranscriptCorrection,
+    type MicrophoneInputDeviceList,
     type MicrophoneStatus,
   } from "$lib/microphone";
 
@@ -17,12 +18,17 @@
     audioUnavailableReason,
     sendAudio,
     retainAudio,
+    deviceList,
+    devicesLoaded,
+    deviceListFailed,
     onstart,
     onstop,
     ondiscard,
     oncorrect,
     ontogglesendaudio,
     ontoggleretainaudio,
+    onloaddevices,
+    onselectdevice,
   }: {
     status: MicrophoneStatus;
     disabled: boolean;
@@ -31,12 +37,17 @@
     audioUnavailableReason: string;
     sendAudio: boolean;
     retainAudio: boolean;
+    deviceList: MicrophoneInputDeviceList;
+    devicesLoaded: boolean;
+    deviceListFailed: boolean;
     onstart: () => void;
     onstop: () => void;
     ondiscard: () => void;
     oncorrect: (turnIndex: number, text: string) => void;
     ontogglesendaudio: () => void;
     ontoggleretainaudio: () => void;
+    onloaddevices: () => void;
+    onselectdevice: (token: string) => void;
   } = $props();
 
   const busy = $derived(
@@ -48,6 +59,11 @@
   const hasError = $derived(status.phase === "error" || status.transcriptionPhase === "error");
   const levelPercent = $derived(Math.round(Math.max(0, Math.min(1, status.inputLevel)) * 100));
   const latencyFeedback = $derived(microphoneLatencyFeedback(status));
+  const availableDeviceCount = $derived(deviceList.devices.filter((device) => !device.isSystemDefault).length);
+  const deviceCountFeedback = $derived(
+    `${availableDeviceCount} ${availableDeviceCount === 1 ? "microphone" : "microphones"} available · ` +
+      "selection stays only for this app session",
+  );
 </script>
 
 <div class="microphone-control">
@@ -90,11 +106,58 @@
       <Icon name="trash" size={14} />
     </button>
   {/if}
+
+  <div class="microphone-device-picker">
+    {#if devicesLoaded}
+      <select
+        aria-label="Microphone input"
+        value={deviceList.selectedToken}
+        disabled={disabled || busy}
+        onchange={(event) => onselectdevice(event.currentTarget.value)}
+      >
+        {#if !deviceList.selectionAvailable}
+          <option value={deviceList.selectedToken} disabled>Unavailable microphone</option>
+        {/if}
+        {#each deviceList.devices as device (device.token)}
+          <option value={device.token}>{device.label}</option>
+        {/each}
+      </select>
+      <button
+        class="refresh-microphones"
+        aria-label="Refresh microphone choices"
+        disabled={disabled || busy}
+        onclick={onloaddevices}>Refresh</button
+      >
+    {:else}
+      <button
+        class="choose-microphone"
+        aria-label="Choose microphone input"
+        disabled={disabled || busy}
+        onclick={onloaddevices}>Choose microphone</button
+      >
+    {/if}
+  </div>
 </div>
 
 <p class:error={hasError} class="microphone-feedback" role={hasError ? "alert" : "status"}>
   {microphoneFeedback(status)}
 </p>
+
+{#if deviceListFailed}
+  <p class="microphone-device-note error" role="alert">
+    Microphone choices could not be refreshed. Your current session selection is unchanged.
+  </p>
+{:else if devicesLoaded && !deviceList.selectionAvailable}
+  <p class="microphone-device-note error" role="alert">
+    Selected microphone is no longer available. Choose another microphone before recording.
+  </p>
+{:else if devicesLoaded && availableDeviceCount === 0}
+  <p class="microphone-device-note" role="status">
+    No microphones are currently available. System default will be checked when you Record.
+  </p>
+{:else if devicesLoaded}
+  <p class="microphone-device-note" role="status">{deviceCountFeedback}</p>
+{/if}
 
 {#if latencyFeedback}
   <p class="voice-latency" aria-label="Local voice timing">{latencyFeedback}</p>

@@ -185,9 +185,40 @@ textarea:disabled {
 }
 .microphone-control {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 0 8px 7px;
+}
+.microphone-device-picker {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+.microphone-device-picker select,
+.choose-microphone,
+.refresh-microphones {
+  height: 29px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: 9px;
+}
+.microphone-device-picker select {
+  max-width: min(190px, 45vw);
+  padding: 0 24px 0 7px;
+  text-overflow: ellipsis;
+}
+.choose-microphone,
+.refresh-microphones {
+  padding: 0 8px;
+}
+.microphone-device-picker :is(button, select):disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 .voice-action {
   display: inline-flex;
@@ -243,12 +274,27 @@ textarea:disabled {
 .microphone-feedback.error {
   color: #d89a91;
 }
+.microphone-device-note {
+  margin: -4px 10px 8px;
+  color: var(--subtle-text);
+  font-size: 8px;
+  line-height: 1.4;
+}
+.microphone-device-note.error {
+  color: #d89a91;
+}
 .voice-latency {
   margin: -4px 10px 8px;
   color: color-mix(in srgb, var(--subtle-text) 88%, var(--cyan));
   font-size: 8px;
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .input-level span {
+    transition: none;
+  }
 }
 
 .audio-delivery {

@@ -11,6 +11,8 @@ describe("native microphone runtime contract", () => {
     const [
       frontendSources,
       native,
+      nativeLibrary,
+      devices,
       correction,
       voiceActivity,
       transcription,
@@ -20,6 +22,8 @@ describe("native microphone runtime contract", () => {
     ] = await Promise.all([
       Promise.all(frontendFiles.map((file) => readFile(new URL(file, frontendRoot), "utf8"))),
       readFile(new URL("../src-tauri/src/microphone.rs", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/src/lib.rs", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/src/microphone/devices.rs", import.meta.url), "utf8"),
       readFile(new URL("../src-tauri/src/microphone/correction.rs", import.meta.url), "utf8"),
       readFile(new URL("../src-tauri/src/microphone/vad.rs", import.meta.url), "utf8"),
       readFile(new URL("../src-tauri/src/microphone/transcription.rs", import.meta.url), "utf8"),
@@ -35,6 +39,13 @@ describe("native microphone runtime contract", () => {
     expect(native).toContain("retained_byte_size");
     expect(native).toContain("voice_segments");
     expect(native).toContain("mod correction");
+    expect(native).toContain("mod devices");
+    expect(devices).toContain("MAX_INPUT_DEVICES");
+    expect(devices).toContain("SYSTEM_DEFAULT_INPUT_TOKEN");
+    expect(devices).toContain("selection_available");
+    expect(devices).not.toMatch(/Serialize[^\n]*(?:DeviceId|NativeInputDevice)/);
+    expect(nativeLibrary).toContain("list_microphone_input_devices");
+    expect(nativeLibrary).toContain("select_microphone_input_device");
     expect(correction).toContain("MAX_TRANSCRIPT_TURN_BYTES");
     expect(correction).toContain("MAX_TRANSCRIPT_TEXT_BYTES");
     expect(correction).toContain("correct_transcript");
