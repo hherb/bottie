@@ -243,6 +243,40 @@ textarea:disabled {
 .microphone-feedback.error {
   color: #d89a91;
 }
+
+.audio-delivery {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.audio-choice {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--subtle-text);
+  padding: 0.3rem 0.65rem;
+  font: inherit;
+  font-size: 0.76rem;
+}
+
+.audio-choice[aria-pressed="true"] {
+  border-color: var(--violet);
+  color: var(--text);
+  background: color-mix(in srgb, var(--violet) 12%, transparent);
+}
+
+.audio-choice:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.audio-delivery-note {
+  margin: 0.3rem 0 0;
+  color: var(--subtle-text);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
 .voice-transcript {
   display: grid;
   max-height: 112px;

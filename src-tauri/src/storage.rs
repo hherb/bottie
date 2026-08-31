@@ -18,6 +18,7 @@ mod attachment_policy;
 mod attachment_preview;
 mod attachment_processing;
 pub(crate) mod attachments;
+mod audio_attachments;
 mod backup;
 mod branching;
 mod clock;

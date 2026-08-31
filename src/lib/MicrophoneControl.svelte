@@ -12,18 +12,30 @@
     status,
     disabled,
     willInterrupt,
+    audioAvailable,
+    audioUnavailableReason,
+    sendAudio,
+    retainAudio,
     onstart,
     onstop,
     ondiscard,
     oncorrect,
+    ontogglesendaudio,
+    ontoggleretainaudio,
   }: {
     status: MicrophoneStatus;
     disabled: boolean;
     willInterrupt: boolean;
+    audioAvailable: boolean;
+    audioUnavailableReason: string;
+    sendAudio: boolean;
+    retainAudio: boolean;
     onstart: () => void;
     onstop: () => void;
     ondiscard: () => void;
     oncorrect: (turnIndex: number, text: string) => void;
+    ontogglesendaudio: () => void;
+    ontoggleretainaudio: () => void;
   } = $props();
 
   const busy = $derived(
@@ -81,6 +93,45 @@
 <p class:error={hasError} class="microphone-feedback" role={hasError ? "alert" : "status"}>
   {microphoneFeedback(status)}
 </p>
+
+{#if status.phase === "captured"}
+  <div class="audio-delivery" aria-label="Recording delivery choices">
+    <button
+      class="audio-choice"
+      aria-label={sendAudio ? "Stop sending recording with the next message" : "Send recording with the next message"}
+      aria-pressed={sendAudio}
+      disabled={disabled || (!audioAvailable && !sendAudio)}
+      title={!audioAvailable ? audioUnavailableReason : undefined}
+      onclick={ontogglesendaudio}
+    >
+      Send recording
+    </button>
+    <button
+      class="audio-choice"
+      aria-label={retainAudio
+        ? "Do not retain recording locally with the message"
+        : "Retain recording locally with the message"}
+      aria-pressed={retainAudio}
+      {disabled}
+      onclick={ontoggleretainaudio}
+    >
+      Retain locally
+    </button>
+  </div>
+  <p class="audio-delivery-note" role="status">
+    {sendAudio && !audioAvailable
+      ? `${audioUnavailableReason} Turn off Send recording or choose an audio-capable model.`
+      : sendAudio && retainAudio
+        ? "Recording will be sent and retained as a local WAV attachment."
+        : sendAudio
+          ? "Recording will be sent once and removed from session memory after acceptance."
+          : retainAudio
+            ? "Recording will be retained as a local WAV attachment and will not be sent."
+            : audioAvailable
+              ? "Recording stays native-only until you explicitly choose delivery or retention."
+              : `${audioUnavailableReason} You can still retain it locally.`}
+  </p>
+{/if}
 
 {#if status.transcriptSegments.length > 0}
   <ol class="voice-transcript" aria-label="Local voice transcript" aria-live="polite">

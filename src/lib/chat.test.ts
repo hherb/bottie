@@ -16,6 +16,7 @@ import {
   persistedCompletionMeta,
   persistedMessagePresentation,
   requestMessageForResponse,
+  recordedAudioUnavailableReason,
   resolveModelSelection,
   toggleReasoningEffort,
 } from "./chat";
@@ -33,6 +34,7 @@ const ollamaModel: ModelInfo = {
     streaming: true,
     tools: false,
     vision: true,
+    audio: false,
     embeddings: false,
   },
 };
@@ -223,6 +225,20 @@ describe("chat presentation helpers", () => {
     expect(composerAttachmentNote([document], ollamaModel)).toBe(
       "Document attachments stay linked locally; only your text is sent.",
     );
+  });
+
+  it("gates recorded-audio delivery on an explicitly audio-capable model", () => {
+    const audioModel = {
+      ...ollamaModel,
+      providerId: "openai" as const,
+      capabilities: { ...ollamaModel.capabilities, audio: true },
+    };
+
+    expect(recordedAudioUnavailableReason(undefined)).toBe("Choose an audio-capable model to send this recording.");
+    expect(recordedAudioUnavailableReason(ollamaModel)).toBe(
+      "The selected model does not advertise audio input support.",
+    );
+    expect(recordedAudioUnavailableReason(audioModel)).toBeNull();
   });
 
   it("prefers a remembered provider and model when both remain available", () => {

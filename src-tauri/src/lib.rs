@@ -9,6 +9,7 @@ mod credential_session;
 mod credentials;
 mod diagnostics;
 mod generation;
+mod generation_context;
 mod generation_localmail_tools;
 mod generation_tool_audit;
 mod generation_tools;

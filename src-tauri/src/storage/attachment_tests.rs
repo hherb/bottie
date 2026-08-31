@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 
 use super::{
     AttachmentExtractionFormat, AttachmentExtractionState, ConversationStore, MessageState,
-    NewStoredMessage, StoredRole,
+    NewProviderRun, NewStoredMessage, StoredReasoningEffort, StoredRole,
     attachments::{MAX_ATTACHMENT_BYTES, detect_mime_type, safe_display_name},
     extraction::MAX_EXTRACTED_TEXT_BYTES,
     tests::{completed_ingestion, process_pending_attachments, test_database_path},
@@ -278,6 +278,56 @@ fn associates_ordered_attachments_with_a_user_message_across_reopen_and_branchin
         forked.conversation.messages[0].attachments,
         request.attachments
     );
+}
+
+#[test]
+fn retains_native_wav_only_after_explicit_request_and_associates_it_with_the_message() {
+    let path = test_database_path();
+    let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
+    let conversation = store
+        .create_conversation("Retained recording")
+        .expect("conversation should be created");
+    let request = store
+        .append_message(NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::User,
+            text: "Answer this recording".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        })
+        .expect("request should append");
+    let audio = store
+        .ingest_native_audio(b"RIFF\x04\x00\x00\x00WAVE")
+        .expect("bounded native audio should ingest");
+    store
+        .start_provider_run(NewProviderRun {
+            id: "audio-run".into(),
+            conversation_id: conversation.id.clone(),
+            request_message_id: request.id.clone(),
+            provider_id: "openai".into(),
+            model_id: "audio-model".into(),
+            reasoning_effort: StoredReasoningEffort::Off,
+            temperature: None,
+            max_output_tokens: Some(128),
+        })
+        .expect("provider run should reserve the response before retention");
+    let retained = store
+        .associate_attachment_with_request(&conversation.id, &request.id, &audio.id)
+        .expect("audio should associate with its exact request");
+
+    assert_eq!(audio.display_name, "voice-recording.wav");
+    assert_eq!(audio.mime_type, "audio/wav");
+    assert_eq!(retained.attachments.len(), 1);
+    assert_eq!(retained.attachments[0].id, audio.id);
+    drop(store);
+
+    let reopened = ConversationStore::initialize(path).expect("storage should reopen");
+    let loaded = reopened
+        .load_conversation(&conversation.id)
+        .expect("conversation should load");
+    assert_eq!(loaded.messages[0].attachments[0].mime_type, "audio/wav");
 }
 
 #[test]

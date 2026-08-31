@@ -17,6 +17,8 @@ const STATUS_POLL_INTERVAL_MS = 150;
 /** Owns native microphone actions and bounded status polling for the composer. */
 export class MicrophoneState {
   status = $state<MicrophoneStatus>({ ...INITIAL_MICROPHONE_STATUS });
+  sendAudio = $state(false);
+  retainAudio = $state(false);
   readonly available = isTauri();
 
   private pollTimer?: ReturnType<typeof setInterval>;
@@ -42,6 +44,7 @@ export class MicrophoneState {
   /** Begins capture only from the composer's explicit user action. */
   async start(): Promise<void> {
     if (!this.available || this.isActive) return;
+    this.resetDeliveryChoices();
     try {
       this.status = await startMicrophoneCapture();
       this.startPolling();
@@ -70,6 +73,25 @@ export class MicrophoneState {
       this.failClosed();
     }
     this.stopPolling();
+    this.resetDeliveryChoices();
+  }
+
+  /** Toggles explicit provider delivery for the stopped capture. */
+  toggleSendAudio(available: boolean): void {
+    if (this.status.phase !== "captured" || (!available && !this.sendAudio)) return;
+    this.sendAudio = !this.sendAudio;
+  }
+
+  /** Toggles optional durable local retention independently from provider delivery. */
+  toggleRetainAudio(): void {
+    if (this.status.phase !== "captured") return;
+    this.retainAudio = !this.retainAudio;
+  }
+
+  /** Refreshes native state after accepted delivery consumed the session capture. */
+  async refreshAfterSubmission(): Promise<void> {
+    await this.refresh();
+    if (this.status.phase !== "captured") this.resetDeliveryChoices();
   }
 
   /** Replaces one final voice turn while keeping the corrected text in native session memory only. */
@@ -113,5 +135,10 @@ export class MicrophoneState {
   private failClosed(): void {
     this.status = { ...INITIAL_MICROPHONE_STATUS, phase: "error", errorCode: "capture_failed" };
     this.stopPolling();
+  }
+
+  private resetDeliveryChoices(): void {
+    this.sendAudio = false;
+    this.retainAudio = false;
   }
 }

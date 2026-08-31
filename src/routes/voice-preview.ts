@@ -4,17 +4,21 @@ import type { PageState } from "./page-state.svelte";
 
 const TRANSCRIPT_PREVIEW_VALUE = "final-transcript";
 const PLAYBACK_PREVIEW_VALUE = "local-playback";
+const AUDIO_CONTENT_PREVIEW_VALUE = "audio-content";
 
 /** Reports whether a query explicitly requests the final-transcript fixture. */
 export function voicePreviewRequested(search: string): boolean {
   const value = new URLSearchParams(search).get("voice");
-  return value === TRANSCRIPT_PREVIEW_VALUE || value === PLAYBACK_PREVIEW_VALUE;
+  return (
+    value === TRANSCRIPT_PREVIEW_VALUE || value === PLAYBACK_PREVIEW_VALUE || value === AUDIO_CONTENT_PREVIEW_VALUE
+  );
 }
 
 /** Applies deterministic path-free voice turns to the disconnected browser preview only. */
 export function applyVoicePreview(state: PageState, search: string): boolean {
   if (!voicePreviewRequested(search)) return false;
-  if (new URLSearchParams(search).get("voice") === PLAYBACK_PREVIEW_VALUE) {
+  const value = new URLSearchParams(search).get("voice");
+  if (value === PLAYBACK_PREVIEW_VALUE) {
     state.speech.applyPreview(
       [
         { id: "voice.en-au", name: "Karen", language: "en-AU" },
@@ -24,6 +28,23 @@ export function applyVoicePreview(state: PageState, search: string): boolean {
       { phase: "speaking", selectedVoiceId: "voice.en-au", errorCode: null },
     );
     return true;
+  }
+  if (value === AUDIO_CONTENT_PREVIEW_VALUE) {
+    state.models = [
+      {
+        providerId: "omlx",
+        providerName: "oMLX",
+        modelId: "fixture-audio-model",
+        displayName: "Fixture audio model",
+        maxContextTokens: 32_768,
+        loadState: "loaded",
+        capabilities: { text: true, streaming: true, tools: false, vision: false, audio: true, embeddings: false },
+      },
+    ];
+    state.selectedProviderId = "omlx";
+    state.selectedModelKey = "omlx:fixture-audio-model";
+    state.providerStatus = "available";
+    state.prompt = "Summarize this recording";
   }
   state.microphone.status = {
     phase: "captured",

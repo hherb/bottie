@@ -161,6 +161,8 @@ fn streams_omlx_email_result_and_final_answer_across_two_requests() {
         memory_enabled: false,
         web_enabled: false,
         email_enabled: true,
+        audio_enabled: false,
+        retain_audio: false,
         settings: ChatSettings {
             temperature: None,
             max_output_tokens: Some(128),

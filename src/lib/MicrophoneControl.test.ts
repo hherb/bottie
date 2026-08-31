@@ -22,16 +22,29 @@ const IDLE_STATUS: MicrophoneStatus = {
 };
 
 /** Renders the microphone control with inert actions and one path-free native status. */
-function rendered(status: MicrophoneStatus, disabled = false, willInterrupt = false): string {
+function rendered(
+  status: MicrophoneStatus,
+  disabled = false,
+  willInterrupt = false,
+  audioAvailable = false,
+  sendAudio = false,
+  retainAudio = false,
+): string {
   return render(MicrophoneControl, {
     props: {
       status,
       disabled,
       willInterrupt,
+      audioAvailable,
+      audioUnavailableReason: audioAvailable ? "" : "Choose an audio-capable model to send this recording.",
+      sendAudio,
+      retainAudio,
       onstart: vi.fn(),
       onstop: vi.fn(),
       ondiscard: vi.fn(),
       oncorrect: vi.fn(),
+      ontogglesendaudio: vi.fn(),
+      ontoggleretainaudio: vi.fn(),
     },
   }).body;
 }
@@ -94,6 +107,38 @@ describe("MicrophoneControl", () => {
     expect(html).toContain('aria-label="Discard voice capture"');
     expect(html).toContain("Record again");
     expect(html).not.toContain("Send voice");
+  });
+
+  it("requires explicit provider delivery and separate local retention choices", () => {
+    const captured = {
+      ...IDLE_STATUS,
+      phase: "captured" as const,
+      permission: "granted" as const,
+      durationMs: 1_250,
+      retainedByteSize: 80_000,
+    };
+
+    const initial = rendered(captured, false, false, true);
+    expect(initial).toContain('aria-label="Send recording with the next message"');
+    expect(initial).toContain('aria-pressed="false"');
+    expect(initial).toContain('aria-label="Retain recording locally with the message"');
+    expect(initial).not.toMatch(/Retain recording locally with the message[^>]*disabled/);
+
+    const unavailable = rendered(captured);
+    expect(unavailable).toMatch(/Send recording with the next message[^>]*disabled/);
+    expect(unavailable).not.toMatch(/Retain recording locally with the message[^>]*disabled/);
+    expect(unavailable).toContain("You can still retain it locally.");
+
+    const enabled = rendered(captured, false, false, true, true, true);
+    expect(enabled).toContain('aria-label="Stop sending recording with the next message"');
+    expect(enabled).toContain('aria-label="Do not retain recording locally with the message"');
+    expect(enabled).toContain("Recording will be sent and retained as a local WAV attachment.");
+
+    const routeChanged = rendered(captured, false, false, false, true);
+    expect(routeChanged).not.toMatch(/Stop sending recording with the next message[^>]*disabled/);
+    expect(routeChanged).toContain(
+      "Choose an audio-capable model to send this recording. Turn off Send recording or choose an audio-capable model.",
+    );
   });
 
   it("renders path-free partial and final transcript turns with visible timing", () => {

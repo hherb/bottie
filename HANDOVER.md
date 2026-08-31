@@ -263,7 +263,11 @@ only bounded voice labels, language tags, opaque selection tokens, and path-free
 speaking or generating, the explicit Record action now becomes Interrupt & record. Rust serializes capture against
 provider-run registration, stops local playback, cancels every registered provider and native-tool run through the
 existing durable cancellation path, and keeps capture fail-closed if playback cannot be positively stopped. A
-generation racing with active capture is rejected before registration. The
+generation racing with active capture is rejected before registration. Stopped captures now add two separate
+off-by-default choices. An explicitly audio-capable oMLX or OpenAI-compatible model can receive one Rust-encoded mono
+PCM16 WAV through a provider-neutral native-only audio block, while independent local retention stores the same
+bounded WAV as an app-private message attachment under existing portability and deletion policy. Neither encoded
+bytes nor durable attachment internals cross the WebView. The
 keyboard-shortcut slice is now complete:
 Command/Ctrl+K opens one accessible local command palette over five safe existing interface actions; exact direct
 shortcuts, local filtering, wrapped keyboard selection,
@@ -330,7 +334,7 @@ Read these files first:
 9. `src-tauri/tauri.conf.json`
 
 The repository tracks `origin/main` at `https://github.com/hherb/bottie.git`. The current product slice is explicit
-voice barge-in and end-to-end cancellation on local branch `codex/voice-barge-in`; the current
+captured-audio delivery and optional local retention on local branch `codex/audio-content-retention`; the current
 release-engineering slice remains limited by the explicit credential and publication boundaries below.
 
 ## Current implementation
@@ -661,10 +665,75 @@ The 2026-08-18 housekeeping slice applied those rules to the existing code witho
 - Vitest and Prettier checks are part of the standard frontend workflow.
 
 The cohesively touched product modules remain at or below 500 lines. The crate composition root
-`src-tauri/src/lib.rs` and the 537-line frontend orchestration root `src/routes/page-state.svelte.ts` remain existing
+`src-tauri/src/lib.rs` and the 549-line frontend orchestration root `src/routes/page-state.svelte.ts` remain existing
 practical-limit exceptions; the remaining known indivisible long lines are SVG path values in `src/lib/Icon.svelte`.
 
-## Current bounded product slice: explicit voice barge-in and end-to-end cancellation
+## Current bounded product slice: explicit audio content and optional local retention
+
+### Goal
+
+Let the user explicitly send one stopped native capture to a compatible provider and independently choose whether its
+bounded WAV is retained with the local message, without exposing audio bytes to the WebView, silently retaining or
+sending audio, inserting transcript text, selecting devices, adding automatic listening/playback, publishing a
+release/update, dispatching a protected workflow, or resuming Store work.
+
+### Implemented shape
+
+1. A stopped capture exposes separate **Send recording** and **Retain locally** choices. Both default off. Retention is
+   independent of provider capability, while delivery requires an oMLX or OpenAI-compatible model that explicitly
+   advertises `audio` input.
+2. Rust copies the already downmixed bounded PCM only after message persistence, encodes canonical little-endian mono
+   PCM16 WAV, and adds one native-only provider-neutral audio block to the current user turn. OpenAI-shaped adapters
+   serialize `input_audio` with inline base64 WAV; Ollama and Anthropic remain audio-disabled.
+3. The WebView sends only the two booleans and continues to receive path-free capture status. It cannot deserialize an
+   audio content block and receives no samples, WAV bytes, base64, hashes, paths, device identity, or provider payload.
+4. Optional retention writes the WAV directly from Rust into the existing content-addressed app-private attachment
+   store and links it to the exact current user request even after its provider run has reserved the response. Existing
+   backup, export, branch inheritance, narrow association removal, forget, and garbage-collection rules apply.
+5. Accepted delivery or retention consumes and discards the session capture and transcript. Capability, encoding, or
+   retention failure closes the durable provider run with a fixed redacted request/storage error and leaves the source
+   capture available for correction or retry.
+
+### Acceptance and exclusions
+
+Focused native tests cover stopped/non-empty capture enforcement, deterministic mono PCM16 WAV headers and bounds,
+native-only request reconstruction, OpenAI `input_audio` serialization, explicit audio capability discovery, and
+association of a retained WAV with the exact active request across reopen. Frontend tests cover fail-closed model
+gating plus separate accessible send and retention controls and copy.
+
+This slice does not add imported-audio delivery, generated-audio retention, transcript insertion, audio response
+blocks, automatic listening/playback, latency controls, acoustic echo handling, playback settings, input/output device
+selection, release/update publication, protected workflow dispatch, or Microsoft Store polling, submission,
+certification, or publication.
+
+### Verification completed
+
+- `npm run format:check` passed.
+- `npm run check` passed with 0 errors and 0 warnings.
+- `npm test` passed: 219 tests passed and 3 were skipped across 53 files.
+- `npm run build` passed with the static adapter production bundle.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` passed.
+- `cargo check --manifest-path src-tauri/Cargo.toml` passed; Cargo repeated the accepted future-incompatibility warning
+  for `block v0.1.6`.
+- `cargo test --manifest-path src-tauri/Cargo.toml` passed: 435 tests passed and 33 opt-in/live tests were ignored.
+- The development-only `?voice=audio-content` fixture was reviewed in the in-app browser at 1320x820 and 720x620.
+  The controls and disclosure remained in bounds with no horizontal document overflow and no browser warnings or
+  errors. Component tests cover the native-enabled toggle states because microphone actions stay disabled outside
+  Tauri.
+- Review found and fixed a model-switch edge case: a selected delivery choice now remains dismissible after switching
+  to an incompatible route, while submission stays blocked and the recovery copy remains explicit.
+
+No credential-backed live oMLX/OpenAI audio request, microphone hardware capture, Windows/Linux native interaction,
+package, signing, release, or updater flow was run. Microsoft Store work remains explicitly deferred, and no protected
+workflow, Store polling, submission, certification, or publication action was performed.
+
+### Next bounded slice
+
+Add bounded local voice-latency measurements and calm path-free status, without adding device selection, acoustic
+feedback processing, automatic listening/playback, transcript insertion, release/update publication, protected
+workflow dispatch, or Store work.
+
+## Previous completed product slice: explicit voice barge-in and end-to-end cancellation
 
 ### Goal
 
@@ -719,7 +788,7 @@ live provider cancellation, Windows, and Linux native interaction remain unverif
 explicitly deferred, and no release, protected workflow, Store polling, submission, certification, or publication
 action was performed.
 
-### Next bounded slice
+### Follow-up completed above
 
 Add provider-neutral audio content blocks and an explicit optional local audio-retention policy, without weakening the
 current native-only capture boundary, silently retaining audio, selecting devices, adding automatic listening/playback,

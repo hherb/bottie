@@ -330,11 +330,12 @@ mod tests {
     #[test]
     fn decodes_models_usage_cost_and_reasoning() {
         let models = decode_model_list(
-            br#"{"data":[{"id":"gpt-example","capabilities":["vision","tools"]}]}"#,
+            br#"{"data":[{"id":"gpt-example","capabilities":["vision","audio","tools"]}]}"#,
         )
         .unwrap();
         assert_eq!(models[0].provider_id, "openai");
         assert!(models[0].capabilities.vision);
+        assert!(models[0].capabilities.audio);
         assert!(models[0].capabilities.tools);
         let usage = decode_stream_payload(
             r#"{"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":7,"cost":0.004}}"#,
@@ -381,6 +382,31 @@ mod tests {
         assert_eq!(
             body["messages"][0]["content"][1]["image_url"]["url"],
             "data:image/png;base64,bm9ybWFsaXplZC1wbmc="
+        );
+    }
+
+    #[test]
+    fn request_serializes_native_wav_as_an_openai_audio_part() {
+        let mut request: ChatRequest = serde_json::from_str(concat!(
+            r#"{"providerId":"openai","modelId":"audio-model","messages":["#,
+            r#"{"role":"user","content":[{"type":"text","text":"answer this recording"}]}]}"#,
+        ))
+        .unwrap();
+        request.messages[0].content.push(ContentBlock::Audio {
+            media_type: crate::inference::types::AudioMediaType::Wav,
+            bytes: b"RIFFnative-wav".to_vec(),
+        });
+
+        let body = serde_json::to_value(OpenAiChatRequest::from(request)).unwrap();
+
+        assert_eq!(body["messages"][0]["content"][1]["type"], "input_audio");
+        assert_eq!(
+            body["messages"][0]["content"][1]["input_audio"]["format"],
+            "wav"
+        );
+        assert_eq!(
+            body["messages"][0]["content"][1]["input_audio"]["data"],
+            "UklGRm5hdGl2ZS13YXY="
         );
     }
 

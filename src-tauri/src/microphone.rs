@@ -1,5 +1,6 @@
 //! Bounded native microphone capture with path-free WebView status.
 
+mod audio;
 mod capture;
 mod correction;
 mod transcription;
@@ -18,6 +19,7 @@ use std::{
 use cpal::{FromSample, Sample};
 use serde::Serialize;
 
+pub(crate) use audio::{CapturedAudio, CapturedAudioError, CapturedAudioFormat};
 use capture::capture_worker;
 use correction::MAX_TRANSCRIPT_TURN_BYTES;
 pub(crate) use correction::TranscriptCorrectionError;
@@ -462,20 +464,6 @@ impl CaptureBuffer {
         (self.samples.len() as u64)
             .saturating_mul(1_000)
             .saturating_div(u64::from(self.sample_rate_hz.max(1)))
-    }
-
-    fn max_duration_ms(&self) -> u64 {
-        (self.max_samples as u64)
-            .saturating_mul(1_000)
-            .saturating_div(u64::from(self.sample_rate_hz.max(1)))
-    }
-
-    fn retained_byte_size(&self) -> u64 {
-        self.samples.len().saturating_mul(FLOAT_SAMPLE_BYTES) as u64
-    }
-
-    fn voice_segments(&self) -> Vec<VoiceSegment> {
-        self.voice_detector.segments(self.samples.len())
     }
 }
 

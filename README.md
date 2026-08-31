@@ -92,14 +92,25 @@ correction field; Rust accepts only non-blank replacements of at most 512 UTF-8 
 and 4,000-byte transcript ceiling. Corrected turns are visibly marked. Partial turns cannot be edited, and corrections
 remain only in the same native session slot.
 
-**Stop** retains the capture and final transcript only until they are discarded, replaced, or Bottie exits;
+**Stop** retains the capture and final transcript only until they are discarded, replaced, explicitly consumed, or
+Bottie exits;
 **Discard** clears the retained capture, pending snapshot, and visible transcript immediately. If one native inference
 pass is already executing, its bounded PCM copy is released when that pass returns and its stale result is ignored.
 
 The speech model is downloaded only after explicit capture first produces speech, from the immutable repository
 revision and file identity in `runtime-assets.json`, into Bottie's app-owned cache. Native code verifies its exact
-32,152,673-byte SHA-256 contract before loading it. Captured audio and transcript text are not persisted, attached,
-inserted into a conversation, played, or sent to a provider.
+32,152,673-byte SHA-256 contract before loading it. Transcript text remains session-only and is not inserted into a
+conversation or sent to a provider.
+
+After capture stops, provider delivery and local retention remain two separate, off-by-default choices. **Send
+recording** is available only when the selected oMLX or OpenAI-compatible model explicitly advertises audio input.
+Rust snapshots the stopped mono PCM into one bounded PCM16 WAV, inserts it as a native-only provider-neutral audio
+content block on the current user turn, and maps it to the OpenAI-shaped `input_audio` field. Audio bytes, encoded WAV,
+hashes, and paths never cross WebView IPC. **Retain locally** can be selected independently, including with a text-only
+model; it stores that WAV as an app-private `voice-recording.wav` message attachment under the existing backup,
+export, branch, removal, forget, and attachment-garbage-collection policy. After the native request accepts delivery or
+retention, the session capture and transcript are discarded. Without either choice, captured audio remains native-only
+until Discard, replacement, or process exit.
 
 Every completed assistant response also has an explicit **Play response aloud** action. Rust lazily enumerates the
 device's local voices and exposes at most 128 bounded names, language tags, and process-local opaque selection tokens;
@@ -159,16 +170,18 @@ Additional safeguards include:
   check/install/cancel commands are registered.
 - no WebView media-capture capability; microphone access and sample retention remain behind narrow Rust commands.
 - local speech recognition downloads one hash-pinned model only after explicit capture; no audio reaches its source.
+- captured audio reaches a provider only after the separate explicit send choice and an advertised audio capability;
+  optional app-private WAV retention remains independently off by default.
 - local playback uses narrow Rust commands and opaque voice tokens; no WebView speech or audio API is authorized.
 
 ## Provider support
 
-| Provider             | Route                           | Capability-aware vision | Native tool loop |
-| -------------------- | ------------------------------- | ----------------------- | ---------------- |
-| oMLX                 | Local loopback                  | Yes                     | Yes              |
-| Ollama               | Local loopback                  | Yes                     | Yes              |
-| OpenAI-compatible    | Explicit user-configured origin | Yes                     | Yes              |
-| Anthropic-compatible | Explicit user-configured origin | Yes                     | Yes              |
+| Provider             | Route                           | Vision | Audio input   | Native tool loop |
+| -------------------- | ------------------------------- | ------ | ------------- | ---------------- |
+| oMLX                 | Local loopback                  | Yes    | If advertised | Yes              |
+| Ollama               | Local loopback                  | Yes    | No            | Yes              |
+| OpenAI-compatible    | Explicit user-configured origin | Yes    | If advertised | Yes              |
+| Anthropic-compatible | Explicit user-configured origin | Yes    | No            | Yes              |
 
 Features are enabled from discovered or mapped model capabilities rather than model-name guesses. Memory, Web, and
 Email start off for a new installation, then remember the user's last choices across app sessions. A remembered choice
