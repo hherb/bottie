@@ -77,13 +77,20 @@ falls back to Bottie's existing dark, comfortable presentation; System follows O
 
 ## Local voice capture
 
-The composer has an explicit **Record voice** action in the native desktop app. Bottie does not open the default
-microphone or request operating-system permission until that action is chosen. Rust then downmixes native PCM into one
-bounded, session-only in-memory capture for at most 60 seconds and 32 MiB. The WebView receives only capture phase,
+The composer has an explicit **Record voice** action in the native desktop app. **Choose microphone** lazily lists at
+most 64 currently available inputs only after that separate user action. The WebView receives only bounded sanitized
+display labels and process-local opaque tokens, including a distinct **System default** choice; native device IDs,
+host APIs, paths, and hardware addresses remain in Rust. Selection is never persisted. At Record, System default
+resolves the operating system's current default, while an explicit token must resolve to that exact device or capture
+fails with a path-free unavailable state instead of switching microphones.
+
+Bottie does not open the selected microphone or request operating-system permission until Record is chosen. Rust
+then downmixes native PCM into one bounded, session-only in-memory capture for at most 60 seconds and 32 MiB. The
+WebView receives only capture phase,
 permission state, duration, input level, sample rate, channel count, retained byte size, and bounded speech/silence
-timing—never audio samples, detector thresholds, or an input-device identity. A native energy detector analyzes 20 ms
-frames with separate onset and release confirmation so brief peaks and pauses do not flicker the state. The composer
-calmly reports **Listening for speech** or **Speech detected**. A dedicated Rust worker recognizes bounded
+timing—never audio samples, detector thresholds, or native input-device identity. A native energy detector analyzes
+20 ms frames with separate onset and release confirmation so brief peaks and pauses do not flicker the state. The
+composer calmly reports **Listening for speech** or **Speech detected**. A dedicated Rust worker recognizes bounded
 speech-containing snapshots with the pinned multilingual Whisper tiny Q5 model, replaces partial results while capture
 continues, and makes the stopped result final. The WebView receives at most 32 path-free transcript ranges and 4,000
 UTF-8 bytes of transcript text with visible start/end timing; model paths, hashes, runtime details, and PCM stay native.

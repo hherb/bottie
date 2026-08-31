@@ -1,4 +1,4 @@
-//! Native default-input stream ownership for bounded microphone capture.
+//! Native selected-input stream ownership for bounded microphone capture.
 
 use std::sync::{
     Arc, Mutex,
@@ -6,23 +6,30 @@ use std::sync::{
 };
 
 use cpal::{
-    Device, Error, ErrorKind, FromSample, I24, Sample, SampleFormat, SizedSample, Stream,
+    Device, DeviceId, Error, ErrorKind, FromSample, I24, Sample, SampleFormat, SizedSample, Stream,
     StreamConfig, U24,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 
-use super::{CAPTURE_WORKER_POLL, CaptureCommand, CaptureState, MicrophoneErrorCode, lock};
+use super::{
+    CAPTURE_WORKER_POLL, CaptureCommand, CaptureState, MicrophoneErrorCode,
+    devices::CaptureInputSelection, lock,
+};
 
 /// Owns one operating-system input stream and schedules bounded native transcription snapshots.
 pub(super) fn capture_worker(
     shared: Arc<Mutex<CaptureState>>,
     receiver: Receiver<CaptureCommand>,
     transcription_wake: Option<SyncSender<()>>,
+    input_selection: CaptureInputSelection,
 ) {
     let host = cpal::default_host();
-    let Some(device) = host.default_input_device() else {
-        lock(&shared).fail(MicrophoneErrorCode::DeviceUnavailable);
-        return;
+    let device = match resolve_input_device(&host, &input_selection) {
+        Ok(device) => device,
+        Err(error) => {
+            lock(&shared).fail(error);
+            return;
+        }
     };
     let config = match device.default_input_config() {
         Ok(config) => config,
@@ -70,6 +77,44 @@ pub(super) fn capture_worker(
     drop(state);
     if scheduled {
         wake(transcription_wake.as_ref());
+    }
+}
+
+fn resolve_input_device(
+    host: &cpal::Host,
+    selection: &CaptureInputSelection,
+) -> Result<Device, MicrophoneErrorCode> {
+    match selection {
+        CaptureInputSelection::SystemDefault => resolve_input_device_from_candidates(
+            selection,
+            host.default_input_device(),
+            Vec::<(DeviceId, Device)>::new(),
+        ),
+        CaptureInputSelection::Exact(_) => {
+            let devices = host
+                .input_devices()
+                .map_err(|error| error_code(error.kind()))?
+                .filter_map(|device| device.id().ok().map(|id| (id, device)))
+                .collect();
+            resolve_input_device_from_candidates(selection, None, devices)
+        }
+    }
+}
+
+/// Resolves a selected native identity without falling back to another input.
+pub(super) fn resolve_input_device_from_candidates<T>(
+    selection: &CaptureInputSelection,
+    default: Option<T>,
+    candidates: Vec<(DeviceId, T)>,
+) -> Result<T, MicrophoneErrorCode> {
+    match selection {
+        CaptureInputSelection::SystemDefault => {
+            default.ok_or(MicrophoneErrorCode::DeviceUnavailable)
+        }
+        CaptureInputSelection::Exact(selected_id) => candidates
+            .into_iter()
+            .find_map(|(id, device)| (id == *selected_id).then_some(device))
+            .ok_or(MicrophoneErrorCode::SelectedDeviceUnavailable),
     }
 }
 

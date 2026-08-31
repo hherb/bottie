@@ -6,6 +6,7 @@ const settingsCss = readFileSync(new URL("settings.css", styles), "utf8");
 const contextCss = readFileSync(new URL("context.css", styles), "utf8");
 const shellCss = readFileSync(new URL("shell.css", styles), "utf8");
 const appearanceCss = readFileSync(new URL("appearance.css", styles), "utf8");
+const composerCss = readFileSync(new URL("composer.css", styles), "utf8");
 
 /** Converts one six-digit sRGB colour to relative luminance. */
 function luminance(hex) {
@@ -42,5 +43,8 @@ describe("accessibility presentation policy", () => {
     expect(settingsCss).toMatch(/\.sidebar\.mobile-open\s*\{[\s\S]*?visibility:\s*visible/);
     expect(contextCss).toMatch(/\.context-panel\.closed\s*\{[\s\S]*?visibility:\s*hidden/);
     expect(settingsCss).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation-duration:\s*0\.01ms/);
+    expect(composerCss).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.input-level span\s*\{[\s\S]*?transition:\s*none/,
+    );
   });
 });

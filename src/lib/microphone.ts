@@ -10,7 +10,33 @@ export type MicrophonePermission = "prompt" | "granted" | "denied" | "unavailabl
 
 /** Stable native microphone failure categories safe to show in the WebView. */
 export type MicrophoneErrorCode =
-  "permission_denied" | "device_unavailable" | "device_busy" | "unsupported_format" | "capture_failed";
+  | "permission_denied"
+  | "device_unavailable"
+  | "selected_device_unavailable"
+  | "device_busy"
+  | "unsupported_format"
+  | "capture_failed";
+
+/** One bounded display label and process-local token without native device identity. */
+export type MicrophoneInputDevice = {
+  token: string;
+  label: string;
+  isSystemDefault: boolean;
+};
+
+/** Current session-only microphone choices returned only after explicit discovery. */
+export type MicrophoneInputDeviceList = {
+  devices: MicrophoneInputDevice[];
+  selectedToken: string;
+  selectionAvailable: boolean;
+};
+
+/** Default-only state before native microphone discovery is explicitly requested. */
+export const INITIAL_MICROPHONE_DEVICE_LIST: MicrophoneInputDeviceList = {
+  devices: [{ token: "system-default", label: "System default", isSystemDefault: true }],
+  selectedToken: "system-default",
+  selectionAvailable: true,
+};
 
 /** Stable path-free classification produced by Bottie's native voice activity detector. */
 export type VoiceActivity = "silence" | "speech";
@@ -90,7 +116,17 @@ export async function getMicrophoneStatus(): Promise<MicrophoneStatus> {
   return invoke<MicrophoneStatus>("get_microphone_status");
 }
 
-/** Requests default-input capture after the composer's explicit user action. */
+/** Lazily lists bounded microphone labels and process-local opaque tokens. */
+export async function listMicrophoneInputDevices(): Promise<MicrophoneInputDeviceList> {
+  return invoke<MicrophoneInputDeviceList>("list_microphone_input_devices");
+}
+
+/** Selects one current opaque microphone token without persisting it. */
+export async function selectMicrophoneInputDevice(token: string): Promise<MicrophoneInputDeviceList> {
+  return invoke<MicrophoneInputDeviceList>("select_microphone_input_device", { token });
+}
+
+/** Requests selected-input capture after the composer's explicit user action. */
 export async function startMicrophoneCapture(): Promise<MicrophoneStatus> {
   return invoke<MicrophoneStatus>("start_microphone_capture");
 }
@@ -168,6 +204,9 @@ export function microphoneFeedback(status: MicrophoneStatus): string {
   }
   if (status.errorCode === "device_unavailable") {
     return "No microphone is available. Connect or enable an input device, then try again.";
+  }
+  if (status.errorCode === "selected_device_unavailable") {
+    return "The selected microphone is no longer available. Choose another microphone or System default, then try again.";
   }
   if (status.errorCode === "device_busy") {
     return "The microphone is busy in another application. Close it there, then try again.";

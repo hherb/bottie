@@ -4,6 +4,7 @@ mod audio;
 mod buffer;
 mod capture;
 mod correction;
+mod devices;
 pub(crate) mod latency;
 mod transcription;
 mod vad;
@@ -26,6 +27,8 @@ use buffer::CaptureBuffer;
 use capture::capture_worker;
 use correction::MAX_TRANSCRIPT_TURN_BYTES;
 pub(crate) use correction::TranscriptCorrectionError;
+use devices::MicrophoneDeviceRegistry;
+pub(crate) use devices::{MicrophoneDeviceCommandError, MicrophoneInputDeviceList};
 use latency::{MicrophoneLatency, MicrophoneLatencyTracker};
 use transcription::{
     RawTranscriptSegment, TranscriptSegment, TranscriptionErrorCode, TranscriptionJob,
@@ -78,9 +81,11 @@ pub(crate) enum MicrophoneErrorCode {
     PermissionDenied,
     /// No usable default input device or audio host exists.
     DeviceUnavailable,
+    /// An explicitly selected input is no longer present at capture start.
+    SelectedDeviceUnavailable,
     /// Another process or stream currently owns the input.
     DeviceBusy,
-    /// The default input uses a sample format outside Bottie's PCM boundary.
+    /// The selected input uses a sample format outside Bottie's PCM boundary.
     UnsupportedFormat,
     /// A redacted backend, resource, or stream failure stopped capture.
     CaptureFailed,
@@ -111,6 +116,7 @@ pub(crate) struct MicrophoneStatus {
 pub(crate) struct MicrophoneController {
     shared: Arc<Mutex<CaptureState>>,
     worker: Mutex<Worker>,
+    devices: Mutex<MicrophoneDeviceRegistry>,
     transcription: Option<TranscriptionWorker>,
 }
 
@@ -148,6 +154,7 @@ impl Default for MicrophoneController {
         Self {
             shared: Arc::new(Mutex::new(CaptureState::default())),
             worker: Mutex::new(Worker::default()),
+            devices: Mutex::new(MicrophoneDeviceRegistry::default()),
             transcription: None,
         }
     }
@@ -161,6 +168,7 @@ impl MicrophoneController {
         Self {
             shared,
             worker: Mutex::new(Worker::default()),
+            devices: Mutex::new(MicrophoneDeviceRegistry::default()),
             transcription: Some(transcription),
         }
     }
@@ -178,7 +186,7 @@ impl MicrophoneController {
         )
     }
 
-    /// Starts one default-input capture only after the WebView's explicit user action.
+    /// Starts one selected-input capture only after the WebView's explicit user action.
     pub(crate) fn start(&self) -> MicrophoneStatus {
         let mut worker = lock(&self.worker);
         clear_finished_worker(&mut worker);
@@ -186,7 +194,10 @@ impl MicrophoneController {
             return self.status();
         }
 
+        let devices = lock(&self.devices);
+        let input_selection = devices.capture_selection();
         lock(&self.shared).begin_starting();
+        drop(devices);
         let (commands, receiver) = mpsc::channel();
         let shared = self.shared.clone();
         let transcription_wake = self
@@ -195,7 +206,7 @@ impl MicrophoneController {
             .map(TranscriptionWorker::wake_handle);
         match thread::Builder::new()
             .name("bottie-microphone".into())
-            .spawn(move || capture_worker(shared, receiver, transcription_wake))
+            .spawn(move || capture_worker(shared, receiver, transcription_wake, input_selection))
         {
             Ok(handle) => {
                 worker.commands = Some(commands);
@@ -445,7 +456,9 @@ impl CaptureState {
 fn permission_for_error(code: MicrophoneErrorCode) -> MicrophonePermission {
     match code {
         MicrophoneErrorCode::PermissionDenied => MicrophonePermission::Denied,
-        MicrophoneErrorCode::DeviceUnavailable => MicrophonePermission::Unavailable,
+        MicrophoneErrorCode::DeviceUnavailable | MicrophoneErrorCode::SelectedDeviceUnavailable => {
+            MicrophonePermission::Unavailable
+        }
         _ => MicrophonePermission::Prompt,
     }
 }

@@ -2,7 +2,7 @@ import { render } from "svelte/server";
 import { describe, expect, it, vi } from "vitest";
 
 import MicrophoneControl from "./MicrophoneControl.svelte";
-import type { MicrophoneStatus } from "./microphone";
+import { INITIAL_MICROPHONE_DEVICE_LIST, type MicrophoneInputDeviceList, type MicrophoneStatus } from "./microphone";
 
 const IDLE_STATUS: MicrophoneStatus = {
   phase: "idle",
@@ -30,6 +30,9 @@ function rendered(
   audioAvailable = false,
   sendAudio = false,
   retainAudio = false,
+  deviceList: MicrophoneInputDeviceList = INITIAL_MICROPHONE_DEVICE_LIST,
+  devicesLoaded = false,
+  deviceListFailed = false,
 ): string {
   return render(MicrophoneControl, {
     props: {
@@ -40,12 +43,17 @@ function rendered(
       audioUnavailableReason: audioAvailable ? "" : "Choose an audio-capable model to send this recording.",
       sendAudio,
       retainAudio,
+      deviceList,
+      devicesLoaded,
+      deviceListFailed,
       onstart: vi.fn(),
       onstop: vi.fn(),
       ondiscard: vi.fn(),
       oncorrect: vi.fn(),
       ontogglesendaudio: vi.fn(),
       ontoggleretainaudio: vi.fn(),
+      onloaddevices: vi.fn(),
+      onselectdevice: vi.fn(),
     },
   }).body;
 }
@@ -58,6 +66,67 @@ describe("MicrophoneControl", () => {
     expect(html).toContain("Record voice");
     expect(html).toContain("requested only when you choose Record voice");
     expect(html).not.toContain("getUserMedia");
+    expect(html).toContain('aria-label="Choose microphone input"');
+    expect(html).toContain("Choose microphone");
+    expect(html).not.toContain('aria-label="Microphone input"');
+  });
+
+  it("shows one keyboard-operable session-only microphone choice after explicit discovery", () => {
+    const html = rendered(
+      IDLE_STATUS,
+      false,
+      false,
+      false,
+      false,
+      false,
+      {
+        devices: [
+          { token: "system-default", label: "System default", isSystemDefault: true },
+          { token: "local-input-001", label: "Desk microphone", isSystemDefault: false },
+        ],
+        selectedToken: "local-input-001",
+        selectionAvailable: true,
+      },
+      true,
+    );
+
+    expect(html).toContain('aria-label="Microphone input"');
+    expect(html).toContain('<option value="system-default">System default</option>');
+    expect(html).toMatch(/<option value="local-input-001" selected(?:="")?>Desk microphone<\/option>/);
+    expect(html).toContain("1 microphone available · selection stays only for this app session");
+    expect(html).not.toMatch(/device id|host api|hardware address/i);
+  });
+
+  it("keeps System default visible and explains empty or stale discovery", () => {
+    const empty = rendered(IDLE_STATUS, false, false, false, false, false, INITIAL_MICROPHONE_DEVICE_LIST, true);
+    const stale = rendered(
+      IDLE_STATUS,
+      false,
+      false,
+      false,
+      false,
+      false,
+      {
+        devices: [{ token: "system-default", label: "System default", isSystemDefault: true }],
+        selectedToken: "local-input-004",
+        selectionAvailable: false,
+      },
+      true,
+    );
+
+    expect(empty).toContain("No microphones are currently available");
+    expect(empty).toContain("System default will be checked when you Record");
+    expect(stale).toContain('role="alert"');
+    expect(stale).toContain("Selected microphone is no longer available");
+    expect(stale).toContain("Choose another microphone before recording");
+  });
+
+  it("reports path-free discovery failure without opening capture", () => {
+    const html = rendered(IDLE_STATUS, false, false, false, false, false, INITIAL_MICROPHONE_DEVICE_LIST, false, true);
+
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Microphone choices could not be refreshed");
+    expect(html).toContain("Your current session selection is unchanged");
   });
 
   it("labels Record as an explicit interruption when Bottie is producing output", () => {

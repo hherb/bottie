@@ -326,7 +326,9 @@ Outcome: users can hold interruptible, private voice conversations without requi
   WAV retention choices;
 - [x] bounded session-only native latency status for input readiness, first/final local transcript availability, and
   local speech-engine acceptance, labelled by observable endpoints rather than acoustic claims;
-- [ ] device selection and acoustic feedback controls;
+- [x] explicit session-only input-device selection with bounded display labels, opaque native mappings, exact-device
+  resolution at Record, and the existing fail-closed playback/capture separation;
+- [ ] acoustic echo cancellation or general system-feedback processing, if later evidence justifies native DSP;
 - [ ] full text fallback and accessibility support.
 
 Voice should reuse the same provider, content-block, event, persistence, and cancellation models established in
