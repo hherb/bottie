@@ -6,6 +6,48 @@ use cpal::ErrorKind;
 const TRANSCRIPT_TEXT_LIMIT: usize = 4_000;
 
 #[test]
+fn encodes_captured_mono_pcm_as_bounded_wav_without_exposing_samples() {
+    let mut state = CaptureState::default();
+    state.begin_recording(16_000, 2);
+    state.append(&[1.0_f32, 1.0, -1.0, -1.0, 0.5, 0.5]);
+    state.finish();
+
+    let audio = state
+        .captured_audio()
+        .expect("a stopped capture should encode");
+
+    assert_eq!(audio.format, CapturedAudioFormat::Wav);
+    assert_eq!(audio.sample_rate_hz, 16_000);
+    assert_eq!(audio.duration_ms, 0);
+    assert_eq!(&audio.bytes[..4], b"RIFF");
+    assert_eq!(&audio.bytes[8..12], b"WAVE");
+    assert_eq!(
+        u16::from_le_bytes(audio.bytes[22..24].try_into().unwrap()),
+        1
+    );
+    assert_eq!(
+        u32::from_le_bytes(audio.bytes[24..28].try_into().unwrap()),
+        16_000
+    );
+    assert_eq!(
+        u16::from_le_bytes(audio.bytes[34..36].try_into().unwrap()),
+        16
+    );
+    assert_eq!(audio.bytes.len(), 44 + 6);
+}
+
+#[test]
+fn rejects_audio_snapshot_until_capture_is_stopped_and_non_empty() {
+    let mut state = CaptureState::default();
+    assert_eq!(state.captured_audio(), Err(CapturedAudioError::Unavailable));
+    state.begin_recording(16_000, 1);
+    state.append(&[0.25_f32]);
+    assert_eq!(state.captured_audio(), Err(CapturedAudioError::Unavailable));
+    state.finish();
+    assert!(state.captured_audio().is_ok());
+}
+
+#[test]
 fn downmixes_pcm_and_reports_only_bounded_metadata() {
     let mut state = CaptureState::default();
     state.begin_recording(1_000, 2);

@@ -24,7 +24,7 @@ pub(super) use super::attachment_policy::{MAX_ATTACHMENT_BYTES, detect_mime_type
 
 const ATTACHMENT_DIRECTORY_NAME: &str = "attachments";
 const BLOB_DIRECTORY_NAME: &str = "blobs";
-const TEMPORARY_DIRECTORY_NAME: &str = "temporary";
+pub(super) const TEMPORARY_DIRECTORY_NAME: &str = "temporary";
 /// Maximum files accepted by one native picker interaction.
 pub(crate) const MAX_ATTACHMENT_SELECTION_COUNT: usize = 8;
 
@@ -114,7 +114,7 @@ impl ConversationStore {
     }
 
     /// Commits prepared bytes and metadata while preventing duplicate content rows.
-    fn commit_blob(
+    pub(super) fn commit_blob(
         &self,
         temporary_path: &Path,
         prepared: PreparedAttachment,

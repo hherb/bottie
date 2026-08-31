@@ -17,6 +17,7 @@ const LOCAL_MODEL: ModelInfo = {
     streaming: true,
     tools: false,
     vision: false,
+    audio: false,
     embeddings: false,
   },
 };
@@ -94,5 +95,20 @@ describe("PageState voice barge-in", () => {
     await state.startMicrophoneCapture();
 
     expect(capture).not.toHaveBeenCalled();
+  });
+});
+
+describe("PageState captured-audio choices", () => {
+  it("allows an incompatible route change to turn delivery back off", () => {
+    const state = new PageState();
+    state.microphone.status = { ...state.microphone.status, phase: "captured" };
+
+    state.microphone.toggleSendAudio(true);
+    expect(state.microphone.sendAudio).toBe(true);
+
+    state.microphone.toggleSendAudio(false);
+    expect(state.microphone.sendAudio).toBe(false);
+    state.microphone.toggleSendAudio(false);
+    expect(state.microphone.sendAudio).toBe(false);
   });
 });

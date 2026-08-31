@@ -11,8 +11,17 @@ use super::types::ContentBlock;
 pub(super) enum OpenAiContent {
     /// Compact legacy representation retained for text-only requests.
     Text(String),
-    /// Ordered content parts used when a turn contains an image.
+    /// Ordered content parts used when a turn contains native media.
     Parts(Vec<OpenAiContentPart>),
+}
+
+impl OpenAiContent {
+    /// Removes one-shot audio before a provider tool follow-up while retaining text and images.
+    pub(super) fn remove_audio(&mut self) {
+        if let Self::Parts(parts) = self {
+            parts.retain(|part| !matches!(part, OpenAiContentPart::InputAudio { .. }));
+        }
+    }
 }
 
 /// One OpenAI Chat Completions content part.
@@ -23,6 +32,8 @@ pub(super) enum OpenAiContentPart {
     Text { text: String },
     /// Inline data URL accepted by OpenAI-shaped vision endpoints.
     ImageUrl { image_url: OpenAiImageUrl },
+    /// Inline base64 WAV accepted by audio-capable Chat Completions models.
+    InputAudio { input_audio: OpenAiInputAudio },
 }
 
 /// String content for Anthropic text-only turns or ordered multimodal blocks.
@@ -60,6 +71,13 @@ pub(super) struct OpenAiImageUrl {
     url: String,
 }
 
+/// Nested audio object required by OpenAI-shaped Chat Completions.
+#[derive(Serialize)]
+pub(super) struct OpenAiInputAudio {
+    data: String,
+    format: &'static str,
+}
+
 /// Converts native blocks while retaining the compact string shape for text-only turns.
 pub(super) fn openai_content(blocks: Vec<ContentBlock>) -> OpenAiContent {
     if blocks
@@ -80,6 +98,12 @@ pub(super) fn openai_content(blocks: Vec<ContentBlock>) -> OpenAiContent {
                             media_type.as_mime_type(),
                             STANDARD.encode(bytes)
                         ),
+                    },
+                },
+                ContentBlock::Audio { bytes, .. } => OpenAiContentPart::InputAudio {
+                    input_audio: OpenAiInputAudio {
+                        data: STANDARD.encode(bytes),
+                        format: "wav",
                     },
                 },
             })
@@ -107,6 +131,9 @@ pub(super) fn anthropic_content(blocks: Vec<ContentBlock>) -> AnthropicContent {
                         data: base64_image(&bytes),
                     },
                 },
+                ContentBlock::Audio { .. } => AnthropicContentBlock::Text {
+                    text: "[Audio input is unavailable on this provider.]".into(),
+                },
             })
             .collect(),
     )
@@ -119,6 +146,7 @@ pub(super) fn text_content(blocks: Vec<ContentBlock>) -> String {
         .filter_map(|block| match block {
             ContentBlock::Text { text } => Some(text),
             ContentBlock::Image { .. } => None,
+            ContentBlock::Audio { .. } => None,
         })
         .collect::<Vec<_>>()
         .join("\n")

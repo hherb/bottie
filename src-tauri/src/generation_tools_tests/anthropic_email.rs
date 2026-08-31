@@ -267,6 +267,8 @@ fn email_tool_request() -> ChatRequest {
         memory_enabled: false,
         web_enabled: false,
         email_enabled: true,
+        audio_enabled: false,
+        retain_audio: false,
         settings: ChatSettings {
             temperature: None,
             max_output_tokens: Some(128),

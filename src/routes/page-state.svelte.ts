@@ -13,6 +13,7 @@ import {
   modelKey,
   requestMessageForResponse,
   resolveModelSelection,
+  recordedAudioUnavailableReason,
   toggleReasoningEffort,
 } from "$lib/chat";
 import {
@@ -107,6 +108,14 @@ export class PageState {
   /** Whether every current image has a ready derivative and an explicitly vision-capable route. */
   get attachmentsCanSubmit(): boolean {
     return this.attachment.canSubmit(this.selectedModel, this.history.conversationAttachments);
+  }
+  /** Whether an explicitly selected stopped recording can use the current provider route. */
+  get audioCanSubmit(): boolean {
+    return !this.microphone.sendAudio || this.audioUnavailableReason === null;
+  }
+  /** Path-free capability explanation for the current stopped recording. */
+  get audioUnavailableReason(): string | null {
+    return recordedAudioUnavailableReason(this.selectedModel);
   }
   /** Whether branch-independent conversation images can be applied to a regenerated request. */
   get conversationAttachmentsCanSubmit(): boolean {
@@ -302,7 +311,7 @@ export class PageState {
   /** Starts one provider-qualified chat stream and normalizes its events into message state. */
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
-    if (!submittedPrompt || this.isGenerating || !this.canSend || !this.attachmentsCanSubmit) {
+    if (!submittedPrompt || this.isGenerating || !this.canSend || !this.attachmentsCanSubmit || !this.audioCanSubmit) {
       return;
     }
     this.isPersistingMessage = true;
@@ -400,6 +409,8 @@ export class PageState {
           memoryEnabled: this.memory.enabled,
           webEnabled: this.web.enabled,
           emailEnabled: this.email.enabled,
+          audioEnabled: this.microphone.sendAudio,
+          retainAudio: this.microphone.retainAudio,
           settings: { reasoningEffort: this.reasoningEffort },
         },
         runContext,
@@ -407,6 +418,7 @@ export class PageState {
       );
       if (run === this.generationRun) {
         this.activeRunId = chatRun.runId;
+        await this.microphone.refreshAfterSubmission();
         if (this.cancellationRequested) await cancelChat(chatRun.runId);
       } else await cancelChat(chatRun.runId);
     } catch (error) {

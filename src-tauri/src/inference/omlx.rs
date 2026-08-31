@@ -18,6 +18,8 @@ use crate::tool_contract::enabled_native_tool_definitions;
 
 use self::protocol::OmlxChatRequest;
 
+#[cfg(test)]
+mod audio_tests;
 mod discovery;
 mod protocol;
 

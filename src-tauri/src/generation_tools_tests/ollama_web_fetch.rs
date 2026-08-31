@@ -147,6 +147,8 @@ fn streams_an_ollama_web_fetch_result_and_final_answer_across_two_requests() {
         memory_enabled: false,
         web_enabled: true,
         email_enabled: false,
+        audio_enabled: false,
+        retain_audio: false,
         settings: ChatSettings {
             temperature: Some(0.0),
             max_output_tokens: Some(128),

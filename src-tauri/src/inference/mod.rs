@@ -29,6 +29,6 @@ pub use settings::{
 #[cfg(test)]
 pub(crate) use types::ChatSettings;
 pub use types::{
-    ChatRequest, ChatRole, ChatRun, ChatTurn, ContentBlock, ImageMediaType, ModelInfo,
-    ProviderError, ProviderErrorCode, ReasoningEffort, StreamEvent, Usage,
+    AudioMediaType, ChatRequest, ChatRole, ChatRun, ChatTurn, ContentBlock, ImageMediaType,
+    ModelInfo, ProviderError, ProviderErrorCode, ReasoningEffort, StreamEvent, Usage,
 };

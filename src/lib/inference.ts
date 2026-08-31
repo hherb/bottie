@@ -15,6 +15,7 @@ export type ModelInfo = {
     streaming: boolean;
     tools: boolean;
     vision: boolean;
+    audio: boolean;
     embeddings: boolean;
   };
 };
@@ -36,6 +37,8 @@ export type ChatRequest = {
   memoryEnabled?: boolean;
   webEnabled?: boolean;
   emailEnabled?: boolean;
+  audioEnabled?: boolean;
+  retainAudio?: boolean;
   settings?: {
     temperature?: number;
     maxOutputTokens?: number;

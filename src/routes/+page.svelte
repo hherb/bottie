@@ -330,7 +330,7 @@
         prompt={state.prompt}
         isGenerating={state.isGenerating}
         canCompose={state.canSend}
-        canSend={state.canSend && !state.microphone.isActive && state.attachmentsCanSubmit}
+        canSend={state.canSend && !state.microphone.isActive && state.attachmentsCanSubmit && state.audioCanSubmit}
         attachmentNote={composerAttachmentNote(
           nextRequestAttachments(state.attachment.items, state.history.conversationAttachments),
           state.selectedModel,
@@ -347,6 +347,10 @@
         microphoneStatus={state.microphone.status}
         microphoneAvailable={state.microphone.available}
         microphoneWillInterrupt={state.isGenerating || state.speech.status.phase === "speaking"}
+        microphoneAudioAvailable={state.microphone.status.phase === "captured" && state.audioUnavailableReason === null}
+        microphoneAudioUnavailableReason={state.audioUnavailableReason ?? ""}
+        microphoneSendAudio={state.microphone.sendAudio}
+        microphoneRetainAudio={state.microphone.retainAudio}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.interaction.resizeComposer()}
         onkeydown={(event) => state.interaction.handleKeydown(event, () => void state.sendMessage())}
@@ -361,6 +365,8 @@
         onstopmicrophone={() => void state.microphone.stop()}
         ondiscardmicrophone={() => void state.microphone.discard()}
         oncorrectmicrophone={(turnIndex, text) => void state.microphone.correct(turnIndex, text)}
+        ontogglesendmicrophoneaudio={() => state.microphone.toggleSendAudio(state.audioUnavailableReason === null)}
+        ontoggleretainmicrophoneaudio={() => state.microphone.toggleRetainAudio()}
         oncomposerready={(element) => state.interaction.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />

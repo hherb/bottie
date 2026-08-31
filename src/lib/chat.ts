@@ -166,6 +166,16 @@ export function draftImageDeliveryBlocker(attachments: Attachment[], model: Mode
   return null;
 }
 
+/** Explains why one stopped native capture cannot be sent to the selected route. */
+export function recordedAudioUnavailableReason(model: ModelInfo | undefined): string | null {
+  if (!model) return "Choose an audio-capable model to send this recording.";
+  if (!model.capabilities.audio) return "The selected model does not advertise audio input support.";
+  if (model.providerId !== "openai" && model.providerId !== "omlx") {
+    return "The selected provider does not support Bottie's bounded audio content block.";
+  }
+  return null;
+}
+
 /** Summarizes draft attachment transmission without implying that documents are delivered. */
 export function composerAttachmentNote(attachments: Attachment[], model: ModelInfo | undefined): string {
   if (attachments.length === 0) return "Bottie can make mistakes. Check important information.";

@@ -6,21 +6,21 @@ use tauri::{State, ipc::Channel};
 use crate::{
     AppState,
     diagnostics::{record_diagnostic, sanitized},
+    generation_context::{
+        captured_audio_error, normalize_provider_request, request_with_attachment_context,
+    },
     generation_localmail_tools::{configured_localmail_tools, email_tools_enabled},
     generation_tools::stream_native_tools,
     generation_web_tools::{
         configured_web_fetch, configured_web_search, memory_tools_enabled, provider_tools_enabled,
         web_fetch_enabled, web_tools_enabled, with_web_citation_guidance,
     },
-    inference::{
-        ChatRequest, ChatRole, ChatRun, ChatTurn, ContentBlock, ImageMediaType, ProviderError,
-        ReasoningEffort, StreamEvent, Usage,
-    },
+    inference::{ChatRequest, ChatRun, ProviderError, ReasoningEffort, StreamEvent, Usage},
     provider_registry::{RoutedProvider, routed_provider},
     run_cancellation::ActiveRun,
     storage::{
-        ConversationStore, NewProviderRun, ProviderAttachmentContext, ProviderImageFormat,
-        ProviderRunContext, ProviderRunState, StoredReasoningEffort, StoredRole, StoredUsage,
+        ConversationStore, NewProviderRun, ProviderRunContext, ProviderRunState,
+        StoredReasoningEffort, StoredUsage,
     },
     stream_channel::ChannelSink,
     tool_loop::ToolLoopCancellation,
@@ -50,8 +50,8 @@ pub(crate) async fn start_chat(
         .conversations
         .start_provider_run(NewProviderRun {
             id: run_id.clone(),
-            conversation_id: context.conversation_id,
-            request_message_id: context.request_message_id,
+            conversation_id: context.conversation_id.clone(),
+            request_message_id: context.request_message_id.clone(),
             provider_id: request.provider_id.clone(),
             model_id: request.model_id.clone(),
             reasoning_effort: stored_reasoning_effort(request.settings.reasoning_effort),
@@ -110,6 +110,81 @@ pub(crate) async fn start_chat(
     let supports_vision = model_capabilities
         .as_ref()
         .is_some_and(|capabilities| capabilities.vision);
+    let supports_audio = model_capabilities
+        .as_ref()
+        .is_some_and(|capabilities| capabilities.audio)
+        && matches!(
+            &provider,
+            RoutedProvider::Omlx(_) | RoutedProvider::OpenAi(_)
+        );
+    let captured_audio = if request.audio_enabled || request.retain_audio {
+        if request.audio_enabled && !supports_audio {
+            let error = ProviderError::invalid_request(
+                "The selected model does not advertise compatible audio input support.",
+            );
+            finish_provider_run(
+                &state.conversations,
+                &run_id,
+                ProviderRunState::Failed,
+                Some(error.code.as_str()),
+                None,
+            )?;
+            return Err(error);
+        }
+        match state.microphone.captured_audio() {
+            Ok(audio) => Some(audio),
+            Err(error) => {
+                let error = captured_audio_error(error);
+                finish_provider_run(
+                    &state.conversations,
+                    &run_id,
+                    ProviderRunState::Failed,
+                    Some(error.code.as_str()),
+                    None,
+                )?;
+                return Err(error);
+            }
+        }
+    } else {
+        None
+    };
+    if request.retain_audio {
+        let Some(audio) = captured_audio.as_ref() else {
+            let error = ProviderError::invalid_request(
+                "Local audio retention requires a stopped recording.",
+            );
+            finish_provider_run(
+                &state.conversations,
+                &run_id,
+                ProviderRunState::Failed,
+                Some(error.code.as_str()),
+                None,
+            )?;
+            return Err(error);
+        };
+        let retained = state
+            .conversations
+            .ingest_native_audio(&audio.bytes)
+            .and_then(|attachment| {
+                state.conversations.associate_attachment_with_request(
+                    &context.conversation_id,
+                    &context.request_message_id,
+                    &attachment.id,
+                )
+            });
+        if let Err(error) = retained {
+            let error = provider_run_storage_error(error);
+            finish_provider_run(
+                &state.conversations,
+                &run_id,
+                ProviderRunState::Failed,
+                Some(error.code.as_str()),
+                None,
+            )?;
+            return Err(error);
+        }
+        state.attachment_processing.wake();
+    }
     let supports_memory_tools = memory_tools_enabled(
         request.memory_enabled,
         provider.provider_id(),
@@ -193,8 +268,15 @@ pub(crate) async fn start_chat(
     } else {
         Ok(attachment_context)
     };
+    let provider_audio = request
+        .audio_enabled
+        .then(|| captured_audio.clone())
+        .flatten();
+    let consumes_audio = request.audio_enabled || request.retain_audio;
     let mut request = match attachment_context
-        .and_then(|context| request_with_attachment_context(request, context, supports_vision))
+        .and_then(|context| {
+            request_with_attachment_context(request, context, supports_vision, provider_audio)
+        })
         .map(|request| with_web_citation_guidance(request, supports_web_tools))
     {
         Ok(request) => request,
@@ -236,6 +318,9 @@ pub(crate) async fn start_chat(
                 tool_cancellation: tool_cancellation.clone(),
             },
         );
+    }
+    if consumes_audio {
+        state.microphone.discard();
     }
 
     let runs = state.runs.clone();
@@ -366,92 +451,6 @@ pub(crate) async fn start_chat(
     });
 
     Ok(ChatRun { run_id })
-}
-
-/// Removes provider-neutral sampling defaults that Anthropic may reject before durable provenance is recorded.
-fn normalize_provider_request(mut request: ChatRequest) -> ChatRequest {
-    if request.provider_id == "anthropic" {
-        request.settings.temperature = None;
-    }
-    request
-}
-
-/// Reconciles WebView text with durable selected-lineage context and adds native images when allowed.
-fn request_with_attachment_context(
-    mut request: ChatRequest,
-    context: ProviderAttachmentContext,
-    supports_vision: bool,
-) -> Result<ChatRequest, ProviderError> {
-    let provided_request = request
-        .messages
-        .iter()
-        .rev()
-        .find(|turn| turn.role == ChatRole::User)
-        .map(text_for_turn);
-    let durable_request = context
-        .messages
-        .iter()
-        .rev()
-        .find(|message| message.role == StoredRole::User)
-        .map(|message| message.text.as_str());
-    if provided_request.as_deref() != durable_request {
-        return Err(ProviderError::invalid_request(
-            "The provider request no longer matches the selected conversation branch.",
-        ));
-    }
-    if context.current_request_has_image && !supports_vision {
-        return Err(ProviderError::invalid_request(
-            "The selected model is text-only. Choose a vision model or remove the image.",
-        ));
-    }
-    request.messages = context
-        .messages
-        .into_iter()
-        .map(|message| -> Result<ChatTurn, ProviderError> {
-            let mut content = vec![ContentBlock::Text { text: message.text }];
-            if supports_vision {
-                for image in message.images {
-                    content.push(ContentBlock::Image {
-                        media_type: match image.format {
-                            ProviderImageFormat::Jpeg => ImageMediaType::Jpeg,
-                            ProviderImageFormat::Png => ImageMediaType::Png,
-                        },
-                        bytes: image.bytes.ok_or_else(|| {
-                            ProviderError::internal(
-                                "A normalized image was unavailable for provider delivery.",
-                                None,
-                            )
-                        })?,
-                    });
-                }
-            }
-            Ok(ChatTurn {
-                role: chat_role(message.role),
-                content,
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(request)
-}
-
-/// Joins WebView-supplied text blocks while native image variants remain impossible to deserialize.
-fn text_for_turn(turn: &ChatTurn) -> String {
-    turn.content
-        .iter()
-        .filter_map(|block| match block {
-            ContentBlock::Text { text } => Some(text.as_str()),
-            ContentBlock::Image { .. } => None,
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-/// Maps the durable two-role schema into provider-neutral chat roles.
-fn chat_role(role: StoredRole) -> ChatRole {
-    match role {
-        StoredRole::User => ChatRole::User,
-        StoredRole::Assistant => ChatRole::Assistant,
-    }
 }
 
 /// Converts the provider-neutral reasoning setting to its durable representation.

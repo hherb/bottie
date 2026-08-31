@@ -25,6 +25,10 @@
     microphoneStatus: MicrophoneStatus;
     microphoneAvailable: boolean;
     microphoneWillInterrupt: boolean;
+    microphoneAudioAvailable: boolean;
+    microphoneAudioUnavailableReason: string;
+    microphoneSendAudio: boolean;
+    microphoneRetainAudio: boolean;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -39,6 +43,8 @@
     onstopmicrophone: () => void;
     ondiscardmicrophone: () => void;
     oncorrectmicrophone: (turnIndex: number, text: string) => void;
+    ontogglesendmicrophoneaudio: () => void;
+    ontoggleretainmicrophoneaudio: () => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -62,6 +68,10 @@
     microphoneStatus,
     microphoneAvailable,
     microphoneWillInterrupt,
+    microphoneAudioAvailable,
+    microphoneAudioUnavailableReason,
+    microphoneSendAudio,
+    microphoneRetainAudio,
     onprompt,
     oninput,
     onkeydown,
@@ -76,6 +86,8 @@
     onstopmicrophone,
     ondiscardmicrophone,
     oncorrectmicrophone,
+    ontogglesendmicrophoneaudio,
+    ontoggleretainmicrophoneaudio,
     oncomposerready,
     onattachmentinputready,
   }: Props = $props();
@@ -204,10 +216,16 @@
       status={microphoneStatus}
       disabled={!microphoneAvailable}
       willInterrupt={microphoneWillInterrupt}
+      audioAvailable={microphoneAudioAvailable}
+      audioUnavailableReason={microphoneAudioUnavailableReason}
+      sendAudio={microphoneSendAudio}
+      retainAudio={microphoneRetainAudio}
       onstart={onstartmicrophone}
       onstop={onstopmicrophone}
       ondiscard={ondiscardmicrophone}
       oncorrect={oncorrectmicrophone}
+      ontogglesendaudio={ontogglesendmicrophoneaudio}
+      ontoggleretainaudio={ontoggleretainmicrophoneaudio}
     />
   </div>
   <p id="composer-guidance" class="composer-note" aria-live="polite">

@@ -79,6 +79,7 @@ pub(super) fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, Provider
         .map(|model| {
             let capabilities = model.capabilities.unwrap_or_default();
             let vision = capabilities.iter().any(|capability| capability == "vision");
+            let audio = capabilities.iter().any(|capability| capability == "audio");
             let embeddings = capabilities
                 .iter()
                 .any(|capability| capability == "embeddings");
@@ -93,6 +94,7 @@ pub(super) fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, Provider
                     text: !embeddings,
                     streaming: true,
                     vision,
+                    audio,
                     embeddings,
                     ..ProviderCapabilities::default()
                 },

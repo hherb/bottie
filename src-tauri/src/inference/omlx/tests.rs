@@ -44,6 +44,8 @@ fn live_request(model_id: String, prompt: &str) -> ChatRequest {
         memory_enabled: false,
         web_enabled: false,
         email_enabled: false,
+        audio_enabled: false,
+        retain_audio: false,
         settings: ChatSettings {
             temperature: Some(0.0),
             max_output_tokens: Some(80),
@@ -77,7 +79,7 @@ fn accepts_only_loopback_endpoints() {
 fn decodes_live_model_list_shape() {
     let fixture = concat!(
         r#"{"object":"list","data":[{"id":"Qwen3.6-35B-A3B-8bit","#,
-        r#""object":"model","max_model_len":262144,"capabilities":["vision"]},"#,
+        r#""object":"model","max_model_len":262144,"capabilities":["vision","audio"]},"#,
         r#"{"id":"LFM2.5-8B-A1B-MLX-8bit","max_model_len":128000,"capabilities":null}]}"#,
     );
     let models = decode_model_list(fixture.as_bytes()).expect("model list should decode");
@@ -86,6 +88,7 @@ fn decodes_live_model_list_shape() {
     assert_eq!(models[0].max_context_tokens, Some(262_144));
     assert!(models[0].capabilities.streaming);
     assert!(models[0].capabilities.vision);
+    assert!(models[0].capabilities.audio);
     assert!(models[1].capabilities.text);
 }
 

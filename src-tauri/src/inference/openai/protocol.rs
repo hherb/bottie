@@ -112,6 +112,11 @@ impl OpenAiChatRequest {
                 None,
             ));
         }
+        for message in &mut self.messages {
+            if let Some(content) = &mut message.content {
+                content.remove_audio();
+            }
+        }
         self.messages.push(OpenAiTurn {
             role: "assistant",
             content: (!content.is_empty()).then_some(OpenAiContent::Text(content)),

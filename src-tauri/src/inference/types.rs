@@ -48,6 +48,8 @@ pub struct ProviderCapabilities {
     pub tools: bool,
     /// Whether the model accepts image content.
     pub vision: bool,
+    /// Whether the model accepts encoded audio input blocks.
+    pub audio: bool,
     /// Whether the model can create embeddings.
     pub embeddings: bool,
 }
@@ -71,6 +73,12 @@ pub struct ChatRequest {
     #[serde(default)]
     /// Whether this request may advertise Bottie's configured Localmail tools to a mapped provider.
     pub email_enabled: bool,
+    #[serde(default)]
+    /// Whether this request may consume the one stopped native microphone capture.
+    pub audio_enabled: bool,
+    #[serde(default)]
+    /// Whether consumed microphone audio should also become a local message attachment.
+    pub retain_audio: bool,
     #[serde(default)]
     /// Optional provider-neutral generation settings.
     pub settings: ChatSettings,
@@ -112,6 +120,21 @@ pub enum ContentBlock {
         /// Bounded derivative bytes that never cross into the WebView.
         bytes: Vec<u8>,
     },
+    #[serde(skip_deserializing)]
+    /// Bounded encoded audio prepared only from Rust-owned storage or capture state.
+    Audio {
+        /// Encoding forwarded to compatible provider wire formats.
+        media_type: AudioMediaType,
+        /// Native-only bytes that never cross into the WebView.
+        bytes: Vec<u8>,
+    },
+}
+
+/// Native audio encodings accepted by provider delivery.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AudioMediaType {
+    /// RIFF/WAVE PCM audio.
+    Wav,
 }
 
 /// Native image encodings accepted by provider delivery.
@@ -349,17 +372,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn webview_requests_cannot_inject_native_image_bytes() {
-        let request = serde_json::from_value::<ChatRequest>(serde_json::json!({
-            "providerId": "ollama",
-            "modelId": "vision-model",
-            "messages": [{
-                "role": "user",
-                "content": [{"type": "image", "mediaType": "png", "bytes": [1, 2, 3]}]
-            }]
-        }));
+    fn webview_requests_cannot_inject_native_media_bytes() {
+        for content in [
+            serde_json::json!({"type": "image", "mediaType": "png", "bytes": [1, 2, 3]}),
+            serde_json::json!({"type": "audio", "mediaType": "wav", "bytes": [1, 2, 3]}),
+        ] {
+            let request = serde_json::from_value::<ChatRequest>(serde_json::json!({
+                "providerId": "ollama",
+                "modelId": "multimodal-model",
+                "messages": [{"role": "user", "content": [content]}]
+            }));
 
-        assert!(request.is_err());
+            assert!(request.is_err());
+        }
     }
 
     #[test]

@@ -353,6 +353,8 @@ fn tool_request() -> ChatRequest {
         memory_enabled: true,
         web_enabled: false,
         email_enabled: false,
+        audio_enabled: false,
+        retain_audio: false,
         settings: ChatSettings {
             temperature: None,
             max_output_tokens: Some(128),
@@ -375,6 +377,8 @@ fn web_tool_request() -> ChatRequest {
         memory_enabled: false,
         web_enabled: true,
         email_enabled: false,
+        audio_enabled: false,
+        retain_audio: false,
         settings: ChatSettings {
             temperature: None,
             max_output_tokens: Some(128),

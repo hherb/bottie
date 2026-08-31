@@ -163,6 +163,7 @@ pub(super) fn capability_map(capabilities: &[String]) -> ProviderCapabilities {
         streaming: has("completion"),
         tools: has("tools"),
         vision: has("vision"),
+        audio: false,
         embeddings: has("embedding") || has("embeddings"),
     }
 }
@@ -247,6 +248,7 @@ impl From<ChatRequest> for OllamaChatRequest {
                         .filter_map(|block| match block {
                             ContentBlock::Image { bytes, .. } => Some(base64_image(bytes)),
                             ContentBlock::Text { .. } => None,
+                            ContentBlock::Audio { .. } => None,
                         })
                         .collect();
                     OllamaChatTurn {

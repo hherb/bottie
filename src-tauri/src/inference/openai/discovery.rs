@@ -48,6 +48,7 @@ pub(super) fn decode_model_list(bytes: &[u8]) -> Result<Vec<ModelInfo>, Provider
                     streaming: true,
                     tools: has("tools"),
                     vision: has("vision"),
+                    audio: has("audio"),
                     ..Default::default()
                 },
             }

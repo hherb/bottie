@@ -37,7 +37,7 @@ describe("page presentation", () => {
       displayName: "Model",
       maxContextTokens: null,
       loadState: "unknown" as const,
-      capabilities: { text: true, streaming: true, tools, vision: false, embeddings: false },
+      capabilities: { text: true, streaming: true, tools, vision: false, audio: false, embeddings: false },
     });
 
     expect(memoryToolsAvailable(model("ollama", true))).toBe(true);
