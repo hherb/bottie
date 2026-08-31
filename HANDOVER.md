@@ -684,7 +684,9 @@ release/update, dispatching a protected workflow, or resuming Store work.
    advertises `audio` input.
 2. Rust copies the already downmixed bounded PCM only after message persistence, encodes canonical little-endian mono
    PCM16 WAV, and adds one native-only provider-neutral audio block to the current user turn. OpenAI-shaped adapters
-   serialize `input_audio` with inline base64 WAV; Ollama and Anthropic remain audio-disabled.
+   serialize `input_audio` with inline base64 WAV only for the initial provider round. Before any native-tool
+   follow-up, they remove every audio part while retaining text, images, assistant calls, and correlated results.
+   Ollama and Anthropic remain audio-disabled.
 3. The WebView sends only the two booleans and continues to receive path-free capture status. It cannot deserialize an
    audio content block and receives no samples, WAV bytes, base64, hashes, paths, device identity, or provider payload.
 4. Optional retention writes the WAV directly from Rust into the existing content-addressed app-private attachment
@@ -698,8 +700,9 @@ release/update, dispatching a protected workflow, or resuming Store work.
 
 Focused native tests cover stopped/non-empty capture enforcement, deterministic mono PCM16 WAV headers and bounds,
 native-only request reconstruction, OpenAI `input_audio` serialization, explicit audio capability discovery, and
-association of a retained WAV with the exact active request across reopen. Frontend tests cover fail-closed model
-gating plus separate accessible send and retention controls and copy.
+association of a retained WAV with the exact active request across reopen. OpenAI and oMLX follow-up tests prove that
+audio is present initially and absent after a tool exchange without dropping text or images. Frontend tests cover
+fail-closed model gating plus separate accessible send and retention controls and copy.
 
 This slice does not add imported-audio delivery, generated-audio retention, transcript insertion, audio response
 blocks, automatic listening/playback, latency controls, acoustic echo handling, playback settings, input/output device
@@ -715,13 +718,15 @@ certification, or publication.
 - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` passed.
 - `cargo check --manifest-path src-tauri/Cargo.toml` passed; Cargo repeated the accepted future-incompatibility warning
   for `block v0.1.6`.
-- `cargo test --manifest-path src-tauri/Cargo.toml` passed: 435 tests passed and 33 opt-in/live tests were ignored.
+- `cargo test --manifest-path src-tauri/Cargo.toml` passed: 437 tests passed and 33 opt-in/live tests were ignored.
 - The development-only `?voice=audio-content` fixture was reviewed in the in-app browser at 1320x820 and 720x620.
   The controls and disclosure remained in bounds with no horizontal document overflow and no browser warnings or
   errors. Component tests cover the native-enabled toggle states because microphone actions stay disabled outside
   Tauri.
 - Review found and fixed a model-switch edge case: a selected delivery choice now remains dismissible after switching
   to an incompatible route, while submission stays blocked and the recovery copy remains explicit.
+- Codex review correctly identified that native-tool rounds reused the original audio-bearing request. OpenAI and oMLX
+  now strip one-shot audio before the first follow-up, preserving the explicit **sent once** disclosure.
 
 No credential-backed live oMLX/OpenAI audio request, microphone hardware capture, Windows/Linux native interaction,
 package, signing, release, or updater flow was run. Microsoft Store work remains explicitly deferred, and no protected

@@ -11,8 +11,17 @@ use super::types::ContentBlock;
 pub(super) enum OpenAiContent {
     /// Compact legacy representation retained for text-only requests.
     Text(String),
-    /// Ordered content parts used when a turn contains an image.
+    /// Ordered content parts used when a turn contains native media.
     Parts(Vec<OpenAiContentPart>),
+}
+
+impl OpenAiContent {
+    /// Removes one-shot audio before a provider tool follow-up while retaining text and images.
+    pub(super) fn remove_audio(&mut self) {
+        if let Self::Parts(parts) = self {
+            parts.retain(|part| !matches!(part, OpenAiContentPart::InputAudio { .. }));
+        }
+    }
 }
 
 /// One OpenAI Chat Completions content part.
