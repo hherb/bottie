@@ -4,8 +4,8 @@ Last verified: 2026-08-31
 
 ## Start here
 
-PR #125 is merged. The bounded local voice-latency status slice is implemented and reviewed on
-`codex/voice-latency-status` from synchronized `origin/main` commit `8aa571c`. Milestones 0–6 are complete;
+PR #125 is merged. Draft PR #126 contains the implemented and reviewed bounded local voice-latency status slice on
+`codex/voice-latency-status`, based on synchronized `origin/main` commit `8aa571c`. Milestones 0–6 are complete;
 Milestone 7 is the active roadmap work.
 
 The next session should implement only the bounded input-device-selection slice below. Do not replay completed slices
