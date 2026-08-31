@@ -1,8 +1,10 @@
 //! Bounded native microphone capture with path-free WebView status.
 
 mod audio;
+mod buffer;
 mod capture;
 mod correction;
+pub(crate) mod latency;
 mod transcription;
 mod vad;
 
@@ -13,16 +15,18 @@ use std::{
         mpsc::{self, Sender},
     },
     thread::{self, JoinHandle},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use cpal::{FromSample, Sample};
 use serde::Serialize;
 
 pub(crate) use audio::{CapturedAudio, CapturedAudioError, CapturedAudioFormat};
+use buffer::CaptureBuffer;
 use capture::capture_worker;
 use correction::MAX_TRANSCRIPT_TURN_BYTES;
 pub(crate) use correction::TranscriptCorrectionError;
+use latency::{MicrophoneLatency, MicrophoneLatencyTracker};
 use transcription::{
     RawTranscriptSegment, TranscriptSegment, TranscriptionErrorCode, TranscriptionJob,
     TranscriptionPhase, TranscriptionWorker,
@@ -100,6 +104,7 @@ pub(crate) struct MicrophoneStatus {
     transcript_segments: Vec<TranscriptSegment>,
     transcription_error_code: Option<TranscriptionErrorCode>,
     error_code: Option<MicrophoneErrorCode>,
+    latency: MicrophoneLatency,
 }
 
 /// Thread-safe controller for the one session-only native capture slot.
@@ -135,14 +140,7 @@ struct CaptureState {
     transcription_error_code: Option<TranscriptionErrorCode>,
     pending_transcription: Option<TranscriptionJob>,
     next_transcription_ms: u64,
-}
-
-struct CaptureBuffer {
-    samples: Vec<f32>,
-    sample_rate_hz: u32,
-    source_channels: u16,
-    max_samples: usize,
-    voice_detector: VoiceActivityDetector,
+    latency: MicrophoneLatencyTracker,
 }
 
 impl Default for MicrophoneController {
@@ -211,7 +209,13 @@ impl MicrophoneController {
     /// Stops an active stream while retaining its bounded samples in native memory.
     pub(crate) fn stop(&self) -> MicrophoneStatus {
         if let Some(commands) = lock(&self.worker).commands.as_ref() {
-            let _ = commands.send(CaptureCommand::Stop);
+            let mut state = lock(&self.shared);
+            let requested_at = Instant::now();
+            if state.phase == MicrophonePhase::Recording
+                && commands.send(CaptureCommand::Stop).is_ok()
+            {
+                state.latency.begin_finalization(requested_at);
+            }
         }
         self.status()
     }
@@ -229,6 +233,10 @@ impl MicrophoneController {
 
 impl CaptureState {
     fn begin_starting(&mut self) {
+        self.begin_starting_at(Instant::now());
+    }
+
+    fn begin_starting_at(&mut self, now: Instant) {
         self.capture_id = self.capture_id.wrapping_add(1);
         self.phase = MicrophonePhase::Starting;
         self.permission = MicrophonePermission::Prompt;
@@ -236,6 +244,7 @@ impl CaptureState {
         self.input_level = 0.0;
         self.error_code = None;
         self.clear_transcription(TranscriptionPhase::Idle);
+        self.latency.begin_capture(now);
     }
 
     fn begin_recording(&mut self, sample_rate_hz: u32, channels: u16) {
@@ -245,6 +254,14 @@ impl CaptureState {
         self.input_level = 0.0;
         self.error_code = None;
         self.clear_transcription(TranscriptionPhase::Listening);
+    }
+
+    fn mark_input_ready(&mut self) {
+        self.mark_input_ready_at(Instant::now());
+    }
+
+    fn mark_input_ready_at(&mut self, now: Instant) {
+        self.latency.mark_input_ready(now);
     }
 
     fn finish(&mut self) {
@@ -287,9 +304,16 @@ impl CaptureState {
     }
 
     fn schedule_transcription(&mut self, is_final: bool) -> bool {
+        self.schedule_transcription_at(is_final, Instant::now())
+    }
+
+    fn schedule_transcription_at(&mut self, is_final: bool, now: Instant) -> bool {
         let Some(buffer) = self.buffer.as_ref() else {
             return false;
         };
+        if is_final {
+            self.latency.begin_finalization(now);
+        }
         let duration_ms = buffer.duration_ms();
         if !is_final && duration_ms < self.next_transcription_ms {
             return false;
@@ -307,6 +331,7 @@ impl CaptureState {
             if is_final {
                 self.transcription_phase = TranscriptionPhase::Ready;
                 self.transcript_segments.clear();
+                self.latency.mark_final_transcript(now);
             }
             return false;
         };
@@ -334,6 +359,17 @@ impl CaptureState {
         is_final: bool,
         result: Result<Vec<RawTranscriptSegment>, TranscriptionErrorCode>,
     ) {
+        self.apply_transcription_at(capture_id, generation, is_final, result, Instant::now());
+    }
+
+    fn apply_transcription_at(
+        &mut self,
+        capture_id: u64,
+        generation: u64,
+        is_final: bool,
+        result: Result<Vec<RawTranscriptSegment>, TranscriptionErrorCode>,
+        now: Instant,
+    ) {
         if self.capture_id != capture_id || generation < self.applied_transcription_generation {
             return;
         }
@@ -341,11 +377,17 @@ impl CaptureState {
         match result {
             Ok(segments) => {
                 self.transcript_segments = transcription::bounded_segments(segments, is_final);
+                if !self.transcript_segments.is_empty() {
+                    self.latency.mark_first_transcript(now);
+                }
                 self.transcription_phase = if is_final {
                     TranscriptionPhase::Ready
                 } else {
                     TranscriptionPhase::Transcribing
                 };
+                if is_final {
+                    self.latency.mark_final_transcript(now);
+                }
                 self.transcription_error_code = None;
             }
             Err(code) => {
@@ -395,75 +437,8 @@ impl CaptureState {
             transcript_segments: self.transcript_segments.clone(),
             transcription_error_code: self.transcription_error_code,
             error_code: self.error_code,
+            latency: self.latency.summary(),
         }
-    }
-}
-
-impl CaptureBuffer {
-    fn new(sample_rate_hz: u32, source_channels: u16) -> Self {
-        Self::with_limits(
-            sample_rate_hz,
-            source_channels,
-            MAX_CAPTURE_DURATION,
-            MAX_RETAINED_BYTES,
-        )
-    }
-
-    fn with_limits(
-        sample_rate_hz: u32,
-        source_channels: u16,
-        duration: Duration,
-        max_bytes: usize,
-    ) -> Self {
-        let duration_samples = u64::from(sample_rate_hz)
-            .saturating_mul(duration.as_millis() as u64)
-            .saturating_div(1_000);
-        let max_samples = usize::try_from(duration_samples)
-            .unwrap_or(usize::MAX)
-            .min(max_bytes / FLOAT_SAMPLE_BYTES);
-        Self {
-            samples: Vec::with_capacity(max_samples),
-            sample_rate_hz,
-            source_channels,
-            max_samples,
-            voice_detector: VoiceActivityDetector::new(sample_rate_hz),
-        }
-    }
-
-    fn append<T>(&mut self, input: &[T]) -> f32
-    where
-        T: Copy + Sample,
-        f32: FromSample<T>,
-    {
-        let channels = usize::from(self.source_channels.max(1));
-        let remaining = self.max_samples.saturating_sub(self.samples.len());
-        let mut peak = 0.0_f32;
-        for frame in input.chunks_exact(channels).take(remaining) {
-            let mono = frame
-                .iter()
-                .map(|sample| f32::from_sample(*sample))
-                .sum::<f32>()
-                / channels as f32;
-            let mono = if mono.is_finite() {
-                mono.clamp(-1.0, 1.0)
-            } else {
-                0.0
-            };
-            peak = peak.max(mono.abs());
-            self.samples.push(mono);
-            self.voice_detector.push(mono);
-        }
-        peak
-    }
-
-    fn limit_reached(&self) -> bool {
-        self.samples.len() >= self.max_samples
-    }
-
-    fn duration_ms(&self) -> u64 {
-        (self.samples.len() as u64)
-            .saturating_mul(1_000)
-            .saturating_div(u64::from(self.sample_rate_hz.max(1)))
     }
 }
 

@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
+import { formatNativeLatency } from "$lib/latency";
+
 /** Path-free capture phase returned by Bottie's native microphone worker. */
 export type MicrophonePhase = "idle" | "starting" | "recording" | "captured" | "error";
 
@@ -54,6 +56,14 @@ export type MicrophoneStatus = {
   transcriptSegments: TranscriptSegment[];
   transcriptionErrorCode: TranscriptionErrorCode | null;
   errorCode: MicrophoneErrorCode | null;
+  latency: MicrophoneLatency;
+};
+
+/** Native-observable monotonic intervals for the current capture action. */
+export type MicrophoneLatency = {
+  inputReadyMs: number | null;
+  firstTranscriptMs: number | null;
+  finalTranscriptMs: number | null;
 };
 
 /** Initial disconnected-preview state before a native microphone request exists. */
@@ -72,6 +82,7 @@ export const INITIAL_MICROPHONE_STATUS: MicrophoneStatus = {
   transcriptSegments: [],
   transcriptionErrorCode: null,
   errorCode: null,
+  latency: { inputReadyMs: null, firstTranscriptMs: null, finalTranscriptMs: null },
 };
 
 /** Reads current native capture metadata without opening an input device. */
@@ -166,4 +177,31 @@ export function microphoneFeedback(status: MicrophoneStatus): string {
   }
   if (status.phase === "error") return "Voice capture stopped unexpectedly. Discard it and try again.";
   return "Microphone access is requested only when you choose Record voice.";
+}
+
+/** Describes only Rust-observed capture endpoints without implying physical audio latency. */
+export function microphoneLatencyFeedback(status: MicrophoneStatus): string | null {
+  if (status.phase === "idle" || status.phase === "error") return null;
+  const input = status.latency.inputReadyMs === null ? "measuring" : formatNativeLatency(status.latency.inputReadyMs);
+  const parts = [`Native timing`, `Input ready after Record: ${input}`];
+
+  if (status.phase !== "starting") {
+    const firstTranscript =
+      status.latency.firstTranscriptMs === null
+        ? status.transcriptionPhase === "ready"
+          ? "none available"
+          : "waiting"
+        : formatNativeLatency(status.latency.firstTranscriptMs);
+    parts.push(`First transcript after Record: ${firstTranscript}`);
+  }
+  if (status.phase === "captured") {
+    const finalTranscript =
+      status.latency.finalTranscriptMs === null
+        ? status.transcriptionPhase === "error"
+          ? "not available"
+          : "processing"
+        : formatNativeLatency(status.latency.finalTranscriptMs);
+    parts.push(`Final transcript after capture stopped: ${finalTranscript}`);
+  }
+  return parts.join(" · ");
 }

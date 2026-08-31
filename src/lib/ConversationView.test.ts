@@ -29,7 +29,12 @@ describe("ConversationView", () => {
         currentBranchId: null,
         speechAvailable: true,
         speechVoices: [{ id: "voice.en-au", name: "Karen", language: "en-AU" }],
-        speechStatus: { phase: "idle", selectedVoiceId: "voice.en-au", errorCode: null },
+        speechStatus: {
+          phase: "idle",
+          selectedVoiceId: "voice.en-au",
+          errorCode: null,
+          latency: { playbackAcceptedMs: null },
+        },
         speakingMessageId: null,
         microphoneCapturing: false,
         onretry: vi.fn(),
@@ -74,7 +79,12 @@ describe("ConversationView", () => {
         currentBranchId: null,
         speechAvailable: true,
         speechVoices: [{ id: "voice.en-au", name: "Karen", language: "en-AU" }],
-        speechStatus: { phase: "speaking", selectedVoiceId: "voice.en-au", errorCode: null },
+        speechStatus: {
+          phase: "speaking",
+          selectedVoiceId: "voice.en-au",
+          errorCode: null,
+          latency: { playbackAcceptedMs: 12 },
+        },
         speakingMessageId: 2,
         microphoneCapturing: false,
         onretry: vi.fn(),
@@ -93,6 +103,6 @@ describe("ConversationView", () => {
 
     expect(html.match(/aria-label="Play response aloud"/g)).toHaveLength(1);
     expect(html.match(/aria-label="Stop local playback"/g)).toHaveLength(1);
-    expect(html).toContain("Playing locally · use Stop to end playback");
+    expect(html).toContain("Playing locally · engine accepted playback in 12 ms · use Stop to end playback");
   });
 });

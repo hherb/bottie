@@ -12,6 +12,7 @@ const IDLE_STATUS: SpeechStatus = {
   phase: "idle",
   selectedVoiceId: "voice.en-au",
   errorCode: null,
+  latency: { playbackAcceptedMs: null },
 };
 
 describe("local speech presentation", () => {
@@ -32,7 +33,12 @@ describe("local speech presentation", () => {
 
   it("uses calm path-free feedback for idle, playing, and fixed errors", () => {
     expect(speechFeedback(IDLE_STATUS, 3)).toBe("3 local voices available · playback stays on this device");
-    expect(speechFeedback({ ...IDLE_STATUS, phase: "speaking" }, 3)).toBe("Playing locally · use Stop to end playback");
+    expect(speechFeedback({ ...IDLE_STATUS, phase: "speaking" }, 3)).toBe(
+      "Playing locally · native acceptance timing unavailable · use Stop to end playback",
+    );
+    expect(speechFeedback({ ...IDLE_STATUS, phase: "speaking", latency: { playbackAcceptedMs: 0 } }, 3)).toBe(
+      "Playing locally · engine accepted playback in <1 ms · use Stop to end playback",
+    );
     expect(speechFeedback({ ...IDLE_STATUS, phase: "error", errorCode: "unavailable" }, 0)).toBe(
       "Local voices are unavailable on this device.",
     );

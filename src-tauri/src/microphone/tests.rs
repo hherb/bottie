@@ -6,6 +6,89 @@ use cpal::ErrorKind;
 const TRANSCRIPT_TEXT_LIMIT: usize = 4_000;
 
 #[test]
+fn reports_exact_session_latency_endpoints_and_saturates_milliseconds() {
+    let requested_at = std::time::Instant::now();
+    let mut state = CaptureState::default();
+    state.begin_starting_at(requested_at);
+    state.begin_recording(16_000, 1);
+    state.mark_input_ready_at(requested_at + Duration::from_millis(18));
+    state.append(&vec![0.5_f32; 24_000]);
+
+    assert!(state.schedule_transcription_at(false, requested_at + Duration::from_millis(1_500)));
+    let partial_generation = state.transcription_generation;
+    state.apply_transcription_at(
+        state.capture_id,
+        partial_generation,
+        false,
+        Ok(vec![RawTranscriptSegment {
+            text: "first words".into(),
+            start_ms: 60,
+            end_ms: 1_200,
+        }]),
+        requested_at + Duration::from_millis(1_725),
+    );
+
+    state.finish();
+    assert!(state.schedule_transcription_at(true, requested_at + Duration::from_millis(2_000)));
+    let final_generation = state.transcription_generation;
+    state.apply_transcription_at(
+        state.capture_id,
+        final_generation,
+        true,
+        Ok(vec![RawTranscriptSegment {
+            text: "final words".into(),
+            start_ms: 60,
+            end_ms: 1_200,
+        }]),
+        requested_at + Duration::from_millis(2_245),
+    );
+
+    let status = state.status();
+    assert_eq!(status.latency.input_ready_ms, Some(18));
+    assert_eq!(status.latency.first_transcript_ms, Some(1_725));
+    assert_eq!(status.latency.final_transcript_ms, Some(245));
+    assert_eq!(
+        serde_json::to_value(&status).unwrap()["latency"],
+        serde_json::json!({
+            "inputReadyMs": 18,
+            "firstTranscriptMs": 1_725,
+            "finalTranscriptMs": 245,
+        }),
+    );
+    assert_eq!(
+        super::latency::bounded_milliseconds(Duration::from_millis(u64::MAX)),
+        u32::MAX,
+    );
+}
+
+#[test]
+fn ignores_stale_latency_endpoints_and_clears_measurements_on_reset() {
+    let requested_at = std::time::Instant::now();
+    let mut state = CaptureState::default();
+    state.begin_starting_at(requested_at);
+    state.begin_recording(16_000, 1);
+    state.mark_input_ready_at(requested_at + Duration::from_millis(9));
+    state.apply_transcription_at(
+        state.capture_id.wrapping_add(1),
+        1,
+        false,
+        Ok(vec![RawTranscriptSegment {
+            text: "stale words".into(),
+            start_ms: 0,
+            end_ms: 100,
+        }]),
+        requested_at + Duration::from_millis(400),
+    );
+
+    assert_eq!(state.status().latency.input_ready_ms, Some(9));
+    assert_eq!(state.status().latency.first_transcript_ms, None);
+    state.begin_starting_at(requested_at + Duration::from_secs(1));
+    assert_eq!(state.status().latency, MicrophoneLatency::default());
+    state.reset();
+    assert_eq!(state.status().latency, MicrophoneLatency::default());
+}
+
+#[test]
 fn encodes_captured_mono_pcm_as_bounded_wav_without_exposing_samples() {
     let mut state = CaptureState::default();
     state.begin_recording(16_000, 2);
@@ -90,6 +173,7 @@ fn downmixes_pcm_and_reports_only_bounded_metadata() {
             "durationMs",
             "errorCode",
             "inputLevel",
+            "latency",
             "maxDurationMs",
             "permission",
             "phase",

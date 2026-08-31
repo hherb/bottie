@@ -30,7 +30,12 @@ describe("PageState message submission", () => {
     state.providerStatus = "available";
     state.models = [LOCAL_MODEL];
     state.selectedModelKey = modelKey(LOCAL_MODEL);
-    state.speech.status = { phase: "speaking", selectedVoiceId: "local-voice-001", errorCode: null };
+    state.speech.status = {
+      phase: "speaking",
+      selectedVoiceId: "local-voice-001",
+      errorCode: null,
+      latency: { playbackAcceptedMs: 12 },
+    };
 
     let resolveStop = () => {};
     const stop = vi.spyOn(state.speech, "stop").mockImplementation(
@@ -58,7 +63,12 @@ describe("PageState voice barge-in", () => {
   it("requests generation cancellation before awaiting playback shutdown and capture", async () => {
     const state = new PageState();
     state.isGenerating = true;
-    state.speech.status = { phase: "speaking", selectedVoiceId: "local-voice-001", errorCode: null };
+    state.speech.status = {
+      phase: "speaking",
+      selectedVoiceId: "local-voice-001",
+      errorCode: null,
+      latency: { playbackAcceptedMs: 12 },
+    };
 
     const order: string[] = [];
     const cancel = vi.spyOn(state, "stopGenerating").mockImplementation(() => {
@@ -88,7 +98,12 @@ describe("PageState voice barge-in", () => {
 
   it("keeps capture fail-closed when local playback cannot be stopped", async () => {
     const state = new PageState();
-    state.speech.status = { phase: "speaking", selectedVoiceId: "local-voice-001", errorCode: null };
+    state.speech.status = {
+      phase: "speaking",
+      selectedVoiceId: "local-voice-001",
+      errorCode: null,
+      latency: { playbackAcceptedMs: 12 },
+    };
     vi.spyOn(state.speech, "stop").mockResolvedValue(false);
     const capture = vi.spyOn(state.microphone, "start").mockResolvedValue();
 

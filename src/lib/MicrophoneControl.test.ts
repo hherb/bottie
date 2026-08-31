@@ -19,6 +19,7 @@ const IDLE_STATUS: MicrophoneStatus = {
   transcriptSegments: [],
   transcriptionErrorCode: null,
   errorCode: null,
+  latency: { inputReadyMs: null, firstTranscriptMs: null, finalTranscriptMs: null },
 };
 
 /** Renders the microphone control with inert actions and one path-free native status. */
@@ -193,5 +194,21 @@ describe("MicrophoneControl", () => {
     expect(html).toContain("Preparing the local speech model");
     expect(html).toMatch(/aria-label="Record voice locally"[^>]*disabled/);
     expect(html).toContain('aria-label="Discard voice capture"');
+  });
+
+  it("renders a restrained accessible native timing summary", () => {
+    const html = rendered({
+      ...IDLE_STATUS,
+      phase: "captured",
+      permission: "granted",
+      transcriptionPhase: "ready",
+      latency: { inputReadyMs: 18, firstTranscriptMs: 1_725, finalTranscriptMs: 245 },
+    });
+
+    expect(html).toContain('aria-label="Local voice timing"');
+    expect(html).toContain("Input ready after Record: 18 ms");
+    expect(html).toContain("First transcript after Record: 1.73 s");
+    expect(html).toContain("Final transcript after capture stopped: 245 ms");
+    expect(html).not.toMatch(/first sample|first token|audible/i);
   });
 });

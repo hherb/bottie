@@ -25,7 +25,12 @@ export function applyVoicePreview(state: PageState, search: string): boolean {
         { id: "voice.en-gb", name: "Daniel", language: "en-GB" },
         { id: "voice.fr-fr", name: "Thomas", language: "fr-FR" },
       ],
-      { phase: "speaking", selectedVoiceId: "voice.en-au", errorCode: null },
+      {
+        phase: "speaking",
+        selectedVoiceId: "voice.en-au",
+        errorCode: null,
+        latency: { playbackAcceptedMs: 14 },
+      },
     );
     return true;
   }
@@ -77,6 +82,7 @@ export function applyVoicePreview(state: PageState, search: string): boolean {
     ],
     transcriptionErrorCode: null,
     errorCode: null,
+    latency: { inputReadyMs: 18, firstTranscriptMs: 1_725, finalTranscriptMs: 245 },
   };
   return true;
 }

@@ -46,6 +46,7 @@ pub(super) fn capture_worker(
         lock(&shared).fail(error_code(error.kind()));
         return;
     }
+    lock(&shared).mark_input_ready();
 
     let discard = loop {
         if lock(&shared).phase == super::MicrophonePhase::Error || lock(&shared).limit_reached() {

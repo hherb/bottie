@@ -243,6 +243,13 @@ textarea:disabled {
 .microphone-feedback.error {
   color: #d89a91;
 }
+.voice-latency {
+  margin: -4px 10px 8px;
+  color: color-mix(in srgb, var(--subtle-text) 88%, var(--cyan));
+  font-size: 8px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 
 .audio-delivery {
   display: flex;
