@@ -92,6 +92,15 @@ correction field; Rust accepts only non-blank replacements of at most 512 UTF-8 
 and 4,000-byte transcript ceiling. Corrected turns are visibly marked. Partial turns cannot be edited, and corrections
 remain only in the same native session slot.
 
+The same session status shows four bounded monotonic intervals that Rust can observe directly: native receipt of
+**Record** until the input stream reports a successful start, the same Record anchor until the first non-empty local
+transcript is applied, native capture-stop handling until the final transcript is applied, and **Play response aloud**
+handling until the local speech engine accepts the playback command. These are not first-sample, first-token, or
+audible-output measurements. Missing work is shown as waiting, processing, unavailable, or no transcript rather than
+zero. Starting a replacement action clears earlier measurements; Discard, accepted audio consumption, playback stop,
+natural playback completion, and failures clear the relevant session timing. Timing is never persisted or sent to a
+provider.
+
 **Stop** retains the capture and final transcript only until they are discarded, replaced, explicitly consumed, or
 Bottie exits;
 **Discard** clears the retained capture, pending snapshot, and visible transcript immediately. If one native inference

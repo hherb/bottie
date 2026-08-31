@@ -1,6 +1,9 @@
 //! Bounded Rust-owned local text-to-speech orchestration.
 
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    sync::{Mutex, MutexGuard},
+    time::Instant,
+};
 
 use serde::Serialize;
 
@@ -73,6 +76,15 @@ pub(crate) struct SpeechStatus {
     phase: SpeechPhase,
     selected_voice_id: Option<String>,
     error_code: Option<SpeechErrorCode>,
+    latency: SpeechLatency,
+}
+
+/// Small path-free summary of the playback endpoint Rust can observe.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SpeechLatency {
+    /// Play request until the native engine accepts the utterance command.
+    playback_accepted_ms: Option<u32>,
 }
 
 /// Narrow engine surface kept behind Bottie's controller for deterministic tests.
@@ -97,6 +109,7 @@ struct SpeechState {
     playback_may_be_active: bool,
     phase: SpeechPhase,
     error_code: Option<SpeechErrorCode>,
+    latency: SpeechLatency,
 }
 
 impl Default for SpeechController {
@@ -117,6 +130,7 @@ impl Default for SpeechState {
             playback_may_be_active: false,
             phase: SpeechPhase::Idle,
             error_code: None,
+            latency: SpeechLatency::default(),
         }
     }
 }
@@ -169,8 +183,18 @@ impl SpeechController {
 
     /// Plays one bounded text payload locally, interrupting only earlier Bottie speech.
     pub(crate) fn speak(&self, text: &str) -> Result<SpeechStatus, SpeechCommandError> {
+        self.speak_with_clock(text, Instant::now)
+    }
+
+    fn speak_with_clock(
+        &self,
+        text: &str,
+        mut now: impl FnMut() -> Instant,
+    ) -> Result<SpeechStatus, SpeechCommandError> {
+        let requested_at = now();
         let text = validated_speech_text(text)?;
         let mut state = lock(&self.shared);
+        state.latency = SpeechLatency::default();
         state.ensure_ready()?;
         state.playback_may_be_active = true;
         state
@@ -179,6 +203,10 @@ impl SpeechController {
             .expect("a ready speech state has a backend")
             .speak(&text)
             .map_err(|code| state.fail_command(code))?;
+        state.latency.playback_accepted_ms =
+            Some(crate::microphone::latency::bounded_milliseconds(
+                now().saturating_duration_since(requested_at),
+            ));
         state.phase = SpeechPhase::Speaking;
         state.error_code = None;
         Ok(state.status())
@@ -196,6 +224,7 @@ impl SpeechController {
         if !state.playback_may_be_active {
             state.phase = SpeechPhase::Idle;
             state.error_code = None;
+            state.latency = SpeechLatency::default();
             return Ok(());
         }
         if let Some(backend) = state.backend.as_mut() {
@@ -206,6 +235,7 @@ impl SpeechController {
         state.playback_may_be_active = false;
         state.phase = SpeechPhase::Idle;
         state.error_code = None;
+        state.latency = SpeechLatency::default();
         Ok(())
     }
 
@@ -235,6 +265,7 @@ impl SpeechState {
                 self.playback_may_be_active = false;
                 self.phase = SpeechPhase::Idle;
                 self.error_code = None;
+                self.latency = SpeechLatency::default();
             }
             Some(Err(code)) => self.fail(code),
             None => self.fail(SpeechErrorCode::Unavailable),
@@ -289,12 +320,14 @@ impl SpeechState {
             phase: self.phase,
             selected_voice_id: self.selected_voice_id.clone(),
             error_code: self.error_code,
+            latency: self.latency,
         }
     }
 
     fn fail(&mut self, code: SpeechErrorCode) {
         self.phase = SpeechPhase::Error;
         self.error_code = Some(code);
+        self.latency = SpeechLatency::default();
     }
 
     fn fail_command(&mut self, code: SpeechErrorCode) -> SpeechCommandError {

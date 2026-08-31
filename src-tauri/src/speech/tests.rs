@@ -112,6 +112,52 @@ fn controller_selects_voices_plays_and_stops_without_echoing_text() {
 }
 
 #[test]
+fn reports_engine_acceptance_without_claiming_audible_output_and_clears_it_on_stop() {
+    let controller = SpeechController::with_backend(Box::new(RecordingBackend::default()));
+    let requested_at = std::time::Instant::now();
+    let mut observations = [
+        requested_at,
+        requested_at + std::time::Duration::from_millis(14),
+    ]
+    .into_iter();
+
+    let speaking = controller
+        .speak_with_clock("Measure only native acceptance.", || {
+            observations.next().unwrap()
+        })
+        .unwrap();
+    assert_eq!(speaking.latency.playback_accepted_ms, Some(14));
+    assert_eq!(
+        serde_json::to_value(&speaking).unwrap()["latency"],
+        serde_json::json!({"playbackAcceptedMs": 14}),
+    );
+
+    let stopped = controller.stop();
+    assert_eq!(stopped.latency, SpeechLatency::default());
+}
+
+#[test]
+fn clears_engine_acceptance_when_polling_observes_natural_completion() {
+    let backend = RecordingBackend::default();
+    let record = backend.record.clone();
+    let controller = SpeechController::with_backend(Box::new(backend));
+    controller.list_voices().unwrap();
+    assert!(
+        controller
+            .speak("Finish naturally.")
+            .unwrap()
+            .latency
+            .playback_accepted_ms
+            .is_some()
+    );
+
+    record.lock().unwrap().speaking = false;
+    let completed = controller.status();
+    assert_eq!(completed.phase, SpeechPhase::Idle);
+    assert_eq!(completed.latency, SpeechLatency::default());
+}
+
+#[test]
 fn rejected_voice_and_text_leave_existing_selection_unchanged() {
     let controller = SpeechController::with_backend(Box::new(RecordingBackend::default()));
     controller.list_voices().unwrap();

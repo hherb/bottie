@@ -3,6 +3,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import MarkdownIt from "markdown-it";
 
+import { formatNativeLatency } from "$lib/latency";
+
 /** Exact UTF-8 ceiling enforced again by the native speech controller. */
 export const MAX_SPEECH_TEXT_BYTES = 32 * 1_024;
 
@@ -24,6 +26,12 @@ export type SpeechStatus = {
   phase: SpeechPhase;
   selectedVoiceId: string | null;
   errorCode: SpeechErrorCode | null;
+  latency: SpeechLatency;
+};
+
+/** Native-observable timing for the current explicit playback action. */
+export type SpeechLatency = {
+  playbackAcceptedMs: number | null;
 };
 
 /** Initial state before native voice discovery is explicitly requested. */
@@ -31,6 +39,7 @@ export const INITIAL_SPEECH_STATUS: SpeechStatus = {
   phase: "idle",
   selectedVoiceId: null,
   errorCode: null,
+  latency: { playbackAcceptedMs: null },
 };
 
 type SpeechToken = {
@@ -103,7 +112,12 @@ export async function stopSpeech(): Promise<SpeechStatus> {
 
 /** Builds calm user-facing local playback feedback from fixed path-free state. */
 export function speechFeedback(status: SpeechStatus, voiceCount: number): string {
-  if (status.phase === "speaking") return "Playing locally · use Stop to end playback";
+  if (status.phase === "speaking") {
+    const accepted = status.latency.playbackAcceptedMs;
+    return accepted === null
+      ? "Playing locally · native acceptance timing unavailable · use Stop to end playback"
+      : `Playing locally · engine accepted playback in ${formatNativeLatency(accepted)} · use Stop to end playback`;
+  }
   if (status.errorCode === "unavailable") return "Local voices are unavailable on this device.";
   if (status.errorCode === "playback_failed") return "Local playback failed. Choose another voice and try again.";
   return `${voiceCount} local ${voiceCount === 1 ? "voice" : "voices"} available · playback stays on this device`;

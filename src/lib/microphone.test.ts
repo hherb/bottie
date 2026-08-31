@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatMicrophoneDuration,
+  microphoneLatencyFeedback,
   microphoneFeedback,
   normalizeTranscriptCorrection,
   type MicrophoneStatus,
@@ -22,6 +23,7 @@ const IDLE_STATUS: MicrophoneStatus = {
   transcriptSegments: [],
   transcriptionErrorCode: null,
   errorCode: null,
+  latency: { inputReadyMs: null, firstTranscriptMs: null, finalTranscriptMs: null },
 };
 
 describe("microphone presentation", () => {
@@ -36,6 +38,27 @@ describe("microphone presentation", () => {
     expect(formatMicrophoneDuration(0)).toBe("0:00");
     expect(formatMicrophoneDuration(3_420)).toBe("0:03");
     expect(formatMicrophoneDuration(60_000)).toBe("1:00");
+  });
+
+  it("labels only observable native timing endpoints and never renders missing values as zero", () => {
+    expect(
+      microphoneLatencyFeedback({
+        ...IDLE_STATUS,
+        phase: "recording",
+        latency: { inputReadyMs: 18, firstTranscriptMs: null, finalTranscriptMs: null },
+      }),
+    ).toBe("Native timing · Input ready after Record: 18 ms · First transcript after Record: waiting");
+    expect(
+      microphoneLatencyFeedback({
+        ...IDLE_STATUS,
+        phase: "captured",
+        transcriptionPhase: "ready",
+        latency: { inputReadyMs: 0, firstTranscriptMs: 1_725, finalTranscriptMs: 245 },
+      }),
+    ).toBe(
+      "Native timing · Input ready after Record: <1 ms · First transcript after Record: 1.73 s · Final transcript after capture stopped: 245 ms",
+    );
+    expect(microphoneLatencyFeedback(IDLE_STATUS)).toBeNull();
   });
 
   it("describes explicit permission, active capture, and session-only retention", () => {

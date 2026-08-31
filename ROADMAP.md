@@ -324,10 +324,13 @@ Outcome: users can hold interruptible, private voice conversations without requi
   durable cancellation boundary, and serializes new generation registration against native capture;
 - [x] provider-neutral native-only audio content blocks plus separate off-by-default provider delivery and app-private
   WAV retention choices;
-- [ ] latency, device selection, and acoustic feedback controls;
+- [x] bounded session-only native latency status for input readiness, first/final local transcript availability, and
+  local speech-engine acceptance, labelled by observable endpoints rather than acoustic claims;
+- [ ] device selection and acoustic feedback controls;
 - [ ] full text fallback and accessibility support.
 
-Voice should reuse the same provider, content-block, event, persistence, and cancellation models established in earlier milestones.
+Voice should reuse the same provider, content-block, event, persistence, and cancellation models established in
+earlier milestones.
 
 ## Cross-cutting definition of done
 

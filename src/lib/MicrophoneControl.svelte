@@ -4,6 +4,7 @@
     formatMicrophoneDuration,
     MAX_TRANSCRIPT_TURN_BYTES,
     microphoneFeedback,
+    microphoneLatencyFeedback,
     normalizeTranscriptCorrection,
     type MicrophoneStatus,
   } from "$lib/microphone";
@@ -46,6 +47,7 @@
   );
   const hasError = $derived(status.phase === "error" || status.transcriptionPhase === "error");
   const levelPercent = $derived(Math.round(Math.max(0, Math.min(1, status.inputLevel)) * 100));
+  const latencyFeedback = $derived(microphoneLatencyFeedback(status));
 </script>
 
 <div class="microphone-control">
@@ -93,6 +95,10 @@
 <p class:error={hasError} class="microphone-feedback" role={hasError ? "alert" : "status"}>
   {microphoneFeedback(status)}
 </p>
+
+{#if latencyFeedback}
+  <p class="voice-latency" aria-label="Local voice timing">{latencyFeedback}</p>
+{/if}
 
 {#if status.phase === "captured"}
   <div class="audio-delivery" aria-label="Recording delivery choices">
