@@ -3,6 +3,7 @@
   import {
     formatMicrophoneDuration,
     MAX_TRANSCRIPT_TURN_BYTES,
+    canUseTranscriptAsText,
     microphoneFeedback,
     microphoneLatencyFeedback,
     normalizeTranscriptCorrection,
@@ -29,6 +30,9 @@
     ontoggleretainaudio,
     onloaddevices,
     onselectdevice,
+    onusetext,
+    transcriptDraftFeedback,
+    transcriptDraftError,
   }: {
     status: MicrophoneStatus;
     disabled: boolean;
@@ -48,6 +52,9 @@
     ontoggleretainaudio: () => void;
     onloaddevices: () => void;
     onselectdevice: (token: string) => void;
+    onusetext: () => void;
+    transcriptDraftFeedback: string;
+    transcriptDraftError: boolean;
   } = $props();
 
   const busy = $derived(
@@ -64,6 +71,7 @@
     `${availableDeviceCount} ${availableDeviceCount === 1 ? "microphone" : "microphones"} available · ` +
       "selection stays only for this app session",
   );
+  const transcriptCanBecomeText = $derived(canUseTranscriptAsText(status));
 </script>
 
 <div class="microphone-control">
@@ -240,4 +248,24 @@
       </li>
     {/each}
   </ol>
+{/if}
+
+{#if transcriptCanBecomeText}
+  <div class="transcript-draft-action">
+    <button aria-label="Use final transcript as an editable text draft" onclick={onusetext}>
+      Use transcript as text
+    </button>
+    <span>Copies the visible turns. Audio and transcript stay available.</span>
+  </div>
+{/if}
+
+{#if transcriptDraftFeedback}
+  <p
+    id="transcript-draft-feedback"
+    class:error={transcriptDraftError}
+    class="transcript-draft-feedback"
+    role={transcriptDraftError ? "alert" : "status"}
+  >
+    {transcriptDraftFeedback}
+  </p>
 {/if}

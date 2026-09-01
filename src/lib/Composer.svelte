@@ -32,6 +32,8 @@
     microphoneDeviceList: MicrophoneInputDeviceList;
     microphoneDevicesLoaded: boolean;
     microphoneDeviceListFailed: boolean;
+    microphoneTranscriptDraftFeedback: string;
+    microphoneTranscriptDraftError: boolean;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -50,6 +52,7 @@
     ontoggleretainmicrophoneaudio: () => void;
     onloadmicrophonedevices: () => void;
     onselectmicrophonedevice: (token: string) => void;
+    onusemicrophonetranscript: () => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -80,6 +83,8 @@
     microphoneDeviceList,
     microphoneDevicesLoaded,
     microphoneDeviceListFailed,
+    microphoneTranscriptDraftFeedback,
+    microphoneTranscriptDraftError,
     onprompt,
     oninput,
     onkeydown,
@@ -98,6 +103,7 @@
     ontoggleretainmicrophoneaudio,
     onloadmicrophonedevices,
     onselectmicrophonedevice,
+    onusemicrophonetranscript,
     oncomposerready,
     onattachmentinputready,
   }: Props = $props();
@@ -241,6 +247,9 @@
       ontoggleretainaudio={ontoggleretainmicrophoneaudio}
       onloaddevices={onloadmicrophonedevices}
       onselectdevice={onselectmicrophonedevice}
+      onusetext={onusemicrophonetranscript}
+      transcriptDraftFeedback={microphoneTranscriptDraftFeedback}
+      transcriptDraftError={microphoneTranscriptDraftError}
     />
   </div>
   <p id="composer-guidance" class="composer-note" aria-live="polite">

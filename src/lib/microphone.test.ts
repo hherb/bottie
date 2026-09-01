@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildTranscriptComposerDraft,
   formatMicrophoneDuration,
+  MAX_COMPOSER_DRAFT_BYTES,
   microphoneLatencyFeedback,
   microphoneFeedback,
   normalizeTranscriptCorrection,
@@ -27,6 +29,83 @@ const IDLE_STATUS: MicrophoneStatus = {
 };
 
 describe("microphone presentation", () => {
+  it("builds a composer draft only from ordered final ready turns, including corrections", () => {
+    const status: MicrophoneStatus = {
+      ...IDLE_STATUS,
+      phase: "captured",
+      transcriptionPhase: "ready",
+      transcriptSegments: [
+        { text: "First turn", startMs: 0, endMs: 800, isFinal: true, isCorrected: false },
+        { text: "Corrected second turn", startMs: 900, endMs: 1_600, isFinal: true, isCorrected: true },
+      ],
+    };
+
+    expect(buildTranscriptComposerDraft("", status)).toEqual({
+      ok: true,
+      draft: "First turn\nCorrected second turn",
+      mode: "inserted",
+    });
+    expect(buildTranscriptComposerDraft("Existing draft", status)).toEqual({
+      ok: true,
+      draft: "Existing draft\n\nFirst turn\nCorrected second turn",
+      mode: "appended",
+    });
+  });
+
+  it("keeps repeated transcript actions explicit and deterministic", () => {
+    const status: MicrophoneStatus = {
+      ...IDLE_STATUS,
+      phase: "captured",
+      transcriptionPhase: "ready",
+      transcriptSegments: [{ text: "Use me", startMs: 0, endMs: 800, isFinal: true, isCorrected: false }],
+    };
+    const first = buildTranscriptComposerDraft("", status);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+
+    expect(buildTranscriptComposerDraft(first.draft, status)).toEqual({
+      ok: true,
+      draft: "Use me\n\nUse me",
+      mode: "appended",
+    });
+  });
+
+  it("rejects unavailable, empty, partial, stale, and over-limit transcript transfers", () => {
+    const ready: MicrophoneStatus = {
+      ...IDLE_STATUS,
+      phase: "captured",
+      transcriptionPhase: "ready",
+      transcriptSegments: [{ text: "Ready", startMs: 0, endMs: 800, isFinal: true, isCorrected: false }],
+    };
+
+    expect(buildTranscriptComposerDraft("", IDLE_STATUS)).toEqual({ ok: false, reason: "unavailable" });
+    expect(buildTranscriptComposerDraft("", { ...ready, transcriptSegments: [] })).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
+    expect(
+      buildTranscriptComposerDraft("", {
+        ...ready,
+        transcriptSegments: [{ ...ready.transcriptSegments[0], text: "   " }],
+      }),
+    ).toEqual({ ok: false, reason: "unavailable" });
+    expect(
+      buildTranscriptComposerDraft("", {
+        ...ready,
+        transcriptSegments: [{ ...ready.transcriptSegments[0], isFinal: false }],
+      }),
+    ).toEqual({ ok: false, reason: "unavailable" });
+    expect(buildTranscriptComposerDraft("", { ...ready, phase: "recording" })).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
+    expect(buildTranscriptComposerDraft("a".repeat(MAX_COMPOSER_DRAFT_BYTES - 7), ready).ok).toBe(true);
+    expect(buildTranscriptComposerDraft("é".repeat(MAX_COMPOSER_DRAFT_BYTES / 2), ready)).toEqual({
+      ok: false,
+      reason: "limit_exceeded",
+    });
+  });
+
   it("normalizes transcript corrections within the shared UTF-8 boundary", () => {
     expect(normalizeTranscriptCorrection("  corrected turn  ")).toBe("corrected turn");
     expect(normalizeTranscriptCorrection("   ")).toBeNull();

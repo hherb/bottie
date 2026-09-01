@@ -4,6 +4,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
 import { DEFAULT_APPEARANCE, type AppearancePreferences } from "$lib/appearance";
+import { buildTranscriptComposerDraft, canUseTranscriptAsText } from "$lib/microphone";
 import {
   chatTurnsForMessages,
   completionMeta,
@@ -81,6 +82,8 @@ export class PageState {
   providerError = $state<ProviderError | null>(null);
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
+  microphoneTranscriptDraftFeedback = $state("");
+  microphoneTranscriptDraftError = $state(false);
   tools = new ToolPreferenceState();
   memory = this.tools.memory;
   web = this.tools.web;
@@ -104,6 +107,13 @@ export class PageState {
   /** Whether the current provider and model selection can accept a message. */
   get canSend(): boolean {
     return this.providerStatus === "available" && Boolean(this.selectedModel) && !this.isPersistingMessage;
+  }
+  /** Whether the current local draft can remain editable independently from provider send readiness. */
+  get canCompose(): boolean {
+    return (
+      !this.isPersistingMessage &&
+      (this.canSend || this.prompt.length > 0 || canUseTranscriptAsText(this.microphone.status))
+    );
   }
   /** Whether every current image has a ready derivative and an explicitly vision-capable route. */
   get attachmentsCanSubmit(): boolean {
@@ -521,9 +531,43 @@ export class PageState {
   /** Interrupts active Bottie output before starting one explicit local voice capture. */
   async startMicrophoneCapture(): Promise<void> {
     if (this.microphone.isActive) return;
+    this.clearMicrophoneTranscriptDraftFeedback();
     if (this.isGenerating) this.stopGenerating();
     if (this.speech.status.phase === "speaking" && !(await this.speech.stop())) return;
     await this.microphone.start();
+  }
+  /** Copies the current visible final transcript into the editable unsent composer draft. */
+  useMicrophoneTranscriptAsText(): void {
+    const result = buildTranscriptComposerDraft(this.prompt, this.microphone.status);
+    if (!result.ok) {
+      this.microphoneTranscriptDraftError = true;
+      this.microphoneTranscriptDraftFeedback =
+        result.reason === "limit_exceeded"
+          ? "The transcript was not added because the combined draft exceeds the 32 KiB text limit."
+          : "The transcript is no longer available to copy.";
+      return;
+    }
+    this.prompt = result.draft;
+    this.microphoneTranscriptDraftError = false;
+    this.microphoneTranscriptDraftFeedback =
+      result.mode === "appended"
+        ? "Transcript appended to the editable draft. Nothing was sent."
+        : "Transcript added to the editable draft. Nothing was sent.";
+    void this.interaction.focusDraftAfterUpdate();
+  }
+  /** Discards the native capture and clears feedback about any earlier draft copy. */
+  async discardMicrophoneCapture(): Promise<void> {
+    await this.microphone.discard();
+    this.clearMicrophoneTranscriptDraftFeedback();
+  }
+  /** Applies one native correction and clears feedback about any earlier draft copy. */
+  async correctMicrophoneTranscript(turnIndex: number, text: string): Promise<void> {
+    await this.microphone.correct(turnIndex, text);
+    this.clearMicrophoneTranscriptDraftFeedback();
+  }
+  private clearMicrophoneTranscriptDraftFeedback(): void {
+    this.microphoneTranscriptDraftFeedback = "";
+    this.microphoneTranscriptDraftError = false;
   }
   /** Sends the draft or cancels the current stream according to generation state. */
   handleSendButton(): void {

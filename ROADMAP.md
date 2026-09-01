@@ -312,6 +312,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 
 Outcome: users can hold interruptible, private voice conversations without requiring a cloud speech service.
 
+Status: complete; evidence-gated acoustic feedback processing remains deferred.
+
 - [x] Rust-owned default-input capture behind an explicit Record voice action, with operating-system permission,
   bounded session-only PCM retention, path-free status, Stop/Discard controls, and no provider delivery;
 - [x] bounded native voice activity detection with path-free speech/silence timing and calm live/captured state;
@@ -328,8 +330,9 @@ Outcome: users can hold interruptible, private voice conversations without requi
   local speech-engine acceptance, labelled by observable endpoints rather than acoustic claims;
 - [x] explicit session-only input-device selection with bounded display labels, opaque native mappings, exact-device
   resolution at Record, and the existing fail-closed playback/capture separation;
+- [x] explicit transcript-to-text fallback that copies only current visible final turns into a bounded editable unsent
+  draft, preserves existing text, keeps capture state intact, and provides keyboard, focus, and screen-reader feedback;
 - [ ] acoustic echo cancellation or general system-feedback processing, if later evidence justifies native DSP;
-- [ ] full text fallback and accessibility support.
 
 Voice should reuse the same provider, content-block, event, persistence, and cancellation models established in
 earlier milestones.

@@ -66,6 +66,13 @@ export type TranscriptSegment = {
 /** Maximum UTF-8 byte length accepted for one session-only transcript correction. */
 export const MAX_TRANSCRIPT_TURN_BYTES = 512;
 
+/** Maximum UTF-8 byte length accepted when explicitly composing one local text draft. */
+export const MAX_COMPOSER_DRAFT_BYTES = 32 * 1_024;
+
+/** Result of explicitly merging the current visible transcript into the composer. */
+export type TranscriptComposerDraftResult =
+  { ok: true; draft: string; mode: "inserted" | "appended" } | { ok: false; reason: "unavailable" | "limit_exceeded" };
+
 /** Bounded native capture metadata that deliberately omits audio samples and device identity. */
 export type MicrophoneStatus = {
   phase: MicrophonePhase;
@@ -151,6 +158,40 @@ export function normalizeTranscriptCorrection(value: string): string | null {
   const normalized = value.trim();
   if (!normalized || new TextEncoder().encode(normalized).byteLength > MAX_TRANSCRIPT_TURN_BYTES) return null;
   return normalized;
+}
+
+/** Reports whether one path-free status has a current, non-empty final transcript. */
+export function canUseTranscriptAsText(status: MicrophoneStatus): boolean {
+  return transcriptTextForDraft(status) !== null;
+}
+
+/** Builds an editable unsent draft without mutating or consuming native capture state. */
+export function buildTranscriptComposerDraft(
+  currentDraft: string,
+  status: MicrophoneStatus,
+): TranscriptComposerDraftResult {
+  const transcript = transcriptTextForDraft(status);
+  if (transcript === null) return { ok: false, reason: "unavailable" };
+  const mode = currentDraft.length > 0 ? "appended" : "inserted";
+  const draft = mode === "appended" ? `${currentDraft}\n\n${transcript}` : transcript;
+  if (new TextEncoder().encode(draft).byteLength > MAX_COMPOSER_DRAFT_BYTES) {
+    return { ok: false, reason: "limit_exceeded" };
+  }
+  return { ok: true, draft, mode };
+}
+
+/** Returns ordered visible final turns without requesting hidden native transcript state. */
+function transcriptTextForDraft(status: MicrophoneStatus): string | null {
+  if (
+    status.phase !== "captured" ||
+    status.transcriptionPhase !== "ready" ||
+    status.transcriptSegments.length === 0 ||
+    status.transcriptSegments.some((segment) => !segment.isFinal)
+  ) {
+    return null;
+  }
+  const transcript = status.transcriptSegments.map((segment) => segment.text).join("\n");
+  return transcript.trim().length > 0 ? transcript : null;
 }
 
 /** Formats a native millisecond duration as a stable minutes-and-seconds label. */
