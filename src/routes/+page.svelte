@@ -354,6 +354,8 @@
         microphoneDeviceList={state.microphone.deviceList}
         microphoneDevicesLoaded={state.microphone.devicesLoaded}
         microphoneDeviceListFailed={state.microphone.deviceListFailed}
+        microphoneTranscriptDraftFeedback={state.microphoneTranscriptDraftFeedback}
+        microphoneTranscriptDraftError={state.microphoneTranscriptDraftError}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.interaction.resizeComposer()}
         onkeydown={(event) => state.interaction.handleKeydown(event, () => void state.sendMessage())}
@@ -366,12 +368,13 @@
         ontoggleemail={() => void state.toggleTool("email")}
         onstartmicrophone={() => void state.startMicrophoneCapture()}
         onstopmicrophone={() => void state.microphone.stop()}
-        ondiscardmicrophone={() => void state.microphone.discard()}
-        oncorrectmicrophone={(turnIndex, text) => void state.microphone.correct(turnIndex, text)}
+        ondiscardmicrophone={() => void state.discardMicrophoneCapture()}
+        oncorrectmicrophone={(turnIndex, text) => void state.correctMicrophoneTranscript(turnIndex, text)}
         ontogglesendmicrophoneaudio={() => state.microphone.toggleSendAudio(state.audioUnavailableReason === null)}
         ontoggleretainmicrophoneaudio={() => state.microphone.toggleRetainAudio()}
         onloadmicrophonedevices={() => void state.microphone.loadDevices()}
         onselectmicrophonedevice={(token) => void state.microphone.selectDevice(token)}
+        onusemicrophonetranscript={() => state.useMicrophoneTranscriptAsText()}
         oncomposerready={(element) => state.interaction.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />

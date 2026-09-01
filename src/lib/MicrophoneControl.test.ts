@@ -33,6 +33,8 @@ function rendered(
   deviceList: MicrophoneInputDeviceList = INITIAL_MICROPHONE_DEVICE_LIST,
   devicesLoaded = false,
   deviceListFailed = false,
+  transcriptDraftFeedback = "",
+  transcriptDraftError = false,
 ): string {
   return render(MicrophoneControl, {
     props: {
@@ -54,6 +56,9 @@ function rendered(
       ontoggleretainaudio: vi.fn(),
       onloaddevices: vi.fn(),
       onselectdevice: vi.fn(),
+      onusetext: vi.fn(),
+      transcriptDraftFeedback,
+      transcriptDraftError,
     },
   }).body;
 }
@@ -233,6 +238,8 @@ describe("MicrophoneControl", () => {
     expect(html).toContain("Turn 2");
     expect(html).toContain('aria-label="Correct voice turn 1"');
     expect(html).toContain('aria-label="Save correction for voice turn 1"');
+    expect(html).toContain('aria-label="Use final transcript as an editable text draft"');
+    expect(html).toContain("Use transcript as text");
     expect(html).toContain("Corrected");
     expect(html).not.toMatch(/model path|sample|hash/i);
   });
@@ -250,6 +257,48 @@ describe("MicrophoneControl", () => {
     expect(html).toContain("Still listening");
     expect(html).toContain("Partial");
     expect(html).not.toContain("Correct voice turn 1");
+    expect(html).not.toContain("Use transcript as text");
+  });
+
+  it("does not offer transcript transfer for empty, failed, or stale transcript state", () => {
+    const empty = rendered({ ...IDLE_STATUS, phase: "captured", transcriptionPhase: "ready" });
+    const failed = rendered({
+      ...IDLE_STATUS,
+      phase: "captured",
+      transcriptionPhase: "error",
+      transcriptSegments: [{ text: "Old result", startMs: 0, endMs: 800, isFinal: true, isCorrected: false }],
+    });
+    const stale = rendered({
+      ...IDLE_STATUS,
+      phase: "recording",
+      transcriptionPhase: "ready",
+      transcriptSegments: [{ text: "Old result", startMs: 0, endMs: 800, isFinal: true, isCorrected: false }],
+    });
+
+    expect(empty).not.toContain("Use transcript as text");
+    expect(failed).not.toContain("Use transcript as text");
+    expect(stale).not.toContain("Use transcript as text");
+  });
+
+  it("announces a transcript draft boundary failure without implying submission", () => {
+    const html = rendered(
+      IDLE_STATUS,
+      false,
+      false,
+      false,
+      false,
+      false,
+      INITIAL_MICROPHONE_DEVICE_LIST,
+      false,
+      false,
+      "The transcript was not added because the combined draft exceeds the 32 KiB text limit.",
+      true,
+    );
+
+    expect(html).toContain('class="transcript-draft-feedback error"');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("The transcript was not added");
+    expect(html).not.toMatch(/sent|submitted/i);
   });
 
   it("keeps capture actions bounded while the native recognizer is preparing", () => {

@@ -46,4 +46,13 @@ export class ComposerInteractionState {
   focusAfterUpdate(): void {
     setTimeout(() => this.composer?.focus(), NEXT_EVENT_LOOP_TICK_MS);
   }
+
+  /** Resizes, focuses, and places the caret after an explicitly updated text draft. */
+  async focusDraftAfterUpdate(): Promise<void> {
+    await tick();
+    this.resizeComposer();
+    if (!this.composer) return;
+    this.composer.focus();
+    this.composer.setSelectionRange(this.composer.value.length, this.composer.value.length);
+  }
 }

@@ -51,7 +51,7 @@ export function applyVoicePreview(state: PageState, search: string): boolean {
     );
     return true;
   }
-  if (value === AUDIO_CONTENT_PREVIEW_VALUE) {
+  if (value === AUDIO_CONTENT_PREVIEW_VALUE || value === TRANSCRIPT_PREVIEW_VALUE) {
     state.models = [
       {
         providerId: "omlx",
@@ -66,7 +66,7 @@ export function applyVoicePreview(state: PageState, search: string): boolean {
     state.selectedProviderId = "omlx";
     state.selectedModelKey = "omlx:fixture-audio-model";
     state.providerStatus = "available";
-    state.prompt = "Summarize this recording";
+    if (value === AUDIO_CONTENT_PREVIEW_VALUE) state.prompt = "Summarize this recording";
   }
   state.microphone.status = {
     phase: "captured",

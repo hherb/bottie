@@ -99,6 +99,13 @@ correction field; Rust accepts only non-blank replacements of at most 512 UTF-8 
 and 4,000-byte transcript ceiling. Corrected turns are visibly marked. Partial turns cannot be edited, and corrections
 remain only in the same native session slot.
 
+For a completed non-empty transcript, **Use transcript as text** explicitly copies the visible final turns into the
+ordinary editable composer draft. Turns keep their displayed order and corrected text. An existing draft is preserved
+with one blank-line append boundary; choosing the action again appends the transcript again. The combined draft must
+fit a 32 KiB UTF-8 ceiling or Bottie leaves it unchanged and reports the limit. Copying focuses the composer but never
+submits, persists, retains, discards, or selects audio delivery. The native capture and transcript remain available for
+further correction, provider delivery, local retention, or Discard.
+
 The same session status shows four bounded monotonic intervals that Rust can observe directly: native receipt of
 **Record** until the input stream reports a successful start, the same Record anchor until the first non-empty local
 transcript is applied, native capture-stop handling until the final transcript is applied, and **Play response aloud**

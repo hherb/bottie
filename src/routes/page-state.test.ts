@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { modelKey } from "$lib/chat";
 import type { ModelInfo } from "$lib/inference";
+import { MAX_COMPOSER_DRAFT_BYTES } from "$lib/microphone";
 
 import { PageState } from "./page-state.svelte";
 
@@ -125,5 +126,56 @@ describe("PageState captured-audio choices", () => {
     expect(state.microphone.sendAudio).toBe(false);
     state.microphone.toggleSendAudio(false);
     expect(state.microphone.sendAudio).toBe(false);
+  });
+});
+
+describe("PageState transcript text fallback", () => {
+  it("appends the current corrected transcript without consuming or submitting capture state", () => {
+    const state = new PageState();
+    state.prompt = "Existing draft";
+    state.microphone.status = {
+      ...state.microphone.status,
+      phase: "captured",
+      retainedByteSize: 48_000,
+      transcriptionPhase: "ready",
+      transcriptSegments: [
+        { text: "First turn", startMs: 0, endMs: 800, isFinal: true, isCorrected: false },
+        { text: "Corrected turn", startMs: 900, endMs: 1_600, isFinal: true, isCorrected: true },
+      ],
+    };
+    const retainedStatus = state.microphone.status;
+    const focus = vi.spyOn(state.interaction, "focusDraftAfterUpdate").mockResolvedValue();
+
+    state.useMicrophoneTranscriptAsText();
+
+    expect(state.prompt).toBe("Existing draft\n\nFirst turn\nCorrected turn");
+    expect(state.microphone.status).toBe(retainedStatus);
+    expect(state.microphone.status.retainedByteSize).toBe(48_000);
+    expect(state.microphoneTranscriptDraftFeedback).toBe(
+      "Transcript appended to the editable draft. Nothing was sent.",
+    );
+    expect(state.microphoneTranscriptDraftError).toBe(false);
+    expect(focus).toHaveBeenCalledOnce();
+  });
+
+  it("fails visibly without changing an over-limit draft or retained capture", () => {
+    const state = new PageState();
+    state.prompt = "é".repeat(MAX_COMPOSER_DRAFT_BYTES / 2);
+    state.microphone.status = {
+      ...state.microphone.status,
+      phase: "captured",
+      retainedByteSize: 48_000,
+      transcriptionPhase: "ready",
+      transcriptSegments: [{ text: "One more turn", startMs: 0, endMs: 800, isFinal: true, isCorrected: false }],
+    };
+    const originalDraft = state.prompt;
+    const retainedStatus = state.microphone.status;
+
+    state.useMicrophoneTranscriptAsText();
+
+    expect(state.prompt).toBe(originalDraft);
+    expect(state.microphone.status).toBe(retainedStatus);
+    expect(state.microphoneTranscriptDraftError).toBe(true);
+    expect(state.microphoneTranscriptDraftFeedback).toContain("combined draft exceeds the 32 KiB text limit");
   });
 });
