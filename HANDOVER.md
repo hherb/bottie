@@ -4,8 +4,8 @@ Last verified: 2026-09-01
 
 ## Start here
 
-PR #127 is merged. The bounded explicit transcript-to-text fallback is implemented and reviewed on
-`codex/transcript-text-fallback`, based on synchronized `origin/main` merge commit `6be2a03`. Milestones 0–7 are
+PR #127 is merged. Draft PR #128 contains the implemented and reviewed bounded explicit transcript-to-text fallback
+on `codex/transcript-text-fallback`, based on synchronized `origin/main` merge commit `6be2a03`. Milestones 0–7 are
 complete except for evidence-gated acoustic feedback processing, which remains deferred.
 
 The next session should perform only the bounded native voice acceptance closure below. Do not replay completed
