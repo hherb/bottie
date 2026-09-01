@@ -329,7 +329,7 @@
         attachments={state.attachment.items}
         prompt={state.prompt}
         isGenerating={state.isGenerating}
-        canCompose={state.canSend}
+        canCompose={state.canCompose}
         canSend={state.canSend && !state.microphone.isActive && state.attachmentsCanSubmit && state.audioCanSubmit}
         attachmentNote={composerAttachmentNote(
           nextRequestAttachments(state.attachment.items, state.history.conversationAttachments),

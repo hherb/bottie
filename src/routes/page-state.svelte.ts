@@ -4,7 +4,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
 import { DEFAULT_APPEARANCE, type AppearancePreferences } from "$lib/appearance";
-import { buildTranscriptComposerDraft } from "$lib/microphone";
+import { buildTranscriptComposerDraft, canUseTranscriptAsText } from "$lib/microphone";
 import {
   chatTurnsForMessages,
   completionMeta,
@@ -107,6 +107,13 @@ export class PageState {
   /** Whether the current provider and model selection can accept a message. */
   get canSend(): boolean {
     return this.providerStatus === "available" && Boolean(this.selectedModel) && !this.isPersistingMessage;
+  }
+  /** Whether the current local draft can remain editable independently from provider send readiness. */
+  get canCompose(): boolean {
+    return (
+      !this.isPersistingMessage &&
+      (this.canSend || this.prompt.length > 0 || canUseTranscriptAsText(this.microphone.status))
+    );
   }
   /** Whether every current image has a ready derivative and an explicitly vision-capable route. */
   get attachmentsCanSubmit(): boolean {

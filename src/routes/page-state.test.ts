@@ -130,6 +130,44 @@ describe("PageState captured-audio choices", () => {
 });
 
 describe("PageState transcript text fallback", () => {
+  it("keeps a copied transcript editable when no provider or model is available", () => {
+    const state = new PageState();
+    state.providerStatus = "offline";
+    state.models = [];
+    state.selectedModelKey = "";
+    state.microphone.status = {
+      ...state.microphone.status,
+      phase: "captured",
+      transcriptionPhase: "ready",
+      transcriptSegments: [{ text: "Offline draft", startMs: 0, endMs: 800, isFinal: true, isCorrected: false }],
+    };
+
+    expect(state.canSend).toBe(false);
+    expect(state.canCompose).toBe(true);
+
+    state.useMicrophoneTranscriptAsText();
+
+    expect(state.prompt).toBe("Offline draft");
+    expect(state.canCompose).toBe(true);
+  });
+
+  it("keeps an existing offline draft editable but does not open an empty unavailable composer", () => {
+    const state = new PageState();
+    state.providerStatus = "offline";
+
+    expect(state.canCompose).toBe(false);
+    state.prompt = "Keep editing locally";
+    expect(state.canCompose).toBe(true);
+  });
+
+  it("does not let an existing draft bypass the native persistence lock", () => {
+    const state = new PageState();
+    state.prompt = "Submission in progress";
+    state.isPersistingMessage = true;
+
+    expect(state.canCompose).toBe(false);
+  });
+
   it("appends the current corrected transcript without consuming or submitting capture state", () => {
     const state = new PageState();
     state.prompt = "Existing draft";

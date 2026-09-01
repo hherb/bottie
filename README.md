@@ -104,7 +104,8 @@ ordinary editable composer draft. Turns keep their displayed order and corrected
 with one blank-line append boundary; choosing the action again appends the transcript again. The combined draft must
 fit a 32 KiB UTF-8 ceiling or Bottie leaves it unchanged and reports the limit. Copying focuses the composer but never
 submits, persists, retains, discards, or selects audio delivery. The native capture and transcript remain available for
-further correction, provider delivery, local retention, or Discard.
+further correction, provider delivery, local retention, or Discard. The local draft remains editable when no provider
+or model is ready, while Send stays unavailable until the existing provider and model requirements are satisfied.
 
 The same session status shows four bounded monotonic intervals that Rust can observe directly: native receipt of
 **Record** until the input stream reports a successful start, the same Record anchor until the first non-empty local

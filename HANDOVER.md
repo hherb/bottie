@@ -50,6 +50,9 @@ The transcript-to-text slice adds this exact contract:
   line before the transcript. Repeating the explicit action appends through the same deterministic boundary;
 - the combined draft must fit 32 KiB of UTF-8. Failure leaves both draft and capture unchanged and is announced as an
   alert. Success focuses the composer with the caret at the end and announces that nothing was sent;
+- a final transcript or an existing non-empty local draft keeps the composer editable without provider/model
+  readiness. Provider/model requirements still gate Send, so offline editing cannot submit or create a conversation;
+  active native message persistence continues to lock editing so later draft changes cannot be cleared by completion;
 - copying never submits, creates a conversation, persists transcript text, selects audio delivery or retention,
   writes telemetry, or consumes capture state. Correction, provider delivery, retention, repeated copy, and Discard
   remain available afterward.
@@ -108,7 +111,7 @@ standard checks completed on 2026-09-01:
 
 - `npm run format:check`
 - `npm run check` with no errors or warnings
-- `npm test`: 233 passed, 3 skipped across 54 files
+- `npm test`: 236 passed, 3 skipped across 54 files
 - `npm run build`
 - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`
 - `cargo check --manifest-path src-tauri/Cargo.toml`
@@ -121,6 +124,11 @@ At 720 px the composer remained within its 660 px bounds with no page-level hori
 action stacked correctly, while the broader pre-existing shell retained its documented 720 px layout width and
 clipped; that shell was not changed in this slice. Browser fixtures do not prove native microphone, transcription,
 audio delivery, retention, playback, or cancellation behavior.
+
+The provider-unavailable review regression was also exercised at 720×620: without artificial provider readiness, the
+composer accepted the transcript, remained focused and editable for added text, and kept Send disabled. Native
+Discard is unavailable in the browser fixture; state coverage verifies that an existing offline draft remains
+editable independently of transcript availability.
 
 No native app, microphone hardware, selected-device change, local recognition, provider request, audio retention,
 speaker playback, interruption, package, release, updater, protected workflow, or Store action was run in this slice.
