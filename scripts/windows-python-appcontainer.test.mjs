@@ -88,6 +88,8 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(storage).toContain("BuildTrusteeWithSidW(&access.Trustee, sid)");
     expect(storage).toContain("SUB_CONTAINERS_AND_OBJECTS_INHERIT");
     expect(storage).toContain("FILE_DELETE_CHILD");
+    expect(storage).toContain('L"S:(ML;OICI;NW;;;LW)"');
+    expect(storage).toContain("LABEL_SECURITY_INFORMATION");
     expect(source).not.toMatch(/internetClient|privateNetworkClientServer|enterpriseAuthentication/);
   });
 

@@ -2,11 +2,32 @@
 
 #include <windows.h>
 #include <aclapi.h>
+#include <sddl.h>
 
 #include <string>
 
 inline std::wstring BottieProfileTempPath(const std::wstring &profile) {
   return profile + L"\\bottie-temp";
+}
+
+inline bool ApplyBottieLowIntegrityLabel(std::wstring &path) {
+  PSECURITY_DESCRIPTOR descriptor = nullptr;
+  if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+          L"S:(ML;OICI;NW;;;LW)", SDDL_REVISION_1, &descriptor, nullptr))
+    return false;
+  BOOL present = FALSE;
+  BOOL defaulted = FALSE;
+  PACL label = nullptr;
+  const BOOL queried =
+      GetSecurityDescriptorSacl(descriptor, &present, &label, &defaulted);
+  DWORD applied = ERROR_INVALID_SECURITY_DESCR;
+  if (queried && present && label != nullptr) {
+    applied = SetNamedSecurityInfoW(path.data(), SE_FILE_OBJECT,
+                                    LABEL_SECURITY_INFORMATION, nullptr,
+                                    nullptr, nullptr, label);
+  }
+  LocalFree(descriptor);
+  return applied == ERROR_SUCCESS;
 }
 
 // Gives only the transient AppContainer identity a writable profile directory.
@@ -44,5 +65,5 @@ inline bool PrepareBottieProfileTemp(const std::wstring &profile, PSID sid) {
   if (updated_acl != nullptr)
     LocalFree(updated_acl);
   LocalFree(descriptor);
-  return applied == ERROR_SUCCESS;
+  return applied == ERROR_SUCCESS && ApplyBottieLowIntegrityLabel(path);
 }
