@@ -49,6 +49,15 @@ export function msvcCompilationArguments(source, output) {
   ];
 }
 
+/** Keeps only bounded MSVC diagnostic codes and messages while removing host paths. */
+export function safeMsvcDiagnostics(output) {
+  const matches = output.match(/\b(?:fatal )?(?:error|warning) (?:C|LNK)\d{4,5}: [^\r\n]{1,240}/g) ?? [];
+  return matches
+    .slice(0, 4)
+    .map((diagnostic) => diagnostic.replace(/[A-Za-z]:\\[^\s"']+/g, "[path]"))
+    .join("; ");
+}
+
 /** Runs one native command without retaining its arguments or raw failure output. */
 function runHostCommand(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -58,7 +67,12 @@ function runHostCommand(command, arguments_, options = {}) {
     timeout: options.timeout ?? PROOF_TIMEOUT_MS,
   });
   if (result.error || result.status !== 0) {
-    throw new Error(`${options.label ?? "The AppContainer proof command"} failed.`);
+    const diagnostics = options.msvcDiagnostics
+      ? safeMsvcDiagnostics(`${result.stdout ?? ""}\n${result.stderr ?? ""}`)
+      : "";
+    throw new Error(
+      `${options.label ?? "The AppContainer proof command"} failed${diagnostics ? `: ${diagnostics}` : "."}`,
+    );
   }
   return result.stdout ?? "";
 }
@@ -83,7 +97,7 @@ function compileProof(repository, temporary) {
   runHostCommand(
     "cl.exe",
     msvcCompilationArguments(resolve(repository, "windows-python-appcontainer", "Proof.cpp"), controller),
-    { label: "The native AppContainer controller build", timeout: BUILD_TIMEOUT_MS },
+    { label: "The native AppContainer controller build", msvcDiagnostics: true, timeout: BUILD_TIMEOUT_MS },
   );
   return { controller, runner: resolve(repository, "python-runner", "target", "release", RUNNER_EXECUTABLE) };
 }

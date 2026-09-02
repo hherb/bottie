@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
-import { msvcCompilationArguments, proofProfileLayout, runnerBuildArguments } from "./windows-python-appcontainer.mjs";
+import {
+  msvcCompilationArguments,
+  proofProfileLayout,
+  runnerBuildArguments,
+  safeMsvcDiagnostics,
+} from "./windows-python-appcontainer.mjs";
 
 describe("Windows Python AppContainer containment proof", () => {
   it("keeps every executable and runtime byte inside the transient AppContainer profile", () => {
@@ -35,6 +40,17 @@ describe("Windows Python AppContainer containment proof", () => {
       "advapi32.lib",
       "userenv.lib",
     ]);
+  });
+
+  it("reduces compiler failures to bounded path-free diagnostic codes and messages", () => {
+    expect(
+      safeMsvcDiagnostics(
+        "C:\\private\\Proof.cpp(42): error C2065: 'missing': undeclared identifier\r\n" +
+          "LINK : fatal error LNK1120: 1 unresolved externals\r\n" +
+          "C:\\private\\Proof.cpp(43): note: see declaration of 'value'",
+      ),
+    ).toBe("error C2065: 'missing': undeclared identifier; fatal error LNK1120: 1 unresolved externals");
+    expect(safeMsvcDiagnostics("C:\\private\\Proof.cpp was not compiled")).toBe("");
   });
 
   it("launches through an empty-capability AppContainer and a maximally restricted token", async () => {
