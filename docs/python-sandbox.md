@@ -1,7 +1,7 @@
 # Python sandbox feasibility slice
 
-Status: the standalone runner and its denial tests are implemented, but Bottie does not register or ship a Python
-tool yet.
+Status: the standalone runner, its inner denial tests, and a development-only macOS XPC containment proof are
+implemented. Bottie does not register, product-bundle, or ship a Python tool yet.
 
 ## Chosen core
 
@@ -23,6 +23,20 @@ CPython/WASI -> read-only /runtime + read-only /work/main.py
 The helper accepts source and a user-visible purpose through stdin. It never places source in a shell command or
 process argument. It returns one bounded JSON result and replaces internal Wasmtime errors with stable statuses.
 Paths, traps, and WebAssembly backtraces do not cross that boundary.
+
+The macOS proof adds an outer native boundary without changing this portable contract:
+
+```text
+transient proof host.app
+        |
+        | private XPC connection
+        v
+App-Sandboxed service.xpc (no file/network entitlements)
+        |
+        | private stdin/stdout/stderr pipes
+        v
+inherited-sandbox bottie-python-runner -> CPython/WASI
+```
 
 The runner currently enforces:
 
@@ -86,12 +100,17 @@ boundary is implemented and tested.
 
 ### macOS
 
-Recommended: place the runner behind a separately signed, App-Sandboxed XPC service with no network, user-selected
-file, Downloads, or home-directory entitlements. The XPC protocol should carry the same bounded request/result
-contract, and the service should create and destroy the native staging directory. The enclosing application can keep
-its existing capabilities while the code-execution service receives fewer privileges. Development and distribution
-packages must prove nested-code signing, hardened runtime, notarization, Gatekeeper acceptance, and denial against a
-fixture placed outside the service container. Deprecated custom sandbox profiles are not a release strategy.
+Implemented as a development proof: a private, separately signed App-Sandboxed XPC service has no network,
+user-selected-file, Downloads, home-directory, app-group, or temporary-exception entitlement. It starts the exact Rust
+runner with an empty host environment and private pipes; the nested runner is separately signed with only App Sandbox
+and sandbox inheritance. The host retains no source in process arguments. Cancellation owns the identified child, XPC
+connection invalidation kills every retained child, and a direct service-process read of a host-owned fixture outside
+the container is denied.
+
+The transient app, service, helper, copied checksum-verified runtime, and fixture are deleted after the proof. This is
+not Bottie's Tauri product bundle. Distribution packages must still prove the exact shipping nested code, hardened
+runtime, notarization, Gatekeeper acceptance, runtime inventory/licensing, and release-candidate hashes. Deprecated
+custom sandbox profiles are not a release strategy.
 
 References: [Apple XPC documentation](https://developer.apple.com/documentation/xpc) and
 [Apple's XPC service guidance](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html).
@@ -144,6 +163,16 @@ BOTTIE_PYTHON_WASI_RUNTIME=/absolute/path/to/extracted/python \
   cargo test --manifest-path python-runner/Cargo.toml --offline --test runtime -- --ignored
 ```
 
+On macOS, use the same verified extracted runtime for the transient signed XPC proof:
+
+```sh
+BOTTIE_PYTHON_WASI_RUNTIME=/absolute/path/to/extracted/python npm run python:xpc:prove
+```
+
+The command requires one usable Apple Development identity, signs runner -> service -> app inside out, verifies every
+signature independently, exercises execution/cancellation/client-exit cleanup/host-file denial, and performs no
+notarization or publication.
+
 ## Deferred product integration
 
 This slice deliberately does not:
@@ -151,10 +180,10 @@ This slice deliberately does not:
 - register a model-visible tool or change any provider schema;
 - decide automatically that Python is appropriate for a user question;
 - add the approval UI required by `ToolExecutionPolicy::ApprovalRequired`;
-- launch the helper from Bottie's Tauri process or connect cancellation and durable audit;
+- launch the helper from Bottie's Tauri process or connect product cancellation and durable audit;
 - download, bundle, inventory, sign, or publish the CPython runtime or helper; or
-- claim native containment on macOS, Windows, or Linux.
+- claim Windows/Linux containment or shipping-package macOS containment.
 
-The next bounded slice is a macOS App-Sandboxed XPC containment proof around this exact helper contract. It must pass
-signed development-package tests for private-pipe execution, cancellation, parent-exit cleanup, and denial of a host
-fixture before any model-visible Python tool work begins.
+The next bounded slice is a Windows AppContainer, restricted-token, and kill-on-close Job Object proof around this
+exact helper contract. It must pass Windows-native tests for private-pipe execution, cancellation, parent-close
+cleanup, no-network state, and denial of a host fixture before any model-visible Python tool work begins.

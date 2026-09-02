@@ -209,10 +209,11 @@ Additional safeguards include:
   optional app-private WAV retention remains independently off by default.
 - local playback uses narrow Rust commands and opaque voice tokens; no WebView speech or audio API is authorized.
 
-An experimental standalone CPython/WASI runner now proves the portable inner sandbox boundary, but it is not
-registered as a model tool, launched by Bottie, or included in packages. It uses an interpreter-only Wasmtime target,
-read-only explicit mounts, no inherited environment or network, and fixed time/memory/output ceilings. Model-visible
-execution remains blocked on OS-owned containment and explicit user approval. See
+An experimental standalone CPython/WASI runner now proves the portable inner sandbox boundary. A separate transient
+development bundle also proves macOS App-Sandboxed XPC containment, private-pipe execution, cancellation,
+kill-on-client-exit, nested signing, and direct denial of a host-owned fixture. Bottie still does not register the
+runner as a model tool, launch it from Tauri, or include it in product packages. Model-visible execution remains
+blocked on Windows/Linux containment, production runtime provenance, and explicit user approval. See
 [`docs/python-sandbox.md`](docs/python-sandbox.md).
 
 ## Provider support
@@ -288,6 +289,14 @@ Bottie builds. Its contract tests do not require the external runtime:
 cargo fmt --manifest-path python-runner/Cargo.toml -- --check
 cargo clippy --manifest-path python-runner/Cargo.toml --offline --all-targets -- -D warnings
 cargo test --manifest-path python-runner/Cargo.toml --offline
+```
+
+On macOS, the separate native containment proof requires an already downloaded and independently checksum-verified
+runtime plus one usable Apple Development identity. It builds and signs a transient app/XPC/runner bundle, runs the
+denial and lifecycle checks, and deletes the bundle without notarizing or publishing it:
+
+```sh
+BOTTIE_PYTHON_WASI_RUNTIME=/absolute/path/to/extracted/python npm run python:xpc:prove
 ```
 
 Run the opt-in large-history budgets separately so their deterministic 2,000-conversation/50,000-message fixture does
