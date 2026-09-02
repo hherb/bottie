@@ -220,7 +220,14 @@ PipePair OutputPipe() {
   return pipe;
 }
 std::vector<wchar_t> MinimalEnvironment() {
-  return {L'\0', L'\0'};
+  std::array<wchar_t, MAX_PATH> windows_directory{};
+  const UINT length = GetWindowsDirectoryW(windows_directory.data(), static_cast<UINT>(windows_directory.size()));
+  if (length == 0 || length >= windows_directory.size()) Fail("windows_directory");
+  std::wstring block = L"SystemRoot=" + std::wstring(windows_directory.data());
+  block.push_back(L'\0');
+  block.append(L"WINDIR=").append(windows_directory.data()).push_back(L'\0');
+  block.push_back(L'\0');
+  return {block.begin(), block.end()};
 }
 struct Execution {
   Handle job;
@@ -282,7 +289,8 @@ Execution Launch(std::wstring_view moniker, const std::wstring &executable,
       token.Get(), executable.c_str(), command.data(), nullptr, nullptr, TRUE,
       flags, environment.data(), nullptr, &startup.StartupInfo, &process);
   DeleteProcThreadAttributeList(attribute_list);
-  Require(created);
+  if (!created)
+    Fail("process_create");
   Handle process_handle(process.hProcess);
   Handle thread(process.hThread);
   Require(ResumeThread(thread.Get()) != static_cast<DWORD>(-1));

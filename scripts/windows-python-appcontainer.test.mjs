@@ -7,6 +7,7 @@ import {
   proofProfileLayout,
   runnerBuildArguments,
   safeMsvcDiagnostics,
+  safeNativeReason,
   safeRunnerStatus,
 } from "./windows-python-appcontainer.mjs";
 
@@ -58,6 +59,8 @@ describe("Windows Python AppContainer containment proof", () => {
   it("reports only fixed path-free runner statuses", () => {
     expect(safeRunnerStatus("internal_error")).toBe("internal_error");
     expect(safeRunnerStatus("C:\\private\\runtime failed")).toBe("unexpected_result");
+    expect(safeNativeReason('{"reason":"process_create","status":"failed"}')).toBe("process_create");
+    expect(safeNativeReason('{"reason":"C:\\\\private","status":"failed"}')).toBe("");
   });
 
   it("launches through an empty-capability AppContainer and a privilege-stripped token", async () => {
@@ -85,7 +88,9 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("security_capabilities.Capabilities = nullptr");
     expect(source).toContain("PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES");
     expect(source).toContain("CreateProcessAsUserW");
-    expect(source).toContain("return {L'\\0', L'\\0'}");
+    expect(source).toContain("GetWindowsDirectoryW");
+    expect(source).toContain('L"SystemRoot="');
+    expect(source).toContain('L"WINDIR="');
     expect(source).not.toMatch(/L"(?:LOCALAPPDATA|TEMP|TMP)=/);
     expect(source).toContain("PrepareBottieProfileStorage(path)");
     expect(storage).toContain("BottieProfileTempPath(profile)");

@@ -73,6 +73,20 @@ export function safeRunnerStatus(value) {
   return statuses.has(value) ? value : "unexpected_result";
 }
 
+/** Keeps only one fixed path-free native controller reason. */
+export function safeNativeReason(output) {
+  const match = output.trim().match(/^\{"reason":"([a-z_]+)","status":"failed"\}$/);
+  const reasons = new Set([
+    "native",
+    "process_create",
+    "runner_empty_result",
+    "runner_exit",
+    "runner_timeout",
+    "windows_directory",
+  ]);
+  return match && reasons.has(match[1]) ? match[1] : "";
+}
+
 /** Requires the fixed successful result used by both baseline and contained execution. */
 function requireOrdinaryResult(result, label) {
   if (result.status === "ok" && result.stdout.trim() === "42") return;
@@ -93,8 +107,11 @@ function runHostCommand(command, arguments_, options = {}) {
     const diagnostics = options.msvcDiagnostics
       ? safeMsvcDiagnostics(`${result.stdout ?? ""}\n${result.stderr ?? ""}`)
       : "";
+    const nativeReason = options.nativeDiagnostics ? safeNativeReason(result.stdout ?? "") : "";
     throw new Error(
-      `${options.label ?? "The AppContainer proof command"} failed${diagnostics ? `: ${diagnostics}` : "."}`,
+      `${options.label ?? "The AppContainer proof command"} failed${
+        diagnostics ? `: ${diagnostics}` : nativeReason ? ` (${nativeReason}).` : "."
+      }`,
     );
   }
   return result.stdout ?? "";
@@ -165,6 +182,7 @@ async function exerciseProof(controller, moniker, layout, fixture) {
   const probe = parseProofResult(
     runHostCommand(controller, ["probe", moniker, layout.host, fixture, layout.runtime], {
       label: "AppContainer denial probe",
+      nativeDiagnostics: true,
     }),
   );
   const failedProbeChecks = [
@@ -200,13 +218,21 @@ async function exerciseProof(controller, moniker, layout, fixture) {
   }
 
   const ordinary = parseProofResult(
-    runHostCommand(controller, ["execute", ...common], { input: ORDINARY_REQUEST, label: "Private-pipe execution" }),
+    runHostCommand(controller, ["execute", ...common], {
+      input: ORDINARY_REQUEST,
+      label: "Private-pipe execution",
+      nativeDiagnostics: true,
+    }),
   );
   requireOrdinaryResult(ordinary, "Private-pipe execution");
 
   const infiniteRequest = JSON.stringify({ code: "while True:\n    pass", purpose: "Prove cancellation" });
   const cancelled = parseProofResult(
-    runHostCommand(controller, ["cancel", ...common], { input: infiniteRequest, label: "Runner cancellation" }),
+    runHostCommand(controller, ["cancel", ...common], {
+      input: infiniteRequest,
+      label: "Runner cancellation",
+      nativeDiagnostics: true,
+    }),
   );
   if (cancelled.status !== "cancelled") throw new Error("The Job Object did not cancel its runner.");
 
@@ -214,6 +240,7 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     runHostCommand(controller, ["start-and-exit", ...common], {
       input: infiniteRequest,
       label: "Kill-on-controller-close proof",
+      nativeDiagnostics: true,
     }),
   );
   if (parent.status !== "started" || !Number.isSafeInteger(parent.pid) || parent.pid <= 0) {
