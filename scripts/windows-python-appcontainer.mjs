@@ -45,6 +45,7 @@ export function msvcCompilationArguments(source, output) {
     source,
     `/Fe:${output}`,
     "advapi32.lib",
+    "ole32.lib",
     "userenv.lib",
   ];
 }

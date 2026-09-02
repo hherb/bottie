@@ -38,6 +38,7 @@ describe("Windows Python AppContainer containment proof", () => {
       "C:\\repo\\windows-python-appcontainer\\Proof.cpp",
       "/Fe:C:\\tmp\\proof.exe",
       "advapi32.lib",
+      "ole32.lib",
       "userenv.lib",
     ]);
   });
