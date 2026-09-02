@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <sddl.h>
 #include <userenv.h>
+#include "ProfileStorage.hpp"
 #include "RestrictedToken.hpp"
 #include <algorithm>
 #include <array>
@@ -142,6 +143,7 @@ void Prepare(std::wstring_view moniker) {
   else
     RequireHr(created);
   const std::wstring path = ProfilePath(sid.Get());
+  Require(PrepareBottieProfileTemp(path, sid.Get()));
   std::cout << "{\"profilePath\":\"" << JsonEscape(path)
             << "\",\"status\":\"prepared\"}\n";
 }
@@ -218,11 +220,12 @@ PipePair OutputPipe() {
   return pipe;
 }
 std::vector<wchar_t> MinimalEnvironment(const std::wstring &profile) {
+  const std::wstring temporary = BottieProfileTempPath(profile);
   std::wstring block = L"LOCALAPPDATA=" + profile;
   block.push_back(L'\0');
-  block.append(L"TEMP=").append(profile);
+  block.append(L"TEMP=").append(temporary);
   block.push_back(L'\0');
-  block.append(L"TMP=").append(profile);
+  block.append(L"TMP=").append(temporary);
   block.push_back(L'\0');
   block.push_back(L'\0');
   return {block.begin(), block.end()};

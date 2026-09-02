@@ -66,6 +66,10 @@ describe("Windows Python AppContainer containment proof", () => {
       new URL("../windows-python-appcontainer/RestrictedToken.hpp", import.meta.url),
       "utf8",
     );
+    const storage = await readFile(
+      new URL("../windows-python-appcontainer/ProfileStorage.hpp", import.meta.url),
+      "utf8",
+    );
 
     expect(source).toContain("CreateAppContainerProfile");
     expect(source).toContain("DeriveAppContainerSidFromAppContainerName");
@@ -79,6 +83,11 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("security_capabilities.Capabilities = nullptr");
     expect(source).toContain("PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES");
     expect(source).toContain("CreateProcessAsUserW");
+    expect(source).toContain("PrepareBottieProfileTemp(path, sid.Get())");
+    expect(source).toContain("BottieProfileTempPath(profile)");
+    expect(storage).toContain("BuildTrusteeWithSidW(&access.Trustee, sid)");
+    expect(storage).toContain("SUB_CONTAINERS_AND_OBJECTS_INHERIT");
+    expect(storage).toContain("FILE_DELETE_CHILD");
     expect(source).not.toMatch(/internetClient|privateNetworkClientServer|enterpriseAuthentication/);
   });
 
