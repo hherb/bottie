@@ -4,9 +4,9 @@ Last verified: 2026-09-02
 
 ## Start here
 
-PR #128 is merged at `6ae2e0d`. The current `codex/native-voice-acceptance` branch contains the bounded repeated native
-capture fix found during Milestone 7 acceptance. Milestones 0–7 remain complete except for evidence-gated acoustic
-feedback processing, which remains deferred.
+PR #128 is merged at `6ae2e0d`. Draft PR #129 contains the bounded repeated native capture fix on
+`codex/native-voice-acceptance`. Milestones 0–7 remain complete except for evidence-gated acoustic feedback
+processing, which remains deferred.
 
 The next session should perform only the remaining native voice acceptance below. Do not replay completed slices or
 broaden this into a new voice, persistence, release, updater, or Store feature.
