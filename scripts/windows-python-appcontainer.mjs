@@ -76,14 +76,7 @@ export function safeRunnerStatus(value) {
 /** Keeps only one fixed path-free native controller reason. */
 export function safeNativeReason(output) {
   const match = output.trim().match(/^\{"reason":"([a-z_]+)","status":"failed"\}$/);
-  const reasons = new Set([
-    "native",
-    "process_create",
-    "runner_empty_result",
-    "runner_exit",
-    "runner_timeout",
-    "windows_directory",
-  ]);
+  const reasons = new Set(["native", "process_create", "runner_empty_result", "runner_exit", "runner_timeout"]);
   return match && reasons.has(match[1]) ? match[1] : "";
 }
 

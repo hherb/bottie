@@ -4,7 +4,6 @@
 
 #include <array>
 #include <string>
-#include <vector>
 
 inline std::wstring BottieProfileLocalAppDataPath(const std::wstring &profile) {
   return profile + L"\\AC";
@@ -26,26 +25,6 @@ inline bool EnsureBottieProfileDirectory(const std::wstring &path) {
 inline bool PrepareBottieProfileStorage(const std::wstring &profile) {
   return EnsureBottieProfileDirectory(BottieProfileLocalAppDataPath(profile)) &&
          EnsureBottieProfileDirectory(BottieProfileTempPath(profile));
-}
-
-inline std::vector<wchar_t>
-BottieMinimalEnvironment(const std::wstring &profile) {
-  std::array<wchar_t, MAX_PATH> windows_directory{};
-  const UINT length = GetWindowsDirectoryW(
-      windows_directory.data(), static_cast<UINT>(windows_directory.size()));
-  if (length == 0 || length >= windows_directory.size())
-    return {};
-  std::wstring block;
-  const auto append = [&block](const wchar_t *name, const std::wstring &value) {
-    block.append(name).append(value).push_back(L'\0');
-  };
-  append(L"LOCALAPPDATA=", profile);
-  append(L"SystemRoot=", windows_directory.data());
-  append(L"TEMP=", profile);
-  append(L"TMP=", profile);
-  append(L"WINDIR=", windows_directory.data());
-  block.push_back(L'\0');
-  return {block.begin(), block.end()};
 }
 
 struct BottieTemporaryStorageProbe {
