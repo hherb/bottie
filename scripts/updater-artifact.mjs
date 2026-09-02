@@ -1,7 +1,7 @@
 /** Protected Tauri updater signing for exact final platform-distribution bytes. */
 
 import { spawnSync } from "node:child_process";
-import { lstat, rm } from "node:fs/promises";
+import { copyFile, lstat, mkdir, rm } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const PRIVATE_KEY_CONTENT_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY";
@@ -10,6 +10,13 @@ const PRIVATE_KEY_PASSWORD_ENVIRONMENT = "TAURI_SIGNING_PRIVATE_KEY_PASSWORD";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const PLATFORM_SIGNING_ENVIRONMENT_PATTERN = /^(?:TAURI_SIGNING_|BOTTIE_(?:APPLE|LINUX|WINDOWS)_)/;
 const SUPPORTED_TARGETS = new Set(["darwin-aarch64", "darwin-x86_64", "linux-x86_64", "windows-x86_64"]);
+const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
+const RELEASE_SUFFIXES = {
+  "darwin-aarch64": ".app.tar.gz",
+  "darwin-x86_64": ".app.tar.gz",
+  "linux-x86_64": ".deb",
+  "windows-x86_64": ".msi",
+};
 
 /** Validates one protected private-key source and password without reading either value. */
 export function requireUpdaterSigningEnvironment(environment, repositoryRoot) {
@@ -95,6 +102,25 @@ export function bindUpdaterArtifactEvidence(evidence, target, expectedArtifactSh
     throw new Error("Updater evidence does not match the final artifact bytes.");
   }
   return { ...verified, target };
+}
+
+/** Copies exact verified updater bytes into one canonical ignored release-staging boundary. */
+export async function exportUpdaterArtifact(repositoryRoot, artifactPath, target, version) {
+  if (!SUPPORTED_TARGETS.has(target)) throw new Error("Updater export target is unsupported.");
+  if (!VERSION_PATTERN.test(version)) throw new Error("Updater export version must be numeric SemVer.");
+  const suffix = RELEASE_SUFFIXES[target];
+  if (!artifactPath.toLowerCase().endsWith(suffix === ".app.tar.gz" ? ".tar.gz" : suffix)) {
+    throw new Error("Updater export artifact format does not match its target.");
+  }
+  await requireRegularFile(artifactPath);
+  await requireRegularFile(`${artifactPath}.sig`);
+  const outputDirectory = join(repositoryRoot, "package", "updater-artifacts");
+  const artifact = `bottie_${version}_${target}${suffix}`;
+  const signature = `${artifact}.sig`;
+  await mkdir(outputDirectory, { recursive: true });
+  await copyFile(artifactPath, join(outputDirectory, artifact));
+  await copyFile(`${artifactPath}.sig`, join(outputDirectory, signature));
+  return { artifact, signature, target };
 }
 
 /** Signs one final platform artifact and returns only its adjacent signature path. */

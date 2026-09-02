@@ -9,7 +9,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { fileURLToPath } from "node:url";
 
 import { inspectBundleFiles, macosUpdaterBuildArguments } from "./macos-package.mjs";
-import { bindUpdaterArtifactEvidence, signUpdaterArtifact } from "./updater-artifact.mjs";
+import { bindUpdaterArtifactEvidence, exportUpdaterArtifact, signUpdaterArtifact } from "./updater-artifact.mjs";
 
 const DEVELOPER_ID_APPLICATION_PREFIX = "Developer ID Application:";
 const DEFAULT_BUNDLE_PATH = "src-tauri/target/release/bundle/macos/bottie.app";
@@ -269,6 +269,12 @@ async function runDistribution(repositoryRoot) {
       resolve(repositoryRoot, UPDATER_ARCHIVE_PATH),
     );
     const evidence = await createDistributionEvidence(bundlePath, entitlementsPath, archive, notarization, updater);
+    await exportUpdaterArtifact(
+      repositoryRoot,
+      resolve(repositoryRoot, UPDATER_ARCHIVE_PATH),
+      macosUpdaterTarget(evidence.metadata.architectures),
+      evidence.metadata.version,
+    );
     await mkdir(dirname(evidencePath), { recursive: true });
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
     return evidence;

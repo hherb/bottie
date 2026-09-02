@@ -96,6 +96,9 @@ describe("Linux distribution signing", () => {
     expect(script.indexOf("signAndVerifyLinuxDistribution(configuration, debPath)")).toBeLessThan(
       script.indexOf('bindUpdaterArtifactEvidence(updater, "linux-x86_64", signedPackage.sha256)'),
     );
+    expect(script.indexOf('bindUpdaterArtifactEvidence(updater, "linux-x86_64", signedPackage.sha256)')).toBeLessThan(
+      script.indexOf("await exportUpdaterArtifact("),
+    );
   });
 
   it("selects exactly one canonical Debian payload in verifier order", () => {

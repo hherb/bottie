@@ -61,9 +61,11 @@ const HASHED_INPUTS = [
   "scripts/dependency-inventory.mjs",
   "scripts/application-icons.mjs",
   "scripts/release-candidate.mjs",
+  "scripts/release-candidate-distributions.mjs",
   "scripts/release-candidate-runtime.mjs",
   "scripts/release-assets.mjs",
   "scripts/update-delivery.mjs",
+  "scripts/update-publication.mjs",
   "scripts/updater-artifact.mjs",
   "scripts/third-party-notices.mjs",
   "scripts/macos-package.mjs",
@@ -85,6 +87,7 @@ const HASHED_INPUTS = [
   ".github/workflows/macos-distribution-validation.yml",
   ".github/workflows/windows-distribution-validation.yml",
   ".github/workflows/linux-distribution-validation.yml",
+  ".github/workflows/updater-publication.yml",
   "LICENSE",
   "MODEL-NOTICE.txt",
   "THIRD-PARTY-NOTICES.txt",
@@ -104,6 +107,8 @@ const REVIEWED_NOTICE_PACKAGES = new Set([
   "cargo:dtoa-short@0.3.5",
   "cargo:option-ext@0.2.0",
   "cargo:selectors@0.36.1",
+  "cargo:speech-dispatcher@0.16.0",
+  "cargo:speech-dispatcher-sys@0.7.0",
   "npm:argparse@3.0.0",
 ]);
 const NO_NOTICE_ALTERNATIVES = ["0BSD", "CC0-1.0", "Unlicense"];

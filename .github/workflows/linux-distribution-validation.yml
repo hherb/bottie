@@ -2,6 +2,7 @@ name: Linux distribution validation
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -177,9 +178,18 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Upload short-lived updater release bytes
+        uses: actions/upload-artifact@v7
+        with:
+          name: bottie-updater-linux
+          path: package/updater-artifacts/*
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Remove protected Linux signing material and package bytes
         if: always()
         shell: bash
         run: |
           rm -rf "$RUNNER_TEMP/bottie-linux-signing"
           rm -rf package/linux
+          rm -rf package/updater-artifacts

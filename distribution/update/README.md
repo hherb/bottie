@@ -82,5 +82,26 @@ workflow has been dispatched and no evidence is claimed for those targets.
 Creating a tag, GitHub Release, release asset, or `latest.json` publication is a separate external action. A green
 contract test, generated manifest, draft release, or uploaded workflow artifact is not publication evidence.
 
+## Protected GitHub publication
+
+The manual `Updater publication` workflow is the only checked-in path that can publish this channel. It requires the
+exact source to still be current `main`, an explicit release-owner confirmation, fresh exact Gemma-terms
+acknowledgement, successful required-reviewer macOS/Windows/Linux distribution jobs, and a ready release-candidate
+manifest. Each platform exports only canonical final updater bytes and `.sig` files into a one-day workflow artifact;
+the runner removes its copy after upload.
+
+The publication job requires the separately protected `updater-publication` environment. It refuses an existing tag or
+release, builds `latest.json` from artifact bytes that exactly match the three protected evidence records, creates a
+complete draft, and verifies every GitHub asset size and SHA-256 digest before publication. It then publishes the
+beta-labelled 0.9.0 build as a full GitHub release and verifies that GitHub's latest-release API resolves the same tag.
+The full-release state is necessary because Bottie's fixed `/releases/latest/download/latest.json` endpoint cannot
+discover a GitHub prerelease. Retained publication evidence is path-free and contains no signatures, URLs, filenames,
+credentials, identities, or host paths.
+
+The Apple Developer ID/notary secrets and Windows Authenticode PFX/password are not currently configured in their
+protected environments, so this workflow must fail before artifact production until the release owner supplies those
+existing platform credentials. The updater key is already present. This pipeline never polls, certifies, submits, or
+publishes the Microsoft Store package.
+
 See the official [Tauri updater documentation](https://v2.tauri.app/plugin/updater/) for the upstream signing and
 static-manifest protocol.

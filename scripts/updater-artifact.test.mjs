@@ -1,9 +1,12 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import {
   bindUpdaterArtifactEvidence,
+  exportUpdaterArtifact,
   parseUpdaterArtifactEvidence,
   publicUpdaterVerificationEnvironment,
   requireUpdaterSigningEnvironment,
@@ -26,6 +29,41 @@ function verifiedUpdaterEvidence() {
 }
 
 describe("protected updater artifact signing", () => {
+  it("exports only canonical release bytes and signatures under the ignored package boundary", async () => {
+    const repositoryRoot = await mkdtemp(join(tmpdir(), "bottie-updater-export-"));
+    const artifactPath = join(repositoryRoot, "final.msi");
+    await writeFile(artifactPath, "final-windows-bytes");
+    await writeFile(`${artifactPath}.sig`, "final-updater-signature");
+
+    try {
+      const exported = await exportUpdaterArtifact(repositoryRoot, artifactPath, "windows-x86_64", "0.9.0");
+
+      expect(exported).toEqual({
+        artifact: "bottie_0.9.0_windows-x86_64.msi",
+        signature: "bottie_0.9.0_windows-x86_64.msi.sig",
+        target: "windows-x86_64",
+      });
+      expect(
+        await readFile(join(repositoryRoot, "package", "updater-artifacts", "bottie_0.9.0_windows-x86_64.msi"), "utf8"),
+      ).toBe("final-windows-bytes");
+      expect(
+        await readFile(
+          join(repositoryRoot, "package", "updater-artifacts", "bottie_0.9.0_windows-x86_64.msi.sig"),
+          "utf8",
+        ),
+      ).toBe("final-updater-signature");
+    } finally {
+      await rm(repositoryRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects export targets and versions that cannot become canonical release assets", async () => {
+    await expect(exportUpdaterArtifact("/repo", "/artifact", "android-aarch64", "0.9.0")).rejects.toThrow(/target/);
+    await expect(exportUpdaterArtifact("/repo", "/artifact", "linux-x86_64", "0.9.0-beta.1")).rejects.toThrow(
+      /version/,
+    );
+  });
+
   it("requires one private-key source, a password, and no repository-contained path", () => {
     expect(
       requireUpdaterSigningEnvironment(
