@@ -63,6 +63,9 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(safeNativeReason('{"reason":"process_create","status":"failed"}')).toBe("process_create");
     expect(safeNativeReason('{"reason":"C:\\\\private","status":"failed"}')).toBe("");
     expect(safePythonFailure({ stderr: "PermissionError: private path" })).toBe("python_permission");
+    expect(safePythonFailure({ stderr: "ModuleNotFoundError: No module named 'encodings'" })).toBe(
+      "python_module_encodings",
+    );
     expect(safePythonFailure({ stderr: "private path only" })).toBe("python_error");
   });
 
@@ -128,6 +131,7 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("TerminateJobObject");
     expect(source).toContain("runtime_readable");
     expect(source).toContain("library_readable");
+    expect(source).toContain("encodings_readable");
     expect(source).toContain("temporary.Writable()");
     expect(source).toContain('Fail("runner_timeout")');
     expect(source).toContain('Fail("runner_exit")');

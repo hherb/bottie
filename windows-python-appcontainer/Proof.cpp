@@ -412,22 +412,19 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
                           nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
                           nullptr));
   const bool denied = file.Get() == INVALID_HANDLE_VALUE;
-  const std::wstring runtime_file = runtime + L"\\python.wasm";
-  Handle runtime_handle(CreateFileW(runtime_file.c_str(), GENERIC_READ,
-                                    FILE_SHARE_READ, nullptr, OPEN_EXISTING,
-                                    FILE_ATTRIBUTE_NORMAL, nullptr));
-  const bool runtime_readable = runtime_handle.Get() != INVALID_HANDLE_VALUE;
-  const std::wstring library_file = runtime + L"\\lib\\python3.14\\os.py";
-  Handle library_handle(CreateFileW(library_file.c_str(), GENERIC_READ, FILE_SHARE_READ,
-                                    nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
-  const bool library_readable = library_handle.Get() != INVALID_HANDLE_VALUE;
+  const bool runtime_readable =
+      BottieFileReadable(runtime + L"\\python.wasm");
+  const bool library_readable =
+      BottieFileReadable(runtime + L"\\lib\\python3.14\\os.py");
+  const bool encodings_readable = BottieFileReadable(
+      runtime + L"\\lib\\python3.14\\encodings\\__init__.py");
   const BottieTemporaryStorageProbe temporary =
       ProbeBottieTemporaryStorage(profile);
   const bool privileges_stripped = BottieTokenPrivilegesStripped(token.Get());
   const bool low_integrity = BottieTokenIsLowIntegrity(token.Get());
   const bool ok = is_app_container == TRUE && privileges_stripped &&
                   low_integrity && groups->GroupCount == 0 && denied &&
-                  runtime_readable && library_readable &&
+                  runtime_readable && library_readable && encodings_readable &&
                   temporary.environment_matches_path &&
                   temporary.environment_within_profile &&
                   temporary.path_within_profile && temporary.Writable();
@@ -439,6 +436,8 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
             << ",\"runtimeReadable\":" << (runtime_readable ? "true" : "false")
             << ",\"runtimeLibraryReadable\":"
             << (library_readable ? "true" : "false")
+            << ",\"runtimeEncodingsReadable\":"
+            << (encodings_readable ? "true" : "false")
             << ",\"temporaryEnvironmentMatchesPath\":"
             << (temporary.environment_matches_path ? "true" : "false")
             << ",\"temporaryEnvironmentWithinProfile\":"

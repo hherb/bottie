@@ -51,6 +51,16 @@ inline bool EnsureBottieResolvedDirectory(const std::wstring &profile,
   return EnsureBottieProfileDirectory(path);
 }
 
+inline bool BottieFileReadable(const std::wstring &path) {
+  HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                            nullptr);
+  if (file == INVALID_HANDLE_VALUE)
+    return false;
+  CloseHandle(file);
+  return true;
+}
+
 struct BottieTemporaryStorageProbe {
   bool directory_prepared = false;
   bool path_available = false;

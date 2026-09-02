@@ -85,6 +85,9 @@ export function safePythonFailure(result) {
   const stderr = typeof result?.stderr === "string" ? result.stderr : "";
   if (/permission denied|permissionerror/i.test(stderr)) return "python_permission";
   if (/no such file|cannot find|can't open file/i.test(stderr)) return "python_missing_file";
+  const module = stderr.match(/no module named ['"]([A-Za-z0-9_.]+)['"]/i)?.[1];
+  const startupModules = new Set(["encodings", "site", "_collections_abc", "io", "os"]);
+  if (module && startupModules.has(module)) return `python_module_${module.replace(/^_/, "")}`;
   if (/modulenotfounderror/i.test(stderr)) return "python_module";
   if (/fatal python error/i.test(stderr)) return "python_fatal";
   if (/could not find platform independent libraries/i.test(stderr)) return "python_runtime_layout";
@@ -201,6 +204,7 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     ["host_fixture_denial", probe.hostFixtureDenied],
     ["runtime_read", probe.runtimeReadable],
     ["runtime_library_read", probe.runtimeLibraryReadable],
+    ["runtime_encodings_read", probe.runtimeEncodingsReadable],
   ]
     .filter(([, passed]) => passed !== true)
     .map(([name]) => name);
