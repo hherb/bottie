@@ -68,7 +68,8 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("ConvertSidToStringSidW");
     expect(source).toContain("GetAppContainerFolderPath(sid_string.c_str()");
     expect(source).toContain("CreateRestrictedToken(current_token.Get(), DISABLE_MAX_PRIVILEGE");
-    expect(source).toContain("SID_AND_ATTRIBUTES restricted{app_container_sid, 0}");
+    expect(source).toContain("GetTokenInformation(current_token.Get(), TokenUser");
+    expect(source).toContain("SID_AND_ATTRIBUTES restricted{user->User.Sid, 0}");
     expect(source).toContain("nullptr, 0, nullptr, 1, &restricted");
     expect(source).toContain("security_capabilities.CapabilityCount = 0");
     expect(source).toContain("security_capabilities.Capabilities = nullptr");

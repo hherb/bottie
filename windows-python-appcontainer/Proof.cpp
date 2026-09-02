@@ -3,7 +3,6 @@
 #include <windows.h>
 #include <sddl.h>
 #include <userenv.h>
-
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -183,12 +182,15 @@ std::wstring CommandLine(const std::wstring &executable,
   }
   return command;
 }
-Handle RestrictedToken(PSID app_container_sid) {
+Handle RestrictedToken() {
   Handle current_token;
   Require(OpenProcessToken(GetCurrentProcess(), TOKEN_DUPLICATE | TOKEN_QUERY,
                            current_token.Out()));
-  Handle restricted_token;
-  SID_AND_ATTRIBUTES restricted{app_container_sid, 0};
+  std::array<std::byte, sizeof(TOKEN_USER) + SECURITY_MAX_SID_SIZE> user_bytes{}; DWORD returned = 0;
+  Require(GetTokenInformation(current_token.Get(), TokenUser, user_bytes.data(),
+                              static_cast<DWORD>(user_bytes.size()), &returned));
+  const auto *user = reinterpret_cast<const TOKEN_USER *>(user_bytes.data()); Handle restricted_token;
+  SID_AND_ATTRIBUTES restricted{user->User.Sid, 0};
   Require(CreateRestrictedToken(current_token.Get(), DISABLE_MAX_PRIVILEGE, 0,
                                 nullptr, 0, nullptr, 1, &restricted,
                                 restricted_token.Out()));
@@ -249,7 +251,7 @@ struct Execution {
 Execution Launch(std::wstring_view moniker, const std::wstring &executable,
                  const std::vector<std::wstring> &arguments) {
   Sid sid = DeriveSid(moniker);
-  Handle token = RestrictedToken(sid.Get());
+  Handle token = RestrictedToken();
   Handle job = LimitedJob();
   PipePair input = InputPipe();
   PipePair output = OutputPipe();
