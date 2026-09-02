@@ -4,6 +4,7 @@
 #include <aclapi.h>
 #include <sddl.h>
 
+#include <array>
 #include <string>
 
 inline std::wstring BottieProfileTempPath(const std::wstring &profile) {
@@ -52,6 +53,7 @@ inline bool PrepareBottieProfileTemp(const std::wstring &profile, PSID sid) {
   access.grfAccessMode = GRANT_ACCESS;
   access.grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
   BuildTrusteeWithSidW(&access.Trustee, sid);
+  access.Trustee.TrusteeType = TRUSTEE_IS_USER;
 
   PACL updated_acl = nullptr;
   const DWORD combined =
@@ -66,4 +68,41 @@ inline bool PrepareBottieProfileTemp(const std::wstring &profile, PSID sid) {
     LocalFree(updated_acl);
   LocalFree(descriptor);
   return applied == ERROR_SUCCESS && ApplyBottieLowIntegrityLabel(path);
+}
+
+struct BottieTemporaryStorageProbe {
+  bool path_available = false;
+  bool file_created = false;
+  bool file_written = false;
+  bool file_deleted = false;
+
+  [[nodiscard]] bool Writable() const {
+    return path_available && file_created && file_written && file_deleted;
+  }
+};
+
+inline BottieTemporaryStorageProbe ProbeBottieTemporaryStorage() {
+  BottieTemporaryStorageProbe result;
+  std::array<wchar_t, MAX_PATH> temporary_path{};
+  const DWORD length = GetTempPathW(static_cast<DWORD>(temporary_path.size()),
+                                    temporary_path.data());
+  result.path_available = length > 0 && length < temporary_path.size();
+  if (!result.path_available)
+    return result;
+
+  const std::wstring file_path =
+      std::wstring(temporary_path.data()) + L"bottie-write-proof.tmp";
+  HANDLE file = CreateFileW(file_path.c_str(), GENERIC_WRITE, 0, nullptr,
+                            CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, nullptr);
+  result.file_created = file != INVALID_HANDLE_VALUE;
+  if (!result.file_created)
+    return result;
+
+  constexpr char kProbeByte = 'B';
+  DWORD written = 0;
+  result.file_written =
+      WriteFile(file, &kProbeByte, 1, &written, nullptr) && written == 1;
+  CloseHandle(file);
+  result.file_deleted = DeleteFileW(file_path.c_str());
+  return result;
 }

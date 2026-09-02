@@ -78,6 +78,8 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("CreateBottieRestrictedToken()");
     expect(token).toContain("CreateRestrictedToken(current, DISABLE_MAX_PRIVILEGE");
     expect(token).toContain("BottieTokenPrivilegesStripped");
+    expect(token).toContain("BottieTokenIsLowIntegrity");
+    expect(token).toContain("SECURITY_MANDATORY_LOW_RID");
     expect(token).toContain("SE_CHANGE_NOTIFY_NAME");
     expect(source).toContain("security_capabilities.CapabilityCount = 0");
     expect(source).toContain("security_capabilities.Capabilities = nullptr");
@@ -86,10 +88,14 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("PrepareBottieProfileTemp(path, sid.Get())");
     expect(source).toContain("BottieProfileTempPath(profile)");
     expect(storage).toContain("BuildTrusteeWithSidW(&access.Trustee, sid)");
+    expect(storage).toContain("TRUSTEE_IS_USER");
     expect(storage).toContain("SUB_CONTAINERS_AND_OBJECTS_INHERIT");
     expect(storage).toContain("FILE_DELETE_CHILD");
     expect(storage).toContain('L"S:(ML;OICI;NW;;;LW)"');
     expect(storage).toContain("LABEL_SECURITY_INFORMATION");
+    expect(storage).toContain("ProbeBottieTemporaryStorage");
+    expect(storage).toContain("WriteFile(file, &kProbeByte");
+    expect(storage).toContain("DeleteFileW(file_path.c_str())");
     expect(source).not.toMatch(/internetClient|privateNetworkClientServer|enterpriseAuthentication/);
   });
 
@@ -108,7 +114,7 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("CreatePipe");
     expect(source).toContain("TerminateJobObject");
     expect(source).toContain("runtime_readable");
-    expect(source).toContain("temporary_writable");
+    expect(source).toContain("temporary.Writable()");
     expect(source).toContain('Fail("runner_timeout")');
     expect(source).toContain('Fail("runner_exit")');
     expect(source).not.toMatch(/(?:cmd\.exe|powershell|ShellExecute)/i);

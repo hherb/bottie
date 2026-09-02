@@ -40,3 +40,22 @@ inline bool BottieTokenPrivilegesStripped(HANDLE token) noexcept {
   }
   return true;
 }
+
+/** Confirms the AppContainer launch produced a Low integrity token. */
+inline bool BottieTokenIsLowIntegrity(HANDLE token) noexcept {
+  DWORD bytes = 0;
+  GetTokenInformation(token, TokenIntegrityLevel, nullptr, 0, &bytes);
+  if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+    return false;
+  std::vector<std::byte> buffer(bytes);
+  if (!GetTokenInformation(token, TokenIntegrityLevel, buffer.data(), bytes,
+                           &bytes))
+    return false;
+  const auto *label =
+      reinterpret_cast<const TOKEN_MANDATORY_LABEL *>(buffer.data());
+  const UCHAR count = *GetSidSubAuthorityCount(label->Label.Sid);
+  if (count == 0)
+    return false;
+  return *GetSidSubAuthority(label->Label.Sid, count - 1) ==
+         SECURITY_MANDATORY_LOW_RID;
+}

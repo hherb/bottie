@@ -169,14 +169,26 @@ async function exerciseProof(controller, moniker, layout, fixture) {
   );
   const failedProbeChecks = [
     ["app_container", probe.appContainer],
+    ["low_integrity", probe.lowIntegrity],
     ["privileges_stripped", probe.privilegesStripped],
     ["zero_capabilities", probe.capabilityCount === 0],
     ["host_fixture_denial", probe.hostFixtureDenied],
     ["runtime_read", probe.runtimeReadable],
-    ["temporary_write", probe.temporaryWritable],
   ]
     .filter(([, passed]) => passed !== true)
     .map(([name]) => name);
+  const temporaryFailure = !probe.temporaryPathAvailable
+    ? "temporary_path"
+    : !probe.temporaryFileCreated
+      ? "temporary_create"
+      : !probe.temporaryFileWritten
+        ? "temporary_write"
+        : !probe.temporaryFileDeleted
+          ? "temporary_delete"
+          : probe.temporaryWritable !== true
+            ? "temporary_storage"
+            : undefined;
+  if (temporaryFailure) failedProbeChecks.push(temporaryFailure);
   if (probe.status !== "ok" || failedProbeChecks.length !== 0) {
     throw new Error(`The contained token or access probe failed (${failedProbeChecks.join(",")}).`);
   }
@@ -244,6 +256,7 @@ async function prove() {
     console.log(
       JSON.stringify({
         appContainerDeniedHostFixture: true,
+        appContainerLowIntegrity: true,
         appContainerNoCapabilities: true,
         cancellation: true,
         jobCloseKilledRunner: true,

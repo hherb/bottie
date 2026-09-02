@@ -425,29 +425,30 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime) {
                                     FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                     FILE_ATTRIBUTE_NORMAL, nullptr));
   const bool runtime_readable = runtime_handle.Get() != INVALID_HANDLE_VALUE;
-  std::array<wchar_t, MAX_PATH> temporary_path{};
-  const DWORD temporary_length = GetTempPathW(
-      static_cast<DWORD>(temporary_path.size()), temporary_path.data());
-  const std::wstring temporary_file =
-      std::wstring(temporary_path.data()) + L"bottie-write-proof.tmp";
-  Handle temporary_handle(CreateFileW(
-      temporary_file.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
-      FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, nullptr));
-  const bool temporary_writable =
-      temporary_length > 0 && temporary_length < temporary_path.size() &&
-      temporary_handle.Get() != INVALID_HANDLE_VALUE;
+  const BottieTemporaryStorageProbe temporary =
+      ProbeBottieTemporaryStorage();
   const bool privileges_stripped = BottieTokenPrivilegesStripped(token.Get());
+  const bool low_integrity = BottieTokenIsLowIntegrity(token.Get());
   const bool ok = is_app_container == TRUE && privileges_stripped &&
-                  groups->GroupCount == 0 && denied && runtime_readable &&
-                  temporary_writable;
+                  low_integrity && groups->GroupCount == 0 && denied &&
+                  runtime_readable && temporary.Writable();
   std::cout << "{\"appContainer\":" << (is_app_container ? "true" : "false")
             << ",\"capabilityCount\":" << groups->GroupCount
             << ",\"hostFixtureDenied\":" << (denied ? "true" : "false")
+            << ",\"lowIntegrity\":" << (low_integrity ? "true" : "false")
             << ",\"privilegesStripped\":"
             << (privileges_stripped ? "true" : "false")
             << ",\"runtimeReadable\":" << (runtime_readable ? "true" : "false")
+            << ",\"temporaryFileCreated\":"
+            << (temporary.file_created ? "true" : "false")
+            << ",\"temporaryFileDeleted\":"
+            << (temporary.file_deleted ? "true" : "false")
+            << ",\"temporaryFileWritten\":"
+            << (temporary.file_written ? "true" : "false")
+            << ",\"temporaryPathAvailable\":"
+            << (temporary.path_available ? "true" : "false")
             << ",\"temporaryWritable\":"
-            << (temporary_writable ? "true" : "false")
+            << (temporary.Writable() ? "true" : "false")
             << ",\"status\":\"" << (ok ? "ok" : "failed") << "\"}\n";
 }
 void Probe(std::wstring_view moniker, const std::wstring &host,
