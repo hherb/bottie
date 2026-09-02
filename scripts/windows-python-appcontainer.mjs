@@ -41,6 +41,11 @@ export function runnerBuildArguments(manifest) {
   return ["build", "--manifest-path", manifest, "--release", "--locked"];
 }
 
+/** Returns fixed bsdtar arguments for CPython's uncompressed standard-library search archive. */
+export function stdlibArchiveArguments(archive, library) {
+  return ["-a", "-c", "-f", archive, "--options", "zip:compression=store", "-s", ",^\\./,,", "-C", library, "."];
+}
+
 /** Returns fixed warning-clean MSVC arguments for the native proof host. */
 export function msvcCompilationArguments(source, output) {
   return [
@@ -310,6 +315,11 @@ async function prove() {
       cp(builtRunner, layout.runner),
       cp(runtime, layout.runtime, { recursive: true }),
     ]);
+    const standardLibrary = win32.join(layout.runtime, "lib", "python3.14");
+    const standardLibraryArchive = win32.join(layout.runtime, "lib", "python314.zip");
+    runHostCommand("tar.exe", stdlibArchiveArguments(standardLibraryArchive, standardLibrary), {
+      label: "The stored Python standard-library archive",
+    });
     const authorizedProfile = parsePreparedProfile(
       runHostCommand(controller, ["prepare", moniker], { label: "The copied proof tree access" }),
     );
