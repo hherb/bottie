@@ -80,11 +80,26 @@ export function safeNativeReason(output) {
   return match && reasons.has(match[1]) ? match[1] : "";
 }
 
+/** Maps controlled-proof CPython stderr to one fixed path-free category. */
+export function safePythonFailure(result) {
+  const stderr = typeof result?.stderr === "string" ? result.stderr : "";
+  if (/permission denied|permissionerror/i.test(stderr)) return "python_permission";
+  if (/no such file|cannot find|can't open file/i.test(stderr)) return "python_missing_file";
+  if (/modulenotfounderror/i.test(stderr)) return "python_module";
+  if (/fatal python error/i.test(stderr)) return "python_fatal";
+  if (/could not find platform independent libraries/i.test(stderr)) return "python_runtime_layout";
+  return "python_error";
+}
+
 /** Requires the fixed successful result used by both baseline and contained execution. */
 function requireOrdinaryResult(result, label) {
   if (result.status === "ok" && result.stdout.trim() === "42") return;
   const reason =
-    result.status === "failed" && typeof result.reason === "string" ? result.reason : safeRunnerStatus(result.status);
+    result.status === "failed" && typeof result.reason === "string"
+      ? result.reason
+      : result.status === "python_error"
+        ? safePythonFailure(result)
+        : safeRunnerStatus(result.status);
   throw new Error(`${label} did not return the expected bounded result (${reason}).`);
 }
 
@@ -185,6 +200,7 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     ["zero_capabilities", probe.capabilityCount === 0],
     ["host_fixture_denial", probe.hostFixtureDenied],
     ["runtime_read", probe.runtimeReadable],
+    ["runtime_library_read", probe.runtimeLibraryReadable],
   ]
     .filter(([, passed]) => passed !== true)
     .map(([name]) => name);

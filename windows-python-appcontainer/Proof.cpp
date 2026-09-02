@@ -417,13 +417,18 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
                                     FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                     FILE_ATTRIBUTE_NORMAL, nullptr));
   const bool runtime_readable = runtime_handle.Get() != INVALID_HANDLE_VALUE;
+  const std::wstring library_file = runtime + L"\\lib\\python3.14\\os.py";
+  Handle library_handle(CreateFileW(library_file.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                                    nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+  const bool library_readable = library_handle.Get() != INVALID_HANDLE_VALUE;
   const BottieTemporaryStorageProbe temporary =
       ProbeBottieTemporaryStorage(profile);
   const bool privileges_stripped = BottieTokenPrivilegesStripped(token.Get());
   const bool low_integrity = BottieTokenIsLowIntegrity(token.Get());
   const bool ok = is_app_container == TRUE && privileges_stripped &&
                   low_integrity && groups->GroupCount == 0 && denied &&
-                  runtime_readable && temporary.environment_matches_path &&
+                  runtime_readable && library_readable &&
+                  temporary.environment_matches_path &&
                   temporary.environment_within_profile &&
                   temporary.path_within_profile && temporary.Writable();
   std::cout << "{\"appContainer\":" << (is_app_container ? "true" : "false")
@@ -432,6 +437,8 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
             << ",\"lowIntegrity\":" << (low_integrity ? "true" : "false")
             << ",\"privilegesStripped\":" << (privileges_stripped ? "true" : "false")
             << ",\"runtimeReadable\":" << (runtime_readable ? "true" : "false")
+            << ",\"runtimeLibraryReadable\":"
+            << (library_readable ? "true" : "false")
             << ",\"temporaryEnvironmentMatchesPath\":"
             << (temporary.environment_matches_path ? "true" : "false")
             << ",\"temporaryEnvironmentWithinProfile\":"
