@@ -33,7 +33,9 @@ inline bool BottieTokenPrivilegesStripped(HANDLE token) noexcept {
   for (DWORD index = 0; index < privileges->PrivilegeCount; ++index) {
     const auto &privilege = privileges->Privileges[index];
     const bool enabled = (privilege.Attributes & SE_PRIVILEGE_ENABLED) != 0;
-    if (enabled && !EqualLuid(privilege.Luid, traverse))
+    const bool is_traverse = privilege.Luid.LowPart == traverse.LowPart &&
+                             privilege.Luid.HighPart == traverse.HighPart;
+    if (enabled && !is_traverse)
       return false;
   }
   return true;
