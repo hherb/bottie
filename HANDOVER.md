@@ -4,8 +4,8 @@ Last verified: 2026-09-02
 
 ## Start here
 
-PR #130 merged into `main` at `c412f8a`. The current updater-publication slice is on
-`codex/updater-publication`. Milestones 0–7 remain complete.
+PR #130 merged into `main` at `c412f8a`. Draft PR #131 is open from `codex/updater-publication`; implementation commit
+`43c4431` passed the validation below. Milestones 0–7 remain complete.
 
 Read, in order:
 
