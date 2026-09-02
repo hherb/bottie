@@ -1,13 +1,9 @@
 #pragma once
 
 #include <windows.h>
-#include <aclapi.h>
-#include <sddl.h>
 
 #include <array>
-#include <cstddef>
 #include <string>
-#include <vector>
 
 inline std::wstring BottieProfileLocalAppDataPath(const std::wstring &profile) {
   return profile + L"\\AC";
@@ -17,91 +13,11 @@ inline std::wstring BottieProfileTempPath(const std::wstring &profile) {
   return BottieProfileLocalAppDataPath(profile) + L"\\Temp";
 }
 
-inline bool ApplyBottieLowIntegrityLabel(std::wstring &path) {
-  PSECURITY_DESCRIPTOR descriptor = nullptr;
-  if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
-          L"S:(ML;OICI;NW;;;LW)", SDDL_REVISION_1, &descriptor, nullptr))
-    return false;
-  BOOL present = FALSE;
-  BOOL defaulted = FALSE;
-  PACL label = nullptr;
-  const BOOL queried =
-      GetSecurityDescriptorSacl(descriptor, &present, &label, &defaulted);
-  DWORD applied = ERROR_INVALID_SECURITY_DESCR;
-  if (queried && present && label != nullptr) {
-    applied = SetNamedSecurityInfoW(path.data(), SE_FILE_OBJECT,
-                                    LABEL_SECURITY_INFORMATION, nullptr,
-                                    nullptr, nullptr, label);
-  }
-  LocalFree(descriptor);
-  return applied == ERROR_SUCCESS;
-}
-
-// Grants temporary storage to the exact user and transient AppContainer pair.
-inline bool PrepareBottieProfileTemp(const std::wstring &profile, PSID sid) {
-  std::wstring path = BottieProfileTempPath(profile);
-  if (!CreateDirectoryW(path.c_str(), nullptr) &&
-      GetLastError() != ERROR_ALREADY_EXISTS)
-    return false;
-
-  PACL existing_acl = nullptr;
-  PSECURITY_DESCRIPTOR descriptor = nullptr;
-  const DWORD queried = GetNamedSecurityInfoW(
-      path.data(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr,
-      &existing_acl, nullptr, &descriptor);
-  if (queried != ERROR_SUCCESS)
-    return false;
-
-  HANDLE current_token = nullptr;
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &current_token)) {
-    LocalFree(descriptor);
-    return false;
-  }
-  DWORD user_bytes = 0;
-  GetTokenInformation(current_token, TokenUser, nullptr, 0, &user_bytes);
-  if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-    CloseHandle(current_token);
-    LocalFree(descriptor);
-    return false;
-  }
-  std::vector<std::byte> user_buffer(user_bytes);
-  const BOOL user_queried = GetTokenInformation(
-      current_token, TokenUser, user_buffer.data(), user_bytes, &user_bytes);
-  CloseHandle(current_token);
-  if (!user_queried) {
-    LocalFree(descriptor);
-    return false;
-  }
-  const auto *user = reinterpret_cast<const TOKEN_USER *>(user_buffer.data());
-
-  constexpr DWORD kTemporaryRights = FILE_GENERIC_READ | FILE_GENERIC_WRITE |
-                                     FILE_GENERIC_EXECUTE | DELETE |
-                                     FILE_DELETE_CHILD;
-  std::array<EXPLICIT_ACCESSW, 2> access{};
-  for (auto &entry : access) {
-    entry.grfAccessPermissions = kTemporaryRights;
-    entry.grfAccessMode = GRANT_ACCESS;
-    entry.grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
-  }
-  BuildTrusteeWithSidW(&access[0].Trustee, user->User.Sid);
-  BuildTrusteeWithSidW(&access[1].Trustee, sid);
-  access[0].Trustee.TrusteeType = TRUSTEE_IS_USER;
-  access[1].Trustee.TrusteeType = TRUSTEE_IS_GROUP;
-
-  PACL updated_acl = nullptr;
-  const DWORD combined = SetEntriesInAclW(
-      static_cast<ULONG>(access.size()), access.data(), existing_acl,
-      &updated_acl);
-  DWORD applied = combined;
-  if (combined == ERROR_SUCCESS) {
-    applied = SetNamedSecurityInfoW(path.data(), SE_FILE_OBJECT,
-                                    DACL_SECURITY_INFORMATION, nullptr,
-                                    nullptr, updated_acl, nullptr);
-  }
-  if (updated_acl != nullptr)
-    LocalFree(updated_acl);
-  LocalFree(descriptor);
-  return applied == ERROR_SUCCESS && ApplyBottieLowIntegrityLabel(path);
+inline bool BottieProfileTempIsReady(const std::wstring &profile) {
+  const std::wstring path = BottieProfileTempPath(profile);
+  const DWORD attributes = GetFileAttributesW(path.c_str());
+  return attributes != INVALID_FILE_ATTRIBUTES &&
+         (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
 struct BottieTemporaryStorageProbe {
