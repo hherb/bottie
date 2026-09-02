@@ -89,6 +89,8 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("120LL * 10LL * 1000LL * 1000LL");
     expect(source).toContain("CreatePipe");
     expect(source).toContain("TerminateJobObject");
+    expect(source).toContain("runtime_readable");
+    expect(source).toContain("temporary_writable");
     expect(source).toContain('Fail("runner_timeout")');
     expect(source).toContain('Fail("runner_exit")');
     expect(source).not.toMatch(/(?:cmd\.exe|powershell|ShellExecute)/i);

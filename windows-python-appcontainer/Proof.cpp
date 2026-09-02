@@ -46,7 +46,6 @@ public:
       CloseHandle(value_);
     value_ = value;
   }
-
 private:
   HANDLE value_ = nullptr;
 };
@@ -70,7 +69,6 @@ public:
   }
   [[nodiscard]] PSID Get() const { return value_; }
   [[nodiscard]] PSID *Out() { return &value_; }
-
 private:
   PSID value_ = nullptr;
 };
@@ -211,12 +209,10 @@ Handle LimitedJob() {
                                   &limits, sizeof(limits)));
   return job;
 }
-
 struct PipePair {
   Handle child;
   Handle parent;
 };
-
 PipePair InputPipe() {
   SECURITY_ATTRIBUTES attributes{sizeof(attributes), nullptr, TRUE};
   PipePair pipe;
@@ -224,7 +220,6 @@ PipePair InputPipe() {
   Require(SetHandleInformation(pipe.parent.Get(), HANDLE_FLAG_INHERIT, 0));
   return pipe;
 }
-
 PipePair OutputPipe() {
   SECURITY_ATTRIBUTES attributes{sizeof(attributes), nullptr, TRUE};
   PipePair pipe;
@@ -232,7 +227,6 @@ PipePair OutputPipe() {
   Require(SetHandleInformation(pipe.parent.Get(), HANDLE_FLAG_INHERIT, 0));
   return pipe;
 }
-
 std::vector<wchar_t> MinimalEnvironment(const std::wstring &profile) {
   const std::wstring temporary = profile + L"\\Temp";
   Require(CreateDirectoryW(temporary.c_str(), nullptr) ||
@@ -246,7 +240,6 @@ std::vector<wchar_t> MinimalEnvironment(const std::wstring &profile) {
   block.push_back(L'\0');
   return {block.begin(), block.end()};
 }
-
 struct Execution {
   Handle job;
   Handle process;
@@ -255,7 +248,6 @@ struct Execution {
   Handle standard_error;
   DWORD process_identifier = 0;
 };
-
 Execution Launch(std::wstring_view moniker, const std::wstring &executable,
                  const std::vector<std::wstring> &arguments) {
   Sid sid = DeriveSid(moniker);
@@ -314,7 +306,6 @@ Execution Launch(std::wstring_view moniker, const std::wstring &executable,
           std::move(input.parent), std::move(output.parent),
           std::move(error.parent), process.dwProcessId};
 }
-
 std::string ReadPipe(HANDLE pipe) {
   std::string captured;
   std::array<char, 4096> buffer{};
@@ -334,7 +325,6 @@ std::string ReadPipe(HANDLE pipe) {
   }
   return captured;
 }
-
 std::string ReadRequest() {
   std::string request;
   std::array<char, 4096> buffer{};
@@ -352,7 +342,6 @@ std::string ReadRequest() {
     Fail();
   return request;
 }
-
 void WriteRequest(Execution &execution, const std::string &request) {
   std::size_t offset = 0;
   while (offset < request.size()) {
@@ -367,7 +356,6 @@ void WriteRequest(Execution &execution, const std::string &request) {
   }
   execution.standard_input.Reset();
 }
-
 std::string Complete(Execution &execution) {
   auto output =
       std::async(std::launch::async, ReadPipe, execution.standard_output.Get());
@@ -388,7 +376,6 @@ std::string Complete(Execution &execution) {
     Fail("runner_empty_result");
   return result;
 }
-
 Execution LaunchRunner(std::wstring_view moniker, const std::wstring &runner,
                        const std::wstring &runtime,
                        const std::string &request) {
@@ -396,13 +383,11 @@ Execution LaunchRunner(std::wstring_view moniker, const std::wstring &runner,
   WriteRequest(execution, request);
   return execution;
 }
-
 void Execute(std::wstring_view moniker, const std::wstring &runner,
              const std::wstring &runtime) {
   Execution execution = LaunchRunner(moniker, runner, runtime, ReadRequest());
   std::cout << Complete(execution);
 }
-
 void Cancel(std::wstring_view moniker, const std::wstring &runner,
             const std::wstring &runtime) {
   Execution execution = LaunchRunner(moniker, runner, runtime, ReadRequest());
@@ -412,7 +397,6 @@ void Cancel(std::wstring_view moniker, const std::wstring &runner,
                               kExecutionTimeoutMilliseconds) == WAIT_OBJECT_0);
   std::cout << "{\"status\":\"cancelled\"}\n";
 }
-
 void StartAndExit(std::wstring_view moniker, const std::wstring &runner,
                   const std::wstring &runtime) {
   Execution execution = LaunchRunner(moniker, runner, runtime, ReadRequest());
@@ -421,8 +405,7 @@ void StartAndExit(std::wstring_view moniker, const std::wstring &runner,
             << std::flush;
   ExitProcess(0);
 }
-
-void ContainedProbe(const std::wstring &fixture) {
+void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime) {
   Handle token;
   Require(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, token.Out()));
   BOOL is_app_container = FALSE;
@@ -445,26 +428,43 @@ void ContainedProbe(const std::wstring &fixture) {
                           nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
                           nullptr));
   const bool denied = file.Get() == INVALID_HANDLE_VALUE;
+  const std::wstring runtime_file = runtime + L"\\python.wasm";
+  Handle runtime_handle(CreateFileW(runtime_file.c_str(), GENERIC_READ,
+                                    FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                                    FILE_ATTRIBUTE_NORMAL, nullptr));
+  const bool runtime_readable = runtime_handle.Get() != INVALID_HANDLE_VALUE;
+  std::array<wchar_t, MAX_PATH> temporary_path{};
+  const DWORD temporary_length = GetTempPathW(
+      static_cast<DWORD>(temporary_path.size()), temporary_path.data());
+  const std::wstring temporary_file =
+      std::wstring(temporary_path.data()) + L"bottie-write-proof.tmp";
+  Handle temporary_handle(CreateFileW(
+      temporary_file.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+      FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, nullptr));
+  const bool temporary_writable =
+      temporary_length > 0 && temporary_length < temporary_path.size() &&
+      temporary_handle.Get() != INVALID_HANDLE_VALUE;
   const bool restricted = IsTokenRestricted(token.Get()) == TRUE;
   const bool ok = is_app_container == TRUE && restricted &&
-                  groups->GroupCount == 0 && denied;
+                  groups->GroupCount == 0 && denied && runtime_readable &&
+                  temporary_writable;
   std::cout << "{\"appContainer\":" << (is_app_container ? "true" : "false")
             << ",\"capabilityCount\":" << groups->GroupCount
             << ",\"hostFixtureDenied\":" << (denied ? "true" : "false")
             << ",\"restrictedToken\":" << (restricted ? "true" : "false")
+            << ",\"runtimeReadable\":" << (runtime_readable ? "true" : "false")
+            << ",\"temporaryWritable\":"
+            << (temporary_writable ? "true" : "false")
             << ",\"status\":\"" << (ok ? "ok" : "failed") << "\"}\n";
-  if (!ok)
-    ExitProcess(1);
 }
-
 void Probe(std::wstring_view moniker, const std::wstring &host,
-           const std::wstring &fixture) {
-  Execution execution = Launch(moniker, host, {L"contained-probe", fixture});
+           const std::wstring &fixture, const std::wstring &runtime) {
+  Execution execution =
+      Launch(moniker, host, {L"contained-probe", fixture, runtime});
   execution.standard_input.Reset();
   std::cout << Complete(execution);
 }
 } // namespace
-
 int wmain(int argument_count, wchar_t **arguments) {
   try {
     if (argument_count == 3 && std::wstring_view(arguments[1]) == L"prepare")
@@ -481,11 +481,11 @@ int wmain(int argument_count, wchar_t **arguments) {
     else if (argument_count == 5 &&
              std::wstring_view(arguments[1]) == L"start-and-exit")
       StartAndExit(arguments[2], arguments[3], arguments[4]);
-    else if (argument_count == 5 && std::wstring_view(arguments[1]) == L"probe")
-      Probe(arguments[2], arguments[3], arguments[4]);
-    else if (argument_count == 3 &&
+    else if (argument_count == 6 && std::wstring_view(arguments[1]) == L"probe")
+      Probe(arguments[2], arguments[3], arguments[4], arguments[5]);
+    else if (argument_count == 4 &&
              std::wstring_view(arguments[1]) == L"contained-probe")
-      ContainedProbe(arguments[2]);
+      ContainedProbe(arguments[2], arguments[3]);
     else
       return 2;
     return 0;

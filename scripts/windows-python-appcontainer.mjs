@@ -162,6 +162,25 @@ async function waitForProcessExit(processIdentifier) {
 /** Exercises private pipes, cancellation, token/file denials, and kill-on-parent-close. */
 async function exerciseProof(controller, moniker, layout, fixture) {
   const common = [moniker, layout.runner, layout.runtime];
+  const probe = parseProofResult(
+    runHostCommand(controller, ["probe", moniker, layout.host, fixture, layout.runtime], {
+      label: "AppContainer denial probe",
+    }),
+  );
+  const failedProbeChecks = [
+    ["app_container", probe.appContainer],
+    ["restricted_token", probe.restrictedToken],
+    ["zero_capabilities", probe.capabilityCount === 0],
+    ["host_fixture_denial", probe.hostFixtureDenied],
+    ["runtime_read", probe.runtimeReadable],
+    ["temporary_write", probe.temporaryWritable],
+  ]
+    .filter(([, passed]) => passed !== true)
+    .map(([name]) => name);
+  if (probe.status !== "ok" || failedProbeChecks.length !== 0) {
+    throw new Error(`The contained token or access probe failed (${failedProbeChecks.join(",")}).`);
+  }
+
   const ordinary = parseProofResult(
     runHostCommand(controller, ["execute", ...common], { input: ORDINARY_REQUEST, label: "Private-pipe execution" }),
   );
@@ -172,19 +191,6 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     runHostCommand(controller, ["cancel", ...common], { input: infiniteRequest, label: "Runner cancellation" }),
   );
   if (cancelled.status !== "cancelled") throw new Error("The Job Object did not cancel its runner.");
-
-  const probe = parseProofResult(
-    runHostCommand(controller, ["probe", moniker, layout.host, fixture], { label: "AppContainer denial probe" }),
-  );
-  if (
-    probe.status !== "ok" ||
-    probe.appContainer !== true ||
-    probe.restrictedToken !== true ||
-    probe.capabilityCount !== 0 ||
-    probe.hostFixtureDenied !== true
-  ) {
-    throw new Error("The contained token or host-file denial proof failed.");
-  }
 
   const parent = parseProofResult(
     runHostCommand(controller, ["start-and-exit", ...common], {
