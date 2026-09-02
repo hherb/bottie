@@ -4,6 +4,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 inline std::wstring BottieProfileLocalAppDataPath(const std::wstring &profile) {
   return profile + L"\\AC";
@@ -27,7 +28,31 @@ inline bool PrepareBottieProfileStorage(const std::wstring &profile) {
          EnsureBottieProfileDirectory(BottieProfileTempPath(profile));
 }
 
+inline std::vector<wchar_t>
+BottieMinimalEnvironment(const std::wstring &profile) {
+  const std::wstring local = BottieProfileLocalAppDataPath(profile);
+  const std::wstring temporary = BottieProfileTempPath(profile);
+  std::wstring block = L"LOCALAPPDATA=" + local;
+  block.push_back(L'\0');
+  block.append(L"TEMP=").append(temporary).push_back(L'\0');
+  block.append(L"TMP=").append(temporary).push_back(L'\0');
+  block.push_back(L'\0');
+  return {block.begin(), block.end()};
+}
+
+inline bool EnsureBottieResolvedDirectory(const std::wstring &profile,
+                                           const std::wstring &path) {
+  std::size_t separator = path.find_first_of(L"\\/", profile.size() + 1);
+  while (separator != std::wstring::npos) {
+    if (!EnsureBottieProfileDirectory(path.substr(0, separator)))
+      return false;
+    separator = path.find_first_of(L"\\/", separator + 1);
+  }
+  return EnsureBottieProfileDirectory(path);
+}
+
 struct BottieTemporaryStorageProbe {
+  bool directory_prepared = false;
   bool path_available = false;
   bool file_created = false;
   bool file_written = false;
@@ -38,7 +63,8 @@ struct BottieTemporaryStorageProbe {
   DWORD file_create_error = ERROR_SUCCESS;
 
   [[nodiscard]] bool Writable() const {
-    return path_available && file_created && file_written && file_deleted;
+    return path_available && directory_prepared && file_created &&
+           file_written && file_deleted;
   }
 };
 
@@ -79,6 +105,15 @@ ProbeBottieTemporaryStorage(const std::wstring &profile) {
         CompareStringOrdinal(environment.c_str(), -1, resolved_path.c_str(),
                              -1, TRUE) == CSTR_EQUAL;
     result.environment_within_profile = within_profile(environment);
+  }
+
+  result.directory_prepared =
+      result.environment_matches_path && result.environment_within_profile &&
+      result.path_within_profile &&
+      EnsureBottieResolvedDirectory(profile, resolved_path);
+  if (!result.directory_prepared) {
+    result.file_create_error = GetLastError();
+    return result;
   }
 
   const std::wstring file_path =

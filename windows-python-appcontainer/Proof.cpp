@@ -271,15 +271,14 @@ Execution Launch(std::wstring_view moniker, const std::wstring &executable,
   startup.lpAttributeList = attribute_list;
   PROCESS_INFORMATION process{};
   std::wstring command = CommandLine(executable, arguments);
-  LPVOID environment = nullptr;
-  Require(CreateEnvironmentBlock(&environment, nullptr, FALSE));
+  std::vector<wchar_t> environment =
+      BottieMinimalEnvironment(ProfilePath(sid.Get()));
   const DWORD flags = EXTENDED_STARTUPINFO_PRESENT |
                       CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED |
                       CREATE_NO_WINDOW;
   const BOOL created = CreateProcessAsUserW(
       token.Get(), executable.c_str(), command.data(), nullptr, nullptr, TRUE,
-      flags, environment, nullptr, &startup.StartupInfo, &process);
-  DestroyEnvironmentBlock(environment);
+      flags, environment.data(), nullptr, &startup.StartupInfo, &process);
   DeleteProcThreadAttributeList(attribute_list);
   if (!created)
     Fail("process_create");
@@ -437,6 +436,8 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
             << (temporary.environment_matches_path ? "true" : "false")
             << ",\"temporaryEnvironmentWithinProfile\":"
             << (temporary.environment_within_profile ? "true" : "false")
+            << ",\"temporaryDirectoryPrepared\":"
+            << (temporary.directory_prepared ? "true" : "false")
             << ",\"temporaryCreateError\":" << temporary.file_create_error
             << ",\"temporaryFileCreated\":" << (temporary.file_created ? "true" : "false")
             << ",\"temporaryFileDeleted\":" << (temporary.file_deleted ? "true" : "false")

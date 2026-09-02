@@ -196,7 +196,10 @@ async function exerciseProof(controller, moniker, layout, fixture) {
   }
   if (probe.temporaryPathAvailable !== true) failedProbeChecks.push("temporary_path");
   if (probe.temporaryPathWithinProfile !== true) failedProbeChecks.push("temporary_path_outside_profile");
-  if (probe.temporaryFileCreated !== true) {
+  if (probe.temporaryDirectoryPrepared !== true) {
+    const error = Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown";
+    failedProbeChecks.push(`temporary_directory_${error}`);
+  } else if (probe.temporaryFileCreated !== true) {
     const error = Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown";
     failedProbeChecks.push(`temporary_create_${error}`);
   } else if (probe.temporaryFileWritten !== true) {
