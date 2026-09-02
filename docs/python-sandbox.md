@@ -119,16 +119,17 @@ References: [Apple XPC documentation](https://developer.apple.com/documentation/
 
 Implemented as a development proof: a transient AppContainer profile owns only a copied proof host, the unchanged Rust
 runner, and the already checksum-verified runtime. The controller supplies an empty capability list, combines the
-AppContainer launch attribute with a `DISABLE_MAX_PRIVILEGE` restricted primary token, and inherits only the three
+AppContainer launch attribute with a `DISABLE_MAX_PRIVILEGE` primary token, and inherits only the three
 anonymous-pipe protocol handles. Source is supplied on stdin and never enters a command line or shell.
 
 Every child is assigned at process creation to a Job Object limited to one process, 768 MiB committed memory, 120
 seconds of user CPU time, and kill-on-last-handle-close. That outer allowance includes bounded Wasmtime cold startup;
 the unchanged runner retains its separate 256 MiB linear-memory limit and 30-second execution deadline. The native proof
-checks the child token is both AppContainer and restricted with zero capability SIDs, uses the same launch path to deny
-a host-owned fixture outside the profile, executes the unchanged runner contract, cancels a running request through
-the Job Object, and observes that controller exit kills the retained runner. The transient profile, copied runtime,
-executables, and fixture are deleted afterward.
+checks that the child token is AppContainer, has zero capability SIDs, and has no enabled privilege except Windows'
+non-removable directory-traverse privilege. It uses the same launch path to deny a host-owned fixture outside the
+profile, executes the unchanged runner contract, cancels a running request through the Job Object, and observes that
+controller exit kills the retained runner. The transient profile, copied runtime, executables, and fixture are deleted
+afterward.
 
 On Windows versions that support it, evaluate the newer `CreateProcessInSandbox` API before maintaining the complete
 low-level AppContainer launch sequence in the product. This proof retains the Windows 10-compatible low-level path so
@@ -194,7 +195,7 @@ npm run python:appcontainer:prove
 
 The credential-free pull-request workflow independently verifies the pinned development-runtime size and digest,
 compiles the controller with warnings as errors, builds the locked runner, and exercises private-pipe execution,
-zero-capability/restricted-token state, host-fixture denial, cancellation, and kill-on-controller-close.
+zero-capability/privilege-stripped token state, host-fixture denial, cancellation, and kill-on-controller-close.
 
 ## Deferred product integration
 

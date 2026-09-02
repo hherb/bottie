@@ -21,14 +21,15 @@ Read, in order:
 workflow build one transient proof around the unchanged `bottie-python-runner` stdin/stdout JSON contract:
 
 - a fresh AppContainer profile owns only a copied proof host, runner, and already checksum-verified runtime;
-- every contained process combines an empty capability set with a `DISABLE_MAX_PRIVILEGE` restricted primary token;
+- every contained process combines an empty capability set with a `CreateRestrictedToken`/
+  `DISABLE_MAX_PRIVILEGE` primary token;
 - private anonymous pipes inherit exactly stdin, stdout, and stderr, with source supplied only over stdin;
 - each child enters a one-process Job Object at creation, before its initially suspended thread can run;
 - the Job Object caps committed process memory at 768 MiB and user CPU time at 120 seconds, accommodating bounded
   Wasmtime cold startup before the runner's separate 256 MiB linear-memory limit and 30-second execution deadline;
 - explicit cancellation terminates the Job Object, while controller exit closes its last handle and kills the runner;
-- a contained probe verifies AppContainer and restricted-token state, zero capability SIDs, and denial of a host-owned
-  fixture outside the profile; and
+- a contained probe verifies AppContainer state, that only Windows' non-removable traverse privilege may remain enabled,
+  zero capability SIDs, profile runtime/temp access, and denial of a host-owned fixture outside the profile; and
 - all path-bearing preparation output stays private to the wrapper; final evidence is path-free, and the temporary
   profile, copied bytes, and fixture are removed.
 
@@ -68,7 +69,7 @@ errors, build the locked runner, independently verify the pinned development run
 ```json
 {"appContainerDeniedHostFixture":true,"appContainerNoCapabilities":true,"cancellation":true,
  "jobCloseKilledRunner":true,"privatePipeExecution":true,"resourceLimits":true,
- "restrictedToken":true,"status":"ok"}
+ "privilegesStripped":true,"status":"ok"}
 ```
 
 This native result is not recorded until the draft PR workflow passes. The full frontend, Tauri, and standalone-runner

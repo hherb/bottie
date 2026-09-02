@@ -60,7 +60,7 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(safeRunnerStatus("C:\\private\\runtime failed")).toBe("unexpected_result");
   });
 
-  it("launches through an empty-capability AppContainer and a privilege-stripped restricted token", async () => {
+  it("launches through an empty-capability AppContainer and a privilege-stripped token", async () => {
     const source = await readFile(new URL("../windows-python-appcontainer/Proof.cpp", import.meta.url), "utf8");
     const token = await readFile(
       new URL("../windows-python-appcontainer/RestrictedToken.hpp", import.meta.url),
@@ -73,9 +73,8 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("GetAppContainerFolderPath(sid_string.c_str()");
     expect(source).toContain("CreateBottieRestrictedToken()");
     expect(token).toContain("CreateRestrictedToken(current, DISABLE_MAX_PRIVILEGE");
-    expect(token).toContain("GetTokenInformation(current, TokenUser");
-    expect(token).toContain("WinBuiltinUsersSid");
-    expect(token).toContain("static_cast<DWORD>(restricted.size()), restricted.data()");
+    expect(token).toContain("BottieTokenPrivilegesStripped");
+    expect(token).toContain("SE_CHANGE_NOTIFY_NAME");
     expect(source).toContain("security_capabilities.CapabilityCount = 0");
     expect(source).toContain("security_capabilities.Capabilities = nullptr");
     expect(source).toContain("PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES");

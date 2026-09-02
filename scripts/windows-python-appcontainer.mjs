@@ -169,7 +169,7 @@ async function exerciseProof(controller, moniker, layout, fixture) {
   );
   const failedProbeChecks = [
     ["app_container", probe.appContainer],
-    ["restricted_token", probe.restrictedToken],
+    ["privileges_stripped", probe.privilegesStripped],
     ["zero_capabilities", probe.capabilityCount === 0],
     ["host_fixture_denial", probe.hostFixtureDenied],
     ["runtime_read", probe.runtimeReadable],
@@ -249,7 +249,7 @@ async function prove() {
         jobCloseKilledRunner: true,
         privatePipeExecution: true,
         resourceLimits: true,
-        restrictedToken: true,
+        privilegesStripped: true,
         status: "ok",
       }),
     );

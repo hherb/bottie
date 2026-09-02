@@ -433,14 +433,15 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime) {
   const bool temporary_writable =
       temporary_length > 0 && temporary_length < temporary_path.size() &&
       temporary_handle.Get() != INVALID_HANDLE_VALUE;
-  const bool restricted = IsTokenRestricted(token.Get()) == TRUE;
-  const bool ok = is_app_container == TRUE && restricted &&
+  const bool privileges_stripped = BottieTokenPrivilegesStripped(token.Get());
+  const bool ok = is_app_container == TRUE && privileges_stripped &&
                   groups->GroupCount == 0 && denied && runtime_readable &&
                   temporary_writable;
   std::cout << "{\"appContainer\":" << (is_app_container ? "true" : "false")
             << ",\"capabilityCount\":" << groups->GroupCount
             << ",\"hostFixtureDenied\":" << (denied ? "true" : "false")
-            << ",\"restrictedToken\":" << (restricted ? "true" : "false")
+            << ",\"privilegesStripped\":"
+            << (privileges_stripped ? "true" : "false")
             << ",\"runtimeReadable\":" << (runtime_readable ? "true" : "false")
             << ",\"temporaryWritable\":"
             << (temporary_writable ? "true" : "false")
