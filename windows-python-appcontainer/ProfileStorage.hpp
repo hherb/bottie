@@ -11,7 +11,7 @@ inline std::wstring BottieProfileTempPath(const std::wstring &profile) {
 
 // Gives only the transient AppContainer identity a writable profile directory.
 inline bool PrepareBottieProfileTemp(const std::wstring &profile, PSID sid) {
-  const std::wstring path = BottieProfileTempPath(profile);
+  std::wstring path = BottieProfileTempPath(profile);
   if (!CreateDirectoryW(path.c_str(), nullptr) &&
       GetLastError() != ERROR_ALREADY_EXISTS)
     return false;
