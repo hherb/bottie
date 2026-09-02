@@ -77,12 +77,14 @@ falls back to Bottie's existing dark, comfortable presentation; System follows O
 
 ## Local voice capture
 
-The composer has an explicit **Record voice** action in the native desktop app. **Choose microphone** lazily lists at
-most 64 currently available inputs only after that separate user action. The WebView receives only bounded sanitized
-display labels and process-local opaque tokens, including a distinct **System default** choice; native device IDs,
-host APIs, paths, and hardware addresses remain in Rust. Selection is never persisted. At Record, System default
-resolves the operating system's current default, while an explicit token must resolve to that exact device or capture
-fails with a path-free unavailable state instead of switching microphones.
+The composer has an explicit **Record voice** action in the native desktop app. Bottie lists at most 64 currently
+available inputs at startup without opening one or requesting permission; **Refresh** repeats that bounded discovery.
+The WebView receives only sanitized display labels and process-local opaque tokens, including a distinct **System
+default** choice; native device IDs, host APIs, paths, and hardware addresses remain in Rust. Rust derives a separate
+stable opaque preference key for the most recent exact choice on this device. If it is unavailable during the next startup discovery, Bottie
+returns to System default and remembers that fallback. At Record, System default resolves the operating system's
+current default, while an exact choice that disappears later in the same session still fails with a path-free
+unavailable state instead of silently switching inputs.
 
 Bottie does not open the selected microphone or request operating-system permission until Record is chosen. Rust
 then downmixes native PCM into one bounded, session-only in-memory capture for at most 60 seconds and 32 MiB. The
@@ -141,11 +143,13 @@ until Discard, replacement, or process exit.
 
 Every completed assistant response also has an explicit **Play response aloud** action. Rust lazily enumerates the
 device's local voices and exposes at most 128 bounded names, language tags, and process-local opaque selection tokens;
-platform identifiers remain native. The selected voice lasts only for the Bottie process. Playback accepts at most
-32 KiB of visible text derived from the response's safe Markdown tokens, so link destinations and formatting syntax
-are not spoken. The WebView receives only `idle`, `speaking`, or fixed error state and never receives generated audio,
-engine details, output-device identity, or the retained utterance. **Stop local playback** ends only Bottie's current
-utterance. While Bottie is speaking or generating, the Record action becomes **Interrupt & record**. Choosing it
+platform identifiers remain native. **Settings** owns the voice selector, while Rust stores a separate stable opaque
+preference key for the most recent choice on this device. If that voice is unavailable after restart, Bottie chooses and remembers the default
+available local voice. Playback accepts at most 32 KiB of visible text derived from the response's safe Markdown
+tokens, so link destinations and formatting syntax are not spoken. The WebView receives only `idle`, `speaking`, or
+fixed error state and never receives generated audio, engine details, output-device identity, or the retained
+utterance. **Stop local playback** ends only Bottie's current utterance. While Bottie is speaking or generating, the
+Record action becomes **Interrupt & record**. Choosing it
 requests the existing provider cancellation, stops Bottie's local playback, and only then starts native capture. Rust
 also serializes capture against provider-run registration, cancels every registered provider/tool run, and rejects a
 generation that races with active capture. A failed local-playback stop keeps capture fail-closed. Playback remains
@@ -175,7 +179,7 @@ before a request leaves the application.
 | --------------------------------- | --------------------------------------------------------------- |
 | UI-safe typed state               | Conversations, indexes, backups, and recovery                   |
 | Path-free file metadata           | Paths, bytes, extraction, image normalization, and hashes       |
-| Path-free voice/transcript state  | Microphone, PCM, speech engines, and local speech inference      |
+| Path-free voice/transcript state  | Microphone, PCM, speech engines, and local speech inference     |
 | Credential status and diagnostics | Vault access, provider authentication, and sensitive logs       |
 | Context cards and audit summaries | Tool policy, network clients, deadlines, and durable audit data |
 

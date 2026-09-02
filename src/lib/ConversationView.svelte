@@ -47,7 +47,6 @@
     onremoveattachment: (messageId: string, attachmentId: string) => void;
     onspeakresponse: (messageId: number, markdown: string) => void;
     onstopspeech: () => void;
-    onselectspeechvoice: (voiceId: string) => void;
     onscrollready: (element: HTMLDivElement) => void;
   };
 
@@ -76,7 +75,6 @@
     onremoveattachment,
     onspeakresponse,
     onstopspeech,
-    onselectspeechvoice,
     onscrollready,
   }: Props = $props();
   let messageScroll: HTMLDivElement;
@@ -134,23 +132,8 @@
       </label>
     {/if}
 
-    {#if speechAvailable}
+    {#if speechAvailable && speechStatus.phase !== "idle"}
       <div class:error={speechStatus.phase === "error"} class="local-speech-toolbar" aria-label="Local voice playback">
-        <label>
-          <Icon name="speaker" size={14} />
-          <span>Local voice</span>
-          <select
-            aria-label="Local playback voice"
-            value={speechStatus.selectedVoiceId ?? ""}
-            disabled={speechVoices.length === 0 || speechStatus.phase === "speaking"}
-            onchange={(event) => onselectspeechvoice(event.currentTarget.value)}
-          >
-            {#if speechVoices.length === 0}<option value="">No voices available</option>{/if}
-            {#each speechVoices as voice (voice.id)}
-              <option value={voice.id}>{voice.name} · {voice.language || "Unknown language"}</option>
-            {/each}
-          </select>
-        </label>
         <span role={speechStatus.phase === "error" ? "alert" : "status"}>
           {speechFeedback(speechStatus, speechVoices.length)}
         </span>

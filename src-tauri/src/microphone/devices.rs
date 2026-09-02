@@ -1,4 +1,4 @@
-//! Session-only microphone discovery and opaque input selection.
+//! Rust-owned microphone discovery and durable opaque input selection.
 
 use cpal::{
     DeviceId,
@@ -7,6 +7,7 @@ use cpal::{
 use serde::Serialize;
 
 use super::{MicrophoneController, lock};
+use crate::local_audio_preferences::stable_choice_token;
 
 pub(super) const MAX_INPUT_DEVICES: usize = 64;
 const MAX_INPUT_LABEL_BYTES: usize = 160;
@@ -41,9 +42,11 @@ pub(crate) enum MicrophoneDeviceCommandError {
     DiscoveryFailed,
     /// The submitted opaque token is not one of the current bounded choices.
     SelectionNotFound,
+    /// The native input changed but its opaque durable preference could not be saved.
+    PreferenceSaveFailed,
 }
 
-/// Exact native input selected behind one process-local public token.
+/// Exact native input selected behind one opaque public token.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum CaptureInputSelection {
     /// Resolve the operating system's current default only when capture starts.
@@ -59,12 +62,13 @@ pub(super) struct NativeInputDevice {
     pub(super) label: String,
 }
 
-/// Process-lifetime registry for bounded choices and one session-only selection.
+/// Process-lifetime registry that restores one durable opaque selection.
 pub(super) struct MicrophoneDeviceRegistry {
     entries: Vec<(MicrophoneInputDevice, DeviceId)>,
     next_token: u64,
     selected_token: String,
     selected: CaptureInputSelection,
+    remembered_token: Option<String>,
 }
 
 impl Default for MicrophoneDeviceRegistry {
@@ -74,11 +78,20 @@ impl Default for MicrophoneDeviceRegistry {
             next_token: 1,
             selected_token: SYSTEM_DEFAULT_INPUT_TOKEN.into(),
             selected: CaptureInputSelection::SystemDefault,
+            remembered_token: None,
         }
     }
 }
 
 impl MicrophoneDeviceRegistry {
+    /// Creates a registry that resolves one durable opaque choice on its first discovery.
+    pub(super) fn with_remembered_token(remembered_token: Option<String>) -> Self {
+        Self {
+            remembered_token,
+            ..Self::default()
+        }
+    }
+
     /// Replaces current discovery results while retaining a missing exact selection as stale.
     pub(super) fn refresh(
         &mut self,
@@ -111,7 +124,17 @@ impl MicrophoneDeviceRegistry {
                 )
             })
             .collect();
-        if let CaptureInputSelection::Exact(selected_id) = &self.selected
+        if let Some(remembered_token) = self.remembered_token.take() {
+            if let Some((device, native_id)) = self.entries.iter().find(|(_, native_id)| {
+                stable_device_preference(&native_id.to_string()) == remembered_token
+            }) {
+                self.selected_token = device.token.clone();
+                self.selected = CaptureInputSelection::Exact(native_id.clone());
+            } else {
+                self.selected_token = SYSTEM_DEFAULT_INPUT_TOKEN.into();
+                self.selected = CaptureInputSelection::SystemDefault;
+            }
+        } else if let CaptureInputSelection::Exact(selected_id) = &self.selected
             && let Some((device, _)) = self
                 .entries
                 .iter()
@@ -144,6 +167,16 @@ impl MicrophoneDeviceRegistry {
         self.selected.clone()
     }
 
+    /// Returns `None` for System default or a Rust-only stable preference key.
+    pub(super) fn preference_token(&self) -> Option<String> {
+        match &self.selected {
+            CaptureInputSelection::SystemDefault => None,
+            CaptureInputSelection::Exact(native_id) => {
+                Some(stable_device_preference(&native_id.to_string()))
+            }
+        }
+    }
+
     fn list(&self) -> MicrophoneInputDeviceList {
         let mut devices = vec![MicrophoneInputDevice {
             token: SYSTEM_DEFAULT_INPUT_TOKEN.into(),
@@ -167,7 +200,7 @@ impl MicrophoneDeviceRegistry {
 }
 
 impl MicrophoneController {
-    /// Lazily enumerates bounded input choices only after an explicit WebView action.
+    /// Enumerates bounded input choices without opening a device or requesting permission.
     pub(crate) fn list_input_devices(
         &self,
     ) -> Result<MicrophoneInputDeviceList, MicrophoneDeviceCommandError> {
@@ -179,7 +212,7 @@ impl MicrophoneController {
         Ok(devices.refresh(candidates))
     }
 
-    /// Selects one current opaque microphone token for this process lifetime.
+    /// Selects one current opaque microphone token.
     pub(crate) fn select_input_device(
         &self,
         token: &str,
@@ -190,6 +223,11 @@ impl MicrophoneController {
         }
         devices.select(token)?;
         Ok(devices.list())
+    }
+
+    /// Returns the effective Rust-only preference key for native persistence.
+    pub(crate) fn input_preference_token(&self) -> Option<String> {
+        lock(&self.devices).preference_token()
     }
 }
 
@@ -229,6 +267,10 @@ fn bounded_input_devices(candidates: Vec<NativeInputDevice>) -> Vec<(String, Dev
         .into_iter()
         .map(|(_, label, native_id)| (label, native_id))
         .collect()
+}
+
+fn stable_device_preference(native_id: &str) -> String {
+    stable_choice_token("local-input-", native_id)
 }
 
 fn bounded_device_label(value: &str) -> String {
@@ -346,6 +388,42 @@ mod tests {
         assert_eq!(
             registry.capture_selection(),
             CaptureInputSelection::SystemDefault,
+        );
+    }
+
+    #[test]
+    fn remembered_opaque_selection_restores_only_when_the_native_device_is_available() {
+        let exact_id = test_device_id("remembered-native-device");
+        let remembered_token = stable_device_preference(&exact_id.to_string());
+        let mut registry =
+            MicrophoneDeviceRegistry::with_remembered_token(Some(remembered_token.clone()));
+
+        let restored = registry.refresh(vec![NativeInputDevice {
+            id: exact_id.clone(),
+            label: "Remembered microphone".into(),
+        }]);
+        assert_ne!(restored.selected_token, SYSTEM_DEFAULT_INPUT_TOKEN);
+        assert_ne!(restored.selected_token, remembered_token);
+        assert!(
+            !serde_json::to_string(&restored)
+                .unwrap()
+                .contains(&remembered_token)
+        );
+        assert_eq!(
+            registry.capture_selection(),
+            CaptureInputSelection::Exact(exact_id)
+        );
+
+        let missing_token = stable_device_preference("missing-native-device");
+        let mut missing = MicrophoneDeviceRegistry::with_remembered_token(Some(missing_token));
+        let fallback = missing.refresh(vec![NativeInputDevice {
+            id: test_device_id("available-native-device"),
+            label: "Available microphone".into(),
+        }]);
+        assert_eq!(fallback.selected_token, SYSTEM_DEFAULT_INPUT_TOKEN);
+        assert_eq!(
+            missing.capture_selection(),
+            CaptureInputSelection::SystemDefault
         );
     }
 }

@@ -10,6 +10,17 @@ describe("ProviderSettingsDialog", () => {
       props: {
         settings: DEFAULT_PROVIDER_SETTINGS,
         appearance: { theme: "dark", density: "comfortable" },
+        speech: {
+          available: true,
+          voices: [{ id: "voice.en-au", name: "Karen", language: "en-AU" }],
+          status: {
+            phase: "idle",
+            selectedVoiceId: "voice.en-au",
+            errorCode: null,
+            latency: { playbackAcceptedMs: null },
+          },
+          selectVoice: vi.fn(),
+        },
         isGenerating: false,
         onclose: vi.fn(),
         onappearancechange: vi.fn(),
@@ -37,6 +48,9 @@ describe("ProviderSettingsDialog", () => {
     expect(html).toContain("System");
     expect(html).toContain("Comfortable");
     expect(html).toContain("Compact");
+    expect(html).toContain("Local speech voice");
+    expect(html).toContain('aria-label="Local playback voice"');
+    expect(html).toContain("Karen · en-AU");
     expect(html).toContain('aria-describedby="provider-settings-description"');
     expect(html).toContain('id="provider-settings-description"');
     expect(html.match(/Local routes require loopback endpoints\./g)).toHaveLength(1);

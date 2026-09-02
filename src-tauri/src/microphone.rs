@@ -162,13 +162,15 @@ impl Default for MicrophoneController {
 
 impl MicrophoneController {
     /// Starts the process-lifetime local speech worker without loading its model before user capture.
-    pub(crate) fn new(model_cache_path: PathBuf) -> Self {
+    pub(crate) fn new(model_cache_path: PathBuf, remembered_input_token: Option<String>) -> Self {
         let shared = Arc::new(Mutex::new(CaptureState::default()));
         let transcription = TranscriptionWorker::start(model_cache_path, shared.clone());
         Self {
             shared,
             worker: Mutex::new(Worker::default()),
-            devices: Mutex::new(MicrophoneDeviceRegistry::default()),
+            devices: Mutex::new(MicrophoneDeviceRegistry::with_remembered_token(
+                remembered_input_token,
+            )),
             transcription: Some(transcription),
         }
     }

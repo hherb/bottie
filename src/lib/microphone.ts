@@ -17,14 +17,14 @@ export type MicrophoneErrorCode =
   | "unsupported_format"
   | "capture_failed";
 
-/** One bounded display label and process-local token without native device identity. */
+/** One bounded display label and process-local opaque token without native device identity. */
 export type MicrophoneInputDevice = {
   token: string;
   label: string;
   isSystemDefault: boolean;
 };
 
-/** Current session-only microphone choices returned only after explicit discovery. */
+/** Current microphone choices with one Rust-restored opaque selection. */
 export type MicrophoneInputDeviceList = {
   devices: MicrophoneInputDevice[];
   selectedToken: string;
@@ -123,7 +123,7 @@ export async function getMicrophoneStatus(): Promise<MicrophoneStatus> {
   return invoke<MicrophoneStatus>("get_microphone_status");
 }
 
-/** Lazily lists bounded microphone labels and process-local opaque tokens. */
+/** Lists bounded microphone labels and process-local opaque tokens without opening an input. */
 export async function listMicrophoneInputDevices(): Promise<MicrophoneInputDeviceList> {
   return invoke<MicrophoneInputDeviceList>("list_microphone_input_devices");
 }

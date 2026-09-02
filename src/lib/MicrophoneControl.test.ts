@@ -76,7 +76,7 @@ describe("MicrophoneControl", () => {
     expect(html).not.toContain('aria-label="Microphone input"');
   });
 
-  it("shows one keyboard-operable session-only microphone choice after explicit discovery", () => {
+  it("shows one keyboard-operable remembered microphone choice after discovery", () => {
     const html = rendered(
       IDLE_STATUS,
       false,
@@ -98,7 +98,7 @@ describe("MicrophoneControl", () => {
     expect(html).toContain('aria-label="Microphone input"');
     expect(html).toContain('<option value="system-default">System default</option>');
     expect(html).toMatch(/<option value="local-input-001" selected(?:="")?>Desk microphone<\/option>/);
-    expect(html).toContain("1 microphone available · selection stays only for this app session");
+    expect(html).toContain("1 microphone available · last available choice is remembered on this device");
     expect(html).not.toMatch(/device id|host api|hardware address/i);
   });
 

@@ -16,6 +16,7 @@ mod generation_tools;
 mod generation_usage;
 mod generation_web_tools;
 mod inference;
+mod local_audio_preferences;
 mod localmail;
 mod microphone;
 mod provider_registry;
@@ -55,7 +56,12 @@ mod updater_tests;
 #[cfg(test)]
 mod web_policy_tests;
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use attachment_processor::AttachmentProcessor;
 use command_types::{
@@ -74,6 +80,7 @@ use inference::{
     ProviderError, ProviderSettings, load_provider_settings, persist_completed_first_run_setup,
     save_provider_settings,
 };
+use local_audio_preferences::LocalAudioPreferenceStore;
 use localmail::{
     get_localmail_connection_status, open_email, probe_localmail_connection, search_email,
     test_localmail_connection, update_localmail_connection,
@@ -106,6 +113,7 @@ use web_search_commands::test_web_search_connection;
 struct AppState {
     providers: tauri::async_runtime::RwLock<ProviderSet>,
     settings_path: PathBuf,
+    local_audio_preferences: Mutex<LocalAudioPreferenceStore>,
     localmail_config_path: PathBuf,
     microphone: MicrophoneController,
     speech: SpeechController,
@@ -279,20 +287,34 @@ fn get_microphone_status(state: State<'_, AppState>) -> MicrophoneStatus {
 }
 
 #[tauri::command]
-/// Lazily returns bounded process-local microphone choices without native identifiers.
+/// Returns bounded opaque microphone choices without opening an input or exposing native identifiers.
 fn list_microphone_input_devices(
     state: State<'_, AppState>,
 ) -> Result<MicrophoneInputDeviceList, MicrophoneDeviceCommandError> {
-    state.microphone.list_input_devices()
+    let list = state.microphone.list_input_devices()?;
+    state
+        .local_audio_preferences
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remember_microphone(state.microphone.input_preference_token())
+        .map_err(|_| MicrophoneDeviceCommandError::PreferenceSaveFailed)?;
+    Ok(list)
 }
 
 #[tauri::command]
-/// Selects one current opaque microphone token for this process lifetime.
+/// Selects and remembers one current opaque microphone token.
 fn select_microphone_input_device(
     token: String,
     state: State<'_, AppState>,
 ) -> Result<MicrophoneInputDeviceList, MicrophoneDeviceCommandError> {
-    state.microphone.select_input_device(&token)
+    let list = state.microphone.select_input_device(&token)?;
+    state
+        .local_audio_preferences
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remember_microphone(state.microphone.input_preference_token())
+        .map_err(|_| MicrophoneDeviceCommandError::PreferenceSaveFailed)?;
+    Ok(list)
 }
 
 #[tauri::command]
@@ -337,16 +359,30 @@ fn get_speech_status(state: State<'_, AppState>) -> SpeechStatus {
 #[tauri::command]
 /// Lazily lists bounded local voices without device or filesystem identity.
 fn list_speech_voices(state: State<'_, AppState>) -> Result<Vec<SpeechVoice>, SpeechCommandError> {
-    state.speech.list_voices()
+    let voices = state.speech.list_voices()?;
+    state
+        .local_audio_preferences
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remember_speech_voice(state.speech.selected_voice_preference())
+        .map_err(|_| SpeechCommandError::PreferenceSaveFailed)?;
+    Ok(voices)
 }
 
 #[tauri::command]
-/// Selects one exact engine-provided voice for this process lifetime.
+/// Selects and remembers one exact engine-provided voice through its opaque token.
 fn select_speech_voice(
     voice_id: String,
     state: State<'_, AppState>,
 ) -> Result<SpeechStatus, SpeechCommandError> {
-    state.speech.select_voice(&voice_id)
+    let status = state.speech.select_voice(&voice_id)?;
+    state
+        .local_audio_preferences
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .remember_speech_voice(state.speech.selected_voice_preference())
+        .map_err(|_| SpeechCommandError::PreferenceSaveFailed)?;
+    Ok(status)
 }
 
 #[tauri::command]
@@ -575,6 +611,8 @@ pub fn run() {
                 app.manage(updater::UpdaterState::default());
             }
             let settings_path = app.path().app_config_dir()?.join("providers.json");
+            let local_audio_preferences_path =
+                app.path().app_config_dir()?.join("local-audio.json");
             let localmail_config_path = app.path().app_config_dir()?.join("localmail.json");
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
             let embedding_cache_path = app.path().app_data_dir()?.join("embedding-models");
@@ -618,6 +656,10 @@ pub fn run() {
                 semantic_indexing.wake();
             }
             let settings = load_provider_settings(&settings_path).unwrap_or_default();
+            let local_audio_preferences =
+                LocalAudioPreferenceStore::load(local_audio_preferences_path);
+            let remembered_microphone = local_audio_preferences.microphone_input_id();
+            let remembered_voice = local_audio_preferences.speech_voice_id();
             let providers = ProviderSet::from_settings(&settings).unwrap_or_else(|_| ProviderSet {
                 omlx: OmlxProvider::new().expect("the built-in oMLX configuration must be valid"),
                 ollama: OllamaProvider::new()
@@ -629,9 +671,13 @@ pub fn run() {
             app.manage(AppState {
                 providers: tauri::async_runtime::RwLock::new(providers),
                 settings_path,
+                local_audio_preferences: Mutex::new(local_audio_preferences),
                 localmail_config_path,
-                microphone: MicrophoneController::new(speech_model_cache_path),
-                speech: SpeechController::default(),
+                microphone: MicrophoneController::new(
+                    speech_model_cache_path,
+                    remembered_microphone,
+                ),
+                speech: SpeechController::with_preference(remembered_voice),
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 voice_interaction: tauri::async_runtime::Mutex::new(()),
                 diagnostics,
