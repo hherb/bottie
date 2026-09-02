@@ -135,7 +135,7 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("JOB_OBJECT_LIMIT_ACTIVE_PROCESS");
     expect(source).toContain("JOB_OBJECT_LIMIT_PROCESS_MEMORY");
     expect(source).toContain("JOB_OBJECT_LIMIT_PROCESS_TIME");
-    expect(source).toContain("kProcessMemoryLimitBytes = 768ULL * 1024ULL * 1024ULL");
+    expect(source).toContain("kProcessMemoryLimitBytes = 2048ULL * 1024ULL * 1024ULL");
     expect(source).toContain("kExecutionTimeoutMilliseconds = 150 * 1000");
     expect(source).toContain("120LL * 10LL * 1000LL * 1000LL");
     expect(source).toContain("CreatePipe");
