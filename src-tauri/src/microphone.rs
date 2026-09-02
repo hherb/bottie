@@ -189,7 +189,8 @@ impl MicrophoneController {
     /// Starts one selected-input capture only after the WebView's explicit user action.
     pub(crate) fn start(&self) -> MicrophoneStatus {
         let mut worker = lock(&self.worker);
-        clear_finished_worker(&mut worker);
+        let phase = lock(&self.shared).phase;
+        clear_worker_for_restart(&mut worker, phase);
         if worker.handle.is_some() {
             return self.status();
         }
@@ -463,15 +464,25 @@ fn permission_for_error(code: MicrophoneErrorCode) -> MicrophonePermission {
     }
 }
 
-fn clear_finished_worker(worker: &mut Worker) {
+/// Joins a worker that has finished or whose capture state has already become inactive.
+fn clear_worker_for_restart(worker: &mut Worker, phase: MicrophonePhase) {
     let finished = worker.handle.as_ref().is_some_and(JoinHandle::is_finished);
-    if !finished {
+    if !worker_can_be_replaced(phase, finished) {
         return;
     }
     worker.commands = None;
     if let Some(handle) = worker.handle.take() {
         let _ = handle.join();
     }
+}
+
+/// Reports whether a replacement may safely join the old capture owner before starting.
+fn worker_can_be_replaced(phase: MicrophonePhase, finished: bool) -> bool {
+    finished
+        || !matches!(
+            phase,
+            MicrophonePhase::Starting | MicrophonePhase::Recording
+        )
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -482,3 +493,5 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod worker_tests;

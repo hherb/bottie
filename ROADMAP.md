@@ -332,6 +332,8 @@ Status: complete; evidence-gated acoustic feedback processing remains deferred.
   resolution at Record, and the existing fail-closed playback/capture separation;
 - [x] explicit transcript-to-text fallback that copies only current visible final turns into a bounded editable unsent
   draft, preserves existing text, keeps capture state intact, and provides keyboard, focus, and screen-reader feedback;
+- [x] deterministic same-input repeated capture after a stopped worker's final unwind, with active capture overlap
+  still rejected and native macOS regression acceptance;
 - [ ] acoustic echo cancellation or general system-feedback processing, if later evidence justifies native DSP;
 
 Voice should reuse the same provider, content-block, event, persistence, and cancellation models established in

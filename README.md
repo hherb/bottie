@@ -120,6 +120,9 @@ provider.
 Bottie exits;
 **Discard** clears the retained capture, pending snapshot, and visible transcript immediately. If one native inference
 pass is already executing, its bounded PCM copy is released when that pass returns and its stale result is ignored.
+**Record again** deterministically replaces the stopped session capture on the same selected input: Rust first joins
+an already-inactive capture owner, including its short final unwind, while continuing to reject overlapping starting
+or recording owners.
 
 The speech model is downloaded only after explicit capture first produces speech, from the immutable repository
 revision and file identity in `runtime-assets.json`, into Bottie's app-owned cache. Native code verifies its exact
