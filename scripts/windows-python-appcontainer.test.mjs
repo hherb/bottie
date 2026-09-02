@@ -87,8 +87,10 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("CreateProcessAsUserW");
     expect(source).toContain("PrepareBottieProfileTemp(path, sid.Get())");
     expect(source).toContain("BottieProfileTempPath(profile)");
-    expect(storage).toContain("BuildTrusteeWithSidW(&access.Trustee, sid)");
-    expect(storage).toContain("TRUSTEE_IS_USER");
+    expect(storage).toContain("TokenUser");
+    expect(storage).toContain("BuildTrusteeWithSidW(&access[0].Trustee, user->User.Sid)");
+    expect(storage).toContain("BuildTrusteeWithSidW(&access[1].Trustee, sid)");
+    expect(storage).toContain("access[1].Trustee.TrusteeType = TRUSTEE_IS_USER");
     expect(storage).toContain("SUB_CONTAINERS_AND_OBJECTS_INHERIT");
     expect(storage).toContain("FILE_DELETE_CHILD");
     expect(storage).toContain('L"S:(ML;OICI;NW;;;LW)"');

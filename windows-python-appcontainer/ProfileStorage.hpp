@@ -5,7 +5,9 @@
 #include <sddl.h>
 
 #include <array>
+#include <cstddef>
 #include <string>
+#include <vector>
 
 inline std::wstring BottieProfileTempPath(const std::wstring &profile) {
   return profile + L"\\bottie-temp";
@@ -31,7 +33,7 @@ inline bool ApplyBottieLowIntegrityLabel(std::wstring &path) {
   return applied == ERROR_SUCCESS;
 }
 
-// Gives only the transient AppContainer identity a writable profile directory.
+// Grants temporary storage to the exact user and transient AppContainer pair.
 inline bool PrepareBottieProfileTemp(const std::wstring &profile, PSID sid) {
   std::wstring path = BottieProfileTempPath(profile);
   if (!CreateDirectoryW(path.c_str(), nullptr) &&
@@ -46,18 +48,46 @@ inline bool PrepareBottieProfileTemp(const std::wstring &profile, PSID sid) {
   if (queried != ERROR_SUCCESS)
     return false;
 
-  EXPLICIT_ACCESSW access{};
-  access.grfAccessPermissions = FILE_GENERIC_READ | FILE_GENERIC_WRITE |
-                                FILE_GENERIC_EXECUTE | DELETE |
-                                FILE_DELETE_CHILD;
-  access.grfAccessMode = GRANT_ACCESS;
-  access.grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
-  BuildTrusteeWithSidW(&access.Trustee, sid);
-  access.Trustee.TrusteeType = TRUSTEE_IS_USER;
+  HANDLE current_token = nullptr;
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &current_token)) {
+    LocalFree(descriptor);
+    return false;
+  }
+  DWORD user_bytes = 0;
+  GetTokenInformation(current_token, TokenUser, nullptr, 0, &user_bytes);
+  if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+    CloseHandle(current_token);
+    LocalFree(descriptor);
+    return false;
+  }
+  std::vector<std::byte> user_buffer(user_bytes);
+  const BOOL user_queried = GetTokenInformation(
+      current_token, TokenUser, user_buffer.data(), user_bytes, &user_bytes);
+  CloseHandle(current_token);
+  if (!user_queried) {
+    LocalFree(descriptor);
+    return false;
+  }
+  const auto *user = reinterpret_cast<const TOKEN_USER *>(user_buffer.data());
+
+  constexpr DWORD kTemporaryRights = FILE_GENERIC_READ | FILE_GENERIC_WRITE |
+                                     FILE_GENERIC_EXECUTE | DELETE |
+                                     FILE_DELETE_CHILD;
+  std::array<EXPLICIT_ACCESSW, 2> access{};
+  for (auto &entry : access) {
+    entry.grfAccessPermissions = kTemporaryRights;
+    entry.grfAccessMode = GRANT_ACCESS;
+    entry.grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
+  }
+  BuildTrusteeWithSidW(&access[0].Trustee, user->User.Sid);
+  BuildTrusteeWithSidW(&access[1].Trustee, sid);
+  access[0].Trustee.TrusteeType = TRUSTEE_IS_USER;
+  access[1].Trustee.TrusteeType = TRUSTEE_IS_USER;
 
   PACL updated_acl = nullptr;
-  const DWORD combined =
-      SetEntriesInAclW(1, &access, existing_acl, &updated_acl);
+  const DWORD combined = SetEntriesInAclW(
+      static_cast<ULONG>(access.size()), access.data(), existing_acl,
+      &updated_acl);
   DWORD applied = combined;
   if (combined == ERROR_SUCCESS) {
     applied = SetNamedSecurityInfoW(path.data(), SE_FILE_OBJECT,
