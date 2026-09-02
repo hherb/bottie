@@ -177,20 +177,21 @@ async function exerciseProof(controller, moniker, layout, fixture) {
   ]
     .filter(([, passed]) => passed !== true)
     .map(([name]) => name);
-  const temporaryFailure = !probe.temporaryPathAvailable
-    ? "temporary_path"
-    : !probe.temporaryPathMatchesExpected
-      ? "temporary_path_mismatch"
-      : !probe.temporaryFileCreated
-        ? `temporary_create_${Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown"}`
-        : !probe.temporaryFileWritten
-          ? "temporary_write"
-          : !probe.temporaryFileDeleted
-            ? "temporary_delete"
-            : probe.temporaryWritable !== true
-              ? "temporary_storage"
-              : undefined;
-  if (temporaryFailure) failedProbeChecks.push(temporaryFailure);
+  if (probe.temporaryEnvironmentMatchesExpected !== true) {
+    failedProbeChecks.push("temporary_environment_mismatch");
+  }
+  if (probe.temporaryPathAvailable !== true) failedProbeChecks.push("temporary_path");
+  if (probe.temporaryPathMatchesExpected !== true) failedProbeChecks.push("temporary_path_mismatch");
+  if (probe.temporaryFileCreated !== true) {
+    const error = Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown";
+    failedProbeChecks.push(`temporary_create_${error}`);
+  } else if (probe.temporaryFileWritten !== true) {
+    failedProbeChecks.push("temporary_write");
+  } else if (probe.temporaryFileDeleted !== true) {
+    failedProbeChecks.push("temporary_delete");
+  } else if (probe.temporaryWritable !== true) {
+    failedProbeChecks.push("temporary_storage");
+  }
   if (probe.status !== "ok" || failedProbeChecks.length !== 0) {
     throw new Error(`The contained token or access probe failed (${failedProbeChecks.join(",")}).`);
   }

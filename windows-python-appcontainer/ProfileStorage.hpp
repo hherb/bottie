@@ -105,6 +105,7 @@ struct BottieTemporaryStorageProbe {
   bool file_created = false;
   bool file_written = false;
   bool file_deleted = false;
+  bool environment_matches_expected = false;
   bool path_matches_expected = false;
   DWORD file_create_error = ERROR_SUCCESS;
 
@@ -129,6 +130,14 @@ ProbeBottieTemporaryStorage(const std::wstring &expected_path) {
     resolved_path.pop_back();
   result.path_matches_expected =
       CompareStringOrdinal(resolved_path.c_str(), -1, expected_path.c_str(),
+                           -1, TRUE) == CSTR_EQUAL;
+  std::array<wchar_t, MAX_PATH> environment_path{};
+  const DWORD environment_length = GetEnvironmentVariableW(
+      L"TMP", environment_path.data(),
+      static_cast<DWORD>(environment_path.size()));
+  result.environment_matches_expected =
+      environment_length > 0 && environment_length < environment_path.size() &&
+      CompareStringOrdinal(environment_path.data(), -1, expected_path.c_str(),
                            -1, TRUE) == CSTR_EQUAL;
 
   const std::wstring file_path =

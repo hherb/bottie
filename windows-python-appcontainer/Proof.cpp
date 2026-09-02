@@ -432,8 +432,8 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
   const bool low_integrity = BottieTokenIsLowIntegrity(token.Get());
   const bool ok = is_app_container == TRUE && privileges_stripped &&
                   low_integrity && groups->GroupCount == 0 && denied &&
-                  runtime_readable && temporary.path_matches_expected &&
-                  temporary.Writable();
+                  runtime_readable && temporary.environment_matches_expected &&
+                  temporary.path_matches_expected && temporary.Writable();
   std::cout << "{\"appContainer\":" << (is_app_container ? "true" : "false")
             << ",\"capabilityCount\":" << groups->GroupCount
             << ",\"hostFixtureDenied\":" << (denied ? "true" : "false")
@@ -441,12 +441,12 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
             << ",\"privilegesStripped\":"
             << (privileges_stripped ? "true" : "false")
             << ",\"runtimeReadable\":" << (runtime_readable ? "true" : "false")
+            << ",\"temporaryEnvironmentMatchesExpected\":"
+            << (temporary.environment_matches_expected ? "true" : "false")
             << ",\"temporaryCreateError\":" << temporary.file_create_error
             << ",\"temporaryFileCreated\":" << (temporary.file_created ? "true" : "false")
-            << ",\"temporaryFileDeleted\":"
-            << (temporary.file_deleted ? "true" : "false")
-            << ",\"temporaryFileWritten\":"
-            << (temporary.file_written ? "true" : "false")
+            << ",\"temporaryFileDeleted\":" << (temporary.file_deleted ? "true" : "false")
+            << ",\"temporaryFileWritten\":" << (temporary.file_written ? "true" : "false")
             << ",\"temporaryPathAvailable\":"
             << (temporary.path_available ? "true" : "false")
             << ",\"temporaryPathMatchesExpected\":"
