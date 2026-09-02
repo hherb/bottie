@@ -13,11 +13,18 @@ inline std::wstring BottieProfileTempPath(const std::wstring &profile) {
   return BottieProfileLocalAppDataPath(profile) + L"\\Temp";
 }
 
-inline bool BottieProfileTempIsReady(const std::wstring &profile) {
-  const std::wstring path = BottieProfileTempPath(profile);
+inline bool EnsureBottieProfileDirectory(const std::wstring &path) {
+  if (!CreateDirectoryW(path.c_str(), nullptr) &&
+      GetLastError() != ERROR_ALREADY_EXISTS)
+    return false;
   const DWORD attributes = GetFileAttributesW(path.c_str());
   return attributes != INVALID_FILE_ATTRIBUTES &&
          (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+inline bool PrepareBottieProfileStorage(const std::wstring &profile) {
+  return EnsureBottieProfileDirectory(BottieProfileLocalAppDataPath(profile)) &&
+         EnsureBottieProfileDirectory(BottieProfileTempPath(profile));
 }
 
 struct BottieTemporaryStorageProbe {
