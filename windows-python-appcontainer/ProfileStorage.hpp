@@ -1,6 +1,7 @@
 #pragma once
 
 #include <windows.h>
+#include <aclapi.h>
 
 #include <array>
 #include <string>
@@ -14,6 +15,10 @@ inline std::wstring BottieProfileTempPath(const std::wstring &profile) {
   return BottieProfileLocalAppDataPath(profile) + L"\\Temp";
 }
 
+inline std::wstring BottieProfileProofPath(const std::wstring &profile) {
+  return BottieProfileLocalAppDataPath(profile) + L"\\proof";
+}
+
 inline bool EnsureBottieProfileDirectory(const std::wstring &path) {
   if (!CreateDirectoryW(path.c_str(), nullptr) &&
       GetLastError() != ERROR_ALREADY_EXISTS)
@@ -23,9 +28,45 @@ inline bool EnsureBottieProfileDirectory(const std::wstring &path) {
          (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
-inline bool PrepareBottieProfileStorage(const std::wstring &profile) {
+inline bool GrantBottieProfileReadAndExecute(const std::wstring &source_path,
+                                              PSID sid) {
+  std::wstring path = source_path;
+  PACL existing_acl = nullptr;
+  PSECURITY_DESCRIPTOR descriptor = nullptr;
+  const DWORD queried = GetNamedSecurityInfoW(
+      path.data(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr,
+      &existing_acl, nullptr, &descriptor);
+  if (queried != ERROR_SUCCESS)
+    return false;
+
+  EXPLICIT_ACCESSW access{};
+  access.grfAccessPermissions = FILE_GENERIC_READ | FILE_GENERIC_EXECUTE;
+  access.grfAccessMode = GRANT_ACCESS;
+  access.grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
+  BuildTrusteeWithSidW(&access.Trustee, sid);
+
+  PACL updated_acl = nullptr;
+  const DWORD combined =
+      SetEntriesInAclW(1, &access, existing_acl, &updated_acl);
+  DWORD applied = combined;
+  if (combined == ERROR_SUCCESS) {
+    applied = SetNamedSecurityInfoW(path.data(), SE_FILE_OBJECT,
+                                    DACL_SECURITY_INFORMATION, nullptr,
+                                    nullptr, updated_acl, nullptr);
+  }
+  if (updated_acl != nullptr)
+    LocalFree(updated_acl);
+  LocalFree(descriptor);
+  return applied == ERROR_SUCCESS;
+}
+
+inline bool PrepareBottieProfileStorage(const std::wstring &profile,
+                                         PSID sid) {
+  const std::wstring proof = BottieProfileProofPath(profile);
   return EnsureBottieProfileDirectory(BottieProfileLocalAppDataPath(profile)) &&
-         EnsureBottieProfileDirectory(BottieProfileTempPath(profile));
+         EnsureBottieProfileDirectory(BottieProfileTempPath(profile)) &&
+         EnsureBottieProfileDirectory(proof) &&
+         GrantBottieProfileReadAndExecute(proof, sid);
 }
 
 inline std::vector<wchar_t>

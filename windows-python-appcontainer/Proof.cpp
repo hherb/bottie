@@ -143,7 +143,7 @@ void Prepare(std::wstring_view moniker) {
   else
     RequireHr(created);
   const std::wstring path = ProfilePath(sid.Get());
-  Require(PrepareBottieProfileStorage(path));
+  Require(PrepareBottieProfileStorage(path, sid.Get()));
   std::cout << "{\"profilePath\":\"" << JsonEscape(path)
             << "\",\"status\":\"prepared\"}\n";
 }
