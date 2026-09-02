@@ -24,8 +24,8 @@ workflow build one transient proof around the unchanged `bottie-python-runner` s
 - every contained process combines an empty capability set with a `DISABLE_MAX_PRIVILEGE` restricted primary token;
 - private anonymous pipes inherit exactly stdin, stdout, and stderr, with source supplied only over stdin;
 - each child enters a one-process Job Object at creation, before its initially suspended thread can run;
-- the Job Object caps committed process memory at 768 MiB and user CPU time at 120 seconds, accommodating bounded
-  Wasmtime cold startup before the runner's separate 30-second execution deadline begins;
+- the Job Object caps committed process memory at 2 GiB and user CPU time at 120 seconds, accommodating bounded
+  Wasmtime JIT cold startup before the runner's separate 256 MiB linear-memory limit and 30-second execution deadline;
 - explicit cancellation terminates the Job Object, while controller exit closes its last handle and kills the runner;
 - a contained probe verifies AppContainer and restricted-token state, zero capability SIDs, and denial of a host-owned
   fixture outside the profile; and
