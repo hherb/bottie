@@ -2,6 +2,7 @@ name: Windows distribution validation
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -38,6 +39,9 @@ jobs:
         env:
           BOTTIE_WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.BOTTIE_WINDOWS_SIGNING_PFX_BASE64 }}
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:BOTTIE_WINDOWS_SIGNING_PFX_BASE64)) {
+            throw "Protected Windows distribution certificate is unavailable."
+          }
           $certificatePath = Join-Path $env:RUNNER_TEMP "bottie-windows-signing.pfx"
           $certificateBytes = [Convert]::FromBase64String($env:BOTTIE_WINDOWS_SIGNING_PFX_BASE64)
           [IO.File]::WriteAllBytes($certificatePath, $certificateBytes)
@@ -63,9 +67,18 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Upload short-lived updater release bytes
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottie-updater-windows
+          path: package/updater-artifacts/*
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Remove protected Windows signing material
         if: always()
         shell: pwsh
         run: |
           $certificatePath = Join-Path $env:RUNNER_TEMP "bottie-windows-signing.pfx"
           Remove-Item -LiteralPath $certificatePath -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath package/updater-artifacts -Recurse -Force -ErrorAction SilentlyContinue

@@ -60,6 +60,9 @@ describe("Windows distribution signing", () => {
     expect(script.indexOf("signAndVerify(signToolPath, credentials, msiPath)")).toBeLessThan(
       script.indexOf('bindUpdaterArtifactEvidence(updater, "windows-x86_64", bundle.installer.sha256)'),
     );
+    expect(
+      script.indexOf('bindUpdaterArtifactEvidence(updater, "windows-x86_64", bundle.installer.sha256)'),
+    ).toBeLessThan(script.indexOf("await exportUpdaterArtifact("));
   });
 
   it("requires one complete protected credential pair outside the repository", () => {
@@ -91,6 +94,7 @@ describe("Windows distribution signing", () => {
     );
 
     expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("workflow_call:");
     expect(workflow).toContain("environment: windows-distribution");
     expect(workflow).toContain("BOTTIE_WINDOWS_SIGNING_PFX_BASE64");
     expect(workflow).toContain("BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD");
@@ -105,5 +109,7 @@ describe("Windows distribution signing", () => {
     );
     expect(workflow).not.toMatch(/pull_request:|push:|release:/);
     expect(workflow).not.toMatch(/package\/windows\/.*\.msi/);
+    expect(workflow).toContain("name: bottie-updater-windows");
+    expect(workflow).toContain("retention-days: 1");
   });
 });

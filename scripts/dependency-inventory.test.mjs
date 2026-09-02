@@ -66,10 +66,19 @@ tauri-build v2.5.3|Apache-2.0 OR MIT|default
     expect(classifyLicence("proprietary-custom")).toBe("review-required");
   });
 
-  it("applies only exact human-reviewed MPL and Python package decisions", () => {
+  it("applies only exact human-reviewed package licence decisions", () => {
     expect(classifyReviewedLicence("cargo", "cssparser", "0.36.0", "MPL-2.0")).toBe("notice-required");
     expect(classifyReviewedLicence("npm", "argparse", "3.0.0", "Python-2.0")).toBe("notice-required");
+    expect(classifyReviewedLicence("cargo", "speech-dispatcher", "0.16.0", "LGPL-2.1 OR MIT OR Apache-2.0")).toBe(
+      "notice-required",
+    );
+    expect(classifyReviewedLicence("cargo", "speech-dispatcher-sys", "0.7.0", "LGPL-2.1 OR MIT OR Apache-2.0")).toBe(
+      "notice-required",
+    );
     expect(classifyReviewedLicence("cargo", "future-mpl-package", "1.0.0", "MPL-2.0")).toBe("review-required");
+    expect(classifyReviewedLicence("cargo", "speech-dispatcher", "0.17.0", "LGPL-2.1 OR MIT OR Apache-2.0")).toBe(
+      "review-required",
+    );
   });
 
   it("retains exact npm paths, scopes, integrity, and directness", () => {

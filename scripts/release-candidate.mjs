@@ -8,11 +8,16 @@ import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from "no
 import { fileURLToPath } from "node:url";
 
 import {
-  acceptsModelTerms,
-  acceptsPackagedDocuments,
-  acceptsRuntimeAssets,
-  summarizeDocuments,
-} from "./release-candidate-runtime.mjs";
+  acceptsLinuxDistribution,
+  acceptsLinuxPackage,
+  acceptsMacos,
+  acceptsWindowsDistribution,
+  acceptsWindowsPackage,
+  summarizeLinux,
+  summarizeMacos,
+  summarizeWindows,
+} from "./release-candidate-distributions.mjs";
+import { acceptsModelTerms, acceptsRuntimeAssets } from "./release-candidate-runtime.mjs";
 
 const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const RELEASE_VERSION = "0.9.0";
@@ -21,15 +26,12 @@ const DEPENDENCY_INVENTORY_PATH = "dependency-inventory.json";
 const RUNTIME_ASSETS_PATH = "runtime-assets.json";
 const MODEL_TERMS_EVIDENCE_PATH = "package/model-terms-evidence.json";
 const MACOS_EVIDENCE_PATH = "package/macos-distribution-evidence.json";
-const WINDOWS_STORE_EVIDENCE_PATH = "package/windows-store/windows-store-evidence.json";
-const WINDOWS_STORE_PUBLICATION_PATH = "package/windows-store/windows-store-publication-evidence.json";
+const WINDOWS_EVIDENCE_PATH = "package/windows-package-evidence.json";
 const LINUX_EVIDENCE_PATH = "package/linux-package-evidence.json";
 const OUTPUT_PATH = "package/release-candidate-manifest.json";
 const LICENCE_PATH = "LICENSE";
 const NOTICES_PATH = "THIRD-PARTY-NOTICES.txt";
-const APPLICATION_IDENTIFIER = "com.bottie.app";
 const SCHEMA_VERSION = 1;
-const EXPECTED_STORAGE_SCHEMA = 21;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 
@@ -50,8 +52,7 @@ export function buildReleaseCandidateManifest(inputs) {
   const notes = parseReleaseNotes(inputs.releaseNotes);
   const dependency = inputs.dependencyInventory;
   const macos = summarizeMacos(inputs.macosDistribution);
-  const windows = summarizeWindowsStore(inputs.windowsStorePackage);
-  const windowsPublication = summarizeWindowsStorePublication(inputs.windowsStorePublication);
+  const windows = summarizeWindows(inputs.windowsDistribution);
   const linux = summarizeLinux(inputs.linuxPackage);
   const versionsMatch =
     notes.version === inputs.version &&
@@ -69,14 +70,12 @@ export function buildReleaseCandidateManifest(inputs) {
     inputs.runtimeAssetSources,
     inputs.requiredDocuments,
   );
-  const modelTermsAccepted = acceptsModelTerms(inputs.runtimeAssets, inputs.modelTermsAcceptance);
-  const windowsStorePackageAccepted = acceptsWindowsStorePackage(
+  const windowsPackageAccepted = acceptsWindowsPackage(
     windows,
     inputs.version,
     inputs.requiredDocuments,
     inputs.runtimeAssets,
   );
-
   const gates = [
     gate("release-notes", notes.version === inputs.version && notes.channel === "beta", "invalid-release-notes"),
     gate("version-alignment", versionsMatch, "version-mismatch"),
@@ -84,18 +83,22 @@ export function buildReleaseCandidateManifest(inputs) {
     gate("dependency-review", dependencyReviewComplete, "unresolved-dependency-review"),
     gate("licence-and-notices", hasDocuments, "missing-licence-or-notice-bundle"),
     gate("runtime-assets", runtimeAssetsCurrent, "missing-or-stale-runtime-asset-contract"),
-    gate("model-terms", modelTermsAccepted, "missing-or-stale-model-terms-acceptance"),
+    gate(
+      "model-terms",
+      acceptsModelTerms(inputs.runtimeAssets, inputs.modelTermsAcceptance),
+      "missing-or-stale-model-terms-acceptance",
+    ),
     gate("artwork", artworkCurrent, "missing-or-stale-artwork-evidence"),
     gate(
       "macos-distribution",
       acceptsMacos(macos, inputs.version, inputs.requiredDocuments, inputs.runtimeAssets),
       "missing-unsigned-or-unnotarized-macos",
     ),
-    gate("windows-package", windowsStorePackageAccepted, "missing-or-stale-windows-store-package"),
+    gate("windows-package", windowsPackageAccepted, "missing-or-stale-windows-package"),
     gate(
       "windows-distribution",
-      windowsStorePackageAccepted && acceptsWindowsStorePublication(windows, windowsPublication),
-      "missing-or-unpublished-windows-store-package",
+      windowsPackageAccepted && acceptsWindowsDistribution(windows),
+      "missing-or-unsigned-windows-package",
     ),
     gate(
       "linux-package",
@@ -147,227 +150,8 @@ function hashesMatch(expected, current) {
 function isArtworkCurrent(inventory) {
   const artwork = inventory?.assets?.find((asset) => asset.name === "Bottie application icons and browser favicon");
   if (!artwork || artwork.classification !== "compatible") return false;
-  const hashes = { ...artwork.generationSources, ...artwork.files };
-  const entries = Object.entries(hashes);
+  const entries = Object.entries({ ...artwork.generationSources, ...artwork.files });
   return entries.length > 0 && entries.every(([path, hash]) => inventory.inputs?.[path] === hash && isSha256(hash));
-}
-
-/** Selects only public, identity-free macOS package and distribution evidence. */
-function summarizeMacos(evidence) {
-  if (!evidence) return null;
-  return {
-    schemaVersion: evidence.schemaVersion ?? null,
-    version: normalizedVersion(evidence.metadata?.version),
-    identifier: normalizedChoice(evidence.metadata?.identifier, [APPLICATION_IDENTIFIER]),
-    architectures: allowedStrings(evidence.metadata?.architectures, ["arm64", "x86_64"]),
-    bundleDigest: shaOrNull(evidence.artifact?.bundleDigest),
-    requiredEntries: {
-      executable: evidence.artifact?.requiredEntries?.executable === true,
-      icon: evidence.artifact?.requiredEntries?.icon === true,
-      infoPlist: evidence.artifact?.requiredEntries?.infoPlist === true,
-      licence: evidence.artifact?.requiredEntries?.licence === true,
-      modelNotice: evidence.artifact?.requiredEntries?.modelNotice === true,
-      thirdPartyNotices: evidence.artifact?.requiredEntries?.thirdPartyNotices === true,
-    },
-    requiredDocuments: summarizeDocuments(evidence.artifact?.requiredDocuments),
-    signing: {
-      classification: normalizedChoice(evidence.signing?.classification, ["developer-id-application"]),
-      hardenedRuntime: evidence.signing?.hardenedRuntime === true,
-      secureTimestamp: evidence.signing?.secureTimestamp === true,
-      verifies: evidence.signing?.verifies === true,
-    },
-    notarization: {
-      gatekeeperAccepted: evidence.notarization?.gatekeeper?.accepted === true,
-      gatekeeperSource: normalizedChoice(evidence.notarization?.gatekeeper?.source, ["notarized-developer-id"]),
-      submissionAccepted: evidence.notarization?.submission?.accepted === true,
-      submissionStatus: normalizedChoice(evidence.notarization?.submission?.status, ["accepted"]),
-      ticketStapled: evidence.notarization?.ticketStapled === true,
-      ticketValid: evidence.notarization?.ticketValid === true,
-    },
-  };
-}
-
-/** Selects only public unsigned Store-package and local certification evidence. */
-function summarizeWindowsStore(evidence) {
-  if (!evidence) return null;
-  const identityName = boundedString(evidence.identity?.name, 50);
-  return {
-    schemaVersion: evidence.schemaVersion ?? null,
-    version: normalizedVersion(evidence.version),
-    packageVersion: storeVersionOrNull(evidence.packageVersion),
-    architecture: normalizedChoice(evidence.architecture, ["x86_64"]),
-    packageDigest: shaOrNull(evidence.packageDigest),
-    identityNameSha256: identityName ? sha256(identityName) : null,
-    msix: { sha256: shaOrNull(evidence.msix?.sha256), size: positiveInteger(evidence.msix?.size) },
-    requiredAssets: {
-      square44: evidence.requiredAssets?.["Square44x44Logo.png"] === true,
-      square150: evidence.requiredAssets?.["Square150x150Logo.png"] === true,
-      store: evidence.requiredAssets?.["StoreLogo.png"] === true,
-    },
-    requiredDocuments: summarizeDocuments(evidence.requiredDocuments),
-    certificationKit: {
-      passed: evidence.certificationKit?.passed === true,
-      reportSha256: shaOrNull(evidence.certificationKit?.reportSha256),
-    },
-    signed: evidence.signed === true,
-  };
-}
-
-/** Selects only proof that Microsoft published the exact reviewed Store package. */
-function summarizeWindowsStorePublication(evidence) {
-  if (!evidence) return null;
-  return {
-    schemaVersion: evidence.schemaVersion ?? null,
-    version: normalizedVersion(evidence.version),
-    identityNameSha256: shaOrNull(evidence.identityNameSha256),
-    msixSha256: shaOrNull(evidence.msixSha256),
-    status: normalizedChoice(evidence.status, ["published"]),
-  };
-}
-
-/** Selects only public Linux package, signature, icon, and isolated-smoke evidence. */
-function summarizeLinux(evidence) {
-  if (!evidence) return null;
-  return {
-    schemaVersion: evidence.schemaVersion ?? null,
-    version: normalizedVersion(evidence.version ?? evidence.bundle?.installer?.metadata?.version),
-    package: normalizedChoice(evidence.bundle?.installer?.metadata?.package, ["bottie"]),
-    packageArchitecture: normalizedChoice(evidence.bundle?.installer?.metadata?.architecture, ["amd64", "arm64"]),
-    payloadArchitecture: normalizedChoice(evidence.bundle?.payload?.architecture, ["aarch64", "x86_64"]),
-    bundleDigest: shaOrNull(evidence.bundle?.payload?.bundleDigest),
-    installedIconCount: stringArray(evidence.bundle?.payload?.installedIcons).length,
-    installer: summarizeInstaller(evidence.bundle?.installer),
-    requiredDocuments: summarizeDocuments(evidence.bundle?.payload?.requiredDocuments),
-    smoke: summarizeSmoke(evidence.smoke),
-  };
-}
-
-/** Normalizes one installer without carrying its host filename or path. */
-function summarizeInstaller(installer) {
-  return {
-    sha256: shaOrNull(installer?.sha256),
-    signature: summarizeSignature(installer?.signature),
-    size: positiveInteger(installer?.size),
-  };
-}
-
-/** Reduces one signature to the only two acceptable public states. */
-function summarizeSignature(signature) {
-  return {
-    classification: normalizedChoice(signature?.classification, ["identified", "unsigned", "untrusted"]),
-    timestamped: signature?.timestamped === true,
-    verifies: signature?.verifies === true,
-  };
-}
-
-/** Normalizes the exact path-free smoke contract used by Windows and Linux. */
-function summarizeSmoke(smoke) {
-  if (!smoke) return null;
-  return {
-    database: {
-      conversationCount: nonNegativeInteger(smoke.database?.conversationCount),
-      migrationCount: nonNegativeInteger(smoke.database?.migrationCount),
-      profileCount: nonNegativeInteger(smoke.database?.profileCount),
-      quickCheck: normalizedChoice(smoke.database?.quickCheck, ["ok"]),
-      schemaVersion: nonNegativeInteger(smoke.database?.schemaVersion),
-    },
-    isolatedSupportDirectory: smoke.isolatedSupportDirectory === true || smoke.isolatedXdgDirectories === true,
-    offlineProviderConnections: positiveInteger(smoke.offlineProviderConnections),
-    remainedRunning: smoke.remainedRunning === true,
-    terminated: smoke.terminated === true,
-  };
-}
-
-/** Validates the complete current macOS Developer ID and notarization record. */
-function acceptsMacos(evidence, version, documents, runtimeAssets) {
-  return Boolean(
-    evidence?.schemaVersion === SCHEMA_VERSION &&
-    evidence.version === version &&
-    evidence.identifier === APPLICATION_IDENTIFIER &&
-    evidence.architectures.length > 0 &&
-    evidence.bundleDigest &&
-    Object.values(evidence.requiredEntries).every(Boolean) &&
-    acceptsPackagedDocuments(evidence.requiredDocuments, documents, runtimeAssets) &&
-    evidence.signing.classification === "developer-id-application" &&
-    evidence.signing.hardenedRuntime &&
-    evidence.signing.secureTimestamp &&
-    evidence.signing.verifies &&
-    evidence.notarization.gatekeeperAccepted &&
-    evidence.notarization.gatekeeperSource === "notarized-developer-id" &&
-    evidence.notarization.submissionAccepted &&
-    evidence.notarization.submissionStatus === "accepted" &&
-    evidence.notarization.ticketStapled &&
-    evidence.notarization.ticketValid,
-  );
-}
-
-/** Validates the exact unsigned Store package and complete local certification result. */
-function acceptsWindowsStorePackage(evidence, version, documents, runtimeAssets) {
-  return Boolean(
-    evidence?.schemaVersion === SCHEMA_VERSION &&
-    evidence.version === version &&
-    evidence.packageVersion === storePackageVersion(version) &&
-    evidence.architecture === "x86_64" &&
-    evidence.packageDigest &&
-    evidence.identityNameSha256 &&
-    evidence.msix.sha256 &&
-    evidence.msix.size > 0 &&
-    Object.values(evidence.requiredAssets).every(Boolean) &&
-    acceptsPackagedDocuments(evidence.requiredDocuments, documents, runtimeAssets) &&
-    evidence.certificationKit.passed &&
-    evidence.certificationKit.reportSha256 &&
-    !evidence.signed,
-  );
-}
-
-/** Requires Microsoft publication proof for the same identity, version, and reviewed MSIX bytes. */
-function acceptsWindowsStorePublication(evidence, publication) {
-  return Boolean(
-    publication?.schemaVersion === SCHEMA_VERSION &&
-    publication.version === evidence?.version &&
-    publication.identityNameSha256 === evidence.identityNameSha256 &&
-    publication.msixSha256 === evidence.msix.sha256 &&
-    publication.status === "published",
-  );
-}
-
-/** Validates the versioned Linux payload and its isolated offline smoke. */
-function acceptsLinuxPackage(evidence, version, documents, runtimeAssets) {
-  return Boolean(
-    evidence?.schemaVersion === SCHEMA_VERSION &&
-    evidence.version === version &&
-    evidence.package === "bottie" &&
-    evidence.packageArchitecture &&
-    evidence.payloadArchitecture &&
-    evidence.bundleDigest &&
-    evidence.installedIconCount >= 4 &&
-    evidence.installer.sha256 &&
-    evidence.installer.size > 0 &&
-    acceptsPackagedDocuments(evidence.requiredDocuments, documents, runtimeAssets) &&
-    acceptsSmoke(evidence.smoke),
-  );
-}
-
-/** Requires the Linux package archive to carry one verifying distribution signature. */
-function acceptsLinuxDistribution(evidence) {
-  return Boolean(
-    evidence?.installer.signature.classification === "identified" && evidence.installer.signature.verifies,
-  );
-}
-
-/** Confirms the disposable package opened one healthy current-schema profile and stopped cleanly. */
-function acceptsSmoke(smoke) {
-  return Boolean(
-    smoke?.database.conversationCount === 0 &&
-    smoke.database.migrationCount === EXPECTED_STORAGE_SCHEMA &&
-    smoke.database.profileCount === 1 &&
-    smoke.database.quickCheck === "ok" &&
-    smoke.database.schemaVersion === EXPECTED_STORAGE_SCHEMA &&
-    smoke.isolatedSupportDirectory &&
-    smoke.offlineProviderConnections > 0 &&
-    smoke.remainedRunning &&
-    smoke.terminated,
-  );
 }
 
 /** Loads the exact repository sources and evidence files used by the command-line gate. */
@@ -397,8 +181,7 @@ function loadInputs(repositoryRoot) {
     },
     modelTermsAcceptance: readOptionalJson(join(repositoryRoot, MODEL_TERMS_EVIDENCE_PATH)),
     macosDistribution: readOptionalJson(join(repositoryRoot, MACOS_EVIDENCE_PATH)),
-    windowsStorePackage: readOptionalJson(join(repositoryRoot, WINDOWS_STORE_EVIDENCE_PATH)),
-    windowsStorePublication: readOptionalJson(join(repositoryRoot, WINDOWS_STORE_PUBLICATION_PATH)),
+    windowsDistribution: readOptionalJson(join(repositoryRoot, WINDOWS_EVIDENCE_PATH)),
     linuxPackage: readOptionalJson(join(repositoryRoot, LINUX_EVIDENCE_PATH)),
   };
 }
@@ -412,7 +195,7 @@ function readApplicationVersions(repositoryRoot) {
   return { cargo, npm, tauri };
 }
 
-/** Hashes the inventory's repository-relative inputs and rejects traversal or absolute paths. */
+/** Hashes inventory inputs and rejects traversal or absolute paths. */
 function currentHashes(repositoryRoot, inputs) {
   if (!inputs || typeof inputs !== "object") return null;
   const result = {};
@@ -433,7 +216,7 @@ function currentHashes(repositoryRoot, inputs) {
   return result;
 }
 
-/** Reads required JSON and rejects malformed source files. */
+/** Reads required JSON. */
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
@@ -463,63 +246,9 @@ function fileSha256(path) {
   return sha256(readFileSync(path));
 }
 
-/** Returns a valid SHA-256 or null. */
-function shaOrNull(value) {
-  return isSha256(value) ? value : null;
-}
-
 /** Checks one lowercase SHA-256 value. */
 function isSha256(value) {
   return typeof value === "string" && SHA256_PATTERN.test(value);
-}
-
-/** Returns only non-empty string array entries. */
-function stringArray(value) {
-  return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.length > 0) : [];
-}
-
-/** Returns only allowlisted strings from an evidence array. */
-function allowedStrings(value, allowed) {
-  return stringArray(value).filter((item) => allowed.includes(item));
-}
-
-/** Returns one numeric application version or null. */
-function normalizedVersion(value) {
-  return typeof value === "string" && SEMVER_PATTERN.test(value) ? value : null;
-}
-
-/** Maps product semver into the Store's non-zero-major, zero-revision package version. */
-function storePackageVersion(version) {
-  const match = SEMVER_PATTERN.exec(version);
-  if (!match) return null;
-  const components = version.split(".").map(Number);
-  const mapped = [components[0] + 1, components[1], components[2], 0];
-  return mapped.every((component) => component >= 0 && component <= 65_535) ? mapped.join(".") : null;
-}
-
-/** Returns only one exact valid Store version string. */
-function storeVersionOrNull(value) {
-  return typeof value === "string" && /^([1-9]\d*)\.(\d+)\.(\d+)\.0$/.test(value) ? value : null;
-}
-
-/** Returns one bounded non-empty public string without carrying unselected metadata. */
-function boundedString(value, maximumLength) {
-  return typeof value === "string" && value.length > 0 && value.length <= maximumLength ? value : null;
-}
-
-/** Returns one allowlisted public state or null. */
-function normalizedChoice(value, allowed) {
-  return allowed.includes(value) ? value : null;
-}
-
-/** Returns one positive integer or zero. */
-function positiveInteger(value) {
-  return Number.isInteger(value) && value > 0 ? value : 0;
-}
-
-/** Returns one non-negative integer or null. */
-function nonNegativeInteger(value) {
-  return Number.isInteger(value) && value >= 0 ? value : null;
 }
 
 /** Writes the normalized manifest before returning a failing process status for open gates. */
@@ -531,7 +260,7 @@ function main() {
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
   if (!manifest.ready) {
-    const failures = manifest.gates.filter((gate_) => !gate_.passed).map((gate_) => gate_.id);
+    const failures = manifest.gates.filter((item) => !item.passed).map((item) => item.id);
     throw new Error(`Release candidate blocked by: ${failures.join(", ")}.`);
   }
   console.log(`[bottie] ${manifest.release.tag} release-candidate gates passed.`);

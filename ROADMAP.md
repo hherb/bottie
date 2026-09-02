@@ -305,6 +305,8 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] credential-free signed-update manifest and path-free publication-evidence contract;
 - [x] recoverably backed-up production updater trust key plus Rust-owned, user-controlled update checks and installs;
 - [x] native final-byte minisign verification plus current protected Linux x64 updater-artifact evidence;
+- [x] protected current-main three-platform GitHub updater-publication workflow with exact intent, legal, artifact,
+  draft, digest, latest-full-release, and path-free evidence gates;
 - [ ] current protected macOS and Windows updater-artifact evidence (platform credentials remain unconfigured);
 - [ ] signed updater release publication outside the Store.
 

@@ -1,0 +1,174 @@
+name: Updater publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      publication_confirmation:
+        description: Type "publish Bottie 0.9.0 beta as the latest full GitHub release"
+        required: true
+        type: string
+      gemma_terms_acknowledgement:
+        description: Paste the exact reviewed Gemma terms acknowledgement from scripts/release-assets.mjs
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Confirm current-main release intent
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact publication source
+        uses: actions/checkout@v6
+
+      - name: Use Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Validate explicit release-owner inputs and credential-free contracts
+        env:
+          BOTTIE_GEMMA_TERMS_ACKNOWLEDGEMENT: ${{ inputs.gemma_terms_acknowledgement }}
+          BOTTIE_PUBLICATION_CONFIRMATION: ${{ inputs.publication_confirmation }}
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Updater publication must run from the main branch." >&2
+            exit 1
+          fi
+          if [[ "$BOTTIE_PUBLICATION_CONFIRMATION" != \
+                "publish Bottie 0.9.0 beta as the latest full GitHub release" ]]; then
+            echo "The exact latest-full-release confirmation is required." >&2
+            exit 1
+          fi
+          node scripts/release-assets.mjs \
+            "--accept-gemma-terms=$BOTTIE_GEMMA_TERMS_ACKNOWLEDGEMENT"
+          npm run release:assets:check
+          npm run update:contract:test
+          npm test -- scripts/update-publication.test.mjs scripts/release-candidate.test.mjs
+
+  macos:
+    name: Final macOS updater bytes
+    needs: preflight
+    uses: ./.github/workflows/macos-distribution-validation.yml
+
+  windows:
+    name: Final Windows updater bytes
+    needs: preflight
+    uses: ./.github/workflows/windows-distribution-validation.yml
+
+  linux:
+    name: Final Linux updater bytes
+    needs: preflight
+    uses: ./.github/workflows/linux-distribution-validation.yml
+
+  publish:
+    name: Publish exact latest updater release
+    needs: [macos, windows, linux]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: updater-publication
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out exact publication source
+        uses: actions/checkout@v6
+
+      - name: Use Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Download protected distribution evidence
+        uses: actions/download-artifact@v7
+        with:
+          pattern: bottie-*-distribution-evidence
+          path: package
+          merge-multiple: true
+
+      - name: Download protected updater bytes
+        uses: actions/download-artifact@v7
+        with:
+          pattern: bottie-updater-*
+          path: package/updater-artifacts
+          merge-multiple: true
+
+      - name: Recreate legal evidence and require current main
+        env:
+          BOTTIE_GEMMA_TERMS_ACKNOWLEDGEMENT: ${{ inputs.gemma_terms_acknowledgement }}
+        run: |
+          node scripts/release-assets.mjs \
+            "--accept-gemma-terms=$BOTTIE_GEMMA_TERMS_ACKNOWLEDGEMENT"
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          if [[ "$current_main" != "$GITHUB_SHA" ]]; then
+            echo "Main changed after protected artifacts were built; refusing stale publication." >&2
+            exit 1
+          fi
+          version="$(node -p "require('./package.json').version")"
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "The versioned GitHub release already exists." >&2
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$version" >/dev/null 2>&1; then
+            echo "The versioned Git tag already exists." >&2
+            exit 1
+          fi
+
+      - name: Pass current-source release gates and prepare static manifest
+        run: |
+          npm run release:candidate
+          echo "BOTTIE_UPDATE_PUBLISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          node scripts/update-publication.mjs --prepare
+
+      - name: Create and verify complete draft release
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          gh release create "v$version" \
+            --draft \
+            --title "Bottie $version beta" \
+            --notes-file "RELEASES/$version.md" \
+            --target "$GITHUB_SHA" \
+            package/updater-artifacts/* \
+            package/latest.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$version" > package/github-release.json
+          node scripts/update-publication.mjs --verify-draft
+
+      - name: Publish as latest full release and verify live resolution
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$version" --jq .id)"
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" \
+            -F draft=false \
+            -F prerelease=false \
+            -f make_latest=true >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$version" > package/github-release.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > package/github-latest-release.json
+          node scripts/update-publication.mjs --verify-published
+
+      - name: Upload path-free publication evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: bottie-updater-publication-evidence
+          path: |
+            package/release-candidate-manifest.json
+            package/update-delivery-evidence.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove downloaded release bytes and raw API responses
+        if: always()
+        run: |
+          rm -rf package/updater-artifacts
+          rm -f package/github-release.json package/github-latest-release.json

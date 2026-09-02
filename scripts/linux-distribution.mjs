@@ -9,7 +9,7 @@ import { lstat, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { bindUpdaterArtifactEvidence, signUpdaterArtifact } from "./updater-artifact.mjs";
+import { bindUpdaterArtifactEvidence, exportUpdaterArtifact, signUpdaterArtifact } from "./updater-artifact.mjs";
 
 const DEFAULT_ARTIFACT_DIRECTORY = "package/linux";
 const DEFAULT_EVIDENCE_PATH = "package/linux-package-evidence.json";
@@ -322,6 +322,7 @@ async function runLinuxDistribution(repositoryRoot) {
     updater: bindUpdaterArtifactEvidence(updater, "linux-x86_64", signedPackage.sha256),
   };
   await writeFile(evidencePath, `${JSON.stringify(verifiedEvidence, null, 2)}\n`, { mode: 0o600 });
+  await exportUpdaterArtifact(repositoryRoot, debPath, "linux-x86_64", verifiedEvidence.version);
 }
 
 /** Accepts only the deliberate protected-runner mode on Linux. */

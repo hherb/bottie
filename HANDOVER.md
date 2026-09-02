@@ -4,80 +4,81 @@ Last verified: 2026-09-02
 
 ## Start here
 
-PR #129 is merged at `daf09d6`. Draft PR #130 is open from `codex/remaining-native-voice-acceptance`; implementation
-commit `a268624` has passed the validation below. Milestones 0–7 remain complete. Acoustic feedback processing, release
-publication, and Microsoft Store certification/publication remain deferred until fresh release-owner direction.
+PR #130 merged into `main` at `c412f8a`. The current updater-publication slice is on
+`codex/updater-publication`. Milestones 0–7 remain complete.
 
 Read, in order:
 
 1. `HANDOVER.md`
 2. the Milestone 7 section of `ROADMAP.md`
-3. the Local voice capture section of `README.md`
-4. `CONTRIBUTING.md`
+3. `distribution/update/README.md`
+4. the release sections of `README.md`
 
 ## Completed slice
 
-The user completed the remaining native macOS voice acceptance on 2026-09-02 and reported that the checked workflow
-worked: System default capture, visible speech/silence state, final-turn correction, transcript copying without an
-automatic send or conversation creation, repeated copy, Discard, local playback/stop, Interrupt & record, keyboard
-navigation, and VoiceOver feedback. Treat this as narrow user-observed macOS evidence, not transcription-accuracy,
-acoustic-latency, feedback-suppression, provider-cancellation-completion, or cross-platform evidence.
+The protected outside-Store updater pipeline now:
 
-The follow-up preference and Settings slice now:
+- lets the existing macOS, Windows, and Linux required-reviewer workflows run as reusable jobs and export only their
+  exact verified updater artifact plus `.sig` as one-day workflow artifacts;
+- requires an exact 0.9.0 full-release confirmation and fresh Gemma-terms acknowledgement;
+- refuses a non-`main` dispatch, changed `main`, existing tag, or existing release;
+- requires the current-source release-candidate gates, including Developer ID/notary/Gatekeeper, direct MSI and
+  executable Authenticode, Linux OpenPGP, platform smoke, and exact updater-signature evidence;
+- builds `latest.json` only from three canonical final artifacts that match protected hashes, sizes, signatures, target,
+  and production public-key hash;
+- creates a complete GitHub draft, verifies the exact source, tag, asset set, sizes, and GitHub SHA-256 digests, then
+  publishes and verifies the same tag through GitHub's latest-full-release API; and
+- retains only path-free publication evidence and removes downloaded release bytes and raw API responses.
 
-- retains the existing durable provider/model restore and deterministic unavailable-model fallback;
-- keeps WebView microphone and speech selections process-local while Rust derives separate stable opaque preference
-  keys and native identities remain outside IPC;
-- stores only those Rust-owned opaque local-audio preference keys in native `local-audio.json` configuration;
-- discovers microphones at startup without opening an input or requesting permission, restores the last exact choice
-  when available, and persists System default when the saved device is unavailable;
-- restores the last speech voice when available and persists the default available local voice when it is not;
-- moves the speech-voice selector from the conversation into Settings while leaving playback status and explicit
-  Play/Stop actions with the response.
+The release is beta-labelled but intentionally a full GitHub release because Bottie's fixed
+`/releases/latest/download/latest.json` endpoint cannot resolve a GitHub prerelease. No protected workflow was
+dispatched, and no tag, release, updater asset, or `latest.json` was created during this source slice.
 
-The current native development restart preserved the same settled opaque microphone and speech choice file. The
-1280×720 browser fixture review showed the voice selector in Settings with its on-device, automatic-save, and fallback
-disclosures; the conversation no longer exposes a duplicate selector.
+The release candidate now uses the direct Authenticode MSI for this outside-Store channel. Microsoft Store
+certification and publication remain separately deferred until fresh release-owner notice. The updater workflow does
+not inspect, submit, poll, certify, or publish Store state.
+
+The locked Linux `speech-dispatcher 0.16.0` and `speech-dispatcher-sys 0.7.0` manifests declare
+`LGPL-2.1 OR MIT OR Apache-2.0`. Those exact versions were reviewed onto the existing MIT/Apache notice path; later
+versions still fail closed. The generated dependency inventory and third-party notices are current.
+
+## Current limits
+
+GitHub environment secret names were inspected without accessing values. `macos-distribution` has the updater key and
+password but still needs these existing Apple credentials:
+
+- `BOTTIE_APPLE_DEVELOPER_ID_P12_BASE64`
+- `BOTTIE_APPLE_DEVELOPER_ID_P12_PASSWORD`
+- `BOTTIE_APPLE_NOTARY_KEY_P8`
+- `BOTTIE_APPLE_NOTARY_KEY_ID`
+- `BOTTIE_APPLE_NOTARY_ISSUER_ID`
+- `BOTTIE_CI_KEYCHAIN_PASSWORD`
+
+`windows-distribution` has the updater key and password but still needs:
+
+- `BOTTIE_WINDOWS_SIGNING_PFX_BASE64`
+- `BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD`
+
+The `updater-publication` environment is configured with the repository owner as its required reviewer and must remain
+protected. Missing platform credentials are not platform evidence, and source tests or unsigned builds are not native
+artifact acceptance.
 
 ## Validation
 
-Focused validation passed:
+The full standard frontend and Rust suites, focused updater/release tests, dependency and notice checks, workflow lint,
+and complete diff review passed for this branch. `npm run release:candidate` fails closed only on the expected absent
+current macOS, Windows, and Linux protected evidence gates. No UI changed, so browser visual review was not applicable.
+The existing `block 0.1.6` future-incompatibility warning is unrelated.
 
-- 17 frontend Settings, conversation, and microphone-control tests;
-- 12 speech tests passed and one host-engine test was intentionally ignored;
-- all three microphone-device tests;
-- the local-audio preference save/reopen and malformed-token fallback test;
-- `npm run check` with no errors or warnings;
-- native development launch and one settled restart with unchanged opaque choice-file SHA-256.
-
-The full standard suite passed:
-
-```sh
-npm run format:check
-npm run check
-npm test
-npm run build
-cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-cargo check --manifest-path src-tauri/Cargo.toml
-cargo test --manifest-path src-tauri/Cargo.toml
-```
-
-Specifically, `npm test` passed 236 tests with three intentional skips across 54 files. Rust passed 446 library
-tests with 33 intentional ignores, the updater-evidence test, and doc tests. `npm run check` reported no errors or
-warnings. Formatting, the production build, and `cargo check` also passed.
-
-Bottie is not a Cargo workspace; run Cargo commands serially. A development-signed app launch is not proof of audible
-playback, microphone behavior, or executed Rust tests. The existing `block 0.1.6` future-incompatibility notice is
-unrelated.
+Bottie is not a Cargo workspace; run Cargo commands serially with `--manifest-path src-tauri/Cargo.toml`.
 
 ## Next bounded action
 
-For this draft PR, inspect exact-head CI and address only concrete review findings with focused regression coverage.
-If it has merged, do not invent another voice, persistence, release, updater, DSP, or Store slice: wait for explicit
-product/release-owner direction.
+After this draft PR merges, configure the existing Apple and Windows credentials in their named protected environments
+without exposing values. Re-read and explicitly accept the current Gemma terms, dispatch `Updater publication` from
+the exact current `main`, approve each protected environment, and monitor the complete run. Only after the live
+latest-release verification passes should the actual platform artifacts, GitHub release, and retained evidence be
+documented as published.
 
-Microsoft Store certification and publication remain deferred until fresh release-owner notice. The earlier rejected
-submission is not certification or publication evidence.
-
-The worktree contains unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Preserve them and
-stage only reviewed paths.
+Do not resume Microsoft Store certification or publication without fresh release-owner direction. Preserve the
+unrelated untracked logo-kit, screenshot, and Linux signing-public-key files.

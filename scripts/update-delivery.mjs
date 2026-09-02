@@ -174,6 +174,9 @@ function requireArtifactSignature(value) {
 /** Requires the generated base64 public-key file content that Tauri embeds in the application. */
 function requirePublicKey(value) {
   const encoded = requireEncodedSigningText(value, "Updater public key");
+  if (value !== encoded && value !== `${encoded}\n`) {
+    throw new Error("Updater public key file must be canonical and may contain only one final newline.");
+  }
   const text = decodeSigningText(encoded, "Updater public key");
   const lines = text.split("\n");
   if (
@@ -184,7 +187,7 @@ function requirePublicKey(value) {
   ) {
     throw new Error("Updater public key must contain one complete minisign public key.");
   }
-  return encoded;
+  return value;
 }
 
 /** Requires canonical generated base64 file content instead of a path or decoded signing text. */

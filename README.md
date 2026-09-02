@@ -168,7 +168,11 @@ artifact URLs, signatures, bytes, filesystem paths, and private-key material out
 signed updater artifact is published yet, so this source capability is not evidence of a working release channel.
 Protected platform builds now independently verify each generated minisign signature against the exact final artifact
 and committed public key, then retain only path-free hashes, byte size, target, format, and verified state. Current
-protected evidence exists for Linux x64 only; macOS and direct-download Windows remain credential-gated.
+protected evidence exists for Linux x64 only; macOS and direct-download Windows remain credential-gated. The manual
+`Updater publication` workflow now composes those three protected builds, rechecks current `main`, creates a complete
+draft, verifies every uploaded digest, and only then publishes the beta-labelled release as GitHub's full latest
+release. That full-release state is deliberate because GitHub excludes prereleases from the fixed `/releases/latest/`
+endpoint used by Bottie.
 
 ## The trust boundary
 
@@ -336,8 +340,9 @@ The manual `macOS distribution validation` GitHub workflow provides the same con
 `macos-distribution` environment. It expects environment secrets for the base64 PKCS #12 Developer ID certificate,
 its password, a temporary-keychain password, the notary team API key, key ID, and issuer ID, plus
 `BOTTIE_UPDATER_SIGNING_PRIVATE_KEY` and `BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD`. The job imports protected
-values only into runner-temporary storage, uploads only the bounded evidence JSON for seven days, and deletes the
-temporary keychain and credential files even after failure.
+values only into runner-temporary storage, uploads bounded evidence for seven days and the exact updater archive plus
+signature for one day, and deletes runner copies and temporary credentials even after failure. It does not create a
+tag, release, or `latest.json` by itself.
 
 The protected environment and updater secrets are configured, but its Developer ID PKCS #12, temporary-keychain
 password, and notarization API-key secrets are not. The workflow therefore remains undispatched until those existing
@@ -375,7 +380,9 @@ Neither command produces a signed or end-user-distributable release.
 
 ### Microsoft Store MSIX verification
 
-Bottie's selected Windows 0.9.0 distribution route is a Microsoft-hosted Store MSIX, not the direct-download MSI.
+Bottie's Microsoft Store route remains the exact-identity MSIX below. Store certification and publication are still
+deferred. The separately authorized outside-Store updater release uses the Authenticode MSI in the next section and
+does not certify, submit, replace, or publish this Store package.
 The release owner has created the Individual Partner Center account and reserved Bottie. Partner Center assigned the
 following exact case-sensitive identity. These values are public package metadata rather than credentials and must not
 be replaced with the account login, a guessed publisher, the calculated package family name, or the package SID.
@@ -414,10 +421,10 @@ submission,
 package-SID, or government-ID material is retained in this repository; the release gate remains closed until a future
 matching package is certified and published.
 
-### Alternative direct-download MSI signing
+### Protected direct-download MSI signing
 
-The separate manual `Windows distribution validation` workflow is retained as an unconfigured alternative for a
-future direct-download MSI. It is the only checked-in path that consumes Windows signing credentials. Its protected
+The manual `Windows distribution validation` workflow is the selected Windows path for the outside-Store updater
+release. It is the only checked-in path that consumes Windows signing credentials. Its protected
 `windows-distribution` environment must provide
 `BOTTIE_WINDOWS_SIGNING_PFX_BASE64` and `BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD`; the certificate is written only
 under runner-temporary storage, and the password is exposed only to the signing step. It also requires the two
@@ -428,14 +435,12 @@ Tauri updater signature over those exact final bytes. It then verifies the updat
 platform-signing environment variable removed and requires the updater hash to equal the inspected MSI hash. A separate
 `com.bottie.packaging-smoke` build supplies the isolated launch/storage/provider-offline result.
 
-The workflow uploads only `package/windows-package-evidence.json` for seven days and always removes the temporary PFX.
-It never uploads the signed MSI or retains certificate labels, subjects, serials, thumbprints, passwords, host paths,
-or raw SignTool output. The release-candidate gate requires both the installer and extracted executable signatures to
-be identified, securely timestamped, and independently valid within that alternative workflow's own evidence. The
-0.9.0 release gate no longer accepts that route: it requires the selected Store MSIX and matching Microsoft-publication
-evidence instead. The required-reviewer environment and updater secrets are configured, but no Authenticode PFX or
-password is configured. The workflow's presence does not claim that a current Windows distribution has been signed or
-published.
+The workflow uploads `package/windows-package-evidence.json` for seven days and the exact MSI plus `.sig` for one day,
+then always removes the runner PFX and release-byte copies. It retains no certificate labels, subjects, serials,
+thumbprints, passwords, host paths, or raw SignTool output. The release-candidate gate now requires both the installer
+and extracted executable signatures to be identified, securely timestamped, and independently valid, plus an updater
+signature bound to the exact MSI hash. The required-reviewer environment and updater secrets are configured, but no
+Authenticode PFX or password is configured. No current Windows distribution or updater evidence is therefore claimed.
 
 ### Linux package verification
 
@@ -484,8 +489,9 @@ Protected workflow run [`33279780950`](https://github.com/hherb/bottie/actions/r
 source `2bb1ead`. Its identity-free evidence binds the 23,442,642-byte final DEB and updater artifact to the same
 SHA-256 `e24788260e1688b373ead30fdde985c3974a3eba921b8d3675c16f2e40862eec`, independently verifies the minisign
 signature against public-key SHA-256 `fd4adf69a4bea10958a0f63f0658083fa29bfad10c48c792877dcdcdb8c6355c`, and records no
-signature content, credential, identity, or host path. The workflow removed the DEB and protected material after
-uploading the evidence JSON; this is not release publication.
+signature content, credential, identity, or host path. A current run uploads evidence for seven days and exact DEB plus
+`.sig` release bytes for one day, then removes runner package and protected material. The historical run removed its
+DEB after evidence upload and is not release publication.
 
 Run the same protected contract on an already prepared Ubuntu host only when the signing key, temporary policy, and
 public keyring have been configured outside the repository:
@@ -496,9 +502,9 @@ npm run package:linux:distribution
 
 The command replaces only the ignored Linux evidence file's installer size, SHA-256, and normalized
 `identified`/`verifies` state after independent verification. It retains no key ID, fingerprint, user identity,
-passphrase, private-key bytes, trust-root path, or raw signing output. The manual workflow uploads only that bounded
-evidence for seven days and removes both signing material and package bytes even after failure. Its presence is a
-credential-free contract, not proof that a current Linux distribution has been signed.
+passphrase, private-key bytes, trust-root path, or raw signing output. The manual workflow uploads bounded evidence for
+seven days and exact updater release bytes for one day, then removes both signing material and runner package bytes
+even after failure. Its presence is a protected contract, not proof that a current Linux distribution has been signed.
 
 ## 0.9.0 beta release candidate
 
@@ -514,10 +520,10 @@ npm run release:candidate
 ```
 
 The command always writes an ignored, path-free `package/release-candidate-manifest.json`, then exits non-zero unless
-every version, dependency, artwork, licence/notice, runtime-asset, model-terms, package-smoke, Windows Store package,
-certification/publication, Linux distribution-signature, notarization, and Gatekeeper gate passes. It does not sign,
-upload, tag, or publish anything. An unsigned Store workflow artifact, unsigned Linux smoke package, or source test
-suite is intentionally insufficient for `ready: true`.
+every version, dependency, artwork, licence/notice, runtime-asset, model-terms, package-smoke, Authenticode Windows,
+OpenPGP Linux, updater-signature, macOS notarization, and Gatekeeper gate passes. It does not sign, upload, tag, or
+publish anything. An unsigned Store workflow artifact, unsigned smoke package, or source test suite is intentionally
+insufficient for `ready: true`; Store certification remains a separate deferred route.
 
 The outside-Store release boundary has a credential-free signed-update contract:
 
@@ -527,9 +533,12 @@ npm run update:contract:test
 
 It validates deterministic Tauri static manifests, canonical base64 Tauri signature/public-key file content,
 immutable version-tagged GitHub asset URLs, and path-free evidence bound to exact manifest, public-key, and artifact
-hashes. The authorized production-key ceremony and Rust-owned runtime boundary are complete. The remaining protected
-workflow action is to build and validate current final updater artifacts, then separately authorize any tag, GitHub
-Release, upload, or `latest.json` publication. See
+hashes. The authorized production-key ceremony and Rust-owned runtime boundary are complete. The manual protected
+workflow requires an exact full-release confirmation and fresh Gemma-terms acknowledgement, calls all three
+required-reviewer platform workflows, refuses stale `main`, passes the release-candidate gate, uploads a complete draft,
+verifies GitHub's asset digests, publishes it as the latest full release, and verifies live latest resolution. macOS
+still needs its six Apple environment secrets, Windows still needs its PFX and password, and the separate
+`updater-publication` environment must remain required-reviewer protected. See
 [`distribution/update/README.md`](distribution/update/README.md).
 
 The release owner must read the [Gemma Terms of Use](https://ai.google.dev/gemma/terms) before creating model-terms

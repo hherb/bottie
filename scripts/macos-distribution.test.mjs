@@ -53,6 +53,9 @@ describe("macOS distribution signing and notarization", () => {
     expect(script.indexOf("const updater = await createUpdaterArchive(")).toBeLessThan(
       script.indexOf("const evidence = await createDistributionEvidence("),
     );
+    expect(script.indexOf("const evidence = await createDistributionEvidence(")).toBeLessThan(
+      script.indexOf("await exportUpdaterArtifact("),
+    );
   });
 
   it("keeps production updater signing in the same protected manual environment", async () => {
@@ -62,11 +65,14 @@ describe("macOS distribution signing and notarization", () => {
     );
 
     expect(workflow).toContain("environment: macos-distribution");
+    expect(workflow).toContain("workflow_call:");
     expect(workflow).toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY");
     expect(workflow).toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD");
     const signingStep = workflow.indexOf("- name: Sign, notarize, staple, and verify");
     expect(workflow.slice(0, signingStep)).not.toContain("BOTTIE_UPDATER_SIGNING_PRIVATE_KEY");
     expect(workflow).not.toMatch(/push:|pull_request:|release:/);
+    expect(workflow).toContain("name: bottie-updater-macos");
+    expect(workflow).toContain("retention-days: 1");
   });
 
   it("selects only a Developer ID Application identity and never returns its label", () => {

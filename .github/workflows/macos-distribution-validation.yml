@@ -2,6 +2,7 @@ name: macOS distribution validation
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -36,6 +37,20 @@ jobs:
         run: |
           node --check scripts/macos-distribution.mjs
           npm test -- scripts/macos-distribution.test.mjs
+
+      - name: Verify protected Apple credential presence
+        env:
+          BOTTIE_CI_KEYCHAIN_PASSWORD: ${{ secrets.BOTTIE_CI_KEYCHAIN_PASSWORD }}
+        run: |
+          if [[ -z "$BOTTIE_APPLE_DEVELOPER_ID_P12_BASE64" || \
+                -z "$BOTTIE_APPLE_DEVELOPER_ID_P12_PASSWORD" || \
+                -z "$BOTTIE_APPLE_NOTARY_KEY_P8" || \
+                -z "$BOTTIE_APPLE_NOTARY_KEY_ID" || \
+                -z "$BOTTIE_APPLE_NOTARY_ISSUER_ID" || \
+                -z "$BOTTIE_CI_KEYCHAIN_PASSWORD" ]]; then
+            echo "Protected Apple distribution credentials are incomplete." >&2
+            exit 1
+          fi
 
       - name: Import protected Apple credentials
         env:
@@ -72,6 +87,14 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Upload short-lived updater release bytes
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottie-updater-macos
+          path: package/updater-artifacts/*
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Remove imported Apple credentials
         if: always()
         run: |
@@ -79,3 +102,4 @@ jobs:
             security delete-keychain "$BOTTIE_CI_KEYCHAIN_PATH" || true
           fi
           rm -f "$RUNNER_TEMP/bottie-developer-id.p12" "$RUNNER_TEMP/bottie-notary-key.p8"
+          rm -rf package/updater-artifacts

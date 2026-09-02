@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -120,6 +122,24 @@ describe("signed update delivery", () => {
       { sha256: SHA_B, target: "linux-x86_64" },
     ]);
     expect(JSON.stringify(evidence)).not.toMatch(/signature|github\.com|\.tar\.gz|AppImage|untrusted comment/);
+  });
+
+  it("binds evidence to exact canonical public-key file bytes, including its final newline", () => {
+    const manifest = buildStaticUpdateManifest({
+      artifacts: ARTIFACTS,
+      notes: "Bottie 0.9.0 beta.",
+      publishedAt: "2026-08-28T01:02:03Z",
+      version: "0.9.0",
+    });
+    const publicKeyFile = `${PUBLIC_KEY}\n`;
+    const evidence = buildUpdateDeliveryEvidence({
+      artifacts: ARTIFACTS,
+      manifest,
+      publicKey: publicKeyFile,
+      status: "draft",
+    });
+
+    expect(evidence.publicKeySha256).toBe(createHash("sha256").update(publicKeyFile).digest("hex"));
   });
 
   it("accepts only exact published evidence and fails closed on altered bindings", () => {
