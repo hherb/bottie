@@ -219,16 +219,8 @@ PipePair OutputPipe() {
   Require(SetHandleInformation(pipe.parent.Get(), HANDLE_FLAG_INHERIT, 0));
   return pipe;
 }
-std::vector<wchar_t> MinimalEnvironment(const std::wstring &profile) {
-  const std::wstring temporary = BottieProfileTempPath(profile);
-  std::wstring block = L"LOCALAPPDATA=" + BottieProfileLocalAppDataPath(profile);
-  block.push_back(L'\0');
-  block.append(L"TEMP=").append(temporary);
-  block.push_back(L'\0');
-  block.append(L"TMP=").append(temporary);
-  block.push_back(L'\0');
-  block.push_back(L'\0');
-  return {block.begin(), block.end()};
+std::vector<wchar_t> MinimalEnvironment() {
+  return {L'\0', L'\0'};
 }
 struct Execution {
   Handle job;
@@ -282,7 +274,7 @@ Execution Launch(std::wstring_view moniker, const std::wstring &executable,
   startup.lpAttributeList = attribute_list;
   PROCESS_INFORMATION process{};
   std::wstring command = CommandLine(executable, arguments);
-  std::vector<wchar_t> environment = MinimalEnvironment(ProfilePath(sid.Get()));
+  std::vector<wchar_t> environment = MinimalEnvironment();
   const DWORD flags = EXTENDED_STARTUPINFO_PRESENT |
                       CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED |
                       CREATE_NO_WINDOW;

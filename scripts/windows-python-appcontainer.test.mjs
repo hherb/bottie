@@ -85,8 +85,10 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("security_capabilities.Capabilities = nullptr");
     expect(source).toContain("PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES");
     expect(source).toContain("CreateProcessAsUserW");
+    expect(source).toContain("return {L'\\0', L'\\0'}");
+    expect(source).not.toMatch(/L"(?:LOCALAPPDATA|TEMP|TMP)=/);
     expect(source).toContain("PrepareBottieProfileStorage(path)");
-    expect(source).toContain("BottieProfileTempPath(profile)");
+    expect(storage).toContain("BottieProfileTempPath(profile)");
     expect(storage).toContain('return profile + L"\\\\AC"');
     expect(storage).toContain('return BottieProfileLocalAppDataPath(profile) + L"\\\\Temp"');
     expect(storage).toContain("CreateDirectoryW(path.c_str(), nullptr)");
