@@ -26,8 +26,8 @@ A separate `python-runner/Cargo.toml` binary now:
 - executes CPython/WASI under Wasmtime 45.0.3's Pulley interpreter target;
 - exposes only read-only `/runtime` and `/work` mounts, only `PYTHONHOME`, no guest stdin, no TCP/UDP/DNS, and no
   subprocess facility;
-- caps wall time at 30 seconds, WebAssembly linear memory at 256 MiB, each output stream at 32 KiB, and host random
-  requests at 1 MiB;
+- caps wall time at 30 seconds, WebAssembly linear memory at 256 MiB, each output stream at 32 KiB after JSON escaping,
+  and host random requests at 1 MiB;
 - returns stable `ok`, `python_error`, `timed_out`, `output_limit`, `resource_limit`, `invalid_request`, or
   `internal_error` outcomes without host paths or Wasmtime backtraces; and
 - keeps its 206-package locked dependency graph isolated from the existing Tauri manifest.
@@ -72,8 +72,12 @@ interruption; output ceilings; memory-growth denial; and removal of internal bac
 BOTTIE_PYTHON_WASI_RUNTIME=/private/tmp/bottie-python-wasi-spike/python \
   cargo test --manifest-path python-runner/Cargo.toml --offline --test runtime -- --ignored --nocapture
 
-test result: ok. 3 passed; 0 failed; finished in 110.51s
+test result: ok. 3 passed; 0 failed; finished in 123.47s
 ```
+
+The runtime-free suite includes seven library tests plus an integration-contract check. It covers encoded-output
+ceilings after UTF-8 replacement and JSON escaping, and an explicit ignored-suite run without
+`BOTTIE_PYTHON_WASI_RUNTIME` now fails immediately instead of certifying skipped work.
 
 The optimized unsigned arm64 macOS helper built in 56.74 seconds and is 14,263,344 bytes. A cold statistics-script
 probe returned the correct result in 3.50 seconds end to end, with 394 ms reported inside the execution window. This

@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsString,
     path::PathBuf,
     sync::{LazyLock, Mutex},
 };
@@ -7,13 +8,20 @@ use bottie_python_runner::{ExecutionStatus, PythonExecutionRequest, PythonSandbo
 use serde_json::Value;
 
 static RUNTIME_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-static SANDBOX: LazyLock<Option<PythonSandbox>> = LazyLock::new(|| {
-    let runtime = std::env::var_os("BOTTIE_PYTHON_WASI_RUNTIME").map(PathBuf::from)?;
-    Some(PythonSandbox::load(&runtime).expect("configured runtime should load"))
+static SANDBOX: LazyLock<PythonSandbox> = LazyLock::new(|| {
+    let runtime = required_runtime_path(std::env::var_os("BOTTIE_PYTHON_WASI_RUNTIME"))
+        .expect("BOTTIE_PYTHON_WASI_RUNTIME must identify the extracted runtime");
+    PythonSandbox::load(&runtime).expect("configured runtime should load")
 });
 
-fn sandbox() -> Option<&'static PythonSandbox> {
-    SANDBOX.as_ref()
+fn required_runtime_path(configured: Option<OsString>) -> Result<PathBuf, &'static str> {
+    configured
+        .map(PathBuf::from)
+        .ok_or("runtime is not configured")
+}
+
+fn sandbox() -> &'static PythonSandbox {
+    &SANDBOX
 }
 
 fn execute(sandbox: &PythonSandbox, code: &str) -> bottie_python_runner::PythonExecutionResult {
@@ -29,9 +37,7 @@ fn execute(sandbox: &PythonSandbox, code: &str) -> bottie_python_runner::PythonE
 #[ignore = "requires the checksum-pinned CPython/WASI runtime"]
 fn executes_python_and_denies_ambient_host_capabilities() {
     let _guard = RUNTIME_TEST_LOCK.lock().expect("runtime test lock");
-    let Some(sandbox) = sandbox() else {
-        return;
-    };
+    let sandbox = sandbox();
     let code = r#"
 import json
 import os
@@ -71,9 +77,7 @@ print(json.dumps(result, sort_keys=True))
 #[ignore = "requires the checksum-pinned CPython/WASI runtime and thirty seconds"]
 fn stops_infinite_execution_at_the_deadline() {
     let _guard = RUNTIME_TEST_LOCK.lock().expect("runtime test lock");
-    let Some(sandbox) = sandbox() else {
-        return;
-    };
+    let sandbox = sandbox();
     let result = execute(sandbox, "while True:\n    pass");
     assert_eq!(result.status, ExecutionStatus::TimedOut);
     assert!(result.duration_ms >= 29_000);
@@ -84,9 +88,7 @@ fn stops_infinite_execution_at_the_deadline() {
 #[ignore = "requires the checksum-pinned CPython/WASI runtime"]
 fn classifies_output_and_memory_denials_without_returning_backtraces() {
     let _guard = RUNTIME_TEST_LOCK.lock().expect("runtime test lock");
-    let Some(sandbox) = sandbox() else {
-        return;
-    };
+    let sandbox = sandbox();
 
     let output = execute(sandbox, "print('x' * 100_000)");
     assert_eq!(output.status, ExecutionStatus::OutputLimit);
@@ -96,4 +98,13 @@ fn classifies_output_and_memory_denials_without_returning_backtraces() {
     let memory = execute(sandbox, "value = bytearray(512 * 1024 * 1024)");
     assert_eq!(memory.status, ExecutionStatus::ResourceLimit);
     assert!(!memory.stderr.contains("wasmtime"));
+}
+
+#[test]
+fn explicit_runtime_suite_requires_a_configured_runtime() {
+    assert!(required_runtime_path(None).is_err());
+    assert_eq!(
+        required_runtime_path(Some(OsString::from("/runtime"))).expect("configured path"),
+        PathBuf::from("/runtime")
+    );
 }

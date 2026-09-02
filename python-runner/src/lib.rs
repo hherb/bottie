@@ -198,18 +198,21 @@ impl PythonSandbox {
         let execution = start.call(&mut store, ());
         timer.stop();
 
-        let stdout = stdout.contents();
-        let stderr = stderr.contents();
+        let raw_stdout = stdout.contents();
+        let raw_stderr = stderr.contents();
+        let (stdout, stdout_was_truncated) = bounded_json_output(&raw_stdout);
+        let (stderr, stderr_was_truncated) = bounded_json_output(&raw_stderr);
         let status = classify_execution(
             execution.as_ref().err(),
             timed_out.load(Ordering::Acquire),
-            stdout.len(),
-            stderr.len(),
+            raw_stdout.len(),
+            raw_stderr.len(),
+            stdout_was_truncated || stderr_was_truncated,
         );
         Ok(PythonExecutionResult {
             status,
-            stdout: String::from_utf8_lossy(&stdout).into_owned(),
-            stderr: String::from_utf8_lossy(&stderr).into_owned(),
+            stdout,
+            stderr,
             duration_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
         })
     }
@@ -254,11 +257,15 @@ fn classify_execution(
     timed_out: bool,
     stdout_bytes: usize,
     stderr_bytes: usize,
+    encoded_output_was_truncated: bool,
 ) -> ExecutionStatus {
     if timed_out {
         return ExecutionStatus::TimedOut;
     }
-    if stdout_bytes >= OUTPUT_LIMIT_BYTES || stderr_bytes >= OUTPUT_LIMIT_BYTES {
+    if encoded_output_was_truncated
+        || stdout_bytes >= OUTPUT_LIMIT_BYTES
+        || stderr_bytes >= OUTPUT_LIMIT_BYTES
+    {
         return ExecutionStatus::OutputLimit;
     }
     match error {
@@ -275,6 +282,32 @@ fn classify_execution(
             ExecutionStatus::OutputLimit
         }
         Some(_) => ExecutionStatus::ResourceLimit,
+    }
+}
+
+/// Converts guest bytes to text while bounding the exact JSON string content representation.
+fn bounded_json_output(bytes: &[u8]) -> (String, bool) {
+    let text = String::from_utf8_lossy(bytes);
+    let mut output = String::with_capacity(text.len().min(OUTPUT_LIMIT_BYTES));
+    let mut encoded_bytes = 0;
+
+    for character in text.chars() {
+        let character_bytes = json_encoded_character_bytes(character);
+        if encoded_bytes + character_bytes > OUTPUT_LIMIT_BYTES {
+            return (output, true);
+        }
+        output.push(character);
+        encoded_bytes += character_bytes;
+    }
+    (output, false)
+}
+
+/// Returns the number of bytes serde_json uses for one character inside a JSON string.
+fn json_encoded_character_bytes(character: char) -> usize {
+    match character {
+        '"' | '\\' | '\u{08}' | '\t' | '\n' | '\u{0c}' | '\r' => 2,
+        '\u{00}'..='\u{1f}' => 6,
+        _ => character.len_utf8(),
     }
 }
 
@@ -349,5 +382,42 @@ mod tests {
         assert_eq!(result.status, ExecutionStatus::InternalError);
         assert_eq!(result.duration_ms, 0);
         assert!(result.stderr.contains("could not be started"));
+    }
+
+    #[test]
+    fn output_budget_applies_after_utf8_replacement_and_json_escaping() {
+        for raw_output in [
+            vec![0xff; OUTPUT_LIMIT_BYTES - 1],
+            vec![0x01; OUTPUT_LIMIT_BYTES - 1],
+        ] {
+            let (output, was_truncated) = bounded_json_output(&raw_output);
+            let encoded = serde_json::to_vec(&output).expect("output should serialize");
+            let encoded_content_bytes = encoded.len() - 2;
+
+            assert!(was_truncated);
+            assert!(encoded_content_bytes <= OUTPUT_LIMIT_BYTES);
+        }
+        assert_eq!(
+            classify_execution(None, false, 0, 0, true),
+            ExecutionStatus::OutputLimit
+        );
+    }
+
+    #[test]
+    fn output_budget_preserves_text_that_fits_its_json_representation() {
+        let (output, was_truncated) = bounded_json_output(b"line one\nline two");
+        assert_eq!(output, "line one\nline two");
+        assert!(!was_truncated);
+    }
+
+    #[test]
+    fn character_budget_matches_serde_json_string_encoding() {
+        for character in [
+            '"', '\\', '\u{08}', '\t', '\n', '\u{0c}', '\r', '\u{00}', '\u{1f}', 'a', 'é', '🦀',
+        ] {
+            let encoded =
+                serde_json::to_vec(&character.to_string()).expect("character serialization");
+            assert_eq!(json_encoded_character_bytes(character), encoded.len() - 2);
+        }
     }
 }

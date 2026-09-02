@@ -33,8 +33,8 @@ The runner currently enforces:
 | Execution purpose | 512 Unicode scalar values |
 | Wall time | 30 seconds, including interpreter startup |
 | WebAssembly linear memory | 256 MiB |
-| stdout | 32 KiB |
-| stderr | 32 KiB |
+| stdout | 32 KiB after UTF-8 replacement and JSON string escaping |
+| stderr | 32 KiB after UTF-8 replacement and JSON string escaping |
 | Filesystem | Two explicit read-only mounts; no ambient host paths |
 | Environment | Only `PYTHONHOME=/runtime` |
 | Network | TCP, UDP, name lookup, and address use denied |
