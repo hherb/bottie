@@ -3,11 +3,13 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import {
+  ProofFailure,
   msvcCompilationArguments,
   proofProfileLayout,
   runnerBuildArguments,
   safeMsvcDiagnostics,
   safeNativeReason,
+  safeProofFailure,
   safePythonFailure,
   safeRunnerStatus,
 } from "./windows-python-appcontainer.mjs";
@@ -55,6 +57,8 @@ describe("Windows Python AppContainer containment proof", () => {
       ),
     ).toBe("error C2065: 'missing': undeclared identifier; fatal error LNK1120: 1 unresolved externals");
     expect(safeMsvcDiagnostics("C:\\private\\Proof.cpp was not compiled")).toBe("");
+    expect(safeProofFailure(new ProofFailure("The controlled proof failed."))).toBe("The controlled proof failed.");
+    expect(safeProofFailure(new Error("C:\\private\\runtime failed"))).toBe("The containment proof failed.");
   });
 
   it("reports only fixed path-free runner statuses", () => {
@@ -157,5 +161,6 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(workflow).not.toMatch(/environment:|secrets\./);
     expect(wrapper).toContain('runHostCommand(compiled.runner, ["--runtime", runtime]');
     expect(wrapper).toContain('requireOrdinaryResult(baseline, "The uncontained runner control")');
+    expect(wrapper).toContain('label: "The copied proof tree access"');
   });
 });

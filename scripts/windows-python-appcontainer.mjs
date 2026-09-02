@@ -17,6 +17,14 @@ const PARENT_EXIT_POLL_MS = 50;
 const MAX_CAPTURED_OUTPUT_BYTES = 256 * 1_024;
 const ORDINARY_REQUEST = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove private-pipe execution" });
 
+/** Marks one deliberately bounded path-free diagnostic. */
+export class ProofFailure extends Error {}
+
+/** Keeps unexpected host errors from exposing paths or process details. */
+export function safeProofFailure(error) {
+  return error instanceof ProofFailure ? error.message : "The containment proof failed.";
+}
+
 /** Returns canonical locations inside one transient profile's AppContainer-local storage. */
 export function proofProfileLayout(profile) {
   const root = win32.join(profile, "AC", "proof");
@@ -103,7 +111,7 @@ function requireOrdinaryResult(result, label) {
       : result.status === "python_error"
         ? safePythonFailure(result)
         : safeRunnerStatus(result.status);
-  throw new Error(`${label} did not return the expected bounded result (${reason}).`);
+  throw new ProofFailure(`${label} did not return the expected bounded result (${reason}).`);
 }
 
 /** Runs one native command without retaining its arguments or raw failure output. */
@@ -119,7 +127,7 @@ function runHostCommand(command, arguments_, options = {}) {
       ? safeMsvcDiagnostics(`${result.stdout ?? ""}\n${result.stderr ?? ""}`)
       : "";
     const nativeReason = options.nativeDiagnostics ? safeNativeReason(result.stdout ?? "") : "";
-    throw new Error(
+    throw new ProofFailure(
       `${options.label ?? "The AppContainer proof command"} failed${
         diagnostics ? `: ${diagnostics}` : nativeReason ? ` (${nativeReason}).` : "."
       }`,
@@ -132,7 +140,7 @@ function runHostCommand(command, arguments_, options = {}) {
 async function validateRuntime(runtime) {
   for (const required of ["python.wasm", "lib/python3.14/os.py", "LICENSE"]) {
     if ((await readFile(resolve(runtime, required))).length === 0) {
-      throw new Error("The configured CPython/WASI runtime is incomplete.");
+      throw new ProofFailure("The configured CPython/WASI runtime is incomplete.");
     }
   }
 }
@@ -157,9 +165,9 @@ function compileProof(repository, temporary) {
 function parsePreparedProfile(output) {
   const response = JSON.parse(output.trim());
   if (!response || response.status !== "prepared" || typeof response.profilePath !== "string") {
-    throw new Error("The AppContainer profile could not be prepared.");
+    throw new ProofFailure("The AppContainer profile could not be prepared.");
   }
-  if (!win32.isAbsolute(response.profilePath)) throw new Error("The AppContainer profile path was invalid.");
+  if (!win32.isAbsolute(response.profilePath)) throw new ProofFailure("The AppContainer profile path was invalid.");
   return response.profilePath;
 }
 
@@ -167,7 +175,7 @@ function parsePreparedProfile(output) {
 function parseProofResult(output) {
   const response = JSON.parse(output.trim());
   if (!response || typeof response !== "object" || Array.isArray(response)) {
-    throw new Error("The AppContainer proof returned an invalid result.");
+    throw new ProofFailure("The AppContainer proof returned an invalid result.");
   }
   return response;
 }
@@ -180,11 +188,11 @@ async function waitForProcessExit(processIdentifier) {
       process.kill(processIdentifier, 0);
     } catch (error) {
       if (error?.code === "ESRCH") return;
-      throw new Error("The proof could not inspect its isolated child process.");
+      throw new ProofFailure("The proof could not inspect its isolated child process.");
     }
     await new Promise((resolvePromise) => setTimeout(resolvePromise, PARENT_EXIT_POLL_MS));
   }
-  throw new Error("The Job Object child survived its controller process.");
+  throw new ProofFailure("The Job Object child survived its controller process.");
 }
 
 /** Exercises private pipes, cancellation, token/file denials, and kill-on-parent-close. */
@@ -230,7 +238,7 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     failedProbeChecks.push("temporary_storage");
   }
   if (probe.status !== "ok" || failedProbeChecks.length !== 0) {
-    throw new Error(`The contained token or access probe failed (${failedProbeChecks.join(",")}).`);
+    throw new ProofFailure(`The contained token or access probe failed (${failedProbeChecks.join(",")}).`);
   }
 
   const ordinary = parseProofResult(
@@ -250,7 +258,7 @@ async function exerciseProof(controller, moniker, layout, fixture) {
       nativeDiagnostics: true,
     }),
   );
-  if (cancelled.status !== "cancelled") throw new Error("The Job Object did not cancel its runner.");
+  if (cancelled.status !== "cancelled") throw new ProofFailure("The Job Object did not cancel its runner.");
 
   const parent = parseProofResult(
     runHostCommand(controller, ["start-and-exit", ...common], {
@@ -260,17 +268,19 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     }),
   );
   if (parent.status !== "started" || !Number.isSafeInteger(parent.pid) || parent.pid <= 0) {
-    throw new Error("The parent-close proof returned an invalid child identifier.");
+    throw new ProofFailure("The parent-close proof returned an invalid child identifier.");
   }
   await waitForProcessExit(parent.pid);
 }
 
 /** Builds and runs one transient credential-free proof without changing Bottie's product path. */
 async function prove() {
-  if (process.platform !== "win32") throw new Error("The AppContainer containment proof requires Windows.");
+  if (process.platform !== "win32") throw new ProofFailure("The AppContainer containment proof requires Windows.");
   const repository = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const runtimeValue = process.env.BOTTIE_PYTHON_WASI_RUNTIME;
-  if (!runtimeValue) throw new Error("Set BOTTIE_PYTHON_WASI_RUNTIME to the checksum-verified extracted runtime.");
+  if (!runtimeValue) {
+    throw new ProofFailure("Set BOTTIE_PYTHON_WASI_RUNTIME to the checksum-verified extracted runtime.");
+  }
   const runtime = resolve(runtimeValue);
   await validateRuntime(runtime);
   const temporary = await mkdtemp(resolve(tmpdir(), "bottie-python-appcontainer-proof-"));
@@ -299,6 +309,12 @@ async function prove() {
       cp(builtRunner, layout.runner),
       cp(runtime, layout.runtime, { recursive: true }),
     ]);
+    const authorizedProfile = parsePreparedProfile(
+      runHostCommand(controller, ["prepare", moniker], { label: "The copied proof tree access" }),
+    );
+    if (win32.normalize(authorizedProfile).toLowerCase() !== win32.normalize(profile).toLowerCase()) {
+      throw new ProofFailure("The copied proof tree profile changed unexpectedly.");
+    }
     const fixture = resolve(temporary, "host-owned-denial-fixture.txt");
     await writeFile(fixture, "AppContainer access must be denied.");
     await exerciseProof(controller, moniker, layout, fixture);
@@ -329,14 +345,14 @@ async function prove() {
 /** Dispatches the sole native-proof mode. */
 async function main() {
   if (process.argv.length !== 3 || process.argv[2] !== "--prove") {
-    throw new Error("Use this script through npm run python:appcontainer:prove.");
+    throw new ProofFailure("Use this script through npm run python:appcontainer:prove.");
   }
   await prove();
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
-    console.error(`[bottie] ${error instanceof Error ? error.message : "The containment proof failed."}`);
+    console.error(`[bottie] ${safeProofFailure(error)}`);
     process.exitCode = 1;
   });
 }
