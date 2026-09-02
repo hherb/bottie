@@ -9,8 +9,12 @@
 #include <string>
 #include <vector>
 
+inline std::wstring BottieProfileLocalAppDataPath(const std::wstring &profile) {
+  return profile + L"\\AC";
+}
+
 inline std::wstring BottieProfileTempPath(const std::wstring &profile) {
-  return profile + L"\\Temp";
+  return BottieProfileLocalAppDataPath(profile) + L"\\Temp";
 }
 
 inline bool ApplyBottieLowIntegrityLabel(std::wstring &path) {

@@ -221,7 +221,7 @@ PipePair OutputPipe() {
 }
 std::vector<wchar_t> MinimalEnvironment(const std::wstring &profile) {
   const std::wstring temporary = BottieProfileTempPath(profile);
-  std::wstring block = L"LOCALAPPDATA=" + profile;
+  std::wstring block = L"LOCALAPPDATA=" + BottieProfileLocalAppDataPath(profile);
   block.push_back(L'\0');
   block.append(L"TEMP=").append(temporary);
   block.push_back(L'\0');
