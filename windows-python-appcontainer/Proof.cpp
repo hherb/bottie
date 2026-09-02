@@ -30,18 +30,14 @@ public:
   ~Handle() { Reset(); }
   Handle(const Handle &) = delete;
   Handle &operator=(const Handle &) = delete;
-  Handle(Handle &&other) noexcept
-      : value_(std::exchange(other.value_, nullptr)) {}
+  Handle(Handle &&other) noexcept : value_(std::exchange(other.value_, nullptr)) {}
   Handle &operator=(Handle &&other) noexcept {
     if (this != &other)
       Reset(std::exchange(other.value_, nullptr));
     return *this;
   }
   [[nodiscard]] HANDLE Get() const { return value_; }
-  [[nodiscard]] HANDLE *Out() {
-    Reset();
-    return &value_;
-  }
+  [[nodiscard]] HANDLE *Out() { Reset(); return &value_; }
   void Reset(HANDLE value = nullptr) {
     if (value_ != nullptr && value_ != INVALID_HANDLE_VALUE)
       CloseHandle(value_);
@@ -418,6 +414,8 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
       BottieFileReadable(runtime + L"\\lib\\python3.14\\os.py");
   const bool encodings_readable = BottieFileReadable(
       runtime + L"\\lib\\python3.14\\encodings\\__init__.py");
+  const bool encodings_listable = BottieDirectoryListable(
+      runtime + L"\\lib\\python3.14\\encodings");
   const BottieTemporaryStorageProbe temporary =
       ProbeBottieTemporaryStorage(profile);
   const bool privileges_stripped = BottieTokenPrivilegesStripped(token.Get());
@@ -425,6 +423,7 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
   const bool ok = is_app_container == TRUE && privileges_stripped &&
                   low_integrity && groups->GroupCount == 0 && denied &&
                   runtime_readable && library_readable && encodings_readable &&
+                  encodings_listable &&
                   temporary.environment_matches_path &&
                   temporary.environment_within_profile &&
                   temporary.path_within_profile && temporary.Writable();
@@ -438,6 +437,8 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
             << (library_readable ? "true" : "false")
             << ",\"runtimeEncodingsReadable\":"
             << (encodings_readable ? "true" : "false")
+            << ",\"runtimeEncodingsListable\":"
+            << (encodings_listable ? "true" : "false")
             << ",\"temporaryEnvironmentMatchesPath\":"
             << (temporary.environment_matches_path ? "true" : "false")
             << ",\"temporaryEnvironmentWithinProfile\":"

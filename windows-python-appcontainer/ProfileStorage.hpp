@@ -102,6 +102,15 @@ inline bool BottieFileReadable(const std::wstring &path) {
   return true;
 }
 
+inline bool BottieDirectoryListable(const std::wstring &path) {
+  WIN32_FIND_DATAW entry{};
+  HANDLE search = FindFirstFileW((path + L"\\*").c_str(), &entry);
+  if (search == INVALID_HANDLE_VALUE)
+    return false;
+  FindClose(search);
+  return true;
+}
+
 struct BottieTemporaryStorageProbe {
   bool directory_prepared = false;
   bool path_available = false;

@@ -114,6 +114,8 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(storage).not.toContain("FILE_GENERIC_WRITE");
     expect(storage).not.toContain("LABEL_SECURITY_INFORMATION");
     expect(storage).toContain("ProbeBottieTemporaryStorage");
+    expect(storage).toContain("FindFirstFileW");
+    expect(storage).toContain("FindClose");
     expect(storage).toContain("CompareStringOrdinal");
     expect(storage).toContain('GetEnvironmentVariableW(\n      L"TMP"');
     expect(source).toContain("temporaryEnvironmentMatchesPath");
@@ -141,6 +143,7 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("runtime_readable");
     expect(source).toContain("library_readable");
     expect(source).toContain("encodings_readable");
+    expect(source).toContain("encodings_listable");
     expect(source).toContain("temporary.Writable()");
     expect(source).toContain('Fail("runner_timeout")');
     expect(source).toContain('Fail("runner_exit")');

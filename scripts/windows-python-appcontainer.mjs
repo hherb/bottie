@@ -213,6 +213,7 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     ["runtime_read", probe.runtimeReadable],
     ["runtime_library_read", probe.runtimeLibraryReadable],
     ["runtime_encodings_read", probe.runtimeEncodingsReadable],
+    ["runtime_encodings_list", probe.runtimeEncodingsListable],
   ]
     .filter(([, passed]) => passed !== true)
     .map(([name]) => name);
