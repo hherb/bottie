@@ -15,6 +15,7 @@ const PROOF_TIMEOUT_MS = 180_000;
 const PARENT_EXIT_TIMEOUT_MS = 5_000;
 const PARENT_EXIT_POLL_MS = 50;
 const MAX_CAPTURED_OUTPUT_BYTES = 256 * 1_024;
+const ORDINARY_REQUEST = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove private-pipe execution" });
 
 /** Returns canonical locations owned by one transient AppContainer profile. */
 export function proofProfileLayout(profile) {
@@ -70,6 +71,14 @@ export function safeRunnerStatus(value) {
     "timed_out",
   ]);
   return statuses.has(value) ? value : "unexpected_result";
+}
+
+/** Requires the fixed successful result used by both baseline and contained execution. */
+function requireOrdinaryResult(result, label) {
+  if (result.status === "ok" && result.stdout.trim() === "42") return;
+  const reason =
+    result.status === "failed" && typeof result.reason === "string" ? result.reason : safeRunnerStatus(result.status);
+  throw new Error(`${label} did not return the expected bounded result (${reason}).`);
 }
 
 /** Runs one native command without retaining its arguments or raw failure output. */
@@ -153,17 +162,10 @@ async function waitForProcessExit(processIdentifier) {
 /** Exercises private pipes, cancellation, token/file denials, and kill-on-parent-close. */
 async function exerciseProof(controller, moniker, layout, fixture) {
   const common = [moniker, layout.runner, layout.runtime];
-  const ordinaryRequest = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove private-pipe execution" });
   const ordinary = parseProofResult(
-    runHostCommand(controller, ["execute", ...common], { input: ordinaryRequest, label: "Private-pipe execution" }),
+    runHostCommand(controller, ["execute", ...common], { input: ORDINARY_REQUEST, label: "Private-pipe execution" }),
   );
-  if (ordinary.status !== "ok" || ordinary.stdout.trim() !== "42") {
-    const reason =
-      ordinary.status === "failed" && typeof ordinary.reason === "string"
-        ? ordinary.reason
-        : safeRunnerStatus(ordinary.status);
-    throw new Error(`Private-pipe execution did not return the expected bounded result (${reason}).`);
-  }
+  requireOrdinaryResult(ordinary, "Private-pipe execution");
 
   const infiniteRequest = JSON.stringify({ code: "while True:\n    pass", purpose: "Prove cancellation" });
   const cancelled = parseProofResult(
@@ -209,7 +211,15 @@ async function prove() {
   let controller;
   let prepared = false;
   try {
-    ({ controller } = compileProof(repository, temporary));
+    const compiled = compileProof(repository, temporary);
+    controller = compiled.controller;
+    const baseline = parseProofResult(
+      runHostCommand(compiled.runner, ["--runtime", runtime], {
+        input: ORDINARY_REQUEST,
+        label: "The uncontained runner control",
+      }),
+    );
+    requireOrdinaryResult(baseline, "The uncontained runner control");
     const profile = parsePreparedProfile(
       runHostCommand(controller, ["prepare", moniker], { label: "The transient AppContainer profile" }),
     );

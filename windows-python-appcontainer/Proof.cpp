@@ -19,7 +19,7 @@ constexpr DWORD kMaximumRequestBytes = 256 * 1024;
 constexpr DWORD kMaximumResponseBytes = 128 * 1024;
 constexpr DWORD kExecutionTimeoutMilliseconds = 150 * 1000;
 constexpr DWORD kCancellationDelayMilliseconds = 250;
-constexpr SIZE_T kProcessMemoryLimitBytes = 2048ULL * 1024ULL * 1024ULL;
+constexpr SIZE_T kProcessMemoryLimitBytes = 768ULL * 1024ULL * 1024ULL;
 constexpr LONGLONG kProcessCpuLimit100Nanoseconds =
     120LL * 10LL * 1000LL * 1000LL;
 class Handle final {

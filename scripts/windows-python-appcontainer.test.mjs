@@ -84,7 +84,7 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(source).toContain("JOB_OBJECT_LIMIT_ACTIVE_PROCESS");
     expect(source).toContain("JOB_OBJECT_LIMIT_PROCESS_MEMORY");
     expect(source).toContain("JOB_OBJECT_LIMIT_PROCESS_TIME");
-    expect(source).toContain("kProcessMemoryLimitBytes = 2048ULL * 1024ULL * 1024ULL");
+    expect(source).toContain("kProcessMemoryLimitBytes = 768ULL * 1024ULL * 1024ULL");
     expect(source).toContain("kExecutionTimeoutMilliseconds = 150 * 1000");
     expect(source).toContain("120LL * 10LL * 1000LL * 1000LL");
     expect(source).toContain("CreatePipe");
@@ -99,11 +99,14 @@ describe("Windows Python AppContainer containment proof", () => {
       new URL("../.github/workflows/windows-python-appcontainer.yml", import.meta.url),
       "utf8",
     );
+    const wrapper = await readFile(new URL("./windows-python-appcontainer.mjs", import.meta.url), "utf8");
 
     expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("runs-on: windows-2025");
     expect(workflow).toContain("python-runner/runtime-manifest.json");
     expect(workflow).toContain("npm run python:appcontainer:prove");
     expect(workflow).not.toMatch(/environment:|secrets\./);
+    expect(wrapper).toContain('runHostCommand(compiled.runner, ["--runtime", runtime]');
+    expect(wrapper).toContain('requireOrdinaryResult(baseline, "The uncontained runner control")');
   });
 });

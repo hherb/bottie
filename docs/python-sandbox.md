@@ -122,9 +122,9 @@ runner, and the already checksum-verified runtime. The controller supplies an em
 AppContainer launch attribute with a `DISABLE_MAX_PRIVILEGE` restricted primary token, and inherits only the three
 anonymous-pipe protocol handles. Source is supplied on stdin and never enters a command line or shell.
 
-Every child is assigned at process creation to a Job Object limited to one process, 2 GiB committed memory, 120 seconds
-of user CPU time, and kill-on-last-handle-close. That outer allowance includes bounded Wasmtime JIT cold startup; the
-unchanged runner retains its separate 256 MiB linear-memory limit and 30-second execution deadline. The native proof
+Every child is assigned at process creation to a Job Object limited to one process, 768 MiB committed memory, 120
+seconds of user CPU time, and kill-on-last-handle-close. That outer allowance includes bounded Wasmtime cold startup;
+the unchanged runner retains its separate 256 MiB linear-memory limit and 30-second execution deadline. The native proof
 checks the child token is both AppContainer and restricted with zero capability SIDs, uses the same launch path to deny
 a host-owned fixture outside the profile, executes the unchanged runner contract, cancels a running request through
 the Job Object, and observes that controller exit kills the retained runner. The transient profile, copied runtime,
