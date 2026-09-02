@@ -3,7 +3,7 @@
 /** Builds and exercises Bottie's development-only Windows Python AppContainer containment proof. */
 
 import { spawnSync } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,15 @@ const PARENT_EXIT_TIMEOUT_MS = 5_000;
 const PARENT_EXIT_POLL_MS = 50;
 const MAX_CAPTURED_OUTPUT_BYTES = 256 * 1_024;
 const ORDINARY_REQUEST = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove private-pipe execution" });
+const ZIP32_MAXIMUM = 0xffff_ffff;
+const ZIP_UTF8_FLAG = 0x0800;
+const ZIP_VERSION = 20;
+const ZIP_DATE_1980_01_01 = 0x0021;
+const CRC32_TABLE = Array.from({ length: 256 }, (_, value) => {
+  let crc = value;
+  for (let bit = 0; bit < 8; bit += 1) crc = (crc & 1) !== 0 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+  return crc >>> 0;
+});
 
 /** Marks one deliberately bounded path-free diagnostic. */
 export class ProofFailure extends Error {}
@@ -41,9 +50,88 @@ export function runnerBuildArguments(manifest) {
   return ["build", "--manifest-path", manifest, "--release", "--locked"];
 }
 
-/** Returns fixed bsdtar arguments for CPython's uncompressed standard-library search archive. */
-export function stdlibArchiveArguments(archive, library) {
-  return ["-a", "-c", "-f", archive, "--options", "zip:compression=store", "-s", ",^\\./,,", "-C", library, "."];
+function crc32(content) {
+  let crc = 0xffff_ffff;
+  for (const byte of content) crc = CRC32_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffff_ffff) >>> 0;
+}
+
+async function storedZipEntries(directory, prefix = "") {
+  const children = await readdir(directory, { withFileTypes: true });
+  children.sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0));
+  const entries = [];
+  for (const child of children) {
+    const name = `${prefix}${child.name}`;
+    const path = resolve(directory, child.name);
+    if (child.isDirectory()) entries.push(...(await storedZipEntries(path, `${name}/`)));
+    else if (child.isFile()) entries.push({ content: await readFile(path), name });
+    else throw new ProofFailure("The Python standard library contained an unsupported entry.");
+  }
+  return entries;
+}
+
+function localZipHeader(name, content) {
+  const encodedName = Buffer.from(name, "utf8");
+  const header = Buffer.alloc(30);
+  header.writeUInt32LE(0x04034b50, 0);
+  header.writeUInt16LE(ZIP_VERSION, 4);
+  header.writeUInt16LE(ZIP_UTF8_FLAG, 6);
+  header.writeUInt16LE(0, 8);
+  header.writeUInt16LE(0, 10);
+  header.writeUInt16LE(ZIP_DATE_1980_01_01, 12);
+  header.writeUInt32LE(crc32(content), 14);
+  header.writeUInt32LE(content.length, 18);
+  header.writeUInt32LE(content.length, 22);
+  header.writeUInt16LE(encodedName.length, 26);
+  return { encodedName, header };
+}
+
+function centralZipHeader(name, content, offset) {
+  const encodedName = Buffer.from(name, "utf8");
+  const header = Buffer.alloc(46);
+  header.writeUInt32LE(0x02014b50, 0);
+  header.writeUInt16LE(ZIP_VERSION, 4);
+  header.writeUInt16LE(ZIP_VERSION, 6);
+  header.writeUInt16LE(ZIP_UTF8_FLAG, 8);
+  header.writeUInt16LE(0, 10);
+  header.writeUInt16LE(0, 12);
+  header.writeUInt16LE(ZIP_DATE_1980_01_01, 14);
+  header.writeUInt32LE(crc32(content), 16);
+  header.writeUInt32LE(content.length, 20);
+  header.writeUInt32LE(content.length, 24);
+  header.writeUInt16LE(encodedName.length, 28);
+  header.writeUInt32LE(offset, 42);
+  return { encodedName, header };
+}
+
+/** Builds CPython's deterministic uncompressed standard-library ZIP without invoking another process. */
+export async function buildStoredStandardLibraryArchive(archive, library) {
+  const entries = await storedZipEntries(library);
+  if (entries.length === 0 || entries.length > 0xffff) {
+    throw new ProofFailure("The Python standard-library archive entry count was invalid.");
+  }
+  const local = [];
+  const central = [];
+  let offset = 0;
+  for (const entry of entries) {
+    const localEntry = localZipHeader(entry.name, entry.content);
+    const centralEntry = centralZipHeader(entry.name, entry.content, offset);
+    local.push(localEntry.header, localEntry.encodedName, entry.content);
+    central.push(centralEntry.header, centralEntry.encodedName);
+    offset += localEntry.header.length + localEntry.encodedName.length + entry.content.length;
+    if (offset > ZIP32_MAXIMUM) throw new ProofFailure("The Python standard-library archive was too large.");
+  }
+  const centralSize = central.reduce((size, chunk) => size + chunk.length, 0);
+  if (offset + centralSize > ZIP32_MAXIMUM) {
+    throw new ProofFailure("The Python standard-library archive was too large.");
+  }
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(offset, 16);
+  await writeFile(archive, Buffer.concat([...local, ...central, end]));
 }
 
 /** Returns fixed warning-clean MSVC arguments for the native proof host. */
@@ -317,9 +405,7 @@ async function prove() {
     ]);
     const standardLibrary = win32.join(layout.runtime, "lib", "python3.14");
     const standardLibraryArchive = win32.join(layout.runtime, "lib", "python314.zip");
-    runHostCommand("tar.exe", stdlibArchiveArguments(standardLibraryArchive, standardLibrary), {
-      label: "The stored Python standard-library archive",
-    });
+    await buildStoredStandardLibraryArchive(standardLibraryArchive, standardLibrary);
     const authorizedProfile = parsePreparedProfile(
       runHostCommand(controller, ["prepare", moniker], { label: "The copied proof tree access" }),
     );

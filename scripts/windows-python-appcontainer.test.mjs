@@ -1,9 +1,12 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import {
   ProofFailure,
+  buildStoredStandardLibraryArchive,
   msvcCompilationArguments,
   proofProfileLayout,
   runnerBuildArguments,
@@ -12,7 +15,6 @@ import {
   safeProofFailure,
   safePythonFailure,
   safeRunnerStatus,
-  stdlibArchiveArguments,
 } from "./windows-python-appcontainer.mjs";
 
 describe("Windows Python AppContainer containment proof", () => {
@@ -47,19 +49,26 @@ describe("Windows Python AppContainer containment proof", () => {
       "ole32.lib",
       "userenv.lib",
     ]);
-    expect(stdlibArchiveArguments("C:\\runtime\\lib\\python314.zip", "C:\\runtime\\lib\\python3.14")).toEqual([
-      "-a",
-      "-c",
-      "-f",
-      "C:\\runtime\\lib\\python314.zip",
-      "--options",
-      "zip:compression=store",
-      "-s",
-      ",^\\./,,",
-      "-C",
-      "C:\\runtime\\lib\\python3.14",
-      ".",
-    ]);
+  });
+
+  it("builds a deterministic uncompressed standard-library ZIP", async () => {
+    const temporary = await mkdtemp(resolve(tmpdir(), "bottie-stored-zip-test-"));
+    try {
+      const library = resolve(temporary, "python3.14");
+      const encodings = resolve(library, "encodings");
+      const archive = resolve(temporary, "python314.zip");
+      await mkdir(encodings, { recursive: true });
+      await writeFile(resolve(encodings, "__init__.py"), "codec = 'utf-8'\n");
+      await buildStoredStandardLibraryArchive(archive, library);
+      const encoded = await readFile(archive);
+      const nameLength = encoded.readUInt16LE(26);
+      expect(encoded.readUInt32LE(0)).toBe(0x04034b50);
+      expect(encoded.readUInt16LE(8)).toBe(0);
+      expect(encoded.subarray(30, 30 + nameLength).toString("utf8")).toBe("encodings/__init__.py");
+      expect(encoded.readUInt32LE(encoded.length - 22)).toBe(0x06054b50);
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
   });
 
   it("reduces compiler failures to bounded path-free diagnostic codes and messages", () => {
@@ -179,6 +188,7 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(wrapper).toContain('runHostCommand(compiled.runner, ["--runtime", runtime]');
     expect(wrapper).toContain('requireOrdinaryResult(baseline, "The uncontained runner control")');
     expect(wrapper).toContain('label: "The copied proof tree access"');
-    expect(wrapper).toContain('label: "The stored Python standard-library archive"');
+    expect(wrapper).toContain("await buildStoredStandardLibraryArchive");
+    expect(wrapper).not.toContain('runHostCommand("tar.exe"');
   });
 });
