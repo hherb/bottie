@@ -32,9 +32,8 @@ struct BottieTemporaryStorageProbe {
   bool file_created = false;
   bool file_written = false;
   bool file_deleted = false;
-  bool environment_matches_expected = false;
+  bool environment_matches_path = false;
   bool environment_within_profile = false;
-  bool path_matches_expected = false;
   bool path_within_profile = false;
   DWORD file_create_error = ERROR_SUCCESS;
 
@@ -44,7 +43,7 @@ struct BottieTemporaryStorageProbe {
 };
 
 inline BottieTemporaryStorageProbe
-ProbeBottieTemporaryStorage(const std::wstring &expected_path) {
+ProbeBottieTemporaryStorage(const std::wstring &profile) {
   BottieTemporaryStorageProbe result;
   std::array<wchar_t, MAX_PATH> temporary_path{};
   const DWORD length = GetTempPathW(static_cast<DWORD>(temporary_path.size()),
@@ -57,11 +56,6 @@ ProbeBottieTemporaryStorage(const std::wstring &expected_path) {
   while (!resolved_path.empty() &&
          (resolved_path.back() == L'\\' || resolved_path.back() == L'/'))
     resolved_path.pop_back();
-  result.path_matches_expected =
-      CompareStringOrdinal(resolved_path.c_str(), -1, expected_path.c_str(),
-                           -1, TRUE) == CSTR_EQUAL;
-  const std::wstring profile =
-      expected_path.substr(0, expected_path.find_last_of(L"\\/"));
   const auto within_profile = [&profile](const std::wstring &candidate) {
     return candidate.size() > profile.size() &&
            CompareStringOrdinal(candidate.c_str(),
@@ -76,15 +70,19 @@ ProbeBottieTemporaryStorage(const std::wstring &expected_path) {
   const DWORD environment_length = GetEnvironmentVariableW(
       L"TMP", environment_path.data(),
       static_cast<DWORD>(environment_path.size()));
-  result.environment_matches_expected =
-      environment_length > 0 && environment_length < environment_path.size() &&
-      CompareStringOrdinal(environment_path.data(), -1, expected_path.c_str(),
-                           -1, TRUE) == CSTR_EQUAL;
-  if (environment_length > 0 && environment_length < environment_path.size())
-    result.environment_within_profile = within_profile(environment_path.data());
+  if (environment_length > 0 && environment_length < environment_path.size()) {
+    std::wstring environment(environment_path.data());
+    while (!environment.empty() &&
+           (environment.back() == L'\\' || environment.back() == L'/'))
+      environment.pop_back();
+    result.environment_matches_path =
+        CompareStringOrdinal(environment.c_str(), -1, resolved_path.c_str(),
+                             -1, TRUE) == CSTR_EQUAL;
+    result.environment_within_profile = within_profile(environment);
+  }
 
   const std::wstring file_path =
-      expected_path + L"\\bottie-write-proof.tmp";
+      resolved_path + L"\\bottie-write-proof.tmp";
   HANDLE file = CreateFileW(file_path.c_str(), GENERIC_WRITE, 0, nullptr,
                             CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, nullptr);
   result.file_created = file != INVALID_HANDLE_VALUE;

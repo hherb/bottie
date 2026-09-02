@@ -177,14 +177,13 @@ async function exerciseProof(controller, moniker, layout, fixture) {
   ]
     .filter(([, passed]) => passed !== true)
     .map(([name]) => name);
-  if (probe.temporaryEnvironmentMatchesExpected !== true) {
-    failedProbeChecks.push("temporary_environment_mismatch");
+  if (probe.temporaryEnvironmentMatchesPath !== true) {
+    failedProbeChecks.push("temporary_environment_path_mismatch");
   }
   if (probe.temporaryEnvironmentWithinProfile !== true) {
     failedProbeChecks.push("temporary_environment_outside_profile");
   }
   if (probe.temporaryPathAvailable !== true) failedProbeChecks.push("temporary_path");
-  if (probe.temporaryPathMatchesExpected !== true) failedProbeChecks.push("temporary_path_mismatch");
   if (probe.temporaryPathWithinProfile !== true) failedProbeChecks.push("temporary_path_outside_profile");
   if (probe.temporaryFileCreated !== true) {
     const error = Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown";

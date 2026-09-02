@@ -96,7 +96,7 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(storage).toContain("ProbeBottieTemporaryStorage");
     expect(storage).toContain("CompareStringOrdinal");
     expect(storage).toContain('GetEnvironmentVariableW(\n      L"TMP"');
-    expect(source).toContain("temporaryPathMatchesExpected");
+    expect(source).toContain("temporaryEnvironmentMatchesPath");
     expect(source).toContain("temporaryPathWithinProfile");
     expect(storage).toContain("result.file_create_error = GetLastError()");
     expect(storage).toContain("WriteFile(file, &kProbeByte");
