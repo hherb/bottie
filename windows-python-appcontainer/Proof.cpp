@@ -433,26 +433,26 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
   const bool ok = is_app_container == TRUE && privileges_stripped &&
                   low_integrity && groups->GroupCount == 0 && denied &&
                   runtime_readable && temporary.environment_matches_expected &&
-                  temporary.path_matches_expected && temporary.Writable();
+                  temporary.environment_within_profile && temporary.path_matches_expected &&
+                  temporary.path_within_profile && temporary.Writable();
   std::cout << "{\"appContainer\":" << (is_app_container ? "true" : "false")
             << ",\"capabilityCount\":" << groups->GroupCount
             << ",\"hostFixtureDenied\":" << (denied ? "true" : "false")
             << ",\"lowIntegrity\":" << (low_integrity ? "true" : "false")
-            << ",\"privilegesStripped\":"
-            << (privileges_stripped ? "true" : "false")
+            << ",\"privilegesStripped\":" << (privileges_stripped ? "true" : "false")
             << ",\"runtimeReadable\":" << (runtime_readable ? "true" : "false")
             << ",\"temporaryEnvironmentMatchesExpected\":"
             << (temporary.environment_matches_expected ? "true" : "false")
+            << ",\"temporaryEnvironmentWithinProfile\":"
+            << (temporary.environment_within_profile ? "true" : "false")
             << ",\"temporaryCreateError\":" << temporary.file_create_error
             << ",\"temporaryFileCreated\":" << (temporary.file_created ? "true" : "false")
             << ",\"temporaryFileDeleted\":" << (temporary.file_deleted ? "true" : "false")
             << ",\"temporaryFileWritten\":" << (temporary.file_written ? "true" : "false")
-            << ",\"temporaryPathAvailable\":"
-            << (temporary.path_available ? "true" : "false")
-            << ",\"temporaryPathMatchesExpected\":"
-            << (temporary.path_matches_expected ? "true" : "false")
-            << ",\"temporaryWritable\":"
-            << (temporary.Writable() ? "true" : "false")
+            << ",\"temporaryPathAvailable\":" << (temporary.path_available ? "true" : "false")
+            << ",\"temporaryPathMatchesExpected\":" << (temporary.path_matches_expected ? "true" : "false")
+            << ",\"temporaryPathWithinProfile\":" << (temporary.path_within_profile ? "true" : "false")
+            << ",\"temporaryWritable\":" << (temporary.Writable() ? "true" : "false")
             << ",\"status\":\"" << (ok ? "ok" : "failed") << "\"}\n";
 }
 void Probe(std::wstring_view moniker, const std::wstring &host,
