@@ -17,9 +17,9 @@ const PARENT_EXIT_POLL_MS = 50;
 const MAX_CAPTURED_OUTPUT_BYTES = 256 * 1_024;
 const ORDINARY_REQUEST = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove private-pipe execution" });
 
-/** Returns canonical locations owned by one transient AppContainer profile. */
+/** Returns canonical locations inside one transient profile's AppContainer-local storage. */
 export function proofProfileLayout(profile) {
-  const root = win32.join(profile, "proof");
+  const root = win32.join(profile, "AC", "proof");
   return {
     host: win32.join(root, PROOF_EXECUTABLE),
     root,

@@ -14,7 +14,7 @@ import {
 
 describe("Windows Python AppContainer containment proof", () => {
   it("keeps every executable and runtime byte inside the transient AppContainer profile", () => {
-    expect(proofProfileLayout("C:\\Users\\runner\\AppData\\Local\\Packages\\proof\\AC")).toEqual({
+    expect(proofProfileLayout("C:\\Users\\runner\\AppData\\Local\\Packages\\proof")).toEqual({
       host: "C:\\Users\\runner\\AppData\\Local\\Packages\\proof\\AC\\proof\\bottie-python-appcontainer.exe",
       root: "C:\\Users\\runner\\AppData\\Local\\Packages\\proof\\AC\\proof",
       runner: "C:\\Users\\runner\\AppData\\Local\\Packages\\proof\\AC\\proof\\bottie-python-runner.exe",
