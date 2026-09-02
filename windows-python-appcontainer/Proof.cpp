@@ -183,13 +183,14 @@ std::wstring CommandLine(const std::wstring &executable,
   }
   return command;
 }
-Handle RestrictedToken() {
+Handle RestrictedToken(PSID app_container_sid) {
   Handle current_token;
   Require(OpenProcessToken(GetCurrentProcess(), TOKEN_DUPLICATE | TOKEN_QUERY,
                            current_token.Out()));
   Handle restricted_token;
+  SID_AND_ATTRIBUTES restricted{app_container_sid, 0};
   Require(CreateRestrictedToken(current_token.Get(), DISABLE_MAX_PRIVILEGE, 0,
-                                nullptr, 0, nullptr, 0, nullptr,
+                                nullptr, 0, nullptr, 1, &restricted,
                                 restricted_token.Out()));
   return restricted_token;
 }
@@ -228,14 +229,11 @@ PipePair OutputPipe() {
   return pipe;
 }
 std::vector<wchar_t> MinimalEnvironment(const std::wstring &profile) {
-  const std::wstring temporary = profile + L"\\Temp";
-  Require(CreateDirectoryW(temporary.c_str(), nullptr) ||
-          GetLastError() == ERROR_ALREADY_EXISTS);
   std::wstring block = L"LOCALAPPDATA=" + profile;
   block.push_back(L'\0');
-  block.append(L"TEMP=").append(temporary);
+  block.append(L"TEMP=").append(profile);
   block.push_back(L'\0');
-  block.append(L"TMP=").append(temporary);
+  block.append(L"TMP=").append(profile);
   block.push_back(L'\0');
   block.push_back(L'\0');
   return {block.begin(), block.end()};
@@ -251,7 +249,7 @@ struct Execution {
 Execution Launch(std::wstring_view moniker, const std::wstring &executable,
                  const std::vector<std::wstring> &arguments) {
   Sid sid = DeriveSid(moniker);
-  Handle token = RestrictedToken();
+  Handle token = RestrictedToken(sid.Get());
   Handle job = LimitedJob();
   PipePair input = InputPipe();
   PipePair output = OutputPipe();
