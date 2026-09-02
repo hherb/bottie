@@ -219,16 +219,6 @@ PipePair OutputPipe() {
   Require(SetHandleInformation(pipe.parent.Get(), HANDLE_FLAG_INHERIT, 0));
   return pipe;
 }
-std::vector<wchar_t> MinimalEnvironment() {
-  std::array<wchar_t, MAX_PATH> windows_directory{};
-  const UINT length = GetWindowsDirectoryW(windows_directory.data(), static_cast<UINT>(windows_directory.size()));
-  if (length == 0 || length >= windows_directory.size()) Fail("windows_directory");
-  std::wstring block = L"SystemRoot=" + std::wstring(windows_directory.data());
-  block.push_back(L'\0');
-  block.append(L"WINDIR=").append(windows_directory.data()).push_back(L'\0');
-  block.push_back(L'\0');
-  return {block.begin(), block.end()};
-}
 struct Execution {
   Handle job;
   Handle process;
@@ -281,7 +271,10 @@ Execution Launch(std::wstring_view moniker, const std::wstring &executable,
   startup.lpAttributeList = attribute_list;
   PROCESS_INFORMATION process{};
   std::wstring command = CommandLine(executable, arguments);
-  std::vector<wchar_t> environment = MinimalEnvironment();
+  std::vector<wchar_t> environment =
+      BottieMinimalEnvironment(ProfilePath(sid.Get()));
+  if (environment.empty())
+    Fail("windows_directory");
   const DWORD flags = EXTENDED_STARTUPINFO_PRESENT |
                       CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED |
                       CREATE_NO_WINDOW;
