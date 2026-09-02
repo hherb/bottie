@@ -117,19 +117,32 @@ References: [Apple XPC documentation](https://developer.apple.com/documentation/
 
 ### Windows
 
-Implemented as a development proof: a transient AppContainer profile owns only a copied proof host, the unchanged Rust
-runner, and the already checksum-verified runtime. The controller supplies an empty capability list, combines the
-AppContainer launch attribute with a `DISABLE_MAX_PRIVILEGE` primary token, and inherits only the three
-anonymous-pipe protocol handles. Source is supplied on stdin and never enters a command line or shell.
+Implemented as a development proof: a transient AppContainer profile's `AC` subtree owns only a copied proof host, the
+unchanged Rust runner, and the already checksum-verified runtime, keeping Python package traversal inside
+AppContainer-local storage. The existing `AC\proof` DACL gains one inheritable read/execute ACE for the exact transient
+AppContainer SID; it does not grant runtime writes or replace the inherited DACL. The controller supplies an empty
+capability list, combines the AppContainer launch attribute with a `DISABLE_MAX_PRIVILEGE` primary token, and inherits
+only the three anonymous-pipe protocol handles. The child inherits no host environment; the controller supplies only
+transient profile locations, and Windows maps them into the AppContainer. Source is supplied on stdin and never enters
+a command line or shell.
+
+Before launch, the wrapper's deterministic in-process ZIP32 writer derives an uncompressed `python314.zip` from the
+copied standard-library tree, with no shell or archive subprocess. CPython/WASI searches that archive before the
+directory tree; storing rather than deflating it is required because this pinned WASI build does not provide `zlib`.
+The copied source tree remains present so the contained probe separately proves exact standard-library file reads and
+directory listing.
 
 Every child is assigned at process creation to a Job Object limited to one process, 768 MiB committed memory, 120
 seconds of user CPU time, and kill-on-last-handle-close. That outer allowance includes bounded Wasmtime cold startup;
 the unchanged runner retains its separate 256 MiB linear-memory limit and 30-second execution deadline. The native proof
 checks that the child token is AppContainer, has zero capability SIDs, and has no enabled privilege except Windows'
-non-removable directory-traverse privilege. It uses the same launch path to deny a host-owned fixture outside the
-profile, executes the unchanged runner contract, cancels a running request through the Job Object, and observes that
-controller exit kills the retained runner. The transient profile, copied runtime, executables, and fixture are deleted
-afterward.
+non-removable directory-traverse privilege. The controller materializes the profile's canonical `AC` and `AC\Temp`
+directories without replacing their inherited security. Inside the child, the proof requires `TMP` and `GetTempPathW`
+to resolve to the same directory within that `AC` subtree, materializes that resolved directory there, then creates,
+writes, and deletes a file at the resolved location. It uses the same launch path to deny a host-owned fixture outside
+the profile, executes the unchanged runner contract, cancels a running request through the Job Object, and observes
+that controller exit kills the retained runner. The transient profile, copied runtime, executables, and fixture are
+deleted afterward.
 
 On Windows versions that support it, evaluate the newer `CreateProcessInSandbox` API before maintaining the complete
 low-level AppContainer launch sequence in the product. This proof retains the Windows 10-compatible low-level path so
@@ -195,7 +208,8 @@ npm run python:appcontainer:prove
 
 The credential-free pull-request workflow independently verifies the pinned development-runtime size and digest,
 compiles the controller with warnings as errors, builds the locked runner, and exercises private-pipe execution,
-zero-capability/privilege-stripped token state, host-fixture denial, cancellation, and kill-on-controller-close.
+zero-capability/Low-integrity/privilege-stripped token state, profile-contained writable temporary storage,
+host-fixture denial, cancellation, and kill-on-controller-close.
 
 ## Deferred product integration
 

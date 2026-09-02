@@ -1,6 +1,6 @@
 # Bottie handover
 
-Last verified: 2026-09-02
+Last verified: 2026-09-03
 
 ## Start here
 
@@ -20,16 +20,24 @@ Read, in order:
 `windows-python-appcontainer/Proof.cpp`, `scripts/windows-python-appcontainer.mjs`, and the credential-free Windows
 workflow build one transient proof around the unchanged `bottie-python-runner` stdin/stdout JSON contract:
 
-- a fresh AppContainer profile owns only a copied proof host, runner, and already checksum-verified runtime;
+- a fresh AppContainer profile's `AC` subtree owns only a copied proof host, runner, and already checksum-verified
+  runtime; its existing `AC\proof` DACL gains one inheritable read/execute ACE for the exact transient AppContainer
+  SID, keeping Python package traversal inside AppContainer-local storage without granting runtime writes;
+- the wrapper's deterministic in-process ZIP32 writer derives the uncompressed `python314.zip` that CPython/WASI
+  searches before its standard-library directory; the copied source tree remains available for exact contained file
+  and directory-access probes, with no shell or archive subprocess;
 - every contained process combines an empty capability set with a `CreateRestrictedToken`/
   `DISABLE_MAX_PRIVILEGE` primary token;
-- private anonymous pipes inherit exactly stdin, stdout, and stderr, with source supplied only over stdin;
+- private anonymous pipes inherit exactly stdin, stdout, and stderr, with source supplied only over stdin and no host
+  environment inherited;
 - each child enters a one-process Job Object at creation, before its initially suspended thread can run;
 - the Job Object caps committed process memory at 768 MiB and user CPU time at 120 seconds, accommodating bounded
   Wasmtime cold startup before the runner's separate 256 MiB linear-memory limit and 30-second execution deadline;
 - explicit cancellation terminates the Job Object, while controller exit closes its last handle and kills the runner;
 - a contained probe verifies AppContainer state, that only Windows' non-removable traverse privilege may remain enabled,
-  zero capability SIDs, profile runtime/temp access, and denial of a host-owned fixture outside the profile; and
+  Low integrity, zero capability SIDs, profile runtime access, and denial of a host-owned fixture outside the profile;
+- the controller materializes canonical `AC`/`AC\Temp` storage without replacing inherited security, while the child
+  requires `TMP` and `GetTempPathW` to agree on a path inside `AC` and proves create/write/delete access there; and
 - all path-bearing preparation output stays private to the wrapper; final evidence is path-free, and the temporary
   profile, copied bytes, and fixture are removed.
 
@@ -55,25 +63,34 @@ certification and publication remain deferred until fresh release-owner notice.
 
 ## Validation
 
-The runtime-free focused checks passed locally:
+The local review passed:
 
 ```text
-npx vitest run scripts/windows-python-appcontainer.test.mjs --pool=forks --maxWorkers=1
-node --check scripts/windows-python-appcontainer.mjs
+npm run format:check
+npm run check
+npm test                                      # 256 passed, 3 skipped
+npm run build
+cargo fmt/check/test (src-tauri)              # 447 passed, 33 ignored
+cargo fmt/clippy/test/release build (runner)  # 8 passed, 3 ignored
+npm run dependencies:check
+npm run notices:check
 git diff --check
 ```
 
-The Windows-native pull-request workflow on the final reviewed head must compile the controller with MSVC warnings as
-errors, build the locked runner, independently verify the pinned development runtime, and return this path-free result:
+Windows-native pull-request workflow
+[run 33678403622](https://github.com/hherb/bottie/actions/runs/33678403622) passed on implementation head `2205718`.
+Windows Server 2025 compiled the controller with MSVC warnings as errors, built the locked runner, independently
+verified the pinned development runtime, and returned this path-free result:
 
 ```json
-{"appContainerDeniedHostFixture":true,"appContainerNoCapabilities":true,"cancellation":true,
- "jobCloseKilledRunner":true,"privatePipeExecution":true,"resourceLimits":true,
+{"appContainerDeniedHostFixture":true,"appContainerLowIntegrity":true,"appContainerNoCapabilities":true,
+ "cancellation":true,"jobCloseKilledRunner":true,"privatePipeExecution":true,"resourceLimits":true,
  "privilegesStripped":true,"status":"ok"}
 ```
 
-This native result is not recorded until the draft PR workflow passes. The full frontend, Tauri, and standalone-runner
-validation results for the final reviewed head belong in the draft PR.
+This is hosted development evidence around copied inputs, not native hardware, installer, shipping-package, signing,
+release, or Store evidence. The full frontend, Tauri, and standalone-runner validation results for the final reviewed
+head belong in the draft PR.
 
 ## Next bounded action
 
