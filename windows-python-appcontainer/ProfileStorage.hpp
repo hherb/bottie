@@ -105,6 +105,7 @@ struct BottieTemporaryStorageProbe {
   bool file_created = false;
   bool file_written = false;
   bool file_deleted = false;
+  bool path_matches_expected = false;
   DWORD file_create_error = ERROR_SUCCESS;
 
   [[nodiscard]] bool Writable() const {
@@ -112,7 +113,8 @@ struct BottieTemporaryStorageProbe {
   }
 };
 
-inline BottieTemporaryStorageProbe ProbeBottieTemporaryStorage() {
+inline BottieTemporaryStorageProbe
+ProbeBottieTemporaryStorage(const std::wstring &expected_path) {
   BottieTemporaryStorageProbe result;
   std::array<wchar_t, MAX_PATH> temporary_path{};
   const DWORD length = GetTempPathW(static_cast<DWORD>(temporary_path.size()),
@@ -121,8 +123,16 @@ inline BottieTemporaryStorageProbe ProbeBottieTemporaryStorage() {
   if (!result.path_available)
     return result;
 
+  std::wstring resolved_path(temporary_path.data());
+  while (!resolved_path.empty() &&
+         (resolved_path.back() == L'\\' || resolved_path.back() == L'/'))
+    resolved_path.pop_back();
+  result.path_matches_expected =
+      CompareStringOrdinal(resolved_path.c_str(), -1, expected_path.c_str(),
+                           -1, TRUE) == CSTR_EQUAL;
+
   const std::wstring file_path =
-      std::wstring(temporary_path.data()) + L"bottie-write-proof.tmp";
+      expected_path + L"\\bottie-write-proof.tmp";
   HANDLE file = CreateFileW(file_path.c_str(), GENERIC_WRITE, 0, nullptr,
                             CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, nullptr);
   result.file_created = file != INVALID_HANDLE_VALUE;

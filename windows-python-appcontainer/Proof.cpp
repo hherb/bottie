@@ -397,7 +397,8 @@ void StartAndExit(std::wstring_view moniker, const std::wstring &runner,
             << std::flush;
   ExitProcess(0);
 }
-void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime) {
+void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime,
+                    const std::wstring &temporary_path) {
   Handle token;
   Require(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, token.Out()));
   BOOL is_app_container = FALSE;
@@ -426,12 +427,13 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime) {
                                     FILE_ATTRIBUTE_NORMAL, nullptr));
   const bool runtime_readable = runtime_handle.Get() != INVALID_HANDLE_VALUE;
   const BottieTemporaryStorageProbe temporary =
-      ProbeBottieTemporaryStorage();
+      ProbeBottieTemporaryStorage(temporary_path);
   const bool privileges_stripped = BottieTokenPrivilegesStripped(token.Get());
   const bool low_integrity = BottieTokenIsLowIntegrity(token.Get());
   const bool ok = is_app_container == TRUE && privileges_stripped &&
                   low_integrity && groups->GroupCount == 0 && denied &&
-                  runtime_readable && temporary.Writable();
+                  runtime_readable && temporary.path_matches_expected &&
+                  temporary.Writable();
   std::cout << "{\"appContainer\":" << (is_app_container ? "true" : "false")
             << ",\"capabilityCount\":" << groups->GroupCount
             << ",\"hostFixtureDenied\":" << (denied ? "true" : "false")
@@ -439,24 +441,26 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime) {
             << ",\"privilegesStripped\":"
             << (privileges_stripped ? "true" : "false")
             << ",\"runtimeReadable\":" << (runtime_readable ? "true" : "false")
-            << ",\"temporaryCreateError\":"
-            << temporary.file_create_error
-            << ",\"temporaryFileCreated\":"
-            << (temporary.file_created ? "true" : "false")
+            << ",\"temporaryCreateError\":" << temporary.file_create_error
+            << ",\"temporaryFileCreated\":" << (temporary.file_created ? "true" : "false")
             << ",\"temporaryFileDeleted\":"
             << (temporary.file_deleted ? "true" : "false")
             << ",\"temporaryFileWritten\":"
             << (temporary.file_written ? "true" : "false")
             << ",\"temporaryPathAvailable\":"
             << (temporary.path_available ? "true" : "false")
+            << ",\"temporaryPathMatchesExpected\":"
+            << (temporary.path_matches_expected ? "true" : "false")
             << ",\"temporaryWritable\":"
             << (temporary.Writable() ? "true" : "false")
             << ",\"status\":\"" << (ok ? "ok" : "failed") << "\"}\n";
 }
 void Probe(std::wstring_view moniker, const std::wstring &host,
            const std::wstring &fixture, const std::wstring &runtime) {
+  Sid sid = DeriveSid(moniker);
+  const std::wstring temporary = BottieProfileTempPath(ProfilePath(sid.Get()));
   Execution execution =
-      Launch(moniker, host, {L"contained-probe", fixture, runtime});
+      Launch(moniker, host, {L"contained-probe", fixture, runtime, temporary});
   execution.standard_input.Reset();
   std::cout << Complete(execution);
 }
@@ -479,9 +483,9 @@ int wmain(int argument_count, wchar_t **arguments) {
       StartAndExit(arguments[2], arguments[3], arguments[4]);
     else if (argument_count == 6 && std::wstring_view(arguments[1]) == L"probe")
       Probe(arguments[2], arguments[3], arguments[4], arguments[5]);
-    else if (argument_count == 4 &&
+    else if (argument_count == 5 &&
              std::wstring_view(arguments[1]) == L"contained-probe")
-      ContainedProbe(arguments[2], arguments[3]);
+      ContainedProbe(arguments[2], arguments[3], arguments[4]);
     else
       return 2;
     return 0;

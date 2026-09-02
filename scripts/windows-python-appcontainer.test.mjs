@@ -98,6 +98,8 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(storage).toContain('L"S:(ML;OICI;NW;;;LW)"');
     expect(storage).toContain("LABEL_SECURITY_INFORMATION");
     expect(storage).toContain("ProbeBottieTemporaryStorage");
+    expect(storage).toContain("CompareStringOrdinal");
+    expect(source).toContain("temporaryPathMatchesExpected");
     expect(storage).toContain("result.file_create_error = GetLastError()");
     expect(storage).toContain("WriteFile(file, &kProbeByte");
     expect(storage).toContain("DeleteFileW(file_path.c_str())");

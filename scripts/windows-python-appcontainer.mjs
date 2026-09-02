@@ -179,15 +179,17 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     .map(([name]) => name);
   const temporaryFailure = !probe.temporaryPathAvailable
     ? "temporary_path"
-    : !probe.temporaryFileCreated
-      ? `temporary_create_${Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown"}`
-      : !probe.temporaryFileWritten
-        ? "temporary_write"
-        : !probe.temporaryFileDeleted
-          ? "temporary_delete"
-          : probe.temporaryWritable !== true
-            ? "temporary_storage"
-            : undefined;
+    : !probe.temporaryPathMatchesExpected
+      ? "temporary_path_mismatch"
+      : !probe.temporaryFileCreated
+        ? `temporary_create_${Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown"}`
+        : !probe.temporaryFileWritten
+          ? "temporary_write"
+          : !probe.temporaryFileDeleted
+            ? "temporary_delete"
+            : probe.temporaryWritable !== true
+              ? "temporary_storage"
+              : undefined;
   if (temporaryFailure) failedProbeChecks.push(temporaryFailure);
   if (probe.status !== "ok" || failedProbeChecks.length !== 0) {
     throw new Error(`The contained token or access probe failed (${failedProbeChecks.join(",")}).`);
