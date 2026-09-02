@@ -7,6 +7,7 @@ import {
   proofProfileLayout,
   runnerBuildArguments,
   safeMsvcDiagnostics,
+  safeRunnerStatus,
 } from "./windows-python-appcontainer.mjs";
 
 describe("Windows Python AppContainer containment proof", () => {
@@ -52,6 +53,11 @@ describe("Windows Python AppContainer containment proof", () => {
       ),
     ).toBe("error C2065: 'missing': undeclared identifier; fatal error LNK1120: 1 unresolved externals");
     expect(safeMsvcDiagnostics("C:\\private\\Proof.cpp was not compiled")).toBe("");
+  });
+
+  it("reports only fixed path-free runner statuses", () => {
+    expect(safeRunnerStatus("internal_error")).toBe("internal_error");
+    expect(safeRunnerStatus("C:\\private\\runtime failed")).toBe("unexpected_result");
   });
 
   it("launches through an empty-capability AppContainer and a maximally restricted token", async () => {

@@ -59,6 +59,19 @@ export function safeMsvcDiagnostics(output) {
     .join("; ");
 }
 
+/** Returns only a known path-free runner status for native-proof diagnostics. */
+export function safeRunnerStatus(value) {
+  const statuses = new Set([
+    "internal_error",
+    "invalid_request",
+    "output_limit",
+    "python_error",
+    "resource_limit",
+    "timed_out",
+  ]);
+  return statuses.has(value) ? value : "unexpected_result";
+}
+
 /** Runs one native command without retaining its arguments or raw failure output. */
 function runHostCommand(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -145,8 +158,11 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     runHostCommand(controller, ["execute", ...common], { input: ordinaryRequest, label: "Private-pipe execution" }),
   );
   if (ordinary.status !== "ok" || ordinary.stdout.trim() !== "42") {
-    const reason = ordinary.status === "failed" && typeof ordinary.reason === "string" ? ` (${ordinary.reason})` : "";
-    throw new Error(`Private-pipe execution did not return the expected bounded result${reason}.`);
+    const reason =
+      ordinary.status === "failed" && typeof ordinary.reason === "string"
+        ? ordinary.reason
+        : safeRunnerStatus(ordinary.status);
+    throw new Error(`Private-pipe execution did not return the expected bounded result (${reason}).`);
   }
 
   const infiniteRequest = JSON.stringify({ code: "while True:\n    pass", purpose: "Prove cancellation" });
