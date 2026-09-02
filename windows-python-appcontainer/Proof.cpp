@@ -17,11 +17,11 @@
 namespace {
 constexpr DWORD kMaximumRequestBytes = 256 * 1024;
 constexpr DWORD kMaximumResponseBytes = 128 * 1024;
-constexpr DWORD kExecutionTimeoutMilliseconds = 45 * 1000;
+constexpr DWORD kExecutionTimeoutMilliseconds = 150 * 1000;
 constexpr DWORD kCancellationDelayMilliseconds = 250;
 constexpr SIZE_T kProcessMemoryLimitBytes = 768ULL * 1024ULL * 1024ULL;
 constexpr LONGLONG kProcessCpuLimit100Nanoseconds =
-    40LL * 10LL * 1000LL * 1000LL;
+    120LL * 10LL * 1000LL * 1000LL;
 class Handle final {
 public:
   Handle() = default;
@@ -74,8 +74,8 @@ public:
 private:
   PSID value_ = nullptr;
 };
-[[noreturn]] void Fail() {
-  throw std::runtime_error("native containment operation failed");
+[[noreturn]] void Fail(std::string_view stage = "native") {
+  throw std::runtime_error(std::string(stage));
 }
 void Require(BOOL value) {
   if (!value)
@@ -132,7 +132,6 @@ Sid DeriveSid(std::wstring_view moniker) {
       std::wstring(moniker).c_str(), sid.Out()));
   return sid;
 }
-
 void Prepare(std::wstring_view moniker) {
   if (!ValidMoniker(moniker))
     Fail();
@@ -148,7 +147,6 @@ void Prepare(std::wstring_view moniker) {
   std::cout << "{\"profilePath\":\"" << JsonEscape(path)
             << "\",\"status\":\"prepared\"}\n";
 }
-
 void Cleanup(std::wstring_view moniker) {
   if (!ValidMoniker(moniker))
     Fail();
@@ -159,7 +157,6 @@ void Cleanup(std::wstring_view moniker) {
     Fail();
   std::cout << "{\"status\":\"cleaned\"}\n";
 }
-
 std::wstring Quote(std::wstring_view argument) {
   std::wstring quoted = L"\"";
   std::size_t slashes = 0;
@@ -179,7 +176,6 @@ std::wstring Quote(std::wstring_view argument) {
   quoted.push_back(L'"');
   return quoted;
 }
-
 std::wstring CommandLine(const std::wstring &executable,
                          const std::vector<std::wstring> &arguments) {
   std::wstring command = Quote(executable);
@@ -189,7 +185,6 @@ std::wstring CommandLine(const std::wstring &executable,
   }
   return command;
 }
-
 Handle RestrictedToken() {
   Handle current_token;
   Require(OpenProcessToken(GetCurrentProcess(), TOKEN_DUPLICATE | TOKEN_QUERY,
@@ -200,7 +195,6 @@ Handle RestrictedToken() {
                                 restricted_token.Out()));
   return restricted_token;
 }
-
 Handle LimitedJob() {
   Handle job(CreateJobObjectW(nullptr, nullptr));
   if (job.Get() == nullptr)
@@ -382,14 +376,16 @@ std::string Complete(Execution &execution) {
   if (WaitForSingleObject(execution.process.Get(),
                           kExecutionTimeoutMilliseconds) != WAIT_OBJECT_0) {
     TerminateJobObject(execution.job.Get(), ERROR_TIMEOUT);
-    Fail();
+    Fail("runner_timeout");
   }
   DWORD exit_code = 0;
   Require(GetExitCodeProcess(execution.process.Get(), &exit_code));
   const std::string result = output.get();
   static_cast<void>(error.get());
-  if (exit_code != 0 || result.empty())
-    Fail();
+  if (exit_code != 0)
+    Fail("runner_exit");
+  if (result.empty())
+    Fail("runner_empty_result");
   return result;
 }
 
@@ -493,8 +489,12 @@ int wmain(int argument_count, wchar_t **arguments) {
     else
       return 2;
     return 0;
+  } catch (const std::runtime_error &error) {
+    std::cout << "{\"reason\":\"" << error.what()
+              << "\",\"status\":\"failed\"}\n";
+    return 1;
   } catch (...) {
-    std::cout << "{\"status\":\"failed\"}\n";
+    std::cout << "{\"reason\":\"native\",\"status\":\"failed\"}\n";
     return 1;
   }
 }

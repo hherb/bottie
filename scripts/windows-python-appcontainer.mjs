@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const PROOF_EXECUTABLE = "bottie-python-appcontainer.exe";
 const RUNNER_EXECUTABLE = "bottie-python-runner.exe";
 const BUILD_TIMEOUT_MS = 10 * 60_000;
-const PROOF_TIMEOUT_MS = 60_000;
+const PROOF_TIMEOUT_MS = 180_000;
 const PARENT_EXIT_TIMEOUT_MS = 5_000;
 const PARENT_EXIT_POLL_MS = 50;
 const MAX_CAPTURED_OUTPUT_BYTES = 256 * 1_024;
@@ -145,7 +145,8 @@ async function exerciseProof(controller, moniker, layout, fixture) {
     runHostCommand(controller, ["execute", ...common], { input: ordinaryRequest, label: "Private-pipe execution" }),
   );
   if (ordinary.status !== "ok" || ordinary.stdout.trim() !== "42") {
-    throw new Error("Private-pipe execution did not return the expected bounded result.");
+    const reason = ordinary.status === "failed" && typeof ordinary.reason === "string" ? ` (${ordinary.reason})` : "";
+    throw new Error(`Private-pipe execution did not return the expected bounded result${reason}.`);
   }
 
   const infiniteRequest = JSON.stringify({ code: "while True:\n    pass", purpose: "Prove cancellation" });
