@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define _WIN32_WINNT 0x0A00
 #include <windows.h>
+#include <sddl.h>
 #include <userenv.h>
 
 #include <algorithm>
@@ -108,16 +109,19 @@ std::string JsonEscape(std::wstring_view value) {
   return escaped;
 }
 bool ValidMoniker(std::wstring_view value) {
-  return !value.empty() && value.size() <= 96 &&
+  return !value.empty() && value.size() <= 64 &&
          std::all_of(value.begin(), value.end(), [](wchar_t character) {
            return (character >= L'a' && character <= L'z') ||
                   (character >= L'0' && character <= L'9') || character == L'.';
          });
 }
-std::wstring ProfilePath(std::wstring_view moniker) {
+std::wstring ProfilePath(PSID sid) {
+  PWSTR raw_sid = nullptr;
+  Require(ConvertSidToStringSidW(sid, &raw_sid));
+  const std::wstring sid_string(raw_sid);
+  LocalFree(raw_sid);
   PWSTR raw_path = nullptr;
-  RequireHr(
-      GetAppContainerFolderPath(std::wstring(moniker).c_str(), &raw_path));
+  RequireHr(GetAppContainerFolderPath(sid_string.c_str(), &raw_path));
   const std::wstring path(raw_path);
   CoTaskMemFree(raw_path);
   return path;
@@ -140,7 +144,7 @@ void Prepare(std::wstring_view moniker) {
     sid = DeriveSid(moniker);
   else
     RequireHr(created);
-  const std::wstring path = ProfilePath(moniker);
+  const std::wstring path = ProfilePath(sid.Get());
   std::cout << "{\"profilePath\":\"" << JsonEscape(path)
             << "\",\"status\":\"prepared\"}\n";
 }
@@ -300,7 +304,7 @@ Execution Launch(std::wstring_view moniker, const std::wstring &executable,
   startup.lpAttributeList = attribute_list;
   PROCESS_INFORMATION process{};
   std::wstring command = CommandLine(executable, arguments);
-  std::vector<wchar_t> environment = MinimalEnvironment(ProfilePath(moniker));
+  std::vector<wchar_t> environment = MinimalEnvironment(ProfilePath(sid.Get()));
   const DWORD flags = EXTENDED_STARTUPINFO_PRESENT |
                       CREATE_UNICODE_ENVIRONMENT | CREATE_SUSPENDED |
                       CREATE_NO_WINDOW;
