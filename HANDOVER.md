@@ -4,10 +4,9 @@ Last verified: 2026-09-02
 
 ## Start here
 
-The standalone CPython/WASI feasibility slice is present only in the working tree. Bottie still does not expose,
-launch, bundle, or publish a Python tool. PR #130 remains merged into `main` at `c412f8a`; draft PR #131 remains open
-from `codex/updater-publication` at implementation commit `43c4431`. No updater workflow or release action was taken in
-this slice.
+PR #132 is merged into `main` at `92b175e`. The next bounded macOS XPC containment proof is implemented on
+`codex/macos-python-xpc-containment`. Bottie still does not register, launch, download, product-bundle, or publish a
+Python tool. No updater, release, notarization, or Store action was taken.
 
 Read, in order:
 
@@ -18,80 +17,73 @@ Read, in order:
 
 ## Completed slice
 
-A separate `python-runner/Cargo.toml` binary now:
+`macos-python-xpc/` and `scripts/macos-python-xpc.mjs` now build one transient development proof around the existing
+`bottie-python-runner` stdin/stdout JSON contract:
 
-- accepts a deny-unknown-fields JSON request over stdin with 32 KiB source, 512-character purpose, and 256 KiB wire
-  ceilings;
-- stages source without shell interpolation or process arguments;
-- executes CPython/WASI under Wasmtime 45.0.3's Pulley interpreter target;
-- exposes only read-only `/runtime` and `/work` mounts, only `PYTHONHOME`, no guest stdin, no TCP/UDP/DNS, and no
-  subprocess facility;
-- caps wall time at 30 seconds, WebAssembly linear memory at 256 MiB, each output stream at 32 KiB after JSON escaping,
-  and host random requests at 1 MiB;
-- returns stable `ok`, `python_error`, `timed_out`, `output_limit`, `resource_limit`, `invalid_request`, or
-  `internal_error` outcomes without host paths or Wasmtime backtraces; and
-- keeps its 206-package locked dependency graph isolated from the existing Tauri manifest.
+- an otherwise inert host app connects only to its private `com.bottie.python-runner` XPC service;
+- the separately signed service has exactly `com.apple.security.app-sandbox`, with no network, user-file, Downloads,
+  home-directory, app-group, or temporary-exception entitlement;
+- the nested Rust runner is separately signed with exactly App Sandbox plus sandbox inheritance, receives an empty
+  host environment, and reads the configured runtime only from the service bundle;
+- the service sends source to the runner over private stdin and retains bounded stdout while draining and discarding
+  stderr; source never enters a shell or process argument;
+- caller cancellation terminates the one identified child and escalates to a bounded `SIGKILL` only if necessary;
+- XPC connection invalidation immediately kills every child retained by that connection;
+- a direct service-process read of a host-owned fixture outside the container is denied; and
+- signing is applied runner -> XPC service -> host app, with independent strict verification and one final deep nested
+  verification. `--deep` is never used as a signing escape hatch.
 
-`python-runner/runtime-manifest.json` pins the development-only CPython 3.14.7/WASI SDK 24 archive by immutable URL,
-size, SHA-256, and required layout. The archive is unofficial, remains outside the repository, and is neither fetched
-at application runtime nor included in any package.
+The checked-in Node contract tests cover canonical bundle locations, fixed Swift compilation, exact inside-out signing
+arguments, private-service metadata, and the least-privilege entitlement files. The native proof always deletes its
+temporary app, copied runtime, module cache, and denial fixture.
 
 ## Current limits
 
-The helper process is an inner capability sandbox and crash boundary, not yet a complete product sandbox. A
-hypothetical Wasmtime escape would still inherit the user's OS identity. Do not register the model-visible tool until
-the separately signed OS boundary passes native denial tests:
+This is a development-only Apple-silicon macOS proof, not Bottie product integration or package evidence. The proof
+copies an already downloaded, independently checksum-verified CPython/WASI runtime into its transient service bundle;
+it neither downloads at runtime nor adds the unofficial archive to the repository. It does not change Tauri commands,
+provider schemas, native tool policy, approval UI, durable audit, output presentation, production runtime provenance,
+licence inventory, or shipping packages.
 
-- macOS: App-Sandboxed XPC service with no file or network entitlements;
-- Windows: AppContainer, restricted token, and kill-on-close Job Object; and
-- Linux: Landlock, seccomp, and rlimits, with Bubblewrap/Flatpak only as an optional stronger layer.
+The XPC transport's `running`, `completed`, `cancelled`, and `failed` states are proof-only lifecycle evidence. They do
+not alter the runner's stable `ok`, `python_error`, `timed_out`, `output_limit`, `resource_limit`, `invalid_request`, or
+`internal_error` result contract. No signed distribution app, hardened-package inspection, notarization, Gatekeeper,
+Windows AppContainer, Linux Landlock/seccomp, or cross-platform runtime behavior is claimed.
 
-Provider schemas, approval UI, `ApprovedToolCall`, dispatcher launch, cancellation, durable audit, output presentation,
-runtime provenance, licence inventory, packaging, signing, and release gates are all deferred. The Rust helper was
-tested on macOS only; no signed app bundle or Windows/Linux native behavior was claimed.
-
-The unrelated updater work remains pending. Protected macOS publication still lacks the existing Apple credentials,
-and protected Windows publication still lacks its Authenticode PFX and password. Microsoft Store certification and
-publication remain deferred until fresh release-owner notice.
+The unrelated updater work remains pending. Protected macOS publication still lacks its existing Apple distribution
+credentials, and protected Windows publication still lacks its Authenticode PFX and password. Microsoft Store
+certification and publication remain deferred until fresh release-owner notice.
 
 ## Validation
 
-Passed for the standalone runner:
+The focused contract and source checks passed:
 
 ```text
-cargo fmt --manifest-path python-runner/Cargo.toml -- --check
-cargo clippy --manifest-path python-runner/Cargo.toml --offline --all-targets -- -D warnings
-cargo test --manifest-path python-runner/Cargo.toml --offline
+npx vitest run scripts/macos-python-xpc.test.mjs --pool=forks --maxWorkers=1
+xcrun swift-format lint --strict macos-python-xpc/Shared.swift macos-python-xpc/Service.swift \
+  macos-python-xpc/Host.swift
+xcrun swiftc ... macos-python-xpc/Shared.swift macos-python-xpc/Service.swift
+xcrun swiftc ... macos-python-xpc/Shared.swift macos-python-xpc/Host.swift
 ```
 
-The opt-in runtime suite passed all three tests against the independently downloaded checksum-matching CPython/WASI
-archive. It proved ordinary execution; host-file, network, subprocess, environment, and write denial; 30-second
-interruption; output ceilings; memory-growth denial; and removal of internal backtraces from results:
+The native proof used the same independently verified runtime as PR #132 and the existing Apple Development identity:
 
 ```text
-BOTTIE_PYTHON_WASI_RUNTIME=/private/tmp/bottie-python-wasi-spike/python \
-  cargo test --manifest-path python-runner/Cargo.toml --offline --test runtime -- --ignored --nocapture
-
-test result: ok. 3 passed; 0 failed; finished in 123.47s
+BOTTIE_PYTHON_WASI_RUNTIME=/private/tmp/bottie-python-wasi-spike/python npm run python:xpc:prove
+{"appSandboxDeniedHostFixture":true,"cancellation":true,"clientExitKilledRunner":true,
+ "nestedSignaturesVerified":true,"privatePipeExecution":true,"status":"ok"}
 ```
 
-The runtime-free suite includes seven library tests plus an integration-contract check. It covers encoded-output
-ceilings after UTF-8 replacement and JSON escaping, and an explicit ignored-suite run without
-`BOTTIE_PYTHON_WASI_RUNTIME` now fails immediately instead of certifying skipped work.
-
-The optimized unsigned arm64 macOS helper built in 56.74 seconds and is 14,263,344 bytes. A cold statistics-script
-probe returned the correct result in 3.50 seconds end to end, with 394 ms reported inside the execution window. This
-is a local feasibility measurement, not signed-package or cross-platform performance evidence.
-
-Malformed, unknown-field, and missing-runtime CLI probes also returned only the fixed `invalid_request` or
-`internal_error` JSON contract. No frontend, Tauri, package, or workflow code changed, so their suites were not rerun.
+This is local development-signing evidence only. The full frontend, Tauri, and standalone-runner validation results for
+the final reviewed head are recorded in the draft PR.
 
 ## Next bounded action
 
-Build a macOS App-Sandboxed XPC containment proof around this exact runner contract. In a development-signed app
-bundle, prove bounded private-pipe execution, cancellation, kill-on-parent-exit, nested-code signing, and denial of a
-fixture outside the service container. Do not register a provider-visible Python tool, add runtime downloads, or alter
-release publication in that slice.
+Build a Windows-native AppContainer containment proof around the unchanged runner contract. On a Windows host, prove
+private-pipe execution, caller cancellation, kill-on-parent-close through a Job Object, no-network AppContainer state,
+and denial of a host-owned fixture outside the granted container. Add a restricted token and bounded process/memory/CPU
+limits without registering a provider-visible Python tool, downloading a runtime in the app, changing Bottie's Tauri
+product path, consuming protected distribution credentials, or altering release/Store publication.
 
-Preserve the unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Do not commit, push, open a
-PR, publish an updater release, or resume Store work without explicit authorization.
+Preserve the unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Do not merge the draft PR,
+publish an updater release, resume Store work, or perform any release signing without separate authorization.

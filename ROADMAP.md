@@ -246,15 +246,18 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 
 ### Sandboxed Python execution
 
-Status: core feasibility complete; native containment and product integration remain pending.
+Status: core feasibility and macOS native containment proof complete; Windows/Linux containment and product integration
+remain pending.
 
 - [x] standalone Rust helper with a bounded stdin/stdout JSON contract and no shell interpolation;
 - [x] CPython/WASI execution through Wasmtime's interpreter-only Pulley target;
 - [x] read-only explicit mounts, isolated environment, denied networking/subprocesses, and bounded random requests;
 - [x] fixed wall-time, linear-memory, table, stdout, and stderr ceilings with path-free result classifications;
 - [x] opt-in runtime denial tests using one checksum-pinned development runtime;
-- [ ] separately signed OS containment: App-Sandboxed XPC on macOS, AppContainer plus Job Object on Windows, and
-  Landlock/seccomp/rlimits on Linux;
+- [x] transient, separately signed macOS App-Sandboxed XPC proof with private-pipe execution, cancellation,
+  kill-on-client-exit, exact nested entitlements/signatures, and direct host-fixture denial;
+- [ ] Windows AppContainer plus restricted token and kill-on-close Job Object containment;
+- [ ] Linux Landlock/seccomp/rlimits containment, with Bubblewrap/Flatpak only as an optional stronger layer;
 - [ ] reproducible CPython/WASI build provenance plus cross-platform bundling, licence, inventory, signing, and package
   inspection;
 - [ ] approval-required native tool contract, user-visible source/purpose review, cancellation, durable audit, and

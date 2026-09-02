@@ -11,6 +11,7 @@
     "performance:frontend": "vitest run src/lib/performance.test.ts --mode performance --pool=forks --maxWorkers=1",
     "performance:native": "cargo test --manifest-path src-tauri/Cargo.toml performance_budget -- --ignored --nocapture",
     "performance:test": "npm run performance:frontend && npm run performance:native",
+    "python:xpc:prove": "node scripts/macos-python-xpc.mjs --prove",
     "dependencies:check": "node scripts/dependency-inventory.mjs --check",
     "notices:check": "node scripts/third-party-notices.mjs --check",
     "release:assets:check": "node scripts/release-assets.mjs --check",
