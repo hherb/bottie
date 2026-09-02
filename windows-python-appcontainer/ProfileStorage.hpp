@@ -10,7 +10,7 @@
 #include <vector>
 
 inline std::wstring BottieProfileTempPath(const std::wstring &profile) {
-  return profile + L"\\bottie-temp";
+  return profile + L"\\Temp";
 }
 
 inline bool ApplyBottieLowIntegrityLabel(std::wstring &path) {
