@@ -4,9 +4,9 @@ Last verified: 2026-09-02
 
 ## Start here
 
-PR #129 is merged at `daf09d6`. The current branch is `codex/remaining-native-voice-acceptance`; its draft PR is to be
-opened after final validation. Milestones 0–7 remain complete. Acoustic feedback processing, release publication, and
-Microsoft Store certification/publication remain deferred until fresh release-owner direction.
+PR #129 is merged at `daf09d6`. Draft PR #130 is open from `codex/remaining-native-voice-acceptance`; implementation
+commit `a268624` has passed the validation below. Milestones 0–7 remain complete. Acoustic feedback processing, release
+publication, and Microsoft Store certification/publication remain deferred until fresh release-owner direction.
 
 Read, in order:
 
