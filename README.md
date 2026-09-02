@@ -209,6 +209,12 @@ Additional safeguards include:
   optional app-private WAV retention remains independently off by default.
 - local playback uses narrow Rust commands and opaque voice tokens; no WebView speech or audio API is authorized.
 
+An experimental standalone CPython/WASI runner now proves the portable inner sandbox boundary, but it is not
+registered as a model tool, launched by Bottie, or included in packages. It uses an interpreter-only Wasmtime target,
+read-only explicit mounts, no inherited environment or network, and fixed time/memory/output ceilings. Model-visible
+execution remains blocked on OS-owned containment and explicit user approval. See
+[`docs/python-sandbox.md`](docs/python-sandbox.md).
+
 ## Provider support
 
 | Provider             | Route                           | Vision | Audio input   | Native tool loop |
@@ -273,6 +279,15 @@ npm run build
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+The unbundled Python runner has its own manifest so its large sandbox dependency graph does not affect ordinary
+Bottie builds. Its contract tests do not require the external runtime:
+
+```sh
+cargo fmt --manifest-path python-runner/Cargo.toml -- --check
+cargo clippy --manifest-path python-runner/Cargo.toml --offline --all-targets -- -D warnings
+cargo test --manifest-path python-runner/Cargo.toml --offline
 ```
 
 Run the opt-in large-history budgets separately so their deterministic 2,000-conversation/50,000-message fixture does

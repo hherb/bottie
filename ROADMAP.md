@@ -244,6 +244,25 @@ Outcome: bottie can use host-managed tools consistently across providers.
 
 MCP interoperability can follow after bottie's own tool contract and policy model are stable.
 
+### Sandboxed Python execution
+
+Status: core feasibility complete; native containment and product integration remain pending.
+
+- [x] standalone Rust helper with a bounded stdin/stdout JSON contract and no shell interpolation;
+- [x] CPython/WASI execution through Wasmtime's interpreter-only Pulley target;
+- [x] read-only explicit mounts, isolated environment, denied networking/subprocesses, and bounded random requests;
+- [x] fixed wall-time, linear-memory, table, stdout, and stderr ceilings with path-free result classifications;
+- [x] opt-in runtime denial tests using one checksum-pinned development runtime;
+- [ ] separately signed OS containment: App-Sandboxed XPC on macOS, AppContainer plus Job Object on Windows, and
+  Landlock/seccomp/rlimits on Linux;
+- [ ] reproducible CPython/WASI build provenance plus cross-platform bundling, licence, inventory, signing, and package
+  inspection;
+- [ ] approval-required native tool contract, user-visible source/purpose review, cancellation, durable audit, and
+  explicit provider mappings;
+- [ ] answer/context presentation that labels executed source, bounded outputs, errors, and execution provenance.
+
+See `docs/python-sandbox.md` for the verified boundary, platform options, and exclusions.
+
 ## Milestone 6 — Reliability, privacy, and desktop beta
 
 Outcome: bottie is safe and comfortable enough for sustained daily use.

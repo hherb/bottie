@@ -7,6 +7,8 @@ node_modules
 /signing_key.pem
 /src-tauri/target
 /src-tauri/gen/schemas
+/python-runner/target
+/python-runner/runtime
 .env
 .env.*
 !.env.example
