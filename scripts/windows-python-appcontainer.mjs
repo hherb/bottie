@@ -180,7 +180,7 @@ async function exerciseProof(controller, moniker, layout, fixture) {
   const temporaryFailure = !probe.temporaryPathAvailable
     ? "temporary_path"
     : !probe.temporaryFileCreated
-      ? "temporary_create"
+      ? `temporary_create_${Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown"}`
       : !probe.temporaryFileWritten
         ? "temporary_write"
         : !probe.temporaryFileDeleted

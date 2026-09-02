@@ -82,7 +82,7 @@ inline bool PrepareBottieProfileTemp(const std::wstring &profile, PSID sid) {
   BuildTrusteeWithSidW(&access[0].Trustee, user->User.Sid);
   BuildTrusteeWithSidW(&access[1].Trustee, sid);
   access[0].Trustee.TrusteeType = TRUSTEE_IS_USER;
-  access[1].Trustee.TrusteeType = TRUSTEE_IS_USER;
+  access[1].Trustee.TrusteeType = TRUSTEE_IS_GROUP;
 
   PACL updated_acl = nullptr;
   const DWORD combined = SetEntriesInAclW(
@@ -105,6 +105,7 @@ struct BottieTemporaryStorageProbe {
   bool file_created = false;
   bool file_written = false;
   bool file_deleted = false;
+  DWORD file_create_error = ERROR_SUCCESS;
 
   [[nodiscard]] bool Writable() const {
     return path_available && file_created && file_written && file_deleted;
@@ -125,8 +126,10 @@ inline BottieTemporaryStorageProbe ProbeBottieTemporaryStorage() {
   HANDLE file = CreateFileW(file_path.c_str(), GENERIC_WRITE, 0, nullptr,
                             CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, nullptr);
   result.file_created = file != INVALID_HANDLE_VALUE;
-  if (!result.file_created)
+  if (!result.file_created) {
+    result.file_create_error = GetLastError();
     return result;
+  }
 
   constexpr char kProbeByte = 'B';
   DWORD written = 0;

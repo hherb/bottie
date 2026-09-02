@@ -439,6 +439,8 @@ void ContainedProbe(const std::wstring &fixture, const std::wstring &runtime) {
             << ",\"privilegesStripped\":"
             << (privileges_stripped ? "true" : "false")
             << ",\"runtimeReadable\":" << (runtime_readable ? "true" : "false")
+            << ",\"temporaryCreateError\":"
+            << temporary.file_create_error
             << ",\"temporaryFileCreated\":"
             << (temporary.file_created ? "true" : "false")
             << ",\"temporaryFileDeleted\":"

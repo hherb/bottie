@@ -90,12 +90,14 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(storage).toContain("TokenUser");
     expect(storage).toContain("BuildTrusteeWithSidW(&access[0].Trustee, user->User.Sid)");
     expect(storage).toContain("BuildTrusteeWithSidW(&access[1].Trustee, sid)");
-    expect(storage).toContain("access[1].Trustee.TrusteeType = TRUSTEE_IS_USER");
+    expect(storage).toContain("access[0].Trustee.TrusteeType = TRUSTEE_IS_USER");
+    expect(storage).toContain("access[1].Trustee.TrusteeType = TRUSTEE_IS_GROUP");
     expect(storage).toContain("SUB_CONTAINERS_AND_OBJECTS_INHERIT");
     expect(storage).toContain("FILE_DELETE_CHILD");
     expect(storage).toContain('L"S:(ML;OICI;NW;;;LW)"');
     expect(storage).toContain("LABEL_SECURITY_INFORMATION");
     expect(storage).toContain("ProbeBottieTemporaryStorage");
+    expect(storage).toContain("result.file_create_error = GetLastError()");
     expect(storage).toContain("WriteFile(file, &kProbeByte");
     expect(storage).toContain("DeleteFileW(file_path.c_str())");
     expect(source).not.toMatch(/internetClient|privateNetworkClientServer|enterpriseAuthentication/);
