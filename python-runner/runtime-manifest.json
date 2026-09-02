@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "pythonVersion": "3.14.7",
+  "wasiSdkVersion": "24",
+  "archive": {
+    "url": "https://github.com/brettcannon/cpython-wasi-build/releases/download/v3.14.7/python-3.14.7-wasi_sdk-24.zip",
+    "sha256": "2e064d3fb8172471d39d741348efa722349c40b96301f69968dff714999c584b",
+    "bytes": 14291017
+  },
+  "requiredPaths": ["python.wasm", "lib/python3.14/os.py", "LICENSE"]
+}
