@@ -1,0 +1,68 @@
+name: Windows Python AppContainer proof
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/windows-python-appcontainer.yml"
+      - "docs/python-sandbox.md"
+      - "package-lock.json"
+      - "package.json"
+      - "python-runner/**"
+      - "scripts/windows-python-appcontainer.mjs"
+      - "scripts/windows-python-appcontainer.test.mjs"
+      - "windows-python-appcontainer/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    name: Restricted runner and Job Object
+    runs-on: windows-2025
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Use Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Verify runtime-free contracts
+        run: |
+          npm test -- scripts/windows-python-appcontainer.test.mjs
+          cargo test --manifest-path python-runner/Cargo.toml --locked
+
+      - name: Download and independently verify the pinned development runtime
+        shell: pwsh
+        run: |
+          $manifest = Get-Content python-runner/runtime-manifest.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP "python-wasi.zip"
+          $extracted = Join-Path $env:RUNNER_TEMP "python-wasi"
+          Invoke-WebRequest -Uri $manifest.archive.url -OutFile $archive
+          if ((Get-Item $archive).Length -ne $manifest.archive.bytes) { throw "Pinned runtime size mismatch." }
+          $digest = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($digest -ne $manifest.archive.sha256) { throw "Pinned runtime digest mismatch." }
+          Expand-Archive -LiteralPath $archive -DestinationPath $extracted
+          $runtime = Get-ChildItem $extracted -Recurse -Filter python.wasm | Select-Object -First 1
+          if ($null -eq $runtime) { throw "Pinned runtime layout is incomplete." }
+          "BOTTIE_PYTHON_WASI_RUNTIME=$($runtime.Directory.FullName)" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Compile and run the native containment proof
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if ([string]::IsNullOrWhiteSpace($visualStudio)) { throw "MSVC build tools are unavailable." }
+          Import-Module "$visualStudio\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $visualStudio -SkipAutomaticLocation `
+            -DevCmdArguments "-arch=x64 -host_arch=x64"
+          npm run python:appcontainer:prove

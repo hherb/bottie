@@ -4,9 +4,9 @@ Last verified: 2026-09-02
 
 ## Start here
 
-PR #132 is merged into `main` at `92b175e`. The next bounded macOS XPC containment proof is implemented on
-`codex/macos-python-xpc-containment`. Bottie still does not register, launch, download, product-bundle, or publish a
-Python tool. No updater, release, notarization, or Store action was taken.
+PR #133 is merged into `main` at `5b3f336`. The next bounded Windows AppContainer containment proof is implemented on
+`codex/windows-python-appcontainer`. Bottie still does not register, launch, download, product-bundle, or publish a
+Python tool. No updater, release, protected signing, or Microsoft Store action was taken.
 
 Read, in order:
 
@@ -17,38 +17,35 @@ Read, in order:
 
 ## Completed slice
 
-`macos-python-xpc/` and `scripts/macos-python-xpc.mjs` now build one transient development proof around the existing
-`bottie-python-runner` stdin/stdout JSON contract:
+`windows-python-appcontainer/Proof.cpp`, `scripts/windows-python-appcontainer.mjs`, and the credential-free Windows
+workflow build one transient proof around the unchanged `bottie-python-runner` stdin/stdout JSON contract:
 
-- an otherwise inert host app connects only to its private `com.bottie.python-runner` XPC service;
-- the separately signed service has exactly `com.apple.security.app-sandbox`, with no network, user-file, Downloads,
-  home-directory, app-group, or temporary-exception entitlement;
-- the nested Rust runner is separately signed with exactly App Sandbox plus sandbox inheritance, receives an empty
-  host environment, and reads the configured runtime only from the service bundle;
-- the service sends source to the runner over private stdin and retains bounded stdout while draining and discarding
-  stderr; source never enters a shell or process argument;
-- caller cancellation terminates the one identified child and escalates to a bounded `SIGKILL` only if necessary;
-- XPC connection invalidation immediately kills every child retained by that connection;
-- a direct service-process read of a host-owned fixture outside the container is denied; and
-- signing is applied runner -> XPC service -> host app, with independent strict verification and one final deep nested
-  verification. `--deep` is never used as a signing escape hatch.
+- a fresh AppContainer profile owns only a copied proof host, runner, and already checksum-verified runtime;
+- every contained process combines an empty capability set with a `DISABLE_MAX_PRIVILEGE` restricted primary token;
+- private anonymous pipes inherit exactly stdin, stdout, and stderr, with source supplied only over stdin;
+- each child enters a one-process Job Object at creation, before its initially suspended thread can run;
+- the Job Object caps committed process memory at 768 MiB and user CPU time at 40 seconds;
+- explicit cancellation terminates the Job Object, while controller exit closes its last handle and kills the runner;
+- a contained probe verifies AppContainer and restricted-token state, zero capability SIDs, and denial of a host-owned
+  fixture outside the profile; and
+- all path-bearing preparation output stays private to the wrapper; final evidence is path-free, and the temporary
+  profile, copied bytes, and fixture are removed.
 
-The checked-in Node contract tests cover canonical bundle locations, fixed Swift compilation, exact inside-out signing
-arguments, private-service metadata, and the least-privilege entitlement files. The native proof always deletes its
-temporary app, copied runtime, module cache, and denial fixture.
+The checked-in contract tests cover canonical profile locations, locked runner/MSVC arguments, exact containment and
+Job Object primitives, absence of network capabilities/shell launch, and the credential-free Windows workflow.
 
 ## Current limits
 
-This is a development-only Apple-silicon macOS proof, not Bottie product integration or package evidence. The proof
-copies an already downloaded, independently checksum-verified CPython/WASI runtime into its transient service bundle;
-it neither downloads at runtime nor adds the unofficial archive to the repository. It does not change Tauri commands,
-provider schemas, native tool policy, approval UI, durable audit, output presentation, production runtime provenance,
-licence inventory, or shipping packages.
+This is a development-only Windows proof, not Bottie product integration or package evidence. It copies an already
+downloaded, independently checksum-verified unofficial CPython/WASI runtime into its transient profile; Bottie neither
+downloads it at runtime nor adds the archive to the repository. The proof does not change Tauri commands, provider
+schemas, native tool policy, approval UI, durable audit, output presentation, production runtime provenance, licence
+inventory, or shipping packages.
 
-The XPC transport's `running`, `completed`, `cancelled`, and `failed` states are proof-only lifecycle evidence. They do
-not alter the runner's stable `ok`, `python_error`, `timed_out`, `output_limit`, `resource_limit`, `invalid_request`, or
-`internal_error` result contract. No signed distribution app, hardened-package inspection, notarization, Gatekeeper,
-Windows AppContainer, Linux Landlock/seccomp, or cross-platform runtime behavior is claimed.
+The low-level AppContainer path remains inspectable and Windows 10-compatible. A future product slice should evaluate
+`CreateProcessInSandbox` on supported hosts, but must retain equivalent token, handle, denial, cancellation, and limit
+evidence. No installed MSI/MSIX helper, Authenticode signature, Store package, cross-platform product behavior, or
+release-candidate hash is claimed.
 
 The unrelated updater work remains pending. Protected macOS publication still lacks its existing Apple distribution
 credentials, and protected Windows publication still lacks its Authenticode PFX and password. Microsoft Store
@@ -56,34 +53,34 @@ certification and publication remain deferred until fresh release-owner notice.
 
 ## Validation
 
-The focused contract and source checks passed:
+The runtime-free focused checks passed locally:
 
 ```text
-npx vitest run scripts/macos-python-xpc.test.mjs --pool=forks --maxWorkers=1
-xcrun swift-format lint --strict macos-python-xpc/Shared.swift macos-python-xpc/Service.swift \
-  macos-python-xpc/Host.swift
-xcrun swiftc ... macos-python-xpc/Shared.swift macos-python-xpc/Service.swift
-xcrun swiftc ... macos-python-xpc/Shared.swift macos-python-xpc/Host.swift
+npx vitest run scripts/windows-python-appcontainer.test.mjs --pool=forks --maxWorkers=1
+node --check scripts/windows-python-appcontainer.mjs
+git diff --check
 ```
 
-The native proof used the same independently verified runtime as PR #132 and the existing Apple Development identity:
+The Windows-native pull-request workflow on the final reviewed head must compile the controller with MSVC warnings as
+errors, build the locked runner, independently verify the pinned development runtime, and return this path-free result:
 
-```text
-BOTTIE_PYTHON_WASI_RUNTIME=/private/tmp/bottie-python-wasi-spike/python npm run python:xpc:prove
-{"appSandboxDeniedHostFixture":true,"cancellation":true,"clientExitKilledRunner":true,
- "nestedSignaturesVerified":true,"privatePipeExecution":true,"status":"ok"}
+```json
+{"appContainerDeniedHostFixture":true,"appContainerNoCapabilities":true,"cancellation":true,
+ "jobCloseKilledRunner":true,"privatePipeExecution":true,"resourceLimits":true,
+ "restrictedToken":true,"status":"ok"}
 ```
 
-This is local development-signing evidence only. The full frontend, Tauri, and standalone-runner validation results for
-the final reviewed head are recorded in the draft PR.
+This native result is not recorded until the draft PR workflow passes. The full frontend, Tauri, and standalone-runner
+validation results for the final reviewed head belong in the draft PR.
 
 ## Next bounded action
 
-Build a Windows-native AppContainer containment proof around the unchanged runner contract. On a Windows host, prove
-private-pipe execution, caller cancellation, kill-on-parent-close through a Job Object, no-network AppContainer state,
-and denial of a host-owned fixture outside the granted container. Add a restricted token and bounded process/memory/CPU
-limits without registering a provider-visible Python tool, downloading a runtime in the app, changing Bottie's Tauri
-product path, consuming protected distribution credentials, or altering release/Store publication.
+Build a Linux-native containment proof around the unchanged runner contract. Prove Landlock access only to the exact
+runtime/workspace, seccomp denial of network/process creation/exec, private-pipe execution, caller cancellation,
+kill-on-parent-close, resource limits, and denial of a host-owned fixture. Bubblewrap or Flatpak may add an optional
+stronger layer but cannot replace a built-in DEB baseline.
 
-Preserve the unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Do not merge the draft PR,
-publish an updater release, resume Store work, or perform any release signing without separate authorization.
+Do not register a provider-visible Python tool, download a runtime in the app, change Bottie's Tauri product path,
+consume protected distribution credentials, or alter updater/release/Store publication. Preserve the unrelated
+untracked logo-kit, screenshot, and Linux signing-public-key files. Do not merge the draft PR or resume Microsoft Store
+work without separate authorization.
