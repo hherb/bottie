@@ -124,7 +124,6 @@ describe.runIf(import.meta.env.MODE === "performance")("frontend performance bud
           onremoveattachment: vi.fn(),
           onspeakresponse: vi.fn(),
           onstopspeech: vi.fn(),
-          onselectspeechvoice: vi.fn(),
           onscrollready: vi.fn(),
         },
       }).body;

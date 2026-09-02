@@ -4,12 +4,9 @@ Last verified: 2026-09-02
 
 ## Start here
 
-PR #128 is merged at `6ae2e0d`. Draft PR #129 contains the bounded repeated native capture fix on
-`codex/native-voice-acceptance`. Milestones 0–7 remain complete except for evidence-gated acoustic feedback
-processing, which remains deferred.
-
-The next session should perform only the remaining native voice acceptance below. Do not replay completed slices or
-broaden this into a new voice, persistence, release, updater, or Store feature.
+PR #129 is merged at `daf09d6`. The current branch is `codex/remaining-native-voice-acceptance`; its draft PR is to be
+opened after final validation. Milestones 0–7 remain complete. Acoustic feedback processing, release publication, and
+Microsoft Store certification/publication remain deferred until fresh release-owner direction.
 
 Read, in order:
 
@@ -17,71 +14,43 @@ Read, in order:
 2. the Milestone 7 section of `ROADMAP.md`
 3. the Local voice capture section of `README.md`
 4. `CONTRIBUTING.md`
-5. `src-tauri/src/microphone.rs`, `src-tauri/src/microphone/tests.rs`, and the nearby capture/transcription modules
 
-## Completed boundary and evidence
+## Completed slice
 
-Milestone 7 keeps PCM, encoded audio, model/cache details, filesystem paths, hashes, provider payloads, cancellation,
-and timing policy in Rust. The WebView receives bounded typed path-free status only. Capture, correction, transcript
-copying, delivery, retention, playback, and interruption remain explicit actions; session voice state is not persisted.
+The user completed the remaining native macOS voice acceptance on 2026-09-02 and reported that the checked workflow
+worked: System default capture, visible speech/silence state, final-turn correction, transcript copying without an
+automatic send or conversation creation, repeated copy, Discard, local playback/stop, Interrupt & record, keyboard
+navigation, and VoiceOver feedback. Treat this as narrow user-observed macOS evidence, not transcription-accuracy,
+acoustic-latency, feedback-suppression, provider-cancellation-completion, or cross-platform evidence.
 
-Native macOS acceptance on 2026-09-02 established:
+The follow-up preference and Settings slice now:
 
-- lazy discovery exposed two bounded microphone choices and an explicitly selected MacBook Pro microphone;
-- selection changes worked, and the selected input produced a stopped final local transcript with path-free native
-  timing and retained-native-memory feedback;
-- **Use transcript as text**, explicit Send, and the blank-line append boundary worked;
-- the first same-input **Record again** attempt was ignored until the microphone selection changed;
-- a focused regression test demonstrated that stopped, idle, and error capture owners must be replaceable even before
-  their worker handle reports finished, while starting and recording owners remain protected;
-- Rust now joins that already-inactive capture worker before opening the replacement stream;
-- after the fix, the user confirmed two consecutive same-input recordings each reached a distinct final transcript
-  without changing or refreshing the selected microphone.
+- retains the existing durable provider/model restore and deterministic unavailable-model fallback;
+- keeps WebView microphone and speech selections process-local while Rust derives separate stable opaque preference
+  keys and native identities remain outside IPC;
+- stores only those Rust-owned opaque local-audio preference keys in native `local-audio.json` configuration;
+- discovers microphones at startup without opening an input or requesting permission, restores the last exact choice
+  when available, and persists System default when the saved device is unavailable;
+- restores the last speech voice when available and persists the default available local voice when it is not;
+- moves the speech-voice selector from the conversation into Settings while leaving playback status and explicit
+  Play/Stop actions with the response.
 
-This is narrow macOS hardware evidence. It does not establish transcription accuracy, acoustic latency, provider
-cancellation completion, feedback suppression, or cross-platform behavior.
+The current native development restart preserved the same settled opaque microphone and speech choice file. The
+1280×720 browser fixture review showed the voice selector in Settings with its on-device, automatic-save, and fallback
+disclosures; the conversation no longer exposes a duplicate selector.
 
-## Next bounded slice: remaining native voice acceptance
+## Validation
 
-### Goal
+Focused validation passed:
 
-Close only the remaining manual evidence gaps for the existing Milestone 7 workflow. Add code only if one of these
-checks exposes a concrete product defect; use a focused regression test and the smallest fix.
-
-### Acceptance boundary
-
-1. Confirm **System default** capture if it was not part of the earlier input-switch check, plus visible live
-   speech/silence state, one final-turn correction, and **Discard**.
-2. Confirm transcript copying does not automatically send or create a conversation and leaves correction,
-   delivery/retention, repeated copy, and Discard available until an explicit consuming action.
-3. Exercise **Play response aloud**, **Stop local playback**, and one **Interrupt & record** attempt. Record only the
-   endpoints actually observed; do not infer audible or provider completion from command acceptance.
-4. Check the transcript action and feedback with ordinary keyboard navigation and VoiceOver if available. Keep user
-   confirmation distinct from automated, screenshot, or visual evidence.
-
-### Explicit exclusions
-
-Do not add output-device selection, acoustic echo cancellation or feedback DSP, wake words, automatic listening or
-playback, audio response blocks, generated-audio retention, persisted telemetry, analytics, provider-reported latency,
-schema changes, release/update publication, protected workflow dispatch, or Microsoft Store work.
-
-Microsoft Store certification and publication remain deferred until fresh release-owner notice. The earlier rejected
-submission is not certification or publication evidence.
-
-## Validation and worktree boundary
-
-The completed branch checks on 2026-09-02 are:
-
-- `npm run format:check`;
+- 17 frontend Settings, conversation, and microphone-control tests;
+- 12 speech tests passed and one host-engine test was intentionally ignored;
+- all three microphone-device tests;
+- the local-audio preference save/reopen and malformed-token fallback test;
 - `npm run check` with no errors or warnings;
-- `npm test`: 236 passed and 3 intentionally skipped across 54 files;
-- `npm run build`;
-- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`;
-- `cargo check --manifest-path src-tauri/Cargo.toml`;
-- `cargo test --manifest-path src-tauri/Cargo.toml`: 443 library tests and 1 updater-evidence test passed,
-  33 intentionally ignored, and doc tests passed.
+- native development launch and one settled restart with unchanged opaque choice-file SHA-256.
 
-Run the standard checks before handing off another slice:
+The full standard suite passed:
 
 ```sh
 npm run format:check
@@ -93,8 +62,22 @@ cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Bottie is not a Cargo workspace; run Cargo commands serially. A development-signed app launch or a compiled Rust test
-binary is not proof that the Rust tests executed. The existing `block 0.1.6` future-incompatibility notice is unrelated.
+Specifically, `npm test` passed 236 tests with three intentional skips across 54 files. Rust passed 446 library
+tests with 33 intentional ignores, the updater-evidence test, and doc tests. `npm run check` reported no errors or
+warnings. Formatting, the production build, and `cargo check` also passed.
+
+Bottie is not a Cargo workspace; run Cargo commands serially. A development-signed app launch is not proof of audible
+playback, microphone behavior, or executed Rust tests. The existing `block 0.1.6` future-incompatibility notice is
+unrelated.
+
+## Next bounded action
+
+For this draft PR, inspect exact-head CI and address only concrete review findings with focused regression coverage.
+If it has merged, do not invent another voice, persistence, release, updater, DSP, or Store slice: wait for explicit
+product/release-owner direction.
+
+Microsoft Store certification and publication remain deferred until fresh release-owner notice. The earlier rejected
+submission is not certification or publication evidence.
 
 The worktree contains unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Preserve them and
 stage only reviewed paths.

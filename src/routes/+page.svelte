@@ -321,7 +321,6 @@
         onremoveattachment={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
         onspeakresponse={(messageId, markdown) => void state.speech.speak(messageId, markdown)}
         onstopspeech={() => void state.speech.stop()}
-        onselectspeechvoice={(voiceId) => void state.speech.selectVoice(voiceId)}
         onscrollready={(element) => state.interaction.setMessageScroll(element)}
       />
 
@@ -435,6 +434,7 @@
       <ProviderSettingsDialog
         settings={state.providerSettings}
         appearance={state.appearance}
+        speech={state.speech}
         isGenerating={state.isGenerating || state.isPersistingMessage || state.history.isManaging}
         onappearancechange={updateAppearance}
         onclose={() => void closeSettings()}

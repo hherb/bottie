@@ -46,7 +46,6 @@ describe("ConversationView", () => {
         onremoveattachment: vi.fn(),
         onspeakresponse: vi.fn(),
         onstopspeech: vi.fn(),
-        onselectspeechvoice: vi.fn(),
         onscrollready: vi.fn(),
       },
     }).body;
@@ -55,10 +54,8 @@ describe("ConversationView", () => {
     expect(html).toContain("Response needs attention");
     expect(html).toContain("Generation failed before any response was saved.");
     expect(html).toContain('aria-label="Retry response"');
-    expect(html).toContain('aria-label="Local playback voice"');
-    expect(html).toContain("Karen · en-AU");
+    expect(html).not.toContain('aria-label="Local playback voice"');
     expect(html).toContain('aria-label="Play response aloud"');
-    expect(html).toContain("playback stays on this device");
   });
 
   it("renders an explicit stop action only for the response playing locally", () => {
@@ -96,7 +93,6 @@ describe("ConversationView", () => {
         onremoveattachment: vi.fn(),
         onspeakresponse: vi.fn(),
         onstopspeech: vi.fn(),
-        onselectspeechvoice: vi.fn(),
         onscrollready: vi.fn(),
       },
     }).body;

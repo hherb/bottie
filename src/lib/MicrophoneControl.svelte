@@ -69,7 +69,7 @@
   const availableDeviceCount = $derived(deviceList.devices.filter((device) => !device.isSystemDefault).length);
   const deviceCountFeedback = $derived(
     `${availableDeviceCount} ${availableDeviceCount === 1 ? "microphone" : "microphones"} available · ` +
-      "selection stays only for this app session",
+      "last available choice is remembered on this device",
   );
   const transcriptCanBecomeText = $derived(canUseTranscriptAsText(status));
 </script>

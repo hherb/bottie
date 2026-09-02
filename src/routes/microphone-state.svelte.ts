@@ -38,11 +38,11 @@ export class MicrophoneState {
   /** Reads status without requesting permission or opening an input device. */
   async initialize(): Promise<void> {
     if (!this.available) return;
-    await this.refresh();
+    await Promise.all([this.refresh(), this.loadDevices()]);
     if (this.isActive) this.startPolling();
   }
 
-  /** Lazily discovers bounded microphone choices after the user's explicit action. */
+  /** Discovers bounded microphone choices without opening an input or requesting permission. */
   async loadDevices(): Promise<void> {
     if (!this.available || this.isActive || this.deviceRequestInFlight) return;
     this.deviceRequestInFlight = true;
@@ -57,7 +57,7 @@ export class MicrophoneState {
     }
   }
 
-  /** Selects one current opaque microphone token for this app session only. */
+  /** Selects and remembers one current opaque microphone token. */
   async selectDevice(token: string): Promise<void> {
     if (!this.available || this.isActive || this.deviceRequestInFlight) return;
     this.deviceRequestInFlight = true;

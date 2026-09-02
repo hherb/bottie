@@ -9,6 +9,11 @@ use serde::Serialize;
 
 #[cfg(test)]
 mod tests;
+mod voices;
+
+use voices::bounded_voices;
+#[cfg(test)]
+use voices::stable_voice_preference;
 
 /// Maximum UTF-8 payload accepted for one explicit local playback action.
 pub(crate) const MAX_SPEECH_TEXT_BYTES: usize = 32 * 1_024;
@@ -55,13 +60,15 @@ pub(crate) enum SpeechCommandError {
     Unavailable,
     /// The local engine failed without exposing backend detail.
     PlaybackFailed,
+    /// The native voice changed but its opaque durable preference could not be saved.
+    PreferenceSaveFailed,
 }
 
 /// Bounded local voice metadata without device or filesystem identity.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SpeechVoice {
-    /// Opaque process-local token accepted back only for exact selection.
+    /// Deterministic opaque token accepted back only for exact selection.
     id: String,
     /// Human-readable local voice name.
     name: String,
@@ -96,7 +103,7 @@ trait SpeechBackend: Send {
     fn is_speaking(&mut self) -> Result<bool, SpeechErrorCode>;
 }
 
-/// Process-lifetime owner for one local speech engine and session-only selection.
+/// Process-lifetime owner for one local speech engine with a durable opaque selection.
 pub(crate) struct SpeechController {
     shared: Mutex<SpeechState>,
 }
@@ -106,6 +113,7 @@ struct SpeechState {
     voices: Vec<SpeechVoice>,
     voice_selections: Vec<(String, String)>,
     selected_voice_id: Option<String>,
+    preferred_voice_id: Option<String>,
     playback_may_be_active: bool,
     phase: SpeechPhase,
     error_code: Option<SpeechErrorCode>,
@@ -127,6 +135,7 @@ impl Default for SpeechState {
             voices: Vec::new(),
             voice_selections: Vec::new(),
             selected_voice_id: None,
+            preferred_voice_id: None,
             playback_may_be_active: false,
             phase: SpeechPhase::Idle,
             error_code: None,
@@ -136,6 +145,16 @@ impl Default for SpeechState {
 }
 
 impl SpeechController {
+    /// Creates a local speech controller with one previously remembered opaque voice choice.
+    pub(crate) fn with_preference(preferred_voice_id: Option<String>) -> Self {
+        Self {
+            shared: Mutex::new(SpeechState {
+                preferred_voice_id,
+                ..SpeechState::default()
+            }),
+        }
+    }
+
     #[cfg(test)]
     /// Reports whether capture must remain blocked after an uncertain playback outcome.
     pub(crate) fn blocks_microphone_capture(&self) -> bool {
@@ -158,7 +177,7 @@ impl SpeechController {
         Ok(state.voices.clone())
     }
 
-    /// Selects one exact voice from the current engine for this process lifetime.
+    /// Selects one exact voice from the current engine through its opaque token.
     pub(crate) fn select_voice(&self, voice_id: &str) -> Result<SpeechStatus, SpeechCommandError> {
         let mut state = lock(&self.shared);
         state.ensure_ready()?;
@@ -179,6 +198,18 @@ impl SpeechController {
         state.selected_voice_id = Some(voice_id.to_owned());
         state.error_code = None;
         Ok(state.status())
+    }
+
+    /// Returns the effective Rust-only stable key for native preference persistence.
+    pub(crate) fn selected_voice_preference(&self) -> Option<String> {
+        let state = lock(&self.shared);
+        let selected = state.selected_voice_id.as_ref()?;
+        state
+            .voice_selections
+            .iter()
+            .find_map(|(public_id, native_id)| {
+                (public_id == selected).then(|| voices::stable_voice_preference(native_id))
+            })
     }
 
     /// Plays one bounded text payload locally, interrupting only earlier Bottie speech.
@@ -241,9 +272,18 @@ impl SpeechController {
 
     #[cfg(test)]
     fn with_backend(backend: Box<dyn SpeechBackend>) -> Self {
+        Self::with_backend_and_preference(backend, None)
+    }
+
+    #[cfg(test)]
+    fn with_backend_and_preference(
+        backend: Box<dyn SpeechBackend>,
+        preferred_voice_id: Option<String>,
+    ) -> Self {
         Self {
             shared: Mutex::new(SpeechState {
                 backend: Some(backend),
+                preferred_voice_id,
                 ..SpeechState::default()
             }),
         }
@@ -291,12 +331,25 @@ impl SpeechState {
                 .into_iter()
                 .map(|(voice, native_id)| (voice.id, native_id))
                 .collect();
-            let Some(default_voice_id) = self.voices.first().map(|voice| voice.id.clone()) else {
+            let selected_index = self
+                .preferred_voice_id
+                .as_ref()
+                .and_then(|preferred| {
+                    self.voice_selections.iter().position(|(_, native_id)| {
+                        voices::stable_voice_preference(native_id) == *preferred
+                    })
+                })
+                .unwrap_or(0);
+            let Some(default_voice_id) = self
+                .voices
+                .get(selected_index)
+                .map(|voice| voice.id.clone())
+            else {
                 return Err(self.fail_command(SpeechErrorCode::Unavailable));
             };
             let default_native_id = self
                 .voice_selections
-                .first()
+                .get(selected_index)
                 .map(|(_, native_id)| native_id.clone())
                 .expect("a default bounded voice has one native selection");
             self.backend
@@ -428,55 +481,4 @@ fn validated_speech_text(text: &str) -> Result<String, SpeechCommandError> {
         return Err(SpeechCommandError::TextTooLong);
     }
     Ok(normalized)
-}
-
-fn bounded_voices(voices: Vec<NativeSpeechVoice>) -> Vec<(SpeechVoice, String)> {
-    let mut voices = voices
-        .into_iter()
-        .filter_map(|voice| {
-            let native_id = voice.id;
-            let name = bounded_voice_field(&voice.name);
-            let language = bounded_voice_field(&voice.language);
-            (!native_id.is_empty()
-                && native_id.len() <= MAX_NATIVE_VOICE_ID_BYTES
-                && !name.is_empty())
-            .then_some((native_id, name, language))
-        })
-        .collect::<Vec<_>>();
-    voices.sort_by(|left, right| left.0.cmp(&right.0));
-    voices.dedup_by(|left, right| left.0 == right.0);
-    voices.sort_by(|left, right| (&left.2, &left.1, &left.0).cmp(&(&right.2, &right.1, &right.0)));
-    voices.truncate(MAX_SPEECH_VOICES);
-    voices
-        .into_iter()
-        .enumerate()
-        .map(|(index, (native_id, name, language))| {
-            (
-                SpeechVoice {
-                    id: format!("local-voice-{number:03}", number = index + 1),
-                    name,
-                    language,
-                },
-                native_id,
-            )
-        })
-        .collect()
-}
-
-fn bounded_voice_field(value: &str) -> String {
-    let normalized = value
-        .chars()
-        .map(|character| {
-            if character.is_control() {
-                ' '
-            } else {
-                character
-            }
-        })
-        .collect::<String>();
-    let mut end = normalized.len().min(MAX_VOICE_FIELD_BYTES);
-    while !normalized.is_char_boundary(end) {
-        end -= 1;
-    }
-    normalize_speech_text(&normalized[..end])
 }

@@ -86,11 +86,9 @@ fn controller_selects_voices_plays_and_stops_without_echoing_text() {
         Some("local-voice-001"),
     );
 
-    let selected = controller.select_voice("local-voice-002").unwrap();
-    assert_eq!(
-        selected.selected_voice_id.as_deref(),
-        Some("local-voice-002")
-    );
+    let selected_id = "local-voice-002";
+    let selected = controller.select_voice(&selected_id).unwrap();
+    assert_eq!(selected.selected_voice_id.as_deref(), Some(selected_id));
     assert_eq!(
         record.lock().unwrap().selected_voice.as_deref(),
         Some("voice.two")
@@ -109,6 +107,36 @@ fn controller_selects_voices_plays_and_stops_without_echoing_text() {
     assert_eq!(record.lock().unwrap().stop_count, 1);
     assert_eq!(controller.stop_before_microphone_capture(), Ok(()));
     assert_eq!(record.lock().unwrap().stop_count, 1);
+}
+
+#[test]
+fn controller_restores_an_available_opaque_voice_choice_and_falls_back_when_missing() {
+    let expected = stable_voice_preference("voice.two");
+    let restored = SpeechController::with_backend_and_preference(
+        Box::new(RecordingBackend::default()),
+        Some(expected.clone()),
+    );
+    restored.list_voices().unwrap();
+    assert_eq!(
+        restored.status().selected_voice_id.as_deref(),
+        Some("local-voice-002")
+    );
+    assert_eq!(restored.selected_voice_preference(), Some(expected));
+    assert!(
+        !serde_json::to_string(&restored.list_voices().unwrap())
+            .unwrap()
+            .contains(&stable_voice_preference("voice.two"))
+    );
+
+    let fallback = SpeechController::with_backend_and_preference(
+        Box::new(RecordingBackend::default()),
+        Some(stable_voice_preference("missing.voice")),
+    );
+    let voices = fallback.list_voices().unwrap();
+    assert_eq!(
+        fallback.status().selected_voice_id.as_deref(),
+        Some(voices[0].id.as_str()),
+    );
 }
 
 #[test]

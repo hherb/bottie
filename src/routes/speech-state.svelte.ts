@@ -40,7 +40,7 @@ export class SpeechState {
     }
   }
 
-  /** Selects one engine-provided voice for the current process lifetime. */
+  /** Selects and remembers one currently available engine-provided voice. */
   async selectVoice(voiceId: string): Promise<void> {
     if (!this.nativeAvailable || !this.voices.some((voice) => voice.id === voiceId)) return;
     if (this.status.phase === "speaking") await this.stop();

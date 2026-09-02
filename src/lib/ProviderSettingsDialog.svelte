@@ -7,6 +7,7 @@
   import MemoryIndexControl from "$lib/MemoryIndexControl.svelte";
   import UpdateControl from "$lib/UpdateControl.svelte";
   import LocalmailSettingsControl from "$lib/LocalmailSettingsControl.svelte";
+  import LocalSpeechSettings from "$lib/LocalSpeechSettings.svelte";
   import ConversationRetentionControl from "$lib/ConversationRetentionControl.svelte";
   import WebNetworkPolicyControl from "$lib/WebNetworkPolicyControl.svelte";
   import { DEFAULT_PROVIDER_SETTINGS, diagnosticTime } from "$lib/presentation";
@@ -29,23 +30,23 @@
   import { cloneWebNetworkPolicy } from "$lib/web-policy";
   import { focusFirstModalControl, trapModalFocus } from "$lib/modal-focus";
   import type { AppearancePreferences as AppearancePreferenceValues } from "$lib/appearance";
+  import type { SpeechSettingsState } from "$lib/speech";
   import { CONNECTION_POLICY, PROVIDER_SETTINGS, SEARCH_PROVIDER_SETTINGS } from "$lib/provider-settings-options";
 
   type ConnectionTestState = {
     status: "idle" | "testing" | "success" | "error";
     message: string;
   };
-
   type Props = {
     settings: ProviderSettings;
     appearance: AppearancePreferenceValues;
+    speech: SpeechSettingsState;
     isGenerating: boolean;
     onclose: () => void;
     onappearancechange: (appearance: AppearancePreferenceValues) => void;
     onsaved: (settings: ProviderSettings) => Promise<void>;
   };
-
-  let { settings, appearance, isGenerating, onclose, onappearancechange, onsaved }: Props = $props();
+  let { settings, appearance, speech, isGenerating, onclose, onappearancechange, onsaved }: Props = $props();
   let settingsDraft = $state<ProviderSettings>({
     ...DEFAULT_PROVIDER_SETTINGS,
     webNetworkPolicy: cloneWebNetworkPolicy(DEFAULT_PROVIDER_SETTINGS.webNetworkPolicy),
@@ -86,9 +87,7 @@
     exa: false,
   });
   let dialog = $state<HTMLDivElement>();
-
   onMount(() => focusFirstModalControl(dialog));
-
   $effect(() => {
     if (!draftInitialized) {
       settingsDraft = {
@@ -246,6 +245,7 @@
 
     <form class="settings-content" onsubmit={save}>
       <AppearancePreferences {appearance} onchange={onappearancechange} />
+      <LocalSpeechSettings {speech} disabled={isGenerating || settingsSaving} />
 
       <p id="provider-settings-description" class="settings-intro">
         Local routes require loopback endpoints. Cloud routes require HTTPS and keep API keys in the operating-system

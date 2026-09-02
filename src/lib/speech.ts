@@ -29,6 +29,14 @@ export type SpeechStatus = {
   latency: SpeechLatency;
 };
 
+/** Settings-facing local speech state without native engine identities. */
+export type SpeechSettingsState = {
+  available: boolean;
+  voices: SpeechVoice[];
+  status: SpeechStatus;
+  selectVoice: (voiceId: string) => Promise<void>;
+};
+
 /** Native-observable timing for the current explicit playback action. */
 export type SpeechLatency = {
   playbackAcceptedMs: number | null;
@@ -95,7 +103,7 @@ export async function listSpeechVoices(): Promise<SpeechVoice[]> {
   return invoke<SpeechVoice[]>("list_speech_voices");
 }
 
-/** Selects one exact local voice for this process lifetime. */
+/** Selects and remembers one exact available local voice through its opaque token. */
 export async function selectSpeechVoice(voiceId: string): Promise<SpeechStatus> {
   return invoke<SpeechStatus>("select_speech_voice", { voiceId });
 }

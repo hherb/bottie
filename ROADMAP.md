@@ -320,16 +320,17 @@ Status: complete; evidence-gated acoustic feedback processing remains deferred.
 - [x] local streaming speech-to-text with a pinned multilingual Whisper tiny Q5 model, bounded partial/final transcript
   ranges, visible timing, app-owned cache verification, and session-only audio/text state;
 - [x] session-only transcript correction and visible numbered turn boundaries;
-- [x] bounded local text-to-speech with explicit assistant-response playback, selectable system voices, opaque native
-  identities, and no generated-audio retention;
+- [x] bounded local text-to-speech with explicit assistant-response playback, a Settings-owned durable system-voice
+  choice, opaque native identities, unavailable-choice fallback, and no generated-audio retention;
 - [x] explicit barge-in that stops Bottie's local playback, cancels active provider/tool work through the existing
   durable cancellation boundary, and serializes new generation registration against native capture;
 - [x] provider-neutral native-only audio content blocks plus separate off-by-default provider delivery and app-private
   WAV retention choices;
 - [x] bounded session-only native latency status for input readiness, first/final local transcript availability, and
   local speech-engine acceptance, labelled by observable endpoints rather than acoustic claims;
-- [x] explicit session-only input-device selection with bounded display labels, opaque native mappings, exact-device
-  resolution at Record, and the existing fail-closed playback/capture separation;
+- [x] explicit durable input-device selection with bounded display labels, process-local public tokens, Rust-owned
+  stable opaque preference keys, startup fallback to System default when unavailable, exact-device resolution at Record,
+  and fail-closed playback/capture separation;
 - [x] explicit transcript-to-text fallback that copies only current visible final turns into a bounded editable unsent
   draft, preserves existing text, keeps capture state intact, and provides keyboard, focus, and screen-reader feedback;
 - [x] deterministic same-input repeated capture after a stopped worker's final unwind, with active capture overlap
