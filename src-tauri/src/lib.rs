@@ -20,6 +20,7 @@ mod local_audio_preferences;
 mod localmail;
 mod microphone;
 mod provider_registry;
+mod python_approval;
 mod run_cancellation;
 mod semantic_indexer;
 mod speech;
@@ -41,6 +42,8 @@ mod web_search_commands;
 mod generation_tools_tests;
 #[cfg(test)]
 mod localmail_tool_tests;
+#[cfg(test)]
+mod python_approval_tests;
 #[cfg(test)]
 mod python_tool_tests;
 #[cfg(test)]
@@ -92,6 +95,7 @@ use microphone::{
     MicrophoneStatus, TranscriptCorrectionError,
 };
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
+use python_approval::{PythonApprovalController, decide_python_approval, get_python_approval};
 use run_cancellation::{ActiveRuns, cancel_all_chats, cancel_chat};
 use semantic_indexer::SemanticIndexer;
 use speech::{SpeechCommandError, SpeechController, SpeechStatus, SpeechVoice};
@@ -119,6 +123,7 @@ struct AppState {
     localmail_config_path: PathBuf,
     microphone: MicrophoneController,
     speech: SpeechController,
+    python_approval: PythonApprovalController,
     runs: ActiveRuns,
     voice_interaction: tauri::async_runtime::Mutex<()>,
     diagnostics: Diagnostics,
@@ -680,6 +685,7 @@ pub fn run() {
                     remembered_microphone,
                 ),
                 speech: SpeechController::with_preference(remembered_voice),
+                python_approval: PythonApprovalController::default(),
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 voice_interaction: tauri::async_runtime::Mutex::new(()),
                 diagnostics,
@@ -711,6 +717,8 @@ pub fn run() {
             select_speech_voice,
             speak_text,
             stop_speech,
+            get_python_approval,
+            decide_python_approval,
             test_provider_connection,
             test_web_search_connection,
             get_localmail_connection_status,

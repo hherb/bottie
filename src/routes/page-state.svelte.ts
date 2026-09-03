@@ -54,6 +54,7 @@ import { FirstRunSetupState } from "./first-run-setup-state.svelte";
 import { ComposerInteractionState } from "./composer-interaction-state";
 import { CommandPaletteState } from "./command-palette-state.svelte";
 import { MicrophoneState } from "./microphone-state.svelte";
+import { PythonApprovalState } from "./python-approval-state.svelte";
 import { SpeechState } from "./speech-state.svelte";
 import { ToolPreferenceState, type ToolAvailability } from "./tool-preferences";
 
@@ -96,6 +97,7 @@ export class PageState {
   interaction = new ComposerInteractionState();
   commandPalette = new CommandPaletteState();
   microphone = new MicrophoneState();
+  pythonApproval = new PythonApprovalState();
   speech = new SpeechState();
 
   private generationRun = 0;
@@ -193,6 +195,7 @@ export class PageState {
       this.refreshModels(),
       this.email.refresh(),
       this.microphone.initialize(),
+      this.pythonApproval.initialize(),
       this.speech.initialize(),
     ]);
     this.messages = messages;

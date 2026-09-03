@@ -1,0 +1,108 @@
+.python-approval-backdrop {
+  position: fixed;
+  z-index: 40;
+  display: grid;
+  padding: 24px;
+  background: rgba(7, 7, 10, 0.72);
+  inset: 0;
+  place-items: center;
+}
+.python-approval-dialog {
+  width: min(620px, 100%);
+  max-height: min(720px, calc(100vh - 48px));
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid rgba(212, 154, 145, 0.28);
+  border-radius: 16px;
+  background: #15141b;
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.48);
+}
+.python-approval-dialog header span,
+.python-approval-review h3 {
+  color: #b98982;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.python-approval-dialog h2 {
+  margin: 5px 0 16px;
+  color: var(--text);
+  font-size: 18px;
+}
+.python-approval-review {
+  padding: 12px;
+  border: 1px solid rgba(212, 154, 145, 0.16);
+  border-radius: 10px;
+  background: rgba(212, 154, 145, 0.035);
+}
+.python-approval-review h3 {
+  margin: 0 0 5px;
+}
+.python-approval-review p,
+.python-approval-dialog > p {
+  margin: 0 0 13px;
+  color: #aaaead;
+  font-size: 10px;
+  line-height: 1.55;
+}
+.python-approval-review pre {
+  max-height: min(320px, 42vh);
+  padding: 11px;
+  margin: 0;
+  overflow: auto;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #c4c8c7;
+  font:
+    10px/1.55 "SFMono-Regular",
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.python-approval-dialog > p {
+  margin: 14px 0 0;
+}
+.python-approval-dialog .python-approval-error {
+  color: #d49a91;
+}
+.python-approval-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.python-approval-actions button {
+  min-width: 78px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted-text);
+  cursor: pointer;
+  font: inherit;
+}
+.python-approval-actions button.primary {
+  border-color: rgba(212, 154, 145, 0.42);
+  background: rgba(212, 154, 145, 0.12);
+  color: #d7aaa3;
+}
+.python-approval-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+@media (max-width: 560px) {
+  .python-approval-backdrop {
+    align-items: end;
+    padding: 12px;
+  }
+  .python-approval-dialog {
+    max-height: calc(100vh - 24px);
+    padding: 16px;
+  }
+  .python-approval-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}

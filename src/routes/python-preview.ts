@@ -52,5 +52,15 @@ export function applyPythonApprovalPreview(state: PageState, search: string): bo
     },
   ];
   state.messages = messages;
+  state.pythonApproval.preview({
+    requestId: "development-preview-token",
+    phase: "pending",
+    source: [
+      "from statistics import median, pstdev",
+      "values = [7, 11, 13, 18, 21]",
+      "print({'median': median(values), 'spread': pstdev(values)})",
+    ].join("\n"),
+    purpose: "Calculate the requested median and population standard deviation exactly.",
+  });
   return true;
 }
