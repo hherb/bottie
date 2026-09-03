@@ -1,8 +1,11 @@
 /** Reactive owner for the process-local Python approval presentation. */
 
+import type { UnlistenFn } from "@tauri-apps/api/event";
+
 import {
   decidePythonApproval,
   getPythonApproval,
+  listenForPythonApproval,
   type PythonApprovalDecision,
   type PythonApprovalStatus,
 } from "$lib/python-approval";
@@ -10,11 +13,13 @@ import {
 type PythonApprovalGateway = {
   get: () => Promise<PythonApprovalStatus | null>;
   decide: (requestId: string, decision: PythonApprovalDecision) => Promise<PythonApprovalStatus>;
+  listen: (onApproval: (approval: PythonApprovalStatus | null) => void) => Promise<UnlistenFn>;
 };
 
 const nativeGateway: PythonApprovalGateway = {
   get: getPythonApproval,
   decide: decidePythonApproval,
+  listen: listenForPythonApproval,
 };
 
 /** Keeps exact review state visible while one native decision request is in flight. */
@@ -24,17 +29,41 @@ export class PythonApprovalState {
   error = $state("");
 
   private previewOnly = false;
+  private publicationSequence = 0;
+  private stopApprovalUpdates?: UnlistenFn;
 
   constructor(private readonly gateway: PythonApprovalGateway = nativeGateway) {}
 
-  /** Loads any process-local proposal created before WebView initialization. */
+  /** Subscribes before loading native state so startup and generation-time proposals cannot be missed. */
   async initialize(): Promise<void> {
+    if (this.previewOnly) return;
+    const initialPublicationSequence = this.publicationSequence;
+    let listenerFailed = false;
     try {
-      this.approval = await this.gateway.get();
-      this.error = "";
+      this.stopApprovalUpdates = await this.gateway.listen((approval) => {
+        this.publicationSequence += 1;
+        this.approval = approval;
+        this.busy = false;
+        this.error = "";
+      });
+    } catch (error) {
+      listenerFailed = true;
+      this.error = "Bottie could not monitor Python approval requests.";
+      console.warn("Could not listen for Python approval requests", error);
+    }
+    try {
+      const approval = await this.gateway.get();
+      if (this.publicationSequence === initialPublicationSequence) this.approval = approval;
+      if (!listenerFailed) this.error = "";
     } catch {
       this.error = "Bottie could not load the pending Python review.";
     }
+  }
+
+  /** Releases the native approval listener when the page is unmounted. */
+  dispose(): void {
+    this.stopApprovalUpdates?.();
+    this.stopApprovalUpdates = undefined;
   }
 
   /** Records one explicit decision without resending source, purpose, or provider identity. */

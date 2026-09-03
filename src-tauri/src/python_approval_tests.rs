@@ -1,6 +1,9 @@
 //! Provider-neutral pending Python approval lifecycle tests.
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use serde_json::{json, to_value};
 
@@ -8,7 +11,7 @@ use crate::{
     python_approval::{
         ConsumedPythonApproval, PythonApprovalController, PythonApprovalDecision,
         PythonApprovalDecisionRequest, PythonApprovalErrorCode, PythonApprovalPhase,
-        PythonApprovalResolution,
+        PythonApprovalPublisher, PythonApprovalResolution, PythonApprovalStatus,
     },
     tool_contract::RUN_PYTHON_TOOL_NAME,
     tool_loop::{NativeToolCall, ToolLoopCancellation},
@@ -17,6 +20,28 @@ use crate::{
 
 /// Maximum time an async test waits for the spawned orchestration to publish its review.
 const PENDING_REVIEW_TIMEOUT: Duration = Duration::from_secs(1);
+
+#[derive(Clone, Default)]
+struct RecordingPublisher {
+    updates: Arc<Mutex<Vec<Option<PythonApprovalStatus>>>>,
+}
+
+impl PythonApprovalPublisher for RecordingPublisher {
+    /// Retains only the bounded public lifecycle payload supplied to the WebView boundary.
+    fn publish(&self, approval: Option<PythonApprovalStatus>) -> Result<(), ()> {
+        self.updates.lock().unwrap().push(approval);
+        Ok(())
+    }
+}
+
+struct FailingPublisher;
+
+impl PythonApprovalPublisher for FailingPublisher {
+    /// Simulates an unavailable WebView event boundary without exposing native detail.
+    fn publish(&self, _approval: Option<PythonApprovalStatus>) -> Result<(), ()> {
+        Err(())
+    }
+}
 
 /// Builds one exact bounded Python call for lifecycle tests.
 fn python_call(call_id: &str, source: &str, purpose: &str) -> NativeToolCall {
@@ -335,5 +360,55 @@ async fn cancellation_before_a_request_never_publishes_a_review() {
             .unwrap(),
         PythonApprovalResolution::Cancelled
     );
+    assert_eq!(controller.current(), None);
+}
+
+#[tokio::test]
+async fn publishes_the_pending_review_and_clears_it_after_cancellation() {
+    let publisher = RecordingPublisher::default();
+    let controller = Arc::new(PythonApprovalController::with_publisher(publisher.clone()));
+    let cancellation = ToolLoopCancellation::default();
+    let waiting_controller = controller.clone();
+    let waiting_cancellation = cancellation.clone();
+    let waiter = tokio::spawn(async move {
+        waiting_controller
+            .request_and_wait(
+                python_call("python-call", "print(4)", "Calculate exactly."),
+                &waiting_cancellation,
+            )
+            .await
+    });
+
+    let pending = pending_review(&controller).await;
+    assert_eq!(
+        *publisher.updates.lock().unwrap(),
+        vec![Some(pending.clone())]
+    );
+    cancellation.cancel();
+    assert_eq!(
+        waiter.await.unwrap().unwrap(),
+        PythonApprovalResolution::Cancelled
+    );
+    assert_eq!(
+        *publisher.updates.lock().unwrap(),
+        vec![Some(pending), None]
+    );
+}
+
+#[test]
+fn event_publication_failure_rejects_and_releases_the_proposal() {
+    let controller = PythonApprovalController::with_publisher(FailingPublisher);
+    let private_source = "print('private value')";
+
+    let error = controller
+        .request(python_call(
+            "private-call",
+            private_source,
+            "Inspect a private value.",
+        ))
+        .expect_err("an invisible proposal must never remain pending");
+
+    assert_eq!(error.code, PythonApprovalErrorCode::PublicationFailed);
+    assert!(!error.message.contains(private_source));
     assert_eq!(controller.current(), None);
 }

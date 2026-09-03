@@ -3,7 +3,8 @@
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with unsigned development-package inspection, the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, and provider-neutral async wait/resume are
-implemented. Bottie does not advertise, launch from Tauri, product-enable, or ship a Python tool yet.
+implemented. The native waiter also publishes bounded approval lifecycle events to the existing WebView review state.
+Bottie does not advertise, launch from Tauri, product-enable, or ship a Python tool yet.
 
 ## Chosen core
 
@@ -275,6 +276,13 @@ observes the same cancellation signal already shared by provider and native-tool
 creates no review, while cancellation during a wait clears the exact slot and makes the old opaque token stale. A drop
 guard applies the same exact-call cleanup if the provider task is aborted before it observes cancellation. No branch in
 this orchestration launches code.
+
+When a proposal becomes pending, the native controller emits the same bounded path-free status returned by
+`get_python_approval`; it does not add provider call identity or native paths. Cancellation and waiter abortion emit a
+`null` lifecycle update after clearing the exact slot. The WebView installs this listener before its startup read and
+uses an event sequence to prevent an older `null` read from overwriting a newly published request. It removes the
+listener on page disposal. If the native event cannot be published, the proposal fails closed and is removed rather
+than leaving orchestration waiting on an invisible decision.
 
 The Tool activity surface recognizes only the exact bounded argument shape and shows the proposed purpose followed by
 the complete inert source. It explicitly states that Bottie has not run the code and suppresses the redundant raw

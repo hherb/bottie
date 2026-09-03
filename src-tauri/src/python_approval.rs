@@ -5,16 +5,19 @@
     reason = "provider mapping into this native orchestration is intentionally deferred"
 )]
 
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{AppHandle, Emitter, Runtime, State};
 use tokio::sync::Notify;
 
 use crate::{
     AppState, tool_contract::validate_python_tool_arguments, tool_loop::NativeToolCall,
     tool_loop::ToolLoopCancellation, tool_policy::ApprovedToolCall,
 };
+
+/// Stable path-free event carrying the current public Python approval review or its removal.
+pub(crate) const PYTHON_APPROVAL_EVENT: &str = "python-approval-changed";
 
 /// Explicit user decision accepted for one pending Python proposal.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -76,6 +79,8 @@ pub(crate) enum PythonApprovalErrorCode {
     AlreadyDecided,
     /// Future orchestration tried to consume the decision for a changed call.
     CallMismatch,
+    /// The pending review could not be published to the application WebView.
+    PublicationFailed,
 }
 
 /// Fixed path-free error for the approval command and future native orchestration.
@@ -108,11 +113,35 @@ pub(crate) enum PythonApprovalResolution {
     Cancelled,
 }
 
+/// Narrow event boundary for publishing only public approval lifecycle state.
+pub(crate) trait PythonApprovalPublisher: Send + Sync {
+    /// Publishes a bounded review or `None` when cancellation removes the pending proposal.
+    fn publish(&self, approval: Option<PythonApprovalStatus>) -> Result<(), ()>;
+}
+
+#[cfg(test)]
+struct NoopPythonApprovalPublisher;
+
+#[cfg(test)]
+impl PythonApprovalPublisher for NoopPythonApprovalPublisher {
+    /// Keeps unit-only controllers independent of an application WebView.
+    fn publish(&self, _approval: Option<PythonApprovalStatus>) -> Result<(), ()> {
+        Ok(())
+    }
+}
+
+impl<R: Runtime> PythonApprovalPublisher for AppHandle<R> {
+    /// Emits only the serialized public approval contract under the fixed application event name.
+    fn publish(&self, approval: Option<PythonApprovalStatus>) -> Result<(), ()> {
+        self.emit(PYTHON_APPROVAL_EVENT, approval).map_err(|_| ())
+    }
+}
+
 /// Thread-safe owner of the single process-local Python approval slot.
-#[derive(Default)]
 pub(crate) struct PythonApprovalController {
     current: Mutex<Option<PythonApprovalRecord>>,
     decision_changed: Notify,
+    publisher: Arc<dyn PythonApprovalPublisher>,
 }
 
 struct PythonApprovalRecord {
@@ -130,7 +159,24 @@ struct PendingPythonApproval<'a> {
     active: bool,
 }
 
+#[cfg(test)]
+impl Default for PythonApprovalController {
+    /// Builds a test-only controller without an application event target.
+    fn default() -> Self {
+        Self::with_publisher(NoopPythonApprovalPublisher)
+    }
+}
+
 impl PythonApprovalController {
+    /// Builds a controller that publishes every pending or cancelled review transition.
+    pub(crate) fn with_publisher(publisher: impl PythonApprovalPublisher + 'static) -> Self {
+        Self {
+            current: Mutex::new(None),
+            decision_changed: Notify::new(),
+            publisher: Arc::new(publisher),
+        }
+    }
+
     /// Publishes one exact proposal and waits without blocking for approval, denial, or cancellation.
     pub(crate) async fn request_and_wait(
         &self,
@@ -188,6 +234,10 @@ impl PythonApprovalController {
         };
         let status = record.status();
         *current = Some(record);
+        if self.publisher.publish(Some(status.clone())).is_err() {
+            *current = None;
+            return Err(approval_error(PythonApprovalErrorCode::PublicationFailed));
+        }
         Ok(status)
     }
 
@@ -251,7 +301,11 @@ impl PythonApprovalController {
         if current.as_ref().is_some_and(|record| !record.matches(call)) {
             return Err(approval_error(PythonApprovalErrorCode::CallMismatch));
         }
-        *current = None;
+        let removed = current.take().is_some();
+        drop(current);
+        if removed {
+            let _ = self.publisher.publish(None);
+        }
         Ok(())
     }
 }
@@ -341,6 +395,9 @@ fn approval_error(code: PythonApprovalErrorCode) -> PythonApprovalError {
             "That Python approval request already has a decision."
         }
         PythonApprovalErrorCode::CallMismatch => "The Python proposal changed after review.",
+        PythonApprovalErrorCode::PublicationFailed => {
+            "Bottie could not show the Python proposal for review."
+        }
     };
     PythonApprovalError { code, message }
 }

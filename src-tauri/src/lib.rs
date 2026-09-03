@@ -685,7 +685,7 @@ pub fn run() {
                     remembered_microphone,
                 ),
                 speech: SpeechController::with_preference(remembered_voice),
-                python_approval: PythonApprovalController::default(),
+                python_approval: PythonApprovalController::with_publisher(app.handle().clone()),
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 voice_interaction: tauri::async_runtime::Mutex::new(()),
                 diagnostics,
