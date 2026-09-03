@@ -56,13 +56,45 @@ certification and publication remain deferred until fresh release-owner notice.
 
 ## Validation
 
-Local review on macOS passed the focused JavaScript contract, the unchanged host runner suite, Rustfmt, runner Clippy,
-and cross-target compilation of the Linux module. The final full repository and Linux-native pull-request results must
-be recorded here before handoff.
+The local review passed:
 
-The Linux workflow independently verifies the pinned runtime size and digest on Ubuntu 24.04, builds the locked runner,
-and must return one path-free result with every containment and lifecycle field set to `true`. This remains hosted
-development evidence, not native hardware, installer, shipping-package, signing, release, or Store evidence.
+```text
+npm run format:check
+npm run check
+npm test                                      # 261 passed, 3 skipped
+npm run build
+cargo fmt/check/test (src-tauri)              # 446 library + 1 evidence passed; 33 ignored
+cargo fmt/clippy/test/release build (runner)  # 8 passed, 3 ignored
+x86_64/aarch64 Linux-module compile checks
+npm run dependencies:check
+npm run notices:check
+git diff --check
+```
+
+The final Tauri doc-test launcher stalled under the known macOS loader delay after the library and updater-evidence
+binaries passed; no Tauri code changed in this slice. Linux-native pull-request
+[run 33710877422](https://github.com/hherb/bottie/actions/runs/33710877422) passed on implementation head `b3033c2`.
+Ubuntu 24.04 independently verified the pinned runtime size and digest, built the locked runner, and returned:
+
+```json
+{
+  "environmentIsolated": true,
+  "execDenied": true,
+  "landlockDeniedHostFixture": true,
+  "networkDenied": true,
+  "parentDeathSignal": true,
+  "processCreationDenied": true,
+  "resourceLimits": true,
+  "runtimeReadable": true,
+  "status": "ok",
+  "workspaceReadable": true,
+  "cancellation": true,
+  "parentCloseKilledRunner": true
+}
+```
+
+This is hosted development evidence, not native hardware, installer, shipping-package, signing, release, or Store
+evidence.
 
 ## Next bounded action
 
