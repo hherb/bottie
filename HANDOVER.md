@@ -4,9 +4,10 @@ Last verified: 2026-09-03
 
 ## Start here
 
-PR #134 is merged into `main` at `3d65d2b`. The next bounded Linux containment proof is implemented on
-`codex/linux-python-containment`. Bottie still does not register, launch from Tauri, download, product-bundle, or
-publish a Python tool. No updater, protected signing, release, or Microsoft Store action was taken.
+PR #135 is merged into `main` at `4efc0e7`. The next bounded Python-runtime provenance and development-package slice
+is implemented on `codex/python-runtime-provenance`. Bottie still does not register a provider-visible Python tool,
+launch the helper from Tauri, or select the development bundle inputs for protected distribution. No signing,
+publication, release, or Microsoft Store action was taken.
 
 Read, in order:
 
@@ -17,91 +18,49 @@ Read, in order:
 
 ## Completed slice
 
-The standalone runner now has one explicit Linux-only containment mode around its existing bounded stdin/stdout JSON
-contract:
-
-- it requires a single-threaded process, arms `PR_SET_PDEATHSIG` with a parent-race check, then applies fixed
-  address-space, data, CPU, output-file, and descriptor `rlimit` ceilings after its inherited-domain deadline thread
-  exists and before generated code can run;
-- Landlock fails closed when unavailable and grants only read-file/read-directory access to the exact configured
-  runtime and per-request workspace; its deadline thread is created after the domain is active and inherits it;
-- an architecture-checked seccomp BPF filter is synchronized across every runner thread, denies socket operations,
-  `io_uring`, process-form `clone`, `clone3`, namespace creation, and exec, while retaining thread-form `clone` for the
-  deadline;
-- source and purpose remain stdin-only, the child receives only its private `TMPDIR`, and the wrapper uses private
-  stdin/stdout/stderr pipes without a shell;
-- the proof directly verifies runtime/workspace reads, host-fixture denial, network/process/exec denial, ordinary
-  execution, caller cancellation, and kernel kill on parent exit; and
-- checked-in contract tests lock the runner arguments, containment primitives, exact path-free evidence schema, and
-  credential-free Ubuntu workflow.
-
-The Linux-specific Rust module compile-checks for both `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu` in an
-isolated dependency-only harness. The full runner's native execution belongs to the Ubuntu pull-request workflow.
+- `python-runner/runtime-manifest.json` now pins official CPython 3.14.7 source and SBOM inputs, WASI SDK 24,
+  Wasmtime 45.0.3, and a fixed build/staging contract; the unofficial runtime remains compatibility-test-only.
+- The credential-free pull-request workflow rebuilds official CPython/WASI twice at the same fixed path and requires
+  byte-identical staged runtimes and path-free evidence before sharing that exact artifact with package jobs.
+- A separate opt-in Tauri config bundles the exact runtime, evidence, and target-suffixed native helper into unsigned
+  macOS, Windows, and Linux development packages; extraction verifies runtime-tree and helper digests.
+- Dependency inventory covers both locked Cargo graphs across the four reviewed desktop targets with component
+  ownership. The official CPython licence and runner dependencies are included in deterministic notices, with zero
+  unknown or review-required inventory entries.
+- The default and protected package configurations remain unchanged.
 
 ## Current limits
 
-This is a development-only standalone-runner proof, not Bottie product integration or package evidence. It uses an
-already downloaded and independently checksum-verified unofficial CPython/WASI development runtime; Bottie neither
-downloads it at runtime nor adds it to the repository. The proof does not change Tauri commands, provider schemas,
-native tool policy, approval UI, durable audit, output presentation, production runtime provenance, licence inventory,
-or shipping packages.
+The hosted workflow is development-only. Its same-path double build does not prove cross-host reproducibility, and its
+unsigned package checks prove byte placement rather than containment launch, installed behavior, signature, notarized
+identity, or release-candidate binding. The development bundle does not expose a tool or run the helper from Bottie.
 
-Bubblewrap or Flatpak may add a stronger container layer later but cannot replace the built-in DEB baseline. No
-installed DEB/AppImage/RPM, cross-distribution behavior, exact shipping helper/runtime, signature, release-candidate
-hash, or product cancellation integration is claimed.
+Platform containment proofs remain separate: transient App-Sandboxed XPC on macOS, transient zero-capability
+AppContainer on Windows, and built-in Landlock/seccomp/rlimits on Linux. Product launch, cancellation, durable audit,
+approval UI, provider mappings, and answer/context presentation remain pending.
 
-The unrelated updater work remains pending. Protected macOS publication still lacks its existing Apple distribution
-credentials, and protected Windows publication still lacks its Authenticode PFX and password. Microsoft Store
-certification and publication remain deferred until fresh release-owner notice.
+Protected macOS publication still lacks its Apple distribution credentials, and protected Windows publication still
+lacks its Authenticode PFX and password. Microsoft Store certification and publication remain deferred until fresh
+release-owner notice.
 
 ## Validation
 
-The local review passed:
+The local review passed formatting, Svelte checks, production build, 267 frontend/script tests (3 skipped), 446 Rust
+application-library tests plus updater evidence (33 ignored), 8 standalone-runner tests (3 ignored), locked runner
+Clippy/release build, offline dependency and notice gates, release-asset checks, workflow lint, and `git diff --check`.
+A locally built official runtime contained 539 files (40,864,108 bytes) with tree digest
+`293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b`. An unsigned Apple-silicon `.app` built with
+the opt-in config, and extracted-package inspection matched that runtime and the 14,273,328-byte helper exactly.
 
-```text
-npm run format:check
-npm run check
-npm test                                      # 261 passed, 3 skipped
-npm run build
-cargo fmt/check/test (src-tauri)              # 446 library + 1 evidence passed; 33 ignored
-cargo fmt/clippy/test/release build (runner)  # 8 passed, 3 ignored
-x86_64/aarch64 Linux-module compile checks
-npm run dependencies:check
-npm run notices:check
-git diff --check
-```
-
-The final Tauri doc-test launcher stalled under the known macOS loader delay after the library and updater-evidence
-binaries passed; no Tauri code changed in this slice. Linux-native pull-request
-[run 33710877422](https://github.com/hherb/bottie/actions/runs/33710877422) passed on implementation head `b3033c2`.
-Ubuntu 24.04 independently verified the pinned runtime size and digest, built the locked runner, and returned:
-
-```json
-{
-  "environmentIsolated": true,
-  "execDenied": true,
-  "landlockDeniedHostFixture": true,
-  "networkDenied": true,
-  "parentDeathSignal": true,
-  "processCreationDenied": true,
-  "resourceLimits": true,
-  "runtimeReadable": true,
-  "status": "ok",
-  "workspaceReadable": true,
-  "cancellation": true,
-  "parentCloseKilledRunner": true
-}
-```
-
-This is hosted development evidence, not native hardware, installer, shipping-package, signing, release, or Store
-evidence.
+This is development-host evidence, not native containment, Windows/Linux package, installed-package, signing,
+notarization, release, or Store evidence. See the draft PR checks for the credential-free hosted repeatability and
+three-platform package evidence.
 
 ## Next bounded action
 
-Establish reproducible CPython/WASI build provenance and feed the exact development helper/runtime into cross-platform
-bundling, licence inventory, and package inspection. Keep this credential-free and development-only: do not register a
-provider-visible Python tool, add Tauri launch integration, accept legal terms, consume protected signing credentials,
-publish releases, or resume Microsoft Store certification/publication.
+Define the approval-required native Python tool contract and user-visible source/purpose review without launching the
+helper from Tauri yet. Keep provider schemas, product cancellation/audit, helper launch, answer presentation, protected
+signing, publication, release, and Microsoft Store certification outside that slice.
 
 Preserve the unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Do not merge the draft PR
 without separate authorization.

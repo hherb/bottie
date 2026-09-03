@@ -1,0 +1,269 @@
+name: Python runtime provenance
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/python-runtime-provenance.yml"
+      - "package-lock.json"
+      - "package.json"
+      - "python-runner/**"
+      - "scripts/python-runtime-bundle.mjs"
+      - "scripts/python-runtime-bundle.test.mjs"
+      - "src-tauri/tauri.python-development.conf.json"
+      - "third-party/cpython-3.14.7/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-runtime:
+    name: Rebuild official CPython/WASI twice
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Use Node 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Use Python 3.14
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        with:
+          python-version: 3.14.7
+
+      - name: Install locked frontend and CPython build dependencies
+        run: |
+          npm ci
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            libbz2-dev \
+            libffi-dev \
+            libgdbm-compat-dev \
+            libgdbm-dev \
+            liblzma-dev \
+            libsqlite3-dev \
+            libssl-dev \
+            lzma \
+            lzma-dev \
+            pkg-config \
+            uuid-dev \
+            zlib1g-dev
+
+      - name: Verify runtime-free contracts
+        run: npm run python:bundle:test
+
+      - name: Download and verify official source, SBOM, SDK, and build runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/bottie-cpython-provenance"
+          mkdir -p "$root"
+
+          download_input() {
+            local selector="$1"
+            local output="$2"
+            local url expected_bytes expected_digest
+            url="$(jq -r "$selector.url" python-runner/runtime-manifest.json)"
+            expected_bytes="$(jq -r "$selector.bytes" python-runner/runtime-manifest.json)"
+            expected_digest="$(jq -r "$selector.sha256" python-runner/runtime-manifest.json)"
+            curl --fail --location --silent --show-error "$url" --output "$output"
+            test "$(stat --format='%s' "$output")" = "$expected_bytes"
+            test "$(sha256sum "$output" | cut --delimiter=' ' --fields=1)" = "$expected_digest"
+          }
+
+          download_input '.source' "$root/Python.tar.xz"
+          download_input '.source.sbom' "$root/Python.spdx.json"
+          download_input '.buildTools.wasiSdkLinuxX64' "$root/wasi-sdk.tar.gz"
+          download_input '.buildTools.wasmtimeLinuxX64' "$root/wasmtime.tar.xz"
+          tar -xf "$root/Python.tar.xz" -C "$root"
+          tar -xzf "$root/wasi-sdk.tar.gz" -C "$root"
+          tar -xf "$root/wasmtime.tar.xz" -C "$root"
+          printf 'BOTTIE_CPYTHON_ROOT=%s\n' "$root/Python-3.14.7" >> "$GITHUB_ENV"
+          printf 'WASI_SDK_PATH=%s\n' "$root/wasi-sdk-24.0-x86_64-linux" >> "$GITHUB_ENV"
+          printf '%s\n' "$root/wasmtime-v45.0.3-x86_64-linux" >> "$GITHUB_PATH"
+
+      - name: Build and stage the first runtime
+        env:
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
+          PYTHONHASHSEED: "0"
+          SOURCE_DATE_EPOCH: "1785888000"
+          TZ: UTC
+        run: |
+          cd "$BOTTIE_CPYTHON_ROOT"
+          python3 Tools/wasm/wasi build
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p package/python-provenance
+          node scripts/python-runtime-bundle.mjs \
+            --stage-built "$BOTTIE_CPYTHON_ROOT" package/python-provenance/runtime \
+            | tee package/python-provenance/runtime-evidence.json
+
+      - name: Rebuild at the same root and prove byte-for-byte runtime repeatability
+        env:
+          LANG: C.UTF-8
+          LC_ALL: C.UTF-8
+          PYTHONHASHSEED: "0"
+          SOURCE_DATE_EPOCH: "1785888000"
+          TZ: UTC
+        run: |
+          cd "$BOTTIE_CPYTHON_ROOT"
+          python3 Tools/wasm/wasi clean
+          python3 Tools/wasm/wasi build
+          cd "$GITHUB_WORKSPACE"
+          node scripts/python-runtime-bundle.mjs \
+            --stage-built "$BOTTIE_CPYTHON_ROOT" "$RUNNER_TEMP/python-runtime-second" \
+            > "$RUNNER_TEMP/runtime-evidence-second.json"
+          diff --brief --recursive package/python-provenance/runtime "$RUNNER_TEMP/python-runtime-second"
+          cmp package/python-provenance/runtime-evidence.json "$RUNNER_TEMP/runtime-evidence-second.json"
+
+      - name: Upload the exact development runtime and path-free provenance evidence
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: bottie-python-runtime-provenance
+          path: package/python-provenance
+          if-no-files-found: error
+          retention-days: 1
+
+  bundle-and-inspect:
+    name: Bundle and inspect (${{ matrix.platform }})
+    needs: build-runtime
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: macos
+            bundle: app
+          - os: windows-2025
+            platform: windows
+            bundle: msi
+          - os: ubuntu-24.04
+            platform: linux
+            bundle: deb
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Use Node 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Linux desktop build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            libasound2-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libspeechd-dev \
+            libwebkit2gtk-4.1-dev
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Download the repeated-build runtime
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bottie-python-runtime-provenance
+          path: package/python-provenance
+
+      - name: Build and stage the native helper on macOS or Linux
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path python-runner/Cargo.toml --release --locked
+          target="$(rustc --print host-tuple)"
+          node scripts/python-runtime-bundle.mjs \
+            --prepare "$target" package/python-provenance/runtime \
+            python-runner/target/release/bottie-python-runner package/python-development
+
+      - name: Build and stage the native helper on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cargo build --manifest-path python-runner/Cargo.toml --release --locked
+          $target = (rustc --print host-tuple).Trim()
+          node scripts/python-runtime-bundle.mjs `
+            --prepare $target package/python-provenance/runtime `
+            python-runner/target/release/bottie-python-runner.exe package/python-development
+
+      - name: Build the unsigned macOS development package
+        if: runner.os == 'macOS'
+        env:
+          CFLAGS: "-mmacosx-version-min=10.15"
+          CXXFLAGS: "-mmacosx-version-min=10.15"
+          MACOSX_DEPLOYMENT_TARGET: "10.15"
+        run: >-
+          npm run tauri -- build --bundles ${{ matrix.bundle }} --no-sign --ci
+          --config src-tauri/tauri.python-development.conf.json -- --locked
+
+      - name: Build the unsigned Windows or Linux development package
+        if: runner.os != 'macOS'
+        run: >-
+          npm run tauri -- build --bundles ${{ matrix.bundle }} --no-sign --ci
+          --config src-tauri/tauri.python-development.conf.json -- --locked
+
+      - name: Inspect the macOS development bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p package/python-package-evidence
+          node scripts/python-runtime-bundle.mjs \
+            --inspect-package macos src-tauri/target/release/bundle/macos/bottie.app \
+            | tee package/python-package-evidence/macos.json
+
+      - name: Extract and inspect the Windows development bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem src-tauri/target/release/bundle/msi -Recurse -Filter *.msi)
+          if ($installers.Count -ne 1) { throw "Expected exactly one development MSI." }
+          $extracted = Join-Path $env:RUNNER_TEMP "bottie-python-msi"
+          $process = Start-Process msiexec.exe -ArgumentList @(
+            "/a", $installers[0].FullName, "/qn", "/norestart", "TARGETDIR=$extracted"
+          ) -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Administrative MSI extraction failed." }
+          $applications = @(Get-ChildItem $extracted -Recurse -Filter bottie.exe)
+          if ($applications.Count -ne 1) { throw "Expected exactly one packaged Bottie executable." }
+          New-Item -ItemType Directory -Force package/python-package-evidence | Out-Null
+          node scripts/python-runtime-bundle.mjs `
+            --inspect-package windows $applications[0].Directory.FullName `
+            | Tee-Object -FilePath package/python-package-evidence/windows.json
+
+      - name: Extract and inspect the Linux development bundle
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mapfile -t installers < <(find src-tauri/target/release/bundle/deb -type f -name '*.deb')
+          test "${#installers[@]}" -eq 1
+          extracted="$RUNNER_TEMP/bottie-python-deb"
+          mkdir -p "$extracted" package/python-package-evidence
+          dpkg-deb --extract "${installers[0]}" "$extracted"
+          node scripts/python-runtime-bundle.mjs --inspect-package linux "$extracted" \
+            | tee package/python-package-evidence/linux.json
+
+      - name: Upload path-free package evidence
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: bottie-python-${{ matrix.platform }}-package-evidence
+          path: package/python-package-evidence/${{ matrix.platform }}.json
+          if-no-files-found: error
+          retention-days: 7

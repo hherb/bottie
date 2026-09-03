@@ -11,6 +11,7 @@ describe("third-party notice generation", () => {
       ],
       onnxRuntimeLicence: "ORT licence\n",
       onnxRuntimeNotices: "ORT notices\n",
+      pythonRuntimeLicence: "CPython licence\n",
       whisperModelLicence: "Whisper model MIT licence\n",
     });
 
@@ -19,6 +20,7 @@ describe("third-party notice generation", () => {
     expect(notice).toContain("Used by: cargo:alpha@1.0.0, npm:zeta@2.0.0");
     expect(notice).toContain("ORT licence");
     expect(notice).toContain("ORT notices");
+    expect(notice).toContain("CPython licence");
     expect(notice).toContain("Whisper model MIT licence");
     expect(notice.endsWith("\n")).toBe(true);
   });
@@ -29,6 +31,7 @@ describe("third-party notice generation", () => {
         packages: [{ ecosystem: "cargo", name: "missing", version: "1.0.0", licence: "MIT", texts: [] }],
         onnxRuntimeLicence: "ORT licence\n",
         onnxRuntimeNotices: "ORT notices\n",
+        pythonRuntimeLicence: "CPython licence\n",
       }),
     ).toThrow(/missing licence text/);
   });

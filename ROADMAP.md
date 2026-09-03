@@ -260,8 +260,9 @@ pending.
   memory/CPU Job Object limits, cancellation, kill-on-controller-close, and direct host-fixture denial;
 - [x] built-in Linux Landlock/seccomp/rlimits containment with private pipes, cancellation, parent-close cleanup, and
   host-fixture denial, without requiring Bubblewrap or Flatpak;
-- [ ] reproducible CPython/WASI build provenance plus cross-platform bundling, licence, inventory, signing, and package
-  inspection;
+- [x] reproducible official-source CPython/WASI build provenance plus exact unsigned development bundling, licence,
+  dependency inventory, and cross-platform package inspection;
+- [ ] exact shipping-helper/runtime containment, signing, release-candidate binding, and installed-package inspection;
 - [ ] approval-required native tool contract, user-visible source/purpose review, cancellation, durable audit, and
   explicit provider mappings;
 - [ ] answer/context presentation that labels executed source, bounded outputs, errors, and execution provenance.

@@ -8,16 +8,23 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  LOCAL_RUST_PACKAGES,
+  PYTHON_RUNTIME_ASSET,
+  PYTHON_RUNTIME_INVENTORY_INPUTS,
+  PYTHON_RUNTIME_SECURITY_RELEVANT_FEATURE,
+  RUST_COMPONENTS,
+} from "./dependency-inventory-config.mjs";
+
 const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const INVENTORY_FILE = "dependency-inventory.json";
-const RUST_MANIFEST = "src-tauri/Cargo.toml";
 const RUST_TARGETS = [
   "aarch64-apple-darwin",
   "x86_64-apple-darwin",
   "x86_64-pc-windows-msvc",
   "x86_64-unknown-linux-gnu",
 ];
-const REVIEWED_DATE = "2026-08-24";
+const REVIEWED_DATE = "2026-09-03";
 const APPLICATION_ASSETS = [
   "src-tauri/icons/32x32.png",
   "src-tauri/icons/64x64.png",
@@ -51,7 +58,7 @@ const SPDX_LICENCE_SOURCES = [
 const HASHED_INPUTS = [
   "package.json",
   "package-lock.json",
-  RUST_MANIFEST,
+  "src-tauri/Cargo.toml",
   "src-tauri/Cargo.lock",
   "src-tauri/tauri.conf.json",
   "src-tauri/tauri.updater.conf.json",
@@ -97,6 +104,7 @@ const HASHED_INPUTS = [
   "third-party/whisper.cpp-model/LICENSE",
   "third-party/package-licence-texts.json",
   ...SPDX_LICENCE_SOURCES,
+  ...PYTHON_RUNTIME_INVENTORY_INPUTS,
   ...APPLICATION_ASSET_SOURCES,
   ...APPLICATION_ASSETS,
 ];
@@ -178,6 +186,7 @@ const SECURITY_RELEVANT_FEATURES = [
     consequence:
       "Local playback uses only the target-native AVFoundation, WinRT, or Speech Dispatcher backend behind Rust IPC.",
   },
+  PYTHON_RUNTIME_SECURITY_RELEVANT_FEATURE,
 ];
 
 /** Returns the review classification for one declared licence expression. */
@@ -213,7 +222,7 @@ export function parseCargoTree(output) {
     if (!line) continue;
     const [packageText, licence = "", featureText = ""] = line.split("|");
     const match = packageText.match(/^(\S+)\s+v(\S+)/);
-    if (!match || match[1] === "bottie") continue;
+    if (!match || LOCAL_RUST_PACKAGES.has(match[1])) continue;
     const key = `${match[1]}@${match[2]}`;
     const current = packages.get(key) ?? {
       name: match[1],
@@ -247,12 +256,14 @@ export function mergeRustInventories(targetInventories) {
         direct: false,
         scope: "build-only",
         targets: new Set(),
+        components: new Set(),
         features: new Set(),
         source: `https://crates.io/crates/${encodeURIComponent(entry.name)}/${encodeURIComponent(entry.version)}`,
       };
       current.direct ||= inventory.direct.has(key);
       if (runtimeKeys.has(key)) current.scope = "runtime-graph";
       current.targets.add(inventory.target);
+      current.components.add(inventory.component);
       for (const feature of entry.features) current.features.add(feature);
       merged.set(key, current);
     }
@@ -260,6 +271,7 @@ export function mergeRustInventories(targetInventories) {
   return [...merged.values()]
     .map((entry) => ({
       ...entry,
+      components: [...entry.components].sort(),
       targets: [...entry.targets].sort(),
       features: [...entry.features].sort(),
     }))
@@ -294,27 +306,38 @@ export function parseNpmLock(lock) {
 
 /** Builds the complete inventory from locked, offline package metadata and reviewed local assets. */
 export function buildInventory(repositoryRoot = REPOSITORY_ROOT) {
-  const targetInventories = RUST_TARGETS.map((target) => ({
-    target,
-    runtime: cargoTree(repositoryRoot, target, "normal"),
-    complete: cargoTree(repositoryRoot, target, "normal,build"),
-    direct: new Set(cargoTree(repositoryRoot, target, "normal,build", "1").map(packageKey)),
-  }));
+  const targetInventories = RUST_COMPONENTS.flatMap((component) =>
+    RUST_TARGETS.map((target) => ({
+      component: component.name,
+      target,
+      runtime: cargoTree(repositoryRoot, component.manifest, target, "normal"),
+      complete: cargoTree(repositoryRoot, component.manifest, target, "normal,build"),
+      direct: new Set(cargoTree(repositoryRoot, component.manifest, target, "normal,build", "1").map(packageKey)),
+    })),
+  );
   const packageLock = JSON.parse(readFileSync(join(repositoryRoot, "package-lock.json"), "utf8"));
-  const cargoLock = readFileSync(join(repositoryRoot, "src-tauri/Cargo.lock"), "utf8");
+  const cargoLocks = Object.fromEntries(
+    RUST_COMPONENTS.map((component) => {
+      const lockPath = join(dirname(component.manifest), "Cargo.lock");
+      const source = readFileSync(join(repositoryRoot, lockPath), "utf8");
+      return [component.name, (source.match(/^\[\[package\]\]$/gm) ?? []).length];
+    }),
+  );
   const rust = mergeRustInventories(targetInventories);
   const npm = parseNpmLock(packageLock);
   const assets = reviewedAssets(repositoryRoot);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     reviewedDate: REVIEWED_DATE,
     scope: {
       rustTargets: RUST_TARGETS,
-      rustLockPackages: (cargoLock.match(/^\[\[package\]\]$/gm) ?? []).length,
+      rustComponents: RUST_COMPONENTS.map((component) => component.name),
+      rustLockPackages: cargoLocks,
       npmLockPackages: Object.keys(packageLock.packages ?? {}).filter(Boolean).length,
       limitation:
-        "Rust entries are the union of locked macOS arm64/x64, Windows x64, and Linux x64 normal and build graphs. " +
-        "The Cargo.lock count remains a conservative superset for architectures outside those four reviewed targets.",
+        "Rust entries are the union of the locked Bottie application and development Python runner graphs for " +
+        "macOS arm64/x64, Windows x64, and Linux x64. Each Cargo.lock remains a conservative superset for other " +
+        "architectures.",
     },
     inputs: Object.fromEntries(HASHED_INPUTS.map((path) => [path, sha256(join(repositoryRoot, path))])),
     securityRelevantFeatures: SECURITY_RELEVANT_FEATURES,
@@ -326,13 +349,13 @@ export function buildInventory(repositoryRoot = REPOSITORY_ROOT) {
 }
 
 /** Runs Cargo tree without downloads or package build scripts. */
-function cargoTree(repositoryRoot, target, edges, depth) {
+function cargoTree(repositoryRoot, manifest, target, edges, depth) {
   const arguments_ = [
     "tree",
     "--locked",
     "--offline",
     "--manifest-path",
-    RUST_MANIFEST,
+    manifest,
     "--target",
     target,
     "--edges",
@@ -409,6 +432,7 @@ function reviewedAssets(repositoryRoot) {
         "or application. runtime-assets.json pins the revision, file size, SHA-256, and reviewed licence.",
       source: "third-party/whisper.cpp-model/LICENSE",
     },
+    PYTHON_RUNTIME_ASSET,
     {
       name: "macOS system frameworks and WebKit",
       version: "Operating-system supplied",

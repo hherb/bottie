@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "reviewedDate": "2026-08-24",
+  "schemaVersion": 2,
+  "reviewedDate": "2026-09-03",
   "scope": {
     "rustTargets": [
       "aarch64-apple-darwin",
@@ -8,12 +8,19 @@
       "x86_64-pc-windows-msvc",
       "x86_64-unknown-linux-gnu"
     ],
-    "rustLockPackages": 706,
+    "rustComponents": [
+      "bottie-app",
+      "python-runner"
+    ],
+    "rustLockPackages": {
+      "bottie-app": 706,
+      "python-runner": 207
+    },
     "npmLockPackages": 157,
-    "limitation": "Rust entries are the union of locked macOS arm64/x64, Windows x64, and Linux x64 normal and build graphs. The Cargo.lock count remains a conservative superset for architectures outside those four reviewed targets."
+    "limitation": "Rust entries are the union of the locked Bottie application and development Python runner graphs for macOS arm64/x64, Windows x64, and Linux x64. Each Cargo.lock remains a conservative superset for other architectures."
   },
   "inputs": {
-    "package.json": "d09481dc5dbf12db4c0b76dd167b97de12707b308088141ea6cad2eccd1d2ef5",
+    "package.json": "8ff5e58faffb4ed1fd75145bdde41302a5818c53885935b7bb77da1616725989",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
     "src-tauri/Cargo.toml": "b659e1e862dc86994b252eeece3a5787c0504ce57638da8edfae5e6339e68d95",
     "src-tauri/Cargo.lock": "c0696e8f46111e99381fc29a061f661ab2dc305ee632b11107bd515730cf161a",
@@ -22,7 +29,7 @@
     "src-tauri/src/semantic_indexer.rs": "37cc38d5ac94f3556fde8a18a6a6b0e5b69fccc6ed32128e23c1d8688ed339ec",
     "src-tauri/src/updater.rs": "d5eaae60314be6be41c7da88544d90d4a537bc23f6ed8c8d0a9c0c76aa5bddd5",
     "src-tauri/src/updater_evidence.rs": "9c740591d18175d221b67579022b16a820f068ae3cdadd6030c9be318790a7cc",
-    "scripts/dependency-inventory.mjs": "cf7b52ce30e1fead91ce45a7e1038d39084b5a3e3f3996dd1cce953d8ee2723d",
+    "scripts/dependency-inventory.mjs": "bbe6aad420379e9046a0a184394487b28b3be7726dffb3164cc539bc928a3e02",
     "scripts/application-icons.mjs": "1307b7f746a9ef9f6920739934fd8a4aea6886f3d735e58dc0c5c016fb8ee275",
     "scripts/release-candidate.mjs": "acb1fc5146fdd45b50c6b138cf3647ef3b3857c15d7cf3edfb4863b6946c55fe",
     "scripts/release-candidate-distributions.mjs": "d9e808379206bff952ebc4f059c4568a16619b77e2c4505620d3ef420043e6ad",
@@ -31,7 +38,7 @@
     "scripts/update-delivery.mjs": "bcd13c9890fa73002a78985763b7e634db45cd1a830e6562952d30ec4107687f",
     "scripts/update-publication.mjs": "26db45b0d5a91727ab67f3b8912c8dc6e62993280b82d15afe1de2a53c400f73",
     "scripts/updater-artifact.mjs": "3be54067f1a65ae95b5da27f692461785b6e155c34fe68f4581589e8474abd18",
-    "scripts/third-party-notices.mjs": "bf769a0524526d5fc43244c77144b2088c198ffea400f4b22249d8c76ff88360",
+    "scripts/third-party-notices.mjs": "7175724b4d5ec4191f9df8679de5b365f4127b435585125c35c3f9320a0cdd51",
     "scripts/macos-package.mjs": "c1b4951e676662cc548f1925507ca693cdcf2a3976f33346411dee857f3c1781",
     "scripts/macos-distribution.mjs": "50fb140a66738eb611cf63b74eb5c16b2ea712dd82e384bad8d1600b80908ef4",
     "scripts/windows-package.mjs": "0f614dac9be5b0c443426e5cd48d9988701467fc19fec1d0e5156ae4e439aea0",
@@ -54,12 +61,12 @@
     ".github/workflows/updater-publication.yml": "8eb6d3233aeb8e8fc3df2ec0599dc7dec716b55806fe8c82744d0831f1b9e6e1",
     "LICENSE": "6f78c7d9d21c1432be2769ec843d045e00a87cf94c90c0cf325b932628772884",
     "MODEL-NOTICE.txt": "d4e49f201ce441098703da8d449a00462bbdcd946a12c1d75f89231a9da2130e",
-    "THIRD-PARTY-NOTICES.txt": "bf02675cca29863a1358480793bc85f92ed60f9f58512ff1b536dafb9630d85e",
+    "THIRD-PARTY-NOTICES.txt": "c4e3c0e648c1eaa3b3a42a91e75e88d6797dc002bb271afb0eb27ee16fbba78c",
     "runtime-assets.json": "3816bbfb99c3ab19e9b39e77f3bed42c1f20748c51c2bf4645d6d8a36e6d2fe0",
     "third-party/onnxruntime-1.28.0/LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
     "third-party/onnxruntime-1.28.0/ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
     "third-party/whisper.cpp-model/LICENSE": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
-    "third-party/package-licence-texts.json": "2884c8c7d4d4c45328127130e89901bc5480031337d7a129e11715b500d0a102",
+    "third-party/package-licence-texts.json": "755932f55c53f5e33da2b76790760bdb38a9368475b210ae650778fb4b33c19b",
     "third-party/spdx-3.28.0/exceptions/LLVM-exception.txt": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e",
     "third-party/spdx-3.28.0/licenses/Apache-2.0.txt": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
     "third-party/spdx-3.28.0/licenses/BSD-2-Clause.txt": "017b5ee48f680e82cba79141c7895a1f02b856df2512225f5c427fe36765ef0b",
@@ -73,6 +80,14 @@
     "third-party/spdx-3.28.0/licenses/Python-2.0.txt": "893c2bafbb8133f7aa97e1f79a3ee3241ebca7025f56278e9e1f72bb98592f9d",
     "third-party/spdx-3.28.0/licenses/Unicode-3.0.txt": "f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1",
     "third-party/spdx-3.28.0/licenses/Zlib.txt": "bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d",
+    "python-runner/Cargo.toml": "0f10051a4f05d55a4b71012689be499ea36c6b0e40d809d2d852f458efa5a238",
+    "python-runner/Cargo.lock": "667a9c43014d7cd0c0aa100d64dd7115616dd0255f00c1bb0cfa9e5d7e368db8",
+    "python-runner/runtime-manifest.json": "4ba948694f71ea852e73aaa7bd55fa2dd369cbf4e1a110b7809ba018e5ab7c25",
+    "src-tauri/tauri.python-development.conf.json": "5e5ff2fe2f5b0bd10b99cb1efa5afeae676efc4c316c74aa0b9cb6b9572d826f",
+    "scripts/python-runtime-bundle.mjs": "1e48d0c58bc7c0f2741c59d1de74d3cf70a045ded3d1d31f6b09a6a346080274",
+    "scripts/dependency-inventory-config.mjs": "f626b9d8af10388087bc721c04dba93f20892af61fcf347a4b178a708f5e5181",
+    ".github/workflows/python-runtime-provenance.yml": "9a6dd19b747f45b9ce4bc5bb84ca99d1524a0b9338f1f691d93bdfb9e6236dd5",
+    "third-party/cpython-3.14.7/LICENSE": "b0e25a78cffb43f4d92de8b61ccfa1f1f98ecbc22330b54b5251e7b6ba010231",
     "assets/bottie-logo-kit/README.md": "69e80eb92e33b48d41438f7eddd4274411dbaeb0f35daed18acfc2e61b649262",
     "assets/bottie-logo-kit/bottie-icon-512.png": "91e8f85833b157f9a2530ad97925ed9c45484b3bd6f45c596879ab0648238a1e",
     "assets/bottie-logo-kit/bottie-mark-color.svg": "b13001902fd696ea021da2a112e824a95fe2007c2a51c52a8b83edee2abe57d6",
@@ -135,6 +150,11 @@
       "package": "tts",
       "manifestSelection": "crate defaults; exact 0.26.3",
       "consequence": "Local playback uses only the target-native AVFoundation, WinRT, or Speech Dispatcher backend behind Rust IPC."
+    },
+    {
+      "package": "wasmtime",
+      "manifestSelection": "default-features=false; anyhow,cranelift,pulley,runtime,std; exact 45.0.3",
+      "consequence": "The development-only Python helper selects Pulley plus Cranelift without Wasmtime's component-model or cache features."
     }
   ],
   "assets": [
@@ -202,6 +222,14 @@
       "source": "third-party/whisper.cpp-model/LICENSE"
     },
     {
+      "name": "CPython/WASI development runtime",
+      "version": "3.14.7 built with WASI SDK 24",
+      "licence": "Python-2.0 plus bundled upstream notices",
+      "classification": "notice-required",
+      "delivery": "Built from the official checksum-pinned CPython source only in the opt-in development provenance workflow. The runtime and native helper are inspected in unsigned development packages and are not selected by Bottie's default or protected release configurations.",
+      "source": "third-party/cpython-3.14.7/LICENSE"
+    },
+    {
       "name": "macOS system frameworks and WebKit",
       "version": "Operating-system supplied",
       "licence": "Platform terms",
@@ -211,8 +239,8 @@
     }
   ],
   "summary": {
-    "compatible": 14,
-    "notice-required": 736,
+    "compatible": 15,
+    "notice-required": 813,
     "unknown": 0,
     "review-required": 0
   },
@@ -230,6 +258,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/adler2/2.0.1"
     },
@@ -242,6 +273,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/aes/0.8.4"
@@ -259,6 +293,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/aes/0.9.2"
     },
@@ -274,6 +311,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -297,6 +337,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "perf-literal",
@@ -317,6 +360,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/alloc-no-stdlib/2.0.4"
     },
@@ -332,6 +378,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/alloc-stdlib/0.2.4"
@@ -349,6 +398,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "alloc"
       ],
@@ -363,6 +416,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -380,13 +436,16 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/alsa-sys/0.4.0"
     },
     {
-      "name": "anyhow",
-      "version": "1.0.104",
-      "licence": "MIT OR Apache-2.0",
+      "name": "ambient-authority",
+      "version": "0.0.2",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
       "classification": "notice-required",
       "direct": false,
       "scope": "runtime-graph",
@@ -395,6 +454,29 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/ambient-authority/0.0.2"
+    },
+    {
+      "name": "anyhow",
+      "version": "1.0.104",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": true,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -413,11 +495,33 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "keychain",
         "security-framework"
       ],
       "source": "https://crates.io/crates/apple-native-keyring-store/1.0.2"
+    },
+    {
+      "name": "arbitrary",
+      "version": "1.4.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/arbitrary/1.4.2"
     },
     {
       "name": "async-broadcast",
@@ -428,6 +532,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/async-broadcast/0.7.2"
@@ -441,6 +548,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -458,6 +568,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/async-executor/1.14.0"
     },
@@ -471,6 +584,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/async-io/2.6.0"
     },
@@ -483,6 +599,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -500,6 +619,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/async-process/2.5.0"
     },
@@ -512,6 +634,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/async-recursion/1.1.1"
@@ -526,6 +651,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/async-signal/0.2.14"
     },
@@ -538,6 +666,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -553,7 +684,14 @@
       "direct": false,
       "scope": "runtime-graph",
       "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [],
       "source": "https://crates.io/crates/async-trait/0.1.92"
@@ -568,6 +706,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/atk/0.18.2"
     },
@@ -580,6 +721,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/atk-sys/0.18.2"
@@ -597,6 +741,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/atomic-waker/1.1.2"
     },
@@ -613,6 +760,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/autocfg/1.5.1"
     },
@@ -628,6 +778,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "aws-lc-sys",
@@ -648,6 +801,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "prebuilt-nasm"
       ],
@@ -665,6 +821,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -684,6 +843,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -705,6 +867,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "default",
@@ -725,6 +890,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "std"
@@ -743,6 +911,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -765,6 +936,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -784,6 +958,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "std"
       ],
@@ -801,6 +978,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -820,6 +1000,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "serde",
         "serde_core",
@@ -838,6 +1022,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/block/0.1.6"
     },
@@ -853,6 +1040,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [],
       "source": "https://crates.io/crates/block-buffer/0.10.4"
@@ -870,6 +1061,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/block-buffer/0.12.1"
     },
@@ -882,6 +1076,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/block-padding/0.3.3"
@@ -899,6 +1096,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/block-padding/0.4.2"
     },
@@ -912,6 +1112,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -930,6 +1133,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/blocking/1.6.2"
     },
@@ -945,6 +1151,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc-stdlib",
@@ -965,11 +1174,36 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc-stdlib",
         "std"
       ],
       "source": "https://crates.io/crates/brotli-decompressor/5.0.3"
+    },
+    {
+      "name": "bumpalo",
+      "version": "3.20.3",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "allocator-api2",
+        "default"
+      ],
+      "source": "https://crates.io/crates/bumpalo/3.20.3"
     },
     {
       "name": "bytemuck",
@@ -983,6 +1217,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "extern_crate_alloc"
@@ -1001,6 +1238,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -1021,6 +1261,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -1040,6 +1283,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default",
         "std"
@@ -1055,6 +1302,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -1072,6 +1322,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "glib",
@@ -1092,10 +1345,114 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "serde1"
       ],
       "source": "https://crates.io/crates/camino/1.2.5"
+    },
+    {
+      "name": "cap-fs-ext",
+      "version": "3.4.6",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "cap-std",
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/cap-fs-ext/3.4.6"
+    },
+    {
+      "name": "cap-net-ext",
+      "version": "3.4.6",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cap-net-ext/3.4.6"
+    },
+    {
+      "name": "cap-primitives",
+      "version": "3.4.6",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cap-primitives/3.4.6"
+    },
+    {
+      "name": "cap-std",
+      "version": "3.4.6",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/cap-std/3.4.6"
+    },
+    {
+      "name": "cap-time-ext",
+      "version": "3.4.6",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cap-time-ext/3.4.6"
     },
     {
       "name": "cargo_metadata",
@@ -1109,6 +1466,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -1128,6 +1488,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/cargo_toml/0.22.3"
     },
@@ -1143,6 +1506,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/cargo-platform/0.1.9"
@@ -1160,6 +1526,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc"
       ],
@@ -1174,6 +1543,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -1195,6 +1567,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "block-padding",
         "default"
@@ -1214,10 +1589,32 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "parallel"
       ],
       "source": "https://crates.io/crates/cc/1.4.3"
+    },
+    {
+      "name": "cc",
+      "version": "1.4.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cc/1.4.4"
     },
     {
       "name": "cexpr",
@@ -1231,6 +1628,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/cexpr/0.6.0"
@@ -1248,6 +1648,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/cfb/0.7.3"
     },
@@ -1260,6 +1663,9 @@
       "scope": "build-only",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -1281,6 +1687,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/cfg-if/1.0.4"
     },
@@ -1297,10 +1707,34 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "rng"
       ],
       "source": "https://crates.io/crates/chacha20/0.10.1"
+    },
+    {
+      "name": "chacha20",
+      "version": "0.10.2",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "rng"
+      ],
+      "source": "https://crates.io/crates/chacha20/0.10.2"
     },
     {
       "name": "chrono",
@@ -1314,6 +1748,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -1336,6 +1773,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "block-padding"
@@ -1355,6 +1795,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "block-padding"
       ],
@@ -1372,6 +1815,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "clang_10_0",
@@ -1405,8 +1851,30 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/cmake/0.1.58"
+    },
+    {
+      "name": "cobs",
+      "version": "0.3.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cobs/0.3.0"
     },
     {
       "name": "cocoa-foundation",
@@ -1418,6 +1886,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/cocoa-foundation/0.1.2"
@@ -1435,6 +1906,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "serde",
@@ -1451,6 +1925,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -1470,6 +1947,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -1492,6 +1972,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/const-oid/0.10.2"
     },
@@ -1508,6 +1991,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/cookie/0.18.2"
     },
@@ -1521,6 +2007,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -1539,6 +2028,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "link"
@@ -1555,6 +2047,10 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -1573,6 +2069,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "link"
@@ -1589,6 +2088,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -1607,6 +2109,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "link"
       ],
@@ -1622,6 +2127,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "audio_toolbox",
@@ -1642,6 +2150,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default"
       ],
@@ -1660,6 +2171,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/cpubits/0.1.1"
     },
@@ -1675,6 +2189,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [],
       "source": "https://crates.io/crates/cpufeatures/0.2.17"
@@ -1692,8 +2210,301 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/cpufeatures/0.3.0"
+    },
+    {
+      "name": "cpufeatures",
+      "version": "0.3.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cpufeatures/0.3.1"
+    },
+    {
+      "name": "cranelift-assembler-x64",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cranelift-assembler-x64/0.132.3"
+    },
+    {
+      "name": "cranelift-assembler-x64-meta",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cranelift-assembler-x64-meta/0.132.3"
+    },
+    {
+      "name": "cranelift-bforest",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cranelift-bforest/0.132.3"
+    },
+    {
+      "name": "cranelift-bitset",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "enable-serde"
+      ],
+      "source": "https://crates.io/crates/cranelift-bitset/0.132.3"
+    },
+    {
+      "name": "cranelift-codegen",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "gimli",
+        "host-arch",
+        "pulley",
+        "std",
+        "timing",
+        "unwind"
+      ],
+      "source": "https://crates.io/crates/cranelift-codegen/0.132.3"
+    },
+    {
+      "name": "cranelift-codegen-meta",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "pulley"
+      ],
+      "source": "https://crates.io/crates/cranelift-codegen-meta/0.132.3"
+    },
+    {
+      "name": "cranelift-codegen-shared",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cranelift-codegen-shared/0.132.3"
+    },
+    {
+      "name": "cranelift-control",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "fuzz"
+      ],
+      "source": "https://crates.io/crates/cranelift-control/0.132.3"
+    },
+    {
+      "name": "cranelift-entity",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "enable-serde",
+        "serde",
+        "serde_derive"
+      ],
+      "source": "https://crates.io/crates/cranelift-entity/0.132.3"
+    },
+    {
+      "name": "cranelift-frontend",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/cranelift-frontend/0.132.3"
+    },
+    {
+      "name": "cranelift-isle",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/cranelift-isle/0.132.3"
+    },
+    {
+      "name": "cranelift-native",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/cranelift-native/0.132.3"
+    },
+    {
+      "name": "cranelift-srcgen",
+      "version": "0.132.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "build-only",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/cranelift-srcgen/0.132.3"
     },
     {
       "name": "crc32fast",
@@ -1708,11 +2519,35 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
       ],
       "source": "https://crates.io/crates/crc32fast/1.5.0"
+    },
+    {
+      "name": "crc32fast",
+      "version": "1.5.1",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/crc32fast/1.5.1"
     },
     {
       "name": "crossbeam-channel",
@@ -1726,6 +2561,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -1746,6 +2584,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -1764,6 +2605,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -1784,6 +2628,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -1803,6 +2650,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "std"
       ],
@@ -1821,6 +2672,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/crypto-common/0.2.2"
     },
@@ -1836,6 +2690,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/cssparser/0.36.0"
@@ -1853,6 +2710,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/cssparser-macros/0.6.1"
     },
@@ -1868,6 +2728,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "proc_macro",
@@ -1888,6 +2751,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default"
       ],
@@ -1905,6 +2771,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -1925,6 +2794,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "suggestions"
@@ -1943,6 +2815,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "strsim",
@@ -1963,6 +2838,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "strsim",
         "suggestions"
@@ -1982,6 +2860,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/darling_macro/0.20.11"
     },
@@ -1998,6 +2879,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/darling_macro/0.23.0"
     },
@@ -2013,6 +2897,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "serde"
@@ -2032,6 +2919,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -2048,6 +2938,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/dbus/0.9.12"
     },
@@ -2063,6 +2956,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -2081,6 +2977,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -2101,6 +3000,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "lib_has_std"
       ],
@@ -2119,6 +3021,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "lib_has_std"
       ],
@@ -2136,6 +3041,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "add",
@@ -2158,6 +3066,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "add",
         "add_assign",
@@ -2177,6 +3088,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -2202,6 +3117,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "block-api",
@@ -2223,6 +3141,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/dirs/6.0.0"
     },
@@ -2239,6 +3160,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/dirs-sys/0.5.0"
     },
@@ -2252,6 +3176,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -2276,6 +3203,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/displaydoc/0.2.7"
     },
@@ -2288,6 +3219,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -2308,6 +3242,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/dlopen2_derive/0.4.3"
     },
@@ -2323,6 +3260,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -2342,6 +3282,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -2363,6 +3306,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/dtoa/1.0.11"
     },
@@ -2378,6 +3324,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/dtoa-short/0.3.5"
@@ -2395,6 +3344,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/dunce/1.0.5"
     },
@@ -2410,6 +3362,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/dyn-clonable/0.9.2"
@@ -2427,6 +3382,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/dyn-clonable-impl/0.9.2"
     },
@@ -2443,6 +3401,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/dyn-clone/1.0.20"
     },
@@ -2458,6 +3419,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "block-padding",
@@ -2478,6 +3442,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default",
         "std",
@@ -2496,6 +3464,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/embed_plist/1.2.2"
     },
@@ -2512,6 +3483,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/embed-resource/3.0.11"
     },
@@ -2524,6 +3498,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -2544,6 +3521,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "alloc",
         "default"
@@ -2559,6 +3540,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -2576,6 +3560,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "serde"
       ],
@@ -2590,6 +3577,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/enumflags2_derive/0.7.12"
@@ -2607,6 +3597,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/equivalent/1.0.2"
     },
@@ -2623,6 +3617,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc"
       ],
@@ -2638,7 +3635,12 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -2659,6 +3661,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/esaxx-rs/0.1.10"
     },
@@ -2671,6 +3676,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -2688,6 +3696,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -2708,6 +3719,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "default"
@@ -2727,6 +3741,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/fallible-streaming-iterator/0.1.9"
     },
@@ -2742,6 +3759,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "hf-hub",
@@ -2763,6 +3783,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "alloc",
         "default",
@@ -2783,6 +3807,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/fdeflate/0.3.7"
     },
@@ -2795,6 +3822,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/field-offset/0.3.6"
@@ -2810,6 +3840,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/filetime/0.2.29"
@@ -2827,6 +3860,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/find-msvc-tools/0.1.11"
     },
@@ -2842,6 +3879,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "any_impl",
@@ -2864,6 +3904,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default",
         "std"
@@ -2883,6 +3927,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default",
         "std"
@@ -2899,6 +3947,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -2917,6 +3968,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "std"
       ],
@@ -2933,6 +3987,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/foreign-types-shared/0.3.1"
     },
@@ -2948,6 +4005,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -2968,8 +4029,49 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/fs_extra/1.3.0"
+    },
+    {
+      "name": "fs-set-times",
+      "version": "0.20.3",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/fs-set-times/0.20.3"
+    },
+    {
+      "name": "futures",
+      "version": "0.3.34",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/futures/0.3.34"
     },
     {
       "name": "futures-channel",
@@ -2984,9 +4086,15 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "alloc",
         "default",
+        "futures-sink",
+        "sink",
         "std"
       ],
       "source": "https://crates.io/crates/futures-channel/0.3.34"
@@ -3003,6 +4111,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -3021,6 +4133,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -3035,7 +4150,14 @@
       "direct": false,
       "scope": "runtime-graph",
       "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -3052,6 +4174,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -3077,6 +4202,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/futures-macro/0.3.34"
     },
@@ -3092,6 +4220,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -3113,6 +4245,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "alloc",
         "std"
@@ -3132,12 +4268,18 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "alloc",
         "async-await",
         "async-await-macro",
         "default",
         "futures-macro",
+        "futures-sink",
+        "sink",
         "slab",
         "std"
       ],
@@ -3153,6 +4295,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/gdk/0.18.2"
     },
@@ -3165,6 +4310,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/gdk-pixbuf/0.18.5"
@@ -3179,6 +4327,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/gdk-pixbuf-sys/0.18.0"
     },
@@ -3191,6 +4342,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/gdk-sys/0.18.2"
@@ -3205,6 +4359,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/gdkwayland-sys/0.18.2"
     },
@@ -3218,6 +4375,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/gdkx11/0.18.2"
     },
@@ -3230,6 +4390,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/gdkx11-sys/0.18.2"
@@ -3246,6 +4409,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "more_lengths"
@@ -3265,6 +4432,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/getrandom/0.2.17"
     },
@@ -3280,6 +4450,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "std"
@@ -3299,11 +4472,39 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "std",
         "sys_rng"
       ],
       "source": "https://crates.io/crates/getrandom/0.4.3"
+    },
+    {
+      "name": "gimli",
+      "version": "0.33.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "read",
+        "read-core",
+        "std",
+        "write"
+      ],
+      "source": "https://crates.io/crates/gimli/0.33.0"
     },
     {
       "name": "gio",
@@ -3314,6 +4515,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "v2_58",
@@ -3336,6 +4540,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "v2_58",
         "v2_60",
@@ -3356,6 +4563,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -3381,6 +4591,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/glib-macros/0.18.5"
     },
@@ -3393,6 +4606,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "v2_58",
@@ -3418,6 +4634,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/glob/0.3.4"
     },
@@ -3430,6 +4649,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "v2_58",
@@ -3450,6 +4672,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "v3_24"
       ],
@@ -3464,6 +4689,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "v3_24"
@@ -3480,6 +4708,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/gtk3-macros/0.18.2"
     },
@@ -3495,6 +4726,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "raw"
@@ -3513,6 +4747,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "allocator-api2",
@@ -3538,7 +4776,13 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
-      "features": [],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
+      "features": [
+        "default-hasher"
+      ],
       "source": "https://crates.io/crates/hashbrown/0.17.1"
     },
     {
@@ -3554,6 +4798,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/hashlink/0.11.1"
     },
@@ -3566,6 +4813,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -3585,6 +4835,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/heck/0.5.0"
     },
@@ -3597,6 +4851,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -3618,6 +4875,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "rustls-tls",
         "ureq"
@@ -3634,6 +4894,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/hkdf/0.12.4"
     },
@@ -3646,6 +4909,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/hmac/0.12.1"
@@ -3662,6 +4928,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -3681,6 +4950,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/html5ever/0.38.0"
     },
@@ -3696,6 +4968,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -3716,6 +4991,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/http-body/1.1.0"
     },
@@ -3731,6 +5009,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -3749,6 +5030,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -3769,6 +5053,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/hybrid-array/0.4.14"
     },
@@ -3784,6 +5071,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "client",
@@ -3805,6 +5095,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "aws-lc-rs",
         "http1",
@@ -3824,6 +5117,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "client",
@@ -3845,7 +5141,12 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "fallback"
@@ -3865,6 +5166,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/ico/0.5.0"
     },
@@ -3881,6 +5185,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/icu_collections/2.3.0"
     },
@@ -3896,6 +5204,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "zerovec"
@@ -3915,6 +5227,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "compiled_data"
       ],
@@ -3933,6 +5249,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/icu_normalizer_data/2.3.0"
     },
@@ -3948,6 +5268,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "compiled_data"
@@ -3967,6 +5291,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/icu_properties_data/2.3.0"
     },
@@ -3983,10 +5311,53 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "baked"
       ],
       "source": "https://crates.io/crates/icu_provider/2.3.0"
+    },
+    {
+      "name": "icu_provider",
+      "version": "2.3.1",
+      "licence": "Unicode-3.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "baked"
+      ],
+      "source": "https://crates.io/crates/icu_provider/2.3.1"
+    },
+    {
+      "name": "id-arena",
+      "version": "2.3.0",
+      "licence": "MIT/Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/id-arena/2.3.0"
     },
     {
       "name": "ident_case",
@@ -4000,6 +5371,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/ident_case/1.0.1"
@@ -4016,6 +5390,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -4037,6 +5415,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "compiled_data"
       ],
@@ -4054,6 +5436,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "jpeg",
@@ -4074,6 +5459,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "serde",
         "serde-1"
@@ -4093,11 +5481,36 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
       ],
       "source": "https://crates.io/crates/indexmap/2.14.0"
+    },
+    {
+      "name": "indexmap",
+      "version": "2.14.1",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "serde",
+        "std"
+      ],
+      "source": "https://crates.io/crates/indexmap/2.14.1"
     },
     {
       "name": "indicatif",
@@ -4111,6 +5524,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -4132,6 +5548,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "cfb",
@@ -4149,6 +5568,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "block-padding"
@@ -4168,10 +5590,55 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "block-padding"
       ],
       "source": "https://crates.io/crates/inout/0.2.2"
+    },
+    {
+      "name": "io-extras",
+      "version": "0.18.4",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/io-extras/0.18.4"
+    },
+    {
+      "name": "io-lifetimes",
+      "version": "2.0.4",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/io-lifetimes/2.0.4"
     },
     {
       "name": "ipnet",
@@ -4185,6 +5652,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -4205,6 +5676,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/itertools/0.13.0"
     },
@@ -4220,6 +5694,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -4241,6 +5719,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/itoa/1.0.18"
     },
@@ -4253,6 +5735,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -4270,6 +5755,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "v2_28",
@@ -4290,6 +5778,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/jobserver/0.1.35"
     },
@@ -4305,6 +5796,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -4324,6 +5818,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "assign",
@@ -4349,6 +5846,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "serde",
@@ -4369,6 +5869,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "apple-native-keyring-store",
@@ -4392,6 +5895,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/keyring-core/1.0.0"
     },
@@ -4408,12 +5914,15 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/lazy_static/1.5.0"
     },
     {
-      "name": "libc",
-      "version": "0.2.189",
+      "name": "leb128",
+      "version": "0.2.7",
       "licence": "MIT OR Apache-2.0",
       "classification": "notice-required",
       "direct": false,
@@ -4423,6 +5932,48 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/leb128/0.2.7"
+    },
+    {
+      "name": "leb128fmt",
+      "version": "0.1.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/leb128fmt/0.1.0"
+    },
+    {
+      "name": "libc",
+      "version": "0.2.189",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": true,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -4439,6 +5990,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -4459,8 +6013,33 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/libloading/0.8.9"
+    },
+    {
+      "name": "libm",
+      "version": "0.2.16",
+      "licence": "MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "arch",
+        "default"
+      ],
+      "source": "https://crates.io/crates/libm/0.2.16"
     },
     {
       "name": "libsqlite3-sys",
@@ -4474,6 +6053,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "bundled",
@@ -4495,6 +6077,10 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "auxvec",
@@ -4524,6 +6110,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/litemap/0.8.3"
     },
@@ -4539,6 +6129,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "atomic_usize",
@@ -4559,8 +6152,30 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/log/0.4.33"
+    },
+    {
+      "name": "log",
+      "version": "0.4.34",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/log/0.4.34"
     },
     {
       "name": "lopdf",
@@ -4574,6 +6189,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/lopdf/0.44.0"
@@ -4591,11 +6209,33 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "optimization",
         "std"
       ],
       "source": "https://crates.io/crates/lzma-rust2/0.15.8"
+    },
+    {
+      "name": "mach2",
+      "version": "0.4.3",
+      "licence": "BSD-2-Clause OR MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/mach2/0.4.3"
     },
     {
       "name": "mach2",
@@ -4607,6 +6247,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -4626,6 +6269,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default"
       ],
@@ -4644,6 +6290,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/macro_rules_attribute-proc_macro/0.2.3"
     },
@@ -4657,6 +6306,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/malloc_buf/0.0.6"
@@ -4674,6 +6326,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/markup5ever/0.38.0"
     },
@@ -4690,11 +6345,33 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "cgemm",
         "std"
       ],
       "source": "https://crates.io/crates/matrixmultiply/0.3.11"
+    },
+    {
+      "name": "maybe-owned",
+      "version": "0.3.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/maybe-owned/0.3.4"
     },
     {
       "name": "md-5",
@@ -4708,6 +6385,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -4729,12 +6409,32 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "alloc",
         "default",
         "std"
       ],
       "source": "https://crates.io/crates/memchr/2.8.3"
+    },
+    {
+      "name": "memfd",
+      "version": "0.6.6",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/memfd/0.6.6"
     },
     {
       "name": "memoffset",
@@ -4745,6 +6445,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -4764,6 +6467,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/mime/0.3.17"
     },
@@ -4779,6 +6485,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "std"
@@ -4798,6 +6507,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/minisign-verify/0.2.5"
     },
@@ -4813,6 +6525,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -4835,6 +6550,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "net",
         "os-ext",
@@ -4855,6 +6574,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/monostate/0.1.18"
     },
@@ -4871,6 +6593,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/monostate-impl/0.1.18"
     },
@@ -4886,6 +6611,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "avx",
@@ -4918,6 +6646,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "common-controls-v6",
         "gtk",
@@ -4938,6 +6669,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "std"
       ],
@@ -4956,6 +6690,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/new_debug_unreachable/1.0.6"
     },
@@ -4971,6 +6708,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -4992,6 +6732,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "default",
@@ -5009,6 +6752,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "num-bigint",
@@ -5025,6 +6771,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "std"
@@ -5044,6 +6793,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "std"
       ],
@@ -5062,6 +6814,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/num-conv/0.2.2"
     },
@@ -5077,6 +6832,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "i128",
@@ -5094,6 +6852,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "i128",
         "std"
@@ -5109,6 +6870,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "num-bigint",
@@ -5130,6 +6894,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "i128",
@@ -5148,6 +6915,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "exception",
         "objc_exception"
@@ -5165,6 +6935,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/objc_exception/0.1.2"
     },
@@ -5178,6 +6951,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -5198,6 +6974,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "NSAccessibilityProtocols",
@@ -5264,6 +7043,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "AUComponent",
         "AudioCodec",
@@ -5294,6 +7076,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "AudioHardware",
         "AudioHardwareDeprecated",
@@ -5316,6 +7101,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "CoreAudioBaseTypes",
         "alloc",
@@ -5335,6 +7123,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "CFArray",
@@ -5405,6 +7196,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "std"
@@ -5422,6 +7216,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/objc2-exception-helper/0.1.1"
     },
@@ -5435,6 +7232,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "FoundationErrors",
@@ -5628,6 +7428,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "LABase",
         "LABiometryType",
@@ -5668,6 +7471,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "OSALanguage",
         "OSALanguageInstance",
@@ -5692,6 +7498,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "SecBase",
         "SecKey",
@@ -5710,6 +7519,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "WKDownload",
@@ -5745,6 +7557,37 @@
       "source": "https://crates.io/crates/objc2-web-kit/0.3.2"
     },
     {
+      "name": "object",
+      "version": "0.39.1",
+      "licence": "Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "coff",
+        "elf",
+        "macho",
+        "pe",
+        "read_core",
+        "std",
+        "unaligned",
+        "write",
+        "write_core",
+        "write_std",
+        "xcoff"
+      ],
+      "source": "https://crates.io/crates/object/0.39.1"
+    },
+    {
       "name": "once_cell",
       "version": "1.21.4",
       "licence": "MIT OR Apache-2.0",
@@ -5756,6 +7599,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -5778,6 +7625,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/onig/6.5.3"
     },
@@ -5794,6 +7644,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/onig_sys/69.9.3"
     },
@@ -5806,6 +7659,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/openssl-probe/0.2.1"
@@ -5823,6 +7679,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/option-ext/0.2.0"
     },
@@ -5835,6 +7694,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/ordered-stream/0.2.0"
@@ -5851,6 +7713,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "api-17",
@@ -5882,6 +7747,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "__tls",
         "api-17",
@@ -5910,6 +7778,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "declare-script",
         "full",
@@ -5931,6 +7802,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -5947,6 +7821,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/pango/0.18.3"
     },
@@ -5960,6 +7837,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/pango-sys/0.18.0"
     },
@@ -5972,6 +7852,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/parking/2.2.1"
@@ -5988,6 +7871,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -6007,6 +7893,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/parking_lot_core/0.9.12"
     },
@@ -6022,6 +7911,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/paste/1.0.15"
@@ -6039,6 +7931,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/pastey/0.2.3"
     },
@@ -6054,6 +7949,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -6074,6 +7973,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -6096,6 +7998,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/phf_codegen/0.13.1"
     },
@@ -6111,6 +8016,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/phf_generator/0.13.1"
@@ -6128,6 +8036,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/phf_macros/0.13.1"
     },
@@ -6143,6 +8054,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -6163,6 +8077,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/pin-project-lite/0.2.17"
     },
@@ -6175,6 +8093,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -6196,6 +8117,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/pkg-config/0.3.34"
     },
@@ -6211,6 +8135,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -6231,6 +8158,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/png/0.17.16"
     },
@@ -6247,6 +8177,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/png/0.18.1"
     },
@@ -6259,6 +8192,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/polling/3.11.0"
@@ -6276,11 +8212,36 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "fallback"
       ],
       "source": "https://crates.io/crates/portable-atomic/1.15.0"
+    },
+    {
+      "name": "postcard",
+      "version": "1.1.3",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "alloc",
+        "use-std"
+      ],
+      "source": "https://crates.io/crates/postcard/1.1.3"
     },
     {
       "name": "potential_utf",
@@ -6294,6 +8255,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "zerovec"
@@ -6313,6 +8278,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/powerfmt/0.2.0"
     },
@@ -6328,6 +8296,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "simd",
@@ -6348,6 +8319,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/precomputed-hash/0.1.1"
     },
@@ -6364,6 +8338,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "verbatim"
       ],
@@ -6379,6 +8356,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/proc-macro-crate/1.3.1"
     },
@@ -6391,6 +8371,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/proc-macro-crate/2.0.2"
@@ -6405,6 +8388,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/proc-macro-crate/3.5.0"
     },
@@ -6417,6 +8403,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -6435,6 +8424,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/proc-macro-error-attr/1.0.4"
     },
@@ -6451,12 +8443,60 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default",
         "proc-macro",
         "span-locations"
       ],
       "source": "https://crates.io/crates/proc-macro2/1.0.107"
+    },
+    {
+      "name": "pulley-interpreter",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "decode",
+        "disas",
+        "encode",
+        "interp",
+        "std"
+      ],
+      "source": "https://crates.io/crates/pulley-interpreter/45.0.3"
+    },
+    {
+      "name": "pulley-macros",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/pulley-macros/45.0.3"
     },
     {
       "name": "pxfm",
@@ -6470,6 +8510,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/pxfm/0.1.30"
@@ -6486,6 +8529,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -6505,6 +8551,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default",
         "proc-macro"
@@ -6523,6 +8573,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -6546,6 +8600,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -6571,6 +8628,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "std"
       ],
@@ -6589,6 +8649,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/rand_core/0.10.1"
     },
@@ -6604,6 +8668,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "os_rng",
@@ -6624,6 +8691,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/rangemap/1.8.0"
     },
@@ -6639,6 +8709,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -6659,6 +8732,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/rawpointer/0.2.1"
     },
@@ -6674,6 +8750,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/rayon/1.12.0"
@@ -6691,6 +8770,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/rayon-cond/0.4.0"
     },
@@ -6707,8 +8789,34 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/rayon-core/1.13.0"
+    },
+    {
+      "name": "regalloc2",
+      "version": "0.15.2",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "checker",
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/regalloc2/0.15.2"
     },
     {
       "name": "regex",
@@ -6722,6 +8830,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -6756,6 +8867,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -6796,6 +8910,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std",
@@ -6823,6 +8940,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "__rustls",
         "__rustls-aws-lc-rs",
@@ -6847,6 +8967,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "common-controls-v6",
         "glib-sys",
@@ -6869,6 +8992,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "default",
@@ -6888,6 +9014,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "backup",
@@ -6912,6 +9041,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/rustc_version/0.4.1"
     },
@@ -6927,6 +9059,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -6944,20 +9080,47 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
         "default",
         "event",
         "fs",
+        "mm",
         "net",
+        "param",
         "pipe",
         "process",
         "std",
+        "termios",
         "time"
       ],
       "source": "https://crates.io/crates/rustix/1.1.4"
+    },
+    {
+      "name": "rustix-linux-procfs",
+      "version": "0.1.1",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/rustix-linux-procfs/0.1.1"
     },
     {
       "name": "rustls",
@@ -6971,6 +9134,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "aws-lc-rs",
@@ -6993,6 +9159,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/rustls-native-certs/0.8.4"
     },
@@ -7008,6 +9177,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -7029,6 +9201,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/rustls-platform-verifier/0.7.0"
     },
@@ -7044,6 +9219,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -7066,6 +9244,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/rustversion/1.0.23"
     },
@@ -7082,6 +9263,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/ryu/1.0.23"
     },
@@ -7097,6 +9281,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -7117,6 +9304,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/same-file/1.0.6"
     },
@@ -7132,6 +9322,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -7157,6 +9350,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/schemars_derive/0.8.22"
     },
@@ -7173,6 +9369,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/scopeguard/1.2.0"
     },
@@ -7185,6 +9384,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "crypto-rust"
@@ -7201,6 +9403,9 @@
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "OSX_10_14",
@@ -7221,6 +9426,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "OSX_10_13",
         "default"
@@ -7240,6 +9448,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/selectors/0.36.1"
     },
@@ -7255,6 +9466,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -7275,6 +9490,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -7299,6 +9518,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "alloc",
         "default",
@@ -7321,6 +9544,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default"
       ],
@@ -7339,6 +9566,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/serde_derive_internals/0.29.1"
     },
@@ -7354,6 +9584,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -7377,6 +9611,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/serde_repr/0.1.21"
     },
@@ -7389,6 +9626,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "serde"
@@ -7407,6 +9647,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -7427,6 +9670,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -7449,6 +9695,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/serde_with_macros/3.22.0"
     },
@@ -7464,6 +9713,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/serde-untagged/0.1.9"
@@ -7481,6 +9733,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/serialize-to-javascript/0.1.2"
     },
@@ -7497,6 +9752,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/serialize-to-javascript-impl/0.1.2"
     },
@@ -7512,6 +9770,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -7532,6 +9793,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default",
         "std"
@@ -7550,6 +9815,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -7571,6 +9839,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -7590,6 +9861,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default",
         "std"
@@ -7606,6 +9881,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/signal-hook-registry/1.4.8"
     },
@@ -7621,6 +9899,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "const-generics",
@@ -7642,6 +9923,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -7660,6 +9944,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -7680,12 +9967,38 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "const_generics",
         "const_new",
         "union"
       ],
       "source": "https://crates.io/crates/smallvec/1.15.2"
+    },
+    {
+      "name": "smallvec",
+      "version": "1.16.0",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "const_generics",
+        "serde",
+        "union"
+      ],
+      "source": "https://crates.io/crates/smallvec/1.16.0"
     },
     {
       "name": "socket2",
@@ -7699,6 +10012,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "all"
@@ -7718,6 +10035,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/socks/0.3.4"
     },
@@ -7731,6 +10051,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/softbuffer/0.4.8"
     },
@@ -7743,6 +10066,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -7759,6 +10085,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "v3_0"
       ],
@@ -7773,6 +10102,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "0_10",
@@ -7790,6 +10122,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/speech-dispatcher-sys/0.7.0"
     },
@@ -7805,6 +10140,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/spm_precompiled/0.1.4"
@@ -7822,6 +10160,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/sqlite-vec/0.1.7-alpha.10"
     },
@@ -7837,6 +10178,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "alloc",
@@ -7858,6 +10203,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/static_assertions/1.1.0"
     },
@@ -7873,6 +10221,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/string_cache/0.9.0"
@@ -7890,6 +10241,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/string_cache_codegen/0.6.1"
     },
@@ -7905,6 +10259,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/stringprep/0.1.5"
@@ -7922,6 +10279,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/strsim/0.11.1"
     },
@@ -7938,6 +10298,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/subtle/2.6.1"
     },
@@ -7953,6 +10316,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "build",
@@ -7972,6 +10338,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/syn/1.0.109"
     },
@@ -7987,6 +10356,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "clone-impls",
@@ -8016,6 +10389,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "clone-impls",
         "default",
@@ -8031,6 +10407,35 @@
       "source": "https://crates.io/crates/syn/3.0.3"
     },
     {
+      "name": "syn",
+      "version": "3.0.4",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "clone-impls",
+        "default",
+        "derive",
+        "extra-traits",
+        "full",
+        "parsing",
+        "printing",
+        "proc-macro",
+        "visit-mut"
+      ],
+      "source": "https://crates.io/crates/syn/3.0.4"
+    },
+    {
       "name": "sync_wrapper",
       "version": "1.0.2",
       "licence": "Apache-2.0",
@@ -8042,6 +10447,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "futures",
@@ -8062,6 +10470,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "default",
         "proc-macro"
@@ -8078,6 +10490,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/system-deps/6.2.2"
     },
@@ -8093,6 +10508,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "dbus",
@@ -8113,6 +10531,9 @@
         "x86_64-apple-darwin",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "xattr"
@@ -8129,10 +10550,34 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default"
       ],
       "source": "https://crates.io/crates/target-lexicon/0.12.16"
+    },
+    {
+      "name": "target-lexicon",
+      "version": "0.13.5",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/target-lexicon/0.13.5"
     },
     {
       "name": "tauri",
@@ -8146,6 +10591,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "common-controls-v6",
@@ -8174,6 +10622,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "config-json",
         "default"
@@ -8192,6 +10643,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "brotli",
@@ -8212,6 +10666,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "compression"
       ],
@@ -8230,6 +10687,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "build"
       ],
@@ -8247,6 +10707,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -8267,6 +10730,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/tauri-plugin-fs/2.5.1"
     },
@@ -8282,6 +10748,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -8303,6 +10772,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/tauri-runtime/2.11.3"
     },
@@ -8318,6 +10790,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "common-controls-v6",
@@ -8338,6 +10813,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "brotli",
@@ -8368,6 +10846,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/tauri-winres/0.3.6"
     },
@@ -8376,13 +10857,17 @@
       "version": "3.27.0",
       "licence": "MIT OR Apache-2.0",
       "classification": "notice-required",
-      "direct": false,
+      "direct": true,
       "scope": "runtime-graph",
       "targets": [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -8403,8 +10888,30 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/tendril/0.5.1"
+    },
+    {
+      "name": "termcolor",
+      "version": "1.4.1",
+      "licence": "Unlicense OR MIT",
+      "classification": "compatible",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/termcolor/1.4.1"
     },
     {
       "name": "thiserror",
@@ -8418,6 +10925,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [],
       "source": "https://crates.io/crates/thiserror/1.0.69"
@@ -8434,6 +10945,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -8454,6 +10969,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/thiserror-impl/1.0.69"
     },
@@ -8470,6 +10989,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/thiserror-impl/2.0.20"
     },
@@ -8485,6 +11008,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -8509,6 +11035,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/time-core/0.1.9"
     },
@@ -8524,6 +11053,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "formatting",
@@ -8544,6 +11076,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "zerovec"
       ],
@@ -8561,6 +11097,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -8582,6 +11121,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/tinyvec_macros/0.1.1"
     },
@@ -8597,6 +11139,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "onig"
@@ -8616,10 +11161,15 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "bytes",
         "default",
         "fs",
+        "io-std",
         "io-util",
         "libc",
         "macros",
@@ -8648,6 +11198,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/tokio-macros/2.7.2"
     },
@@ -8663,6 +11216,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "aws-lc-rs",
@@ -8684,6 +11240,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "io"
       ],
@@ -8698,6 +11257,9 @@
       "scope": "build-only",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "parse"
@@ -8716,6 +11278,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -8739,6 +11304,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "display",
@@ -8758,6 +11326,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "serde"
       ],
@@ -8775,6 +11346,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -8796,6 +11370,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "default",
@@ -8814,6 +11391,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default"
       ],
@@ -8828,6 +11408,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -8844,6 +11427,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "parse"
@@ -8862,6 +11448,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -8883,6 +11472,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "std"
@@ -8901,6 +11493,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "futures-core",
@@ -8927,6 +11522,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "follow-redirect",
         "futures-util",
@@ -8947,6 +11545,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/tower-layer/0.3.3"
     },
@@ -8962,6 +11563,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/tower-service/0.3.3"
@@ -8979,6 +11583,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "attributes",
         "default",
@@ -8995,7 +11603,14 @@
       "direct": false,
       "scope": "runtime-graph",
       "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [],
       "source": "https://crates.io/crates/tracing-attributes/0.1.31"
@@ -9012,6 +11627,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "once_cell",
@@ -9032,6 +11651,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/try-lock/0.2.5"
     },
@@ -9047,6 +11669,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -9067,6 +11692,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -9086,6 +11714,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/typeid/1.0.3"
     },
@@ -9101,6 +11732,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "const-generics"
@@ -9120,6 +11755,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/unic-char-property/0.9.0"
     },
@@ -9135,6 +11773,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"
@@ -9154,6 +11795,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default"
       ],
@@ -9171,6 +11815,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -9192,6 +11839,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/unic-ucd-version/0.9.0"
     },
@@ -9208,6 +11858,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/unicode_categories/0.1.1"
     },
@@ -9223,6 +11876,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -9244,6 +11900,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/unicode-ident/1.0.24"
     },
@@ -9259,6 +11919,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -9279,6 +11942,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/unicode-normalization-alignments/0.1.12"
     },
@@ -9294,6 +11960,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -9315,6 +11984,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/unicode-segmentation/1.13.3"
     },
@@ -9331,11 +12003,35 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "cjk",
         "default"
       ],
       "source": "https://crates.io/crates/unicode-width/0.2.2"
+    },
+    {
+      "name": "unicode-xid",
+      "version": "0.2.6",
+      "licence": "MIT OR Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "default"
+      ],
+      "source": "https://crates.io/crates/unicode-xid/0.2.6"
     },
     {
       "name": "unit-prefix",
@@ -9349,6 +12045,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -9369,6 +12068,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/untrusted/0.9.0"
     },
@@ -9384,6 +12086,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "_ring",
@@ -9412,6 +12117,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "client"
       ],
@@ -9429,6 +12137,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -9450,6 +12162,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/urlpattern/0.3.0"
     },
@@ -9466,6 +12181,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/utf8_iter/1.0.4"
     },
@@ -9481,6 +12200,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -9500,6 +12222,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -9523,6 +12248,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/vcpkg/0.2.15"
     },
@@ -9539,6 +12267,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/version_check/0.9.5"
     },
@@ -9551,6 +12283,9 @@
       "scope": "build-only",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/version-compare/0.2.1"
@@ -9568,6 +12303,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/walkdir/2.5.0"
     },
@@ -9584,8 +12322,385 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/want/0.3.1"
+    },
+    {
+      "name": "wasm-encoder",
+      "version": "0.248.0",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "component-model",
+        "default",
+        "std"
+      ],
+      "source": "https://crates.io/crates/wasm-encoder/0.248.0"
+    },
+    {
+      "name": "wasmparser",
+      "version": "0.248.0",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "component-model",
+        "features",
+        "serde",
+        "simd",
+        "std",
+        "validate"
+      ],
+      "source": "https://crates.io/crates/wasmparser/0.248.0"
+    },
+    {
+      "name": "wasmprinter",
+      "version": "0.248.0",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "component-model",
+        "default",
+        "validate"
+      ],
+      "source": "https://crates.io/crates/wasmprinter/0.248.0"
+    },
+    {
+      "name": "wasmtime",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": true,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "anyhow",
+        "async",
+        "component-model",
+        "cranelift",
+        "once_cell",
+        "pulley",
+        "runtime",
+        "std",
+        "wasmtime-jit-icache-coherence"
+      ],
+      "source": "https://crates.io/crates/wasmtime/45.0.3"
+    },
+    {
+      "name": "wasmtime-environ",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "anyhow",
+        "compile",
+        "component-model",
+        "std"
+      ],
+      "source": "https://crates.io/crates/wasmtime-environ/45.0.3"
+    },
+    {
+      "name": "wasmtime-internal-component-macro",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "async"
+      ],
+      "source": "https://crates.io/crates/wasmtime-internal-component-macro/45.0.3"
+    },
+    {
+      "name": "wasmtime-internal-component-util",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/wasmtime-internal-component-util/45.0.3"
+    },
+    {
+      "name": "wasmtime-internal-core",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "anyhow",
+        "serde",
+        "std"
+      ],
+      "source": "https://crates.io/crates/wasmtime-internal-core/45.0.3"
+    },
+    {
+      "name": "wasmtime-internal-cranelift",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "component-model",
+        "pulley"
+      ],
+      "source": "https://crates.io/crates/wasmtime-internal-cranelift/45.0.3"
+    },
+    {
+      "name": "wasmtime-internal-fiber",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/wasmtime-internal-fiber/45.0.3"
+    },
+    {
+      "name": "wasmtime-internal-jit-icache-coherence",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/wasmtime-internal-jit-icache-coherence/45.0.3"
+    },
+    {
+      "name": "wasmtime-internal-unwinder",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "cranelift",
+        "default"
+      ],
+      "source": "https://crates.io/crates/wasmtime-internal-unwinder/45.0.3"
+    },
+    {
+      "name": "wasmtime-internal-versioned-export-macros",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/wasmtime-internal-versioned-export-macros/45.0.3"
+    },
+    {
+      "name": "wasmtime-internal-wit-bindgen",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "async"
+      ],
+      "source": "https://crates.io/crates/wasmtime-internal-wit-bindgen/45.0.3"
+    },
+    {
+      "name": "wasmtime-wasi",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": true,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "p1",
+        "p2"
+      ],
+      "source": "https://crates.io/crates/wasmtime-wasi/45.0.3"
+    },
+    {
+      "name": "wasmtime-wasi-io",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "std"
+      ],
+      "source": "https://crates.io/crates/wasmtime-wasi-io/45.0.3"
+    },
+    {
+      "name": "wast",
+      "version": "35.0.2",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/wast/35.0.2"
     },
     {
       "name": "web_atoms",
@@ -9600,6 +12715,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/web_atoms/0.2.6"
     },
@@ -9612,6 +12730,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "v2_10",
@@ -9646,6 +12767,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "v2_10",
@@ -9682,6 +12806,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/webpki-roots/1.0.9"
     },
@@ -9694,6 +12821,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/webview2-com/0.38.2"
@@ -9708,6 +12838,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/webview2-com-macros/0.8.1"
     },
@@ -9720,6 +12853,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/webview2-com-sys/0.38.2"
@@ -9736,6 +12872,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -9757,6 +12896,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default"
       ],
@@ -9775,8 +12917,70 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/whisper-rs-sys/0.15.0"
+    },
+    {
+      "name": "wiggle",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "wasmtime"
+      ],
+      "source": "https://crates.io/crates/wiggle/45.0.3"
+    },
+    {
+      "name": "wiggle-generate",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/wiggle-generate/45.0.3"
+    },
+    {
+      "name": "wiggle-macro",
+      "version": "45.0.3",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/wiggle-macro/45.0.3"
     },
     {
       "name": "winapi",
@@ -9787,6 +12991,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "winsock2"
@@ -9803,6 +13010,10 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/winapi-util/0.1.11"
     },
@@ -9818,6 +13029,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/window-vibrancy/0.6.0"
     },
@@ -9830,6 +13044,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "Foundation",
@@ -9854,6 +13071,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "Win32",
@@ -9907,6 +13127,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "Win32",
         "Win32_Devices",
@@ -9942,6 +13165,10 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows_x86_64_msvc/0.52.6"
     },
@@ -9954,6 +13181,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/windows_x86_64_msvc/0.53.1"
@@ -9968,6 +13198,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-collections/0.2.0"
     },
@@ -9980,6 +13213,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "std"
@@ -9995,6 +13231,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -10012,6 +13251,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "std"
@@ -10027,6 +13269,10 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "default",
@@ -10044,6 +13290,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-future/0.2.1"
     },
@@ -10056,6 +13305,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "std"
@@ -10072,6 +13324,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-implement/0.58.0"
     },
@@ -10084,6 +13339,10 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [],
       "source": "https://crates.io/crates/windows-implement/0.60.2"
@@ -10098,6 +13357,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-interface/0.58.0"
     },
@@ -10110,6 +13372,10 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [],
       "source": "https://crates.io/crates/windows-interface/0.59.3"
@@ -10124,6 +13390,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-link/0.1.3"
     },
@@ -10137,6 +13406,10 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-link/0.2.1"
     },
@@ -10149,6 +13422,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -10166,6 +13442,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-numerics/0.2.0"
     },
@@ -10178,6 +13457,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "std"
@@ -10193,6 +13475,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -10210,6 +13495,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "std"
       ],
@@ -10225,6 +13513,10 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "std"
       ],
@@ -10239,6 +13531,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -10256,6 +13551,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "std"
       ],
@@ -10270,6 +13568,10 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "std"
@@ -10286,15 +13588,35 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
+        "Wdk",
+        "Wdk_Foundation",
+        "Wdk_Storage",
+        "Wdk_Storage_FileSystem",
         "Win32",
         "Win32_Foundation",
         "Win32_Graphics",
         "Win32_Graphics_Dwm",
         "Win32_Graphics_Gdi",
+        "Win32_Networking",
+        "Win32_Networking_WinSock",
+        "Win32_Security",
+        "Win32_Storage",
+        "Win32_Storage_FileSystem",
         "Win32_System",
+        "Win32_System_Console",
+        "Win32_System_IO",
+        "Win32_System_Ioctl",
+        "Win32_System_Kernel",
         "Win32_System_LibraryLoader",
+        "Win32_System_Performance",
         "Win32_System_SystemInformation",
+        "Win32_System_SystemServices",
+        "Win32_System_WindowsProgramming",
         "Win32_UI",
         "Win32_UI_WindowsAndMessaging",
         "default"
@@ -10310,6 +13632,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "Win32",
@@ -10335,6 +13660,10 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "Wdk",
         "Wdk_Foundation",
@@ -10357,8 +13686,12 @@
         "Win32_System",
         "Win32_System_Com",
         "Win32_System_Console",
+        "Win32_System_Diagnostics",
+        "Win32_System_Diagnostics_Debug",
         "Win32_System_IO",
+        "Win32_System_Kernel",
         "Win32_System_LibraryLoader",
+        "Win32_System_Memory",
         "Win32_System_Pipes",
         "Win32_System_SystemInformation",
         "Win32_System_SystemServices",
@@ -10386,6 +13719,10 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-targets/0.52.6"
     },
@@ -10398,6 +13735,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/windows-targets/0.53.5"
@@ -10412,6 +13752,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-threading/0.1.0"
     },
@@ -10424,6 +13767,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/windows-threading/0.2.1"
@@ -10438,6 +13784,9 @@
       "targets": [
         "x86_64-pc-windows-msvc"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/windows-version/0.1.7"
     },
@@ -10450,6 +13799,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -10471,6 +13823,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/winnow/0.7.15"
     },
@@ -10487,6 +13842,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "alloc",
         "ascii",
@@ -10496,6 +13854,66 @@
         "std"
       ],
       "source": "https://crates.io/crates/winnow/1.0.4"
+    },
+    {
+      "name": "winx",
+      "version": "0.36.4",
+      "licence": "Apache-2.0 WITH LLVM-exception",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/winx/0.36.4"
+    },
+    {
+      "name": "wit-parser",
+      "version": "0.248.0",
+      "licence": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "decoding",
+        "default",
+        "serde",
+        "serde_json",
+        "std"
+      ],
+      "source": "https://crates.io/crates/wit-parser/0.248.0"
+    },
+    {
+      "name": "witx",
+      "version": "0.9.1",
+      "licence": "Apache-2.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/witx/0.9.1"
     },
     {
       "name": "writeable",
@@ -10509,6 +13927,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [],
       "source": "https://crates.io/crates/writeable/0.6.4"
@@ -10525,6 +13947,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "gdkx11",
@@ -10550,6 +13975,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/x11/2.21.0"
     },
@@ -10562,6 +13990,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/x11-dl/2.21.0"
@@ -10577,6 +14008,9 @@
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -10597,6 +14031,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "derive",
         "zerofrom"
@@ -10616,6 +14054,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/yoke-derive/0.8.2"
     },
@@ -10628,6 +14070,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "async-executor",
@@ -10652,6 +14097,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "blocking-api",
         "default"
@@ -10668,6 +14116,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/zbus_names/4.3.4"
     },
@@ -10680,6 +14131,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "crypto-rust"
@@ -10695,6 +14149,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default",
@@ -10715,6 +14172,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "simd"
       ],
@@ -10732,6 +14192,10 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app",
+        "python-runner"
       ],
       "features": [
         "derive"
@@ -10751,6 +14215,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/zerofrom-derive/0.1.7"
     },
@@ -10766,6 +14234,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "alloc",
@@ -10786,6 +14257,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [
         "yoke",
         "zerofrom"
@@ -10805,11 +14280,36 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "derive",
         "yoke"
       ],
       "source": "https://crates.io/crates/zerovec/0.11.7"
+    },
+    {
+      "name": "zerovec",
+      "version": "0.11.8",
+      "licence": "Unicode-3.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [
+        "derive",
+        "yoke"
+      ],
+      "source": "https://crates.io/crates/zerovec/0.11.8"
     },
     {
       "name": "zerovec-derive",
@@ -10824,8 +14324,30 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [],
       "source": "https://crates.io/crates/zerovec-derive/0.11.5"
+    },
+    {
+      "name": "zerovec-derive",
+      "version": "0.11.6",
+      "licence": "Unicode-3.0",
+      "classification": "notice-required",
+      "direct": false,
+      "scope": "runtime-graph",
+      "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "python-runner"
+      ],
+      "features": [],
+      "source": "https://crates.io/crates/zerovec-derive/0.11.6"
     },
     {
       "name": "zip",
@@ -10836,6 +14358,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-pc-windows-msvc"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [],
       "source": "https://crates.io/crates/zip/4.6.1"
@@ -10852,6 +14377,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "_deflate-any",
@@ -10872,6 +14400,10 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app",
+        "python-runner"
+      ],
       "features": [],
       "source": "https://crates.io/crates/zmij/1.0.23"
     },
@@ -10887,6 +14419,9 @@
         "x86_64-apple-darwin",
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "std"
@@ -10906,6 +14441,9 @@
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "neon",
@@ -10924,6 +14462,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default",
         "enumflags2"
@@ -10940,6 +14481,9 @@
       "targets": [
         "x86_64-unknown-linux-gnu"
       ],
+      "components": [
+        "bottie-app"
+      ],
       "features": [
         "default"
       ],
@@ -10954,6 +14498,9 @@
       "scope": "runtime-graph",
       "targets": [
         "x86_64-unknown-linux-gnu"
+      ],
+      "components": [
+        "bottie-app"
       ],
       "features": [
         "default"

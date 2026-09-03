@@ -1,11 +1,55 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "pythonVersion": "3.14.7",
   "wasiSdkVersion": "24",
+  "wasmtimeVersion": "45.0.3",
+  "source": {
+    "url": "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz",
+    "sha256": "3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81",
+    "bytes": 24053924,
+    "licenceSha256": "b0e25a78cffb43f4d92de8b61ccfa1f1f98ecbc22330b54b5251e7b6ba010231",
+    "sbom": {
+      "url": "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz.spdx.json",
+      "sha256": "87f55ca6c59fe159fa8c47ba2d7d8bec39cc649b1d3f47c667f34025a2ca9a68",
+      "bytes": 3123717
+    }
+  },
+  "buildTools": {
+    "wasiSdkLinuxX64": {
+      "url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-24/wasi-sdk-24.0-x86_64-linux.tar.gz",
+      "sha256": "c6c38aab56e5de88adf6c1ebc9c3ae8da72f88ec2b656fb024eda8d4167a0bc5",
+      "bytes": 118879731
+    },
+    "wasmtimeLinuxX64": {
+      "url": "https://github.com/bytecodealliance/wasmtime/releases/download/v45.0.3/wasmtime-v45.0.3-x86_64-linux.tar.xz",
+      "sha256": "ca1fc22b676412ed1983fc2d2266c53285ac5c60954df0eeb1502abe718fd923",
+      "bytes": 12547284
+    }
+  },
+  "build": {
+    "command": ["python3", "Tools/wasm/wasi", "build"],
+    "sourceDateEpoch": 1785888000,
+    "target": "wasm32-wasip1",
+    "strippedPaths": [
+      "curses",
+      "ctypes/test",
+      "ensurepip",
+      "distutils",
+      "lib2to3",
+      "idlelib",
+      "test",
+      "multiprocessing",
+      "tkinter",
+      "turtledemo",
+      "venv",
+      "unittest/test"
+    ]
+  },
   "archive": {
     "url": "https://github.com/brettcannon/cpython-wasi-build/releases/download/v3.14.7/python-3.14.7-wasi_sdk-24.zip",
     "sha256": "2e064d3fb8172471d39d741348efa722349c40b96301f69968dff714999c584b",
-    "bytes": 14291017
+    "bytes": 14291017,
+    "role": "compatibility-test-input"
   },
   "requiredPaths": ["python.wasm", "lib/python3.14/os.py", "LICENSE"]
 }
