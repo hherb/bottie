@@ -209,12 +209,11 @@ Additional safeguards include:
   optional app-private WAV retention remains independently off by default.
 - local playback uses narrow Rust commands and opaque voice tokens; no WebView speech or audio API is authorized.
 
-An experimental standalone CPython/WASI runner now proves the portable inner sandbox boundary. A separate transient
-development bundle also proves macOS App-Sandboxed XPC containment, private-pipe execution, cancellation,
-kill-on-client-exit, nested signing, and direct denial of a host-owned fixture. Bottie still does not register the
-runner as a model tool, launch it from Tauri, or include it in product packages. Model-visible execution remains
-blocked on Windows/Linux containment, production runtime provenance, and explicit user approval. See
-[`docs/python-sandbox.md`](docs/python-sandbox.md).
+The standalone CPython/WASI runner now has development-only macOS, Windows, and Linux containment proofs plus a pinned
+official-source runtime and exact unsigned package inspection. Bottie reserves a closed `run_python` proposal contract
+with 32 KiB source, a 512-character purpose, mandatory exact-call approval, and an inert source/purpose review. It does
+not advertise the tool to models, accept an approval decision, launch the helper from Tauri, or select the development
+bundle for normal or protected distribution. See [`docs/python-sandbox.md`](docs/python-sandbox.md).
 
 ## Provider support
 

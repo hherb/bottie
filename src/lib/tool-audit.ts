@@ -15,7 +15,37 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   search_memory: "Search conversations",
   open_memory: "Open conversation context",
   search_attached_files: "Search attached files",
+  run_python: "Run Python",
 };
+
+const MAX_PYTHON_SOURCE_BYTES = 32 * 1_024;
+const MAX_PYTHON_PURPOSE_CHARACTERS = 512;
+
+/** Exact source and purpose safe to show in the dedicated Python proposal review. */
+export type PythonToolReview = {
+  source: string;
+  purpose: string;
+};
+
+/** Accepts only the native Python tool's closed, bounded source-and-purpose argument shape. */
+export function pythonToolReview(tool: StoredToolInvocation): PythonToolReview | null {
+  if (tool.toolName !== "run_python" || !isRecord(tool.arguments)) return null;
+  const keys = Object.keys(tool.arguments);
+  if (keys.length !== 2 || !keys.includes("source") || !keys.includes("purpose")) return null;
+  const source = requiredString(tool.arguments.source);
+  const purpose = requiredString(tool.arguments.purpose);
+  if (
+    !source ||
+    !purpose ||
+    source.includes("\0") ||
+    purpose.includes("\0") ||
+    new TextEncoder().encode(source).byteLength > MAX_PYTHON_SOURCE_BYTES ||
+    Array.from(purpose).length > MAX_PYTHON_PURPOSE_CHARACTERS
+  ) {
+    return null;
+  }
+  return { source, purpose };
+}
 
 const OUTCOME_LABELS: Record<NonNullable<StoredToolInvocation["audit"]["outcome"]>, string> = {
   success: "Succeeded",

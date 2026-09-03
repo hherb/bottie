@@ -56,4 +56,58 @@ describe("ToolActivity", () => {
     expect(html).toContain("private query");
     expect(html).not.toContain("providerCallId");
   });
+
+  it("shows exact Python source and purpose with an explicit not-run notice", () => {
+    const html = render(ToolActivity, {
+      props: {
+        tools: [
+          {
+            ordinal: 0,
+            toolName: "run_python",
+            arguments: {
+              source: "print(sum([2, 3, 5]))",
+              purpose: "Add the values exactly.",
+            },
+            audit: { policy: "approval_required", outcome: "approval_required", durationMs: 0 },
+            result: {
+              output: { ok: false, error: { code: "approval_required" } },
+              isError: true,
+              createdAtMs: 2_000,
+            },
+            createdAtMs: 1_000,
+          },
+        ],
+      },
+    }).body;
+
+    expect(html).toContain("Run Python");
+    expect(html).toContain("Proposed purpose");
+    expect(html).toContain("Add the values exactly.");
+    expect(html).toContain("Proposed source");
+    expect(html).toContain("print(sum([2, 3, 5]))");
+    expect(html).toContain("Bottie has not run this code. Approval is required before execution.");
+    expect(html).not.toContain("<summary>Arguments</summary>");
+    expect(html).not.toContain("<summary>Error result</summary>");
+    expect(html).not.toContain("The call has no durable result yet.");
+  });
+
+  it("renders proposed Python source as escaped inert text", () => {
+    const html = render(ToolActivity, {
+      props: {
+        tools: [
+          {
+            ordinal: 0,
+            toolName: "run_python",
+            arguments: { source: "<script>alert('no')</script>", purpose: "Show escaping." },
+            audit: { policy: "approval_required", outcome: "approval_required", durationMs: 0 },
+            result: null,
+            createdAtMs: 1_000,
+          },
+        ],
+      },
+    }).body;
+
+    expect(html).toContain("&lt;script>alert('no')&lt;/script>");
+    expect(html).not.toContain("<script>");
+  });
 });

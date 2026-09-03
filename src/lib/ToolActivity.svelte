@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatToolPayload, type StoredToolInvocation } from "$lib/storage";
   import {
+    pythonToolReview,
     toolActivitySummary,
     toolAuditPresentation,
     toolAuditTime,
@@ -24,6 +25,7 @@
     {#each tools as tool (tool.ordinal)}
       {@const audit = toolAuditPresentation(tool)}
       {@const isUntrustedWebResult = untrustedWebResult(tool)}
+      {@const pythonReview = pythonToolReview(tool)}
       <details class:error={audit.status === "error"} class:blocked={audit.status === "blocked"} class="tool-record">
         <summary>
           <span class="tool-record-title">
@@ -68,11 +70,21 @@
             {/if}
           </dl>
 
-          <details class="tool-payload">
-            <summary>Arguments</summary>
-            <pre>{formatToolPayload(tool.arguments)}</pre>
-          </details>
-          {#if tool.result}
+          {#if pythonReview}
+            <section class="python-tool-review" aria-label="Python execution review">
+              <h4>Proposed purpose</h4>
+              <p>{pythonReview.purpose}</p>
+              <h4>Proposed source</h4>
+              <pre><code>{pythonReview.source}</code></pre>
+              <p class="python-tool-notice">Bottie has not run this code. Approval is required before execution.</p>
+            </section>
+          {:else}
+            <details class="tool-payload">
+              <summary>Arguments</summary>
+              <pre>{formatToolPayload(tool.arguments)}</pre>
+            </details>
+          {/if}
+          {#if tool.result && !(pythonReview && tool.audit.outcome === "approval_required")}
             {#if isUntrustedWebResult}
               <p class="tool-trust-note">
                 <strong>Untrusted Web content</strong>
@@ -85,7 +97,7 @@
               >
               <pre>{formatToolPayload(tool.result.output)}</pre>
             </details>
-          {:else}
+          {:else if !pythonReview}
             <p class="tool-pending-note">The call has no durable result yet.</p>
           {/if}
         </div>
