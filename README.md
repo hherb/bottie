@@ -211,9 +211,10 @@ Additional safeguards include:
 
 The standalone CPython/WASI runner now has development-only macOS, Windows, and Linux containment proofs plus a pinned
 official-source runtime and exact unsigned package inspection. Bottie reserves a closed `run_python` proposal contract
-with 32 KiB source, a 512-character purpose, mandatory exact-call approval, and an inert source/purpose review. It does
-not advertise the tool to models, accept an approval decision, launch the helper from Tauri, or select the development
-bundle for normal or protected distribution. See [`docs/python-sandbox.md`](docs/python-sandbox.md).
+with 32 KiB source, a 512-character purpose, mandatory exact-call approval, an inert source/purpose review, and one
+process-local approve/deny decision through an opaque request token. It does not advertise the tool to models, connect
+provider calls to that approval slot, launch the helper from Tauri, or select the development bundle for normal or
+protected distribution. See [`docs/python-sandbox.md`](docs/python-sandbox.md).
 
 ## Provider support
 
@@ -605,7 +606,7 @@ latest completed slice.
 
 ## Current boundaries
 
-Bottie deliberately does not offer arbitrary MCP execution, approval-required tools, outbound email, original
-attachment download or opening through Localmail, automatic memory injection, or office-document extraction beyond
-DOCX. These are product boundaries, not hidden configuration switches. Follow the [roadmap](ROADMAP.md) for planned
-work and its security gates.
+Bottie deliberately does not offer arbitrary MCP execution, provider-advertised or executable approval-required
+tools, outbound email, original attachment download or opening through Localmail, automatic memory injection, or
+office-document extraction beyond DOCX. These are product boundaries, not hidden configuration switches. Follow the
+[roadmap](ROADMAP.md) for planned work and its security gates.

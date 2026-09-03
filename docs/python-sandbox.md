@@ -1,9 +1,9 @@
 # Python sandbox feasibility slice
 
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
-official-source runtime provenance with unsigned development-package inspection, and the approval-required native
-proposal/review contract are implemented. Bottie does not advertise, launch from Tauri, product-enable, or ship a
-Python tool yet.
+official-source runtime provenance with unsigned development-package inspection, the approval-required native
+proposal/review contract, and a process-local one-use approve/deny lifecycle are implemented. Bottie does not
+advertise, launch from Tauri, product-enable, or ship a Python tool yet.
 
 ## Chosen core
 
@@ -261,13 +261,21 @@ product contract does not yet map or submit a runner request.
 
 The existing native tool policy classifies `run_python` as `ApprovalRequired`. Missing approval fails closed before
 argument validation, and an approval grant is consumed and bound to the exact call identity, tool name, source, and
-purpose. No provider adapter includes the definition, no Tauri command exposes approval, and no process is launched.
+purpose. No provider adapter includes the definition and no process is launched.
+
+One Rust-owned process-local slot can now retain a validated proposal for an explicit decision. The WebView receives a
+random opaque request token plus the complete bounded source and purpose, never the provider call identity. A closed
+Tauri command accepts only that token and `approve` or `deny`; it rejects unknown tokens, competing proposals, and a
+second decision. Future native orchestration can consume the resolved decision only for the unchanged complete call,
+and consumption clears it. An approval produces the existing exact one-use grant; a denial never does.
 
 The Tool activity surface recognizes only the exact bounded argument shape and shows the proposed purpose followed by
 the complete inert source. It explicitly states that Bottie has not run the code and suppresses the redundant raw
-approval-error envelope. Malformed or future-shaped records retain the generic inert JSON disclosure instead. The
-development-only `?python=approval-review` browser fixture makes this presentation reproducible without native
-inference or execution.
+approval-error envelope. A separate modal shows the native pending proposal, traps keyboard focus, and offers one
+Approve once or Deny action. Approved and denied acknowledgements both remain explicit that no code ran. Malformed or
+future-shaped records retain the generic inert JSON disclosure instead. The development-only
+`?python=approval-review` browser fixture makes the pending, approved, and denied presentation reproducible without
+native inference or execution.
 
 ## Deferred product integration
 
@@ -275,11 +283,12 @@ This slice deliberately does not:
 
 - register the reserved tool with a provider or change any provider schema;
 - decide automatically that Python is appropriate for a user question;
-- accept an approve/deny decision or expose a callable approval command;
+- connect any provider call to the approval slot or pause/resume a provider generation around the decision;
 - launch the helper from Bottie's Tauri process or connect product cancellation and durable audit;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice is the provider-neutral pending Python approval lifecycle: one explicit approve/deny decision
-bound to the exact call, source, and purpose, still without advertising provider schemas or launching the helper.
-Protected signing, release publication, and Microsoft Store work remain separately authorized and deferred.
+The next bounded slice is provider-neutral wait/resume orchestration for one exact pending decision, including
+cancellation and denial as terminal non-execution paths. It must still avoid provider schema advertisement, provider
+mapping, helper launch, execution results, and durable Python audit. Protected signing, release publication, and
+Microsoft Store work remain separately authorized and deferred.

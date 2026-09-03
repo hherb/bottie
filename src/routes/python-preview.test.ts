@@ -10,7 +10,7 @@ describe("Python approval preview", () => {
     expect(pythonApprovalPreviewRequested("")).toBe(false);
   });
 
-  it("adds one blocked proposal without enabling native inference", () => {
+  it("adds one interactive proposal without enabling native inference", async () => {
     const state = new PageState();
 
     expect(applyPythonApprovalPreview(state, "?python=approval-review")).toBe(true);
@@ -21,5 +21,11 @@ describe("Python approval preview", () => {
       toolName: "run_python",
       audit: { policy: "approval_required", outcome: "approval_required", durationMs: 0 },
     });
+    expect(state.pythonApproval.approval).toMatchObject({
+      requestId: "development-preview-token",
+      phase: "pending",
+    });
+    await state.pythonApproval.decide("approve");
+    expect(state.pythonApproval.approval?.phase).toBe("approved");
   });
 });

@@ -8,6 +8,7 @@
   import FirstRunSetup from "$lib/FirstRunSetup.svelte";
   import ProviderSettingsDialog from "$lib/ProviderSettingsDialog.svelte";
   import ProviderToolbar from "$lib/ProviderToolbar.svelte";
+  import PythonApproval from "$lib/PythonApproval.svelte";
   import Sidebar from "$lib/Sidebar.svelte";
   import StorageRecovery from "$lib/StorageRecovery.svelte";
   import { composerAttachmentNote } from "$lib/chat";
@@ -36,6 +37,7 @@
   import "$lib/styles/localmail-settings.css";
   import "$lib/styles/recovery.css";
   import "$lib/styles/appearance.css";
+  import "$lib/styles/python-approval.css";
 
   import { PageState } from "./page-state.svelte";
   import { applyPerformancePreview } from "./performance-preview";
@@ -174,7 +176,13 @@
 
   /** Handles exact app-shell shortcuts without crossing an active modal boundary. */
   function handleWindowKeydown(event: KeyboardEvent): void {
-    if (state.commandPalette.open || state.showSettings || state.firstRun.requiresSetup(state.providerSettings)) return;
+    if (
+      state.commandPalette.open ||
+      state.showSettings ||
+      state.pythonApproval.approval ||
+      state.firstRun.requiresSetup(state.providerSettings)
+    )
+      return;
     if (isCommandPaletteShortcut(event)) {
       event.preventDefault();
       openCommandPalette(event.target instanceof HTMLElement ? event.target : null);
@@ -441,6 +449,16 @@
         onappearancechange={updateAppearance}
         onclose={() => void closeSettings()}
         onsaved={(settings) => state.applyProviderSettings(settings)}
+      />
+    {/if}
+
+    {#if state.pythonApproval.approval}
+      <PythonApproval
+        approval={state.pythonApproval.approval}
+        busy={state.pythonApproval.busy}
+        error={state.pythonApproval.error}
+        ondecide={(decision) => void state.pythonApproval.decide(decision)}
+        ondismiss={() => state.pythonApproval.dismissResolved()}
       />
     {/if}
   </div>
