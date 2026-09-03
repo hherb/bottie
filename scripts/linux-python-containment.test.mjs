@@ -6,6 +6,7 @@ import {
   ProofFailure,
   parseContainmentEvidence,
   runnerBuildArguments,
+  safeProcessFailure,
   safeProofFailure,
 } from "./linux-python-containment.mjs";
 
@@ -46,6 +47,10 @@ describe("Linux Python containment proof", () => {
       "The native proof was incomplete.",
     );
     expect(safeProofFailure(new Error("/home/private/runtime failed"))).toBe("The containment proof failed.");
+    expect(safeProcessFailure({ error: { code: "ETIMEDOUT" } })).toBe("timeout");
+    expect(safeProcessFailure({ signal: "SIGSYS" })).toBe("signal_sigsys");
+    expect(safeProcessFailure({ signal: "SIGSEGV" })).toBe("signal");
+    expect(safeProcessFailure({ status: 17 })).toBe("exit");
   });
 
   it("installs the built-in Linux controls before executing generated source", async () => {

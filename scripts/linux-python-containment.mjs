@@ -36,6 +36,14 @@ export function safeProofFailure(error) {
   return error instanceof ProofFailure ? error.message : "The containment proof failed.";
 }
 
+/** Classifies process failures without exposing arguments, output, or host paths. */
+export function safeProcessFailure(result) {
+  if (result.error?.code === "ETIMEDOUT") return "timeout";
+  if (result.signal === "SIGSYS") return "signal_sigsys";
+  if (result.signal) return "signal";
+  return "exit";
+}
+
 /** Returns the locked release build arguments for the unchanged Rust runner. */
 export function runnerBuildArguments(manifest) {
   return ["build", "--manifest-path", manifest, "--release", "--locked"];
@@ -72,7 +80,7 @@ function runHostCommand(command, arguments_, options = {}) {
     timeout: options.timeout ?? PROOF_TIMEOUT_MS,
   });
   if (result.error || result.status !== 0) {
-    throw new ProofFailure(`${options.label ?? "The Linux proof command"} failed.`);
+    throw new ProofFailure(`${options.label ?? "The Linux proof command"} failed (${safeProcessFailure(result)}).`);
   }
   return result.stdout ?? "";
 }
