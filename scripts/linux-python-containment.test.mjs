@@ -50,6 +50,7 @@ describe("Linux Python containment proof", () => {
     expect(safeProcessFailure({ error: { code: "ETIMEDOUT" } })).toBe("timeout");
     expect(safeProcessFailure({ signal: "SIGSYS" })).toBe("signal_sigsys");
     expect(safeProcessFailure({ signal: "SIGSEGV" })).toBe("signal");
+    expect(safeProcessFailure({ status: 101 })).toBe("exit_101");
     expect(safeProcessFailure({ status: 17 })).toBe("exit");
   });
 

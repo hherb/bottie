@@ -41,6 +41,7 @@ export function safeProcessFailure(result) {
   if (result.error?.code === "ETIMEDOUT") return "timeout";
   if (result.signal === "SIGSYS") return "signal_sigsys";
   if (result.signal) return "signal";
+  if (result.status === 101) return "exit_101";
   return "exit";
 }
 
