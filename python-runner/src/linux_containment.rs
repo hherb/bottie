@@ -163,7 +163,7 @@ pub(crate) fn restrict_syscalls(evidence: &mut LinuxContainmentEvidence) -> Resu
         libc::SYS_socket,
         &[libc::AF_INET.into(), libc::SOCK_STREAM.into(), 0],
     );
-    evidence.process_creation_denied = clone_process_denied();
+    evidence.process_creation_denied = clone_process_denied() && clone3_denied();
     evidence.exec_denied = exec_process_denied();
     mark_stage(evidence.diagnostic_stages, "probes");
     Ok(())
@@ -338,11 +338,14 @@ fn filter_jump(value: u32, true_offset: u8, false_offset: u8) -> libc::sock_filt
 
 fn install_seccomp() -> Result<()> {
     let denied = (SECCOMP_RET_ERRNO | libc::EPERM as u32) as u32;
+    let unavailable = (SECCOMP_RET_ERRNO | libc::ENOSYS as u32) as u32;
     let mut filter = vec![
         filter_statement(BPF_LOAD_WORD_ABSOLUTE, SECCOMP_ARCH_OFFSET),
         filter_jump(AUDIT_ARCH_NATIVE, 1, 0),
         filter_statement(BPF_RETURN, SECCOMP_RET_KILL_PROCESS),
         filter_statement(BPF_LOAD_WORD_ABSOLUTE, SECCOMP_SYSCALL_OFFSET),
+        filter_jump(libc::SYS_clone3 as u32, 0, 1),
+        filter_statement(BPF_RETURN, unavailable),
     ];
     for syscall in denied_syscalls() {
         filter.push(filter_jump(syscall as u32, 0, 1));
@@ -390,7 +393,6 @@ fn denied_syscalls() -> Vec<libc::c_long> {
         libc::SYS_recvfrom,
         libc::SYS_sendmsg,
         libc::SYS_recvmsg,
-        libc::SYS_clone3,
         libc::SYS_execve,
         libc::SYS_execveat,
         libc::SYS_unshare,
@@ -440,6 +442,11 @@ fn clone_process_denied() -> bool {
         return false;
     }
     io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+}
+
+fn clone3_denied() -> bool {
+    let result = unsafe { libc::syscall(libc::SYS_clone3, std::ptr::null::<libc::c_void>(), 0) };
+    result == -1 && io::Error::last_os_error().raw_os_error() == Some(libc::ENOSYS)
 }
 
 fn exec_process_denied() -> bool {

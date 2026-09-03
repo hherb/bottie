@@ -71,6 +71,7 @@ describe("Linux Python containment proof", () => {
     expect(source).toContain("PR_SET_PDEATHSIG");
     expect(source).toContain("SYS_socket");
     expect(source).toContain("SYS_clone");
+    expect(source).toContain("libc::ENOSYS");
     expect(source).toContain("SYS_execve");
     expect(source).toContain("SYS_io_uring_setup");
     expect(runner).toContain('"--linux-contained"');
