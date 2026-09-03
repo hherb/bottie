@@ -267,8 +267,9 @@ pending.
   or provider advertisement;
 - [x] process-local one-use approve/deny decisions bound to the unchanged complete call, with an opaque-token modal and
   no provider identity exposed to the WebView;
-- [ ] provider-neutral approval wait/resume, contained helper launch, cancellation, durable audit, and explicit
-  provider mappings;
+- [x] provider-neutral approval wait/resume for one exact call, with denial, shared cancellation, and aborted-waiter
+  cleanup as terminal non-execution paths;
+- [ ] contained helper launch, durable Python audit, and explicit provider mappings;
 - [ ] answer/context presentation that labels executed source, bounded outputs, errors, and execution provenance.
 
 See `docs/python-sandbox.md` for the verified boundary, platform options, and exclusions.

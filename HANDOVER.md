@@ -4,8 +4,8 @@ Last verified: 2026-09-03
 
 ## Start here
 
-PR #137 merged into `main` at `e2984b9`. The next bounded pending Python approval lifecycle and review slice is on
-`codex/python-pending-approval-lifecycle`. No helper, provider, signing, release, publication, or Microsoft Store
+PR #138 merged into `main` at `31eff8b`. The next bounded provider-neutral Python approval wait/resume slice is on
+`codex/python-approval-wait-resume`. No helper, provider mapping, signing, release, publication, or Microsoft Store
 action was taken.
 
 Read, in order:
@@ -16,20 +16,21 @@ Read, in order:
 
 ## Completed slice
 
-- One Rust-owned process-local slot retains only a validated `run_python` call. A competing proposal cannot replace it.
-- The WebView sees a random opaque request token plus complete bounded purpose/source, never provider call identity.
-  Its closed command accepts exactly one `approve` or `deny`; unknown tokens and changed decisions fail closed.
-- Future native orchestration can consume the decision once only for the unchanged call identity, tool name, source,
-  and purpose. Approval yields the existing exact grant; denial never yields a grant; neither path executes code.
-- The focus-trapped approval modal shows purpose before complete inert source and retains explicit not-run wording for
-  pending, approved, and denied states. `?python=approval-review` exercises the interaction without native inference.
+- One async Rust-owned boundary now publishes a validated exact `run_python` proposal, waits without blocking, and
+  resumes only after the existing opaque-token decision lifecycle resolves.
+- Approval yields the existing one-use grant bound to the unchanged provider call identity, tool name, source, and
+  purpose. Denial is a terminal outcome with no grant, and neither path executes code.
+- The same cancellation signal already shared by provider and native-tool work wakes the approval waiter. Cancellation
+  before publication creates no review; cancellation while pending clears the slot and makes its token stale.
+- A dropped or aborted waiter also clears only its exact retained call, so provider-task abortion cannot strand the
+  one-proposal slot or remove a different proposal.
 
 ## Current limits
 
-No provider call creates an approval request yet, and there is no provider wait/resume mapping, helper or containment
-launch, cancellation integration, execution-result presentation, or Python-specific durable audit flow. Native state
-is process-local and intentionally limited to one proposal. The browser fixture proves presentation and decisions only;
-it does not prove native IPC, provider orchestration, containment, or execution.
+No provider adapter advertises or maps `run_python`, so no product generation invokes the new wait boundary yet. There
+is no helper or containment launch, execution-result presentation, or Python-specific durable audit flow. Native state
+is process-local and intentionally limited to one proposal. Tests prove the provider-neutral lifecycle contract only;
+they do not prove provider mapping, helper containment, execution, installed-package behavior, or durable recovery.
 
 The runtime and package evidence from PR #136 remains development-only. The default and protected Tauri configs remain
 unchanged. No protected signing, notarization, release-candidate binding, publication, installed-package claim, or
@@ -38,19 +39,19 @@ notice.
 
 ## Validation
 
-Local review passed source and focused Markdown formatting, Svelte diagnostics, production build, 276 frontend/script
-tests (3 skipped), 456 Rust application-library tests plus updater evidence (33 ignored), six standalone Python-bundle
-tests, offline dependency and notice gates, release-asset checks, and `git diff --check`. Browser presentation passed at
-1280 × 720 and 480 × 800: the modal stays above responsive navigation, purpose precedes complete source, neither width
-overflows, Approve once and Deny reach distinct not-run acknowledgements, Shift+Tab wraps, and Escape cannot discard a
-pending request. This is browser-fixture and compiled/tested native-contract evidence, not live native IPC, provider
-orchestration, containment, or execution evidence.
+Local review passed source formatting, Svelte diagnostics, production build, 276 frontend/script tests (3 skipped),
+461 Rust application-library tests plus updater evidence (33 ignored), six standalone Python-bundle tests, offline
+dependency and notice gates, release-asset checks, and `git diff --check`. Focused Rust coverage proves approval resume
+with an exact grant, terminal denial, cancellation before and during a wait, stale-token rejection, slot reuse, and
+cleanup when the waiting task is aborted. No presentation changed, so the previously reviewed approval modal remains
+unchanged and no new browser claim is made. This is compiled/tested provider-neutral contract evidence, not provider
+mapping, helper containment, execution, installed-package, signing, release, publication, or Store evidence.
 
 ## Next bounded action
 
-Add provider-neutral wait/resume orchestration for one exact pending decision, with cancellation and denial as terminal
-non-execution paths. Continue to exclude provider advertisement/mappings, helper or containment launch, execution
-results, durable Python audit, protected signing, release, publication, and Microsoft Store certification.
+Add the first provider-neutral contained-helper launch behind one exact approved grant, preserving shared cancellation
+and keeping denial as non-execution. Continue to exclude provider advertisement/mappings, answer/context presentation,
+durable Python audit, protected signing, release, publication, and Microsoft Store certification.
 
 Preserve the unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Do not merge the draft PR
 without separate authorization.

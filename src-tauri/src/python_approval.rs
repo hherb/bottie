@@ -2,17 +2,18 @@
 
 #![allow(
     dead_code,
-    reason = "provider orchestration and approval consumption are intentionally deferred"
+    reason = "provider mapping into this native orchestration is intentionally deferred"
 )]
 
 use std::sync::{Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
+use tokio::sync::Notify;
 
 use crate::{
     AppState, tool_contract::validate_python_tool_arguments, tool_loop::NativeToolCall,
-    tool_policy::ApprovedToolCall,
+    tool_loop::ToolLoopCancellation, tool_policy::ApprovedToolCall,
 };
 
 /// Explicit user decision accepted for one pending Python proposal.
@@ -96,10 +97,22 @@ pub(crate) enum ConsumedPythonApproval {
     Denied,
 }
 
+/// Provider-neutral terminal outcome of waiting for one exact Python decision.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum PythonApprovalResolution {
+    /// Resume native orchestration with one grant bound to the unchanged call.
+    Approved(ApprovedToolCall),
+    /// Stop the proposed call after the user's explicit refusal.
+    Denied,
+    /// Stop the proposed call after shared generation cancellation.
+    Cancelled,
+}
+
 /// Thread-safe owner of the single process-local Python approval slot.
 #[derive(Default)]
 pub(crate) struct PythonApprovalController {
     current: Mutex<Option<PythonApprovalRecord>>,
+    decision_changed: Notify,
 }
 
 struct PythonApprovalRecord {
@@ -110,7 +123,51 @@ struct PythonApprovalRecord {
     decision: Option<PythonApprovalDecision>,
 }
 
+/// Drop guard that prevents an aborted provider waiter from retaining the process-local slot.
+struct PendingPythonApproval<'a> {
+    controller: &'a PythonApprovalController,
+    call: &'a NativeToolCall,
+    active: bool,
+}
+
 impl PythonApprovalController {
+    /// Publishes one exact proposal and waits without blocking for approval, denial, or cancellation.
+    pub(crate) async fn request_and_wait(
+        &self,
+        call: NativeToolCall,
+        cancellation: &ToolLoopCancellation,
+    ) -> Result<PythonApprovalResolution, PythonApprovalError> {
+        if cancellation.is_cancelled() {
+            return Ok(PythonApprovalResolution::Cancelled);
+        }
+        self.request(call.clone())?;
+        let mut pending = PendingPythonApproval {
+            controller: self,
+            call: &call,
+            active: true,
+        };
+        loop {
+            if cancellation.is_cancelled() {
+                pending.clear()?;
+                return Ok(PythonApprovalResolution::Cancelled);
+            }
+            if let Some(decision) = self.take_decision(&call)? {
+                pending.disarm();
+                return Ok(match decision {
+                    ConsumedPythonApproval::Approved(grant) => {
+                        PythonApprovalResolution::Approved(grant)
+                    }
+                    ConsumedPythonApproval::Denied => PythonApprovalResolution::Denied,
+                });
+            }
+            tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => {}
+                _ = self.decision_changed.notified() => {}
+            }
+        }
+    }
+
     /// Retains one validated exact call for explicit review without executing it.
     pub(crate) fn request(
         &self,
@@ -156,7 +213,10 @@ impl PythonApprovalController {
             return Err(approval_error(PythonApprovalErrorCode::AlreadyDecided));
         }
         record.decision = Some(decision);
-        Ok(record.status())
+        let status = record.status();
+        drop(current);
+        self.decision_changed.notify_one();
+        Ok(status)
     }
 
     /// Consumes a ready decision only when every provider-controlled call field still matches.
@@ -183,6 +243,39 @@ impl PythonApprovalController {
             }
             PythonApprovalDecision::Deny => ConsumedPythonApproval::Denied,
         }))
+    }
+
+    /// Clears only the exact retained proposal when its owning generation is cancelled.
+    fn clear_matching(&self, call: &NativeToolCall) -> Result<(), PythonApprovalError> {
+        let mut current = lock(&self.current);
+        if current.as_ref().is_some_and(|record| !record.matches(call)) {
+            return Err(approval_error(PythonApprovalErrorCode::CallMismatch));
+        }
+        *current = None;
+        Ok(())
+    }
+}
+
+impl PendingPythonApproval<'_> {
+    /// Clears the exact pending record and prevents duplicate cleanup on normal cancellation.
+    fn clear(&mut self) -> Result<(), PythonApprovalError> {
+        self.controller.clear_matching(self.call)?;
+        self.active = false;
+        Ok(())
+    }
+
+    /// Marks a decision as already consumed by the normal approval path.
+    fn disarm(&mut self) {
+        self.active = false;
+    }
+}
+
+impl Drop for PendingPythonApproval<'_> {
+    /// Releases this waiter's exact slot if its future is dropped or aborted while pending.
+    fn drop(&mut self) {
+        if self.active {
+            let _ = self.controller.clear_matching(self.call);
+        }
     }
 }
 
