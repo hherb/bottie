@@ -1,7 +1,7 @@
 # Python sandbox feasibility slice
 
-Status: the standalone runner, its inner denial tests, and a development-only macOS XPC containment proof are
-implemented. Bottie does not register, product-bundle, or ship a Python tool yet.
+Status: the standalone runner, its inner denial tests, and development-only macOS, Windows, and Linux containment
+proofs are implemented. Bottie does not register, product-bundle, or ship a Python tool yet.
 
 ## Chosen core
 
@@ -160,11 +160,23 @@ References: [AppContainer isolation](https://learn.microsoft.com/en-us/windows/w
 
 ### Linux
 
-Recommended baseline: have the helper install a Landlock ruleset permitting only the exact read-only runtime and
-staged script, then apply seccomp denial for network, process creation, and exec plus `rlimit` ceilings. A Flatpak build
-or an available Bubblewrap launcher can add namespaces, an empty home, and a private temporary filesystem, but a DEB
-must not silently assume Bubblewrap is installed. Package tests should exercise both the built-in baseline and any
-stronger container path on supported distributions.
+Implemented as a development proof in the unchanged standalone runner: the Linux-only launch mode first requires a
+single-threaded process and arms `PR_SET_PDEATHSIG` with a parent-race check. It then creates a Landlock ruleset that
+handles all filesystem rights available through ABI 3 while granting only read-file and read-directory access to the
+exact configured runtime and per-request staged workspace. Generated source still enters over stdin and the child
+receives only its private `TMPDIR`; no source, output, runtime path, or fixture path enters the final evidence.
+
+The runner creates its existing deadline thread only after Landlock is active, so that thread inherits the filesystem
+domain. It then applies fixed address-space, data, CPU, file-size, and open-descriptor `rlimit` ceilings before
+installing one architecture-checked seccomp BPF filter across all threads with `TSYNC`. The filter denies IPv4/IPv6 and
+Unix socket operations, process-form `clone`, `clone3`, namespace creation, and `execve`/`execveat` while also closing
+the `io_uring` network bypass; it retains thread-form `clone` for the bounded deadline worker. The proof directly
+observes exact runtime/workspace reads, host-fixture denial, network/process/exec denial, ordinary private-pipe
+execution, explicit caller cancellation, and kernel-enforced kill on parent exit.
+
+This is the built-in baseline intended for a future DEB path; it does not depend on Bubblewrap or Flatpak. Those
+containers may add namespaces, an empty home, and private temporary storage later, but must not replace or weaken these
+controls. This proof is not Bottie's Tauri product binary, an installed DEB/AppImage/RPM, or shipping-runtime evidence.
 
 References: [Landlock](https://docs.kernel.org/userspace-api/landlock.html) and
 [seccomp BPF](https://docs.kernel.org/userspace-api/seccomp_filter.html). The kernel explicitly describes seccomp as
@@ -211,6 +223,15 @@ compiles the controller with warnings as errors, builds the locked runner, and e
 zero-capability/Low-integrity/privilege-stripped token state, profile-contained writable temporary storage,
 host-fixture denial, cancellation, and kill-on-controller-close.
 
+On Linux, the credential-free native proof uses that same independently verified runtime:
+
+```sh
+BOTTIE_PYTHON_WASI_RUNTIME=/absolute/path/to/extracted/python npm run python:linux:prove
+```
+
+The command builds the locked runner and returns only path-free boolean evidence for its Landlock, seccomp, rlimit,
+private-environment, runtime/workspace-read, host-fixture-denial, private-pipe, cancellation, and parent-close checks.
+
 ## Deferred product integration
 
 This slice deliberately does not:
@@ -220,8 +241,8 @@ This slice deliberately does not:
 - add the approval UI required by `ToolExecutionPolicy::ApprovalRequired`;
 - launch the helper from Bottie's Tauri process or connect product cancellation and durable audit;
 - download, bundle, inventory, sign, or publish the CPython runtime or helper; or
-- claim Linux containment or shipping-package macOS/Windows containment.
+- claim shipping-package containment on macOS, Windows, or Linux.
 
-The next bounded slice is a Linux Landlock/seccomp/rlimits containment proof around this exact helper contract. It must
-pass Linux-native tests for explicit runtime/workspace access, private-pipe execution, cancellation, parent-close
-cleanup, denied networking/process creation/exec, and denial of a host fixture before product integration begins.
+The next bounded slice is reproducible CPython/WASI build provenance plus cross-platform development bundling, licence,
+inventory, and package inspection. Protected signing, release publication, and Microsoft Store work remain separately
+authorized and deferred.

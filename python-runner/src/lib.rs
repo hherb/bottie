@@ -26,6 +26,11 @@ use wasmtime_wasi::{
     p2::pipe::MemoryOutputPipe,
 };
 
+#[cfg(target_os = "linux")]
+mod linux_containment;
+#[cfg(target_os = "linux")]
+pub use linux_containment::{LinuxContainedExecution, LinuxContainmentEvidence};
+
 /// Maximum UTF-8 size accepted for one generated Python program.
 pub const MAX_CODE_BYTES: usize = 32 * 1_024;
 /// Maximum Unicode scalar count accepted for the user-visible execution purpose.
@@ -155,15 +160,54 @@ impl PythonSandbox {
 
     /// Executes one validated program with no inherited ambient host capabilities.
     pub fn execute(&self, request: &PythonExecutionRequest) -> Result<PythonExecutionResult> {
+        self.execute_with_host_boundary(request, |_| Ok(()), |_| Ok(()))
+            .map(|(result, ())| result)
+    }
+
+    #[cfg(target_os = "linux")]
+    /// Executes one request after applying Bottie's built-in Linux host boundary.
+    ///
+    /// The optional denied fixture is used only by the development proof. Generated source and
+    /// runtime paths remain native-owned and the returned evidence contains no paths.
+    pub fn execute_linux_contained(
+        &self,
+        request: &PythonExecutionRequest,
+        denied_fixture: Option<&Path>,
+    ) -> Result<LinuxContainedExecution> {
+        let (result, evidence) = self.execute_with_host_boundary(
+            request,
+            |workspace| {
+                linux_containment::enter_filesystem_boundary(
+                    &self.runtime_directory,
+                    workspace,
+                    denied_fixture,
+                )
+            },
+            linux_containment::restrict_syscalls,
+        )?;
+        Ok(LinuxContainedExecution { evidence, result })
+    }
+
+    fn execute_with_host_boundary<T>(
+        &self,
+        request: &PythonExecutionRequest,
+        enter_boundary: impl FnOnce(&Path) -> Result<T>,
+        finish_boundary: impl FnOnce(&mut T) -> Result<()>,
+    ) -> Result<(PythonExecutionResult, T)> {
         request.validate()?;
         let workspace = TempDir::new().context("could not create the isolated workspace")?;
         std::fs::write(workspace.path().join("main.py"), &request.code)
             .context("could not stage the Python program")?;
 
-        self.execute_workspace(workspace.path())
+        self.execute_workspace(workspace.path(), enter_boundary, finish_boundary)
     }
 
-    fn execute_workspace(&self, workspace: &Path) -> Result<PythonExecutionResult> {
+    fn execute_workspace<T>(
+        &self,
+        workspace: &Path,
+        enter_boundary: impl FnOnce(&Path) -> Result<T>,
+        finish_boundary: impl FnOnce(&mut T) -> Result<()>,
+    ) -> Result<(PythonExecutionResult, T)> {
         let stdout = MemoryOutputPipe::new(OUTPUT_LIMIT_BYTES);
         let stderr = MemoryOutputPipe::new(OUTPUT_LIMIT_BYTES);
         let wasi = build_wasi_context(
@@ -192,8 +236,10 @@ impl PythonSandbox {
         let instance = linker.instantiate(&mut store, &self.module)?;
         let start = instance.get_typed_func::<(), ()>(&mut store, "_start")?;
 
+        let mut boundary = enter_boundary(workspace)?;
         let timed_out = Arc::new(AtomicBool::new(false));
-        let timer = start_deadline(self.engine.clone(), Arc::clone(&timed_out));
+        let timer = start_deadline(self.engine.clone(), Arc::clone(&timed_out))?;
+        finish_boundary(&mut boundary)?;
         let started = Instant::now();
         let execution = start.call(&mut store, ());
         timer.stop();
@@ -209,12 +255,15 @@ impl PythonSandbox {
             raw_stderr.len(),
             stdout_was_truncated || stderr_was_truncated,
         );
-        Ok(PythonExecutionResult {
-            status,
-            stdout,
-            stderr,
-            duration_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
-        })
+        Ok((
+            PythonExecutionResult {
+                status,
+                stdout,
+                stderr,
+                duration_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
+            },
+            boundary,
+        ))
     }
 }
 
@@ -323,15 +372,18 @@ impl Deadline {
     }
 }
 
-fn start_deadline(engine: Engine, timed_out: Arc<AtomicBool>) -> Deadline {
+fn start_deadline(engine: Engine, timed_out: Arc<AtomicBool>) -> Result<Deadline> {
     let (stop_sender, stop_receiver) = mpsc::channel();
-    let timer = thread::spawn(move || {
-        if stop_receiver.recv_timeout(EXECUTION_TIMEOUT).is_err() {
-            timed_out.store(true, Ordering::Release);
-            engine.increment_epoch();
-        }
-    });
-    Deadline { stop_sender, timer }
+    let timer = thread::Builder::new()
+        .name("python-execution-deadline".to_owned())
+        .spawn(move || {
+            if stop_receiver.recv_timeout(EXECUTION_TIMEOUT).is_err() {
+                timed_out.store(true, Ordering::Release);
+                engine.increment_epoch();
+            }
+        })
+        .context("could not start the execution deadline")?;
+    Ok(Deadline { stop_sender, timer })
 }
 
 #[cfg(test)]
