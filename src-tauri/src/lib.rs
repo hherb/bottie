@@ -21,6 +21,7 @@ mod localmail;
 mod microphone;
 mod provider_registry;
 mod python_approval;
+mod python_execution;
 mod run_cancellation;
 mod semantic_indexer;
 mod speech;
@@ -44,6 +45,8 @@ mod generation_tools_tests;
 mod localmail_tool_tests;
 #[cfg(test)]
 mod python_approval_tests;
+#[cfg(test)]
+mod python_execution_tests;
 #[cfg(test)]
 mod python_tool_tests;
 #[cfg(test)]

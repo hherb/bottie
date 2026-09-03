@@ -1,13 +1,12 @@
 # Bottie handover
 
-Last verified: 2026-09-03
+Last verified: 2026-09-04
 
 ## Start here
 
-PR #139 merged into `main` at `9739749`. Its review correctly found that a generation-time proposal would not reach
-the startup-only WebView approval state. The focused event-publication fix is on
-`codex/python-approval-publish-event`. No helper, provider mapping, signing, release, publication, or Microsoft Store
-action was taken.
+PRs #139 and #140 are merged into `main` at `b27a769`. The next bounded slice is on
+`codex/python-contained-helper-launch`. No provider mapping, answer/context presentation, durable Python audit,
+signing, release, publication, or Microsoft Store action was taken.
 
 Read, in order:
 
@@ -17,49 +16,44 @@ Read, in order:
 
 ## Completed slice
 
-- One async Rust-owned boundary now publishes a validated exact `run_python` proposal, waits without blocking, and
-  resumes only after the existing opaque-token decision lifecycle resolves.
-- Approval yields the existing one-use grant bound to the unchanged provider call identity, tool name, source, and
-  purpose. Denial is a terminal outcome with no grant, and neither path executes code.
-- The same cancellation signal already shared by provider and native-tool work wakes the approval waiter. Cancellation
-  before publication creates no review; cancellation while pending clears the slot and makes its token stale.
-- A dropped or aborted waiter also clears only its exact retained call, so provider-task abortion cannot strand the
-  one-proposal slot or remove a different proposal.
-- Every newly pending proposal is now emitted as the same bounded path-free public status used by the existing Tauri
-  command. Cancellation or waiter abortion emits `null` so the WebView cannot retain a stale pending modal.
-- The WebView subscribes before its startup read and ignores a stale read when a newer event arrived. It releases the
-  listener on page disposal. Native event-publication failure rejects and clears the proposal instead of waiting
-  invisibly.
+- One provider-neutral Rust boundary now waits for the existing exact approval, consumes its one-use grant against the
+  unchanged complete call, validates the Python arguments again, and only then invokes an injected runner.
+- Denial and cancellation while review is pending are terminal non-execution outcomes. The same shared cancellation
+  signal reaches an already-started runner, and a dropped concrete child future is configured to kill the process.
+- The helper request is bounded JSON on private stdin only. Product `source` becomes helper `code`; source, purpose,
+  and provider call identity never enter process arguments or the child environment.
+- Helper stdout must match the exact closed status/stdout/stderr/duration contract. The launcher rejects malformed,
+  future-shaped, oversized, non-zero-exit, launch, timeout, and private-pipe failures with fixed path-free errors.
+- The only concrete launcher is Linux-only and selects the runner's built-in `--linux-contained`
+  Landlock/seccomp/rlimit mode. macOS and Windows deliberately have no direct-process fallback.
 
 ## Current limits
 
-No provider adapter advertises or maps `run_python`, so no product generation invokes the wait boundary yet. The event
-path is compiled and tested but cannot arise from a normal provider run in this slice. There is no helper or containment
-launch, execution-result presentation, or Python-specific durable audit flow. Native state is process-local and
-intentionally limited to one proposal. Tests do not prove provider mapping, helper containment, execution,
-installed-package behavior, or durable recovery.
+No provider adapter advertises or maps `run_python`, so normal product generation cannot reach this execution boundary.
+The Tauri application does not yet resolve or inject packaged helper/runtime paths. macOS still needs a product XPC
+transport and Windows still needs a product AppContainer transport; the earlier proofs remain transient development
+evidence. There is no execution-result presentation or Python-specific durable audit flow.
 
 The runtime and package evidence from PR #136 remains development-only. The default and protected Tauri configs remain
-unchanged. No protected signing, notarization, release-candidate binding, publication, installed-package claim, or
-Microsoft Store work is authorized. Store certification and publication remain deferred until fresh release-owner
+unchanged. No installed-package containment, protected signing, notarization, release-candidate binding, publication,
+or Microsoft Store work is authorized. Store certification and publication remain deferred until fresh release-owner
 notice.
 
 ## Validation
 
 Local review passed source formatting, Svelte diagnostics, production build, 278 frontend/script tests (3 skipped),
-463 Rust application-library tests plus updater evidence (33 ignored), six standalone Python-bundle tests, offline
-dependency and notice gates, release-asset checks, and `git diff --check`. Focused native tests cover pending and
-cancellation event publication plus fail-closed cleanup when publication is unavailable. Focused WebView tests cover
-generation-time delivery, cancellation removal, startup-read race handling, and listener disposal. The existing modal
-markup and styling did not change, so no new browser-layout claim is made. This is compiled/tested event-contract
-evidence, not provider mapping, helper containment, execution, installed-package, signing, release, publication, or
-Store evidence.
+470 Rust application-library tests plus updater evidence (33 ignored), seven focused execution tests, six standalone
+Python-bundle tests, offline dependency and notice gates, release-asset checks, and `git diff --check`. Strict Clippy
+remains an optional diagnostic and reports pre-existing warnings outside this slice. No browser-layout claim is needed
+because the WebView did not change. No live helper was launched on this macOS host because direct launch would violate
+the required XPC boundary.
 
 ## Next bounded action
 
-Add the first provider-neutral contained-helper launch behind one exact approved grant, preserving shared cancellation
-and keeping denial as non-execution. Continue to exclude provider advertisement/mappings, answer/context presentation,
-durable Python audit, protected signing, release, publication, and Microsoft Store certification.
+Add the first macOS product transport behind the existing provider-neutral runner interface. Reuse the separately
+App-Sandboxed XPC design, private pipes, shared cancellation, and connection-invalidation cleanup. Continue to exclude
+provider advertisement/mappings, answer/context presentation, durable Python audit, Windows AppContainer product
+transport, protected signing, release, publication, and Microsoft Store certification.
 
 Preserve the unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Do not merge the draft PR
 without separate authorization.
