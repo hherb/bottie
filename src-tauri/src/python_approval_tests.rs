@@ -1,16 +1,22 @@
 //! Provider-neutral pending Python approval lifecycle tests.
 
+use std::{sync::Arc, time::Duration};
+
 use serde_json::{json, to_value};
 
 use crate::{
     python_approval::{
         ConsumedPythonApproval, PythonApprovalController, PythonApprovalDecision,
         PythonApprovalDecisionRequest, PythonApprovalErrorCode, PythonApprovalPhase,
+        PythonApprovalResolution,
     },
     tool_contract::RUN_PYTHON_TOOL_NAME,
-    tool_loop::NativeToolCall,
+    tool_loop::{NativeToolCall, ToolLoopCancellation},
     tool_policy::authorize_tool_call,
 };
+
+/// Maximum time an async test waits for the spawned orchestration to publish its review.
+const PENDING_REVIEW_TIMEOUT: Duration = Duration::from_secs(1);
 
 /// Builds one exact bounded Python call for lifecycle tests.
 fn python_call(call_id: &str, source: &str, purpose: &str) -> NativeToolCall {
@@ -19,6 +25,22 @@ fn python_call(call_id: &str, source: &str, purpose: &str) -> NativeToolCall {
         tool_name: RUN_PYTHON_TOOL_NAME.into(),
         arguments: json!({"source": source, "purpose": purpose}),
     }
+}
+
+/// Waits for a spawned orchestration task to publish its review without assuming scheduler order.
+async fn pending_review(
+    controller: &PythonApprovalController,
+) -> crate::python_approval::PythonApprovalStatus {
+    tokio::time::timeout(PENDING_REVIEW_TIMEOUT, async {
+        loop {
+            if let Some(status) = controller.current() {
+                return status;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("provider-neutral orchestration should publish one pending review")
 }
 
 #[test]
@@ -177,4 +199,141 @@ fn webview_decisions_accept_only_the_closed_token_and_decision_shape() {
     ] {
         assert!(serde_json::from_value::<PythonApprovalDecisionRequest>(malformed).is_err());
     }
+}
+
+#[tokio::test]
+async fn waits_for_approval_then_resumes_with_one_exact_grant() {
+    let controller = Arc::new(PythonApprovalController::default());
+    let cancellation = ToolLoopCancellation::default();
+    let call = python_call("python-call", "print(4)", "Calculate two plus two.");
+    let waiting_controller = controller.clone();
+    let waiting_cancellation = cancellation.clone();
+    let waiting_call = call.clone();
+    let waiter = tokio::spawn(async move {
+        waiting_controller
+            .request_and_wait(waiting_call, &waiting_cancellation)
+            .await
+    });
+
+    let pending = pending_review(&controller).await;
+    assert!(!waiter.is_finished());
+    controller
+        .decide(&pending.request_id, PythonApprovalDecision::Approve)
+        .expect("the exact opaque token should wake the waiter");
+
+    let PythonApprovalResolution::Approved(grant) = waiter.await.unwrap().unwrap() else {
+        panic!("approval should resume with one exact native grant");
+    };
+    assert!(authorize_tool_call(&call, Some(grant)).is_ok());
+    assert_eq!(controller.current(), None);
+}
+
+#[tokio::test]
+async fn denial_wakes_the_waiter_as_a_terminal_non_execution_path() {
+    let controller = Arc::new(PythonApprovalController::default());
+    let cancellation = ToolLoopCancellation::default();
+    let call = python_call("python-call", "print(4)", "Calculate two plus two.");
+    let waiting_controller = controller.clone();
+    let waiting_cancellation = cancellation.clone();
+    let waiter = tokio::spawn(async move {
+        waiting_controller
+            .request_and_wait(call, &waiting_cancellation)
+            .await
+    });
+
+    let pending = pending_review(&controller).await;
+    controller
+        .decide(&pending.request_id, PythonApprovalDecision::Deny)
+        .expect("denial should resolve the exact pending proposal");
+
+    assert_eq!(
+        waiter.await.unwrap().unwrap(),
+        PythonApprovalResolution::Denied
+    );
+    assert_eq!(controller.current(), None);
+}
+
+#[tokio::test]
+async fn shared_cancellation_wakes_the_waiter_and_releases_the_slot() {
+    let controller = Arc::new(PythonApprovalController::default());
+    let cancellation = ToolLoopCancellation::default();
+    let waiting_controller = controller.clone();
+    let waiting_cancellation = cancellation.clone();
+    let waiter = tokio::spawn(async move {
+        waiting_controller
+            .request_and_wait(
+                python_call("cancelled-call", "print(4)", "Calculate exactly."),
+                &waiting_cancellation,
+            )
+            .await
+    });
+
+    let pending = pending_review(&controller).await;
+    cancellation.cancel();
+
+    assert_eq!(
+        waiter.await.unwrap().unwrap(),
+        PythonApprovalResolution::Cancelled
+    );
+    assert_eq!(controller.current(), None);
+    let stale = controller
+        .decide(&pending.request_id, PythonApprovalDecision::Approve)
+        .expect_err("cancellation must make the old decision token stale");
+    assert_eq!(stale.code, PythonApprovalErrorCode::RequestNotFound);
+    assert!(
+        controller
+            .request(python_call("next-call", "print(5)", "Print five."))
+            .is_ok(),
+        "cancellation should release the one-proposal slot"
+    );
+}
+
+#[tokio::test]
+async fn aborting_the_waiter_releases_the_pending_slot() {
+    let controller = Arc::new(PythonApprovalController::default());
+    let waiting_controller = controller.clone();
+    let waiter = tokio::spawn(async move {
+        waiting_controller
+            .request_and_wait(
+                python_call("aborted-call", "print(4)", "Calculate exactly."),
+                &ToolLoopCancellation::default(),
+            )
+            .await
+    });
+
+    pending_review(&controller).await;
+    waiter.abort();
+    assert!(
+        waiter
+            .await
+            .expect_err("the waiter should be aborted")
+            .is_cancelled()
+    );
+
+    assert_eq!(controller.current(), None);
+    assert!(
+        controller
+            .request(python_call("next-call", "print(5)", "Print five."))
+            .is_ok(),
+        "an aborted waiter should release the one-proposal slot"
+    );
+}
+
+#[tokio::test]
+async fn cancellation_before_a_request_never_publishes_a_review() {
+    let controller = PythonApprovalController::default();
+    let cancellation = ToolLoopCancellation::default();
+    cancellation.cancel();
+
+    assert_eq!(
+        controller
+            .request_and_wait(
+                python_call("cancelled-call", "print(4)", "Calculate exactly."),
+                &cancellation,
+            )
+            .await
+            .unwrap(),
+        PythonApprovalResolution::Cancelled
+    );
+    assert_eq!(controller.current(), None);
 }

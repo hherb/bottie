@@ -15,6 +15,7 @@ use std::{
 
 use serde::Serialize;
 use serde_json::Value;
+use tokio::sync::Notify;
 
 use crate::{
     storage::{ConversationStore, SemanticEmbedder},
@@ -95,17 +96,30 @@ pub(crate) enum ToolRoundError<E> {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ToolLoopCancellation {
     cancelled: Arc<AtomicBool>,
+    notification: Arc<Notify>,
 }
 
 impl ToolLoopCancellation {
     /// Raises the cancellation signal for the active loop and later checks.
     pub(crate) fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
+        self.notification.notify_waiters();
     }
 
     /// Returns whether cancellation has been requested.
-    fn is_cancelled(&self) -> bool {
+    pub(crate) fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
+    }
+
+    /// Waits without blocking an async worker until the permanent cancellation signal is raised.
+    pub(crate) async fn cancelled(&self) {
+        let notified = self.notification.notified();
+        tokio::pin!(notified);
+        notified.as_mut().enable();
+        if self.is_cancelled() {
+            return;
+        }
+        notified.await;
     }
 }
 

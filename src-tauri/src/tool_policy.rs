@@ -32,10 +32,6 @@ pub(crate) struct ApprovedToolCall {
 
 impl ApprovedToolCall {
     /// Captures the exact call identity, tool, and arguments approved by a trusted native flow.
-    #[allow(
-        dead_code,
-        reason = "the native approval prompt is a later bounded slice"
-    )]
     pub(crate) fn for_call(call: &NativeToolCall) -> Self {
         Self {
             call_id: call.call_id.clone(),
