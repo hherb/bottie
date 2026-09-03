@@ -299,6 +299,15 @@ denial and lifecycle checks, and deletes the bundle without notarizing or publis
 BOTTIE_PYTHON_WASI_RUNTIME=/absolute/path/to/extracted/python npm run python:xpc:prove
 ```
 
+On Windows, the equivalent credential-free development proof creates a transient zero-capability AppContainer profile,
+uses a restricted token and limited Job Object, and removes the copied runtime/profile after the denial and lifecycle
+checks:
+
+```powershell
+$env:BOTTIE_PYTHON_WASI_RUNTIME = "C:\absolute\path\to\extracted\python"
+npm run python:appcontainer:prove
+```
+
 Run the opt-in large-history budgets separately so their deterministic 2,000-conversation/50,000-message fixture does
 not add to the default test duration:
 

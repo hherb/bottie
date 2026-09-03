@@ -1,0 +1,455 @@
+#!/usr/bin/env node
+
+/** Builds and exercises Bottie's development-only Windows Python AppContainer containment proof. */
+
+import { spawnSync } from "node:child_process";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, resolve, win32 } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const PROOF_EXECUTABLE = "bottie-python-appcontainer.exe";
+const RUNNER_EXECUTABLE = "bottie-python-runner.exe";
+const BUILD_TIMEOUT_MS = 10 * 60_000;
+const PROOF_TIMEOUT_MS = 180_000;
+const PARENT_EXIT_TIMEOUT_MS = 5_000;
+const PARENT_EXIT_POLL_MS = 50;
+const MAX_CAPTURED_OUTPUT_BYTES = 256 * 1_024;
+const ORDINARY_REQUEST = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove private-pipe execution" });
+const ZIP32_MAXIMUM = 0xffff_ffff;
+const ZIP_UTF8_FLAG = 0x0800;
+const ZIP_VERSION = 20;
+const ZIP_DATE_1980_01_01 = 0x0021;
+const CRC32_TABLE = Array.from({ length: 256 }, (_, value) => {
+  let crc = value;
+  for (let bit = 0; bit < 8; bit += 1) crc = (crc & 1) !== 0 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+  return crc >>> 0;
+});
+
+/** Marks one deliberately bounded path-free diagnostic. */
+export class ProofFailure extends Error {}
+
+/** Keeps unexpected host errors from exposing paths or process details. */
+export function safeProofFailure(error) {
+  return error instanceof ProofFailure ? error.message : "The containment proof failed.";
+}
+
+/** Returns canonical locations inside one transient profile's AppContainer-local storage. */
+export function proofProfileLayout(profile) {
+  const root = win32.join(profile, "AC", "proof");
+  return {
+    host: win32.join(root, PROOF_EXECUTABLE),
+    root,
+    runner: win32.join(root, RUNNER_EXECUTABLE),
+    runtime: win32.join(root, "python"),
+  };
+}
+
+/** Returns the locked release build arguments for the unchanged Rust runner. */
+export function runnerBuildArguments(manifest) {
+  return ["build", "--manifest-path", manifest, "--release", "--locked"];
+}
+
+function crc32(content) {
+  let crc = 0xffff_ffff;
+  for (const byte of content) crc = CRC32_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffff_ffff) >>> 0;
+}
+
+async function storedZipEntries(directory, prefix = "") {
+  const children = await readdir(directory, { withFileTypes: true });
+  children.sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0));
+  const entries = [];
+  for (const child of children) {
+    const name = `${prefix}${child.name}`;
+    const path = resolve(directory, child.name);
+    if (child.isDirectory()) entries.push(...(await storedZipEntries(path, `${name}/`)));
+    else if (child.isFile()) entries.push({ content: await readFile(path), name });
+    else throw new ProofFailure("The Python standard library contained an unsupported entry.");
+  }
+  return entries;
+}
+
+function localZipHeader(name, content) {
+  const encodedName = Buffer.from(name, "utf8");
+  const header = Buffer.alloc(30);
+  header.writeUInt32LE(0x04034b50, 0);
+  header.writeUInt16LE(ZIP_VERSION, 4);
+  header.writeUInt16LE(ZIP_UTF8_FLAG, 6);
+  header.writeUInt16LE(0, 8);
+  header.writeUInt16LE(0, 10);
+  header.writeUInt16LE(ZIP_DATE_1980_01_01, 12);
+  header.writeUInt32LE(crc32(content), 14);
+  header.writeUInt32LE(content.length, 18);
+  header.writeUInt32LE(content.length, 22);
+  header.writeUInt16LE(encodedName.length, 26);
+  return { encodedName, header };
+}
+
+function centralZipHeader(name, content, offset) {
+  const encodedName = Buffer.from(name, "utf8");
+  const header = Buffer.alloc(46);
+  header.writeUInt32LE(0x02014b50, 0);
+  header.writeUInt16LE(ZIP_VERSION, 4);
+  header.writeUInt16LE(ZIP_VERSION, 6);
+  header.writeUInt16LE(ZIP_UTF8_FLAG, 8);
+  header.writeUInt16LE(0, 10);
+  header.writeUInt16LE(0, 12);
+  header.writeUInt16LE(ZIP_DATE_1980_01_01, 14);
+  header.writeUInt32LE(crc32(content), 16);
+  header.writeUInt32LE(content.length, 20);
+  header.writeUInt32LE(content.length, 24);
+  header.writeUInt16LE(encodedName.length, 28);
+  header.writeUInt32LE(offset, 42);
+  return { encodedName, header };
+}
+
+/** Builds CPython's deterministic uncompressed standard-library ZIP without invoking another process. */
+export async function buildStoredStandardLibraryArchive(archive, library) {
+  const entries = await storedZipEntries(library);
+  if (entries.length === 0 || entries.length > 0xffff) {
+    throw new ProofFailure("The Python standard-library archive entry count was invalid.");
+  }
+  const local = [];
+  const central = [];
+  let offset = 0;
+  for (const entry of entries) {
+    const localEntry = localZipHeader(entry.name, entry.content);
+    const centralEntry = centralZipHeader(entry.name, entry.content, offset);
+    local.push(localEntry.header, localEntry.encodedName, entry.content);
+    central.push(centralEntry.header, centralEntry.encodedName);
+    offset += localEntry.header.length + localEntry.encodedName.length + entry.content.length;
+    if (offset > ZIP32_MAXIMUM) throw new ProofFailure("The Python standard-library archive was too large.");
+  }
+  const centralSize = central.reduce((size, chunk) => size + chunk.length, 0);
+  if (offset + centralSize > ZIP32_MAXIMUM) {
+    throw new ProofFailure("The Python standard-library archive was too large.");
+  }
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(offset, 16);
+  await writeFile(archive, Buffer.concat([...local, ...central, end]));
+}
+
+/** Returns fixed warning-clean MSVC arguments for the native proof host. */
+export function msvcCompilationArguments(source, output) {
+  return [
+    "/nologo",
+    "/std:c++20",
+    "/EHsc",
+    "/W4",
+    "/WX",
+    "/DUNICODE",
+    "/D_UNICODE",
+    source,
+    `/Fe:${output}`,
+    "advapi32.lib",
+    "ole32.lib",
+    "userenv.lib",
+  ];
+}
+
+/** Keeps only bounded MSVC diagnostic codes and messages while removing host paths. */
+export function safeMsvcDiagnostics(output) {
+  const matches = output.match(/\b(?:fatal )?(?:error|warning) (?:C|LNK)\d{4,5}: [^\r\n]{1,240}/g) ?? [];
+  return matches
+    .slice(0, 4)
+    .map((diagnostic) => diagnostic.replace(/[A-Za-z]:\\[^\s"']+/g, "[path]"))
+    .join("; ");
+}
+
+/** Returns only a known path-free runner status for native-proof diagnostics. */
+export function safeRunnerStatus(value) {
+  const statuses = new Set([
+    "internal_error",
+    "invalid_request",
+    "output_limit",
+    "python_error",
+    "resource_limit",
+    "timed_out",
+  ]);
+  return statuses.has(value) ? value : "unexpected_result";
+}
+
+/** Keeps only one fixed path-free native controller reason. */
+export function safeNativeReason(output) {
+  const match = output.trim().match(/^\{"reason":"([a-z_]+)","status":"failed"\}$/);
+  const reasons = new Set(["native", "process_create", "runner_empty_result", "runner_exit", "runner_timeout"]);
+  return match && reasons.has(match[1]) ? match[1] : "";
+}
+
+/** Maps controlled-proof CPython stderr to one fixed path-free category. */
+export function safePythonFailure(result) {
+  const stderr = typeof result?.stderr === "string" ? result.stderr : "";
+  if (/permission denied|permissionerror/i.test(stderr)) return "python_permission";
+  if (/no such file|cannot find|can't open file/i.test(stderr)) return "python_missing_file";
+  const module = stderr.match(/no module named ['"]([A-Za-z0-9_.]+)['"]/i)?.[1];
+  const startupModules = new Set(["encodings", "site", "_collections_abc", "io", "os"]);
+  if (module && startupModules.has(module)) return `python_module_${module.replace(/^_/, "")}`;
+  if (/modulenotfounderror/i.test(stderr)) return "python_module";
+  if (/fatal python error/i.test(stderr)) return "python_fatal";
+  if (/could not find platform independent libraries/i.test(stderr)) return "python_runtime_layout";
+  return "python_error";
+}
+
+/** Requires the fixed successful result used by both baseline and contained execution. */
+function requireOrdinaryResult(result, label) {
+  if (result.status === "ok" && result.stdout.trim() === "42") return;
+  const reason =
+    result.status === "failed" && typeof result.reason === "string"
+      ? result.reason
+      : result.status === "python_error"
+        ? safePythonFailure(result)
+        : safeRunnerStatus(result.status);
+  throw new ProofFailure(`${label} did not return the expected bounded result (${reason}).`);
+}
+
+/** Runs one native command without retaining its arguments or raw failure output. */
+function runHostCommand(command, arguments_, options = {}) {
+  const result = spawnSync(command, arguments_, {
+    encoding: "utf8",
+    input: options.input,
+    maxBuffer: MAX_CAPTURED_OUTPUT_BYTES,
+    timeout: options.timeout ?? PROOF_TIMEOUT_MS,
+  });
+  if (result.error || result.status !== 0) {
+    const diagnostics = options.msvcDiagnostics
+      ? safeMsvcDiagnostics(`${result.stdout ?? ""}\n${result.stderr ?? ""}`)
+      : "";
+    const nativeReason = options.nativeDiagnostics ? safeNativeReason(result.stdout ?? "") : "";
+    throw new ProofFailure(
+      `${options.label ?? "The AppContainer proof command"} failed${
+        diagnostics ? `: ${diagnostics}` : nativeReason ? ` (${nativeReason}).` : "."
+      }`,
+    );
+  }
+  return result.stdout ?? "";
+}
+
+/** Validates the already-extracted checksum-verified runtime without downloading it. */
+async function validateRuntime(runtime) {
+  for (const required of ["python.wasm", "lib/python3.14/os.py", "LICENSE"]) {
+    if ((await readFile(resolve(runtime, required))).length === 0) {
+      throw new ProofFailure("The configured CPython/WASI runtime is incomplete.");
+    }
+  }
+}
+
+/** Compiles the unchanged runner and native controller into a transient directory. */
+function compileProof(repository, temporary) {
+  const manifest = resolve(repository, "python-runner", "Cargo.toml");
+  runHostCommand("cargo", runnerBuildArguments(manifest), {
+    label: "The locked Python runner build",
+    timeout: BUILD_TIMEOUT_MS,
+  });
+  const controller = resolve(temporary, PROOF_EXECUTABLE);
+  runHostCommand(
+    "cl.exe",
+    msvcCompilationArguments(resolve(repository, "windows-python-appcontainer", "Proof.cpp"), controller),
+    { label: "The native AppContainer controller build", msvcDiagnostics: true, timeout: BUILD_TIMEOUT_MS },
+  );
+  return { controller, runner: resolve(repository, "python-runner", "target", "release", RUNNER_EXECUTABLE) };
+}
+
+/** Parses one private path-bearing profile-preparation response. */
+function parsePreparedProfile(output) {
+  const response = JSON.parse(output.trim());
+  if (!response || response.status !== "prepared" || typeof response.profilePath !== "string") {
+    throw new ProofFailure("The AppContainer profile could not be prepared.");
+  }
+  if (!win32.isAbsolute(response.profilePath)) throw new ProofFailure("The AppContainer profile path was invalid.");
+  return response.profilePath;
+}
+
+/** Parses one path-free proof result. */
+function parseProofResult(output) {
+  const response = JSON.parse(output.trim());
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    throw new ProofFailure("The AppContainer proof returned an invalid result.");
+  }
+  return response;
+}
+
+/** Waits for kill-on-controller-close without sending a signal from the verifier. */
+async function waitForProcessExit(processIdentifier) {
+  const deadline = Date.now() + PARENT_EXIT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(processIdentifier, 0);
+    } catch (error) {
+      if (error?.code === "ESRCH") return;
+      throw new ProofFailure("The proof could not inspect its isolated child process.");
+    }
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, PARENT_EXIT_POLL_MS));
+  }
+  throw new ProofFailure("The Job Object child survived its controller process.");
+}
+
+/** Exercises private pipes, cancellation, token/file denials, and kill-on-parent-close. */
+async function exerciseProof(controller, moniker, layout, fixture) {
+  const common = [moniker, layout.runner, layout.runtime];
+  const probe = parseProofResult(
+    runHostCommand(controller, ["probe", moniker, layout.host, fixture, layout.runtime], {
+      label: "AppContainer denial probe",
+      nativeDiagnostics: true,
+    }),
+  );
+  const failedProbeChecks = [
+    ["app_container", probe.appContainer],
+    ["low_integrity", probe.lowIntegrity],
+    ["privileges_stripped", probe.privilegesStripped],
+    ["zero_capabilities", probe.capabilityCount === 0],
+    ["host_fixture_denial", probe.hostFixtureDenied],
+    ["runtime_read", probe.runtimeReadable],
+    ["runtime_library_read", probe.runtimeLibraryReadable],
+    ["runtime_encodings_read", probe.runtimeEncodingsReadable],
+    ["runtime_encodings_list", probe.runtimeEncodingsListable],
+  ]
+    .filter(([, passed]) => passed !== true)
+    .map(([name]) => name);
+  if (probe.temporaryEnvironmentMatchesPath !== true) {
+    failedProbeChecks.push("temporary_environment_path_mismatch");
+  }
+  if (probe.temporaryEnvironmentWithinProfile !== true) {
+    failedProbeChecks.push("temporary_environment_outside_profile");
+  }
+  if (probe.temporaryPathAvailable !== true) failedProbeChecks.push("temporary_path");
+  if (probe.temporaryPathWithinProfile !== true) failedProbeChecks.push("temporary_path_outside_profile");
+  if (probe.temporaryDirectoryPrepared !== true) {
+    const error = Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown";
+    failedProbeChecks.push(`temporary_directory_${error}`);
+  } else if (probe.temporaryFileCreated !== true) {
+    const error = Number.isSafeInteger(probe.temporaryCreateError) ? probe.temporaryCreateError : "unknown";
+    failedProbeChecks.push(`temporary_create_${error}`);
+  } else if (probe.temporaryFileWritten !== true) {
+    failedProbeChecks.push("temporary_write");
+  } else if (probe.temporaryFileDeleted !== true) {
+    failedProbeChecks.push("temporary_delete");
+  } else if (probe.temporaryWritable !== true) {
+    failedProbeChecks.push("temporary_storage");
+  }
+  if (probe.status !== "ok" || failedProbeChecks.length !== 0) {
+    throw new ProofFailure(`The contained token or access probe failed (${failedProbeChecks.join(",")}).`);
+  }
+
+  const ordinary = parseProofResult(
+    runHostCommand(controller, ["execute", ...common], {
+      input: ORDINARY_REQUEST,
+      label: "Private-pipe execution",
+      nativeDiagnostics: true,
+    }),
+  );
+  requireOrdinaryResult(ordinary, "Private-pipe execution");
+
+  const infiniteRequest = JSON.stringify({ code: "while True:\n    pass", purpose: "Prove cancellation" });
+  const cancelled = parseProofResult(
+    runHostCommand(controller, ["cancel", ...common], {
+      input: infiniteRequest,
+      label: "Runner cancellation",
+      nativeDiagnostics: true,
+    }),
+  );
+  if (cancelled.status !== "cancelled") throw new ProofFailure("The Job Object did not cancel its runner.");
+
+  const parent = parseProofResult(
+    runHostCommand(controller, ["start-and-exit", ...common], {
+      input: infiniteRequest,
+      label: "Kill-on-controller-close proof",
+      nativeDiagnostics: true,
+    }),
+  );
+  if (parent.status !== "started" || !Number.isSafeInteger(parent.pid) || parent.pid <= 0) {
+    throw new ProofFailure("The parent-close proof returned an invalid child identifier.");
+  }
+  await waitForProcessExit(parent.pid);
+}
+
+/** Builds and runs one transient credential-free proof without changing Bottie's product path. */
+async function prove() {
+  if (process.platform !== "win32") throw new ProofFailure("The AppContainer containment proof requires Windows.");
+  const repository = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const runtimeValue = process.env.BOTTIE_PYTHON_WASI_RUNTIME;
+  if (!runtimeValue) {
+    throw new ProofFailure("Set BOTTIE_PYTHON_WASI_RUNTIME to the checksum-verified extracted runtime.");
+  }
+  const runtime = resolve(runtimeValue);
+  await validateRuntime(runtime);
+  const temporary = await mkdtemp(resolve(tmpdir(), "bottie-python-appcontainer-proof-"));
+  const moniker = `bottie.python.runner.proof.${process.pid}`;
+  let controller;
+  let prepared = false;
+  try {
+    const compiled = compileProof(repository, temporary);
+    controller = compiled.controller;
+    const baseline = parseProofResult(
+      runHostCommand(compiled.runner, ["--runtime", runtime], {
+        input: ORDINARY_REQUEST,
+        label: "The uncontained runner control",
+      }),
+    );
+    requireOrdinaryResult(baseline, "The uncontained runner control");
+    const profile = parsePreparedProfile(
+      runHostCommand(controller, ["prepare", moniker], { label: "The transient AppContainer profile" }),
+    );
+    prepared = true;
+    const layout = proofProfileLayout(profile);
+    await mkdir(layout.root, { recursive: true });
+    const builtRunner = resolve(repository, "python-runner", "target", "release", RUNNER_EXECUTABLE);
+    await Promise.all([
+      cp(controller, layout.host),
+      cp(builtRunner, layout.runner),
+      cp(runtime, layout.runtime, { recursive: true }),
+    ]);
+    const standardLibrary = win32.join(layout.runtime, "lib", "python3.14");
+    const standardLibraryArchive = win32.join(layout.runtime, "lib", "python314.zip");
+    await buildStoredStandardLibraryArchive(standardLibraryArchive, standardLibrary);
+    const authorizedProfile = parsePreparedProfile(
+      runHostCommand(controller, ["prepare", moniker], { label: "The copied proof tree access" }),
+    );
+    if (win32.normalize(authorizedProfile).toLowerCase() !== win32.normalize(profile).toLowerCase()) {
+      throw new ProofFailure("The copied proof tree profile changed unexpectedly.");
+    }
+    const fixture = resolve(temporary, "host-owned-denial-fixture.txt");
+    await writeFile(fixture, "AppContainer access must be denied.");
+    await exerciseProof(controller, moniker, layout, fixture);
+    console.log(
+      JSON.stringify({
+        appContainerDeniedHostFixture: true,
+        appContainerLowIntegrity: true,
+        appContainerNoCapabilities: true,
+        cancellation: true,
+        jobCloseKilledRunner: true,
+        privatePipeExecution: true,
+        resourceLimits: true,
+        privilegesStripped: true,
+        status: "ok",
+      }),
+    );
+  } finally {
+    try {
+      if (prepared && controller) {
+        runHostCommand(controller, ["cleanup", moniker], { label: "The transient AppContainer cleanup" });
+      }
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  }
+}
+
+/** Dispatches the sole native-proof mode. */
+async function main() {
+  if (process.argv.length !== 3 || process.argv[2] !== "--prove") {
+    throw new ProofFailure("Use this script through npm run python:appcontainer:prove.");
+  }
+  await prove();
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(`[bottie] ${safeProofFailure(error)}`);
+    process.exitCode = 1;
+  });
+}
