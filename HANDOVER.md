@@ -20,8 +20,9 @@ Read, in order:
 The standalone runner now has one explicit Linux-only containment mode around its existing bounded stdin/stdout JSON
 contract:
 
-- it requires a single-threaded process, arms `PR_SET_PDEATHSIG` with a parent-race check, and applies fixed
-  address-space, data, CPU, output-file, and descriptor `rlimit` ceilings before generated code can run;
+- it requires a single-threaded process, arms `PR_SET_PDEATHSIG` with a parent-race check, then applies fixed
+  address-space, data, CPU, output-file, and descriptor `rlimit` ceilings after its inherited-domain deadline thread
+  exists and before generated code can run;
 - Landlock fails closed when unavailable and grants only read-file/read-directory access to the exact configured
   runtime and per-request workspace; its deadline thread is created after the domain is active and inherits it;
 - an architecture-checked seccomp BPF filter is synchronized across every runner thread, denies socket operations,

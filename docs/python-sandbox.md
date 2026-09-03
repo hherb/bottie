@@ -161,17 +161,17 @@ References: [AppContainer isolation](https://learn.microsoft.com/en-us/windows/w
 ### Linux
 
 Implemented as a development proof in the unchanged standalone runner: the Linux-only launch mode first requires a
-single-threaded process, arms `PR_SET_PDEATHSIG` with a parent-race check, and applies fixed address-space, data, CPU,
-file-size, and open-descriptor `rlimit` ceilings. It then creates a Landlock ruleset that handles all filesystem rights
-available through ABI 3 while granting only read-file and read-directory access to the exact configured runtime and
-per-request staged workspace. Generated source still enters over stdin and the child receives only its private
-`TMPDIR`; no source, output, runtime path, or fixture path enters the final evidence.
+single-threaded process and arms `PR_SET_PDEATHSIG` with a parent-race check. It then creates a Landlock ruleset that
+handles all filesystem rights available through ABI 3 while granting only read-file and read-directory access to the
+exact configured runtime and per-request staged workspace. Generated source still enters over stdin and the child
+receives only its private `TMPDIR`; no source, output, runtime path, or fixture path enters the final evidence.
 
 The runner creates its existing deadline thread only after Landlock is active, so that thread inherits the filesystem
-domain. It then installs one architecture-checked seccomp BPF filter across all threads with `TSYNC`. The filter denies
-IPv4/IPv6 and Unix socket operations, process-form `clone`, `clone3`, namespace creation, and `execve`/`execveat` while
-also closing the `io_uring` network bypass; it retains thread-form `clone` for the bounded deadline worker. The proof
-directly observes exact runtime/workspace reads, host-fixture denial, network/process/exec denial, ordinary private-pipe
+domain. It then applies fixed address-space, data, CPU, file-size, and open-descriptor `rlimit` ceilings before
+installing one architecture-checked seccomp BPF filter across all threads with `TSYNC`. The filter denies IPv4/IPv6 and
+Unix socket operations, process-form `clone`, `clone3`, namespace creation, and `execve`/`execveat` while also closing
+the `io_uring` network bypass; it retains thread-form `clone` for the bounded deadline worker. The proof directly
+observes exact runtime/workspace reads, host-fixture denial, network/process/exec denial, ordinary private-pipe
 execution, explicit caller cancellation, and kernel-enforced kill on parent exit.
 
 This is the built-in baseline intended for a future DEB path; it does not depend on Bubblewrap or Flatpak. Those

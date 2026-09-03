@@ -121,7 +121,6 @@ pub(crate) fn enter_filesystem_boundary(
     }
     let expected_parent = unsafe { libc::getppid() };
     set_parent_death_signal(expected_parent)?;
-    set_resource_limits()?;
     apply_landlock(runtime, workspace)?;
 
     let runtime_readable = File::open(runtime.join("LICENSE")).is_ok();
@@ -137,7 +136,7 @@ pub(crate) fn enter_filesystem_boundary(
         network_denied: false,
         parent_death_signal: parent_death_signal_is_armed(),
         process_creation_denied: false,
-        resource_limits: resource_limits_are_active(),
+        resource_limits: false,
         runtime_readable,
         status: "ok",
         workspace_readable,
@@ -146,6 +145,8 @@ pub(crate) fn enter_filesystem_boundary(
 
 /// Applies seccomp to every runner thread and records direct denial probes.
 pub(crate) fn restrict_syscalls(evidence: &mut LinuxContainmentEvidence) -> Result<()> {
+    set_resource_limits()?;
+    evidence.resource_limits = resource_limits_are_active();
     install_seccomp()?;
     evidence.network_denied = syscall_denied(
         libc::SYS_socket,

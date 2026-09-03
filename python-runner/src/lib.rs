@@ -238,7 +238,7 @@ impl PythonSandbox {
 
         let mut boundary = enter_boundary(workspace)?;
         let timed_out = Arc::new(AtomicBool::new(false));
-        let timer = start_deadline(self.engine.clone(), Arc::clone(&timed_out));
+        let timer = start_deadline(self.engine.clone(), Arc::clone(&timed_out))?;
         finish_boundary(&mut boundary)?;
         let started = Instant::now();
         let execution = start.call(&mut store, ());
@@ -372,15 +372,18 @@ impl Deadline {
     }
 }
 
-fn start_deadline(engine: Engine, timed_out: Arc<AtomicBool>) -> Deadline {
+fn start_deadline(engine: Engine, timed_out: Arc<AtomicBool>) -> Result<Deadline> {
     let (stop_sender, stop_receiver) = mpsc::channel();
-    let timer = thread::spawn(move || {
-        if stop_receiver.recv_timeout(EXECUTION_TIMEOUT).is_err() {
-            timed_out.store(true, Ordering::Release);
-            engine.increment_epoch();
-        }
-    });
-    Deadline { stop_sender, timer }
+    let timer = thread::Builder::new()
+        .name("python-execution-deadline".to_owned())
+        .spawn(move || {
+            if stop_receiver.recv_timeout(EXECUTION_TIMEOUT).is_err() {
+                timed_out.store(true, Ordering::Release);
+                engine.increment_epoch();
+            }
+        })
+        .context("could not start the execution deadline")?;
+    Ok(Deadline { stop_sender, timer })
 }
 
 #[cfg(test)]
