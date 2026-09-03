@@ -41,7 +41,15 @@ export function safeProcessFailure(result) {
   if (result.error?.code === "ETIMEDOUT") return "timeout";
   if (result.signal === "SIGSYS") return "signal_sigsys";
   if (result.signal) return "signal";
-  if (result.status === 101) return "exit_101";
+  if (result.status === 101) {
+    const stages = [
+      ...(result.stderr ?? "").matchAll(
+        /BOTTIE_LINUX_STAGE=(preflight|parent|landlock|filesystem|deadline|rlimits|seccomp|probes)/g,
+      ),
+    ];
+    const stage = stages.at(-1)?.[1];
+    return stage ? `exit_101_after_${stage}` : "exit_101";
+  }
   return "exit";
 }
 

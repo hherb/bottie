@@ -78,6 +78,8 @@ struct LandlockPathBeneathAttr {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LinuxContainmentEvidence {
+    #[serde(skip)]
+    diagnostic_stages: bool,
     /// The child received only its private workspace environment variable.
     pub environment_isolated: bool,
     /// Native executable launch was denied after runner startup.
@@ -114,22 +116,28 @@ pub(crate) fn enter_filesystem_boundary(
     workspace: &Path,
     denied_fixture: Option<&Path>,
 ) -> Result<LinuxContainmentEvidence> {
+    let diagnostic_stages = denied_fixture.is_some();
     if std::fs::read_dir("/proc/self/task")?.count() != 1 {
         return Err(anyhow!(
             "the runner was not single-threaded before Landlock"
         ));
     }
+    mark_stage(diagnostic_stages, "preflight");
     let expected_parent = unsafe { libc::getppid() };
     set_parent_death_signal(expected_parent)?;
+    mark_stage(diagnostic_stages, "parent");
     apply_landlock(runtime, workspace)?;
+    mark_stage(diagnostic_stages, "landlock");
 
     let runtime_readable = File::open(runtime.join("LICENSE")).is_ok();
     let workspace_readable = File::open(workspace.join("main.py")).is_ok();
     let landlock_denied_host_fixture = denied_fixture.is_some_and(permission_denied);
     let environment_names: Vec<_> = std::env::vars_os().map(|(name, _)| name).collect();
     let environment_isolated = environment_names == [std::ffi::OsString::from("TMPDIR")];
+    mark_stage(diagnostic_stages, "filesystem");
 
     Ok(LinuxContainmentEvidence {
+        diagnostic_stages,
         environment_isolated,
         exec_denied: false,
         landlock_denied_host_fixture,
@@ -145,16 +153,26 @@ pub(crate) fn enter_filesystem_boundary(
 
 /// Applies seccomp to every runner thread and records direct denial probes.
 pub(crate) fn restrict_syscalls(evidence: &mut LinuxContainmentEvidence) -> Result<()> {
+    mark_stage(evidence.diagnostic_stages, "deadline");
     set_resource_limits()?;
     evidence.resource_limits = resource_limits_are_active();
+    mark_stage(evidence.diagnostic_stages, "rlimits");
     install_seccomp()?;
+    mark_stage(evidence.diagnostic_stages, "seccomp");
     evidence.network_denied = syscall_denied(
         libc::SYS_socket,
         &[libc::AF_INET.into(), libc::SOCK_STREAM.into(), 0],
     );
     evidence.process_creation_denied = clone_process_denied();
     evidence.exec_denied = exec_process_denied();
+    mark_stage(evidence.diagnostic_stages, "probes");
     Ok(())
+}
+
+fn mark_stage(enabled: bool, stage: &str) {
+    if enabled {
+        eprintln!("BOTTIE_LINUX_STAGE={stage}");
+    }
 }
 
 fn set_parent_death_signal(expected_parent: libc::pid_t) -> Result<()> {
