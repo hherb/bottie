@@ -269,6 +269,8 @@ pending.
   no provider identity exposed to the WebView;
 - [x] provider-neutral approval wait/resume for one exact call, with denial, shared cancellation, and aborted-waiter
   cleanup as terminal non-execution paths;
+- [x] bounded generation-time approval event publication with startup-race-safe WebView subscription and cancellation
+  removal;
 - [ ] contained helper launch, durable Python audit, and explicit provider mappings;
 - [ ] answer/context presentation that labels executed source, bounded outputs, errors, and execution provenance.
 

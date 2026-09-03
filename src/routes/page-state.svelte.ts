@@ -205,6 +205,7 @@ export class PageState {
   dispose(): void {
     this.attachment.dispose();
     this.microphone.dispose();
+    this.pythonApproval.dispose();
     this.speech.dispose();
   }
   /** Opens one persisted conversation from the sidebar. */
