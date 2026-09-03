@@ -5,8 +5,8 @@ Last verified: 2026-09-03
 ## Start here
 
 PR #135 is merged into `main` at `4efc0e7`. The next bounded Python-runtime provenance and development-package slice
-is implemented on `codex/python-runtime-provenance`. Bottie still does not register a provider-visible Python tool,
-launch the helper from Tauri, or select the development bundle inputs for protected distribution. No signing,
+is in draft PR #136 from `codex/python-runtime-provenance`. Bottie still does not register a provider-visible Python
+tool, launch the helper from Tauri, or select the development bundle inputs for protected distribution. No signing,
 publication, release, or Microsoft Store action was taken.
 
 Read, in order:
