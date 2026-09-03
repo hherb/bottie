@@ -1,0 +1,59 @@
+name: Linux Python containment proof
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/linux-python-containment.yml"
+      - "docs/python-sandbox.md"
+      - "package-lock.json"
+      - "package.json"
+      - "python-runner/**"
+      - "scripts/linux-python-containment.mjs"
+      - "scripts/linux-python-containment.test.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    name: Landlock, seccomp, rlimits, and lifecycle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Use Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Verify runtime-free contracts
+        run: |
+          npm test -- scripts/linux-python-containment.test.mjs
+          cargo test --manifest-path python-runner/Cargo.toml --locked
+
+      - name: Download and independently verify the pinned development runtime
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/python-wasi.zip"
+          extracted="$RUNNER_TEMP/python-wasi"
+          url="$(jq -r '.archive.url' python-runner/runtime-manifest.json)"
+          expected_bytes="$(jq -r '.archive.bytes' python-runner/runtime-manifest.json)"
+          expected_digest="$(jq -r '.archive.sha256' python-runner/runtime-manifest.json)"
+          curl --fail --location --silent --show-error "$url" --output "$archive"
+          test "$(stat --format='%s' "$archive")" = "$expected_bytes"
+          test "$(sha256sum "$archive" | cut --delimiter=' ' --fields=1)" = "$expected_digest"
+          unzip -q "$archive" -d "$extracted"
+          runtime_wasm="$(find "$extracted" -type f -name python.wasm -print -quit)"
+          test -n "$runtime_wasm"
+          printf 'BOTTIE_PYTHON_WASI_RUNTIME=%s\n' "$(dirname "$runtime_wasm")" >> "$GITHUB_ENV"
+
+      - name: Compile and run the native containment proof
+        run: npm run python:linux:prove

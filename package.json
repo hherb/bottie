@@ -12,6 +12,7 @@
     "performance:native": "cargo test --manifest-path src-tauri/Cargo.toml performance_budget -- --ignored --nocapture",
     "performance:test": "npm run performance:frontend && npm run performance:native",
     "python:appcontainer:prove": "node scripts/windows-python-appcontainer.mjs --prove",
+    "python:linux:prove": "node scripts/linux-python-containment.mjs --prove",
     "python:xpc:prove": "node scripts/macos-python-xpc.mjs --prove",
     "dependencies:check": "node scripts/dependency-inventory.mjs --check",
     "notices:check": "node scripts/third-party-notices.mjs --check",
