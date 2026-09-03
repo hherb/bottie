@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { toolActivitySummary, toolAuditPresentation, toolDisplayName, untrustedWebResult } from "./tool-audit";
+import {
+  pythonToolReview,
+  toolActivitySummary,
+  toolAuditPresentation,
+  toolDisplayName,
+  untrustedWebResult,
+} from "./tool-audit";
 import type { StoredToolInvocation } from "./storage";
 
 /** Builds one durable tool record for pure audit-presentation tests. */
@@ -29,7 +35,29 @@ describe("tool audit presentation", () => {
     expect(toolDisplayName("search_memory")).toBe("Search conversations");
     expect(toolDisplayName("open_memory")).toBe("Open conversation context");
     expect(toolDisplayName("search_attached_files")).toBe("Search attached files");
+    expect(toolDisplayName("run_python")).toBe("Run Python");
     expect(toolDisplayName("future_tool")).toBe("future_tool");
+  });
+
+  it("accepts only the exact bounded Python source and purpose review shape", () => {
+    const source = "print(sum([2, 3, 5]))";
+    const purpose = "Add the values exactly.";
+
+    expect(pythonToolReview(tool({ toolName: "run_python", arguments: { source, purpose } }))).toEqual({
+      source,
+      purpose,
+    });
+    expect(pythonToolReview(tool({ toolName: "other", arguments: { source, purpose } }))).toBeNull();
+    expect(
+      pythonToolReview(tool({ toolName: "run_python", arguments: { source, purpose, network: true } })),
+    ).toBeNull();
+    expect(pythonToolReview(tool({ toolName: "run_python", arguments: { source: " ", purpose } }))).toBeNull();
+    expect(
+      pythonToolReview(tool({ toolName: "run_python", arguments: { source, purpose: "x".repeat(513) } })),
+    ).toBeNull();
+    expect(
+      pythonToolReview(tool({ toolName: "run_python", arguments: { source: "é".repeat(16_385), purpose } })),
+    ).toBeNull();
   });
 
   it("recognizes only exact successful native fetch envelopes as explicitly untrusted", () => {

@@ -263,8 +263,9 @@ pending.
 - [x] reproducible official-source CPython/WASI build provenance plus exact unsigned development bundling, licence,
   dependency inventory, and cross-platform package inspection;
 - [ ] exact shipping-helper/runtime containment, signing, release-candidate binding, and installed-package inspection;
-- [ ] approval-required native tool contract, user-visible source/purpose review, cancellation, durable audit, and
-  explicit provider mappings;
+- [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
+  or provider advertisement;
+- [ ] one-use approval decisions, contained helper launch, cancellation, durable audit, and explicit provider mappings;
 - [ ] answer/context presentation that labels executed source, bounded outputs, errors, and execution provenance.
 
 See `docs/python-sandbox.md` for the verified boundary, platform options, and exclusions.

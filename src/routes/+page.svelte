@@ -39,6 +39,7 @@
 
   import { PageState } from "./page-state.svelte";
   import { applyPerformancePreview } from "./performance-preview";
+  import { applyPythonApprovalPreview } from "./python-preview";
   import { applyVoicePreview } from "./voice-preview";
   import {
     inferenceStages,
@@ -55,6 +56,7 @@
   onMount(() => {
     if (import.meta.env.DEV) {
       applyPerformancePreview(state, window.location.search);
+      applyPythonApprovalPreview(state, window.location.search);
       applyVoicePreview(state, window.location.search);
     }
     appearanceController = createAppearanceController({

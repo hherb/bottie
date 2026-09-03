@@ -163,6 +163,45 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+.python-tool-review {
+  padding: 8px;
+  margin-top: 6px;
+  border: 1px solid rgba(212, 154, 145, 0.16);
+  border-radius: 6px;
+  background: rgba(212, 154, 145, 0.035);
+}
+.python-tool-review h4 {
+  margin: 0 0 4px;
+  color: #b98982;
+  font-size: 6.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.python-tool-review p {
+  margin: 0 0 8px;
+  color: #aaaead;
+  font-size: 8px;
+  line-height: 1.5;
+}
+.python-tool-review pre {
+  max-height: 220px;
+  padding: 8px;
+  margin: 0 0 8px;
+  overflow: auto;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.24);
+  color: #c4c8c7;
+  font:
+    8.5px/1.5 "SFMono-Regular",
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.python-tool-review .python-tool-notice {
+  margin-bottom: 0;
+  color: #c18d84;
+}
 .tool-pending-note {
   margin: 8px 0 0;
   color: #747d7b;

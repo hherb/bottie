@@ -351,11 +351,18 @@ html[data-theme="light"]
   ) {
   color: var(--muted);
 }
-html[data-theme="light"] :is(.tool-record, .tool-audit-grid div, .tool-payload pre) {
+html[data-theme="light"] :is(.tool-record, .tool-audit-grid div, .tool-payload pre, .python-tool-review pre) {
   background: rgba(39, 34, 48, 0.035);
 }
-html[data-theme="light"] :is(.tool-audit-grid dd, .tool-payload pre) {
+html[data-theme="light"] :is(.tool-audit-grid dd, .tool-payload pre, .python-tool-review p, .python-tool-review pre) {
   color: var(--muted-strong);
+}
+html[data-theme="light"] .python-tool-review {
+  border-color: rgba(149, 73, 63, 0.2);
+  background: rgba(149, 73, 63, 0.035);
+}
+html[data-theme="light"] :is(.python-tool-review h4, .python-tool-review .python-tool-notice) {
+  color: #8f4b42;
 }
 html[data-theme="light"] .context-meter {
   background: rgba(39, 34, 48, 0.12);

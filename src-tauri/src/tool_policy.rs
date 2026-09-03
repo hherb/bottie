@@ -6,7 +6,7 @@ use crate::{
     storage::{OPEN_MEMORY_TOOL_NAME, SEARCH_ATTACHED_FILES_TOOL_NAME, SEARCH_MEMORY_TOOL_NAME},
     tool_contract::{
         CURRENT_TIME_TOOL_NAME, OPEN_EMAIL_TOOL_NAME, READ_EMAIL_ATTACHMENT_TOOL_NAME,
-        SEARCH_EMAIL_TOOL_NAME,
+        RUN_PYTHON_TOOL_NAME, SEARCH_EMAIL_TOOL_NAME,
     },
     tool_loop::NativeToolCall,
     web_fetch::WEB_FETCH_TOOL_NAME,
@@ -19,10 +19,6 @@ pub(crate) enum ToolExecutionPolicy {
     /// The explicitly enabled tool is bounded and read-only, so it can run without a per-call prompt.
     Safe,
     /// The tool can affect external or sensitive state and needs an exact native approval grant.
-    #[allow(
-        dead_code,
-        reason = "no approval-required native tool is registered yet"
-    )]
     ApprovalRequired,
 }
 
@@ -99,6 +95,7 @@ pub(crate) fn tool_execution_policy(tool_name: &str) -> Option<ToolExecutionPoli
         | SEARCH_EMAIL_TOOL_NAME
         | OPEN_EMAIL_TOOL_NAME
         | READ_EMAIL_ATTACHMENT_TOOL_NAME => Some(ToolExecutionPolicy::Safe),
+        RUN_PYTHON_TOOL_NAME => Some(ToolExecutionPolicy::ApprovalRequired),
         _ => None,
     }
 }
