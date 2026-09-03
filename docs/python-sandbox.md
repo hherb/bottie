@@ -1,7 +1,8 @@
 # Python sandbox feasibility slice
 
-Status: the standalone runner, its inner denial tests, and development-only macOS, Windows, and Linux containment
-proofs are implemented. Bottie does not register, product-bundle, or ship a Python tool yet.
+Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
+and official-source runtime provenance with unsigned development-package inspection are implemented. Bottie does not
+register, launch from Tauri, product-enable, or ship a Python tool yet.
 
 ## Chosen core
 
@@ -40,20 +41,20 @@ inherited-sandbox bottie-python-runner -> CPython/WASI
 
 The runner currently enforces:
 
-| Resource | Limit or policy |
-| --- | --- |
-| Request JSON | 256 KiB |
-| Python source | 32 KiB UTF-8 |
-| Execution purpose | 512 Unicode scalar values |
-| Wall time | 30 seconds, including interpreter startup |
-| WebAssembly linear memory | 256 MiB |
-| stdout | 32 KiB after UTF-8 replacement and JSON string escaping |
-| stderr | 32 KiB after UTF-8 replacement and JSON string escaping |
-| Filesystem | Two explicit read-only mounts; no ambient host paths |
-| Environment | Only `PYTHONHOME=/runtime` |
-| Network | TCP, UDP, name lookup, and address use denied |
-| Subprocesses | Not provided by WASI |
-| Random-data request | At most 1 MiB per host call |
+| Resource                  | Limit or policy                                         |
+| ------------------------- | ------------------------------------------------------- |
+| Request JSON              | 256 KiB                                                 |
+| Python source             | 32 KiB UTF-8                                            |
+| Execution purpose         | 512 Unicode scalar values                               |
+| Wall time                 | 30 seconds, including interpreter startup               |
+| WebAssembly linear memory | 256 MiB                                                 |
+| stdout                    | 32 KiB after UTF-8 replacement and JSON string escaping |
+| stderr                    | 32 KiB after UTF-8 replacement and JSON string escaping |
+| Filesystem                | Two explicit read-only mounts; no ambient host paths    |
+| Environment               | Only `PYTHONHOME=/runtime`                              |
+| Network                   | TCP, UDP, name lookup, and address use denied           |
+| Subprocesses              | Not provided by WASI                                    |
+| Random-data request       | At most 1 MiB per host call                             |
 
 The opt-in runtime suite proves ordinary execution and checks host-file denial, network denial, subprocess denial,
 read-only mounts, environment isolation, timeout interruption, output ceilings, and memory-growth denial. The normal
@@ -61,23 +62,29 @@ unit suite checks the request and stable-result contracts without requiring a Py
 
 ## Runtime input and supply chain
 
-CPython documents WASI as a Tier 2 platform, but CPython does not publish the binary used by this spike. The pinned
-development archive comes from Brett Cannon's `cpython-wasi-build` project and must therefore be treated as an
-unofficial supply-chain input. `python-runner/runtime-manifest.json` records its immutable URL, size, SHA-256 digest,
-and required layout. The archive is not committed, downloaded at application runtime, or included in a Bottie
-package.
+`python-runner/runtime-manifest.json` pins the official CPython 3.14.7 source and SBOM from python.org, WASI SDK 24,
+Wasmtime 45.0.3 as the build runner, the fixed build command and environment, the required runtime layout, and every
+input's exact byte count and SHA-256 digest. The previous Brett Cannon `cpython-wasi-build` archive remains pinned only
+as a compatibility-test input for the existing containment suites; the bundling workflow cannot select it as build
+provenance.
 
-The verified development input is CPython 3.14.7 built with WASI SDK 24. Its archive is 14,291,017 bytes, with SHA-256
-`2e064d3fb8172471d39d741348efa722349c40b96301f69968dff714999c584b`; the extracted runtime is approximately 40.8
-MB. Production packaging should use a reproducible Bottie-owned build or separately reviewed provenance and
-attestation, then feed the exact artifact into dependency inventory, licence notices, release-candidate hashes, and
-all three platform package inspections.
+The credential-free pull-request workflow downloads and verifies the official inputs, builds at one fixed path,
+stages the reviewed 539-file runtime, cleans and rebuilds at that same path, then requires the two staged trees and
+path-free evidence documents to be byte-identical. It passes that exact artifact to macOS, Windows, and Linux jobs,
+which build the locked native helper, create an opt-in unsigned Tauri package, extract it, and compare the packaged
+helper/runtime against the original evidence. Same-path repeatability is a bounded hosted proof, not a claim that
+independent hosts produce identical bytes.
 
-On the current Apple-silicon macOS host, the optimized unsigned helper is 14,263,344 bytes. A cold release-mode
-statistics script completed end to end in 3.50 seconds; the runner reported 394 ms inside the execution window after
-module compilation. Together with the extracted runtime, the uncompressed feasibility footprint is approximately 55
-MB before package compression or symbol stripping. These are development-host measurements, not cross-platform
-budgets or signed-package evidence.
+The runtime, helper, and evidence are selected only by `src-tauri/tauri.python-development.conf.json`; Bottie's base
+and protected distribution configurations remain unchanged. The official CPython licence is checked by digest,
+included in `THIRD-PARTY-NOTICES.txt`, and represented alongside the complete runner Cargo graph in
+`dependency-inventory.json`. No application runtime download occurs.
+
+On the current Apple-silicon macOS host, the locally built official runtime is 40,864,108 bytes with tree digest
+`293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b`; the optimized unsigned helper is 14,273,328
+bytes. An unsigned `.app` was built and extracted-package inspection matched all 539 runtime files and the helper.
+These are development-host measurements, not cross-platform, signed, notarized, containment, installed-package, or
+release evidence.
 
 Wasmtime and `wasmtime-wasi` are exactly pinned to 45.0.3 for this slice. That patch contains the fix for Wasmtime's
 June 2026 read-only-directory bypass advisory. Re-audit the current supported Wasmtime release and RustSec/GitHub
@@ -86,6 +93,8 @@ advisories before any distributed build rather than treating this feasibility pi
 Sources:
 
 - [CPython WASI platform notes](https://github.com/python/cpython/blob/main/Platforms/WASI/README.md)
+- [CPython 3.14.7 source release](https://www.python.org/downloads/release/python-3147/)
+- [WASI SDK 24](https://github.com/WebAssembly/wasi-sdk/releases/tag/wasi-sdk-24)
 - [Pinned unofficial CPython/WASI build](https://github.com/brettcannon/cpython-wasi-build/releases/tag/v3.14.7)
 - [Wasmtime 45.0.3](https://github.com/bytecodealliance/wasmtime/releases/tag/v45.0.3)
 - [Wasmtime read-only filesystem advisory](https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-4ch3-9j33-3pmj)
@@ -107,10 +116,10 @@ and sandbox inheritance. The host retains no source in process arguments. Cancel
 connection invalidation kills every retained child, and a direct service-process read of a host-owned fixture outside
 the container is denied.
 
-The transient app, service, helper, copied checksum-verified runtime, and fixture are deleted after the proof. This is
-not Bottie's Tauri product bundle. Distribution packages must still prove the exact shipping nested code, hardened
-runtime, notarization, Gatekeeper acceptance, runtime inventory/licensing, and release-candidate hashes. Deprecated
-custom sandbox profiles are not a release strategy.
+The transient app, service, helper, copied checksum-verified runtime, and fixture are deleted after the proof. The
+unsigned development `.app` now proves bundle placement and byte identity only. Distribution packages must still
+prove the exact shipping nested code, containment launch, hardened runtime, notarization, Gatekeeper acceptance, and
+release-candidate hashes. Deprecated custom sandbox profiles are not a release strategy.
 
 References: [Apple XPC documentation](https://developer.apple.com/documentation/xpc) and
 [Apple's XPC service guidance](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html).
@@ -149,9 +158,9 @@ low-level AppContainer launch sequence in the product. This proof retains the Wi
 its exact token, handle, and Job Object policy stays inspectable. MSIX package identity alone does not make Bottie's
 full-trust desktop process or a future helper an AppContainer.
 
-This is not Bottie's Tauri product binary or an MSI/MSIX package. Both shipping routes still need evidence that the
-exact installed helper/runtime are inventoried and signed, launch under the intended containment policy, retain their
-denials after installation, and terminate with Bottie.
+The unsigned development MSI now proves bundle placement and byte identity only. Both shipping routes still need
+evidence that the exact installed helper/runtime are signed, launch under the intended containment policy, retain
+their denials after installation, and terminate with Bottie.
 
 References: [AppContainer isolation](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation),
 [launching an AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer),
@@ -176,7 +185,8 @@ execution, explicit caller cancellation, and kernel-enforced kill on parent exit
 
 This is the built-in baseline intended for a future DEB path; it does not depend on Bubblewrap or Flatpak. Those
 containers may add namespaces, an empty home, and private temporary storage later, but must not replace or weaken these
-controls. This proof is not Bottie's Tauri product binary, an installed DEB/AppImage/RPM, or shipping-runtime evidence.
+controls. The unsigned development DEB now proves bundle placement and byte identity only; it is not installed-package,
+containment-launch, signing, or shipping-runtime evidence.
 
 References: [Landlock](https://docs.kernel.org/userspace-api/landlock.html) and
 [seccomp BPF](https://docs.kernel.org/userspace-api/seccomp_filter.html). The kernel explicitly describes seccomp as
@@ -187,14 +197,23 @@ one sandbox-building tool rather than a complete sandbox by itself.
 Run the runtime-free contract suite with:
 
 ```sh
+npm run python:bundle:test
 cargo fmt --manifest-path python-runner/Cargo.toml -- --check
 cargo clippy --manifest-path python-runner/Cargo.toml --offline --all-targets -- -D warnings
 cargo test --manifest-path python-runner/Cargo.toml --offline
 cargo build --manifest-path python-runner/Cargo.toml --release --locked --offline
 ```
 
-After downloading and independently verifying the archive in `runtime-manifest.json`, extract it outside the
-repository and run the native boundary suite with:
+The provenance workflow is the authoritative official-source build and package-inspection recipe. Locally, after
+building official CPython with the exact manifest inputs, stage and inspect it with:
+
+```sh
+node scripts/python-runtime-bundle.mjs --stage-built /path/to/Python-3.14.7 /new/runtime/path
+node scripts/python-runtime-bundle.mjs --inspect-runtime /new/runtime/path
+```
+
+After downloading and independently verifying the compatibility archive in `runtime-manifest.json`, extract it
+outside the repository and run the native boundary suite with:
 
 ```sh
 BOTTIE_PYTHON_WASI_RUNTIME=/absolute/path/to/extracted/python \
@@ -240,9 +259,9 @@ This slice deliberately does not:
 - decide automatically that Python is appropriate for a user question;
 - add the approval UI required by `ToolExecutionPolicy::ApprovalRequired`;
 - launch the helper from Bottie's Tauri process or connect product cancellation and durable audit;
-- download, bundle, inventory, sign, or publish the CPython runtime or helper; or
-- claim shipping-package containment on macOS, Windows, or Linux.
+- select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
+- claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice is reproducible CPython/WASI build provenance plus cross-platform development bundling, licence,
-inventory, and package inspection. Protected signing, release publication, and Microsoft Store work remain separately
-authorized and deferred.
+The next bounded slice is the approval-required native Python tool contract and its user-visible source/purpose review,
+without launching the helper from Tauri yet. Protected signing, release publication, and Microsoft Store work remain
+separately authorized and deferred.

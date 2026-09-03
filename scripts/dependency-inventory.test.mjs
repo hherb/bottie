@@ -12,6 +12,7 @@ describe("dependency inventory", () => {
   it("deduplicates Cargo packages while retaining selected features", () => {
     const packages = parseCargoTree(`
 bottie v0.1.0 (/repo/src-tauri)||default
+bottie-python-runner v0.1.0 (/repo/python-runner)|MIT|default
 serde v1.0.228|MIT OR Apache-2.0|derive,std
 serde v1.0.228|MIT OR Apache-2.0|std (*)
 tauri-build v2.5.3|Apache-2.0 OR MIT|default
@@ -36,6 +37,7 @@ tauri-build v2.5.3|Apache-2.0 OR MIT|default
   it("merges target graphs and distinguishes build-only packages", () => {
     const merged = mergeRustInventories([
       {
+        component: "bottie-app",
         target: "aarch64-apple-darwin",
         runtime: [{ name: "serde", version: "1.0.228", licence: "MIT", features: ["std"] }],
         complete: [
@@ -47,8 +49,8 @@ tauri-build v2.5.3|Apache-2.0 OR MIT|default
     ]);
 
     expect(merged).toMatchObject([
-      { name: "serde", scope: "runtime-graph", direct: true },
-      { name: "tauri-build", scope: "build-only", direct: true },
+      { name: "serde", components: ["bottie-app"], scope: "runtime-graph", direct: true },
+      { name: "tauri-build", components: ["bottie-app"], scope: "build-only", direct: true },
     ]);
   });
 
