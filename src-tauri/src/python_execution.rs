@@ -29,9 +29,6 @@ use crate::{
 const MAX_HELPER_REQUEST_BYTES: usize = 256 * 1_024;
 /// Maximum stdout or stderr payload accepted inside a decoded helper result.
 const MAX_HELPER_STREAM_BYTES: usize = 32 * 1_024;
-/// Fixed product profile used by the native Windows AppContainer controller.
-const WINDOWS_APPCONTAINER_PROFILE_MONIKER: &str = "com.bottie.python-runner";
-
 /// Stable result categories emitted by the standalone Python helper.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -200,6 +197,7 @@ impl PythonRunner for MacosXpcPythonRunner {
 ))]
 pub(crate) struct WindowsAppContainerPythonRunner {
     controller_executable: PathBuf,
+    profile_moniker: String,
     runner_executable: PathBuf,
     runtime_directory: PathBuf,
 }
@@ -212,11 +210,13 @@ impl WindowsAppContainerPythonRunner {
     /// Retains native bundle paths without exposing them to the WebView or provider adapters.
     pub(crate) fn new(
         controller_executable: PathBuf,
+        profile_moniker: String,
         runner_executable: PathBuf,
         runtime_directory: PathBuf,
     ) -> Self {
         Self {
             controller_executable,
+            profile_moniker,
             runner_executable,
             runtime_directory,
         }
@@ -237,6 +237,7 @@ impl PythonRunner for WindowsAppContainerPythonRunner {
     {
         Box::pin(execute_windows_appcontainer_controller(
             &self.controller_executable,
+            &self.profile_moniker,
             &self.runner_executable,
             &self.runtime_directory,
             arguments,
@@ -248,7 +249,7 @@ impl PythonRunner for WindowsAppContainerPythonRunner {
 /// Waits for one exact approval and launches only the unchanged authorized Python proposal.
 pub(crate) async fn execute_approved_python(
     controller: &PythonApprovalController,
-    runner: &impl PythonRunner,
+    runner: &(impl PythonRunner + ?Sized),
     call: NativeToolCall,
     cancellation: &ToolLoopCancellation,
 ) -> Result<PythonExecutionOutcome, PythonExecutionError> {
@@ -331,6 +332,7 @@ async fn execute_macos_xpc_client(
 ))]
 async fn execute_windows_appcontainer_controller(
     controller_executable: &Path,
+    profile_moniker: &str,
     runner_executable: &Path,
     runtime_directory: &Path,
     arguments: PythonToolArguments,
@@ -341,7 +343,11 @@ async fn execute_windows_appcontainer_controller(
     }
     execute_private_pipe_process(
         controller_executable,
-        windows_appcontainer_controller_arguments(runner_executable, runtime_directory),
+        windows_appcontainer_controller_arguments(
+            profile_moniker,
+            runner_executable,
+            runtime_directory,
+        ),
         encode_helper_request(&arguments)?,
         cancellation,
     )
@@ -363,14 +369,15 @@ pub(crate) fn macos_xpc_client_arguments() -> Vec<OsString> {
     vec!["execute".into()]
 }
 
-/// Returns the Windows controller's fixed mode, profile, and native-only bundle paths.
+/// Returns the Windows controller's fixed mode, owned profile, and native-only bundle paths.
 pub(crate) fn windows_appcontainer_controller_arguments(
+    profile_moniker: &str,
     runner_executable: &Path,
     runtime_directory: &Path,
 ) -> Vec<OsString> {
     vec![
         "execute".into(),
-        WINDOWS_APPCONTAINER_PROFILE_MONIKER.into(),
+        profile_moniker.into(),
         runner_executable.as_os_str().to_owned(),
         runtime_directory.as_os_str().to_owned(),
     ]

@@ -324,8 +324,9 @@ fn linux_helper_arguments_contain_only_containment_mode_and_the_native_runtime_p
 }
 
 #[test]
-fn windows_controller_arguments_select_the_fixed_profile_and_native_bundle_paths() {
+fn windows_controller_arguments_select_the_owned_profile_and_native_bundle_paths() {
     let arguments = windows_appcontainer_controller_arguments(
+        "com.bottie.python.runner.42",
         std::path::Path::new(r"C:\Program Files\bottie\bottie-python-runner.exe"),
         std::path::Path::new(r"C:\Program Files\bottie\python"),
     );
@@ -334,7 +335,7 @@ fn windows_controller_arguments_select_the_fixed_profile_and_native_bundle_paths
         arguments,
         vec![
             std::ffi::OsString::from("execute"),
-            std::ffi::OsString::from("com.bottie.python-runner"),
+            std::ffi::OsString::from("com.bottie.python.runner.42"),
             std::ffi::OsString::from(r"C:\Program Files\bottie\bottie-python-runner.exe"),
             std::ffi::OsString::from(r"C:\Program Files\bottie\python"),
         ]

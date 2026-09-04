@@ -7,14 +7,26 @@ export const RUST_COMPONENTS = [
 export const LOCAL_RUST_PACKAGES = new Set(["bottie", "bottie-python-runner"]);
 
 export const PYTHON_RUNTIME_INVENTORY_INPUTS = [
+  "macos-python-xpc/Host.swift",
+  "macos-python-xpc/Runner.entitlements",
+  "macos-python-xpc/Service.entitlements",
+  "macos-python-xpc/Service.swift",
+  "macos-python-xpc/Shared.swift",
   "python-runner/Cargo.toml",
   "python-runner/Cargo.lock",
   "python-runner/runtime-manifest.json",
-  "src-tauri/tauri.python-development.conf.json",
+  "scripts/macos-python-xpc.mjs",
+  "scripts/windows-python-appcontainer.mjs",
+  "src-tauri/tauri.python-development.linux.conf.json",
+  "src-tauri/tauri.python-development.macos.conf.json",
+  "src-tauri/tauri.python-development.windows.conf.json",
   "scripts/python-runtime-bundle.mjs",
   "scripts/dependency-inventory-config.mjs",
   ".github/workflows/python-runtime-provenance.yml",
   "third-party/cpython-3.14.7/LICENSE",
+  "windows-python-appcontainer/ProfileStorage.hpp",
+  "windows-python-appcontainer/Proof.cpp",
+  "windows-python-appcontainer/RestrictedToken.hpp",
 ];
 
 export const PYTHON_RUNTIME_SECURITY_RELEVANT_FEATURE = {

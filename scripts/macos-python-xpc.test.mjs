@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   applicationSigningArguments,
   proofBundleLayout,
+  productBundleLayout,
+  productClientSourceName,
   runnerSigningArguments,
   serviceBundleMetadata,
   serviceSigningArguments,
@@ -14,13 +16,25 @@ import {
 const IDENTITY = "A".repeat(40);
 
 describe("macOS Python XPC containment proof", () => {
+  it("stages the product client and service at Tauri's fixed development-bundle inputs", () => {
+    expect(productClientSourceName("aarch64-apple-darwin")).toBe("bottie-python-xpc-client-aarch64-apple-darwin");
+    expect(productBundleLayout("/tmp/python-development", "aarch64-apple-darwin")).toMatchObject({
+      client: "/tmp/python-development/bottie-python-xpc-client-aarch64-apple-darwin",
+      runner: "/tmp/python-development/com.bottie.python-runner.xpc/Contents/Helpers/bottie-python-runner",
+      runtime: "/tmp/python-development/com.bottie.python-runner.xpc/Contents/Resources/python-runtime",
+      service: "/tmp/python-development/com.bottie.python-runner.xpc",
+      serviceExecutable:
+        "/tmp/python-development/com.bottie.python-runner.xpc/Contents/MacOS/bottie-python-xpc-service",
+    });
+  });
+
   it("places the private service and inherited runner in canonical nested-code locations", () => {
     expect(proofBundleLayout("/tmp/proof.app")).toEqual({
       application: "/tmp/proof.app",
       applicationExecutable: "/tmp/proof.app/Contents/MacOS/bottie-python-xpc-proof",
       applicationInfo: "/tmp/proof.app/Contents/Info.plist",
       runner: "/tmp/proof.app/Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Helpers/bottie-python-runner",
-      runtime: "/tmp/proof.app/Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Resources/python",
+      runtime: "/tmp/proof.app/Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Resources/python-runtime",
       service: "/tmp/proof.app/Contents/XPCServices/com.bottie.python-runner.xpc",
       serviceExecutable:
         "/tmp/proof.app/Contents/XPCServices/com.bottie.python-runner.xpc/Contents/MacOS/bottie-python-xpc-service",

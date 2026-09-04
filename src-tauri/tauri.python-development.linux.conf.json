@@ -1,9 +1,6 @@
 {
   "bundle": {
     "externalBin": ["../package/python-development/bottie-python-runner"],
-    "macOS": {
-      "minimumSystemVersion": "10.15"
-    },
     "resources": {
       "../LICENSE": "LICENSE",
       "../MODEL-NOTICE.txt": "MODEL-NOTICE.txt",

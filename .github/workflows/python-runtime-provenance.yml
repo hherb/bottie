@@ -6,11 +6,21 @@ on:
       - ".github/workflows/python-runtime-provenance.yml"
       - "package-lock.json"
       - "package.json"
+      - "macos-python-xpc/**"
       - "python-runner/**"
+      - "scripts/macos-python-xpc.mjs"
+      - "scripts/macos-python-xpc.test.mjs"
       - "scripts/python-runtime-bundle.mjs"
       - "scripts/python-runtime-bundle.test.mjs"
-      - "src-tauri/tauri.python-development.conf.json"
+      - "scripts/windows-python-appcontainer.mjs"
+      - "scripts/windows-python-appcontainer.test.mjs"
+      - "src-tauri/src/lib.rs"
+      - "src-tauri/src/python_execution.rs"
+      - "src-tauri/src/python_runtime.rs"
+      - "src-tauri/src/python_runtime_tests.rs"
+      - "src-tauri/tauri.python-development.*.conf.json"
       - "third-party/cpython-3.14.7/**"
+      - "windows-python-appcontainer/**"
   workflow_dispatch:
 
 permissions:
@@ -205,21 +215,44 @@ jobs:
             --prepare $target package/python-provenance/runtime `
             python-runner/target/release/bottie-python-runner.exe package/python-development
 
+      - name: Stage the macOS product XPC transport
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$(rustc --print host-tuple)"
+          node scripts/macos-python-xpc.mjs --prepare-product "$target" package/python-development
+
+      - name: Stage the Windows product AppContainer controller
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if ([string]::IsNullOrWhiteSpace($visualStudio)) { throw "MSVC build tools are unavailable." }
+          Import-Module "$visualStudio\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $visualStudio -SkipAutomaticLocation `
+            -DevCmdArguments "-arch=x64 -host_arch=x64"
+          $target = (rustc --print host-tuple).Trim()
+          node scripts/windows-python-appcontainer.mjs `
+            --prepare-product $target package/python-development
+
       - name: Build the unsigned macOS development package
         if: runner.os == 'macOS'
         env:
-          CFLAGS: "-mmacosx-version-min=10.15"
-          CXXFLAGS: "-mmacosx-version-min=10.15"
-          MACOSX_DEPLOYMENT_TARGET: "10.15"
+          CFLAGS: "-mmacosx-version-min=14.0"
+          CXXFLAGS: "-mmacosx-version-min=14.0"
+          MACOSX_DEPLOYMENT_TARGET: "14.0"
         run: >-
           npm run tauri -- build --bundles ${{ matrix.bundle }} --no-sign --ci
-          --config src-tauri/tauri.python-development.conf.json -- --locked
+          --config src-tauri/tauri.python-development.macos.conf.json -- --locked
 
       - name: Build the unsigned Windows or Linux development package
         if: runner.os != 'macOS'
         run: >-
           npm run tauri -- build --bundles ${{ matrix.bundle }} --no-sign --ci
-          --config src-tauri/tauri.python-development.conf.json -- --locked
+          --config src-tauri/tauri.python-development.${{ matrix.platform }}.conf.json -- --locked
 
       - name: Inspect the macOS development bundle
         if: runner.os == 'macOS'

@@ -1,0 +1,15 @@
+{
+  "bundle": {
+    "externalBin": [
+      "../package/python-development/bottie-python-runner",
+      "../package/python-development/bottie-python-appcontainer"
+    ],
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../MODEL-NOTICE.txt": "MODEL-NOTICE.txt",
+      "../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
+      "../package/python-development/python-runtime": "python-runtime",
+      "../package/python-development/python-runtime-evidence.json": "python-runtime-evidence.json"
+    }
+  }
+}

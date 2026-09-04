@@ -4,9 +4,9 @@ Last verified: 2026-09-04
 
 ## Start here
 
-PR #142 is merged into `main` at `7411668`. The next bounded slice is on
-`codex/windows-python-appcontainer-transport`. No provider mapping, answer/context presentation, durable Python audit,
-product bundle resolution, signing, release, publication, or Microsoft Store action was taken.
+PR #143 is merged into `main` at `40c8dfc`. Draft PR #144 is open from
+`codex/python-bundle-runtime-injection`. No provider advertisement or mapping, answer/context presentation, durable
+Python audit, default/protected package change, signing, release, publication, or Microsoft Store action was taken.
 
 Read, in order:
 
@@ -16,48 +16,62 @@ Read, in order:
 
 ## Completed slice
 
-- `WindowsAppContainerPythonRunner` now implements the existing provider-neutral runner interface around injected
-  native controller, helper, and runtime paths. It selects only the fixed `execute` mode and
-  `com.bottie.python-runner` profile; source and purpose remain in bounded JSON on private stdin.
-- Linux, macOS, and Windows now share a dedicated bounded private-process transport. It clears the ambient environment,
-  caps stdout and stderr, applies the existing 45-second outer deadline, accepts only the exact closed helper result,
-  and maps launch, exit, timeout, pipe, size, and decode failures to fixed path-free errors.
-- Shared generation cancellation kills and reaps an already-started Windows controller. Controller death closes the
-  existing one-process, kill-on-close Job Object, terminating the contained runner; dropped orchestration retains
-  `kill_on_drop`.
-- Focused tests cover the fixed profile and native-only argument list, exact stdin/result contract, and cancellation
-  after confirmed controller startup. No WebView or provider surface changed.
+- Tauri now resolves packaged Python resources only when the opt-in evidence marker exists. A marked bundle fails
+  closed unless every fixed native client/controller, helper, runtime, and platform service path has the expected
+  regular-file or directory type; native paths stay in Rust.
+- The resolved Linux, macOS, or Windows runner is retained behind the existing provider-neutral trait in native state.
+  Windows additionally provisions a controller-safe profile moniker scoped to Bottie's native process and requests
+  cleanup only for that owned profile when the state is dropped, so overlapping app instances cannot remove one
+  another's AppContainer registration or local storage.
+- Three platform-specific development overlays keep Python absent from default/protected packages. The credential-free
+  provenance workflow now stages the macOS client plus nested XPC service, the Windows controller plus deterministic
+  uncompressed standard-library archive, or the Linux contained helper, then checks the extracted package layout and
+  helper/runtime evidence.
+- Review widened the prior Windows controller-start test deadline from one to five seconds after it reproduced as a
+  full-suite-only scheduling failure and immediately passed in isolation. A later review caught the shared-profile
+  teardown race; focused lifecycle and transport tests now cover distinct process monikers and exact reuse through
+  preparation, execution, and cleanup.
+- Hosted packaging review then exposed that the provenance workflow invoked `cl.exe` without entering Visual Studio's
+  developer shell. The Windows staging step now selects the installed x64 MSVC tools and enters that shell first; a
+  workflow contract test preserves the required ordering.
 
 ## Current limits
 
-No provider adapter advertises or maps `run_python`, so normal product generation still cannot reach the execution
-boundary. The Tauri application does not yet resolve or inject packaged native clients/controllers, provision the
-fixed Windows AppContainer profile, or locate a helper/runtime. The earlier signed XPC and AppContainer proofs remain
-transient development evidence rather than shipping-package evidence.
+No provider adapter advertises or maps `run_python`, so normal generation still cannot reach the injected runner.
+There is no Python-specific durable audit or execution-result presentation. The unsigned macOS development package
+proves resource placement, byte identity, resolver startup, and native compilation only; it does not prove XPC App
+Sandbox execution from that package. Windows controller compilation, profile lifecycle, MSI placement, and Linux DEB
+placement remain pending on the draft PR's credential-free hosted workflow.
 
-There is no execution-result presentation or Python-specific durable audit flow. The default and protected Tauri
-configs remain unchanged. No installed-package containment, protected signing, notarization, release-candidate
-binding, publication, or Microsoft Store work is authorized. Store certification and publication remain deferred
-until fresh release-owner notice.
+The default and protected Tauri configs remain unchanged. No installed-package containment, protected signing,
+notarization, release-candidate binding, publication, or Microsoft Store work is authorized. Store certification and
+publication remain deferred until fresh release-owner notice.
 
 ## Validation
 
-Local review passed source formatting, Svelte diagnostics, production build, 278 frontend/script tests (3 skipped),
-476 Rust application-library tests (33 ignored) plus updater evidence, three focused Windows transport tests, eight
-AppContainer contract tests, seven standalone runner tests, six Python-bundle tests, offline dependency and notice
-gates, release-asset checks, and `git diff --check`. Clippy completed with the same 39 pre-existing warnings outside
-this slice and no warning in a changed file.
+Local review passed source formatting, Svelte diagnostics, production build, 281 frontend/script tests (3 skipped),
+480 Rust application-library tests (33 ignored) plus updater evidence, four focused resource-resolution tests, seven
+standalone runner tests (three runtime tests ignored), seven Python-bundle tests, six XPC contract tests, nine
+AppContainer contract tests, offline dependency and notice gates, release-asset checks, and `git diff --check`. Clippy
+completed with the same 39 pre-existing warnings outside this slice and no warning in a changed file.
 
-No browser-layout or native-app claim is needed because the WebView and live Tauri wiring did not change. Windows
-compilation, the unsigned MSI smoke, and the credential-free native AppContainer proof remain pending on the draft
-PR's hosted workflows. No protected signing or Store workflow is authorized.
+On Apple silicon, the new staging command compiled the target-suffixed XPC client and service. An unsigned opt-in
+`.app` built successfully; extracted-package inspection matched the 539-file, 40,864,108-byte runtime with tree digest
+`293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b` and the 14,273,328-byte helper with SHA-256
+`a686b768840c45231e505f5fc611698d51a6b05d7181950b65ff15fef1200fb9`. The packaged Bottie executable started with
+the resolver active and was then stopped manually. No signing, notarization, protected workflow, or Store action ran.
+On commit `10aecad`, CodeQL, runtime reproducibility, Linux/macOS bundling, Linux containment and packaging, and the
+standalone Windows AppContainer proof passed. Windows provenance bundling stopped before compilation because the
+workflow had not initialized the MSVC environment; the separate native proof used that required setup and passed.
+The workflow fix is locally validated, but re-query the final head before treating the rerun as Windows package
+evidence.
 
 ## Next bounded action
 
-Resolve and inject the packaged platform-native client/controller, helper, and runtime into the existing runner
-interface under the opt-in Python development bundle, including fixed Windows profile provisioning and cleanup. Do not
-advertise or map `run_python`, add answer/context presentation or durable Python audit, alter default/protected package
-configs, sign, release, publish, or perform Microsoft Store certification.
+Record Python approval decisions and bounded execution outcomes in the existing append-only native tool audit through
+a provider-neutral orchestration test harness. Do not advertise or map `run_python`, add answer/context presentation,
+alter default/protected package configs, make installed-package containment claims, sign, release, publish, or perform
+Microsoft Store certification.
 
 Preserve the unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Do not merge the draft PR
 without separate authorization.

@@ -15,6 +15,7 @@ import {
 } from "./python-runtime-bundle.mjs";
 
 const TARGET = "x86_64-unknown-linux-gnu";
+const WINDOWS_TARGET = "x86_64-pc-windows-msvc";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const REPOSITORY_ROOT = join(import.meta.dirname, "..");
 
@@ -98,25 +99,49 @@ async function createRuntime(root, licence = "CPython licence\n") {
 
 describe("CPython/WASI development bundle", () => {
   it("keeps Python bundling opt-in and the hosted proof credential-free", async () => {
-    const config = JSON.parse(
-      await readFile(join(REPOSITORY_ROOT, "src-tauri", "tauri.python-development.conf.json"), "utf8"),
+    const configs = await Promise.all(
+      ["linux", "macos", "windows"].map(async (platform) =>
+        JSON.parse(
+          await readFile(join(REPOSITORY_ROOT, "src-tauri", `tauri.python-development.${platform}.conf.json`), "utf8"),
+        ),
+      ),
     );
+    const [linux, macos, windows] = configs;
     const workflow = await readFile(
       join(REPOSITORY_ROOT, ".github", "workflows", "python-runtime-provenance.yml"),
       "utf8",
     );
 
-    expect(config.bundle.externalBin).toEqual(["../package/python-development/bottie-python-runner"]);
-    expect(config.bundle.macOS.minimumSystemVersion).toBe("10.15");
-    expect(config.bundle.resources).toMatchObject({
+    expect(linux.bundle.externalBin).toEqual(["../package/python-development/bottie-python-runner"]);
+    expect(macos.bundle.externalBin).toEqual(["../package/python-development/bottie-python-xpc-client"]);
+    expect(macos.bundle.macOS.minimumSystemVersion).toBe("14.0");
+    expect(macos.bundle.macOS.files).toEqual({
+      "XPCServices/com.bottie.python-runner.xpc": "../package/python-development/com.bottie.python-runner.xpc",
+    });
+    expect(windows.bundle.externalBin).toEqual([
+      "../package/python-development/bottie-python-runner",
+      "../package/python-development/bottie-python-appcontainer",
+    ]);
+    expect(linux.bundle.resources).toMatchObject({
+      "../package/python-development/python-runtime": "python-runtime",
+    });
+    expect(windows.bundle.resources).toMatchObject({
       "../package/python-development/python-runtime": "python-runtime",
     });
     expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("scripts/python-runtime-bundle.mjs");
     expect(workflow).toContain("--stage-built");
     expect(workflow).toContain("--inspect-package");
-    expect(workflow).toContain('MACOSX_DEPLOYMENT_TARGET: "10.15"');
-    expect(workflow).toContain('CXXFLAGS: "-mmacosx-version-min=10.15"');
+    expect(workflow).toContain('MACOSX_DEPLOYMENT_TARGET: "14.0"');
+    expect(workflow).toContain('CXXFLAGS: "-mmacosx-version-min=14.0"');
+    const windowsControllerStepStart = workflow.indexOf("- name: Stage the Windows product AppContainer controller");
+    const windowsControllerStepEnd = workflow.indexOf("\n      - name:", windowsControllerStepStart + 1);
+    const windowsControllerStep = workflow.slice(windowsControllerStepStart, windowsControllerStepEnd);
+    expect(windowsControllerStep).toContain("Microsoft.VisualStudio.Component.VC.Tools.x86.x64");
+    expect(windowsControllerStep).toContain("Enter-VsDevShell");
+    expect(windowsControllerStep.indexOf("Enter-VsDevShell")).toBeLessThan(
+      windowsControllerStep.indexOf("node scripts/windows-python-appcontainer.mjs"),
+    );
     expect(workflow).not.toContain("secrets.");
     expect(workflow).not.toContain("Microsoft Store");
   });
@@ -220,5 +245,27 @@ describe("CPython/WASI development bundle", () => {
     tamperedEvidence.target = "x86_64-pc-windows-msvc";
     await writeFile(evidencePath, `${JSON.stringify(tamperedEvidence)}\n`);
     await expect(inspectPackagedPythonBundle(packageRoot, "linux", manifest())).rejects.toThrow(/manifest or platform/);
+  });
+
+  it("stages Windows with the deterministic stored standard-library archive", async () => {
+    const root = await mkdtemp(join(tmpdir(), "bottie-python-windows-bundle-test-"));
+    const runtime = join(root, "runtime-source");
+    const runner = join(root, "bottie-python-runner.exe");
+    const inputs = join(root, "inputs");
+    await createRuntime(runtime);
+    await writeFile(runner, "runner");
+
+    const evidence = await preparePythonBundleInputs({
+      manifest: manifest(),
+      outputRoot: inputs,
+      runnerPath: runner,
+      runtimeRoot: runtime,
+      target: WINDOWS_TARGET,
+    });
+    const archive = await readFile(join(inputs, "python-runtime", "lib", "python314.zip"));
+
+    expect(archive.readUInt32LE(0)).toBe(0x04034b50);
+    expect(archive.readUInt32LE(archive.length - 22)).toBe(0x06054b50);
+    expect(evidence.runtime.fileCount).toBe(4);
   });
 });

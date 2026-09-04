@@ -1,6 +1,6 @@
 import Foundation
 
-/// Fixed private service identifier embedded inside the development proof bundle.
+/// Fixed private service identifier embedded inside the development bundle.
 let pythonRunnerServiceIdentifier = "com.bottie.python-runner"
 
 /// Maximum request carried through the proof transport, matching the runner's stdin limit.
@@ -9,7 +9,7 @@ let maximumRequestBytes = 256 * 1_024
 /// Maximum response retained from the runner's private stdout pipe.
 let maximumResponseBytes = 96 * 1_024
 
-/// Private XPC protocol used only by the native containment proof.
+/// Private XPC protocol shared by the native proof and opt-in product transport.
 @objc protocol BottiePythonRunnerServiceProtocol {
   /// Starts one runner process and returns its proof-only process identifier.
   func start(

@@ -155,7 +155,7 @@ private final class PythonRunnerService: NSObject, BottiePythonRunnerServiceProt
     let serviceBundle = Bundle.main.bundleURL
     let runner = serviceBundle.appendingPathComponent("Contents/Helpers/bottie-python-runner")
     let runtime = serviceBundle.appendingPathComponent(
-      "Contents/Resources/python", isDirectory: true)
+      "Contents/Resources/python-runtime", isDirectory: true)
     let stdinPipe = Pipe()
     let stdoutPipe = Pipe()
     let stderrPipe = Pipe()
@@ -225,7 +225,7 @@ private final class PythonRunnerService: NSObject, BottiePythonRunnerServiceProt
   }
 }
 
-/// Accepts only private connections launched for the enclosing proof application.
+/// Accepts only private connections launched for the enclosing application.
 private final class ServiceDelegate: NSObject, NSXPCListenerDelegate {
   func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection)
     -> Bool

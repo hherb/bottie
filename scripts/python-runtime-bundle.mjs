@@ -16,6 +16,15 @@ const SIDECAR_BASENAME = "bottie-python-runner";
 const MAX_RUNTIME_FILES = 4_096;
 const MAX_RUNTIME_BYTES = 128 * 1024 * 1024;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const ZIP32_MAXIMUM = 0xffff_ffff;
+const ZIP_UTF8_FLAG = 0x0800;
+const ZIP_VERSION = 20;
+const ZIP_DATE_1980_01_01 = 0x0021;
+const CRC32_TABLE = Array.from({ length: 256 }, (_, value) => {
+  let crc = value;
+  for (let bit = 0; bit < 8; bit += 1) crc = (crc & 1) !== 0 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+  return crc >>> 0;
+});
 const REVIEWED_URLS = {
   archive:
     "https://github.com/brettcannon/cpython-wasi-build/releases/download/v3.14.7/" + "python-3.14.7-wasi_sdk-24.zip",
@@ -55,13 +64,19 @@ const PACKAGED_LAYOUTS = {
     targetSuffix: "-unknown-linux-gnu",
   },
   macos: {
-    evidence: `Contents/Resources/${EVIDENCE_FILENAME}`,
-    runtime: `Contents/Resources/${RUNTIME_DIRECTORY}`,
-    sidecar: `Contents/MacOS/${SIDECAR_BASENAME}`,
+    evidence: `Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Resources/${EVIDENCE_FILENAME}`,
+    requiredFiles: [
+      "Contents/MacOS/bottie-python-xpc-client",
+      "Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Info.plist",
+      "Contents/XPCServices/com.bottie.python-runner.xpc/Contents/MacOS/bottie-python-xpc-service",
+    ],
+    runtime: `Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Resources/${RUNTIME_DIRECTORY}`,
+    sidecar: `Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Helpers/${SIDECAR_BASENAME}`,
     targetSuffix: "-apple-darwin",
   },
   windows: {
     evidence: EVIDENCE_FILENAME,
+    requiredFiles: ["bottie-python-appcontainer.exe"],
     runtime: RUNTIME_DIRECTORY,
     sidecar: `${SIDECAR_BASENAME}.exe`,
     targetSuffix: "-pc-windows-msvc",
@@ -172,6 +187,94 @@ async function collectFiles(directory, root = directory, state = { files: [], to
   return state.files;
 }
 
+/** Returns one deterministic CRC-32 value for an uncompressed ZIP entry. */
+function crc32(content) {
+  let crc = 0xffff_ffff;
+  for (const byte of content) crc = CRC32_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffff_ffff) >>> 0;
+}
+
+/** Collects standard-library files in stable archive-name order. */
+async function storedZipEntries(directory, prefix = "") {
+  const children = await readdir(directory, { withFileTypes: true });
+  children.sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0));
+  const entries = [];
+  for (const child of children) {
+    const name = `${prefix}${child.name}`;
+    const path = resolve(directory, child.name);
+    if (child.isDirectory()) entries.push(...(await storedZipEntries(path, `${name}/`)));
+    else if (child.isFile()) entries.push({ content: await readFile(path), name });
+    else throw new Error("The Python standard library contained an unsupported entry.");
+  }
+  return entries;
+}
+
+/** Encodes one local uncompressed ZIP header. */
+function localZipHeader(name, content) {
+  const encodedName = Buffer.from(name, "utf8");
+  const header = Buffer.alloc(30);
+  header.writeUInt32LE(0x04034b50, 0);
+  header.writeUInt16LE(ZIP_VERSION, 4);
+  header.writeUInt16LE(ZIP_UTF8_FLAG, 6);
+  header.writeUInt16LE(0, 8);
+  header.writeUInt16LE(0, 10);
+  header.writeUInt16LE(ZIP_DATE_1980_01_01, 12);
+  header.writeUInt32LE(crc32(content), 14);
+  header.writeUInt32LE(content.length, 18);
+  header.writeUInt32LE(content.length, 22);
+  header.writeUInt16LE(encodedName.length, 26);
+  return { encodedName, header };
+}
+
+/** Encodes one central uncompressed ZIP header. */
+function centralZipHeader(name, content, offset) {
+  const encodedName = Buffer.from(name, "utf8");
+  const header = Buffer.alloc(46);
+  header.writeUInt32LE(0x02014b50, 0);
+  header.writeUInt16LE(ZIP_VERSION, 4);
+  header.writeUInt16LE(ZIP_VERSION, 6);
+  header.writeUInt16LE(ZIP_UTF8_FLAG, 8);
+  header.writeUInt16LE(0, 10);
+  header.writeUInt16LE(0, 12);
+  header.writeUInt16LE(ZIP_DATE_1980_01_01, 14);
+  header.writeUInt32LE(crc32(content), 16);
+  header.writeUInt32LE(content.length, 20);
+  header.writeUInt32LE(content.length, 24);
+  header.writeUInt16LE(encodedName.length, 28);
+  header.writeUInt32LE(offset, 42);
+  return { encodedName, header };
+}
+
+/** Builds CPython's deterministic uncompressed standard-library ZIP without a subprocess. */
+export async function buildStoredStandardLibraryArchive(archive, library) {
+  const entries = await storedZipEntries(library);
+  if (entries.length === 0 || entries.length > 0xffff) {
+    throw new Error("The Python standard-library archive entry count was invalid.");
+  }
+  const local = [];
+  const central = [];
+  let offset = 0;
+  for (const entry of entries) {
+    const localEntry = localZipHeader(entry.name, entry.content);
+    const centralEntry = centralZipHeader(entry.name, entry.content, offset);
+    local.push(localEntry.header, localEntry.encodedName, entry.content);
+    central.push(centralEntry.header, centralEntry.encodedName);
+    offset += localEntry.header.length + localEntry.encodedName.length + entry.content.length;
+    if (offset > ZIP32_MAXIMUM) throw new Error("The Python standard-library archive was too large.");
+  }
+  const centralSize = central.reduce((size, chunk) => size + chunk.length, 0);
+  if (offset + centralSize > ZIP32_MAXIMUM) {
+    throw new Error("The Python standard-library archive was too large.");
+  }
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralSize, 12);
+  end.writeUInt32LE(offset, 16);
+  await writeFile(archive, Buffer.concat([...local, ...central, end]));
+}
+
 /** Produces bounded path-free evidence for one exact CPython/WASI runtime tree. */
 export async function inspectPythonRuntime(runtimeRoot, uncheckedManifest) {
   const manifest = validateRuntimeManifest(uncheckedManifest);
@@ -276,6 +379,13 @@ export async function preparePythonBundleInputs({ manifest, outputRoot, runnerPa
   await mkdir(output);
   const runtimeDestination = join(output, RUNTIME_DIRECTORY);
   await cp(resolve(runtimeRoot), runtimeDestination, { recursive: true });
+  if (target.endsWith("-pc-windows-msvc")) {
+    await inspectPythonRuntime(runtimeDestination, manifest);
+    await buildStoredStandardLibraryArchive(
+      join(runtimeDestination, "lib", "python314.zip"),
+      join(runtimeDestination, "lib", PYTHON_LIBRARY_DIRECTORY),
+    );
+  }
   const runtime = await inspectPythonRuntime(runtimeDestination, manifest);
   const runnerSource = resolve(runnerPath);
   const runner = await readRegularFile(runnerSource, "The Python runner input");
@@ -298,6 +408,9 @@ export async function inspectPackagedPythonBundle(packageRoot, platform, uncheck
   const layout = PACKAGED_LAYOUTS[platform];
   if (!layout) throw new Error("The Python package platform is unsupported.");
   const root = resolve(packageRoot);
+  for (const required of layout.requiredFiles ?? []) {
+    await readRegularFile(join(root, ...required.split("/")), "The packaged Python native transport");
+  }
   const evidence = JSON.parse(
     (await readRegularFile(join(root, ...layout.evidence.split("/")), "The packaged Python evidence")).toString("utf8"),
   );

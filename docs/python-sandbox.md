@@ -6,7 +6,8 @@ proposal/review contract, a process-local one-use approve/deny lifecycle, and pr
 implemented. The native waiter also publishes bounded approval lifecycle events to the existing WebView review state.
 An approved exact call can now cross a provider-neutral Rust execution boundary into the helper's bounded private-pipe
 protocol through Linux containment, a macOS XPC client, or a Windows AppContainer controller. Bottie does not yet
-resolve or inject packaged platform resources, advertise, provider-map, product-enable, or ship a Python tool.
+advertise, provider-map, product-enable, or ship a Python tool. The opt-in development package now resolves and
+injects its fixed native resources without changing default or protected packages.
 
 ## Chosen core
 
@@ -75,20 +76,24 @@ provenance.
 The credential-free pull-request workflow downloads and verifies the official inputs, builds at one fixed path,
 stages the reviewed 539-file runtime, cleans and rebuilds at that same path, then requires the two staged trees and
 path-free evidence documents to be byte-identical. It passes that exact artifact to macOS, Windows, and Linux jobs,
-which build the locked native helper, create an opt-in unsigned Tauri package, extract it, and compare the packaged
-helper/runtime against the original evidence. Same-path repeatability is a bounded hosted proof, not a claim that
-independent hosts produce identical bytes.
+which build the locked native helper plus the platform XPC client/service or AppContainer controller, create an opt-in
+unsigned Tauri package, extract it, and compare the packaged helper/runtime against the original evidence while
+requiring the native transport files. Same-path repeatability is a bounded hosted proof, not a claim that independent
+hosts produce identical bytes.
 
-The runtime, helper, and evidence are selected only by `src-tauri/tauri.python-development.conf.json`; Bottie's base
-and protected distribution configurations remain unchanged. The official CPython licence is checked by digest,
-included in `THIRD-PARTY-NOTICES.txt`, and represented alongside the complete runner Cargo graph in
-`dependency-inventory.json`. No application runtime download occurs.
+The runtime, helper, evidence, and platform-native transport are selected only by the three
+`src-tauri/tauri.python-development.*.conf.json` overlays; Bottie's base and protected distribution configurations
+remain unchanged. macOS places the helper/runtime inside the private XPC service and requires macOS 14 for this
+development bundle. Windows and Linux retain the resource directory plus sidecar layout. The official CPython licence
+is checked by digest, included in `THIRD-PARTY-NOTICES.txt`, and represented alongside the complete runner Cargo graph
+in `dependency-inventory.json`. No application runtime download occurs.
 
 On the current Apple-silicon macOS host, the locally built official runtime is 40,864,108 bytes with tree digest
 `293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b`; the optimized unsigned helper is 14,273,328
-bytes. An unsigned `.app` was built and extracted-package inspection matched all 539 runtime files and the helper.
-These are development-host measurements, not cross-platform, signed, notarized, containment, installed-package, or
-release evidence.
+bytes. An unsigned `.app` was built with its target-suffixed native XPC client and nested service; extracted-package
+inspection matched all 539 runtime files and the helper, and the packaged Bottie executable started with the native
+resolver active. These are development-host measurements, not cross-platform, signed, notarized, containment,
+installed-package, or release evidence.
 
 Wasmtime and `wasmtime-wasi` are exactly pinned to 45.0.3 for this slice. That patch contains the fix for Wasmtime's
 June 2026 read-only-directory bypass advisory. Re-audit the current supported Wasmtime release and RustSec/GitHub
@@ -121,9 +126,11 @@ connection invalidation kills every retained child, and a direct service-process
 the container is denied.
 
 The transient app, service, helper, copied checksum-verified runtime, and fixture are deleted after the proof. The
-unsigned development `.app` now proves bundle placement and byte identity only. Distribution packages must still
-prove the exact shipping nested code, containment launch, hardened runtime, notarization, Gatekeeper acceptance, and
-release-candidate hashes. Deprecated custom sandbox profiles are not a release strategy.
+unsigned development `.app` now places the XPC client beside Bottie and the service under `Contents/XPCServices`; the
+native resolver requires the complete fixed layout before retaining the client-backed runner. This proves bundle
+placement and byte identity only. Distribution packages must still prove the exact shipping nested code, containment
+launch, hardened runtime, notarization, Gatekeeper acceptance, and release-candidate hashes. Deprecated custom
+sandbox profiles are not a release strategy.
 
 References: [Apple XPC documentation](https://developer.apple.com/documentation/xpc) and
 [Apple's XPC service guidance](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html).
@@ -139,11 +146,12 @@ only the three anonymous-pipe protocol handles. The child inherits no host envir
 transient profile locations, and Windows maps them into the AppContainer. Source is supplied on stdin and never enters
 a command line or shell.
 
-Before launch, the wrapper's deterministic in-process ZIP32 writer derives an uncompressed `python314.zip` from the
-copied standard-library tree, with no shell or archive subprocess. CPython/WASI searches that archive before the
-directory tree; storing rather than deflating it is required because this pinned WASI build does not provide `zlib`.
-The copied source tree remains present so the contained probe separately proves exact standard-library file reads and
-directory listing.
+Before launch, the proof wrapper and product bundle preparation use the same deterministic in-process ZIP32 writer to
+derive an uncompressed `python314.zip` from the copied standard-library tree, with no shell or archive subprocess. The
+product archive is included before its Windows-specific runtime evidence is calculated. CPython/WASI searches that
+archive before the directory tree; storing rather than deflating it is required because this pinned WASI build does
+not provide `zlib`. The copied source tree remains present so the contained probe separately proves exact
+standard-library file reads and directory listing.
 
 Every child is assigned at process creation to a Job Object limited to one process, 768 MiB committed memory, 120
 seconds of user CPU time, and kill-on-last-handle-close. That outer allowance includes bounded Wasmtime cold startup;
@@ -166,11 +174,15 @@ The unsigned development MSI now proves bundle placement and byte identity only.
 evidence that the exact installed helper/runtime are signed, launch under the intended containment policy, retain
 their denials after installation, and terminate with Bottie.
 
-The provider-neutral Windows product runner now starts an injected controller with the fixed `execute` mode,
-`com.bottie.python-runner` profile, and native-only helper/runtime paths. Source and purpose stay in bounded JSON on
-private stdin. The shared 45-second outer deadline and cancellation kill and reap the controller; closing it activates
-the controller's existing kill-on-close Job Object and terminates the retained AppContainer runner. The Tauri
-application does not yet provision the fixed profile or resolve and inject packaged controller/helper/runtime paths.
+The provider-neutral Windows product runner now starts an injected controller with the fixed `execute` mode, a
+controller-safe `com.bottie.python.runner.<process-id>` profile, and native-only helper/runtime paths. Source and purpose
+stay in bounded JSON on private stdin. The shared 45-second outer deadline and cancellation kill and reap the
+controller; closing it activates the controller's existing kill-on-close Job Object and terminates the retained
+AppContainer runner. The Tauri application now requires the complete marked development-bundle layout, provisions its
+process-scoped profile before retaining the injected runner, and cleans up only that owned profile when native state is
+dropped. Overlapping app processes therefore cannot delete one another's AppContainer registration or local storage.
+Windows compilation, packaging, and lifecycle execution for this product path remain hosted evidence rather than local
+macOS evidence.
 
 References: [AppContainer isolation](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation),
 [launching an AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer),
@@ -310,8 +322,9 @@ transport failures become fixed path-free native errors.
 The concrete Linux launcher selects the already-proven `--linux-contained` runner mode. The macOS product transport
 launches a native client whose sole fixed argument is `execute`; that client connects to Bottie's private App-Sandboxed
 XPC service and never launches the runner directly. The Windows product transport launches the proven AppContainer
-controller with a fixed profile plus native-only helper/runtime paths; the controller creates the restricted-token,
-zero-capability child inside its one-process Job Object. All three transports clear the inherited environment, use
+controller with its process-scoped profile plus native-only helper/runtime paths; the controller creates the
+restricted-token, zero-capability child inside its one-process Job Object. All three transports clear the inherited
+environment, use
 bounded private stdin/stdout/stderr pipes, apply a 45-second outer deadline, and kill and reap their owned process on
 cancellation. Killing the macOS client invalidates its XPC connection, while killing the Windows controller closes its
 Job Object; both actions terminate the retained helper. Denial and cancellation while review is pending never touch a
@@ -324,13 +337,11 @@ This slice deliberately does not:
 - register the reserved tool with a provider or change any provider schema;
 - decide automatically that Python is appropriate for a user question;
 - connect any provider adapter call to the approval slot or advertise `run_python` in a provider schema;
-- resolve or inject packaged platform client/controller, service, helper, or runtime paths, provision the fixed Windows
-  AppContainer profile, or connect a Python-specific durable audit;
+- connect a Python-specific durable audit;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice resolves and injects packaged native resources into the existing platform runners under the
-opt-in Python development bundle, including fixed Windows profile provisioning and cleanup. It does not add provider
-schema advertisement, provider mapping, answer/context presentation, durable Python audit, default/protected package
-changes, installed-package claims, signing, release publication, or Microsoft Store work; those remain separately
-authorized and deferred.
+The next bounded slice records approval decisions and bounded execution outcomes in the existing append-only native
+tool audit through a provider-neutral orchestration test harness. It does not add provider schema advertisement or
+mapping, answer/context presentation, default/protected package changes, installed-package claims, signing, release
+publication, or Microsoft Store work; those remain separately authorized and deferred.
