@@ -275,7 +275,9 @@ pending.
   Landlock/seccomp/rlimit launch path without provider mapping;
 - [x] macOS XPC product transport behind the provider-neutral runner interface, with bounded private pipes, shared
   cancellation, and connection-invalidation cleanup but no shipping bundle resolution;
-- [ ] Windows AppContainer product transport, durable Python audit, and explicit provider mappings;
+- [x] Windows AppContainer product transport behind the provider-neutral runner interface, with a fixed profile,
+  bounded private pipes, shared cancellation, and controller-close Job Object cleanup but no shipping bundle resolution;
+- [ ] durable Python audit and explicit provider mappings;
 - [ ] answer/context presentation that labels executed source, bounded outputs, errors, and execution provenance.
 
 See `docs/python-sandbox.md` for the verified boundary, platform options, and exclusions.

@@ -75,3 +75,6 @@ objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSError", "NSString"] }
 objc2-local-authentication = { version = "0.3", features = ["LAContext", "block2"] }
 tokio = { version = "1", features = ["io-util", "process"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+tokio = { version = "1", features = ["io-util", "process"] }

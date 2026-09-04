@@ -11,16 +11,13 @@
 
 use std::{ffi::OsString, future::Future, path::Path, pin::Pin};
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-use std::{path::PathBuf, process::Stdio, time::Duration};
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-use tokio::{
-    io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
-    process::{Child, Command},
-};
 
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+use crate::python_process_transport::execute_private_pipe_process;
 use crate::{
     python_approval::{PythonApprovalController, PythonApprovalError, PythonApprovalResolution},
     tool_contract::{PythonToolArguments, validate_python_tool_arguments},
@@ -28,16 +25,12 @@ use crate::{
     tool_policy::authorize_tool_call,
 };
 
-/// Maximum stdout bytes accepted from a private native transport, including JSON escaping overhead.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-const MAX_HELPER_RESPONSE_BYTES: u64 = 96 * 1_024;
 /// Maximum JSON bytes accepted by the standalone helper's stdin contract.
 const MAX_HELPER_REQUEST_BYTES: usize = 256 * 1_024;
 /// Maximum stdout or stderr payload accepted inside a decoded helper result.
 const MAX_HELPER_STREAM_BYTES: usize = 32 * 1_024;
-/// Outer process deadline covering native transport startup plus the helper's execution deadline.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-const HELPER_PROCESS_TIMEOUT: Duration = Duration::from_secs(45);
+/// Fixed product profile used by the native Windows AppContainer controller.
+const WINDOWS_APPCONTAINER_PROFILE_MONIKER: &str = "com.bottie.python-runner";
 
 /// Stable result categories emitted by the standalone Python helper.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -197,6 +190,61 @@ impl PythonRunner for MacosXpcPythonRunner {
     }
 }
 
+/// Native-owned locations for Bottie's Windows AppContainer controller and contained resources.
+///
+/// The controller owns the restricted token, zero-capability AppContainer launch, one-process Job
+/// Object, and private helper pipes. Closing the controller terminates the retained helper job.
+#[cfg(any(
+    target_os = "windows",
+    all(test, any(target_os = "linux", target_os = "macos"))
+))]
+pub(crate) struct WindowsAppContainerPythonRunner {
+    controller_executable: PathBuf,
+    runner_executable: PathBuf,
+    runtime_directory: PathBuf,
+}
+
+#[cfg(any(
+    target_os = "windows",
+    all(test, any(target_os = "linux", target_os = "macos"))
+))]
+impl WindowsAppContainerPythonRunner {
+    /// Retains native bundle paths without exposing them to the WebView or provider adapters.
+    pub(crate) fn new(
+        controller_executable: PathBuf,
+        runner_executable: PathBuf,
+        runtime_directory: PathBuf,
+    ) -> Self {
+        Self {
+            controller_executable,
+            runner_executable,
+            runtime_directory,
+        }
+    }
+}
+
+#[cfg(any(
+    target_os = "windows",
+    all(test, any(target_os = "linux", target_os = "macos"))
+))]
+impl PythonRunner for WindowsAppContainerPythonRunner {
+    /// Runs the AppContainer controller with bounded pipes and shared cancellation.
+    fn execute<'a>(
+        &'a self,
+        arguments: PythonToolArguments,
+        cancellation: &'a ToolLoopCancellation,
+    ) -> Pin<Box<dyn Future<Output = Result<PythonRunnerOutcome, PythonExecutionError>> + Send + 'a>>
+    {
+        Box::pin(execute_windows_appcontainer_controller(
+            &self.controller_executable,
+            &self.runner_executable,
+            &self.runtime_directory,
+            arguments,
+            cancellation,
+        ))
+    }
+}
+
 /// Waits for one exact approval and launches only the unchanged authorized Python proposal.
 pub(crate) async fn execute_approved_python(
     controller: &PythonApprovalController,
@@ -276,89 +324,28 @@ async fn execute_macos_xpc_client(
     .await
 }
 
-/// Executes one trusted native transport with private bounded pipes and drop-safe termination.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-async fn execute_private_pipe_process(
-    executable: &Path,
-    arguments: Vec<OsString>,
-    request: Vec<u8>,
+/// Runs the native Windows controller without source-bearing arguments or ambient environment.
+#[cfg(any(
+    target_os = "windows",
+    all(test, any(target_os = "linux", target_os = "macos"))
+))]
+async fn execute_windows_appcontainer_controller(
+    controller_executable: &Path,
+    runner_executable: &Path,
+    runtime_directory: &Path,
+    arguments: PythonToolArguments,
     cancellation: &ToolLoopCancellation,
 ) -> Result<PythonRunnerOutcome, PythonExecutionError> {
-    let mut command = Command::new(executable);
-    command
-        .args(arguments)
-        .env_clear()
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    let mut child = command
-        .spawn()
-        .map_err(|_| execution_error(PythonExecutionErrorCode::HelperFailed))?;
-    let mut stdin = child
-        .stdin
-        .take()
-        .ok_or_else(|| execution_error(PythonExecutionErrorCode::HelperFailed))?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| execution_error(PythonExecutionErrorCode::HelperFailed))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| execution_error(PythonExecutionErrorCode::HelperFailed))?;
-
-    let writer = tokio::spawn(async move {
-        stdin.write_all(&request).await?;
-        stdin.shutdown().await
-    });
-    let stdout_reader = tokio::spawn(read_bounded(stdout, MAX_HELPER_RESPONSE_BYTES));
-    let stderr_reader = tokio::spawn(read_bounded(stderr, MAX_HELPER_RESPONSE_BYTES));
-    let process_timeout = tokio::time::sleep(HELPER_PROCESS_TIMEOUT);
-    tokio::pin!(process_timeout);
-
-    let status = tokio::select! {
-        biased;
-        _ = cancellation.cancelled() => {
-            let stopped = stop_private_pipe_child(&mut child).await;
-            writer.abort();
-            stdout_reader.abort();
-            stderr_reader.abort();
-            stopped?;
-            return Ok(PythonRunnerOutcome::Cancelled);
-        }
-        _ = &mut process_timeout => {
-            let stopped = stop_private_pipe_child(&mut child).await;
-            writer.abort();
-            stdout_reader.abort();
-            stderr_reader.abort();
-            stopped?;
-            return Err(execution_error(PythonExecutionErrorCode::HelperFailed));
-        }
-        result = child.wait() => {
-            result.map_err(|_| execution_error(PythonExecutionErrorCode::HelperFailed))?
-        }
-    };
-    writer
-        .await
-        .map_err(|_| execution_error(PythonExecutionErrorCode::HelperFailed))?
-        .map_err(|_| execution_error(PythonExecutionErrorCode::HelperFailed))?;
-    let stdout = join_reader(stdout_reader).await?;
-    let _stderr = join_reader(stderr_reader).await?;
-    if !status.success() {
-        return Err(execution_error(PythonExecutionErrorCode::HelperFailed));
+    if cancellation.is_cancelled() {
+        return Ok(PythonRunnerOutcome::Cancelled);
     }
-    decode_helper_result(&stdout).map(PythonRunnerOutcome::Completed)
-}
-
-/// Kills and reaps one retained native transport, accepting a concurrent clean exit.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-async fn stop_private_pipe_child(child: &mut Child) -> Result<(), PythonExecutionError> {
-    match child.kill().await {
-        Ok(()) => Ok(()),
-        Err(_) if child.try_wait().is_ok_and(|status| status.is_some()) => Ok(()),
-        Err(_) => Err(execution_error(PythonExecutionErrorCode::HelperFailed)),
-    }
+    execute_private_pipe_process(
+        controller_executable,
+        windows_appcontainer_controller_arguments(runner_executable, runtime_directory),
+        encode_helper_request(&arguments)?,
+        cancellation,
+    )
+    .await
 }
 
 /// Returns Linux's fixed native-only arguments without source, purpose, or provider identity.
@@ -376,6 +363,19 @@ pub(crate) fn macos_xpc_client_arguments() -> Vec<OsString> {
     vec!["execute".into()]
 }
 
+/// Returns the Windows controller's fixed mode, profile, and native-only bundle paths.
+pub(crate) fn windows_appcontainer_controller_arguments(
+    runner_executable: &Path,
+    runtime_directory: &Path,
+) -> Vec<OsString> {
+    vec![
+        "execute".into(),
+        WINDOWS_APPCONTAINER_PROFILE_MONIKER.into(),
+        runner_executable.as_os_str().to_owned(),
+        runtime_directory.as_os_str().to_owned(),
+    ]
+}
+
 /// Translates product terminology to the helper's exact stdin-only request shape.
 pub(crate) fn encode_helper_request(
     arguments: &PythonToolArguments,
@@ -389,33 +389,6 @@ pub(crate) fn encode_helper_request(
         Err(execution_error(PythonExecutionErrorCode::InvalidRequest))
     } else {
         Ok(request)
-    }
-}
-
-/// Reads at most one byte beyond a native private-pipe ceiling so overflow is detectable.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-async fn read_bounded(
-    reader: impl AsyncRead + Unpin,
-    limit: u64,
-) -> Result<Vec<u8>, std::io::Error> {
-    let mut bytes = Vec::new();
-    reader.take(limit + 1).read_to_end(&mut bytes).await?;
-    Ok(bytes)
-}
-
-/// Joins one private-pipe reader and rejects transport or size failure without raw detail.
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-async fn join_reader(
-    reader: tokio::task::JoinHandle<Result<Vec<u8>, std::io::Error>>,
-) -> Result<Vec<u8>, PythonExecutionError> {
-    let bytes = reader
-        .await
-        .map_err(|_| execution_error(PythonExecutionErrorCode::HelperFailed))?
-        .map_err(|_| execution_error(PythonExecutionErrorCode::HelperFailed))?;
-    if bytes.len() as u64 > MAX_HELPER_RESPONSE_BYTES {
-        Err(execution_error(PythonExecutionErrorCode::InvalidResult))
-    } else {
-        Ok(bytes)
     }
 }
 
@@ -439,7 +412,7 @@ fn approval_execution_error(_error: PythonApprovalError) -> PythonExecutionError
 }
 
 /// Returns one fixed path-free error for a closed execution-boundary category.
-fn execution_error(code: PythonExecutionErrorCode) -> PythonExecutionError {
+pub(super) fn execution_error(code: PythonExecutionErrorCode) -> PythonExecutionError {
     let message = match code {
         PythonExecutionErrorCode::ApprovalFailed => {
             "Bottie could not complete Python approval safely."

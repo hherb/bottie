@@ -22,6 +22,8 @@ mod microphone;
 mod provider_registry;
 mod python_approval;
 mod python_execution;
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+mod python_process_transport;
 mod run_cancellation;
 mod semantic_indexer;
 mod speech;
@@ -47,6 +49,8 @@ mod localmail_tool_tests;
 mod python_approval_tests;
 #[cfg(test)]
 mod python_execution_tests;
+#[cfg(test)]
+mod python_execution_transport_tests;
 #[cfg(test)]
 mod python_tool_tests;
 #[cfg(test)]

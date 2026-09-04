@@ -19,7 +19,7 @@ use crate::{
     python_execution::{
         PythonExecutionError, PythonExecutionOutcome, PythonExecutionResult, PythonExecutionStatus,
         PythonRunner, PythonRunnerOutcome, decode_helper_result, encode_helper_request,
-        execute_approved_python, linux_helper_arguments,
+        execute_approved_python, linux_helper_arguments, windows_appcontainer_controller_arguments,
     },
     tool_contract::{PythonToolArguments, RUN_PYTHON_TOOL_NAME},
     tool_loop::{NativeToolCall, ToolLoopCancellation},
@@ -312,6 +312,31 @@ fn linux_helper_arguments_contain_only_containment_mode_and_the_native_runtime_p
             std::ffi::OsString::from("--linux-contained"),
             std::ffi::OsString::from("--runtime"),
             std::ffi::OsString::from("/native/runtime"),
+        ]
+    );
+    let rendered = arguments
+        .iter()
+        .map(|argument| argument.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(!rendered.contains("print(6 * 7)"));
+    assert!(!rendered.contains("private-provider-call"));
+}
+
+#[test]
+fn windows_controller_arguments_select_the_fixed_profile_and_native_bundle_paths() {
+    let arguments = windows_appcontainer_controller_arguments(
+        std::path::Path::new(r"C:\Program Files\bottie\bottie-python-runner.exe"),
+        std::path::Path::new(r"C:\Program Files\bottie\python"),
+    );
+
+    assert_eq!(
+        arguments,
+        vec![
+            std::ffi::OsString::from("execute"),
+            std::ffi::OsString::from("com.bottie.python-runner"),
+            std::ffi::OsString::from(r"C:\Program Files\bottie\bottie-python-runner.exe"),
+            std::ffi::OsString::from(r"C:\Program Files\bottie\python"),
         ]
     );
     let rendered = arguments
