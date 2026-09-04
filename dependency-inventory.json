@@ -22,7 +22,7 @@
   "inputs": {
     "package.json": "8ff5e58faffb4ed1fd75145bdde41302a5818c53885935b7bb77da1616725989",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
-    "src-tauri/Cargo.toml": "722d21f4a398c59c817720e2da40afe880dc81041467b4c47488a2ec3eac48e7",
+    "src-tauri/Cargo.toml": "bafde55ad337402256234f5fc2f2cec87e4b6ed82756c88c6d4693cad939ccc5",
     "src-tauri/Cargo.lock": "6d5f9368a834bb5cd776e75269dafa8d5b8d727123a6ab18eaa5bdddfa477fbf",
     "src-tauri/tauri.conf.json": "a9e9698319fb4e8d54d58ae853c40d28e8055b0542e600d029d150e600d3197e",
     "src-tauri/tauri.updater.conf.json": "c1d7d16c801bc2b87747d5b0a71f8fae927122e4897453eea23e51e98b191e33",
@@ -9879,6 +9879,8 @@
       "direct": false,
       "scope": "runtime-graph",
       "targets": [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
         "x86_64-unknown-linux-gnu"
       ],
       "components": [

@@ -11,11 +11,11 @@
 
 use std::{ffi::OsString, future::Future, path::Path, pin::Pin};
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::{path::PathBuf, process::Stdio, time::Duration};
 
 use serde::{Deserialize, Serialize};
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
     process::{Child, Command},
@@ -28,15 +28,15 @@ use crate::{
     tool_policy::authorize_tool_call,
 };
 
-/// Maximum stdout bytes accepted from the Linux helper transport, including JSON escaping overhead.
-#[cfg(target_os = "linux")]
+/// Maximum stdout bytes accepted from a private native transport, including JSON escaping overhead.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 const MAX_HELPER_RESPONSE_BYTES: u64 = 96 * 1_024;
 /// Maximum JSON bytes accepted by the standalone helper's stdin contract.
 const MAX_HELPER_REQUEST_BYTES: usize = 256 * 1_024;
 /// Maximum stdout or stderr payload accepted inside a decoded helper result.
 const MAX_HELPER_STREAM_BYTES: usize = 32 * 1_024;
-/// Outer process deadline covering runtime load plus the helper's own execution deadline.
-#[cfg(target_os = "linux")]
+/// Outer process deadline covering native transport startup plus the helper's execution deadline.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 const HELPER_PROCESS_TIMEOUT: Duration = Duration::from_secs(45);
 
 /// Stable result categories emitted by the standalone Python helper.
@@ -163,6 +163,40 @@ impl PythonRunner for LinuxContainedPythonRunner {
     }
 }
 
+/// Native-owned location for Bottie's macOS bridge into its private XPC service.
+///
+/// The bridge receives only the fixed `execute` mode in its process arguments. It forwards the
+/// bounded request through XPC and owns the connection whose invalidation stops the service child.
+#[cfg(target_os = "macos")]
+pub(crate) struct MacosXpcPythonRunner {
+    client_executable: PathBuf,
+}
+
+#[cfg(target_os = "macos")]
+impl MacosXpcPythonRunner {
+    /// Retains the absolute native client path resolved inside Bottie's application bundle.
+    pub(crate) fn new(client_executable: PathBuf) -> Self {
+        Self { client_executable }
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl PythonRunner for MacosXpcPythonRunner {
+    /// Runs the private XPC client with bounded pipes and shared cancellation.
+    fn execute<'a>(
+        &'a self,
+        arguments: PythonToolArguments,
+        cancellation: &'a ToolLoopCancellation,
+    ) -> Pin<Box<dyn Future<Output = Result<PythonRunnerOutcome, PythonExecutionError>> + Send + 'a>>
+    {
+        Box::pin(execute_macos_xpc_client(
+            &self.client_executable,
+            arguments,
+            cancellation,
+        ))
+    }
+}
+
 /// Waits for one exact approval and launches only the unchanged authorized Python proposal.
 pub(crate) async fn execute_approved_python(
     controller: &PythonApprovalController,
@@ -212,9 +246,47 @@ async fn execute_linux_contained_helper(
     }
     let request = encode_helper_request(&arguments)?;
 
+    execute_private_pipe_process(
+        executable,
+        linux_helper_arguments(runtime_directory),
+        request,
+        cancellation,
+    )
+    .await
+}
+
+/// Runs the native macOS XPC client without source-bearing arguments or ambient environment.
+#[cfg(target_os = "macos")]
+async fn execute_macos_xpc_client(
+    client_executable: &Path,
+    arguments: PythonToolArguments,
+    cancellation: &ToolLoopCancellation,
+) -> Result<PythonRunnerOutcome, PythonExecutionError> {
+    if cancellation.is_cancelled() {
+        return Ok(PythonRunnerOutcome::Cancelled);
+    }
+    let request = encode_helper_request(&arguments)?;
+
+    execute_private_pipe_process(
+        client_executable,
+        macos_xpc_client_arguments(),
+        request,
+        cancellation,
+    )
+    .await
+}
+
+/// Executes one trusted native transport with private bounded pipes and drop-safe termination.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+async fn execute_private_pipe_process(
+    executable: &Path,
+    arguments: Vec<OsString>,
+    request: Vec<u8>,
+    cancellation: &ToolLoopCancellation,
+) -> Result<PythonRunnerOutcome, PythonExecutionError> {
     let mut command = Command::new(executable);
     command
-        .args(linux_helper_arguments(runtime_directory))
+        .args(arguments)
         .env_clear()
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -248,7 +320,7 @@ async fn execute_linux_contained_helper(
     let status = tokio::select! {
         biased;
         _ = cancellation.cancelled() => {
-            let stopped = stop_child(&mut child).await;
+            let stopped = stop_private_pipe_child(&mut child).await;
             writer.abort();
             stdout_reader.abort();
             stderr_reader.abort();
@@ -256,7 +328,7 @@ async fn execute_linux_contained_helper(
             return Ok(PythonRunnerOutcome::Cancelled);
         }
         _ = &mut process_timeout => {
-            let stopped = stop_child(&mut child).await;
+            let stopped = stop_private_pipe_child(&mut child).await;
             writer.abort();
             stdout_reader.abort();
             stderr_reader.abort();
@@ -279,9 +351,9 @@ async fn execute_linux_contained_helper(
     decode_helper_result(&stdout).map(PythonRunnerOutcome::Completed)
 }
 
-/// Kills and reaps one retained Linux helper, accepting a child that already exited concurrently.
-#[cfg(target_os = "linux")]
-async fn stop_child(child: &mut Child) -> Result<(), PythonExecutionError> {
+/// Kills and reaps one retained native transport, accepting a concurrent clean exit.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+async fn stop_private_pipe_child(child: &mut Child) -> Result<(), PythonExecutionError> {
     match child.kill().await {
         Ok(()) => Ok(()),
         Err(_) if child.try_wait().is_ok_and(|status| status.is_some()) => Ok(()),
@@ -296,6 +368,12 @@ pub(crate) fn linux_helper_arguments(runtime_directory: &Path) -> Vec<OsString> 
         "--runtime".into(),
         runtime_directory.as_os_str().to_owned(),
     ]
+}
+
+/// Returns the macOS client's sole fixed mode without request data or native paths.
+#[cfg(target_os = "macos")]
+pub(crate) fn macos_xpc_client_arguments() -> Vec<OsString> {
+    vec!["execute".into()]
 }
 
 /// Translates product terminology to the helper's exact stdin-only request shape.
@@ -314,8 +392,8 @@ pub(crate) fn encode_helper_request(
     }
 }
 
-/// Reads at most one byte beyond a Linux private-pipe ceiling so overflow is detectable.
-#[cfg(target_os = "linux")]
+/// Reads at most one byte beyond a native private-pipe ceiling so overflow is detectable.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 async fn read_bounded(
     reader: impl AsyncRead + Unpin,
     limit: u64,
@@ -325,8 +403,8 @@ async fn read_bounded(
     Ok(bytes)
 }
 
-/// Joins one Linux private-pipe reader and rejects transport or size failure without raw detail.
-#[cfg(target_os = "linux")]
+/// Joins one private-pipe reader and rejects transport or size failure without raw detail.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 async fn join_reader(
     reader: tokio::task::JoinHandle<Result<Vec<u8>, std::io::Error>>,
 ) -> Result<Vec<u8>, PythonExecutionError> {

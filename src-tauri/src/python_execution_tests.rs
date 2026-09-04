@@ -6,6 +6,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[cfg(target_os = "macos")]
+use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
+
 use serde_json::json;
 
 use crate::{
@@ -21,6 +24,9 @@ use crate::{
     tool_contract::{PythonToolArguments, RUN_PYTHON_TOOL_NAME},
     tool_loop::{NativeToolCall, ToolLoopCancellation},
 };
+
+#[cfg(target_os = "macos")]
+use crate::python_execution::{MacosXpcPythonRunner, macos_xpc_client_arguments};
 
 #[derive(Clone, Default)]
 struct RecordingPublisher {
@@ -91,6 +97,21 @@ fn python_call() -> NativeToolCall {
             "purpose": "Calculate the answer exactly."
         }),
     }
+}
+
+/// Creates one executable bridge fixture without putting request data in its path or arguments.
+#[cfg(target_os = "macos")]
+fn macos_bridge_fixture(body: &str) -> PathBuf {
+    let directory =
+        std::env::temp_dir().join(format!("bottie-python-xpc-client-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&directory).expect("the bridge fixture directory should be created");
+    let executable = directory.join("bottie-python-xpc-client");
+    fs::write(&executable, format!("#!/bin/sh\nset -eu\n{body}\n"))
+        .expect("the bridge fixture should be written");
+    let mut permissions = fs::metadata(&executable).unwrap().permissions();
+    permissions.set_mode(0o700);
+    fs::set_permissions(&executable, permissions).unwrap();
+    executable
 }
 
 /// Waits until the publisher has received one pending review.
@@ -300,6 +321,93 @@ fn linux_helper_arguments_contain_only_containment_mode_and_the_native_runtime_p
         .join(" ");
     assert!(!rendered.contains("print(6 * 7)"));
     assert!(!rendered.contains("private-provider-call"));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn macos_xpc_client_arguments_select_only_the_fixed_execution_mode() {
+    assert_eq!(
+        macos_xpc_client_arguments(),
+        vec![std::ffi::OsString::from("execute")]
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn macos_xpc_runner_uses_the_closed_private_pipe_contract() {
+    let executable = macos_bridge_fixture(
+        r#"
+[ "$#" -eq 1 ]
+[ "$1" = "execute" ]
+request=$(/bin/cat)
+[ "$request" = '{"code":"print(6 * 7)","purpose":"Calculate the answer exactly."}' ]
+printf '%s' '{"status":"ok","stdout":"42\n","stderr":"","durationMs":12}'
+"#,
+    );
+    let runner = MacosXpcPythonRunner::new(executable.clone());
+
+    let outcome = runner
+        .execute(
+            PythonToolArguments {
+                source: "print(6 * 7)".into(),
+                purpose: "Calculate the answer exactly.".into(),
+            },
+            &ToolLoopCancellation::default(),
+        )
+        .await
+        .expect("the XPC client fixture should return one bounded result");
+
+    assert!(matches!(
+        outcome,
+        PythonRunnerOutcome::Completed(PythonExecutionResult {
+            status: PythonExecutionStatus::Ok,
+            ref stdout,
+            ref stderr,
+            duration_ms: 12,
+        }) if stdout == "42\n" && stderr.is_empty()
+    ));
+    fs::remove_dir_all(executable.parent().unwrap()).unwrap();
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn macos_xpc_runner_kills_the_client_when_shared_cancellation_arrives() {
+    let executable = macos_bridge_fixture(
+        r#"
+: > "${0%/*}/started"
+while :; do :; done
+"#,
+    );
+    let started = executable.parent().unwrap().join("started");
+    let runner = MacosXpcPythonRunner::new(executable.clone());
+    let cancellation = ToolLoopCancellation::default();
+    let waiting_cancellation = cancellation.clone();
+    let execution = tokio::spawn(async move {
+        runner
+            .execute(
+                PythonToolArguments {
+                    source: "while True:\n    pass".into(),
+                    purpose: "Exercise shared cancellation.".into(),
+                },
+                &waiting_cancellation,
+            )
+            .await
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        while !started.exists() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the XPC client fixture should start before cancellation");
+
+    cancellation.cancel();
+
+    assert!(matches!(
+        execution.await.unwrap().unwrap(),
+        PythonRunnerOutcome::Cancelled
+    ));
+    fs::remove_dir_all(executable.parent().unwrap()).unwrap();
 }
 
 #[test]
