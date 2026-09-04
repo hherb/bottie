@@ -4,7 +4,9 @@ Status: the standalone runner, its inner denial tests, development-only macOS, W
 official-source runtime provenance with unsigned development-package inspection, the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, and provider-neutral async wait/resume are
 implemented. The native waiter also publishes bounded approval lifecycle events to the existing WebView review state.
-Bottie does not advertise, launch from Tauri, product-enable, or ship a Python tool yet.
+An approved exact call can now cross a provider-neutral Rust execution boundary into the helper's bounded private-pipe
+protocol; the concrete product launcher remains Linux-only and uses the runner's built-in Landlock/seccomp/rlimit mode.
+Bottie does not advertise, provider-map, product-enable, or ship a Python tool yet.
 
 ## Chosen core
 
@@ -292,6 +294,20 @@ future-shaped records retain the generic inert JSON disclosure instead. The deve
 `?python=approval-review` browser fixture makes the pending, approved, and denied presentation reproducible without
 native inference or execution.
 
+After the waiter consumes an approval, the new provider-neutral execution boundary applies the existing policy grant
+to the unchanged complete call and validates the arguments again. Only then does it translate `source` to the helper's
+stdin-only `code` field. The provider call identity never enters that JSON, process arguments, or the child environment.
+The helper response must match the exact closed status/stdout/stderr/duration contract, fit the 96 KiB transport cap,
+and retain the helper's 32 KiB per-stream limits. Malformed, future-shaped, oversized, non-zero-exit, launch, and
+transport failures become fixed path-free native errors.
+
+The concrete launcher is deliberately compiled only on Linux, where it selects the already-proven
+`--linux-contained` runner mode, clears the inherited environment, uses private stdin/stdout/stderr pipes, applies a
+45-second outer deadline, and kills the child on cancellation or dropped orchestration. macOS and Windows do not fall
+back to direct process creation: their product implementations must use the proven XPC and AppContainer designs.
+Denial and cancellation while review is pending never touch the launcher; cancellation after approval is shared with
+the running helper.
+
 ## Deferred product integration
 
 This slice deliberately does not:
@@ -299,11 +315,13 @@ This slice deliberately does not:
 - register the reserved tool with a provider or change any provider schema;
 - decide automatically that Python is appropriate for a user question;
 - connect any provider adapter call to the approval slot or advertise `run_python` in a provider schema;
-- launch the helper from Bottie's Tauri process or connect a Python-specific durable audit;
+- add macOS XPC or Windows AppContainer product transports, resolve shipping bundle paths, or connect a
+  Python-specific durable audit;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice is the first provider-neutral contained-helper launch behind one exact approved grant, with
-shared cancellation and denial preserved as terminal non-execution paths. It must still avoid provider schema
-advertisement, provider mapping, answer/context presentation, and durable Python audit. Protected signing, release
-publication, and Microsoft Store work remain separately authorized and deferred.
+The next bounded slice is the first macOS product transport behind the existing provider-neutral runner interface:
+reuse the separately App-Sandboxed XPC design, private pipes, cancellation, and connection-invalidation cleanup without
+adding provider schema advertisement, provider mapping, answer/context presentation, or durable Python audit. Windows
+AppContainer product transport remains a later separate slice. Protected signing, release publication, and Microsoft
+Store work remain separately authorized and deferred.

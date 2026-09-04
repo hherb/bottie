@@ -1,9 +1,6 @@
 //! Closed provider-independent contract for a proposed bounded Python execution.
 
-#![allow(
-    dead_code,
-    reason = "provider advertisement and helper execution are intentionally deferred"
-)]
+#![allow(dead_code, reason = "provider advertisement is intentionally deferred")]
 
 use serde::Deserialize;
 use serde_json::{Value, json};
