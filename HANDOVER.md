@@ -4,7 +4,7 @@ Last verified: 2026-09-04
 
 ## Start here
 
-PR #143 is merged into `main` at `40c8dfc`. The next bounded slice is on
+PR #143 is merged into `main` at `40c8dfc`. Draft PR #144 is open from
 `codex/python-bundle-runtime-injection`. No provider advertisement or mapping, answer/context presentation, durable
 Python audit, default/protected package change, signing, release, publication, or Microsoft Store action was taken.
 
@@ -54,6 +54,7 @@ On Apple silicon, the new staging command compiled the target-suffixed XPC clien
 `293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b` and the 14,273,328-byte helper with SHA-256
 `a686b768840c45231e505f5fc611698d51a6b05d7181950b65ff15fef1200fb9`. The packaged Bottie executable started with
 the resolver active and was then stopped manually. No signing, notarization, protected workflow, or Store action ran.
+Hosted draft-PR checks were queued or in progress at handoff; re-query the final head before treating them as evidence.
 
 ## Next bounded action
 
