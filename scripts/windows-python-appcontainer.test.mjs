@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   ProofFailure,
-  buildStoredStandardLibraryArchive,
   msvcCompilationArguments,
+  productControllerSourceName,
   proofProfileLayout,
   runnerBuildArguments,
   safeMsvcDiagnostics,
@@ -16,8 +16,16 @@ import {
   safePythonFailure,
   safeRunnerStatus,
 } from "./windows-python-appcontainer.mjs";
+import { buildStoredStandardLibraryArchive } from "./python-runtime-bundle.mjs";
 
 describe("Windows Python AppContainer containment proof", () => {
+  it("stages one target-suffixed product controller for Tauri", () => {
+    expect(productControllerSourceName("x86_64-pc-windows-msvc")).toBe(
+      "bottie-python-appcontainer-x86_64-pc-windows-msvc.exe",
+    );
+    expect(() => productControllerSourceName("aarch64-pc-windows-msvc")).toThrow(/unsupported/);
+  });
+
   it("keeps every executable and runtime byte inside the transient AppContainer profile", () => {
     expect(proofProfileLayout("C:\\Users\\runner\\AppData\\Local\\Packages\\proof")).toEqual({
       host: "C:\\Users\\runner\\AppData\\Local\\Packages\\proof\\AC\\proof\\bottie-python-appcontainer.exe",

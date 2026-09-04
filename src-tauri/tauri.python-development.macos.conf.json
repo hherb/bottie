@@ -1,0 +1,17 @@
+{
+  "bundle": {
+    "externalBin": ["../package/python-development/bottie-python-xpc-client"],
+    "macOS": {
+      "files": {
+        "XPCServices/com.bottie.python-runner.xpc": "../package/python-development/com.bottie.python-runner.xpc"
+      },
+      "minimumSystemVersion": "14.0"
+    },
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../MODEL-NOTICE.txt": "MODEL-NOTICE.txt",
+      "../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
+      "../package/python-development/python-runtime-evidence.json": "python-runtime-evidence.json"
+    }
+  }
+}

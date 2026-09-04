@@ -248,7 +248,7 @@ impl PythonRunner for WindowsAppContainerPythonRunner {
 /// Waits for one exact approval and launches only the unchanged authorized Python proposal.
 pub(crate) async fn execute_approved_python(
     controller: &PythonApprovalController,
-    runner: &impl PythonRunner,
+    runner: &(impl PythonRunner + ?Sized),
     call: NativeToolCall,
     cancellation: &ToolLoopCancellation,
 ) -> Result<PythonExecutionOutcome, PythonExecutionError> {

@@ -24,6 +24,7 @@ mod python_approval;
 mod python_execution;
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 mod python_process_transport;
+mod python_runtime;
 mod run_cancellation;
 mod semantic_indexer;
 mod speech;
@@ -51,6 +52,8 @@ mod python_approval_tests;
 mod python_execution_tests;
 #[cfg(test)]
 mod python_execution_transport_tests;
+#[cfg(test)]
+mod python_runtime_tests;
 #[cfg(test)]
 mod python_tool_tests;
 #[cfg(test)]
@@ -103,6 +106,7 @@ use microphone::{
 };
 use provider_registry::{ProviderSet, RoutedProvider, routed_provider};
 use python_approval::{PythonApprovalController, decide_python_approval, get_python_approval};
+use python_runtime::{PythonRuntimeState, initialize_python_runtime};
 use run_cancellation::{ActiveRuns, cancel_all_chats, cancel_chat};
 use semantic_indexer::SemanticIndexer;
 use speech::{SpeechCommandError, SpeechController, SpeechStatus, SpeechVoice};
@@ -131,6 +135,7 @@ struct AppState {
     microphone: MicrophoneController,
     speech: SpeechController,
     python_approval: PythonApprovalController,
+    _python_runtime: Option<PythonRuntimeState>,
     runs: ActiveRuns,
     voice_interaction: tauri::async_runtime::Mutex<()>,
     diagnostics: Diagnostics,
@@ -631,6 +636,8 @@ pub fn run() {
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
             let embedding_cache_path = app.path().app_data_dir()?.join("embedding-models");
             let speech_model_cache_path = app.path().app_data_dir()?.join("speech-models");
+            let python_runtime = initialize_python_runtime(app)
+                .map_err(|error| std::io::Error::other(error.message()))?;
             let startup = ConversationStore::initialize_for_app(database_path)
                 .map_err(|error| std::io::Error::other(error.message))?;
             let diagnostics = Diagnostics::default();
@@ -693,6 +700,7 @@ pub fn run() {
                 ),
                 speech: SpeechController::with_preference(remembered_voice),
                 python_approval: PythonApprovalController::with_publisher(app.handle().clone()),
+                _python_runtime: python_runtime,
                 runs: Arc::new(tauri::async_runtime::Mutex::new(HashMap::new())),
                 voice_interaction: tauri::async_runtime::Mutex::new(()),
                 diagnostics,

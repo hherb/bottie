@@ -22,6 +22,30 @@ const PROOF_TIMEOUT_MS = 45_000;
 const PARENT_EXIT_TIMEOUT_MS = 5_000;
 const PARENT_EXIT_POLL_MS = 50;
 const MAX_CAPTURED_OUTPUT_BYTES = 128 * 1_024;
+const PRODUCT_CLIENT_BASENAME = "bottie-python-xpc-client";
+const PRODUCT_RUNTIME_DIRECTORY = "python-runtime";
+const PRODUCT_EVIDENCE_FILENAME = "python-runtime-evidence.json";
+const SUPPORTED_PRODUCT_TARGETS = new Set(["aarch64-apple-darwin", "x86_64-apple-darwin"]);
+
+/** Returns Tauri's target-suffixed input name for the native product bridge. */
+export function productClientSourceName(target) {
+  if (!SUPPORTED_PRODUCT_TARGETS.has(target)) throw new Error("The macOS Python product target is unsupported.");
+  return `${PRODUCT_CLIENT_BASENAME}-${target}`;
+}
+
+/** Returns every fixed staged path for the unsigned development product transport. */
+export function productBundleLayout(outputRoot, target) {
+  const service = join(outputRoot, `${SERVICE_IDENTIFIER}.xpc`);
+  return {
+    client: join(outputRoot, productClientSourceName(target)),
+    evidence: join(service, "Contents", "Resources", PRODUCT_EVIDENCE_FILENAME),
+    runner: join(service, "Contents", "Helpers", RUNNER_EXECUTABLE),
+    runtime: join(service, "Contents", "Resources", PRODUCT_RUNTIME_DIRECTORY),
+    service,
+    serviceExecutable: join(service, "Contents", "MacOS", SERVICE_EXECUTABLE),
+    serviceInfo: join(service, "Contents", "Info.plist"),
+  };
+}
 
 /** Returns every canonical path in the transient proof bundle. */
 export function proofBundleLayout(application) {
@@ -31,7 +55,7 @@ export function proofBundleLayout(application) {
     applicationExecutable: join(application, "Contents", "MacOS", APPLICATION_EXECUTABLE),
     applicationInfo: join(application, "Contents", "Info.plist"),
     runner: join(service, "Contents", "Helpers", RUNNER_EXECUTABLE),
-    runtime: join(service, "Contents", "Resources", "python"),
+    runtime: join(service, "Contents", "Resources", PRODUCT_RUNTIME_DIRECTORY),
     service,
     serviceExecutable: join(service, "Contents", "MacOS", SERVICE_EXECUTABLE),
     serviceInfo: join(service, "Contents", "Info.plist"),
@@ -155,6 +179,13 @@ function swiftArchitecture() {
   throw new Error("The containment proof supports only Apple silicon or Intel macOS hosts.");
 }
 
+/** Maps one reviewed Rust target triple to the matching Swift architecture. */
+function productSwiftArchitecture(target) {
+  if (target === "aarch64-apple-darwin") return "arm64";
+  if (target === "x86_64-apple-darwin") return "x86_64";
+  throw new Error("The macOS Python product target is unsupported.");
+}
+
 /** Validates the already-extracted runtime without downloading or changing it. */
 async function validateRuntime(runtime) {
   for (const required of ["python.wasm", "lib/python3.14/os.py", "LICENSE"]) {
@@ -175,6 +206,55 @@ async function createBundle(layout) {
   }
   await writeFile(layout.applicationInfo, encodePlist(applicationBundleMetadata()));
   await writeFile(layout.serviceInfo, encodePlist(serviceBundleMetadata()));
+}
+
+/** Stages one unsigned product client and nested XPC service for Tauri packaging. */
+async function prepareProductBundle(repository, outputRoot, target) {
+  if (process.platform !== "darwin") throw new Error("The macOS Python product transport requires macOS.");
+  const output = resolve(outputRoot);
+  const layout = productBundleLayout(output, target);
+  const sourceRoot = join(repository, "macos-python-xpc");
+  const moduleCache = join(output, "swift-module-cache");
+  const swiftEnvironment = {
+    ...process.env,
+    CLANG_MODULE_CACHE_PATH: moduleCache,
+    SWIFT_MODULECACHE_PATH: moduleCache,
+  };
+  const architecture = productSwiftArchitecture(target);
+  await rm(layout.service, { recursive: true, force: true });
+  for (const directory of [dirname(layout.runner), dirname(layout.runtime), dirname(layout.serviceExecutable)]) {
+    await mkdir(directory, { recursive: true });
+  }
+  await writeFile(layout.serviceInfo, encodePlist(serviceBundleMetadata()));
+  runHostCommand(
+    "xcrun",
+    [
+      "swiftc",
+      ...swiftCompilationArguments(
+        "service",
+        layout.serviceExecutable,
+        [join(sourceRoot, "Shared.swift"), join(sourceRoot, "Service.swift")],
+        architecture,
+      ),
+    ],
+    { env: swiftEnvironment },
+  );
+  runHostCommand(
+    "xcrun",
+    [
+      "swiftc",
+      ...swiftCompilationArguments(
+        "client",
+        layout.client,
+        [join(sourceRoot, "Shared.swift"), join(sourceRoot, "Host.swift")],
+        architecture,
+      ),
+    ],
+    { env: swiftEnvironment },
+  );
+  await cp(join(output, `bottie-python-runner-${target}`), layout.runner);
+  await cp(join(output, PRODUCT_RUNTIME_DIRECTORY), layout.runtime, { recursive: true });
+  await cp(join(output, PRODUCT_EVIDENCE_FILENAME), layout.evidence);
 }
 
 /** Compiles the existing Rust runner and the two tiny Swift proof executables. */
@@ -340,12 +420,21 @@ async function prove() {
   }
 }
 
-/** Dispatches the sole protected native-proof mode. */
+/** Dispatches the protected proof or credential-free product-staging mode. */
 async function main() {
-  if (process.argv.length !== 3 || process.argv[2] !== "--prove") {
-    throw new Error("Use this script through npm run python:xpc:prove.");
+  if (process.argv.length === 3 && process.argv[2] === "--prove") {
+    await prove();
+    return;
   }
-  await prove();
+  if (process.argv.length === 5 && process.argv[2] === "--prepare-product") {
+    await prepareProductBundle(
+      resolve(dirname(fileURLToPath(import.meta.url)), ".."),
+      process.argv[4],
+      process.argv[3],
+    );
+    return;
+  }
+  throw new Error("Use --prove or --prepare-product with exact inputs.");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

@@ -13,6 +13,9 @@ use crate::{
     tool_loop::ToolLoopCancellation,
 };
 
+/// Allows a process-start marker to be scheduled while the full native suite is under load.
+const CONTROLLER_START_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
 /// Creates one executable controller fixture without putting request data in its path or arguments.
 fn windows_controller_fixture(body: &str) -> PathBuf {
     let directory = std::env::temp_dir().join(format!(
@@ -99,7 +102,7 @@ while :; do :; done
             )
             .await
     });
-    tokio::time::timeout(std::time::Duration::from_secs(1), async {
+    tokio::time::timeout(CONTROLLER_START_TIMEOUT, async {
         while !started.exists() {
             tokio::task::yield_now().await;
         }
