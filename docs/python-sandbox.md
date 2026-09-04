@@ -2,12 +2,12 @@
 
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with unsigned development-package inspection, the approval-required native
-proposal/review contract, a process-local one-use approve/deny lifecycle, and provider-neutral async wait/resume are
-implemented. The native waiter also publishes bounded approval lifecycle events to the existing WebView review state.
-An approved exact call can now cross a provider-neutral Rust execution boundary into the helper's bounded private-pipe
-protocol through Linux containment, a macOS XPC client, or a Windows AppContainer controller. Bottie does not yet
-advertise, provider-map, product-enable, or ship a Python tool. The opt-in development package now resolves and
-injects its fixed native resources without changing default or protected packages.
+proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume, and
+append-only durable audit are implemented. The native waiter also publishes bounded approval lifecycle events to the
+existing WebView review state. An approved exact call can now cross a provider-neutral Rust execution boundary into
+the helper's bounded private-pipe protocol through Linux containment, a macOS XPC client, or a Windows AppContainer
+controller. Bottie does not yet advertise, provider-map, product-enable, or ship a Python tool. The opt-in development
+package resolves and injects its fixed native resources without changing default or protected packages.
 
 ## Chosen core
 
@@ -330,6 +330,24 @@ cancellation. Killing the macOS client invalidates its XPC connection, while kil
 Job Object; both actions terminate the retained helper. Denial and cancellation while review is pending never touch a
 transport; cancellation after approval is shared with the running transport.
 
+## Durable audit boundary
+
+Schema 22 extends the existing native tool audit with one immutable optional `tool_approvals` row. The storage boundary
+accepts only `approved` or `denied` for an existing approval-required call while its provider run is active. It rejects
+duplicates, decisions after a result, decisions for safe tools, successful results without approval, and successful
+results after denial. Older records reopen with no invented decision.
+
+The dormant provider-neutral orchestration seam checkpoints the exact invocation before review, checkpoints an
+explicit decision before any approved helper launch, then checkpoints one bounded terminal payload. Executed payloads
+contain only the existing closed status, bounded stdout/stderr, and helper duration; denial and cancellation have fixed
+payloads, and approval/helper failures retain only a stable error code. Reconstructed audit data omits provider call
+identity, approval request tokens, and native paths. Native duration excludes user decision time. If approval storage
+fails, no helper starts; if execution is interrupted after approval, the durable decision remains without a fabricated
+result.
+
+The typed Tool activity and portable exports can label an available decision, but no provider currently creates these
+records in product generation and no Python answer/context presentation was added.
+
 ## Deferred product integration
 
 This slice deliberately does not:
@@ -337,11 +355,10 @@ This slice deliberately does not:
 - register the reserved tool with a provider or change any provider schema;
 - decide automatically that Python is appropriate for a user question;
 - connect any provider adapter call to the approval slot or advertise `run_python` in a provider schema;
-- connect a Python-specific durable audit;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice records approval decisions and bounded execution outcomes in the existing append-only native
-tool audit through a provider-neutral orchestration test harness. It does not add provider schema advertisement or
-mapping, answer/context presentation, default/protected package changes, installed-package claims, signing, release
-publication, or Microsoft Store work; those remain separately authorized and deferred.
+The next bounded slice advertises and maps `run_python` only on the explicitly tool-capable oMLX route through the
+audited async orchestration seam. It does not map another provider, add answer/context presentation, change default or
+protected packages, make installed-package claims, sign, publish a release, or perform Microsoft Store work; those
+remain separately authorized and deferred.

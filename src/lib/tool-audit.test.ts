@@ -22,6 +22,7 @@ function tool(overrides: Partial<StoredToolInvocation> = {}): StoredToolInvocati
     },
     audit: {
       policy: "safe",
+      approval: null,
       outcome: "success",
       durationMs: 30,
     },
@@ -92,6 +93,7 @@ describe("tool audit presentation", () => {
       status: "complete",
       statusLabel: "Complete",
       policyLabel: "Read-only",
+      approvalLabel: null,
       outcomeLabel: "Succeeded",
       durationLabel: "30 ms",
     });
@@ -102,7 +104,7 @@ describe("tool audit presentation", () => {
       toolAuditPresentation(
         tool({
           result: { output: { ok: false }, isError: true, createdAtMs: 2 },
-          audit: { policy: "approval_required", outcome: "approval_required", durationMs: 0 },
+          audit: { policy: "approval_required", approval: null, outcome: "approval_required", durationMs: 0 },
         }),
       ),
     ).toMatchObject({ status: "blocked", statusLabel: "Blocked", policyLabel: "Approval required" });
@@ -110,15 +112,19 @@ describe("tool audit presentation", () => {
       toolAuditPresentation(
         tool({
           result: { output: { ok: false }, isError: true, createdAtMs: 2 },
-          audit: { policy: "safe", outcome: "execution_failed", durationMs: 1_250 },
+          audit: { policy: "safe", approval: null, outcome: "execution_failed", durationMs: 1_250 },
         }),
       ),
     ).toMatchObject({ status: "error", outcomeLabel: "Execution failed", durationLabel: "1.3 s" });
     expect(
-      toolAuditPresentation(tool({ audit: { policy: "legacy", outcome: "legacy_error", durationMs: null } })),
+      toolAuditPresentation(
+        tool({ audit: { policy: "legacy", approval: null, outcome: "legacy_error", durationMs: null } }),
+      ),
     ).toMatchObject({ policyLabel: "Legacy record", outcomeLabel: "Legacy error", durationLabel: null });
     expect(
-      toolAuditPresentation(tool({ result: null, audit: { policy: "safe", outcome: null, durationMs: null } })),
+      toolAuditPresentation(
+        tool({ result: null, audit: { policy: "safe", approval: null, outcome: null, durationMs: null } }),
+      ),
     ).toMatchObject({ status: "pending", statusLabel: "Pending", outcomeLabel: "Awaiting result" });
   });
 
@@ -126,7 +132,7 @@ describe("tool audit presentation", () => {
     const failed = tool({
       ordinal: 1,
       result: { output: { ok: false }, isError: true, createdAtMs: 2 },
-      audit: { policy: "safe", outcome: "unavailable", durationMs: 4 },
+      audit: { policy: "safe", approval: null, outcome: "unavailable", durationMs: 4 },
     });
     expect(toolActivitySummary([tool(), failed])).toBe("2 calls · 1 needs attention");
     expect(toolActivitySummary([tool()])).toBe("1 call");

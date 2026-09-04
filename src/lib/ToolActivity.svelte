@@ -48,6 +48,12 @@
               <dt>Policy</dt>
               <dd>{audit.policyLabel}</dd>
             </div>
+            {#if audit.approvalLabel}
+              <div>
+                <dt>Decision</dt>
+                <dd>{audit.approvalLabel}</dd>
+              </div>
+            {/if}
             <div>
               <dt>Outcome</dt>
               <dd>{audit.outcomeLabel}</dd>

@@ -63,7 +63,7 @@ fn bundles_selected_message_and_conversation_attachments_with_portable_metadata(
     let message_bytes = archive_bytes(&mut archive, &message_file);
 
     assert_eq!(export.file_name, "bottie-portable-context.zip");
-    assert_eq!(value["version"], 4);
+    assert_eq!(value["version"], 5);
     assert_eq!(value["attachments"][0]["displayName"], "shared notes.txt");
     assert_eq!(
         value["messages"][0]["attachments"][0]["displayName"],
@@ -154,7 +154,7 @@ fn bundles_referenced_files_with_the_non_trashed_batch_document() {
         serde_json::from_str(&document).expect("batch JSON should parse");
 
     assert_eq!(export.file_name, "bottie-conversations.zip");
-    assert_eq!(value["version"], 4);
+    assert_eq!(value["version"], 5);
     assert_eq!(
         value["conversations"][0]["attachments"][0]["displayName"],
         "batch.txt"

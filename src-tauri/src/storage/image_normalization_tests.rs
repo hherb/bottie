@@ -234,7 +234,7 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
             .status()
             .expect("status should load")
             .schema_version,
-        21
+        22
     );
     assert_eq!(
         stored.normalization.state,

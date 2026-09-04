@@ -175,10 +175,11 @@ fn upgrades_existing_tool_rows_with_honest_legacy_audit_metadata() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "ALTER TABLE tool_invocations DROP COLUMN execution_policy;
+            "DROP TABLE tool_approvals;
+             ALTER TABLE tool_invocations DROP COLUMN execution_policy;
              ALTER TABLE tool_results DROP COLUMN outcome_code;
              ALTER TABLE tool_results DROP COLUMN duration_ms;
-             DELETE FROM schema_migrations WHERE version = 21;
+             DELETE FROM schema_migrations WHERE version > 20;
              PRAGMA user_version = 20;",
         )
         .expect("audit columns should be removable for the migration fixture");
@@ -197,6 +198,7 @@ fn upgrades_existing_tool_rows_with_honest_legacy_audit_metadata() {
         .audit;
 
     assert_eq!(audit.policy, ToolAuditPolicy::Legacy);
+    assert_eq!(audit.approval, None);
     assert_eq!(audit.outcome, Some(ToolAuditOutcome::LegacyError));
     assert_eq!(audit.duration_ms, None);
 }
@@ -322,13 +324,102 @@ fn validates_tool_names_arguments_and_result_linkage() {
 }
 
 #[test]
+fn accepts_only_one_consistent_approval_before_an_approval_required_result() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let (conversation, run_id) = started_run(&store);
+    for (call_id, policy) in [
+        ("approval-call", ToolAuditPolicy::ApprovalRequired),
+        ("safe-call", ToolAuditPolicy::Safe),
+        ("denied-call", ToolAuditPolicy::ApprovalRequired),
+        ("undecided-call", ToolAuditPolicy::ApprovalRequired),
+    ] {
+        store
+            .checkpoint_tool_invocation(NewToolInvocation {
+                provider_run_id: run_id.clone(),
+                provider_call_id: call_id.into(),
+                tool_name: "run_python".into(),
+                arguments: json!({"source": "print(1)", "purpose": "Test approval."}),
+                audit_policy: policy,
+            })
+            .expect("tool invocation should append");
+    }
+    let approval = NewToolApproval {
+        provider_run_id: run_id.clone(),
+        provider_call_id: "approval-call".into(),
+        decision: ToolApprovalDecision::Approved,
+    };
+    store
+        .checkpoint_tool_approval(approval.clone())
+        .expect("first approval should append");
+    let duplicate = store
+        .checkpoint_tool_approval(approval)
+        .expect_err("an approval must be immutable");
+    let safe_approval = store
+        .checkpoint_tool_approval(NewToolApproval {
+            provider_run_id: run_id.clone(),
+            provider_call_id: "safe-call".into(),
+            decision: ToolApprovalDecision::Approved,
+        })
+        .expect_err("safe calls must not accept approval records");
+    store
+        .checkpoint_tool_approval(NewToolApproval {
+            provider_run_id: run_id.clone(),
+            provider_call_id: "denied-call".into(),
+            decision: ToolApprovalDecision::Denied,
+        })
+        .expect("denial should append");
+    let contradictory = store
+        .checkpoint_tool_result(NewToolResult {
+            provider_run_id: run_id.clone(),
+            provider_call_id: "denied-call".into(),
+            output: json!({"status": "executed"}),
+            is_error: false,
+            audit_outcome: ToolAuditOutcome::Success,
+            duration_ms: 1,
+        })
+        .expect_err("a denied call must not retain a successful result");
+    let unapproved = store
+        .checkpoint_tool_result(NewToolResult {
+            provider_run_id: run_id.clone(),
+            provider_call_id: "undecided-call".into(),
+            output: json!({"status": "executed"}),
+            is_error: false,
+            audit_outcome: ToolAuditOutcome::Success,
+            duration_ms: 1,
+        })
+        .expect_err("an undecided approval-required call must not succeed");
+    store
+        .finish_provider_run(&run_id, ProviderRunState::Completed, None, None)
+        .unwrap();
+
+    let reopened = store.load_conversation(&conversation.id).unwrap();
+    let approval = reopened.messages[1]
+        .provider_run
+        .as_ref()
+        .unwrap()
+        .tool_invocations[0]
+        .audit
+        .approval
+        .as_ref()
+        .expect("approval should reopen");
+    assert_eq!(approval.decision, ToolApprovalDecision::Approved);
+    assert!(approval.decided_at_ms > 0);
+    assert_eq!(duplicate.code, "invalid_request");
+    assert_eq!(safe_approval.code, "invalid_request");
+    assert_eq!(contradictory.code, "invalid_request");
+    assert_eq!(unapproved.code, "invalid_request");
+}
+
+#[test]
 fn upgrades_version_six_stores_with_empty_tool_tables() {
     let path = test_database_path();
     let store = ConversationStore::initialize(path.clone()).expect("storage should initialize");
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE conversation_retention_policies;
+            "DROP TABLE tool_approvals;
+             DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;
              DROP TABLE attachment_text_indexing;
@@ -352,7 +443,8 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
     let table_count: i64 = connection
         .query_row(
             "SELECT COUNT(*) FROM sqlite_schema
-             WHERE type = 'table' AND name IN ('tool_invocations', 'tool_results')",
+             WHERE type = 'table'
+               AND name IN ('tool_invocations', 'tool_approvals', 'tool_results')",
             [],
             |row| row.get(0),
         )
@@ -363,7 +455,7 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
             .status()
             .expect("status should load")
             .schema_version,
-        21
+        22
     );
-    assert_eq!(table_count, 2);
+    assert_eq!(table_count, 3);
 }

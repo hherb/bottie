@@ -17,6 +17,7 @@ use super::{
     },
     now_ms,
     retention_migration::MIGRATION_20,
+    tool_approval_migration::MIGRATION_22,
     tool_audit_migration::MIGRATION_21,
 };
 
@@ -43,6 +44,7 @@ pub(super) const MIGRATION_NAMES: [&str; CURRENT_SCHEMA_VERSION as usize] = [
     "per-conversation memory exclusion",
     "time-based Trash retention",
     "structured tool execution audit",
+    "append-only tool approval decisions",
 ];
 
 /// Returns the exact ledger name for one supported schema version.
@@ -135,6 +137,9 @@ impl ConversationStore {
         }
         if version < 21 {
             apply_migration(connection, MIGRATION_21, 21)?;
+        }
+        if version < 22 {
+            apply_migration(connection, MIGRATION_22, 22)?;
         }
         Ok(())
     }

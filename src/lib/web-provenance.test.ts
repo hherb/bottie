@@ -16,6 +16,7 @@ function assistantWithTools(tools: ToolFixture[]): Message {
       ...tool,
       audit: {
         policy: "safe",
+        approval: null,
         outcome: tool.result?.isError ? "unavailable" : tool.result ? "success" : null,
         durationMs: tool.result ? Math.max(0, tool.result.createdAtMs - tool.createdAtMs) : null,
       },

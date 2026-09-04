@@ -12,7 +12,7 @@ describe("ToolActivity", () => {
             ordinal: 0,
             toolName: "search_memory",
             arguments: { query: "private query" },
-            audit: { policy: "safe", outcome: "success", durationMs: 8 },
+            audit: { policy: "safe", approval: null, outcome: "success", durationMs: 8 },
             result: { output: { ok: true, result: { matches: [] } }, isError: false, createdAtMs: 2_000 },
             createdAtMs: 1_000,
           },
@@ -20,7 +20,7 @@ describe("ToolActivity", () => {
             ordinal: 1,
             toolName: "web_fetch",
             arguments: { url: "https://example.com/" },
-            audit: { policy: "safe", outcome: "success", durationMs: 500 },
+            audit: { policy: "safe", approval: null, outcome: "success", durationMs: 500 },
             result: {
               output: {
                 ok: true,
@@ -35,7 +35,7 @@ describe("ToolActivity", () => {
             ordinal: 2,
             toolName: "future_tool",
             arguments: { path: "/private/example" },
-            audit: { policy: "unregistered", outcome: "unsupported_tool", durationMs: 0 },
+            audit: { policy: "unregistered", approval: null, outcome: "unsupported_tool", durationMs: 0 },
             result: { output: { ok: false }, isError: true, createdAtMs: 4_000 },
             createdAtMs: 3_500,
           },
@@ -68,7 +68,12 @@ describe("ToolActivity", () => {
               source: "print(sum([2, 3, 5]))",
               purpose: "Add the values exactly.",
             },
-            audit: { policy: "approval_required", outcome: "approval_required", durationMs: 0 },
+            audit: {
+              policy: "approval_required",
+              approval: { decision: "denied", decidedAtMs: 1_500 },
+              outcome: "approval_required",
+              durationMs: 0,
+            },
             result: {
               output: { ok: false, error: { code: "approval_required" } },
               isError: true,
@@ -86,6 +91,8 @@ describe("ToolActivity", () => {
     expect(html).toContain("Proposed source");
     expect(html).toContain("print(sum([2, 3, 5]))");
     expect(html).toContain("Bottie has not run this code. Approval is required before execution.");
+    expect(html).toContain("Decision");
+    expect(html).toContain("Denied");
     expect(html).not.toContain("<summary>Arguments</summary>");
     expect(html).not.toContain("<summary>Error result</summary>");
     expect(html).not.toContain("The call has no durable result yet.");
@@ -99,7 +106,7 @@ describe("ToolActivity", () => {
             ordinal: 0,
             toolName: "run_python",
             arguments: { source: "<script>alert('no')</script>", purpose: "Show escaping." },
-            audit: { policy: "approval_required", outcome: "approval_required", durationMs: 0 },
+            audit: { policy: "approval_required", approval: null, outcome: "approval_required", durationMs: 0 },
             result: null,
             createdAtMs: 1_000,
           },

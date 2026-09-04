@@ -26,7 +26,7 @@ fn staged_upgrade_promotes_wal_content_and_keeps_source_recovery_point() {
 
     assert_eq!(
         store.status().expect("status should load").schema_version,
-        21
+        22
     );
     assert_eq!(conversations[0].id, "wal-conversation");
     assert_eq!(recovery_points.len(), 1);
@@ -177,7 +177,7 @@ fn restart_finishes_a_promoted_target_left_before_cleanup() {
         MigrationFault::AfterLivePromotion,
     )
     .expect_err("post-promotion fault should emulate process interruption");
-    assert_eq!(database_version(&path), 21);
+    assert_eq!(database_version(&path), 22);
     assert!(migration_marker_path(&path).exists());
 
     let reopened = ConversationStore::initialize(path.clone())
@@ -188,7 +188,7 @@ fn restart_finishes_a_promoted_target_left_before_cleanup() {
             .status()
             .expect("status should load")
             .schema_version,
-        21
+        22
     );
     assert!(conversation_exists(&path, "promoted-target"));
     assert!(!migration_marker_path(&path).exists());
@@ -221,14 +221,14 @@ fn newer_schema_and_malformed_ledger_fail_without_managed_artifacts() {
     let newer_path = test_database_path();
     let newer = version_one_fixture(&newer_path, "newer-source");
     newer
-        .pragma_update(None, "user_version", 22)
+        .pragma_update(None, "user_version", 23)
         .expect("newer version should be set");
     drop(newer);
 
     let newer_error = ConversationStore::initialize(newer_path.clone())
         .expect_err("newer schema should fail closed");
     assert_eq!(newer_error.code, "newer_schema");
-    assert_eq!(database_version(&newer_path), 22);
+    assert_eq!(database_version(&newer_path), 23);
     assert!(
         managed_recovery_points(&newer_path)
             .expect("recovery points should list")
