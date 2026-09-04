@@ -4,9 +4,9 @@ Last verified: 2026-09-05
 
 ## Start here
 
-PR #144 merged into `main` at `1c7c20a` with every final hosted check passing. The current branch is
-`codex/python-durable-audit`; its draft PR is pending creation. Microsoft Store certification and publication remain
-deferred until fresh release-owner notice.
+PR #144 merged into `main` at `1c7c20a` with every final hosted check passing. Draft PR #145 is open from
+`codex/python-durable-audit`. Microsoft Store certification and publication remain deferred until fresh release-owner
+notice.
 
 Read, in order:
 
