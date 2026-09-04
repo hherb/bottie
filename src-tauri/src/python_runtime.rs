@@ -32,7 +32,7 @@ const MACOS_SERVICE_BUNDLE: &str = "com.bottie.python-runner.xpc";
 const MACOS_SERVICE_EXECUTABLE: &str = "bottie-python-xpc-service";
 const WINDOWS_CONTROLLER_BASENAME: &str = "bottie-python-appcontainer.exe";
 const WINDOWS_RUNNER_BASENAME: &str = "bottie-python-runner.exe";
-const WINDOWS_PROFILE_MONIKER: &str = "com.bottie.python-runner";
+const WINDOWS_PROFILE_MONIKER_PREFIX: &str = "com.bottie.python.runner";
 const INCOMPLETE_BUNDLE_MESSAGE: &str = "The packaged Python runtime is incomplete.";
 
 /// Supported packaged layouts, kept platform-independent for contract tests.
@@ -174,11 +174,16 @@ fn require_directory(path: &Path) -> Result<(), PythonRuntimeError> {
     }
 }
 
-/// Returns one fixed profile lifecycle command without accepting arbitrary native arguments.
-pub(crate) fn windows_profile_arguments(prepare: bool) -> Vec<OsString> {
+/// Returns one controller-safe profile moniker owned by the given native process.
+pub(crate) fn windows_profile_moniker(process_id: u32) -> String {
+    format!("{WINDOWS_PROFILE_MONIKER_PREFIX}.{process_id}")
+}
+
+/// Returns one fixed profile lifecycle command for a native-owned moniker.
+pub(crate) fn windows_profile_arguments(prepare: bool, profile_moniker: &str) -> Vec<OsString> {
     vec![
         if prepare { "prepare" } else { "cleanup" }.into(),
-        WINDOWS_PROFILE_MONIKER.into(),
+        profile_moniker.into(),
     ]
 }
 
@@ -237,28 +242,34 @@ fn construct_runtime(paths: PythonBundlePaths) -> Result<PythonRuntimeState, Pyt
     else {
         return Err(PythonRuntimeError);
     };
-    let profile = WindowsAppContainerProfile::prepare(&controller)?;
+    let profile_moniker = windows_profile_moniker(std::process::id());
+    let profile = WindowsAppContainerProfile::prepare(&controller, profile_moniker.clone())?;
     Ok(PythonRuntimeState {
         runner: Arc::new(WindowsAppContainerPythonRunner::new(
-            controller, runner, runtime,
+            controller,
+            profile_moniker,
+            runner,
+            runtime,
         )),
         profile,
     })
 }
 
-/// Owns the fixed Windows profile from successful preparation through native shutdown.
+/// Owns one process-specific Windows profile from preparation through native shutdown.
 #[cfg(target_os = "windows")]
 struct WindowsAppContainerProfile {
     controller: PathBuf,
+    moniker: String,
 }
 
 #[cfg(target_os = "windows")]
 impl WindowsAppContainerProfile {
-    /// Provisions the fixed zero-capability profile through the bundled native controller.
-    fn prepare(controller: &Path) -> Result<Self, PythonRuntimeError> {
-        if run_profile_command(controller, true)? {
+    /// Provisions one process-specific zero-capability profile through the bundled controller.
+    fn prepare(controller: &Path, moniker: String) -> Result<Self, PythonRuntimeError> {
+        if run_profile_command(controller, true, &moniker)? {
             Ok(Self {
                 controller: controller.to_owned(),
+                moniker,
             })
         } else {
             Err(PythonRuntimeError)
@@ -269,15 +280,19 @@ impl WindowsAppContainerProfile {
 #[cfg(target_os = "windows")]
 impl Drop for WindowsAppContainerProfile {
     fn drop(&mut self) {
-        let _ = run_profile_command(&self.controller, false);
+        let _ = run_profile_command(&self.controller, false, &self.moniker);
     }
 }
 
 /// Runs one fixed path-free profile lifecycle command with no inherited environment or output.
 #[cfg(target_os = "windows")]
-fn run_profile_command(controller: &Path, prepare: bool) -> Result<bool, PythonRuntimeError> {
+fn run_profile_command(
+    controller: &Path,
+    prepare: bool,
+    profile_moniker: &str,
+) -> Result<bool, PythonRuntimeError> {
     let status = Command::new(controller)
-        .args(windows_profile_arguments(prepare))
+        .args(windows_profile_arguments(prepare, profile_moniker))
         .env_clear()
         .stdin(Stdio::null())
         .stdout(Stdio::null())

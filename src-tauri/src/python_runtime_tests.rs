@@ -5,7 +5,8 @@ use std::{fs, path::Path};
 use uuid::Uuid;
 
 use crate::python_runtime::{
-    PythonBundlePaths, PythonBundlePlatform, resolve_python_bundle_paths, windows_profile_arguments,
+    PythonBundlePaths, PythonBundlePlatform, resolve_python_bundle_paths,
+    windows_profile_arguments, windows_profile_moniker,
 };
 
 /// Creates one isolated fixture root below the host temporary directory.
@@ -130,13 +131,23 @@ fn opt_in_bundle_fails_closed_when_one_native_resource_is_missing() {
 }
 
 #[test]
-fn windows_profile_lifecycle_uses_only_the_fixed_product_moniker() {
+fn windows_profile_lifecycle_uses_a_distinct_controller_safe_moniker_per_process() {
+    let first = windows_profile_moniker(41);
+    let second = windows_profile_moniker(42);
+
+    assert_eq!(first, "com.bottie.python.runner.41");
+    assert_eq!(second, "com.bottie.python.runner.42");
+    assert_ne!(first, second);
+    assert!(first.len() <= 64);
+    assert!(first.chars().all(|character| character.is_ascii_lowercase()
+        || character.is_ascii_digit()
+        || character == '.'));
     assert_eq!(
-        windows_profile_arguments(true),
-        ["prepare", "com.bottie.python-runner"]
+        windows_profile_arguments(true, &first),
+        ["prepare", "com.bottie.python.runner.41"]
     );
     assert_eq!(
-        windows_profile_arguments(false),
-        ["cleanup", "com.bottie.python-runner"]
+        windows_profile_arguments(false, &first),
+        ["cleanup", "com.bottie.python.runner.41"]
     );
 }

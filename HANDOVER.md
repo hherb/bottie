@@ -20,14 +20,17 @@ Read, in order:
   closed unless every fixed native client/controller, helper, runtime, and platform service path has the expected
   regular-file or directory type; native paths stay in Rust.
 - The resolved Linux, macOS, or Windows runner is retained behind the existing provider-neutral trait in native state.
-  Windows additionally provisions only `com.bottie.python-runner` through the bundled controller and requests
-  idempotent cleanup when the state is dropped.
+  Windows additionally provisions a controller-safe profile moniker scoped to Bottie's native process and requests
+  cleanup only for that owned profile when the state is dropped, so overlapping app instances cannot remove one
+  another's AppContainer registration or local storage.
 - Three platform-specific development overlays keep Python absent from default/protected packages. The credential-free
   provenance workflow now stages the macOS client plus nested XPC service, the Windows controller plus deterministic
   uncompressed standard-library archive, or the Linux contained helper, then checks the extracted package layout and
   helper/runtime evidence.
-- Review also widened the prior Windows controller-start test deadline from one to five seconds after it reproduced as
-  a full-suite-only scheduling failure and immediately passed in isolation.
+- Review widened the prior Windows controller-start test deadline from one to five seconds after it reproduced as a
+  full-suite-only scheduling failure and immediately passed in isolation. A later review caught the shared-profile
+  teardown race; focused lifecycle and transport tests now cover distinct process monikers and exact reuse through
+  preparation, execution, and cleanup.
 
 ## Current limits
 

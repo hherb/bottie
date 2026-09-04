@@ -275,9 +275,9 @@ complete; provider mapping, audit, presentation, and shipping evidence remain pe
   Landlock/seccomp/rlimit launch path without provider mapping;
 - [x] macOS XPC product transport behind the provider-neutral runner interface, with bounded private pipes, shared
   cancellation, connection-invalidation cleanup, and fixed opt-in development-bundle resolution;
-- [x] Windows AppContainer product transport behind the provider-neutral runner interface, with a fixed profile,
-  bounded private pipes, shared cancellation, controller-close Job Object cleanup, and fixed opt-in development-bundle
-  resolution plus profile provisioning/cleanup;
+- [x] Windows AppContainer product transport behind the provider-neutral runner interface, with a process-scoped
+  profile, bounded private pipes, shared cancellation, controller-close Job Object cleanup, and fixed opt-in
+  development-bundle resolution plus owned profile provisioning/cleanup;
 - [x] fail-closed Tauri injection of marked platform resources while default and protected package configs remain
   unchanged;
 - [ ] durable Python audit and explicit provider mappings;

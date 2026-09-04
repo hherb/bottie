@@ -174,13 +174,15 @@ The unsigned development MSI now proves bundle placement and byte identity only.
 evidence that the exact installed helper/runtime are signed, launch under the intended containment policy, retain
 their denials after installation, and terminate with Bottie.
 
-The provider-neutral Windows product runner now starts an injected controller with the fixed `execute` mode,
-`com.bottie.python-runner` profile, and native-only helper/runtime paths. Source and purpose stay in bounded JSON on
-private stdin. The shared 45-second outer deadline and cancellation kill and reap the controller; closing it activates
-the controller's existing kill-on-close Job Object and terminates the retained AppContainer runner. The Tauri
-application now requires the complete marked development-bundle layout, provisions the fixed profile before retaining
-the injected runner, and requests idempotent profile cleanup when native state is dropped. Windows compilation,
-packaging, and lifecycle execution for this product path remain hosted evidence rather than local macOS evidence.
+The provider-neutral Windows product runner now starts an injected controller with the fixed `execute` mode, a
+controller-safe `com.bottie.python.runner.<process-id>` profile, and native-only helper/runtime paths. Source and purpose
+stay in bounded JSON on private stdin. The shared 45-second outer deadline and cancellation kill and reap the
+controller; closing it activates the controller's existing kill-on-close Job Object and terminates the retained
+AppContainer runner. The Tauri application now requires the complete marked development-bundle layout, provisions its
+process-scoped profile before retaining the injected runner, and cleans up only that owned profile when native state is
+dropped. Overlapping app processes therefore cannot delete one another's AppContainer registration or local storage.
+Windows compilation, packaging, and lifecycle execution for this product path remain hosted evidence rather than local
+macOS evidence.
 
 References: [AppContainer isolation](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation),
 [launching an AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer),
@@ -320,8 +322,9 @@ transport failures become fixed path-free native errors.
 The concrete Linux launcher selects the already-proven `--linux-contained` runner mode. The macOS product transport
 launches a native client whose sole fixed argument is `execute`; that client connects to Bottie's private App-Sandboxed
 XPC service and never launches the runner directly. The Windows product transport launches the proven AppContainer
-controller with a fixed profile plus native-only helper/runtime paths; the controller creates the restricted-token,
-zero-capability child inside its one-process Job Object. All three transports clear the inherited environment, use
+controller with its process-scoped profile plus native-only helper/runtime paths; the controller creates the
+restricted-token, zero-capability child inside its one-process Job Object. All three transports clear the inherited
+environment, use
 bounded private stdin/stdout/stderr pipes, apply a 45-second outer deadline, and kill and reap their owned process on
 cancellation. Killing the macOS client invalidates its XPC connection, while killing the Windows controller closes its
 Job Object; both actions terminate the retained helper. Denial and cancellation while review is pending never touch a

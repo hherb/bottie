@@ -38,7 +38,7 @@ async fn windows_appcontainer_runner_uses_the_closed_private_pipe_contract() {
         r#"
 [ "$#" -eq 4 ]
 [ "$1" = "execute" ]
-[ "$2" = "com.bottie.python-runner" ]
+[ "$2" = "com.bottie.python.runner.42" ]
 [ "$3" = "/native/bottie-python-runner.exe" ]
 [ "$4" = "/native/python" ]
 request=$(/bin/cat)
@@ -48,6 +48,7 @@ printf '%s' '{"status":"ok","stdout":"42\n","stderr":"","durationMs":12}'
     );
     let runner = WindowsAppContainerPythonRunner::new(
         controller.clone(),
+        "com.bottie.python.runner.42".into(),
         "/native/bottie-python-runner.exe".into(),
         "/native/python".into(),
     );
@@ -86,6 +87,7 @@ while :; do :; done
     let started = controller.parent().unwrap().join("started");
     let runner = WindowsAppContainerPythonRunner::new(
         controller.clone(),
+        "com.bottie.python.runner.42".into(),
         "/native/bottie-python-runner.exe".into(),
         "/native/python".into(),
     );
