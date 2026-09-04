@@ -227,6 +227,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if ([string]::IsNullOrWhiteSpace($visualStudio)) { throw "MSVC build tools are unavailable." }
+          Import-Module "$visualStudio\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $visualStudio -SkipAutomaticLocation `
+            -DevCmdArguments "-arch=x64 -host_arch=x64"
           $target = (rustc --print host-tuple).Trim()
           node scripts/windows-python-appcontainer.mjs `
             --prepare-product $target package/python-development

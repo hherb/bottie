@@ -31,6 +31,9 @@ Read, in order:
   full-suite-only scheduling failure and immediately passed in isolation. A later review caught the shared-profile
   teardown race; focused lifecycle and transport tests now cover distinct process monikers and exact reuse through
   preparation, execution, and cleanup.
+- Hosted packaging review then exposed that the provenance workflow invoked `cl.exe` without entering Visual Studio's
+  developer shell. The Windows staging step now selects the installed x64 MSVC tools and enters that shell first; a
+  workflow contract test preserves the required ordering.
 
 ## Current limits
 
@@ -57,7 +60,11 @@ On Apple silicon, the new staging command compiled the target-suffixed XPC clien
 `293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b` and the 14,273,328-byte helper with SHA-256
 `a686b768840c45231e505f5fc611698d51a6b05d7181950b65ff15fef1200fb9`. The packaged Bottie executable started with
 the resolver active and was then stopped manually. No signing, notarization, protected workflow, or Store action ran.
-Hosted draft-PR checks were queued or in progress at handoff; re-query the final head before treating them as evidence.
+On commit `10aecad`, CodeQL, runtime reproducibility, Linux/macOS bundling, Linux containment and packaging, and the
+standalone Windows AppContainer proof passed. Windows provenance bundling stopped before compilation because the
+workflow had not initialized the MSVC environment; the separate native proof used that required setup and passed.
+The workflow fix is locally validated, but re-query the final head before treating the rerun as Windows package
+evidence.
 
 ## Next bounded action
 

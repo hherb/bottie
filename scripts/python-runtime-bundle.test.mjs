@@ -134,6 +134,14 @@ describe("CPython/WASI development bundle", () => {
     expect(workflow).toContain("--inspect-package");
     expect(workflow).toContain('MACOSX_DEPLOYMENT_TARGET: "14.0"');
     expect(workflow).toContain('CXXFLAGS: "-mmacosx-version-min=14.0"');
+    const windowsControllerStepStart = workflow.indexOf("- name: Stage the Windows product AppContainer controller");
+    const windowsControllerStepEnd = workflow.indexOf("\n      - name:", windowsControllerStepStart + 1);
+    const windowsControllerStep = workflow.slice(windowsControllerStepStart, windowsControllerStepEnd);
+    expect(windowsControllerStep).toContain("Microsoft.VisualStudio.Component.VC.Tools.x86.x64");
+    expect(windowsControllerStep).toContain("Enter-VsDevShell");
+    expect(windowsControllerStep.indexOf("Enter-VsDevShell")).toBeLessThan(
+      windowsControllerStep.indexOf("node scripts/windows-python-appcontainer.mjs"),
+    );
     expect(workflow).not.toContain("secrets.");
     expect(workflow).not.toContain("Microsoft Store");
   });
