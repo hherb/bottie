@@ -4,8 +4,9 @@ Last verified: 2026-09-05
 
 ## Start here
 
-PR #145 merged into `main` at `fff92af` with every final hosted check passing. This branch continues only the next
-bounded Python slice. Microsoft Store certification and publication remain deferred until fresh release-owner notice.
+PR #145 merged into `main` at `fff92af` with every final hosted check passing. Draft PR #146 is open from
+`codex/omlx-python-tool`. Microsoft Store certification and publication remain deferred until fresh release-owner
+notice.
 
 Read, in order:
 
