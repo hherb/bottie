@@ -273,7 +273,9 @@ pending.
   removal;
 - [x] provider-neutral exact-grant execution orchestration, bounded private-pipe helper protocol, and Linux's built-in
   Landlock/seccomp/rlimit launch path without provider mapping;
-- [ ] macOS XPC and Windows AppContainer product transports, durable Python audit, and explicit provider mappings;
+- [x] macOS XPC product transport behind the provider-neutral runner interface, with bounded private pipes, shared
+  cancellation, and connection-invalidation cleanup but no shipping bundle resolution;
+- [ ] Windows AppContainer product transport, durable Python audit, and explicit provider mappings;
 - [ ] answer/context presentation that labels executed source, bounded outputs, errors, and execution provenance.
 
 See `docs/python-sandbox.md` for the verified boundary, platform options, and exclusions.

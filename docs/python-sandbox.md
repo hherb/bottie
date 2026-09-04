@@ -301,12 +301,14 @@ The helper response must match the exact closed status/stdout/stderr/duration co
 and retain the helper's 32 KiB per-stream limits. Malformed, future-shaped, oversized, non-zero-exit, launch, and
 transport failures become fixed path-free native errors.
 
-The concrete launcher is deliberately compiled only on Linux, where it selects the already-proven
-`--linux-contained` runner mode, clears the inherited environment, uses private stdin/stdout/stderr pipes, applies a
-45-second outer deadline, and kills the child on cancellation or dropped orchestration. macOS and Windows do not fall
-back to direct process creation: their product implementations must use the proven XPC and AppContainer designs.
-Denial and cancellation while review is pending never touch the launcher; cancellation after approval is shared with
-the running helper.
+The concrete Linux launcher selects the already-proven `--linux-contained` runner mode. The first macOS product
+transport instead launches a native client whose sole fixed argument is `execute`; that client connects to Bottie's
+private App-Sandboxed XPC service and never launches the runner directly. Both native transports clear the inherited
+environment, use bounded private stdin/stdout/stderr pipes, apply a 45-second outer deadline, and kill and reap their
+owned process on cancellation or dropped orchestration. Killing the macOS client invalidates its XPC connection, so
+the service's existing invalidation handler kills every retained runner. Windows still has no direct-process fallback
+and must use the proven AppContainer design. Denial and cancellation while review is pending never touch a transport;
+cancellation after approval is shared with the running transport.
 
 ## Deferred product integration
 
@@ -315,13 +317,13 @@ This slice deliberately does not:
 - register the reserved tool with a provider or change any provider schema;
 - decide automatically that Python is appropriate for a user question;
 - connect any provider adapter call to the approval slot or advertise `run_python` in a provider schema;
-- add macOS XPC or Windows AppContainer product transports, resolve shipping bundle paths, or connect a
-  Python-specific durable audit;
+- add the Windows AppContainer product transport, resolve or inject shipping bundle paths for the macOS client, XPC
+  service, helper, or runtime, or connect a Python-specific durable audit;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice is the first macOS product transport behind the existing provider-neutral runner interface:
-reuse the separately App-Sandboxed XPC design, private pipes, cancellation, and connection-invalidation cleanup without
-adding provider schema advertisement, provider mapping, answer/context presentation, or durable Python audit. Windows
-AppContainer product transport remains a later separate slice. Protected signing, release publication, and Microsoft
-Store work remain separately authorized and deferred.
+The next bounded slice is the Windows AppContainer product transport behind the existing provider-neutral runner
+interface: reuse the restricted-token, zero-capability AppContainer, private-pipe, Job Object, cancellation, and
+controller-close cleanup design without adding provider schema advertisement, provider mapping, answer/context
+presentation, or durable Python audit. Shipping bundle resolution and installed-package evidence remain later slices.
+Protected signing, release publication, and Microsoft Store work remain separately authorized and deferred.
