@@ -260,9 +260,9 @@ fn sends_explicit_off_and_low_reasoning_controls() {
 }
 
 #[test]
-fn maps_clock_memory_web_and_email_definitions_only_through_the_native_session() {
+fn maps_clock_memory_web_email_and_available_python_only_through_the_native_session() {
     let clock_only = serde_json::to_value(
-        OmlxToolSession::new(live_request("model".into(), "What time is it?"))
+        OmlxToolSession::new(live_request("model".into(), "What time is it?"), false)
             .unwrap()
             .request,
     )
@@ -274,7 +274,8 @@ fn maps_clock_memory_web_and_email_definitions_only_through_the_native_session()
     let mut combined = live_request("model".into(), "Recall and research this");
     combined.memory_enabled = true;
     combined.web_enabled = true;
-    let combined = serde_json::to_value(OmlxToolSession::new(combined).unwrap().request).unwrap();
+    let combined =
+        serde_json::to_value(OmlxToolSession::new(combined, false).unwrap().request).unwrap();
     assert_eq!(combined["tools"].as_array().map(Vec::len), Some(6));
     assert_eq!(combined["tools"][0]["function"]["name"], "search_memory");
     assert_eq!(combined["tools"][3]["function"]["name"], "web_search");
@@ -283,7 +284,7 @@ fn maps_clock_memory_web_and_email_definitions_only_through_the_native_session()
 
     let mut email = live_request("model".into(), "Find the quarterly plan email");
     email.email_enabled = true;
-    let email = serde_json::to_value(OmlxToolSession::new(email).unwrap().request).unwrap();
+    let email = serde_json::to_value(OmlxToolSession::new(email, false).unwrap().request).unwrap();
     assert_eq!(email["tools"].as_array().map(Vec::len), Some(4));
     assert_eq!(email["tools"][0]["function"]["name"], "search_email");
     assert_eq!(email["tools"][1]["function"]["name"], "open_email");
@@ -292,6 +293,16 @@ fn maps_clock_memory_web_and_email_definitions_only_through_the_native_session()
         "read_email_attachment"
     );
     assert_eq!(email["tools"][3]["function"]["name"], "current_time");
+
+    let python = serde_json::to_value(
+        OmlxToolSession::new(live_request("model".into(), "Calculate exactly"), true)
+            .unwrap()
+            .request,
+    )
+    .unwrap();
+    assert_eq!(python["tools"].as_array().map(Vec::len), Some(2));
+    assert_eq!(python["tools"][0]["function"]["name"], "current_time");
+    assert_eq!(python["tools"][1]["function"]["name"], "run_python");
 }
 
 #[test]
@@ -309,7 +320,7 @@ fn reconstructs_fragmented_calls_and_appends_exact_correlated_results() {
     assert_eq!(calls[0].tool_name(), "current_time");
     assert_eq!(calls[0].arguments(), &serde_json::json!({}));
 
-    let mut session = OmlxToolSession::new(live_request("model".into(), "What time is it?"))
+    let mut session = OmlxToolSession::new(live_request("model".into(), "What time is it?"), false)
         .expect("tool session should build");
     session
         .append_results(

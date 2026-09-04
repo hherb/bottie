@@ -75,6 +75,8 @@ fn streams_an_omlx_clock_result_and_final_answer_across_two_requests() {
         None,
         None,
         None,
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
+        None,
     ))
     .expect("two-round oMLX clock generation should complete")
     .expect("fixture reports usage");
@@ -186,6 +188,8 @@ fn live_omlx_clock_and_memory_calls_complete_through_bottie() {
         ToolLoopCancellation::default(),
         None,
         None,
+        None,
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
         None,
     ))
     .expect("live oMLX native-tool loop should complete");

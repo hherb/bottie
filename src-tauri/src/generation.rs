@@ -17,6 +17,7 @@ use crate::{
     },
     inference::{ChatRequest, ChatRun, ProviderError, ReasoningEffort, StreamEvent, Usage},
     provider_registry::{RoutedProvider, routed_provider},
+    python_runtime::PythonRuntimeState,
     run_cancellation::ActiveRun,
     storage::{
         ConversationStore, NewProviderRun, ProviderRunContext, ProviderRunState,
@@ -327,6 +328,11 @@ pub(crate) async fn start_chat(
     let diagnostics = state.diagnostics.clone();
     let conversations = state.conversations.clone();
     let semantic_indexing = state.semantic_indexing.clone();
+    let python_approval = state.python_approval.clone();
+    let python_runner = state
+        .python_runtime
+        .as_ref()
+        .map(PythonRuntimeState::runner);
     let task_run_id = run_id.clone();
     tauri::async_runtime::spawn(async move {
         record_diagnostic(
@@ -361,6 +367,8 @@ pub(crate) async fn start_chat(
                     localmail,
                     web_search,
                     web_fetch,
+                    python_approval,
+                    python_runner,
                 )
                 .await
             } else {

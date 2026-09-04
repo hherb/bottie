@@ -247,7 +247,8 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 ### Sandboxed Python execution
 
 Status: core feasibility, macOS/Windows/Linux native containment proofs, opt-in development-bundle runner injection,
-and durable provider-neutral audit complete; provider mapping, presentation, and shipping evidence remain pending.
+durable provider-neutral audit, and oMLX mapping complete; presentation, other provider mappings, and shipping evidence
+remain pending.
 
 - [x] standalone Rust helper with a bounded stdin/stdout JSON contract and no shell interpolation;
 - [x] CPython/WASI execution through Wasmtime's interpreter-only Pulley target;
@@ -282,7 +283,9 @@ and durable provider-neutral audit complete; provider mapping, presentation, and
   unchanged;
 - [x] append-only durable Python invocation, approve/deny decision, and bounded terminal-outcome audit through a
   provider-neutral orchestration seam, with approval committed before helper launch;
-- [ ] explicit provider mappings;
+- [x] explicit tool-capable oMLX mapping through approval, contained execution, bounded provider reuse, and durable
+  audit;
+- [ ] explicit mappings for other providers, if separately selected after oMLX evidence;
 - [ ] answer/context presentation that labels executed source, bounded outputs, errors, and execution provenance.
 
 See `docs/python-sandbox.md` for the verified boundary, platform options, and exclusions.

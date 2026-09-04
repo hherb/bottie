@@ -4,12 +4,10 @@
 //! development bundle must contain every fixed platform resource or startup fails closed. Native
 //! paths remain in Rust and are never exposed through a Tauri command.
 
-#![allow(
-    dead_code,
-    reason = "provider mapping into the injected runner remains intentionally deferred"
-)]
+use std::{fs, path::Path, path::PathBuf, sync::Arc};
 
-use std::{ffi::OsString, fs, path::Path, path::PathBuf, sync::Arc};
+#[cfg(any(test, target_os = "windows"))]
+use std::ffi::OsString;
 
 #[cfg(target_os = "windows")]
 use std::process::{Command, Stdio};
@@ -32,11 +30,16 @@ const MACOS_SERVICE_BUNDLE: &str = "com.bottie.python-runner.xpc";
 const MACOS_SERVICE_EXECUTABLE: &str = "bottie-python-xpc-service";
 const WINDOWS_CONTROLLER_BASENAME: &str = "bottie-python-appcontainer.exe";
 const WINDOWS_RUNNER_BASENAME: &str = "bottie-python-runner.exe";
+#[cfg(any(test, target_os = "windows"))]
 const WINDOWS_PROFILE_MONIKER_PREFIX: &str = "com.bottie.python.runner";
 const INCOMPLETE_BUNDLE_MESSAGE: &str = "The packaged Python runtime is incomplete.";
 
 /// Supported packaged layouts, kept platform-independent for contract tests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(
+    dead_code,
+    reason = "all platform layouts are resolved by shared tests but only one is constructed per target"
+)]
 pub(crate) enum PythonBundlePlatform {
     /// Linux DEB layout.
     Linux,
@@ -77,6 +80,13 @@ pub(crate) struct PythonRuntimeState {
     runner: Arc<dyn PythonRunner>,
     #[cfg(target_os = "windows")]
     profile: WindowsAppContainerProfile,
+}
+
+impl PythonRuntimeState {
+    /// Returns the contained runner without exposing any native bundle path.
+    pub(crate) fn runner(&self) -> Arc<dyn PythonRunner> {
+        self.runner.clone()
+    }
 }
 
 /// Resolves and constructs a runner only for the explicitly marked development bundle.
@@ -175,11 +185,13 @@ fn require_directory(path: &Path) -> Result<(), PythonRuntimeError> {
 }
 
 /// Returns one controller-safe profile moniker owned by the given native process.
+#[cfg(any(test, target_os = "windows"))]
 pub(crate) fn windows_profile_moniker(process_id: u32) -> String {
     format!("{WINDOWS_PROFILE_MONIKER_PREFIX}.{process_id}")
 }
 
 /// Returns one fixed profile lifecycle command for a native-owned moniker.
+#[cfg(any(test, target_os = "windows"))]
 pub(crate) fn windows_profile_arguments(prepare: bool, profile_moniker: &str) -> Vec<OsString> {
     vec![
         if prepare { "prepare" } else { "cleanup" }.into(),

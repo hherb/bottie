@@ -3,11 +3,12 @@
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with unsigned development-package inspection, the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume, and
-append-only durable audit are implemented. The native waiter also publishes bounded approval lifecycle events to the
-existing WebView review state. An approved exact call can now cross a provider-neutral Rust execution boundary into
-the helper's bounded private-pipe protocol through Linux containment, a macOS XPC client, or a Windows AppContainer
-controller. Bottie does not yet advertise, provider-map, product-enable, or ship a Python tool. The opt-in development
-package resolves and injects its fixed native resources without changing default or protected packages.
+append-only durable audit, and an explicit oMLX mapping are implemented. The native waiter also publishes bounded
+approval lifecycle events to the existing WebView review state. An approved exact oMLX call can now cross the
+provider-neutral Rust execution boundary into the helper's bounded private-pipe protocol through Linux containment, a
+macOS XPC client, or a Windows AppContainer controller. Only an explicitly marked development bundle advertises the
+tool, and only on a discovered tool-capable oMLX route. Bottie does not map another provider, present execution results
+as answer context, or ship a Python tool. Default and protected packages remain unchanged.
 
 ## Chosen core
 
@@ -277,12 +278,13 @@ private-environment, runtime/workspace-read, host-fixture-denial, private-pipe, 
 
 `run_python` is now reserved as a provider-independent native contract with exactly two required fields: `source` and
 `purpose`. The native validator rejects unknown fields, blank or NUL-containing values, source over 32 KiB UTF-8, and
-purpose over 512 Unicode scalar values. These limits match the unchanged standalone runner request boundary, but the
-product contract does not yet map or submit a runner request.
+purpose over 512 Unicode scalar values. These limits match the unchanged standalone runner request boundary. The
+oMLX-only product mapping submits this request only after its exact native approval is durably recorded.
 
 The existing native tool policy classifies `run_python` as `ApprovalRequired`. Missing approval fails closed before
 argument validation, and an approval grant is consumed and bound to the exact call identity, tool name, source, and
-purpose. No provider adapter includes the definition and no process is launched.
+purpose. The definition is appended only to oMLX's existing native tool set when the selected model explicitly reports
+tool capability and startup resolved the complete marked development runtime. Other adapters omit it.
 
 One Rust-owned process-local slot can now retain a validated proposal for an explicit decision. The WebView receives a
 random opaque request token plus the complete bounded source and purpose, never the provider call identity. A closed
@@ -345,20 +347,21 @@ identity, approval request tokens, and native paths. Native duration excludes us
 fails, no helper starts; if execution is interrupted after approval, the durable decision remains without a fabricated
 result.
 
-The typed Tool activity and portable exports can label an available decision, but no provider currently creates these
-records in product generation and no Python answer/context presentation was added.
+The typed Tool activity and portable exports can label an available decision. The oMLX generation loop now creates
+these records in a marked development bundle, but no Python answer/context presentation was added.
 
 ## Deferred product integration
 
-This slice deliberately does not:
+The oMLX mapping deliberately does not:
 
-- register the reserved tool with a provider or change any provider schema;
 - decide automatically that Python is appropriate for a user question;
-- connect any provider adapter call to the approval slot or advertise `run_python` in a provider schema;
+- advertise or map `run_python` through Ollama, OpenAI-compatible, or Anthropic-compatible routes;
+- expose Python in a default or protected package without the complete native runtime marker;
+- add execution-result answer/context presentation beyond existing durable Tool activity;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice advertises and maps `run_python` only on the explicitly tool-capable oMLX route through the
-audited async orchestration seam. It does not map another provider, add answer/context presentation, change default or
-protected packages, make installed-package claims, sign, publish a release, or perform Microsoft Store work; those
-remain separately authorized and deferred.
+The next bounded slice adds selected-lineage Python execution-result presentation from the existing durable path-free
+audit, clearly labeling approved source, bounded stdout/stderr, stable errors, and execution provenance. It does not map
+another provider, change default or protected packages, make installed-package claims, sign, publish a release, or
+perform Microsoft Store work; those remain separately authorized and deferred.

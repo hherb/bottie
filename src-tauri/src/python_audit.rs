@@ -1,13 +1,8 @@
 //! Durable provider-neutral orchestration for approved Python execution.
 //!
-//! Provider adapters intentionally do not call this seam yet. It appends the exact invocation,
-//! records any explicit decision before starting the runner, and then appends one bounded terminal
-//! outcome through the existing native tool audit.
-
-#![allow(
-    dead_code,
-    reason = "provider mapping into this native orchestration is intentionally deferred"
-)]
+//! The explicitly tool-capable oMLX route calls this seam. It appends the exact invocation, records
+//! any explicit decision before starting the runner, and then appends one bounded terminal outcome
+//! through the existing native tool audit.
 
 use serde::Serialize;
 
@@ -20,6 +15,10 @@ use crate::{
     storage::{
         ConversationStore, NewToolApproval, NewToolInvocation, NewToolResult, StorageError,
         ToolApprovalDecision, ToolAuditOutcome, ToolAuditPolicy,
+    },
+    tool_dispatch::{
+        MemoryToolExecution, MemoryToolExecutionError, MemoryToolExecutionErrorCode,
+        bounded_memory_tool_success,
     },
     tool_loop::{NativeToolCall, ToolLoopCancellation},
 };
@@ -105,6 +104,65 @@ pub(crate) async fn execute_audited_python(
     match terminal {
         PythonTerminal::Outcome(outcome) => Ok(outcome),
         PythonTerminal::Failure(error) => Err(AuditedPythonError::Execution(error)),
+    }
+}
+
+/// Executes one oMLX Python call and converts its audited terminal state into a bounded reply.
+pub(crate) async fn execute_audited_python_for_provider(
+    store: &ConversationStore,
+    provider_run_id: &str,
+    controller: &PythonApprovalController,
+    runner: &(impl PythonRunner + ?Sized),
+    call: NativeToolCall,
+    cancellation: &ToolLoopCancellation,
+) -> Result<MemoryToolExecution, StorageError> {
+    match execute_audited_python(
+        store,
+        provider_run_id,
+        controller,
+        runner,
+        call,
+        cancellation,
+    )
+    .await
+    {
+        Ok(PythonExecutionOutcome::Executed(result)) => {
+            let result = serde_json::to_value(PythonAuditPayload::Executed { result: &result })
+                .map_err(|_| StorageError::internal())?;
+            Ok(bounded_memory_tool_success(result))
+        }
+        Ok(PythonExecutionOutcome::Denied) => Ok(python_provider_error(
+            MemoryToolExecutionErrorCode::ApprovalRequired,
+            "The user denied this Python proposal.",
+        )),
+        Ok(PythonExecutionOutcome::Cancelled) => Ok(python_provider_error(
+            MemoryToolExecutionErrorCode::ExecutionFailed,
+            "The Python proposal was cancelled.",
+        )),
+        Err(AuditedPythonError::Storage(error)) => Err(error),
+        Err(AuditedPythonError::Execution(error)) => Ok(python_execution_error(&error)),
+    }
+}
+
+/// Maps one path-free execution failure into the common provider-facing result contract.
+fn python_execution_error(error: &PythonExecutionError) -> MemoryToolExecution {
+    let code = match error.code {
+        PythonExecutionErrorCode::ApprovalFailed => MemoryToolExecutionErrorCode::ApprovalRequired,
+        PythonExecutionErrorCode::InvalidRequest => MemoryToolExecutionErrorCode::InvalidArguments,
+        PythonExecutionErrorCode::HelperFailed | PythonExecutionErrorCode::InvalidResult => {
+            MemoryToolExecutionErrorCode::ExecutionFailed
+        }
+    };
+    python_provider_error(code, error.message)
+}
+
+/// Builds one bounded Python provider error without reflecting source, purpose, or native paths.
+fn python_provider_error(
+    code: MemoryToolExecutionErrorCode,
+    message: &'static str,
+) -> MemoryToolExecution {
+    MemoryToolExecution::Error {
+        error: MemoryToolExecutionError { code, message },
     }
 }
 

@@ -10,8 +10,8 @@ use crate::{
     inference::{
         AnthropicProvider, AnthropicToolCall, AnthropicToolResult, AnthropicToolSession,
         ChatRequest, OllamaProvider, OllamaToolCall, OllamaToolResult, OllamaToolSession,
-        OmlxProvider, OmlxToolSession, OpenAiProvider, OpenAiToolCall, OpenAiToolResult,
-        OpenAiToolSession, ProviderError, ProviderErrorCode, StreamSink, Usage,
+        OpenAiProvider, OpenAiToolCall, OpenAiToolResult, OpenAiToolSession, ProviderError,
+        ProviderErrorCode, StreamSink, Usage,
     },
     provider_registry::RoutedProvider,
     semantic_indexer::SemanticQueryEmbedder,
@@ -28,10 +28,14 @@ use crate::{
 };
 
 mod anthropic;
+mod omlx;
 
 #[cfg(test)]
 pub(crate) use anthropic::execute_anthropic_tool_round;
 pub(crate) use anthropic::stream_anthropic_tools;
+#[cfg(test)]
+pub(crate) use omlx::execute_omlx_tool_round;
+pub(crate) use omlx::stream_omlx_tools;
 
 /// Routes one explicitly enabled generation into its provider-native tool loop.
 pub(crate) async fn stream_native_tools(
@@ -45,6 +49,8 @@ pub(crate) async fn stream_native_tools(
     localmail: Option<Arc<dyn NativeLocalmailToolExecutor>>,
     web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
     web_fetch: Option<Arc<dyn NativeWebFetchExecutor>>,
+    python_approval: Arc<crate::python_approval::PythonApprovalController>,
+    python_runner: Option<Arc<dyn crate::python_execution::PythonRunner>>,
 ) -> Result<Option<Usage>, ProviderError> {
     match provider {
         RoutedProvider::Ollama(provider) => {
@@ -104,72 +110,11 @@ pub(crate) async fn stream_native_tools(
                 web_search,
                 web_fetch,
                 localmail,
+                python_approval,
+                python_runner,
             )
             .await
         }
-    }
-}
-
-/// Runs repeated oMLX Chat Completions rounds through Bottie's existing durable loop policy.
-pub(crate) async fn stream_omlx_tools(
-    provider: OmlxProvider,
-    request: ChatRequest,
-    sink: impl StreamSink + Clone + Send + Sync + 'static,
-    store: ConversationStore,
-    provider_run_id: String,
-    query_embedder: SemanticQueryEmbedder,
-    cancellation: ToolLoopCancellation,
-    web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
-    web_fetch: Option<Arc<dyn NativeWebFetchExecutor>>,
-    localmail: Option<Arc<dyn NativeLocalmailToolExecutor>>,
-) -> Result<Option<Usage>, ProviderError> {
-    let memory_enabled = request.memory_enabled;
-    let mut session = OmlxToolSession::new(request)?;
-    let mut loop_state: Option<ToolLoopState> = None;
-    let mut cumulative_usage = None;
-    loop {
-        let round = provider.stream_tool_round(&session, sink.clone()).await?;
-        cumulative_usage = merge_usage(cumulative_usage, round.usage.clone());
-        if let Some(usage) = &cumulative_usage {
-            sink.usage_updated(usage.clone())?;
-        }
-        if round.tool_calls.is_empty() {
-            if let Some(state) = &mut loop_state {
-                state.complete(&cancellation).map_err(tool_loop_error)?;
-            }
-            return Ok(cumulative_usage);
-        }
-
-        let mut state = loop_state.unwrap_or_else(|| ToolLoopState::new(std::time::Instant::now()));
-        let calls = round.tool_calls.clone();
-        let round_store = store.clone();
-        let round_run_id = provider_run_id.clone();
-        let mut round_embedder = query_embedder.clone();
-        let round_cancellation = cancellation.clone();
-        let round_web_search = web_search.clone();
-        let round_web_fetch = web_fetch.clone();
-        let round_localmail = localmail.clone();
-        let (returned_state, results) = tauri::async_runtime::spawn_blocking(move || {
-            let results = execute_openai_tool_round(
-                &round_store,
-                &round_run_id,
-                &mut round_embedder,
-                &mut state,
-                calls,
-                &round_cancellation,
-                memory_enabled,
-                round_web_search.as_ref().map(Arc::as_ref),
-                round_web_fetch.as_ref().map(Arc::as_ref),
-                round_localmail.as_ref().map(Arc::as_ref),
-            );
-            (state, results)
-        })
-        .await
-        .map_err(|_| {
-            ProviderError::internal("The native oMLX tool worker stopped unexpectedly.", None)
-        })?;
-        loop_state = Some(returned_state);
-        session.append_results(round, results?)?;
     }
 }
 
