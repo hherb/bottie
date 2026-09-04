@@ -117,7 +117,7 @@ fn migration_registers_static_vec_and_records_versioned_empty_index() {
             .status()
             .expect("status should load")
             .schema_version,
-        21
+        22
     );
     assert_eq!(
         metadata,

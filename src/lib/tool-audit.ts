@@ -7,6 +7,7 @@ export type ToolAuditPresentation = {
   status: "pending" | "complete" | "blocked" | "error";
   statusLabel: string;
   policyLabel: string;
+  approvalLabel: string | null;
   outcomeLabel: string;
   durationLabel: string | null;
 };
@@ -83,6 +84,12 @@ export function toolAuditPresentation(tool: StoredToolInvocation): ToolAuditPres
     status,
     statusLabel: status === "complete" ? "Complete" : status === "blocked" ? "Blocked" : titleCase(status),
     policyLabel: policyLabel(tool.audit.policy),
+    approvalLabel:
+      tool.audit.approval?.decision === "approved"
+        ? "Approved once"
+        : tool.audit.approval?.decision === "denied"
+          ? "Denied"
+          : null,
     outcomeLabel: outcome ? OUTCOME_LABELS[outcome] : "Awaiting result",
     durationLabel: durationLabel(tool.audit.durationMs),
   };

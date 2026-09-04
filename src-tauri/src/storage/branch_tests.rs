@@ -260,7 +260,7 @@ fn version_four_stores_gain_a_selected_main_branch() {
 
     assert_eq!(
         store.status().expect("status should load").schema_version,
-        21
+        22
     );
     assert_eq!(loaded.current_branch_id, "main-branch");
     assert_eq!(loaded.branches.len(), 1);

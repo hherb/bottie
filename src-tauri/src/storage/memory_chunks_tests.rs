@@ -151,7 +151,7 @@ fn migration_backfills_final_messages_and_ready_documents_without_reasoning() {
             .status()
             .expect("status should load")
             .schema_version,
-        21
+        22
     );
     assert!(message_chunks.len() > 1);
     assert!(attachment_chunks.len() > 1);

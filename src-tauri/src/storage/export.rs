@@ -19,10 +19,10 @@ const EXPORT_FILENAME_PREFIX: &str = "bottie-";
 const MARKDOWN_FILENAME_EXTENSION: &str = ".md";
 const JSON_FILENAME_EXTENSION: &str = ".json";
 const JSON_EXPORT_FORMAT: &str = "bottie-conversation";
-const JSON_EXPORT_VERSION: u8 = 4;
+const JSON_EXPORT_VERSION: u8 = 5;
 const BATCH_JSON_EXPORT_FILE_NAME: &str = "bottie-conversations.json";
 const BATCH_JSON_EXPORT_FORMAT: &str = "bottie-conversation-batch";
-const BATCH_JSON_EXPORT_VERSION: u8 = 4;
+const BATCH_JSON_EXPORT_VERSION: u8 = 5;
 
 impl ConversationStore {
     /// Prepares the current visible lineage without changing the profile's open-conversation selection.
@@ -445,6 +445,13 @@ fn write_tool_audit(markdown: &mut String, audit: &super::tools::StoredToolAudit
         Some(super::tools::ToolAuditOutcome::LegacyError) => "Legacy error",
     };
     writeln!(markdown, "**Audit:** {policy} · {outcome}").expect("writing to a string cannot fail");
+    if let Some(approval) = &audit.approval {
+        let decision = match approval.decision {
+            super::ToolApprovalDecision::Approved => "Approved once",
+            super::ToolApprovalDecision::Denied => "Denied",
+        };
+        writeln!(markdown, "**Decision:** {decision}").expect("writing to a string cannot fail");
+    }
     if let Some(duration_ms) = audit.duration_ms {
         writeln!(markdown, "**Native execution:** {duration_ms} ms")
             .expect("writing to a string cannot fail");

@@ -30,7 +30,7 @@ const MAX_HELPER_REQUEST_BYTES: usize = 256 * 1_024;
 /// Maximum stdout or stderr payload accepted inside a decoded helper result.
 const MAX_HELPER_STREAM_BYTES: usize = 32 * 1_024;
 /// Stable result categories emitted by the standalone Python helper.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum PythonExecutionStatus {
     /// Python completed successfully.
@@ -50,7 +50,7 @@ pub(crate) enum PythonExecutionStatus {
 }
 
 /// Complete bounded, path-free result decoded from the helper's stdout pipe.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct PythonExecutionResult {
     /// Stable helper-owned completion category.
@@ -75,7 +75,8 @@ pub(crate) enum PythonExecutionOutcome {
 }
 
 /// Stable native execution-boundary failure categories.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum PythonExecutionErrorCode {
     /// Approval publication or exact-call resolution failed closed.
     ApprovalFailed,
@@ -253,15 +254,35 @@ pub(crate) async fn execute_approved_python(
     call: NativeToolCall,
     cancellation: &ToolLoopCancellation,
 ) -> Result<PythonExecutionOutcome, PythonExecutionError> {
-    let approval = controller
-        .request_and_wait(call.clone(), cancellation)
+    let approval = resolve_python_approval(controller, call.clone(), cancellation).await?;
+    match approval {
+        PythonApprovalResolution::Approved(grant) => {
+            execute_authorized_python(runner, call, grant, cancellation).await
+        }
+        PythonApprovalResolution::Denied => Ok(PythonExecutionOutcome::Denied),
+        PythonApprovalResolution::Cancelled => Ok(PythonExecutionOutcome::Cancelled),
+    }
+}
+
+/// Waits for the explicit decision without crossing the helper execution boundary.
+pub(crate) async fn resolve_python_approval(
+    controller: &PythonApprovalController,
+    call: NativeToolCall,
+    cancellation: &ToolLoopCancellation,
+) -> Result<PythonApprovalResolution, PythonExecutionError> {
+    controller
+        .request_and_wait(call, cancellation)
         .await
-        .map_err(approval_execution_error)?;
-    let grant = match approval {
-        PythonApprovalResolution::Approved(grant) => grant,
-        PythonApprovalResolution::Denied => return Ok(PythonExecutionOutcome::Denied),
-        PythonApprovalResolution::Cancelled => return Ok(PythonExecutionOutcome::Cancelled),
-    };
+        .map_err(approval_execution_error)
+}
+
+/// Revalidates one durably approved exact call before starting the injected runner.
+pub(crate) async fn execute_authorized_python(
+    runner: &(impl PythonRunner + ?Sized),
+    call: NativeToolCall,
+    grant: crate::tool_policy::ApprovedToolCall,
+    cancellation: &ToolLoopCancellation,
+) -> Result<PythonExecutionOutcome, PythonExecutionError> {
     let authorized = authorize_tool_call(&call, Some(grant))
         .map_err(|_| execution_error(PythonExecutionErrorCode::InvalidRequest))?;
     let arguments =

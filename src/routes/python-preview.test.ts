@@ -19,7 +19,7 @@ describe("Python approval preview", () => {
     expect(state.messages[1]?.toolInvocations).toHaveLength(1);
     expect(state.messages[1]?.toolInvocations?.[0]).toMatchObject({
       toolName: "run_python",
-      audit: { policy: "approval_required", outcome: "approval_required", durationMs: 0 },
+      audit: { policy: "approval_required", approval: null, outcome: "approval_required", durationMs: 0 },
     });
     expect(state.pythonApproval.approval).toMatchObject({
       requestId: "development-preview-token",

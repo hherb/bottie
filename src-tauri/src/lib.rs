@@ -21,6 +21,7 @@ mod localmail;
 mod microphone;
 mod provider_registry;
 mod python_approval;
+mod python_audit;
 mod python_execution;
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 mod python_process_transport;
@@ -48,6 +49,8 @@ mod generation_tools_tests;
 mod localmail_tool_tests;
 #[cfg(test)]
 mod python_approval_tests;
+#[cfg(test)]
+mod python_audit_tests;
 #[cfg(test)]
 mod python_execution_tests;
 #[cfg(test)]

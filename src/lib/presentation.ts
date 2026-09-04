@@ -185,6 +185,7 @@ export const INITIAL_MESSAGES: Message[] = [
         },
         audit: {
           policy: "safe",
+          approval: null,
           outcome: "success",
           durationMs: 18,
         },
@@ -214,6 +215,7 @@ export const INITIAL_MESSAGES: Message[] = [
         },
         audit: {
           policy: "safe",
+          approval: null,
           outcome: "success",
           durationMs: 24,
         },
@@ -239,6 +241,7 @@ export const INITIAL_MESSAGES: Message[] = [
         },
         audit: {
           policy: "safe",
+          approval: null,
           outcome: "success",
           durationMs: 31,
         },

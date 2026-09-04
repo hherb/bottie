@@ -4,15 +4,19 @@ use rusqlite::{OptionalExtension, Transaction, params};
 use serde::Serialize;
 use serde_json::Value;
 
-use super::{ConversationStore, StorageError, now_ms};
+use super::{
+    ConversationStore, StorageError, now_ms,
+    tool_approvals::{StoredToolApproval, ToolApprovalDecision, validate_result_approval},
+};
 
 const MAX_TOOL_NAME_CHARACTERS: usize = 128;
-const MAX_PROVIDER_CALL_ID_CHARACTERS: usize = 512;
+pub(super) const MAX_PROVIDER_CALL_ID_CHARACTERS: usize = 512;
 const MAX_TOOL_JSON_BYTES: usize = 1_048_576;
 
-/// Removes schema-21 columns when older migration fixtures rewind an initialized store.
+/// Removes schema-21/22 audit state when older migration fixtures rewind an initialized store.
 #[cfg(test)]
 pub(super) const REMOVE_TOOL_AUDIT_SCHEMA_FOR_TEST: &str = r#"
+DROP TABLE tool_approvals;
 ALTER TABLE tool_invocations DROP COLUMN execution_policy;
 ALTER TABLE tool_results DROP COLUMN outcome_code;
 ALTER TABLE tool_results DROP COLUMN duration_ms;
@@ -66,7 +70,7 @@ pub(crate) enum ToolAuditPolicy {
 
 impl ToolAuditPolicy {
     /// Returns the stable SQLite representation.
-    fn as_str(self) -> &'static str {
+    pub(super) fn as_str(self) -> &'static str {
         match self {
             Self::Legacy => "legacy",
             Self::Safe => "safe",
@@ -151,6 +155,8 @@ impl ToolAuditOutcome {
 pub(crate) struct StoredToolAudit {
     /// Native execution classification captured when the call was accepted.
     pub(crate) policy: ToolAuditPolicy,
+    /// Explicit decision appended before execution, absent when no decision was reached.
+    pub(crate) approval: Option<StoredToolApproval>,
     /// Stable terminal outcome, absent while no result has been appended.
     pub(crate) outcome: Option<ToolAuditOutcome>,
     /// Native execution duration, absent for pending and legacy records.
@@ -272,15 +278,26 @@ impl ConversationStore {
         let transaction =
             connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         require_active_run(&transaction, &result.provider_run_id)?;
-        let invocation_id = transaction
+        let (invocation_id, policy, approval) = transaction
             .query_row(
-                "SELECT id FROM tool_invocations
+                "SELECT tool_invocations.id, tool_invocations.execution_policy,
+                        tool_approvals.decision
+                 FROM tool_invocations
+                 LEFT JOIN tool_approvals
+                    ON tool_approvals.tool_invocation_id = tool_invocations.id
                  WHERE provider_run_id = ?1 AND provider_call_id = ?2",
                 params![result.provider_run_id, call_id],
-                |row| row.get::<_, String>(0),
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                    ))
+                },
             )
             .optional()?
             .ok_or_else(|| StorageError::not_found("That tool invocation is not retained."))?;
+        validate_result_approval(&policy, approval.as_deref(), result.audit_outcome)?;
         let has_result: bool = transaction.query_row(
             "SELECT EXISTS (SELECT 1 FROM tool_results WHERE tool_invocation_id = ?1)",
             [&invocation_id],
@@ -318,10 +335,12 @@ pub(super) fn load_tool_invocations(
     let mut statement = connection.prepare(
         "SELECT tool_invocations.ordinal, tool_invocations.tool_name,
                 tool_invocations.arguments_json, tool_invocations.created_at_ms,
-                tool_invocations.execution_policy, tool_results.output_json,
+                tool_invocations.execution_policy, tool_approvals.decision,
+                tool_approvals.created_at_ms, tool_results.output_json,
                 tool_results.is_error, tool_results.created_at_ms,
                 tool_results.outcome_code, tool_results.duration_ms
          FROM tool_invocations
+         LEFT JOIN tool_approvals ON tool_approvals.tool_invocation_id = tool_invocations.id
          LEFT JOIN tool_results ON tool_results.tool_invocation_id = tool_invocations.id
          WHERE tool_invocations.provider_run_id = ?1
          ORDER BY tool_invocations.ordinal",
@@ -334,10 +353,12 @@ pub(super) fn load_tool_invocations(
             row.get::<_, i64>(3)?,
             row.get::<_, String>(4)?,
             row.get::<_, Option<String>>(5)?,
-            row.get::<_, Option<bool>>(6)?,
-            row.get::<_, Option<i64>>(7)?,
-            row.get::<_, Option<String>>(8)?,
+            row.get::<_, Option<i64>>(6)?,
+            row.get::<_, Option<String>>(7)?,
+            row.get::<_, Option<bool>>(8)?,
             row.get::<_, Option<i64>>(9)?,
+            row.get::<_, Option<String>>(10)?,
+            row.get::<_, Option<i64>>(11)?,
         ))
     })?;
     rows.map(|row| {
@@ -347,12 +368,22 @@ pub(super) fn load_tool_invocations(
             arguments,
             created_at_ms,
             policy,
+            approval,
+            decided_at_ms,
             output,
             is_error,
             result_at_ms,
             outcome,
             duration_ms,
         ) = row?;
+        let approval = match (approval, decided_at_ms) {
+            (Some(decision), Some(decided_at_ms)) => Some(StoredToolApproval {
+                decision: ToolApprovalDecision::from_database(&decision)?,
+                decided_at_ms,
+            }),
+            (None, None) => None,
+            _ => return Err(StorageError::internal()),
+        };
         let result = match (output, is_error, result_at_ms) {
             (Some(output), Some(is_error), Some(created_at_ms)) => Some(StoredToolResult {
                 output: serde_json::from_str(&output).map_err(|_| StorageError::internal())?,
@@ -368,6 +399,7 @@ pub(super) fn load_tool_invocations(
             arguments: serde_json::from_str(&arguments).map_err(|_| StorageError::internal())?,
             audit: StoredToolAudit {
                 policy: ToolAuditPolicy::from_database(&policy)?,
+                approval,
                 outcome: outcome
                     .as_deref()
                     .map(ToolAuditOutcome::from_database)
@@ -384,7 +416,10 @@ pub(super) fn load_tool_invocations(
 }
 
 /// Requires a provider run that can still accept crash-safe checkpoints.
-fn require_active_run(transaction: &Transaction<'_>, run_id: &str) -> Result<(), StorageError> {
+pub(super) fn require_active_run(
+    transaction: &Transaction<'_>,
+    run_id: &str,
+) -> Result<(), StorageError> {
     let active: bool = transaction.query_row(
         "SELECT EXISTS (SELECT 1 FROM provider_runs WHERE id = ?1 AND state = 'running')",
         [run_id],
@@ -398,7 +433,7 @@ fn require_active_run(transaction: &Transaction<'_>, run_id: &str) -> Result<(),
 }
 
 /// Trims and bounds one provider-controlled identifier.
-fn normalized_identity<'a>(
+pub(super) fn normalized_identity<'a>(
     value: &'a str,
     maximum_characters: usize,
     error_message: &'static str,

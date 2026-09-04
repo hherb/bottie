@@ -1,12 +1,12 @@
 # Bottie handover
 
-Last verified: 2026-09-04
+Last verified: 2026-09-05
 
 ## Start here
 
-PR #143 is merged into `main` at `40c8dfc`. Draft PR #144 is open from
-`codex/python-bundle-runtime-injection`. No provider advertisement or mapping, answer/context presentation, durable
-Python audit, default/protected package change, signing, release, publication, or Microsoft Store action was taken.
+PR #144 merged into `main` at `1c7c20a` with every final hosted check passing. The current branch is
+`codex/python-durable-audit`; its draft PR is pending creation. Microsoft Store certification and publication remain
+deferred until fresh release-owner notice.
 
 Read, in order:
 
@@ -16,62 +16,50 @@ Read, in order:
 
 ## Completed slice
 
-- Tauri now resolves packaged Python resources only when the opt-in evidence marker exists. A marked bundle fails
-  closed unless every fixed native client/controller, helper, runtime, and platform service path has the expected
-  regular-file or directory type; native paths stay in Rust.
-- The resolved Linux, macOS, or Windows runner is retained behind the existing provider-neutral trait in native state.
-  Windows additionally provisions a controller-safe profile moniker scoped to Bottie's native process and requests
-  cleanup only for that owned profile when the state is dropped, so overlapping app instances cannot remove one
-  another's AppContainer registration or local storage.
-- Three platform-specific development overlays keep Python absent from default/protected packages. The credential-free
-  provenance workflow now stages the macOS client plus nested XPC service, the Windows controller plus deterministic
-  uncompressed standard-library archive, or the Linux contained helper, then checks the extracted package layout and
-  helper/runtime evidence.
-- Review widened the prior Windows controller-start test deadline from one to five seconds after it reproduced as a
-  full-suite-only scheduling failure and immediately passed in isolation. A later review caught the shared-profile
-  teardown race; focused lifecycle and transport tests now cover distinct process monikers and exact reuse through
-  preparation, execution, and cleanup.
-- Hosted packaging review then exposed that the provenance workflow invoked `cl.exe` without entering Visual Studio's
-  developer shell. The Windows staging step now selects the installed x64 MSVC tools and enters that shell first; a
-  workflow contract test preserves the required ordering.
+- Schema 22 adds one append-only `tool_approvals` row for an exact approval-required invocation. Only `approved` or
+  `denied` is accepted, duplicate/late/safe-tool decisions fail closed, and a denied call cannot acquire a successful
+  result.
+- The dormant provider-neutral Python audit seam appends the invocation, waits for the existing native decision,
+  appends that decision before any approved runner launch, and then appends one bounded executed, denied, cancelled,
+  or fixed-error payload. A failed approval checkpoint prevents execution; an approved call interrupted before its
+  result therefore retains an honest decision with no invented terminal record.
+- The existing approval/execution function was split at the decision boundary without changing its callers. Native
+  work duration now excludes time spent waiting for the user. Helper statuses and bounded stdout/stderr retain their
+  closed path-free contract; provider call identity, request tokens, and native paths are not reconstructed.
+- Stored audit metadata and version-5 portable JSON now include the optional decision and decision time. Tool activity
+  and Markdown export label an available decision as `Approved once` or `Denied`; no Python answer/context
+  presentation was added.
+- Focused tests cover durable-before-execute ordering, reopen, denial without launch, cancellation without a false
+  decision, fixed helper failure, one-decision/result consistency, older-store upgrade, and path-free reconstruction.
 
 ## Current limits
 
-No provider adapter advertises or maps `run_python`, so normal generation still cannot reach the injected runner.
-There is no Python-specific durable audit or execution-result presentation. The unsigned macOS development package
-proves resource placement, byte identity, resolver startup, and native compilation only; it does not prove XPC App
-Sandbox execution from that package. Windows controller compilation, profile lifecycle, MSI placement, and Linux DEB
-placement remain pending on the draft PR's credential-free hosted workflow.
+No provider adapter advertises or maps `run_python`, and normal generation does not call the new audit seam. There is
+no Python execution-result answer/context presentation. Default and protected package configs remain unchanged. No
+installed-package containment claim, protected signing, notarization, release-candidate binding, publication, or
+Microsoft Store action was taken or authorized.
 
-The default and protected Tauri configs remain unchanged. No installed-package containment, protected signing,
-notarization, release-candidate binding, publication, or Microsoft Store work is authorized. Store certification and
-publication remain deferred until fresh release-owner notice.
+The unrelated untracked logo-kit, screenshot, and Linux signing-public-key files remain untouched.
 
 ## Validation
 
-Local review passed source formatting, Svelte diagnostics, production build, 281 frontend/script tests (3 skipped),
-480 Rust application-library tests (33 ignored) plus updater evidence, four focused resource-resolution tests, seven
-standalone runner tests (three runtime tests ignored), seven Python-bundle tests, six XPC contract tests, nine
-AppContainer contract tests, offline dependency and notice gates, release-asset checks, and `git diff --check`. Clippy
-completed with the same 39 pre-existing warnings outside this slice and no warning in a changed file.
+`npm run format:check`, `npm run check`, `npm test`, and `npm run build` passed: Svelte reported zero errors/warnings,
+and 281 frontend/script tests passed with 3 skipped. `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`,
+`cargo check --manifest-path src-tauri/Cargo.toml`, and `cargo test --manifest-path src-tauri/Cargo.toml` passed with
+485 application-library tests passing and 33 ignored, plus the updater evidence test. Clippy completed with the same
+39 pre-existing warnings outside changed files and no warning in this slice. `git diff --check` passed.
 
-On Apple silicon, the new staging command compiled the target-suffixed XPC client and service. An unsigned opt-in
-`.app` built successfully; extracted-package inspection matched the 539-file, 40,864,108-byte runtime with tree digest
-`293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b` and the 14,273,328-byte helper with SHA-256
-`a686b768840c45231e505f5fc611698d51a6b05d7181950b65ff15fef1200fb9`. The packaged Bottie executable started with
-the resolver active and was then stopped manually. No signing, notarization, protected workflow, or Store action ran.
-On commit `10aecad`, CodeQL, runtime reproducibility, Linux/macOS bundling, Linux containment and packaging, and the
-standalone Windows AppContainer proof passed. Windows provenance bundling stopped before compilation because the
-workflow had not initialized the MSVC environment; the separate native proof used that required setup and passed.
-The workflow fix is locally validated, but re-query the final head before treating the rerun as Windows package
-evidence.
+The development-only browser fixture was reviewed at the default desktop viewport with the Python approval modal and
+expanded audit card. A development-signed native launch upgraded the existing store from schema 21 to 22; a read-only
+immutable SQLite inspection returned `user_version = 22`, `quick_check = ok`, the exact `tool_approvals` table
+contract, and zero existing approval rows. This launch is migration evidence only, not distribution signing, package,
+release, publication, or Store evidence.
 
 ## Next bounded action
 
-Record Python approval decisions and bounded execution outcomes in the existing append-only native tool audit through
-a provider-neutral orchestration test harness. Do not advertise or map `run_python`, add answer/context presentation,
-alter default/protected package configs, make installed-package containment claims, sign, release, publish, or perform
-Microsoft Store certification.
+Advertise and map `run_python` only on the explicitly tool-capable oMLX route, using the audited async orchestration
+seam and testing approve, deny, cancellation, bounded provider reuse, and durable reopen. Do not map another provider,
+add answer/context presentation, alter default/protected package configs, claim installed-package containment, sign,
+release, publish, or perform Microsoft Store certification.
 
-Preserve the unrelated untracked logo-kit, screenshot, and Linux signing-public-key files. Do not merge the draft PR
-without separate authorization.
+Preserve the unrelated untracked assets and public key. Do not merge the draft PR without separate authorization.

@@ -37,7 +37,7 @@ export function applyPythonApprovalPreview(state: PageState, search: string): bo
             ].join("\n"),
             purpose: "Calculate the requested median and population standard deviation exactly.",
           },
-          audit: { policy: "approval_required", outcome: "approval_required", durationMs: 0 },
+          audit: { policy: "approval_required", approval: null, outcome: "approval_required", durationMs: 0 },
           result: {
             output: {
               ok: false,

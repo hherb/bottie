@@ -52,6 +52,7 @@ export type StoredToolInvocation = {
 /** Native-owned execution classification and terminal summary for one tool call. */
 export type StoredToolAudit = {
   policy: "legacy" | "safe" | "approval_required" | "unregistered";
+  approval: StoredToolApproval | null;
   outcome:
     | "success"
     | "unsupported_tool"
@@ -63,6 +64,12 @@ export type StoredToolAudit = {
     | "legacy_error"
     | null;
   durationMs: number | null;
+};
+
+/** One immutable native decision reconstructed without provider call identity. */
+export type StoredToolApproval = {
+  decision: "approved" | "denied";
+  decidedAtMs: number;
 };
 
 /** One structured tool outcome linked to a retained call. */
