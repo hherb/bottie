@@ -5,8 +5,8 @@ official-source runtime provenance with unsigned development-package inspection,
 proposal/review contract, a process-local one-use approve/deny lifecycle, and provider-neutral async wait/resume are
 implemented. The native waiter also publishes bounded approval lifecycle events to the existing WebView review state.
 An approved exact call can now cross a provider-neutral Rust execution boundary into the helper's bounded private-pipe
-protocol; the concrete product launcher remains Linux-only and uses the runner's built-in Landlock/seccomp/rlimit mode.
-Bottie does not advertise, provider-map, product-enable, or ship a Python tool yet.
+protocol through Linux containment, a macOS XPC client, or a Windows AppContainer controller. Bottie does not yet
+resolve or inject packaged platform resources, advertise, provider-map, product-enable, or ship a Python tool.
 
 ## Chosen core
 
@@ -166,6 +166,12 @@ The unsigned development MSI now proves bundle placement and byte identity only.
 evidence that the exact installed helper/runtime are signed, launch under the intended containment policy, retain
 their denials after installation, and terminate with Bottie.
 
+The provider-neutral Windows product runner now starts an injected controller with the fixed `execute` mode,
+`com.bottie.python-runner` profile, and native-only helper/runtime paths. Source and purpose stay in bounded JSON on
+private stdin. The shared 45-second outer deadline and cancellation kill and reap the controller; closing it activates
+the controller's existing kill-on-close Job Object and terminates the retained AppContainer runner. The Tauri
+application does not yet provision the fixed profile or resolve and inject packaged controller/helper/runtime paths.
+
 References: [AppContainer isolation](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation),
 [launching an AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/implementing-an-appcontainer),
 [Create Process In Sandbox](https://learn.microsoft.com/en-us/windows/win32/secauthz/createprocessinsandbox), and
@@ -301,14 +307,15 @@ The helper response must match the exact closed status/stdout/stderr/duration co
 and retain the helper's 32 KiB per-stream limits. Malformed, future-shaped, oversized, non-zero-exit, launch, and
 transport failures become fixed path-free native errors.
 
-The concrete Linux launcher selects the already-proven `--linux-contained` runner mode. The first macOS product
-transport instead launches a native client whose sole fixed argument is `execute`; that client connects to Bottie's
-private App-Sandboxed XPC service and never launches the runner directly. Both native transports clear the inherited
-environment, use bounded private stdin/stdout/stderr pipes, apply a 45-second outer deadline, and kill and reap their
-owned process on cancellation or dropped orchestration. Killing the macOS client invalidates its XPC connection, so
-the service's existing invalidation handler kills every retained runner. Windows still has no direct-process fallback
-and must use the proven AppContainer design. Denial and cancellation while review is pending never touch a transport;
-cancellation after approval is shared with the running transport.
+The concrete Linux launcher selects the already-proven `--linux-contained` runner mode. The macOS product transport
+launches a native client whose sole fixed argument is `execute`; that client connects to Bottie's private App-Sandboxed
+XPC service and never launches the runner directly. The Windows product transport launches the proven AppContainer
+controller with a fixed profile plus native-only helper/runtime paths; the controller creates the restricted-token,
+zero-capability child inside its one-process Job Object. All three transports clear the inherited environment, use
+bounded private stdin/stdout/stderr pipes, apply a 45-second outer deadline, and kill and reap their owned process on
+cancellation. Killing the macOS client invalidates its XPC connection, while killing the Windows controller closes its
+Job Object; both actions terminate the retained helper. Denial and cancellation while review is pending never touch a
+transport; cancellation after approval is shared with the running transport.
 
 ## Deferred product integration
 
@@ -317,13 +324,13 @@ This slice deliberately does not:
 - register the reserved tool with a provider or change any provider schema;
 - decide automatically that Python is appropriate for a user question;
 - connect any provider adapter call to the approval slot or advertise `run_python` in a provider schema;
-- add the Windows AppContainer product transport, resolve or inject shipping bundle paths for the macOS client, XPC
-  service, helper, or runtime, or connect a Python-specific durable audit;
+- resolve or inject packaged platform client/controller, service, helper, or runtime paths, provision the fixed Windows
+  AppContainer profile, or connect a Python-specific durable audit;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice is the Windows AppContainer product transport behind the existing provider-neutral runner
-interface: reuse the restricted-token, zero-capability AppContainer, private-pipe, Job Object, cancellation, and
-controller-close cleanup design without adding provider schema advertisement, provider mapping, answer/context
-presentation, or durable Python audit. Shipping bundle resolution and installed-package evidence remain later slices.
-Protected signing, release publication, and Microsoft Store work remain separately authorized and deferred.
+The next bounded slice resolves and injects packaged native resources into the existing platform runners under the
+opt-in Python development bundle, including fixed Windows profile provisioning and cleanup. It does not add provider
+schema advertisement, provider mapping, answer/context presentation, durable Python audit, default/protected package
+changes, installed-package claims, signing, release publication, or Microsoft Store work; those remain separately
+authorized and deferred.
