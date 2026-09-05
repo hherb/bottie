@@ -15,7 +15,7 @@ import { inspectPackagedPythonBundle, validateRuntimeManifest } from "./python-r
 const MAX_CAPTURED_OUTPUT_BYTES = 128 * 1_024;
 const PROOF_TIMEOUT_MS = 45_000;
 const SERVICE_IDENTIFIER = "com.bottie.python-runner";
-const SIGNING_OPTIONS = ["--options", "runtime"];
+const SIGNING_OPTIONS = ["--options", "runtime", "--timestamp=none"];
 const SIGNING_IDENTITY_PATTERN = /^[A-F0-9]{40}$/;
 
 /** Returns every exact Python transport path inside one packaged development app. */

@@ -37,6 +37,7 @@ describe("packaged macOS Python XPC smoke", () => {
       expect(step.arguments[step.arguments.indexOf("--keychain") + 1]).toBe(EPHEMERAL_KEYCHAIN);
       expect(step.arguments).not.toContain("--deep");
       expect(step.arguments).not.toContain("--timestamp");
+      expect(step.arguments).toContain("--timestamp=none");
     }
     expect(plan[0].arguments).toContain("/repo/macos-python-xpc/Runner.entitlements");
     expect(plan[1].arguments).toContain("/repo/macos-python-xpc/Service.entitlements");
@@ -50,6 +51,7 @@ describe("packaged macOS Python XPC smoke", () => {
     const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
     const build = workflow.indexOf("- name: Build the unsigned macOS development package");
     const signing = workflow.indexOf("- name: Create an ephemeral macOS development-signing identity");
+    const trust = workflow.indexOf("- name: Trust the signed macOS development transport");
     const proof = workflow.indexOf("- name: Inspect and prove the macOS development bundle");
     const cleanup = workflow.indexOf("- name: Remove the ephemeral macOS development-signing identity");
 
@@ -59,7 +61,8 @@ describe("packaged macOS Python XPC smoke", () => {
     expect(build).toBeGreaterThan(-1);
     expect(signing).toBeGreaterThan(-1);
     expect(build).toBeGreaterThan(signing);
-    expect(proof).toBeGreaterThan(build);
+    expect(trust).toBeGreaterThan(build);
+    expect(proof).toBeGreaterThan(trust);
     expect(cleanup).toBeGreaterThan(proof);
     expect(workflow.slice(cleanup)).toContain("if: always() && runner.os == 'macOS'");
     expect(workflow.slice(proof)).toContain("python:xpc:prove-packaged");
@@ -76,7 +79,11 @@ describe("packaged macOS Python XPC smoke", () => {
     expect(workflow).not.toContain("pkcs12_options");
     expect(workflow).not.toContain("openssl pkcs12 -export -legacy");
     expect(workflow).toContain("sudo security add-trusted-cert -d -r trustRoot -p codeSign");
-    expect(workflow.slice(cleanup)).toContain("sudo security remove-trusted-cert -d");
+    expect(workflow.slice(signing, build)).not.toContain("add-trusted-cert");
+    expect(workflow.slice(cleanup)).toContain('"delete-certificate", "-Z", identity');
+    expect(workflow.slice(cleanup)).toContain('"find-certificate", "-a", "-Z"');
+    expect(workflow.slice(cleanup)).toContain("timeout: CLEANUP_TIMEOUT_MS");
+    expect(workflow.slice(cleanup)).not.toContain("remove-trusted-cert");
     expect(workflow).not.toContain("-passout pass:");
     expect(workflow).not.toContain("secrets.");
   });

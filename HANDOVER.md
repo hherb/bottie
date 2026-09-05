@@ -20,8 +20,9 @@ Read, in order:
   resolver requires that exact complete layout and fails closed when any client, service, helper, evidence, or runtime
   resource is missing.
 - The credential-free provenance job creates a one-day self-signed code-signing identity in a transient keychain,
-  trusts it only for code signing on the disposable runner, signs runner -> service -> client app inside out, and removes
-  the system trust, keychain, certificate, private key, and archive in an unconditional cleanup step.
+  signs runner -> service -> client app inside out without a timestamp, and only then trusts the public certificate for
+  code signing on the disposable runner. Its bounded unconditional cleanup deletes and verifies removal of the system
+  certificate before removing the keychain, certificate, private key, and archive.
 - The packaged verifier inspects the exact signed client, service, helper, and runtime, verifies the same packaged code
   signatures, then exercises ordinary private-pipe execution, direct host-fixture denial, caller cancellation, and
   client-exit cleanup without rebuilding or substituting nested code. Uploaded evidence remains bounded and path-free.

@@ -94,11 +94,12 @@ reinspects the controller, helper, and runtime, and requires its path-free evide
 evidence. It then copies only those installed bytes into the transient AppContainer-owned proof tree and runs the
 existing token, access, private-pipe, cancellation, and controller-close checks without a helper or controller rebuild.
 
-The macOS job creates a one-day self-signed code-signing identity in a transient keychain, trusts it only for code
-signing on the disposable runner, and removes the trust, keychain, certificate, and private key in an unconditional
-cleanup step. It signs runner -> service -> client app inside out before packaging, updates only the nested evidence's
-runner size and digest changed by signing, and then builds an otherwise unsigned Bottie development app. The verifier
-inspects the exact packaged client app, service, helper, and runtime before running ordinary execution, direct
+The macOS job creates a one-day self-signed code-signing identity in a transient keychain and signs runner -> service ->
+client app inside out without a timestamp before adding the public certificate to system trust. It updates only the
+nested evidence's runner size and digest changed by signing, builds an otherwise unsigned Bottie development app, and
+only then trusts that certificate for code signing immediately before the proof. A bounded unconditional cleanup
+deletes and verifies removal of the system certificate before removing the keychain, certificate, and private key. The
+verifier inspects the exact packaged client app, service, helper, and runtime before running ordinary execution, direct
 host-fixture denial, cancellation, and client-exit cleanup against those same paths. Uploaded evidence contains only
 package-relative identities, digests, sizes, runtime provenance, and closed Boolean outcomes.
 
