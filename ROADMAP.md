@@ -247,8 +247,8 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 ### Sandboxed Python execution
 
 Status: core feasibility, macOS/Windows/Linux native containment proofs, opt-in development-bundle runner injection,
-durable provider-neutral audit, local oMLX/Ollama mappings, and selected-lineage result presentation complete; remote
-provider mappings and shipping evidence remain pending.
+durable provider-neutral audit, oMLX/Ollama/OpenAI-compatible mappings, and selected-lineage result presentation
+complete; Anthropic-compatible mapping and shipping evidence remain pending.
 
 - [x] standalone Rust helper with a bounded stdin/stdout JSON contract and no shell interpolation;
 - [x] CPython/WASI execution through Wasmtime's interpreter-only Pulley target;
@@ -287,7 +287,9 @@ provider mappings and shipping evidence remain pending.
   audit;
 - [x] explicit tool-capable Ollama mapping through the same approval, containment, audit, cancellation, bounded-result,
   and ordered provider-correlation boundaries;
-- [ ] explicit mappings for remote providers, if separately selected after local-provider evidence;
+- [x] explicit tool-capable OpenAI-compatible mapping through the same approval, containment, audit, cancellation,
+  bounded-result, and exact Chat Completions call-identity boundaries;
+- [ ] explicit Anthropic-compatible mapping, if separately selected after OpenAI-compatible evidence;
 - [x] selected-lineage answer presentation that labels approved source, bounded stdout/stderr, stable errors, helper
   outcome/duration, and contained-runtime execution provenance from the durable path-free audit.
 

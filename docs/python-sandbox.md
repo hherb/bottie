@@ -3,12 +3,12 @@
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with unsigned development-package inspection, the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume,
-append-only durable audit, explicit oMLX and Ollama mappings, and selected-lineage execution-result presentation are
-implemented. The native waiter also publishes bounded
-approval lifecycle events to the existing WebView review state. An approved exact oMLX or Ollama call can now cross the
-provider-neutral Rust execution boundary into the helper's bounded private-pipe protocol through Linux containment, a
-macOS XPC client, or a Windows AppContainer controller. Only an explicitly marked development bundle advertises the
-tool, and only on a discovered tool-capable oMLX or Ollama route. Bottie does not map a remote provider or ship a
+append-only durable audit, explicit oMLX, Ollama, and OpenAI-compatible mappings, and selected-lineage execution-result
+presentation are implemented. The native waiter also publishes bounded approval lifecycle events to the existing
+WebView review state. An approved exact mapped-provider call can now cross the provider-neutral Rust execution boundary
+into the helper's bounded private-pipe protocol through Linux containment, a macOS XPC client, or a Windows
+AppContainer controller. Only an explicitly marked development bundle advertises the tool, and only on a discovered
+tool-capable oMLX, Ollama, or OpenAI-compatible route. Bottie does not map Anthropic-compatible providers or ship a
 Python tool. Default and protected packages remain unchanged.
 
 ## Chosen core
@@ -280,12 +280,14 @@ private-environment, runtime/workspace-read, host-fixture-denial, private-pipe, 
 `run_python` is now reserved as a provider-independent native contract with exactly two required fields: `source` and
 `purpose`. The native validator rejects unknown fields, blank or NUL-containing values, source over 32 KiB UTF-8, and
 purpose over 512 Unicode scalar values. These limits match the unchanged standalone runner request boundary. The
-oMLX and Ollama product mappings submit this request only after its exact native approval is durably recorded.
+oMLX, Ollama, and OpenAI-compatible product mappings submit this request only after its exact native approval is
+durably recorded.
 
 The existing native tool policy classifies `run_python` as `ApprovalRequired`. Missing approval fails closed before
 argument validation, and an approval grant is consumed and bound to the exact call identity, tool name, source, and
-purpose. The definition is appended only to the oMLX or Ollama native tool set when the selected model explicitly
-reports tool capability and startup resolved the complete marked development runtime. Remote adapters omit it.
+purpose. The definition is appended only to the oMLX, Ollama, or OpenAI-compatible native tool set when the selected
+model explicitly reports tool capability and startup resolved the complete marked development runtime. The
+Anthropic-compatible adapter omits it.
 
 One Rust-owned process-local slot can now retain a validated proposal for an explicit decision. The WebView receives a
 random opaque request token plus the complete bounded source and purpose, never the provider call identity. A closed
@@ -357,16 +359,22 @@ existing structured audit representation.
 
 ## Deferred product integration
 
-The local-provider mappings deliberately do not:
+The mapped-provider integration deliberately does not:
 
 - decide automatically that Python is appropriate for a user question;
-- advertise or map `run_python` through OpenAI-compatible or Anthropic-compatible routes;
+- advertise or map `run_python` through the Anthropic-compatible route;
 - expose Python in a default or protected package without the complete native runtime marker;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice can add `run_python` only to the explicitly tool-capable OpenAI-compatible generation loop after
-reviewing the local-provider evidence. It must reuse the exact approval, execution, audit, cancellation,
-bounded-result, and provider-call-identity boundaries; it must not map Anthropic-compatible providers, change default
-or protected packages, make installed-package claims, sign, publish a release, or perform Microsoft Store work. Those
-actions remain separately authorized and deferred.
+The OpenAI-compatible mapping uses the same asynchronous provider-neutral executor as the local providers. It adds the
+definition only for an explicitly tool-capable selected model with the complete marked development runtime, retains the
+provider's exact Chat Completions call ID through invocation, approval, result, and follow-up request, and reuses the
+existing loop budgets and cumulative usage accounting. The configured remote provider receives the tool definition and
+its own proposed source/purpose, but the helper remains local and cannot start without Bottie's exact one-use approval.
+
+The next bounded slice can add `run_python` only to the explicitly tool-capable Anthropic-compatible generation loop
+after reviewing the OpenAI-compatible evidence. It must reuse the exact approval, execution, audit, cancellation,
+bounded-result, thinking-block, and `tool_use` identity boundaries; it must not change default or protected packages,
+make installed-package claims, sign, publish a release, or perform Microsoft Store work. Those actions remain
+separately authorized and deferred.

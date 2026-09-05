@@ -265,6 +265,8 @@ fn streams_an_openai_web_search_result_and_final_answer_across_two_requests() {
         Some(Arc::new(GenerationWebSearchExecutor)),
         None,
         None,
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
+        None,
     ))
     .expect("two-round OpenAI web generation should complete")
     .expect("fixture reports usage");
@@ -365,6 +367,8 @@ fn streams_an_openai_web_fetch_result_and_final_answer_across_two_requests() {
         ToolLoopCancellation::default(),
         Some(Arc::new(GenerationWebSearchExecutor)),
         Some(Arc::new(OpenAiWebFetchExecutor)),
+        None,
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
         None,
     ))
     .expect("two-round OpenAI web-fetch generation should complete")
@@ -474,6 +478,8 @@ fn streams_an_openai_tool_call_result_and_final_answer_across_two_requests() {
         ToolLoopCancellation::default(),
         None,
         None,
+        None,
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
         None,
     ))
     .expect("two-round OpenAI generation should complete")
