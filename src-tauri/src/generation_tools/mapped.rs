@@ -1,4 +1,4 @@
-//! Shared async native executor for local providers that can pause for Python approval.
+//! Shared async native executor for mapped providers that can pause for Python approval.
 
 use std::{future::Future, pin::Pin, sync::Arc};
 

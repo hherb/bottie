@@ -11,7 +11,7 @@ use super::{
     sse::SseDecoder,
     types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
 };
-use crate::tool_contract::enabled_native_tool_definitions;
+use crate::tool_contract::python_enabled_native_tool_definitions;
 
 use self::protocol::{
     DecodedStreamEvent, OpenAiChatRequest, OpenAiToolCallAccumulator, decode_stream_payload,
@@ -21,6 +21,8 @@ use self::protocol::{
 mod audio_tests;
 mod discovery;
 pub(crate) mod protocol;
+#[cfg(test)]
+mod python_tests;
 
 use discovery::decode_model_list;
 
@@ -36,12 +38,13 @@ pub(crate) struct OpenAiToolSession {
 
 impl OpenAiToolSession {
     /// Starts a session with exactly the closed native tools enabled for this request.
-    pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
+    pub(crate) fn new(request: ChatRequest, python_available: bool) -> Result<Self, ProviderError> {
         validate_request(&request)?;
-        let definitions = enabled_native_tool_definitions(
+        let definitions = python_enabled_native_tool_definitions(
             request.memory_enabled,
             request.web_enabled,
             request.email_enabled,
+            python_available,
         );
         Ok(Self {
             request: OpenAiChatRequest::with_tools(request, definitions),
@@ -398,7 +401,8 @@ mod tests {
             "messages": [{"role": "user", "content": [{"type": "text", "text": "time?"}]}]
         }))
         .unwrap();
-        let body = serde_json::to_value(OpenAiToolSession::new(request).unwrap().request).unwrap();
+        let body =
+            serde_json::to_value(OpenAiToolSession::new(request, false).unwrap().request).unwrap();
 
         assert_eq!(body["tools"].as_array().map(Vec::len), Some(1));
         assert_eq!(body["tools"][0]["function"]["name"], "current_time");
@@ -415,7 +419,8 @@ mod tests {
         request.memory_enabled = true;
         request.web_enabled = true;
 
-        let body = serde_json::to_value(OpenAiToolSession::new(request).unwrap().request).unwrap();
+        let body =
+            serde_json::to_value(OpenAiToolSession::new(request, false).unwrap().request).unwrap();
 
         assert_eq!(body["tools"].as_array().map(Vec::len), Some(6));
         assert_eq!(body["tools"][3]["function"]["name"], "web_search");
@@ -457,7 +462,7 @@ mod tests {
         }))
         .unwrap();
         request.memory_enabled = true;
-        let mut session = OpenAiToolSession::new(request).unwrap();
+        let mut session = OpenAiToolSession::new(request, false).unwrap();
         session
             .append_results(
                 OpenAiToolRound {

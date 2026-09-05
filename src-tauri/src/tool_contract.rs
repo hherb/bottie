@@ -126,7 +126,7 @@ pub(crate) fn enabled_native_tool_definitions(
     definitions
 }
 
-/// Returns mapped local-provider definitions, adding Python only with a contained runtime.
+/// Returns mapped-provider definitions, adding Python only with a contained runtime.
 pub(crate) fn python_enabled_native_tool_definitions(
     memory_enabled: bool,
     web_enabled: bool,

@@ -211,11 +211,11 @@ Additional safeguards include:
 
 The standalone CPython/WASI runner now has development-only macOS, Windows, and Linux containment proofs plus a pinned
 official-source runtime and exact unsigned package inspection. An explicitly marked development bundle can advertise
-the closed `run_python` contract to a discovered tool-capable oMLX or Ollama model. Its 32 KiB source and 512-character
-purpose require exact one-use approval before the platform-contained helper can run. The selected response's Tool
-activity labels approved source, bounded stdout/stderr, stable outcomes, and contained-runtime provenance from the
-durable path-free native audit. Remote providers, default and protected package configs, and shipping claims remain
-unchanged.
+the closed `run_python` contract to a discovered tool-capable oMLX, Ollama, or OpenAI-compatible model. Its 32 KiB
+source and 512-character purpose require exact one-use approval before the platform-contained helper can run. The
+selected response's Tool activity labels approved source, bounded stdout/stderr, stable outcomes, and contained-runtime
+provenance from the durable path-free native audit. Anthropic-compatible mapping, default and protected package
+configs, and shipping claims remain unchanged.
 See [`docs/python-sandbox.md`](docs/python-sandbox.md).
 
 ## Provider support
