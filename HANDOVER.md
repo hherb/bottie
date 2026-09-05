@@ -4,7 +4,7 @@ Last verified: 2026-09-05
 
 ## Start here
 
-PR #148 merged into `main` at `ff23053`. The current slice is on `codex/openai-python-tool`. Microsoft Store
+PR #148 merged into `main` at `ff23053`. Draft PR #149 is open from `codex/openai-python-tool`. Microsoft Store
 certification and publication remain deferred until fresh release-owner notice.
 
 Read, in order:
