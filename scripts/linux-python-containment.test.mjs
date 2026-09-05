@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ProofFailure,
+  installedLinuxBundlePaths,
   parseContainmentEvidence,
   runnerBuildArguments,
   safeProcessFailure,
@@ -11,6 +12,13 @@ import {
 } from "./linux-python-containment.mjs";
 
 describe("Linux Python containment proof", () => {
+  it("resolves only the fixed installed development-DEB helper and runtime", () => {
+    expect(installedLinuxBundlePaths()).toEqual({
+      runner: "/usr/bin/bottie-python-runner",
+      runtime: "/usr/lib/bottie/python-runtime",
+    });
+  });
+
   it("builds the unchanged locked Rust runner", () => {
     expect(runnerBuildArguments("/repo/python-runner/Cargo.toml")).toEqual([
       "build",
@@ -96,5 +104,26 @@ describe("Linux Python containment proof", () => {
     expect(wrapper).toContain('stdio: ["pipe", "pipe", "pipe"]');
     expect(wrapper).toContain("SIGKILL");
     expect(wrapper).toContain("waitForProcessExit");
+  });
+
+  it("installs and exercises the exact inspected Linux development DEB", async () => {
+    const workflow = await readFile(
+      new URL("../.github/workflows/python-runtime-provenance.yml", import.meta.url),
+      "utf8",
+    );
+    const packageManifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+
+    expect(workflow).toContain("Install and prove the Linux development bundle");
+    expect(workflow).toContain('installer="$(realpath "${installers[0]}")"');
+    expect(workflow).toContain('sudo apt-get install --yes "$installer"');
+    expect(workflow).toContain("--inspect-package linux /");
+    expect(workflow).toContain("cmp package/python-package-evidence/linux.json");
+    expect(workflow).toContain("npm run --silent python:linux:prove-installed");
+    expect(workflow).toContain('"scripts/linux-python-containment.mjs"');
+    expect(workflow).toContain('"scripts/linux-python-containment.test.mjs"');
+    expect(packageManifest.scripts["python:linux:prove-installed"]).toBe(
+      "node scripts/linux-python-containment.mjs --prove-installed",
+    );
+    expect(workflow).not.toMatch(/secrets\./);
   });
 });

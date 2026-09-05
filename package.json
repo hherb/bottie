@@ -14,6 +14,7 @@
     "python:appcontainer:prove": "node scripts/windows-python-appcontainer.mjs --prove",
     "python:bundle:test": "vitest run scripts/python-runtime-bundle.test.mjs --pool=forks --maxWorkers=1",
     "python:linux:prove": "node scripts/linux-python-containment.mjs --prove",
+    "python:linux:prove-installed": "node scripts/linux-python-containment.mjs --prove-installed",
     "python:xpc:prove": "node scripts/macos-python-xpc.mjs --prove",
     "dependencies:check": "node scripts/dependency-inventory.mjs --check",
     "notices:check": "node scripts/third-party-notices.mjs --check",

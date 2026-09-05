@@ -10,6 +10,8 @@ on:
       - "python-runner/**"
       - "scripts/macos-python-xpc.mjs"
       - "scripts/macos-python-xpc.test.mjs"
+      - "scripts/linux-python-containment.mjs"
+      - "scripts/linux-python-containment.test.mjs"
       - "scripts/python-runtime-bundle.mjs"
       - "scripts/python-runtime-bundle.test.mjs"
       - "scripts/windows-python-appcontainer.mjs"
@@ -293,10 +295,26 @@ jobs:
           node scripts/python-runtime-bundle.mjs --inspect-package linux "$extracted" \
             | tee package/python-package-evidence/linux.json
 
+      - name: Install and prove the Linux development bundle
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t installers < <(find src-tauri/target/release/bundle/deb -type f -name '*.deb')
+          test "${#installers[@]}" -eq 1
+          installer="$(realpath "${installers[0]}")"
+          sudo apt-get install --yes "$installer"
+          node scripts/python-runtime-bundle.mjs --inspect-package linux / \
+            | tee package/python-package-evidence/linux-installed.json
+          cmp package/python-package-evidence/linux.json \
+            package/python-package-evidence/linux-installed.json
+          npm run --silent python:linux:prove-installed \
+            | tee package/python-package-evidence/linux-containment.json
+
       - name: Upload path-free package evidence
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: bottie-python-${{ matrix.platform }}-package-evidence
-          path: package/python-package-evidence/${{ matrix.platform }}.json
+          path: package/python-package-evidence/${{ matrix.platform }}*.json
           if-no-files-found: error
           retention-days: 7

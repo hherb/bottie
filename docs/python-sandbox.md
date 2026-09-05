@@ -1,7 +1,8 @@
 # Python sandbox feasibility slice
 
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
-official-source runtime provenance with unsigned development-package inspection, the approval-required native
+official-source runtime provenance with unsigned development-package inspection and installed Linux DEB containment,
+the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume,
 append-only durable audit, explicit oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible mappings, and
 selected-lineage execution-result presentation are implemented. The native waiter also publishes bounded approval
@@ -82,6 +83,11 @@ which build the locked native helper plus the platform XPC client/service or App
 unsigned Tauri package, extract it, and compare the packaged helper/runtime against the original evidence while
 requiring the native transport files. Same-path repeatability is a bounded hosted proof, not a claim that independent
 hosts produce identical bytes.
+
+The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
+runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
+byte for byte. It then runs the same Landlock/seccomp/rlimit and process-lifecycle verifier directly against the
+installed resources. The uploaded containment result contains only the closed path-free Boolean evidence.
 
 The runtime, helper, evidence, and platform-native transport are selected only by the three
 `src-tauri/tauri.python-development.*.conf.json` overlays; Bottie's base and protected distribution configurations
@@ -207,10 +213,11 @@ the `io_uring` network bypass; it retains thread-form `clone` for the bounded de
 observes exact runtime/workspace reads, host-fixture denial, network/process/exec denial, ordinary private-pipe
 execution, explicit caller cancellation, and kernel-enforced kill on parent exit.
 
-This is the built-in baseline intended for a future DEB path; it does not depend on Bubblewrap or Flatpak. Those
+This is the built-in baseline for the development DEB path; it does not depend on Bubblewrap or Flatpak. Those
 containers may add namespaces, an empty home, and private temporary storage later, but must not replace or weaken these
-controls. The unsigned development DEB now proves bundle placement and byte identity only; it is not installed-package,
-containment-launch, signing, or shipping-runtime evidence.
+controls. The credential-free pull-request workflow now proves exact installed development-DEB helper/runtime identity,
+containment launch, denials, cancellation, and parent-exit cleanup on Ubuntu. It does not prove protected signing,
+shipping-runtime identity, release-candidate binding, publication, or another Linux distribution/kernel baseline.
 
 References: [Landlock](https://docs.kernel.org/userspace-api/landlock.html) and
 [seccomp BPF](https://docs.kernel.org/userspace-api/seccomp_filter.html). The kernel explicitly describes seccomp as
@@ -274,6 +281,11 @@ BOTTIE_PYTHON_WASI_RUNTIME=/absolute/path/to/extracted/python npm run python:lin
 
 The command builds the locked runner and returns only path-free boolean evidence for its Landlock, seccomp, rlimit,
 private-environment, runtime/workspace-read, host-fixture-denial, private-pipe, cancellation, and parent-close checks.
+After installing the opt-in development DEB, the fixed installed-resource variant runs without rebuilding the helper:
+
+```sh
+npm run python:linux:prove-installed
+```
 
 ## Approval-required product contract
 
@@ -364,7 +376,7 @@ The mapped-provider integration deliberately does not:
 - decide automatically that Python is appropriate for a user question;
 - expose Python in a default or protected package without the complete native runtime marker;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
-- claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
+- claim shipping-package containment, installed production behavior, or release identity on macOS, Windows, or Linux.
 
 The OpenAI-compatible mapping uses the same asynchronous provider-neutral executor as the local providers. It adds the
 definition only for an explicitly tool-capable selected model with the complete marked development runtime, retains the
@@ -377,8 +389,8 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add a credential-free Linux installed-development-DEB containment smoke for the exact
-packaged helper and runtime. It should prove package byte identity, the existing Landlock/seccomp denial contract,
-ordinary private-pipe execution, caller cancellation, and parent-exit cleanup after installation. It must not change
-default or protected package configs, claim shipping containment, sign, release, publish, or perform Microsoft Store
-work. Those actions remain separately authorized and deferred.
+The next bounded slice can add a credential-free Windows installed-development-MSI AppContainer smoke for the exact
+packaged controller, helper, and runtime. It should prove installed byte identity, the existing
+zero-capability/token/host-fixture denial contract, ordinary private-pipe execution, caller cancellation, and
+controller-exit cleanup. It must not change default or protected package configs, claim shipping containment, sign,
+release, publish, or perform Microsoft Store work. Those actions remain separately authorized and deferred.
