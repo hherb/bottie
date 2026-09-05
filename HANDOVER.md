@@ -4,9 +4,9 @@ Last verified: 2026-09-05
 
 ## Start here
 
-PR #145 merged into `main` at `fff92af` with every final hosted check passing. Draft PR #146 is open from
-`codex/omlx-python-tool`. Microsoft Store certification and publication remain deferred until fresh release-owner
-notice.
+PR #146 merged into `main` at `3fc4abd` with every final hosted check passing. This checkout continues on
+`codex/python-result-presentation`. Microsoft Store certification and publication remain deferred until fresh
+release-owner notice.
 
 Read, in order:
 
@@ -16,49 +16,51 @@ Read, in order:
 
 ## Completed slice
 
-- An available opt-in contained Python runtime adds `run_python` only to the explicitly tool-capable oMLX Chat
-  Completions schema. Default packages expose no runner and therefore do not advertise Python. Ollama, OpenAI-compatible,
-  and Anthropic-compatible mappings remain unchanged.
-- The oMLX loop preserves provider call IDs and now routes Python through the existing async approval, exact one-use
-  grant, platform-native runner, and append-only audit seam. Approved bounded results and fixed denial/helper errors can
-  be returned to oMLX for the next round; shared cancellation stops before provider reuse.
-- The shared tool-loop state machine gained an async executor path without changing its call-count, recursion,
-  aggregate-output, overall-deadline, cancellation, or terminal-state policy. Non-Python memory, Web, Email, and clock
-  calls still run on the blocking worker boundary.
-- App state retains the approval controller and contained runner behind native `Arc` ownership. Only the runner trait
-  crosses into generation orchestration. The WebView still receives only the existing opaque approval token plus exact
-  bounded source/purpose; bundle paths, provider call identity, helper bytes, and native errors remain Rust-only.
-- Focused tests cover oMLX-only definition gating, exact provider correlation, approve, deny without launch,
-  cancellation without provider reuse, bounded loop accounting, and durable reopen.
+- Selected assistant responses now specialize their existing durable Tool activity for `run_python`. Approved source
+  and purpose are labeled separately from unapproved proposals; the UI does not derive Python activity outside the
+  selected conversation lineage.
+- The pure presentation boundary accepts only the exact native executed, denied, cancelled, or failed audit shapes and
+  requires their approval, generic outcome, and error marker to agree. Unexpected fields, unknown statuses, oversized
+  streams, invalid durations, and contradictory audit metadata fail closed to one fixed unavailable message rather
+  than reflecting payload data.
+- Executed results show the stable helper outcome, independently labeled 32 KiB-bounded stdout and stderr, helper
+  duration, and Bottie's contained Python runtime as execution provenance. Empty streams receive explicit placeholders;
+  Svelte renders source and output as inert escaped text.
+- Denial, cancellation, approval failure, request mismatch, helper failure, and invalid helper result use fixed,
+  path-free explanations. Generic JSON disclosure remains unchanged for non-Python tools.
+- Dark/light styling retains the existing calm approval/result distinction. The metadata collapses to one column below
+  560 px without widening the result card.
 
 ## Current limits
 
-Python is available only in an explicitly marked development bundle and only to a discovered tool-capable oMLX model.
-There is no execution-result answer/context presentation beyond the existing approval modal and generic durable Tool
-activity. Other providers do not advertise or map `run_python`. Default and protected package configs remain unchanged.
-No installed-package containment claim, protected signing, notarization, release-candidate binding, publication, or
-Microsoft Store action was taken or authorized.
+Python remains available only in an explicitly marked development bundle and only to a discovered tool-capable oMLX
+model. Ollama, OpenAI-compatible, and Anthropic-compatible routes do not advertise or map `run_python`. Default and
+protected package configs remain unchanged. There is no installed-package containment claim, protected signing,
+notarization, release-candidate binding, publication, or Microsoft Store action.
 
 The unrelated untracked logo-kit, screenshot, and Linux signing-public-key files remain untouched.
 
 ## Validation
 
 `npm run format:check`, `npm run check`, `npm test`, and `npm run build` passed: Svelte reported zero errors/warnings,
-and 281 frontend/script tests passed with 3 skipped. `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`,
+and 286 frontend/script tests passed with 3 skipped. Focused Tool activity and pure parser coverage passed 14 tests,
+including exact success, denial, cancellation, malformed/future-shaped data, stream ceilings, escaping, and path-free
+fallback behavior. `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`,
 `cargo check --manifest-path src-tauri/Cargo.toml`, and `cargo test --manifest-path src-tauri/Cargo.toml` passed with
-489 application-library tests passing and 33 ignored, plus the updater evidence test. Normal Clippy completed; strict
-warning denial remains blocked by the repository's existing warning set. Focused oMLX protocol, shared tool-loop, and
-42 Python-related tests passed, including the three new generation mapping cases. `git diff --check` passed.
+489 application-library tests passing and 33 ignored, plus the updater evidence test. `git diff --check` passed.
 
-No marked development Python bundle or live tool-capable oMLX service was available for a native end-to-end run. The
-new evidence is therefore contract, orchestration, cancellation, persistence, and provider-wire coverage, not a live
-model-choice, platform containment, installed-package, signing, release, publication, or Store claim.
+The browser preview was reviewed at the default desktop viewport and at 540 px using a temporary exact executed-result
+fixture that was removed after inspection. The visible labels, inert source/output, empty-stderr state, provenance, and
+narrow metadata stacking were present; the 394 px result card had a 392 px scroll width, so it introduced no horizontal
+overflow. No marked development Python bundle or live tool-capable oMLX service was available, so this is durable-data
+and presentation evidence, not a fresh helper execution, installed-package, signing, release, publication, or Store
+claim.
 
 ## Next bounded action
 
-Add selected-lineage Python execution-result presentation that clearly labels approved source, bounded stdout/stderr,
-stable errors, and execution provenance using only the existing durable path-free audit. Do not map another provider,
-change default/protected package configs, claim installed-package containment, sign, release, publish, or perform
-Microsoft Store certification.
+Add `run_python` only to the explicitly tool-capable Ollama generation loop, reusing the exact approval, contained
+runner, durable audit, cancellation, bounded-result, and provider-correlation boundaries already proven for oMLX. Do
+not map OpenAI-compatible or Anthropic-compatible providers, change default/protected package configs, claim installed
+containment, sign, release, publish, or perform Microsoft Store certification.
 
 Preserve the unrelated untracked assets and public key. Do not merge the draft PR without separate authorization.

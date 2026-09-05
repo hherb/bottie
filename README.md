@@ -210,11 +210,12 @@ Additional safeguards include:
 - local playback uses narrow Rust commands and opaque voice tokens; no WebView speech or audio API is authorized.
 
 The standalone CPython/WASI runner now has development-only macOS, Windows, and Linux containment proofs plus a pinned
-official-source runtime and exact unsigned package inspection. Bottie reserves a closed `run_python` proposal contract
-with 32 KiB source, a 512-character purpose, mandatory exact-call approval, an inert source/purpose review, and one
-process-local approve/deny decision through an opaque request token. It does not advertise the tool to models, connect
-provider calls to that approval slot, launch the helper from Tauri, or select the development bundle for normal or
-protected distribution. See [`docs/python-sandbox.md`](docs/python-sandbox.md).
+official-source runtime and exact unsigned package inspection. An explicitly marked development bundle can advertise
+the closed `run_python` contract to a discovered tool-capable oMLX model. Its 32 KiB source and 512-character purpose
+require exact one-use approval before the platform-contained helper can run. The selected response's Tool activity
+labels approved source, bounded stdout/stderr, stable outcomes, and contained-runtime provenance from the durable
+path-free native audit. Other providers, default and protected package configs, and shipping claims remain unchanged.
+See [`docs/python-sandbox.md`](docs/python-sandbox.md).
 
 ## Provider support
 
