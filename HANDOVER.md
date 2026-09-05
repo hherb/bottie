@@ -4,9 +4,8 @@ Last verified: 2026-09-05
 
 ## Start here
 
-PR #149 merged into `main` at `d2762c4`. The Anthropic-compatible Python slice is on
-`codex/anthropic-python-tool`; its draft PR number is pending. Microsoft Store certification and publication remain
-deferred until fresh release-owner notice.
+PR #149 merged into `main` at `d2762c4`. Draft PR #150 is open from `codex/anthropic-python-tool`. Microsoft Store
+certification and publication remain deferred until fresh release-owner notice.
 
 Read, in order:
 
