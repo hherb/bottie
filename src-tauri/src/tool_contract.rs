@@ -28,13 +28,11 @@ pub(crate) use localmail::{
     LocalmailToolArguments, OPEN_EMAIL_TOOL_NAME, READ_EMAIL_ATTACHMENT_TOOL_NAME,
     SEARCH_EMAIL_TOOL_NAME, validate_localmail_tool_arguments,
 };
-#[allow(
-    unused_imports,
-    reason = "the Python contract is reserved here while provider mapping remains deferred"
-)]
+#[cfg(test)]
+pub(crate) use python::{MAX_PYTHON_PURPOSE_CHARACTERS, MAX_PYTHON_SOURCE_BYTES};
 pub(crate) use python::{
-    MAX_PYTHON_PURPOSE_CHARACTERS, MAX_PYTHON_SOURCE_BYTES, PythonToolArguments,
-    RUN_PYTHON_TOOL_NAME, python_tool_definition, validate_python_tool_arguments,
+    PythonToolArguments, RUN_PYTHON_TOOL_NAME, python_tool_definition,
+    validate_python_tool_arguments,
 };
 pub(crate) use web_fetch::{validate_web_fetch_tool_arguments, web_fetch_tool_definition};
 
@@ -125,6 +123,21 @@ pub(crate) fn enabled_native_tool_definitions(
         definitions.extend(localmail_tool_definitions());
     }
     definitions.push(current_time_tool_definition());
+    definitions
+}
+
+/// Returns the oMLX definitions, adding Python only when its contained runtime is available.
+pub(crate) fn omlx_native_tool_definitions(
+    memory_enabled: bool,
+    web_enabled: bool,
+    email_enabled: bool,
+    python_available: bool,
+) -> Vec<ToolDefinition> {
+    let mut definitions =
+        enabled_native_tool_definitions(memory_enabled, web_enabled, email_enabled);
+    if python_available {
+        definitions.push(python_tool_definition());
+    }
     definitions
 }
 

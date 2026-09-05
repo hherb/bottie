@@ -181,6 +181,8 @@ fn streams_omlx_email_result_and_final_answer_across_two_requests() {
         None,
         None,
         Some(Arc::new(localmail.clone())),
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
+        None,
     ))
     .expect("two-round oMLX Email generation should complete")
     .expect("fixture reports usage");

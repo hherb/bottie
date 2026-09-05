@@ -15,8 +15,8 @@ use crate::{
     diagnostics::Diagnostics,
     generation_localmail_tools::email_tools_enabled,
     generation_tools::{
-        execute_ollama_tool_round, execute_openai_tool_round, stream_ollama_tools,
-        stream_omlx_tools, stream_openai_tools,
+        execute_ollama_tool_round, execute_omlx_tool_round, execute_openai_tool_round,
+        stream_ollama_tools, stream_omlx_tools, stream_openai_tools,
     },
     generation_web_tools::{NativeWebSearchExecutor, memory_tools_enabled, web_tools_enabled},
     inference::{
@@ -553,5 +553,6 @@ mod ollama_gating;
 mod ollama_web_fetch;
 mod omlx;
 mod omlx_email;
+mod omlx_python;
 mod openai;
 mod openai_email;

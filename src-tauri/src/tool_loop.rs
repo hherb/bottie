@@ -6,6 +6,8 @@
 )]
 
 use std::{
+    future::Future,
+    pin::Pin,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -90,6 +92,18 @@ pub(crate) enum ToolRoundError<E> {
     Policy(ToolLoopError),
     /// The caller could not safely execute or durably checkpoint one accepted call.
     Execution(E),
+}
+
+/// Async execution boundary used when one accepted native call must wait for user input.
+pub(crate) trait AsyncToolExecutor {
+    /// Caller-owned failure that stops the loop after its own durable handling.
+    type Error;
+
+    /// Executes one call while preserving the state machine's before/after policy checks.
+    fn execute<'a>(
+        &'a mut self,
+        call: &'a NativeToolCall,
+    ) -> Pin<Box<dyn Future<Output = Result<MemoryToolExecution, Self::Error>> + Send + 'a>>;
 }
 
 /// Cloneable cancellation signal shared with future provider-loop orchestration.
@@ -192,35 +206,12 @@ impl ToolLoopState {
         mut now: impl FnMut() -> Instant,
         mut execute: impl FnMut(&NativeToolCall) -> Result<MemoryToolExecution, E>,
     ) -> Result<Vec<NativeToolResult>, ToolRoundError<E>> {
-        self.require_active().map_err(ToolRoundError::Policy)?;
-        self.require_live(cancellation, now())
+        self.begin_round(calls.len(), cancellation, now())
             .map_err(ToolRoundError::Policy)?;
-        if self.round_count >= MAX_TOOL_LOOP_ROUNDS {
-            return Err(ToolRoundError::Policy(
-                self.fail(ToolLoopErrorCode::RecursionLimitExceeded),
-            ));
-        }
-        if calls.is_empty() {
-            return Err(ToolRoundError::Policy(
-                self.fail(ToolLoopErrorCode::InvalidState),
-            ));
-        }
-        if self
-            .call_count
-            .checked_add(calls.len())
-            .is_none_or(|count| count > MAX_TOOL_LOOP_CALLS)
-        {
-            return Err(ToolRoundError::Policy(
-                self.fail(ToolLoopErrorCode::CallLimitExceeded),
-            ));
-        }
-
-        self.round_count += 1;
         let mut results = Vec::with_capacity(calls.len());
         for call in calls {
-            self.require_live(cancellation, now())
+            self.begin_call(cancellation, now())
                 .map_err(ToolRoundError::Policy)?;
-            self.call_count += 1;
             let result = NativeToolResult {
                 call_id: call.call_id.clone(),
                 execution: execute(&call).map_err(|error| {
@@ -228,29 +219,99 @@ impl ToolLoopState {
                     ToolRoundError::Execution(error)
                 })?,
             };
-            self.require_live(cancellation, now())
+            self.finish_call(&result, cancellation, now())
                 .map_err(ToolRoundError::Policy)?;
-            let output_bytes = serde_json::to_vec(&result)
-                .map_err(|_| {
-                    ToolRoundError::Policy(self.fail(ToolLoopErrorCode::AggregateOutputExceeded))
-                })?
-                .len();
-            let Some(aggregate_output_bytes) =
-                self.aggregate_output_bytes.checked_add(output_bytes)
-            else {
-                return Err(ToolRoundError::Policy(
-                    self.fail(ToolLoopErrorCode::AggregateOutputExceeded),
-                ));
-            };
-            if aggregate_output_bytes > MAX_TOOL_LOOP_OUTPUT_BYTES {
-                return Err(ToolRoundError::Policy(
-                    self.fail(ToolLoopErrorCode::AggregateOutputExceeded),
-                ));
-            }
-            self.aggregate_output_bytes = aggregate_output_bytes;
             results.push(result);
         }
         Ok(results)
+    }
+
+    /// Executes one recursion round through an async caller-owned boundary.
+    pub(crate) async fn execute_round_try_with_async<E: AsyncToolExecutor>(
+        &mut self,
+        calls: Vec<NativeToolCall>,
+        cancellation: &ToolLoopCancellation,
+        mut now: impl FnMut() -> Instant,
+        executor: &mut E,
+    ) -> Result<Vec<NativeToolResult>, ToolRoundError<E::Error>> {
+        self.begin_round(calls.len(), cancellation, now())
+            .map_err(ToolRoundError::Policy)?;
+        let mut results = Vec::with_capacity(calls.len());
+        for call in calls {
+            self.begin_call(cancellation, now())
+                .map_err(ToolRoundError::Policy)?;
+            let execution = executor.execute(&call).await.map_err(|error| {
+                self.status = ToolLoopStatus::Failed;
+                ToolRoundError::Execution(error)
+            })?;
+            let result = NativeToolResult {
+                call_id: call.call_id,
+                execution,
+            };
+            self.finish_call(&result, cancellation, now())
+                .map_err(ToolRoundError::Policy)?;
+            results.push(result);
+        }
+        Ok(results)
+    }
+
+    /// Accepts one non-empty round only when all cross-round budgets remain available.
+    fn begin_round(
+        &mut self,
+        call_count: usize,
+        cancellation: &ToolLoopCancellation,
+        now: Instant,
+    ) -> Result<(), ToolLoopError> {
+        self.require_active()?;
+        self.require_live(cancellation, now)?;
+        if self.round_count >= MAX_TOOL_LOOP_ROUNDS {
+            return Err(self.fail(ToolLoopErrorCode::RecursionLimitExceeded));
+        }
+        if call_count == 0 {
+            return Err(self.fail(ToolLoopErrorCode::InvalidState));
+        }
+        if self
+            .call_count
+            .checked_add(call_count)
+            .is_none_or(|count| count > MAX_TOOL_LOOP_CALLS)
+        {
+            return Err(self.fail(ToolLoopErrorCode::CallLimitExceeded));
+        }
+        self.round_count += 1;
+        Ok(())
+    }
+
+    /// Marks one call as started only while cancellation and deadline policy remain live.
+    fn begin_call(
+        &mut self,
+        cancellation: &ToolLoopCancellation,
+        now: Instant,
+    ) -> Result<(), ToolLoopError> {
+        self.require_live(cancellation, now)?;
+        self.call_count += 1;
+        Ok(())
+    }
+
+    /// Retains one correlated result only when post-execution and aggregate-output policy passes.
+    fn finish_call(
+        &mut self,
+        result: &NativeToolResult,
+        cancellation: &ToolLoopCancellation,
+        now: Instant,
+    ) -> Result<(), ToolLoopError> {
+        self.require_live(cancellation, now)?;
+        let output_bytes = serde_json::to_vec(result)
+            .map_err(|_| self.fail(ToolLoopErrorCode::AggregateOutputExceeded))?
+            .len();
+        let Some(aggregate_output_bytes) = self.aggregate_output_bytes.checked_add(output_bytes)
+        else {
+            return Err(self.fail(ToolLoopErrorCode::AggregateOutputExceeded));
+        };
+        if aggregate_output_bytes > MAX_TOOL_LOOP_OUTPUT_BYTES {
+            return Err(self.fail(ToolLoopErrorCode::AggregateOutputExceeded));
+        }
+        self.aggregate_output_bytes = aggregate_output_bytes;
+        Ok(())
     }
 
     /// Marks an active loop complete after a provider returns no further tool calls.

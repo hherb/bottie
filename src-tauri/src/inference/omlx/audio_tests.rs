@@ -40,7 +40,7 @@ fn audio_request() -> ChatRequest {
 
 #[test]
 fn tool_follow_up_keeps_text_and_image_but_removes_one_shot_audio() {
-    let mut session = OmlxToolSession::new(audio_request()).unwrap();
+    let mut session = OmlxToolSession::new(audio_request(), false).unwrap();
     let first = serde_json::to_value(&session.request).unwrap();
     assert_eq!(first["messages"][0]["content"][2]["type"], "input_audio");
 
