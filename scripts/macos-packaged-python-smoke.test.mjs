@@ -69,6 +69,7 @@ describe("packaged macOS Python XPC smoke", () => {
     expect(proof).toBeGreaterThan(build);
     expect(cleanup).toBeGreaterThan(proof);
     expect(workflow.slice(cleanup)).toContain("if: always() && runner.os == 'macOS'");
+    expect(workflow.slice(proof, cleanup)).toContain("mkdir -p package/python-package-evidence");
     expect(workflow.slice(proof)).toContain("python:xpc:prove-packaged");
     expect(workflow.slice(proof)).toContain("macos.json");
     expect(workflow.slice(proof)).toContain("macos-containment.json");

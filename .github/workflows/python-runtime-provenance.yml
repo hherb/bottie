@@ -315,6 +315,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p package/python-package-evidence
           npm run --silent python:xpc:prove-packaged -- \
             src-tauri/target/release/bundle/macos/bottie.app \
             package/python-package-evidence/macos.json \
