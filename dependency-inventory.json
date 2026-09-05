@@ -96,7 +96,7 @@
     "src-tauri/tauri.python-development.windows.conf.json": "af81981490eb1db5bc1c33d747518349c610267d0b5200100696e96324c84790",
     "scripts/python-runtime-bundle.mjs": "5589afda8a66dbbaaf2e6f97e2d492b949ab3620dd655975e8f27414ea6438f1",
     "scripts/dependency-inventory-config.mjs": "352c2fbbe5d8128833df1cd35097512e9d9bd8362a523a70dbdf0b0eeb558f11",
-    ".github/workflows/python-runtime-provenance.yml": "23706990b4d45743e9b8c5eea81bbfb76ebddfbff1886d396fd4845926df67c6",
+    ".github/workflows/python-runtime-provenance.yml": "951efff2f0c0121f9b451645a722cbac8c54fd192f915d1649de1304fe92faff",
     "third-party/cpython-3.14.7/LICENSE": "b0e25a78cffb43f4d92de8b61ccfa1f1f98ecbc22330b54b5251e7b6ba010231",
     "windows-python-appcontainer/ProfileStorage.hpp": "3cc523394ed3492dd64645d8641e19ad987e53f8657db7aae723a3383d8462c5",
     "windows-python-appcontainer/Proof.cpp": "09b250bd7376c213aeee83765ddcec85692db2f58d804479e9e00b98a3e5f5e8",
