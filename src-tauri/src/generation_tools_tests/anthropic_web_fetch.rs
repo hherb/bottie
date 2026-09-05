@@ -174,6 +174,8 @@ fn streams_an_anthropic_web_fetch_result_and_final_answer_across_two_requests() 
         Some(Arc::new(GenerationWebSearchExecutor)),
         Some(Arc::new(AnthropicWebFetchExecutor)),
         None,
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
+        None,
     ))
     .expect("two-round Anthropic web-fetch generation should complete")
     .expect("fixture reports usage");

@@ -17,7 +17,7 @@ use super::{
         ProviderErrorCode, Usage,
     },
 };
-use crate::tool_contract::enabled_native_tool_definitions;
+use crate::tool_contract::python_enabled_native_tool_definitions;
 
 use self::protocol::{
     AnthropicChatRequest, AnthropicResponseAccumulator, AnthropicToolRound, DecodedEvent,
@@ -38,13 +38,14 @@ pub(crate) struct AnthropicToolSession {
 }
 
 impl AnthropicToolSession {
-    /// Starts a session with exactly the closed native tools enabled for this request.
-    pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
+    /// Starts a session that advertises Python only when the contained runtime is available.
+    pub(crate) fn new(request: ChatRequest, python_available: bool) -> Result<Self, ProviderError> {
         validate_request(&request)?;
-        let definitions = enabled_native_tool_definitions(
+        let definitions = python_enabled_native_tool_definitions(
             request.memory_enabled,
             request.web_enabled,
             request.email_enabled,
+            python_available,
         );
         Ok(Self {
             request: AnthropicChatRequest::with_tools(request, definitions),

@@ -36,9 +36,9 @@ mod openai;
 
 use mapped::MappedNativeToolExecutor;
 
-#[cfg(test)]
-pub(crate) use anthropic::execute_anthropic_tool_round;
 pub(crate) use anthropic::stream_anthropic_tools;
+#[cfg(test)]
+pub(crate) use anthropic::{execute_anthropic_tool_round, execute_anthropic_tool_round_async};
 #[cfg(test)]
 pub(crate) use ollama::execute_ollama_tool_round_async;
 pub(crate) use ollama::stream_ollama_tools;
@@ -111,6 +111,8 @@ pub(crate) async fn stream_native_tools(
                 web_search,
                 web_fetch,
                 localmail,
+                python_approval,
+                python_runner,
             )
             .await
         }

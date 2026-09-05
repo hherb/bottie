@@ -128,6 +128,8 @@ fn streams_call_result_and_final_answer_across_two_requests() {
         None,
         None,
         None,
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
+        None,
     ))
     .expect("two-round Anthropic generation should complete")
     .expect("fixture reports usage");
@@ -308,6 +310,8 @@ fn streams_an_anthropic_web_search_result_and_final_answer_across_two_requests()
         ToolLoopCancellation::default(),
         Some(Arc::new(GenerationWebSearchExecutor)),
         None,
+        None,
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
         None,
     ))
     .expect("two-round Anthropic web generation should complete")

@@ -213,6 +213,8 @@ fn streams_anthropic_email_result_after_preserved_reasoning_blocks() {
         None,
         None,
         Some(Arc::new(localmail.clone())),
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
+        None,
     ))
     .expect("two-round Anthropic-compatible Email generation should complete")
     .expect("fixture reports usage");

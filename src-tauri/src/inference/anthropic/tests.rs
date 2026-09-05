@@ -161,7 +161,7 @@ fn maps_closed_tools_and_fragmented_calls_into_correlated_messages() {
 #[test]
 fn maps_the_clock_when_memory_and_web_are_both_disabled() {
     let body = serde_json::to_value(
-        AnthropicToolSession::new(text_request("What time is it?"))
+        AnthropicToolSession::new(text_request("What time is it?"), false)
             .unwrap()
             .request,
     )
@@ -176,7 +176,7 @@ fn maps_web_tools_after_memory_when_explicitly_enabled() {
     let mut web_only = text_request("Find the current release");
     web_only.web_enabled = true;
     let web_only =
-        serde_json::to_value(AnthropicToolSession::new(web_only).unwrap().request).unwrap();
+        serde_json::to_value(AnthropicToolSession::new(web_only, false).unwrap().request).unwrap();
     assert_eq!(web_only["tools"].as_array().map(Vec::len), Some(3));
     assert_eq!(web_only["tools"][0]["name"], "web_search");
     assert_eq!(web_only["tools"][1]["name"], "web_fetch");
@@ -194,7 +194,7 @@ fn maps_web_tools_after_memory_when_explicitly_enabled() {
     combined.memory_enabled = true;
     combined.web_enabled = true;
     let combined =
-        serde_json::to_value(AnthropicToolSession::new(combined).unwrap().request).unwrap();
+        serde_json::to_value(AnthropicToolSession::new(combined, false).unwrap().request).unwrap();
     assert_eq!(combined["tools"].as_array().map(Vec::len), Some(6));
     assert_eq!(combined["tools"][0]["name"], "search_memory");
     assert_eq!(combined["tools"][3]["name"], "web_search");
@@ -206,13 +206,35 @@ fn maps_web_tools_after_memory_when_explicitly_enabled() {
 fn maps_email_tools_before_the_clock_when_explicitly_enabled() {
     let mut request = text_request("Find the quarterly plan email");
     request.email_enabled = true;
-    let body = serde_json::to_value(AnthropicToolSession::new(request).unwrap().request).unwrap();
+    let body =
+        serde_json::to_value(AnthropicToolSession::new(request, false).unwrap().request).unwrap();
 
     assert_eq!(body["tools"].as_array().map(Vec::len), Some(4));
     assert_eq!(body["tools"][0]["name"], "search_email");
     assert_eq!(body["tools"][1]["name"], "open_email");
     assert_eq!(body["tools"][2]["name"], "read_email_attachment");
     assert_eq!(body["tools"][3]["name"], "current_time");
+}
+
+#[test]
+fn maps_python_only_when_a_contained_runtime_is_available() {
+    let unavailable = serde_json::to_value(
+        AnthropicToolSession::new(text_request("Calculate exactly"), false)
+            .unwrap()
+            .request,
+    )
+    .unwrap();
+    let available = serde_json::to_value(
+        AnthropicToolSession::new(text_request("Calculate exactly"), true)
+            .unwrap()
+            .request,
+    )
+    .unwrap();
+
+    assert_eq!(unavailable["tools"].as_array().map(Vec::len), Some(1));
+    assert_eq!(available["tools"].as_array().map(Vec::len), Some(2));
+    assert_eq!(available["tools"][0]["name"], "current_time");
+    assert_eq!(available["tools"][1]["name"], "run_python");
 }
 
 #[test]

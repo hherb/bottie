@@ -3,13 +3,13 @@
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with unsigned development-package inspection, the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume,
-append-only durable audit, explicit oMLX, Ollama, and OpenAI-compatible mappings, and selected-lineage execution-result
-presentation are implemented. The native waiter also publishes bounded approval lifecycle events to the existing
-WebView review state. An approved exact mapped-provider call can now cross the provider-neutral Rust execution boundary
-into the helper's bounded private-pipe protocol through Linux containment, a macOS XPC client, or a Windows
-AppContainer controller. Only an explicitly marked development bundle advertises the tool, and only on a discovered
-tool-capable oMLX, Ollama, or OpenAI-compatible route. Bottie does not map Anthropic-compatible providers or ship a
-Python tool. Default and protected packages remain unchanged.
+append-only durable audit, explicit oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible mappings, and
+selected-lineage execution-result presentation are implemented. The native waiter also publishes bounded approval
+lifecycle events to the existing WebView review state. An approved exact mapped-provider call can now cross the
+provider-neutral Rust execution boundary into the helper's bounded private-pipe protocol through Linux containment, a
+macOS XPC client, or a Windows AppContainer controller. Only an explicitly marked development bundle advertises the
+tool, and only on a discovered tool-capable mapped-provider route. Bottie does not ship a Python tool. Default and
+protected packages remain unchanged.
 
 ## Chosen core
 
@@ -285,9 +285,9 @@ durably recorded.
 
 The existing native tool policy classifies `run_python` as `ApprovalRequired`. Missing approval fails closed before
 argument validation, and an approval grant is consumed and bound to the exact call identity, tool name, source, and
-purpose. The definition is appended only to the oMLX, Ollama, or OpenAI-compatible native tool set when the selected
-model explicitly reports tool capability and startup resolved the complete marked development runtime. The
-Anthropic-compatible adapter omits it.
+purpose. The definition is appended only to the oMLX, Ollama, OpenAI-compatible, or Anthropic-compatible native tool
+set when the selected model explicitly reports tool capability and startup resolved the complete marked development
+runtime.
 
 One Rust-owned process-local slot can now retain a validated proposal for an explicit decision. The WebView receives a
 random opaque request token plus the complete bounded source and purpose, never the provider call identity. A closed
@@ -362,7 +362,6 @@ existing structured audit representation.
 The mapped-provider integration deliberately does not:
 
 - decide automatically that Python is appropriate for a user question;
-- advertise or map `run_python` through the Anthropic-compatible route;
 - expose Python in a default or protected package without the complete native runtime marker;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
@@ -373,8 +372,13 @@ provider's exact Chat Completions call ID through invocation, approval, result, 
 existing loop budgets and cumulative usage accounting. The configured remote provider receives the tool definition and
 its own proposed source/purpose, but the helper remains local and cannot start without Bottie's exact one-use approval.
 
-The next bounded slice can add `run_python` only to the explicitly tool-capable Anthropic-compatible generation loop
-after reviewing the OpenAI-compatible evidence. It must reuse the exact approval, execution, audit, cancellation,
-bounded-result, thinking-block, and `tool_use` identity boundaries; it must not change default or protected packages,
-make installed-package claims, sign, publish a release, or perform Microsoft Store work. Those actions remain
-separately authorized and deferred.
+The Anthropic-compatible mapping uses that same asynchronous executor and runtime gate. It preserves complete thinking
+and redacted-thinking blocks, returns each bounded success or error as a Messages `tool_result`, and retains the exact
+opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
+cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
+
+The next bounded slice can add a credential-free Linux installed-development-DEB containment smoke for the exact
+packaged helper and runtime. It should prove package byte identity, the existing Landlock/seccomp denial contract,
+ordinary private-pipe execution, caller cancellation, and parent-exit cleanup after installation. It must not change
+default or protected package configs, claim shipping containment, sign, release, publish, or perform Microsoft Store
+work. Those actions remain separately authorized and deferred.
