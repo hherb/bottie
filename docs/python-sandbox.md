@@ -117,8 +117,9 @@ bytes. An otherwise unsigned `.app` was built with its native XPC transport unde
 extracted-package inspection matched all 539 runtime files and the helper, and the packaged Bottie executable started
 with the native resolver active. The local host could not complete the new credential-free trust ceremony because it
 does not permit noninteractive system-trust changes; the pull-request macOS job is the authoritative packaged
-containment evidence. These are development measurements, not distribution-signed, notarized, installed-production,
-or release evidence.
+containment evidence. Draft PR #153 passed that exact proof on `b646a96`, including bounded removal of the ephemeral
+system-trust certificate and path-free evidence upload. These are development measurements, not distribution-signed,
+notarized, installed-production, or release evidence.
 
 Wasmtime and `wasmtime-wasi` are exactly pinned to 45.0.3 for this slice. That patch contains the fix for Wasmtime's
 June 2026 read-only-directory bypass advisory. Re-audit the current supported Wasmtime release and RustSec/GitHub

@@ -46,10 +46,10 @@ The unrelated untracked logo-kit, screenshot, and Linux signing-public-key files
 The focused tests failed first because the packaged-smoke module did not exist. The next red cycle showed that the old
 sidecar layout did not make the client the main executable of the bundle owning the XPC service; the Rust resolver and
 package contracts failed until the nested client-app boundary was implemented. The completed macOS XPC, packaged-smoke,
-runtime-bundle, and native resolver suites pass 22 focused tests.
+runtime-bundle, and native resolver suites pass 23 focused tests.
 
 `npm run format:check`, `npm run check`, `npm test`, and `npm run build` pass: Svelte reports zero errors/warnings, and
-295 frontend/script tests pass with 3 skipped. `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`,
+296 frontend/script tests pass with 3 skipped. `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`,
 `cargo check --manifest-path src-tauri/Cargo.toml`, and `cargo test --manifest-path src-tauri/Cargo.toml` pass. The
 application library reports 501 passed and 36 ignored, plus the updater evidence test and doc tests.
 
@@ -60,7 +60,8 @@ development-app build and package inspection, and `git diff --check` pass.
 
 This host does not permit the new self-signed identity to be added to system trust without interactive administrator
 authorization, which was not requested. The exact packaged App Sandbox denial, execution, cancellation, and client-exit
-proof therefore remains GitHub-hosted evidence and must pass on the draft PR before the slice is treated as complete.
+proof therefore remains GitHub-hosted evidence. Draft PR #153's macOS provenance job passed that exact proof on
+`b646a96`, including bounded removal of the ephemeral system-trust certificate and path-free evidence upload.
 
 ## Next bounded action
 
