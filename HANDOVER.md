@@ -1,10 +1,10 @@
 # Bottie handover
 
-Last verified: 2026-09-05
+Last verified: 2026-09-06
 
 ## Start here
 
-PR #151 merged into `main` at `6226606`. The current branch is `codex/windows-installed-python-smoke`. Microsoft Store
+PR #152 merged into `main` at `79dbb60`. The current branch is `codex/macos-packaged-python-smoke`. Microsoft Store
 certification and publication remain deferred until fresh release-owner notice.
 
 Read, in order:
@@ -15,53 +15,59 @@ Read, in order:
 
 ## Completed slice
 
-- The credential-free runtime-provenance workflow now installs the exact unsigned Windows development MSI after its
-  existing administrative extraction and package inspection.
-- Extracted and installed evidence now includes each native transport's package-relative name, size, and digest. The
-  Windows job requires the installed controller, helper, and runtime result to equal the extracted package result.
-- The installed proof copies only those installed resources into a transient AppContainer-owned tree and exercises the
-  existing zero-capability, low-integrity, privilege-stripped, host-fixture-denial, private-pipe, cancellation, and
-  controller-close contract without rebuilding or substituting packaged native code.
-- Default and protected package configurations are unchanged. The workflow remains pull-request-scoped,
-  credential-free, and path-free in its uploaded evidence.
+- The opt-in macOS development package now places the native XPC client as the main executable of a nested
+  `BottiePythonXPCClient.app`, which owns the private service under its `Contents/XPCServices` directory. The Rust
+  resolver requires that exact complete layout and fails closed when any client, service, helper, evidence, or runtime
+  resource is missing.
+- The credential-free provenance job creates a one-day self-signed code-signing identity in a transient keychain, makes
+  that keychain the job's user search/default keychain, and adds the public certificate to system trust for code signing.
+  It then signs runner -> service -> client app inside out without a timestamp before building and proving the package.
+  Bounded unconditional cleanup deletes and verifies removal of the system certificate before removing the keychain,
+  certificate, private key, and archive.
+- The packaged verifier inspects the exact signed client, service, helper, and runtime, verifies the same packaged code
+  signatures, then exercises ordinary private-pipe execution, direct host-fixture denial, caller cancellation, and
+  client-exit cleanup without rebuilding or substituting nested code. Uploaded evidence remains bounded and path-free.
+- Default and protected package configurations are unchanged. The outer Bottie development app remains unsigned, and
+  no Apple credential, distribution signature, notarization, release, publication, or Microsoft Store action is used.
 
 ## Current limits
 
 Python remains available only in an explicitly marked development bundle and only to a discovered tool-capable oMLX,
 Ollama, OpenAI-compatible, or Anthropic-compatible model. A configured remote provider receives the tool definition
-and the source/purpose it proposes; execution remains local and requires exact one-use approval. The new evidence is
-limited to an unsigned installed Windows development MSI on GitHub's Windows runner. It does not establish a shipping
-package, protected signing, release-candidate binding, publication, or Microsoft Store action.
+and the source/purpose it proposes; execution remains local and requires exact one-use approval. The new evidence is a
+self-signed development-package proof on GitHub's disposable macOS runner. It does not establish shipping containment,
+protected signing, release-candidate binding, notarization, installed production behavior, publication, or Microsoft
+Store certification.
 
 The unrelated untracked logo-kit, screenshot, and Linux signing-public-key files remain untouched.
 
 ## Validation
 
-The focused tests failed first because the installed Windows bundle resolver, native-transport identity evidence, npm
-entry point, and workflow step did not exist. The completed AppContainer and Python bundle suites pass 18 tests
-covering absolute installed paths, credential-free workflow policy, exact extracted/installed inspection comparison,
-and the existing native denial and lifecycle contract.
+The focused tests failed first because the packaged-smoke module did not exist. The next red cycle showed that the old
+sidecar layout did not make the client the main executable of the bundle owning the XPC service; the Rust resolver and
+package contracts failed until the nested client-app boundary was implemented. The completed macOS XPC, packaged-smoke,
+runtime-bundle, and native resolver suites pass 23 focused tests.
 
-`npm run format:check`, `npm run check`, `npm test`, and `npm run build` passed: Svelte reported zero errors/warnings,
-and 290 frontend/script tests passed with 3 skipped. `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`,
-`cargo check --manifest-path src-tauri/Cargo.toml`, and `cargo test --manifest-path src-tauri/Cargo.toml` passed. The
-application library reported 501 passed and 36 ignored, plus the updater evidence test and doc tests.
+`npm run format:check`, `npm run check`, `npm test`, and `npm run build` pass: Svelte reports zero errors/warnings, and
+296 frontend/script tests pass with 3 skipped. `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`,
+`cargo check --manifest-path src-tauri/Cargo.toml`, and `cargo test --manifest-path src-tauri/Cargo.toml` pass. The
+application library reports 501 passed and 36 ignored, plus the updater evidence test and doc tests.
 
-The Python runner's format, strict offline Clippy, offline tests, and locked offline release build passed; seven unit
-tests and the explicit missing-runtime guard passed, while three runtime-dependent tests remained intentionally
-ignored. Dependency inventory regeneration/check, third-party notices, release assets, workflow lint, and
-`git diff --check` passed.
+The Python runner's format, strict offline Clippy, offline tests, and locked offline release build pass; seven unit tests
+and the explicit missing-runtime guard pass, while three runtime-dependent tests remain intentionally ignored.
+Dependency inventory regeneration/check, third-party notices, release assets, Prettier, workflow lint, local unsigned
+development-app build and package inspection, and `git diff --check` pass.
 
-This macOS host cannot install or execute the Windows MSI. The exact installed-resource identity, native denial,
-execution, cancellation, and controller-exit proof remains GitHub-hosted evidence and must pass on the draft PR before
-the slice is treated as complete.
+This host does not permit the new self-signed identity to be added to system trust without interactive administrator
+authorization, which was not requested. The exact packaged App Sandbox denial, execution, cancellation, and client-exit
+proof therefore remains GitHub-hosted evidence. Draft PR #153's macOS provenance job passed that exact proof on
+`b646a96`, including bounded removal of the ephemeral system-trust certificate and path-free evidence upload.
 
 ## Next bounded action
 
-Add a credential-free macOS packaged-development-app XPC smoke for the exact inspected client, service, helper, and
-runtime. Prove package-byte identity, the existing App Sandbox/host-fixture denial contract, ordinary private-pipe
-execution, caller cancellation, and client-exit cleanup without rebuilding or substituting nested code. Do not change
-default/protected package configs, claim shipping containment, sign for distribution, notarize, release, publish, or
-perform Microsoft Store certification.
+Add a credential-free release-candidate binding contract over the existing path-free macOS, Windows, and Linux Python
+package/containment evidence. Reject missing, mixed-revision, or inconsistent development evidence without creating
+signatures, claiming shipping containment, changing default/protected package configs, notarizing, releasing,
+publishing, or performing Microsoft Store certification.
 
 Preserve the unrelated untracked assets and public key. Do not merge the draft PR without separate authorization.

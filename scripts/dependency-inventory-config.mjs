@@ -16,6 +16,7 @@ export const PYTHON_RUNTIME_INVENTORY_INPUTS = [
   "python-runner/Cargo.lock",
   "python-runner/runtime-manifest.json",
   "scripts/macos-python-xpc.mjs",
+  "scripts/macos-packaged-python-smoke.mjs",
   "scripts/windows-python-appcontainer.mjs",
   "src-tauri/tauri.python-development.linux.conf.json",
   "src-tauri/tauri.python-development.macos.conf.json",

@@ -26,6 +26,7 @@ const EVIDENCE_FILENAME: &str = "python-runtime-evidence.json";
 const RUNTIME_DIRECTORY: &str = "python-runtime";
 const RUNNER_BASENAME: &str = "bottie-python-runner";
 const MACOS_CLIENT_BASENAME: &str = "bottie-python-xpc-client";
+const MACOS_CLIENT_BUNDLE: &str = "BottiePythonXPCClient.app";
 const MACOS_SERVICE_BUNDLE: &str = "com.bottie.python-runner.xpc";
 const MACOS_SERVICE_EXECUTABLE: &str = "bottie-python-xpc-service";
 const WINDOWS_CONTROLLER_BASENAME: &str = "bottie-python-appcontainer.exe";
@@ -131,10 +132,17 @@ pub(crate) fn resolve_python_bundle_paths(
             PythonBundlePaths::Linux { runner, runtime }
         }
         PythonBundlePlatform::Macos => {
-            let client = executable_directory.join(MACOS_CLIENT_BASENAME);
             let contents = resource_directory.parent().ok_or(PythonRuntimeError)?;
-            let service = contents.join("XPCServices").join(MACOS_SERVICE_BUNDLE);
+            let client_contents = contents
+                .join("Helpers")
+                .join(MACOS_CLIENT_BUNDLE)
+                .join("Contents");
+            let client = client_contents.join("MacOS").join(MACOS_CLIENT_BASENAME);
+            let service = client_contents
+                .join("XPCServices")
+                .join(MACOS_SERVICE_BUNDLE);
             let service_contents = service.join("Contents");
+            require_file(&client_contents.join("Info.plist"))?;
             require_file(&client)?;
             require_file(&service_contents.join("Info.plist"))?;
             require_file(

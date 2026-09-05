@@ -113,10 +113,10 @@ describe("CPython/WASI development bundle", () => {
     );
 
     expect(linux.bundle.externalBin).toEqual(["../package/python-development/bottie-python-runner"]);
-    expect(macos.bundle.externalBin).toEqual(["../package/python-development/bottie-python-xpc-client"]);
+    expect(macos.bundle.externalBin).toBeUndefined();
     expect(macos.bundle.macOS.minimumSystemVersion).toBe("14.0");
     expect(macos.bundle.macOS.files).toEqual({
-      "XPCServices/com.bottie.python-runner.xpc": "../package/python-development/com.bottie.python-runner.xpc",
+      "Helpers/BottiePythonXPCClient.app": "../package/python-development/BottiePythonXPCClient.app",
     });
     expect(windows.bundle.externalBin).toEqual([
       "../package/python-development/bottie-python-runner",

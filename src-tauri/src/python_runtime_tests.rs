@@ -89,8 +89,10 @@ fn resolves_each_platform_only_from_fixed_native_bundle_locations() {
     let macos_executable = macos_contents.join("MacOS");
     let macos_resources = macos_contents.join("Resources");
     common_bundle(&macos_executable, &macos_resources);
-    write_file(&macos_executable.join("bottie-python-xpc-client"));
-    let service = macos_contents.join("XPCServices/com.bottie.python-runner.xpc/Contents");
+    let client = macos_contents.join("Helpers/BottiePythonXPCClient.app/Contents");
+    write_file(&client.join("Info.plist"));
+    write_file(&client.join("MacOS/bottie-python-xpc-client"));
+    let service = client.join("XPCServices/com.bottie.python-runner.xpc/Contents");
     write_file(&service.join("Info.plist"));
     write_file(&service.join("MacOS/bottie-python-xpc-service"));
     write_file(&service.join("Helpers/bottie-python-runner"));
@@ -105,7 +107,7 @@ fn resolves_each_platform_only_from_fixed_native_bundle_locations() {
         )
         .expect("complete macOS bundle should resolve"),
         Some(PythonBundlePaths::Macos {
-            client: macos_executable.join("bottie-python-xpc-client"),
+            client: client.join("MacOS/bottie-python-xpc-client"),
         })
     );
 

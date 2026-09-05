@@ -4,9 +4,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   applicationSigningArguments,
+  clientBundleMetadata,
+  commandLabel,
   proofBundleLayout,
   productBundleLayout,
-  productClientSourceName,
   runnerSigningArguments,
   serviceBundleMetadata,
   serviceSigningArguments,
@@ -16,15 +17,34 @@ import {
 const IDENTITY = "A".repeat(40);
 
 describe("macOS Python XPC containment proof", () => {
+  it("keeps absolute executable paths out of command failure labels", () => {
+    expect(commandLabel("/private/tmp/proof.app/Contents/MacOS/bottie-python-xpc-client")).toBe(
+      "bottie-python-xpc-client",
+    );
+    expect(commandLabel("codesign")).toBe("codesign");
+  });
+
   it("stages the product client and service at Tauri's fixed development-bundle inputs", () => {
-    expect(productClientSourceName("aarch64-apple-darwin")).toBe("bottie-python-xpc-client-aarch64-apple-darwin");
     expect(productBundleLayout("/tmp/python-development", "aarch64-apple-darwin")).toMatchObject({
-      client: "/tmp/python-development/bottie-python-xpc-client-aarch64-apple-darwin",
-      runner: "/tmp/python-development/com.bottie.python-runner.xpc/Contents/Helpers/bottie-python-runner",
-      runtime: "/tmp/python-development/com.bottie.python-runner.xpc/Contents/Resources/python-runtime",
-      service: "/tmp/python-development/com.bottie.python-runner.xpc",
+      client: "/tmp/python-development/BottiePythonXPCClient.app/Contents/MacOS/bottie-python-xpc-client",
+      clientApplication: "/tmp/python-development/BottiePythonXPCClient.app",
+      clientInfo: "/tmp/python-development/BottiePythonXPCClient.app/Contents/Info.plist",
+      runner:
+        "/tmp/python-development/BottiePythonXPCClient.app/Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Helpers/bottie-python-runner",
+      runtime:
+        "/tmp/python-development/BottiePythonXPCClient.app/Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Resources/python-runtime",
+      service: "/tmp/python-development/BottiePythonXPCClient.app/Contents/XPCServices/com.bottie.python-runner.xpc",
       serviceExecutable:
-        "/tmp/python-development/com.bottie.python-runner.xpc/Contents/MacOS/bottie-python-xpc-service",
+        "/tmp/python-development/BottiePythonXPCClient.app/Contents/XPCServices/com.bottie.python-runner.xpc/Contents/MacOS/bottie-python-xpc-service",
+    });
+  });
+
+  it("declares the packaged client as the main executable of the app that owns its XPC service", () => {
+    expect(clientBundleMetadata()).toMatchObject({
+      CFBundleExecutable: "bottie-python-xpc-client",
+      CFBundleIdentifier: "com.bottie.python-xpc-client",
+      CFBundlePackageType: "APPL",
+      LSMinimumSystemVersion: "14.0",
     });
   });
 

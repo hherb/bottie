@@ -64,14 +64,23 @@ const PACKAGED_LAYOUTS = {
     targetSuffix: "-unknown-linux-gnu",
   },
   macos: {
-    evidence: `Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Resources/${EVIDENCE_FILENAME}`,
+    evidence:
+      `Contents/Helpers/BottiePythonXPCClient.app/Contents/XPCServices/` +
+      `com.bottie.python-runner.xpc/Contents/Resources/${EVIDENCE_FILENAME}`,
     requiredFiles: [
-      "Contents/MacOS/bottie-python-xpc-client",
-      "Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Info.plist",
-      "Contents/XPCServices/com.bottie.python-runner.xpc/Contents/MacOS/bottie-python-xpc-service",
+      "Contents/Helpers/BottiePythonXPCClient.app/Contents/Info.plist",
+      "Contents/Helpers/BottiePythonXPCClient.app/Contents/MacOS/bottie-python-xpc-client",
+      "Contents/Helpers/BottiePythonXPCClient.app/Contents/XPCServices/" +
+        "com.bottie.python-runner.xpc/Contents/Info.plist",
+      "Contents/Helpers/BottiePythonXPCClient.app/Contents/XPCServices/" +
+        "com.bottie.python-runner.xpc/Contents/MacOS/bottie-python-xpc-service",
     ],
-    runtime: `Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Resources/${RUNTIME_DIRECTORY}`,
-    sidecar: `Contents/XPCServices/com.bottie.python-runner.xpc/Contents/Helpers/${SIDECAR_BASENAME}`,
+    runtime:
+      `Contents/Helpers/BottiePythonXPCClient.app/Contents/XPCServices/` +
+      `com.bottie.python-runner.xpc/Contents/Resources/${RUNTIME_DIRECTORY}`,
+    sidecar:
+      `Contents/Helpers/BottiePythonXPCClient.app/Contents/XPCServices/` +
+      `com.bottie.python-runner.xpc/Contents/Helpers/${SIDECAR_BASENAME}`,
     targetSuffix: "-apple-darwin",
   },
   windows: {
