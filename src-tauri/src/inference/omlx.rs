@@ -14,7 +14,7 @@ use super::{
     sse::SseDecoder,
     types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
 };
-use crate::tool_contract::omlx_native_tool_definitions;
+use crate::tool_contract::python_enabled_native_tool_definitions;
 
 use self::protocol::OmlxChatRequest;
 
@@ -38,7 +38,7 @@ impl OmlxToolSession {
     /// Starts a session with exactly the closed tools enabled for this request.
     pub(crate) fn new(request: ChatRequest, python_available: bool) -> Result<Self, ProviderError> {
         validate_request(&request)?;
-        let definitions = omlx_native_tool_definitions(
+        let definitions = python_enabled_native_tool_definitions(
             request.memory_enabled,
             request.web_enabled,
             request.email_enabled,

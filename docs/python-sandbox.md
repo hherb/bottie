@@ -3,13 +3,13 @@
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with unsigned development-package inspection, the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume,
-append-only durable audit, an explicit oMLX mapping, and selected-lineage execution-result presentation are implemented.
-The native waiter also publishes bounded
-approval lifecycle events to the existing WebView review state. An approved exact oMLX call can now cross the
+append-only durable audit, explicit oMLX and Ollama mappings, and selected-lineage execution-result presentation are
+implemented. The native waiter also publishes bounded
+approval lifecycle events to the existing WebView review state. An approved exact oMLX or Ollama call can now cross the
 provider-neutral Rust execution boundary into the helper's bounded private-pipe protocol through Linux containment, a
 macOS XPC client, or a Windows AppContainer controller. Only an explicitly marked development bundle advertises the
-tool, and only on a discovered tool-capable oMLX route. Bottie does not map another provider or ship a Python tool.
-Default and protected packages remain unchanged.
+tool, and only on a discovered tool-capable oMLX or Ollama route. Bottie does not map a remote provider or ship a
+Python tool. Default and protected packages remain unchanged.
 
 ## Chosen core
 
@@ -280,12 +280,12 @@ private-environment, runtime/workspace-read, host-fixture-denial, private-pipe, 
 `run_python` is now reserved as a provider-independent native contract with exactly two required fields: `source` and
 `purpose`. The native validator rejects unknown fields, blank or NUL-containing values, source over 32 KiB UTF-8, and
 purpose over 512 Unicode scalar values. These limits match the unchanged standalone runner request boundary. The
-oMLX-only product mapping submits this request only after its exact native approval is durably recorded.
+oMLX and Ollama product mappings submit this request only after its exact native approval is durably recorded.
 
 The existing native tool policy classifies `run_python` as `ApprovalRequired`. Missing approval fails closed before
 argument validation, and an approval grant is consumed and bound to the exact call identity, tool name, source, and
-purpose. The definition is appended only to oMLX's existing native tool set when the selected model explicitly reports
-tool capability and startup resolved the complete marked development runtime. Other adapters omit it.
+purpose. The definition is appended only to the oMLX or Ollama native tool set when the selected model explicitly
+reports tool capability and startup resolved the complete marked development runtime. Remote adapters omit it.
 
 One Rust-owned process-local slot can now retain a validated proposal for an explicit decision. The WebView receives a
 random opaque request token plus the complete bounded source and purpose, never the provider call identity. A closed
@@ -340,7 +340,7 @@ accepts only `approved` or `denied` for an existing approval-required call while
 duplicates, decisions after a result, decisions for safe tools, successful results without approval, and successful
 results after denial. Older records reopen with no invented decision.
 
-The dormant provider-neutral orchestration seam checkpoints the exact invocation before review, checkpoints an
+The provider-neutral orchestration seam checkpoints the exact invocation before review, checkpoints an
 explicit decision before any approved helper launch, then checkpoints one bounded terminal payload. Executed payloads
 contain only the existing closed status, bounded stdout/stderr, and helper duration; denial and cancellation have fixed
 payloads, and approval/helper failures retain only a stable error code. Reconstructed audit data omits provider call
@@ -357,16 +357,16 @@ existing structured audit representation.
 
 ## Deferred product integration
 
-The oMLX mapping deliberately does not:
+The local-provider mappings deliberately do not:
 
 - decide automatically that Python is appropriate for a user question;
-- advertise or map `run_python` through Ollama, OpenAI-compatible, or Anthropic-compatible routes;
+- advertise or map `run_python` through OpenAI-compatible or Anthropic-compatible routes;
 - expose Python in a default or protected package without the complete native runtime marker;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice can add `run_python` only to the explicitly tool-capable Ollama generation loop after reviewing
-the oMLX evidence. It must reuse the exact approval, execution, audit, cancellation, bounded-result, and
-provider-correlation boundaries; it must not map cloud providers, change default or protected packages, make
-installed-package claims, sign, publish a release, or perform Microsoft Store work. Those actions remain separately
-authorized and deferred.
+The next bounded slice can add `run_python` only to the explicitly tool-capable OpenAI-compatible generation loop after
+reviewing the local-provider evidence. It must reuse the exact approval, execution, audit, cancellation,
+bounded-result, and provider-call-identity boundaries; it must not map Anthropic-compatible providers, change default
+or protected packages, make installed-package claims, sign, publish a release, or perform Microsoft Store work. Those
+actions remain separately authorized and deferred.

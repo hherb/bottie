@@ -1,6 +1,6 @@
 //! Durable provider-neutral orchestration for approved Python execution.
 //!
-//! The explicitly tool-capable oMLX route calls this seam. It appends the exact invocation, records
+//! Explicitly tool-capable local routes call this seam. It appends the exact invocation, records
 //! any explicit decision before starting the runner, and then appends one bounded terminal outcome
 //! through the existing native tool audit.
 
@@ -107,7 +107,7 @@ pub(crate) async fn execute_audited_python(
     }
 }
 
-/// Executes one oMLX Python call and converts its audited terminal state into a bounded reply.
+/// Executes one mapped-provider Python call and converts its audited terminal state into a bounded reply.
 pub(crate) async fn execute_audited_python_for_provider(
     store: &ConversationStore,
     provider_run_id: &str,

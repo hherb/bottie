@@ -1,4 +1,4 @@
-//! oMLX-only asynchronous Python mapping inside the shared durable tool loop.
+//! Ollama-only asynchronous Python mapping inside the shared durable tool loop.
 
 use std::sync::Arc;
 
@@ -7,7 +7,7 @@ use crate::{
     generation_usage::merge_usage,
     generation_web_tools::{NativeWebFetchExecutor, NativeWebSearchExecutor},
     inference::{
-        ChatRequest, OmlxProvider, OmlxToolSession, OpenAiToolCall, OpenAiToolResult,
+        ChatRequest, OllamaProvider, OllamaToolCall, OllamaToolResult, OllamaToolSession,
         ProviderError, StreamSink, Usage,
     },
     python_approval::PythonApprovalController,
@@ -19,13 +19,13 @@ use crate::{
 
 use super::{MappedNativeToolExecutor, round_error, tool_loop_error};
 
-/// Runs repeated oMLX Chat Completions rounds through Bottie's existing durable loop policy.
+/// Runs repeated Ollama rounds while approval-required Python can suspend asynchronously.
 #[allow(
     clippy::too_many_arguments,
     reason = "the mapped provider keeps each native executor and trust boundary explicit"
 )]
-pub(crate) async fn stream_omlx_tools(
-    provider: OmlxProvider,
+pub(crate) async fn stream_ollama_tools(
+    provider: OllamaProvider,
     request: ChatRequest,
     sink: impl StreamSink + Clone + Send + Sync + 'static,
     store: ConversationStore,
@@ -39,7 +39,7 @@ pub(crate) async fn stream_omlx_tools(
     python_runner: Option<Arc<dyn PythonRunner>>,
 ) -> Result<Option<Usage>, ProviderError> {
     let memory_enabled = request.memory_enabled;
-    let mut session = OmlxToolSession::new(request, python_runner.is_some())?;
+    let mut session = OllamaToolSession::new(request, python_runner.is_some())?;
     let mut loop_state: Option<ToolLoopState> = None;
     let mut cumulative_usage = None;
     let mut executor = MappedNativeToolExecutor::new(
@@ -68,7 +68,7 @@ pub(crate) async fn stream_omlx_tools(
         }
 
         let mut state = loop_state.unwrap_or_else(|| ToolLoopState::new(std::time::Instant::now()));
-        let results = execute_omlx_tool_round(
+        let results = execute_ollama_tool_round_async(
             &mut state,
             round.tool_calls.clone(),
             &cancellation,
@@ -80,22 +80,26 @@ pub(crate) async fn stream_omlx_tools(
     }
 }
 
-/// Executes one oMLX call batch while retaining exact provider correlation and loop budgets.
-pub(crate) async fn execute_omlx_tool_round<E: AsyncToolExecutor<Error = StorageError>>(
+/// Executes one Ollama call batch while retaining ordered name correlation and loop budgets.
+pub(crate) async fn execute_ollama_tool_round_async<E: AsyncToolExecutor<Error = StorageError>>(
     state: &mut ToolLoopState,
-    calls: Vec<OpenAiToolCall>,
+    calls: Vec<OllamaToolCall>,
     cancellation: &ToolLoopCancellation,
     executor: &mut E,
-) -> Result<Vec<OpenAiToolResult>, ProviderError> {
+) -> Result<Vec<OllamaToolResult>, ProviderError> {
+    let tool_names = calls
+        .iter()
+        .map(|call| call.tool_name().to_owned())
+        .collect::<Vec<_>>();
     let native_calls = calls
         .into_iter()
         .map(|call| NativeToolCall {
-            call_id: call.call_id().to_owned(),
+            call_id: uuid::Uuid::new_v4().to_string(),
             tool_name: call.tool_name().to_owned(),
             arguments: call.arguments().clone(),
         })
         .collect();
-    state
+    let results = state
         .execute_round_try_with_async(
             native_calls,
             cancellation,
@@ -103,16 +107,16 @@ pub(crate) async fn execute_omlx_tool_round<E: AsyncToolExecutor<Error = Storage
             executor,
         )
         .await
-        .map_err(round_error)?
+        .map_err(round_error)?;
+
+    tool_names
         .into_iter()
-        .map(|result| {
+        .zip(results)
+        .map(|(tool_name, result)| {
             let content = serde_json::to_string(&result.execution).map_err(|_| {
                 ProviderError::internal("The native tool result could not be serialized.", None)
             })?;
-            Ok(OpenAiToolResult {
-                tool_call_id: result.call_id,
-                content,
-            })
+            Ok(OllamaToolResult { tool_name, content })
         })
         .collect()
 }

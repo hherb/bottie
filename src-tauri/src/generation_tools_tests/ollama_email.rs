@@ -174,6 +174,8 @@ fn streams_an_ollama_email_result_and_final_answer_across_two_requests() {
         None,
         None,
         Some(Arc::new(localmail.clone())),
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
+        None,
     ))
     .expect("two-round Ollama generation should complete")
     .expect("fixture reports usage");

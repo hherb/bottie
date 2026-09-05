@@ -5,8 +5,9 @@ use serde_json::{json, to_value};
 use crate::{
     tool_contract::{
         MAX_PYTHON_PURPOSE_CHARACTERS, MAX_PYTHON_SOURCE_BYTES, PythonToolArguments,
-        RUN_PYTHON_TOOL_NAME, enabled_native_tool_definitions, omlx_native_tool_definitions,
-        python_tool_definition, validate_python_tool_arguments,
+        RUN_PYTHON_TOOL_NAME, enabled_native_tool_definitions,
+        python_enabled_native_tool_definitions, python_tool_definition,
+        validate_python_tool_arguments,
     },
     tool_loop::NativeToolCall,
     tool_policy::{
@@ -111,7 +112,7 @@ fn rejects_malformed_python_arguments_without_reflecting_source_or_purpose() {
 }
 
 #[test]
-fn advertises_python_only_for_an_available_omlx_runtime() {
+fn advertises_python_only_for_an_available_local_provider_runtime() {
     for flags in [(false, false, false), (true, true, true)] {
         assert!(
             enabled_native_tool_definitions(flags.0, flags.1, flags.2)
@@ -120,13 +121,13 @@ fn advertises_python_only_for_an_available_omlx_runtime() {
         );
     }
     assert!(
-        omlx_native_tool_definitions(false, false, false, false)
+        python_enabled_native_tool_definitions(false, false, false, false)
             .iter()
             .all(|definition| definition.name != RUN_PYTHON_TOOL_NAME)
     );
-    let omlx_definitions = omlx_native_tool_definitions(false, false, false, true);
+    let local_definitions = python_enabled_native_tool_definitions(false, false, false, true);
     assert_eq!(
-        omlx_definitions
+        local_definitions
             .iter()
             .map(|definition| definition.name)
             .collect::<Vec<_>>(),
