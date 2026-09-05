@@ -21,6 +21,19 @@ const ORDINARY_REQUEST = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove 
 const PRODUCT_CONTROLLER_BASENAME = "bottie-python-appcontainer";
 const PRODUCT_TARGET = "x86_64-pc-windows-msvc";
 
+/** Returns the exact native resources below one absolute installed MSI application directory. */
+export function installedWindowsBundlePaths(applicationDirectory) {
+  if (!win32.isAbsolute(applicationDirectory)) {
+    throw new ProofFailure("The installed Windows Python bundle path must be absolute.");
+  }
+  const root = win32.normalize(applicationDirectory);
+  return {
+    controller: win32.join(root, PROOF_EXECUTABLE),
+    runner: win32.join(root, RUNNER_EXECUTABLE),
+    runtime: win32.join(root, "python-runtime"),
+  };
+}
+
 /** Returns Tauri's target-suffixed input name for the native product controller. */
 export function productControllerSourceName(target) {
   if (target !== PRODUCT_TARGET) throw new ProofFailure("The Windows Python product target is unsupported.");
@@ -153,6 +166,21 @@ async function validateRuntime(runtime) {
       throw new ProofFailure("The configured CPython/WASI runtime is incomplete.");
     }
   }
+}
+
+/** Requires the complete installed development bundle without accepting a build-tree fallback. */
+async function validateInstalledBundle(bundle) {
+  for (const required of [
+    bundle.controller,
+    bundle.runner,
+    win32.join(win32.dirname(bundle.runtime), "python-runtime-evidence.json"),
+    win32.join(bundle.runtime, "lib", "python314.zip"),
+  ]) {
+    if ((await readFile(required)).length === 0) {
+      throw new ProofFailure("The installed Windows Python development bundle is incomplete.");
+    }
+  }
+  await validateRuntime(bundle.runtime);
 }
 
 /** Compiles the unchanged runner and native controller into a transient directory. */
@@ -301,6 +329,68 @@ async function exerciseProof(controller, moniker, layout, fixture) {
   await waitForProcessExit(parent.pid);
 }
 
+/** Copies one exact bundle into the profile and exercises the shared native containment contract. */
+async function exerciseBundle({ controller, createArchive, moniker, runner, runtime, temporary }) {
+  let prepared = false;
+  try {
+    const baseline = parseProofResult(
+      runHostCommand(runner, ["--runtime", runtime], {
+        input: ORDINARY_REQUEST,
+        label: "The uncontained runner control",
+      }),
+    );
+    requireOrdinaryResult(baseline, "The uncontained runner control");
+    const profile = parsePreparedProfile(
+      runHostCommand(controller, ["prepare", moniker], { label: "The transient AppContainer profile" }),
+    );
+    prepared = true;
+    const layout = proofProfileLayout(profile);
+    await mkdir(layout.root, { recursive: true });
+    await Promise.all([
+      cp(controller, layout.host),
+      cp(runner, layout.runner),
+      cp(runtime, layout.runtime, { recursive: true }),
+    ]);
+    if (createArchive) {
+      await buildStoredStandardLibraryArchive(
+        win32.join(layout.runtime, "lib", "python314.zip"),
+        win32.join(layout.runtime, "lib", "python3.14"),
+      );
+    }
+    const authorizedProfile = parsePreparedProfile(
+      runHostCommand(controller, ["prepare", moniker], { label: "The copied proof tree access" }),
+    );
+    if (win32.normalize(authorizedProfile).toLowerCase() !== win32.normalize(profile).toLowerCase()) {
+      throw new ProofFailure("The copied proof tree profile changed unexpectedly.");
+    }
+    const fixture = resolve(temporary, "host-owned-denial-fixture.txt");
+    await writeFile(fixture, "AppContainer access must be denied.");
+    await exerciseProof(controller, moniker, layout, fixture);
+  } finally {
+    if (prepared) {
+      runHostCommand(controller, ["cleanup", moniker], { label: "The transient AppContainer cleanup" });
+    }
+  }
+}
+
+/** Emits only the closed, path-free native containment outcome. */
+function writeProofEvidence(installedDevelopmentBundle = false) {
+  console.log(
+    JSON.stringify({
+      appContainerDeniedHostFixture: true,
+      appContainerLowIntegrity: true,
+      appContainerNoCapabilities: true,
+      cancellation: true,
+      ...(installedDevelopmentBundle ? { installedDevelopmentBundle: true } : {}),
+      jobCloseKilledRunner: true,
+      privatePipeExecution: true,
+      resourceLimits: true,
+      privilegesStripped: true,
+      status: "ok",
+    }),
+  );
+}
+
 /** Builds and runs one transient credential-free proof without changing Bottie's product path. */
 async function prove() {
   if (process.platform !== "win32") throw new ProofFailure("The AppContainer containment proof requires Windows.");
@@ -313,63 +403,31 @@ async function prove() {
   await validateRuntime(runtime);
   const temporary = await mkdtemp(resolve(tmpdir(), "bottie-python-appcontainer-proof-"));
   const moniker = `bottie.python.runner.proof.${process.pid}`;
-  let controller;
-  let prepared = false;
   try {
     const compiled = compileProof(repository, temporary);
-    controller = compiled.controller;
-    const baseline = parseProofResult(
-      runHostCommand(compiled.runner, ["--runtime", runtime], {
-        input: ORDINARY_REQUEST,
-        label: "The uncontained runner control",
-      }),
-    );
-    requireOrdinaryResult(baseline, "The uncontained runner control");
-    const profile = parsePreparedProfile(
-      runHostCommand(controller, ["prepare", moniker], { label: "The transient AppContainer profile" }),
-    );
-    prepared = true;
-    const layout = proofProfileLayout(profile);
-    await mkdir(layout.root, { recursive: true });
-    const builtRunner = resolve(repository, "python-runner", "target", "release", RUNNER_EXECUTABLE);
-    await Promise.all([
-      cp(controller, layout.host),
-      cp(builtRunner, layout.runner),
-      cp(runtime, layout.runtime, { recursive: true }),
-    ]);
-    const standardLibrary = win32.join(layout.runtime, "lib", "python3.14");
-    const standardLibraryArchive = win32.join(layout.runtime, "lib", "python314.zip");
-    await buildStoredStandardLibraryArchive(standardLibraryArchive, standardLibrary);
-    const authorizedProfile = parsePreparedProfile(
-      runHostCommand(controller, ["prepare", moniker], { label: "The copied proof tree access" }),
-    );
-    if (win32.normalize(authorizedProfile).toLowerCase() !== win32.normalize(profile).toLowerCase()) {
-      throw new ProofFailure("The copied proof tree profile changed unexpectedly.");
-    }
-    const fixture = resolve(temporary, "host-owned-denial-fixture.txt");
-    await writeFile(fixture, "AppContainer access must be denied.");
-    await exerciseProof(controller, moniker, layout, fixture);
-    console.log(
-      JSON.stringify({
-        appContainerDeniedHostFixture: true,
-        appContainerLowIntegrity: true,
-        appContainerNoCapabilities: true,
-        cancellation: true,
-        jobCloseKilledRunner: true,
-        privatePipeExecution: true,
-        resourceLimits: true,
-        privilegesStripped: true,
-        status: "ok",
-      }),
-    );
+    await exerciseBundle({ ...compiled, createArchive: true, moniker, runtime, temporary });
+    writeProofEvidence();
   } finally {
-    try {
-      if (prepared && controller) {
-        runHostCommand(controller, ["cleanup", moniker], { label: "The transient AppContainer cleanup" });
-      }
-    } finally {
-      await rm(temporary, { recursive: true, force: true });
-    }
+    await rm(temporary, { recursive: true, force: true });
+  }
+}
+
+/** Runs the shared proof against only the controller, helper, and runtime installed from the development MSI. */
+async function proveInstalled() {
+  if (process.platform !== "win32") throw new ProofFailure("The AppContainer containment proof requires Windows.");
+  const applicationDirectory = process.env.BOTTIE_PYTHON_INSTALLED_ROOT;
+  if (!applicationDirectory) {
+    throw new ProofFailure("Set BOTTIE_PYTHON_INSTALLED_ROOT to the installed development-MSI application directory.");
+  }
+  const bundle = installedWindowsBundlePaths(applicationDirectory);
+  await validateInstalledBundle(bundle);
+  const temporary = await mkdtemp(resolve(tmpdir(), "bottie-python-appcontainer-installed-proof-"));
+  const moniker = `bottie.python.runner.installed.proof.${process.pid}`;
+  try {
+    await exerciseBundle({ ...bundle, createArchive: false, moniker, temporary });
+    writeProofEvidence(true);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
   }
 }
 
@@ -377,6 +435,10 @@ async function prove() {
 async function main() {
   if (process.argv.length === 3 && process.argv[2] === "--prove") {
     await prove();
+    return;
+  }
+  if (process.argv.length === 3 && process.argv[2] === "--prove-installed") {
+    await proveInstalled();
     return;
   }
   if (process.argv.length === 5 && process.argv[2] === "--prepare-product") {
@@ -387,7 +449,7 @@ async function main() {
     );
     return;
   }
-  throw new ProofFailure("Use --prove or --prepare-product with exact inputs.");
+  throw new ProofFailure("Use --prove, --prove-installed, or --prepare-product with exact inputs.");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
