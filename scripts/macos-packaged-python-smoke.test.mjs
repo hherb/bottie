@@ -68,10 +68,12 @@ describe("packaged macOS Python XPC smoke", () => {
     expect(workflow).toContain("openssl rand -hex 24");
     expect(workflow).toContain("umask 077");
     expect(workflow).toContain("-passout env:BOTTIE_P12_PASSWORD");
-    expect(workflow).toContain("pkcs12_options=()");
+    expect(workflow).toContain("export_pkcs12() {");
     expect(workflow).toContain('if [[ "$(openssl pkcs12 -help 2>&1 || true)" == *"-legacy"* ]]; then');
-    expect(workflow).toContain("pkcs12_options=(-legacy)");
-    expect(workflow).toContain('openssl pkcs12 -export "${pkcs12_options[@]}"');
+    expect(workflow).toContain("export_pkcs12 -legacy");
+    expect(workflow).toContain("export_pkcs12\n");
+    expect(workflow).toContain('openssl pkcs12 -export "$@"');
+    expect(workflow).not.toContain("pkcs12_options");
     expect(workflow).not.toContain("openssl pkcs12 -export -legacy");
     expect(workflow).toContain("sudo security add-trusted-cert -d -r trustRoot -p codeSign");
     expect(workflow.slice(cleanup)).toContain("sudo security remove-trusted-cert -d");

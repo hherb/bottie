@@ -241,13 +241,16 @@ jobs:
             -subj "/CN=Bottie Python CI Ephemeral Code Signing/" \
             -addext "keyUsage=digitalSignature" -addext "extendedKeyUsage=codeSigning" \
             -keyout "$private_key" -out "$certificate"
-          pkcs12_options=()
+          export_pkcs12() {
+            BOTTIE_P12_PASSWORD="$archive_password" openssl pkcs12 -export "$@" \
+              -inkey "$private_key" -in "$certificate" -out "$identity_archive" \
+              -passout env:BOTTIE_P12_PASSWORD
+          }
           if [[ "$(openssl pkcs12 -help 2>&1 || true)" == *"-legacy"* ]]; then
-            pkcs12_options=(-legacy)
+            export_pkcs12 -legacy
+          else
+            export_pkcs12
           fi
-          BOTTIE_P12_PASSWORD="$archive_password" openssl pkcs12 -export "${pkcs12_options[@]}" \
-            -inkey "$private_key" -in "$certificate" -out "$identity_archive" \
-            -passout env:BOTTIE_P12_PASSWORD
           security create-keychain -p "" "$keychain"
           security unlock-keychain -p "" "$keychain"
           security import "$identity_archive" -k "$keychain" -P "$archive_password" -T /usr/bin/codesign
