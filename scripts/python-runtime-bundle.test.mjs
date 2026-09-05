@@ -267,5 +267,16 @@ describe("CPython/WASI development bundle", () => {
     expect(archive.readUInt32LE(0)).toBe(0x04034b50);
     expect(archive.readUInt32LE(archive.length - 22)).toBe(0x06054b50);
     expect(evidence.runtime.fileCount).toBe(4);
+
+    await writeFile(join(inputs, "bottie-python-runner.exe"), "runner");
+    await writeFile(join(inputs, "bottie-python-appcontainer.exe"), "controller");
+    const inspection = await inspectPackagedPythonBundle(inputs, "windows", manifest());
+    expect(inspection.nativeTransports).toEqual([
+      {
+        bytes: 10,
+        path: "bottie-python-appcontainer.exe",
+        sha256: sha256("controller"),
+      },
+    ]);
   });
 });

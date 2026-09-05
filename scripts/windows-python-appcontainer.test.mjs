@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ProofFailure,
+  installedWindowsBundlePaths,
   msvcCompilationArguments,
   productControllerSourceName,
   proofProfileLayout,
@@ -19,6 +20,15 @@ import {
 import { buildStoredStandardLibraryArchive } from "./python-runtime-bundle.mjs";
 
 describe("Windows Python AppContainer containment proof", () => {
+  it("resolves only one absolute installed development-MSI controller, helper, and runtime", () => {
+    expect(installedWindowsBundlePaths("C:\\Program Files\\bottie")).toEqual({
+      controller: "C:\\Program Files\\bottie\\bottie-python-appcontainer.exe",
+      runner: "C:\\Program Files\\bottie\\bottie-python-runner.exe",
+      runtime: "C:\\Program Files\\bottie\\python-runtime",
+    });
+    expect(() => installedWindowsBundlePaths("relative\\bottie")).toThrow(/absolute/);
+  });
+
   it("stages one target-suffixed product controller for Tauri", () => {
     expect(productControllerSourceName("x86_64-pc-windows-msvc")).toBe(
       "bottie-python-appcontainer-x86_64-pc-windows-msvc.exe",
@@ -193,10 +203,29 @@ describe("Windows Python AppContainer containment proof", () => {
     expect(workflow).toContain("python-runner/runtime-manifest.json");
     expect(workflow).toContain("npm run python:appcontainer:prove");
     expect(workflow).not.toMatch(/environment:|secrets\./);
-    expect(wrapper).toContain('runHostCommand(compiled.runner, ["--runtime", runtime]');
+    expect(wrapper).toContain('runHostCommand(runner, ["--runtime", runtime]');
     expect(wrapper).toContain('requireOrdinaryResult(baseline, "The uncontained runner control")');
     expect(wrapper).toContain('label: "The copied proof tree access"');
     expect(wrapper).toContain("await buildStoredStandardLibraryArchive");
     expect(wrapper).not.toContain('runHostCommand("tar.exe"');
+  });
+
+  it("installs and exercises the exact inspected Windows development MSI", async () => {
+    const workflow = await readFile(
+      new URL("../.github/workflows/python-runtime-provenance.yml", import.meta.url),
+      "utf8",
+    );
+    const packageManifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+
+    expect(workflow).toContain("Install and prove the Windows development bundle");
+    expect(workflow).toContain('"/i", $installers[0].FullName, "/qn", "/norestart", "INSTALLDIR=$installed"');
+    expect(workflow).toContain("--inspect-package windows $installed");
+    expect(workflow).toContain("Compare-Object");
+    expect(workflow).toContain("npm run --silent python:appcontainer:prove-installed");
+    expect(workflow).toContain('"/x", $installers[0].FullName, "/qn", "/norestart"');
+    expect(packageManifest.scripts["python:appcontainer:prove-installed"]).toBe(
+      "node scripts/windows-python-appcontainer.mjs --prove-installed",
+    );
+    expect(workflow).not.toMatch(/secrets\./);
   });
 });

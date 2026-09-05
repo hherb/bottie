@@ -408,8 +408,10 @@ export async function inspectPackagedPythonBundle(packageRoot, platform, uncheck
   const layout = PACKAGED_LAYOUTS[platform];
   if (!layout) throw new Error("The Python package platform is unsupported.");
   const root = resolve(packageRoot);
+  const nativeTransports = [];
   for (const required of layout.requiredFiles ?? []) {
-    await readRegularFile(join(root, ...required.split("/")), "The packaged Python native transport");
+    const bytes = await readRegularFile(join(root, ...required.split("/")), "The packaged Python native transport");
+    nativeTransports.push({ bytes: bytes.length, path: required, sha256: sha256(bytes) });
   }
   const evidence = JSON.parse(
     (await readRegularFile(join(root, ...layout.evidence.split("/")), "The packaged Python evidence")).toString("utf8"),
@@ -430,7 +432,14 @@ export async function inspectPackagedPythonBundle(packageRoot, platform, uncheck
   if (sha256(runner) !== evidence.runnerSha256 || runner.length !== evidence.runnerBytes) {
     throw new Error("The packaged Python runner does not match its build evidence.");
   }
-  return { bundled: true, runnerBytes: runner.length, runnerSha256: sha256(runner), runtime, target: evidence.target };
+  return {
+    bundled: true,
+    nativeTransports,
+    runnerBytes: runner.length,
+    runnerSha256: sha256(runner),
+    runtime,
+    target: evidence.target,
+  };
 }
 
 /** Loads the checked-in runtime provenance manifest. */

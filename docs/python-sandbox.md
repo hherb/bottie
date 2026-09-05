@@ -1,8 +1,8 @@
 # Python sandbox feasibility slice
 
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
-official-source runtime provenance with unsigned development-package inspection and installed Linux DEB containment,
-the approval-required native
+official-source runtime provenance with unsigned development-package inspection plus installed Windows MSI and Linux
+DEB containment, the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume,
 append-only durable audit, explicit oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible mappings, and
 selected-lineage execution-result presentation are implemented. The native waiter also publishes bounded approval
@@ -81,13 +81,18 @@ stages the reviewed 539-file runtime, cleans and rebuilds at that same path, the
 path-free evidence documents to be byte-identical. It passes that exact artifact to macOS, Windows, and Linux jobs,
 which build the locked native helper plus the platform XPC client/service or AppContainer controller, create an opt-in
 unsigned Tauri package, extract it, and compare the packaged helper/runtime against the original evidence while
-requiring the native transport files. Same-path repeatability is a bounded hosted proof, not a claim that independent
-hosts produce identical bytes.
+recording each required native transport's package-relative path, byte count, and digest. Same-path repeatability is a
+bounded hosted proof, not a claim that independent hosts produce identical bytes.
 
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
 byte for byte. It then runs the same Landlock/seccomp/rlimit and process-lifecycle verifier directly against the
 installed resources. The uploaded containment result contains only the closed path-free Boolean evidence.
+
+The Windows job similarly installs its one inspected development MSI into a fresh fixed application directory,
+reinspects the controller, helper, and runtime, and requires its path-free evidence to equal the extracted package
+evidence. It then copies only those installed bytes into the transient AppContainer-owned proof tree and runs the
+existing token, access, private-pipe, cancellation, and controller-close checks without a helper or controller rebuild.
 
 The runtime, helper, evidence, and platform-native transport are selected only by the three
 `src-tauri/tauri.python-development.*.conf.json` overlays; Bottie's base and protected distribution configurations
@@ -178,9 +183,11 @@ low-level AppContainer launch sequence in the product. This proof retains the Wi
 its exact token, handle, and Job Object policy stays inspectable. MSIX package identity alone does not make Bottie's
 full-trust desktop process or a future helper an AppContainer.
 
-The unsigned development MSI now proves bundle placement and byte identity only. Both shipping routes still need
-evidence that the exact installed helper/runtime are signed, launch under the intended containment policy, retain
-their denials after installation, and terminate with Bottie.
+The credential-free pull-request workflow now proves exact extracted-to-installed controller, helper, and runtime byte
+identity for the unsigned development MSI. It runs the same zero-capability, low-integrity, privilege-stripped,
+host-fixture-denial, private-pipe, cancellation, and controller-close proof against those installed resources. Both
+shipping routes still need evidence that the final signed bytes retain the intended containment policy and terminate
+with Bottie.
 
 The provider-neutral Windows product runner now starts an injected controller with the fixed `execute` mode, a
 controller-safe `com.bottie.python.runner.<process-id>` profile, and native-only helper/runtime paths. Source and purpose
@@ -272,6 +279,14 @@ The credential-free pull-request workflow independently verifies the pinned deve
 compiles the controller with warnings as errors, builds the locked runner, and exercises private-pipe execution,
 zero-capability/Low-integrity/privilege-stripped token state, profile-contained writable temporary storage,
 host-fixture denial, cancellation, and kill-on-controller-close.
+
+After installing the opt-in development MSI, the fixed installed-resource variant runs without rebuilding the helper
+or controller:
+
+```powershell
+$env:BOTTIE_PYTHON_INSTALLED_ROOT = "C:\absolute\installed\bottie"
+npm run python:appcontainer:prove-installed
+```
 
 On Linux, the credential-free native proof uses that same independently verified runtime:
 
@@ -389,8 +404,9 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add a credential-free Windows installed-development-MSI AppContainer smoke for the exact
-packaged controller, helper, and runtime. It should prove installed byte identity, the existing
-zero-capability/token/host-fixture denial contract, ordinary private-pipe execution, caller cancellation, and
-controller-exit cleanup. It must not change default or protected package configs, claim shipping containment, sign,
-release, publish, or perform Microsoft Store work. Those actions remain separately authorized and deferred.
+The next bounded slice can add a credential-free macOS packaged-development-app XPC smoke for the exact inspected
+client, service, helper, and runtime. It should prove exact package-byte identity, the existing App Sandbox and
+host-fixture denial contract, ordinary private-pipe execution, caller cancellation, and client-exit cleanup without
+rebuilding or substituting nested code. It must not change default or protected package configs, claim shipping
+containment, sign for distribution, notarize, release, publish, or perform Microsoft Store work. Those actions remain
+separately authorized and deferred.

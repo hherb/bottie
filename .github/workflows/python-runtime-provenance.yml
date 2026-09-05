@@ -283,6 +283,35 @@ jobs:
             --inspect-package windows $applications[0].Directory.FullName `
             | Tee-Object -FilePath package/python-package-evidence/windows.json
 
+      - name: Install and prove the Windows development bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem src-tauri/target/release/bundle/msi -Recurse -Filter *.msi)
+          if ($installers.Count -ne 1) { throw "Expected exactly one development MSI." }
+          $installed = Join-Path $env:RUNNER_TEMP "bottie-python-installed"
+          $install = Start-Process msiexec.exe -ArgumentList @(
+            "/i", $installers[0].FullName, "/qn", "/norestart", "INSTALLDIR=$installed"
+          ) -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Development MSI installation failed." }
+          try {
+            node scripts/python-runtime-bundle.mjs --inspect-package windows $installed `
+              | Tee-Object -FilePath package/python-package-evidence/windows-installed.json
+            $difference = Compare-Object `
+              (Get-Content package/python-package-evidence/windows.json) `
+              (Get-Content package/python-package-evidence/windows-installed.json)
+            if ($null -ne $difference) { throw "Installed Python bundle identity did not match extracted evidence." }
+            $env:BOTTIE_PYTHON_INSTALLED_ROOT = $installed
+            npm run --silent python:appcontainer:prove-installed `
+              | Tee-Object -FilePath package/python-package-evidence/windows-containment.json
+          } finally {
+            Remove-Item Env:BOTTIE_PYTHON_INSTALLED_ROOT -ErrorAction SilentlyContinue
+            $uninstall = Start-Process msiexec.exe -ArgumentList @(
+              "/x", $installers[0].FullName, "/qn", "/norestart"
+            ) -Wait -PassThru
+            if ($uninstall.ExitCode -ne 0) { throw "Development MSI removal failed." }
+          }
+
       - name: Extract and inspect the Linux development bundle
         if: runner.os == 'Linux'
         shell: bash

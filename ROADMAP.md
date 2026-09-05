@@ -265,6 +265,8 @@ complete; shipping evidence remains pending.
   dependency inventory, and cross-platform package inspection;
 - [x] credential-free installed Linux development-DEB identity, Landlock/seccomp denial, private-pipe execution,
   cancellation, and parent-exit cleanup smoke;
+- [x] credential-free installed Windows development-MSI controller/helper/runtime identity, AppContainer token and
+  host-fixture denial, private-pipe execution, cancellation, and controller-exit cleanup smoke;
 - [ ] exact shipping-helper/runtime containment, signing, release-candidate binding, and installed-package inspection;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;
