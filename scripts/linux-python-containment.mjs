@@ -3,6 +3,7 @@
 /** Builds and exercises Bottie's development-only Linux Python containment proof. */
 
 import { spawn, spawnSync } from "node:child_process";
+import { constants } from "node:fs";
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -14,6 +15,8 @@ const CANCELLATION_DELAY_MS = 5_000;
 const PARENT_EXIT_TIMEOUT_MS = 5_000;
 const PARENT_EXIT_POLL_MS = 50;
 const MAX_CAPTURED_OUTPUT_BYTES = 256 * 1_024;
+const INSTALLED_RUNNER = "/usr/bin/bottie-python-runner";
+const INSTALLED_RUNTIME = "/usr/lib/bottie/python-runtime";
 const ORDINARY_REQUEST = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove private-pipe execution" });
 const CANCELLATION_REQUEST = JSON.stringify({ code: "while True:\n    pass", purpose: "Prove caller cancellation" });
 const REQUIRED_EVIDENCE = [
@@ -30,6 +33,11 @@ const REQUIRED_EVIDENCE = [
 
 /** Marks one deliberately bounded path-free diagnostic. */
 export class ProofFailure extends Error {}
+
+/** Returns the fixed native paths owned by Bottie's installed Linux DEB. */
+export function installedLinuxBundlePaths() {
+  return { runner: INSTALLED_RUNNER, runtime: INSTALLED_RUNTIME };
+}
 
 /** Keeps unexpected host errors from exposing paths or process details. */
 export function safeProofFailure(error) {
@@ -216,13 +224,15 @@ async function runParentCloseChild(runner, runtime, workspace) {
   child.unref();
 }
 
-async function prove() {
+async function prove(installed = false) {
   if (process.platform !== "linux") throw new ProofFailure("The Linux containment proof requires Linux.");
   const repository = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  const runtime = process.env.BOTTIE_PYTHON_WASI_RUNTIME;
+  const installedPaths = installed ? installedLinuxBundlePaths() : undefined;
+  const runtime = installedPaths?.runtime ?? process.env.BOTTIE_PYTHON_WASI_RUNTIME;
   if (!runtime) throw new ProofFailure("The checksum-verified Python runtime is not configured.");
   await validateRuntime(runtime);
-  const runner = compileRunner(repository);
+  const runner = installedPaths?.runner ?? compileRunner(repository);
+  await access(runner, constants.X_OK);
   const temporary = await mkdtemp(resolve(tmpdir(), "bottie-linux-python-proof-"));
   const fixture = resolve(temporary, "host-owned-fixture");
   const workspace = resolve(temporary, "workspace");
@@ -260,6 +270,11 @@ if (process.argv[2] === "--parent-close-child") {
   });
 } else if (process.argv[2] === "--prove") {
   prove().catch((error) => {
+    process.stderr.write(`${safeProofFailure(error)}\n`);
+    process.exitCode = 1;
+  });
+} else if (process.argv[2] === "--prove-installed") {
+  prove(true).catch((error) => {
     process.stderr.write(`${safeProofFailure(error)}\n`);
     process.exitCode = 1;
   });

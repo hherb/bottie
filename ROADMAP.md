@@ -263,6 +263,8 @@ complete; shipping evidence remains pending.
   host-fixture denial, without requiring Bubblewrap or Flatpak;
 - [x] reproducible official-source CPython/WASI build provenance plus exact unsigned development bundling, licence,
   dependency inventory, and cross-platform package inspection;
+- [x] credential-free installed Linux development-DEB identity, Landlock/seccomp denial, private-pipe execution,
+  cancellation, and parent-exit cleanup smoke;
 - [ ] exact shipping-helper/runtime containment, signing, release-candidate binding, and installed-package inspection;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;
