@@ -4,7 +4,7 @@ Last verified: 2026-09-05
 
 ## Start here
 
-PR #146 merged into `main` at `3fc4abd` with every final hosted check passing. This checkout continues on
+PR #146 merged into `main` at `3fc4abd` with every final hosted check passing. Draft PR #147 is open from
 `codex/python-result-presentation`. Microsoft Store certification and publication remain deferred until fresh
 release-owner notice.
 
