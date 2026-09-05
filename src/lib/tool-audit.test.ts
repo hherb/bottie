@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  pythonExecutionPresentation,
   pythonToolReview,
   toolActivitySummary,
   toolAuditPresentation,
@@ -59,6 +60,119 @@ describe("tool audit presentation", () => {
     expect(
       pythonToolReview(tool({ toolName: "run_python", arguments: { source: "é".repeat(16_385), purpose } })),
     ).toBeNull();
+  });
+
+  it("presents only exact approved bounded Python execution results", () => {
+    const execution = tool({
+      toolName: "run_python",
+      arguments: { source: "print(42)", purpose: "Calculate exactly." },
+      audit: {
+        policy: "approval_required",
+        approval: { decision: "approved", decidedAtMs: 1_010 },
+        outcome: "success",
+        durationMs: 18,
+      },
+      result: {
+        output: {
+          status: "executed",
+          result: { status: "ok", stdout: "42\n", stderr: "", durationMs: 12 },
+        },
+        isError: false,
+        createdAtMs: 1_030,
+      },
+    });
+
+    expect(pythonExecutionPresentation(execution)).toEqual({
+      kind: "executed",
+      statusLabel: "Completed",
+      stdout: "42\n",
+      stderr: "",
+      durationLabel: "12 ms",
+    });
+    expect(
+      pythonExecutionPresentation({
+        ...execution,
+        result: {
+          ...execution.result!,
+          output: {
+            status: "executed",
+            result: { status: "ok", stdout: "42\n", stderr: "", durationMs: 12 },
+            path: "/private/hidden",
+          },
+        },
+      }),
+    ).toEqual({
+      kind: "invalid",
+      message: "The retained Python result could not be presented safely.",
+    });
+    expect(
+      pythonExecutionPresentation({
+        ...execution,
+        result: {
+          ...execution.result!,
+          output: {
+            status: "executed",
+            result: { status: "ok", stdout: "x".repeat(32 * 1_024 + 1), stderr: "", durationMs: 12 },
+          },
+        },
+      }),
+    ).toMatchObject({ kind: "invalid" });
+  });
+
+  it("maps closed Python terminal outcomes to stable path-free explanations", () => {
+    const python = tool({
+      toolName: "run_python",
+      arguments: { source: "print(42)", purpose: "Calculate exactly." },
+      audit: {
+        policy: "approval_required",
+        approval: { decision: "approved", decidedAtMs: 1_010 },
+        outcome: "execution_failed",
+        durationMs: 18,
+      },
+      result: {
+        output: { status: "failed", code: "helper_failed" },
+        isError: true,
+        createdAtMs: 1_030,
+      },
+    });
+
+    expect(pythonExecutionPresentation(python)).toEqual({
+      kind: "failed",
+      statusLabel: "Helper failed",
+      message: "The contained Python helper could not complete safely.",
+    });
+    expect(
+      pythonExecutionPresentation({
+        ...python,
+        audit: {
+          policy: "approval_required",
+          approval: { decision: "denied", decidedAtMs: 1_010 },
+          outcome: "approval_required",
+          durationMs: 0,
+        },
+        result: { output: { status: "denied" }, isError: true, createdAtMs: 1_030 },
+      }),
+    ).toEqual({
+      kind: "denied",
+      statusLabel: "Not executed",
+      message: "The user denied this Python proposal. No code was run.",
+    });
+    expect(
+      pythonExecutionPresentation({
+        ...python,
+        audit: {
+          policy: "approval_required",
+          approval: null,
+          outcome: "execution_failed",
+          durationMs: 0,
+        },
+        result: { output: { status: "cancelled" }, isError: true, createdAtMs: 1_030 },
+      }),
+    ).toEqual({
+      kind: "cancelled",
+      statusLabel: "Cancelled",
+      message: "The Python proposal was cancelled before approval. No code was run.",
+    });
   });
 
   it("recognizes only exact successful native fetch envelopes as explicitly untrusted", () => {

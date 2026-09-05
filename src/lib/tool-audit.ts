@@ -21,12 +21,70 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
 
 const MAX_PYTHON_SOURCE_BYTES = 32 * 1_024;
 const MAX_PYTHON_PURPOSE_CHARACTERS = 512;
+const MAX_PYTHON_STREAM_BYTES = 32 * 1_024;
+const INVALID_PYTHON_RESULT_MESSAGE = "The retained Python result could not be presented safely.";
+
+const PYTHON_EXECUTION_STATUS_LABELS = {
+  ok: "Completed",
+  python_error: "Python error",
+  timed_out: "Timed out",
+  output_limit: "Output limit reached",
+  resource_limit: "Resource limit reached",
+  invalid_request: "Request rejected",
+  internal_error: "Execution failed",
+} as const;
+
+const PYTHON_FAILURES = {
+  approval_failed: {
+    statusLabel: "Approval failed",
+    message: "Bottie could not complete the Python approval safely.",
+    outcome: "approval_required",
+    approval: null,
+  },
+  invalid_request: {
+    statusLabel: "Request rejected",
+    message: "The approved Python request no longer matched the reviewed proposal.",
+    outcome: "invalid_arguments",
+    approval: "approved",
+  },
+  helper_failed: {
+    statusLabel: "Helper failed",
+    message: "The contained Python helper could not complete safely.",
+    outcome: "execution_failed",
+    approval: "approved",
+  },
+  invalid_result: {
+    statusLabel: "Result rejected",
+    message: "The contained Python helper returned a result Bottie could not accept safely.",
+    outcome: "execution_failed",
+    approval: "approved",
+  },
+} as const;
 
 /** Exact source and purpose safe to show in the dedicated Python proposal review. */
 export type PythonToolReview = {
   source: string;
   purpose: string;
 };
+
+/** Closed user-visible interpretation of one retained Python terminal payload. */
+export type PythonExecutionPresentation =
+  | {
+      kind: "executed";
+      statusLabel: string;
+      stdout: string;
+      stderr: string;
+      durationLabel: string;
+    }
+  | {
+      kind: "denied" | "cancelled" | "failed";
+      statusLabel: string;
+      message: string;
+    }
+  | {
+      kind: "invalid";
+      message: string;
+    };
 
 /** Accepts only the native Python tool's closed, bounded source-and-purpose argument shape. */
 export function pythonToolReview(tool: StoredToolInvocation): PythonToolReview | null {
@@ -46,6 +104,117 @@ export function pythonToolReview(tool: StoredToolInvocation): PythonToolReview |
     return null;
   }
   return { source, purpose };
+}
+
+/** Parses only the exact bounded Python audit shapes emitted by the native orchestration seam. */
+export function pythonExecutionPresentation(tool: StoredToolInvocation): PythonExecutionPresentation | null {
+  if (tool.toolName !== "run_python" || !tool.result) return null;
+  if (!pythonToolReview(tool)) return invalidPythonResult();
+  const output = tool.result.output;
+  if (!isRecord(output) || typeof output.status !== "string") return invalidPythonResult();
+  if (output.status === "executed") return executedPythonPresentation(tool, output);
+  if (output.status === "denied") {
+    if (!exactKeys(output, ["status"]) || !pythonAuditMatches(tool, true, "approval_required", "denied")) {
+      return invalidPythonResult();
+    }
+    return {
+      kind: "denied",
+      statusLabel: "Not executed",
+      message: "The user denied this Python proposal. No code was run.",
+    };
+  }
+  if (output.status === "cancelled") {
+    const approval = tool.audit.approval?.decision ?? null;
+    if (
+      !exactKeys(output, ["status"]) ||
+      !pythonAuditMatches(tool, true, "execution_failed", approval) ||
+      (approval !== null && approval !== "approved")
+    ) {
+      return invalidPythonResult();
+    }
+    return {
+      kind: "cancelled",
+      statusLabel: "Cancelled",
+      message:
+        approval === "approved"
+          ? "The approved Python execution was cancelled."
+          : "The Python proposal was cancelled before approval. No code was run.",
+    };
+  }
+  if (output.status === "failed") return failedPythonPresentation(tool, output);
+  return invalidPythonResult();
+}
+
+/** Parses the closed executed payload without reflecting unexpected result fields. */
+function executedPythonPresentation(
+  tool: StoredToolInvocation,
+  output: Record<string, unknown>,
+): PythonExecutionPresentation {
+  if (
+    !exactKeys(output, ["status", "result"]) ||
+    !pythonAuditMatches(tool, false, "success", "approved") ||
+    !isRecord(output.result) ||
+    !exactKeys(output.result, ["status", "stdout", "stderr", "durationMs"])
+  ) {
+    return invalidPythonResult();
+  }
+  const status = output.result.status;
+  const stdout = output.result.stdout;
+  const stderr = output.result.stderr;
+  const durationMs = output.result.durationMs;
+  if (
+    typeof status !== "string" ||
+    !(status in PYTHON_EXECUTION_STATUS_LABELS) ||
+    typeof stdout !== "string" ||
+    typeof stderr !== "string" ||
+    new TextEncoder().encode(stdout).byteLength > MAX_PYTHON_STREAM_BYTES ||
+    new TextEncoder().encode(stderr).byteLength > MAX_PYTHON_STREAM_BYTES ||
+    typeof durationMs !== "number" ||
+    !Number.isSafeInteger(durationMs) ||
+    durationMs < 0
+  ) {
+    return invalidPythonResult();
+  }
+  return {
+    kind: "executed",
+    statusLabel: PYTHON_EXECUTION_STATUS_LABELS[status as keyof typeof PYTHON_EXECUTION_STATUS_LABELS],
+    stdout,
+    stderr,
+    durationLabel: durationLabel(durationMs) ?? "0 ms",
+  };
+}
+
+/** Maps one exact native failure code to its fixed, path-free explanation. */
+function failedPythonPresentation(
+  tool: StoredToolInvocation,
+  output: Record<string, unknown>,
+): PythonExecutionPresentation {
+  if (!exactKeys(output, ["status", "code"]) || typeof output.code !== "string" || !(output.code in PYTHON_FAILURES)) {
+    return invalidPythonResult();
+  }
+  const failure = PYTHON_FAILURES[output.code as keyof typeof PYTHON_FAILURES];
+  if (!pythonAuditMatches(tool, true, failure.outcome, failure.approval)) return invalidPythonResult();
+  return { kind: "failed", statusLabel: failure.statusLabel, message: failure.message };
+}
+
+/** Requires the generic audit metadata to agree with the Python-specific terminal payload. */
+function pythonAuditMatches(
+  tool: StoredToolInvocation,
+  isError: boolean,
+  outcome: NonNullable<StoredToolInvocation["audit"]["outcome"]>,
+  approval: "approved" | "denied" | null,
+): boolean {
+  return (
+    tool.audit.policy === "approval_required" &&
+    tool.result?.isError === isError &&
+    tool.audit.outcome === outcome &&
+    (tool.audit.approval?.decision ?? null) === approval
+  );
+}
+
+/** Returns the one fixed fallback for malformed or future-shaped Python audit data. */
+function invalidPythonResult(): PythonExecutionPresentation {
+  return { kind: "invalid", message: INVALID_PYTHON_RESULT_MESSAGE };
 }
 
 const OUTCOME_LABELS: Record<NonNullable<StoredToolInvocation["audit"]["outcome"]>, string> = {
@@ -149,6 +318,12 @@ function titleCase(value: string): string {
 /** Narrows an unknown durable payload into a non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Requires one native payload object to contain exactly the expected closed field set. */
+function exactKeys(value: Record<string, unknown>, expected: string[]): boolean {
+  const keys = Object.keys(value);
+  return keys.length === expected.length && expected.every((key) => keys.includes(key));
 }
 
 /** Accepts one required non-empty string from the native fetched-page result. */

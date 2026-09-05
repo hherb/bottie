@@ -351,10 +351,27 @@ html[data-theme="light"]
   ) {
   color: var(--muted);
 }
-html[data-theme="light"] :is(.tool-record, .tool-audit-grid div, .tool-payload pre, .python-tool-review pre) {
+html[data-theme="light"]
+  :is(
+    .tool-record,
+    .tool-audit-grid div,
+    .tool-payload pre,
+    .python-tool-review pre,
+    .python-streams pre,
+    .python-execution-meta div
+  ) {
   background: rgba(39, 34, 48, 0.035);
 }
-html[data-theme="light"] :is(.tool-audit-grid dd, .tool-payload pre, .python-tool-review p, .python-tool-review pre) {
+html[data-theme="light"]
+  :is(
+    .tool-audit-grid dd,
+    .tool-payload pre,
+    .python-tool-review p,
+    .python-tool-review pre,
+    .python-execution-result p,
+    .python-streams pre,
+    .python-execution-meta dd
+  ) {
   color: var(--muted-strong);
 }
 html[data-theme="light"] .python-tool-review {
@@ -363,6 +380,16 @@ html[data-theme="light"] .python-tool-review {
 }
 html[data-theme="light"] :is(.python-tool-review h4, .python-tool-review .python-tool-notice) {
   color: #8f4b42;
+}
+html[data-theme="light"] .python-execution-result {
+  border-color: rgba(49, 106, 97, 0.2);
+  background: rgba(49, 106, 97, 0.035);
+}
+html[data-theme="light"] :is(.python-execution-result h4, .python-execution-meta dt) {
+  color: #316a61;
+}
+html[data-theme="light"] .python-execution-heading strong {
+  color: #245b52;
 }
 html[data-theme="light"] .context-meter {
   background: rgba(39, 34, 48, 0.12);

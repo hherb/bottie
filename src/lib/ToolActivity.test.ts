@@ -117,4 +117,110 @@ describe("ToolActivity", () => {
     expect(html).toContain("&lt;script>alert('no')&lt;/script>");
     expect(html).not.toContain("<script>");
   });
+
+  it("labels approved Python source, bounded streams, and contained execution provenance", () => {
+    const html = render(ToolActivity, {
+      props: {
+        tools: [
+          {
+            ordinal: 0,
+            toolName: "run_python",
+            arguments: { source: "print('<done>')", purpose: "Produce the exact marker." },
+            audit: {
+              policy: "approval_required",
+              approval: { decision: "approved", decidedAtMs: 1_500 },
+              outcome: "success",
+              durationMs: 15,
+            },
+            result: {
+              output: {
+                status: "executed",
+                result: { status: "ok", stdout: "<done>\n", stderr: "warning <safe>\n", durationMs: 12 },
+              },
+              isError: false,
+              createdAtMs: 2_000,
+            },
+            createdAtMs: 1_000,
+          },
+        ],
+      },
+    }).body;
+
+    expect(html).toContain("Approved purpose");
+    expect(html).toContain("Approved source");
+    expect(html).toContain("Bounded stdout");
+    expect(html).toContain("Bounded stderr");
+    expect(html).toContain("&lt;done>");
+    expect(html).toContain("warning &lt;safe>");
+    expect(html).toContain("Execution provenance");
+    expect(html).toContain("Bottie’s contained Python runtime");
+    expect(html).toContain("Helper duration");
+    expect(html).toContain("12 ms");
+    expect(html).not.toContain("<summary>Result</summary>");
+    expect(html).not.toContain('"status": "executed"');
+  });
+
+  it("shows stable Python errors without reflecting future-shaped payload fields", () => {
+    const html = render(ToolActivity, {
+      props: {
+        tools: [
+          {
+            ordinal: 0,
+            toolName: "run_python",
+            arguments: { source: "print(42)", purpose: "Calculate exactly." },
+            audit: {
+              policy: "approval_required",
+              approval: { decision: "approved", decidedAtMs: 1_500 },
+              outcome: "execution_failed",
+              durationMs: 15,
+            },
+            result: {
+              output: { status: "failed", code: "helper_failed", path: "/private/hidden" },
+              isError: true,
+              createdAtMs: 2_000,
+            },
+            createdAtMs: 1_000,
+          },
+        ],
+      },
+    }).body;
+
+    expect(html).toContain("Python result unavailable");
+    expect(html).toContain("The retained Python result could not be presented safely.");
+    expect(html).not.toContain("/private/hidden");
+    expect(html).not.toContain("Error result");
+  });
+
+  it("never falls back to generic payload disclosure for malformed Python audit data", () => {
+    const html = render(ToolActivity, {
+      props: {
+        tools: [
+          {
+            ordinal: 0,
+            toolName: "run_python",
+            arguments: { source: "print(42)", purpose: "Calculate exactly.", path: "/private/argument" },
+            audit: {
+              policy: "approval_required",
+              approval: { decision: "approved", decidedAtMs: 1_500 },
+              outcome: "execution_failed",
+              durationMs: 15,
+            },
+            result: {
+              output: { status: "failed", code: "helper_failed", path: "/private/result" },
+              isError: true,
+              createdAtMs: 2_000,
+            },
+            createdAtMs: 1_000,
+          },
+        ],
+      },
+    }).body;
+
+    expect(html).toContain("The retained Python proposal could not be presented safely.");
+    expect(html).toContain("The retained Python result could not be presented safely.");
+    expect(html).not.toContain("/private/argument");
+    expect(html).not.toContain("/private/result");
+    expect(html).not.toContain("<summary>Arguments</summary>");
+    expect(html).not.toContain("Error result");
+  });
 });

@@ -2,13 +2,14 @@
 
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with unsigned development-package inspection, the approval-required native
-proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume, and
-append-only durable audit, and an explicit oMLX mapping are implemented. The native waiter also publishes bounded
+proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume,
+append-only durable audit, an explicit oMLX mapping, and selected-lineage execution-result presentation are implemented.
+The native waiter also publishes bounded
 approval lifecycle events to the existing WebView review state. An approved exact oMLX call can now cross the
 provider-neutral Rust execution boundary into the helper's bounded private-pipe protocol through Linux containment, a
 macOS XPC client, or a Windows AppContainer controller. Only an explicitly marked development bundle advertises the
-tool, and only on a discovered tool-capable oMLX route. Bottie does not map another provider, present execution results
-as answer context, or ship a Python tool. Default and protected packages remain unchanged.
+tool, and only on a discovered tool-capable oMLX route. Bottie does not map another provider or ship a Python tool.
+Default and protected packages remain unchanged.
 
 ## Chosen core
 
@@ -347,8 +348,12 @@ identity, approval request tokens, and native paths. Native duration excludes us
 fails, no helper starts; if execution is interrupted after approval, the durable decision remains without a fabricated
 result.
 
-The typed Tool activity and portable exports can label an available decision. The oMLX generation loop now creates
-these records in a marked development bundle, but no Python answer/context presentation was added.
+The selected response's typed Tool activity now parses only the exact closed Python audit shapes. It distinguishes
+proposed from approved source and purpose, labels bounded stdout and stderr independently, shows the helper's stable
+outcome and duration, and identifies Bottie's contained Python runtime as execution provenance. Denial, cancellation,
+and native failure codes map to fixed path-free explanations. Malformed, contradictory, oversized, or future-shaped
+payloads fail closed to one fixed unavailable message instead of reflecting their fields. Portable exports retain the
+existing structured audit representation.
 
 ## Deferred product integration
 
@@ -357,11 +362,11 @@ The oMLX mapping deliberately does not:
 - decide automatically that Python is appropriate for a user question;
 - advertise or map `run_python` through Ollama, OpenAI-compatible, or Anthropic-compatible routes;
 - expose Python in a default or protected package without the complete native runtime marker;
-- add execution-result answer/context presentation beyond existing durable Tool activity;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed-package behavior, or release identity on macOS, Windows, or Linux.
 
-The next bounded slice adds selected-lineage Python execution-result presentation from the existing durable path-free
-audit, clearly labeling approved source, bounded stdout/stderr, stable errors, and execution provenance. It does not map
-another provider, change default or protected packages, make installed-package claims, sign, publish a release, or
-perform Microsoft Store work; those remain separately authorized and deferred.
+The next bounded slice can add `run_python` only to the explicitly tool-capable Ollama generation loop after reviewing
+the oMLX evidence. It must reuse the exact approval, execution, audit, cancellation, bounded-result, and
+provider-correlation boundaries; it must not map cloud providers, change default or protected packages, make
+installed-package claims, sign, publish a release, or perform Microsoft Store work. Those actions remain separately
+authorized and deferred.
