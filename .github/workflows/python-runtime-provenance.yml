@@ -251,14 +251,22 @@ jobs:
           else
             export_pkcs12
           fi
-          security create-keychain -p "" "$keychain"
-          security unlock-keychain -p "" "$keychain"
-          security import "$identity_archive" -k "$keychain" -P "$archive_password" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$keychain"
-          identity="$(security find-identity -v -p codesigning "$keychain" \
-            | awk '/Bottie Python CI Ephemeral Code Signing/ {print $2}')"
+          identity="$(openssl x509 -in "$certificate" -noout -fingerprint -sha1 \
+            | awk -F= '{gsub(":", "", $2); print toupper($2)}')"
           test "${#identity}" -eq 40
           printf 'BOTTIE_EPHEMERAL_SIGNING_IDENTITY=%s\n' "$identity" >&3
+          security create-keychain -p "" "$keychain"
+          security unlock-keychain -p "" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security import "$identity_archive" -k "$keychain" -P "$archive_password" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$keychain"
+          security list-keychains -d user -s "$keychain"
+          security default-keychain -d user -s "$keychain"
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign \
+            -k /Library/Keychains/System.keychain "$certificate"
+          available_identity="$(security find-identity -v -p codesigning "$keychain" \
+            | awk '/Bottie Python CI Ephemeral Code Signing/ {print $2}')"
+          test "$available_identity" = "$identity"
           exec 3>&-
 
       - name: Stage the macOS product XPC transport
@@ -301,13 +309,6 @@ jobs:
         run: >-
           npm run tauri -- build --bundles ${{ matrix.bundle }} --no-sign --ci
           --config src-tauri/tauri.python-development.${{ matrix.platform }}.conf.json -- --locked
-
-      - name: Trust the signed macOS development transport
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          sudo security add-trusted-cert -d -r trustRoot -p codeSign \
-            -k /Library/Keychains/System.keychain "$BOTTIE_EPHEMERAL_SIGNING_CERT"
 
       - name: Inspect and prove the macOS development bundle
         if: runner.os == 'macOS'

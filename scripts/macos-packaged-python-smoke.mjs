@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { exerciseProof, productBundleLayout } from "./macos-python-xpc.mjs";
@@ -56,15 +56,29 @@ export function credentialFreeSigningPlan(repositoryRoot, layout, identity, keyc
   ];
 }
 
-/** Runs one host command without exposing arguments, identities, output, or paths in failures. */
-function runHostCommand(command, arguments_) {
+/** Classifies a bounded host-command failure without retaining its raw output. */
+export function commandFailureKind(output) {
+  const normalized = `${output ?? ""}`.toLowerCase();
+  if (normalized.includes("errsecinternalcomponent")) return "keychain-access";
+  if (normalized.includes("no identity found")) return "identity-unavailable";
+  if (normalized.includes("timestamp service")) return "timestamp-unavailable";
+  if (normalized.includes("resource fork") || normalized.includes("finder information")) {
+    return "unexpected-metadata";
+  }
+  if (normalized.includes("bundle format")) return "invalid-bundle";
+  return "unspecified";
+}
+
+/** Runs one host command without exposing arguments, identities, raw output, or paths in failures. */
+function runHostCommand(command, arguments_, operation = "preparing or exercising the packaged containment proof") {
   const result = spawnSync(command, arguments_, {
     encoding: "utf8",
     maxBuffer: MAX_CAPTURED_OUTPUT_BYTES,
     timeout: PROOF_TIMEOUT_MS,
   });
   if (result.error || result.status !== 0) {
-    throw new Error(`${command} failed while preparing or exercising the packaged containment proof.`);
+    const kind = commandFailureKind(`${result.error?.code ?? ""}\n${result.stderr ?? ""}`);
+    throw new Error(`${basename(command)} failed (${kind}) while ${operation}.`);
   }
 }
 
@@ -92,10 +106,10 @@ async function signProductInputs(repository, outputRoot, target) {
     process.env.BOTTIE_EPHEMERAL_SIGNING_IDENTITY,
     process.env.BOTTIE_EPHEMERAL_SIGNING_KEYCHAIN,
   );
-  runHostCommand("codesign", runner.arguments);
+  runHostCommand("codesign", runner.arguments, "signing the staged runner");
   await refreshSignedRunnerEvidence(layout.evidence, layout.runner);
-  runHostCommand("codesign", service.arguments);
-  runHostCommand("codesign", clientApplication.arguments);
+  runHostCommand("codesign", service.arguments, "signing the staged XPC service");
+  runHostCommand("codesign", clientApplication.arguments, "signing the staged XPC client");
   for (const path of [layout.runner, layout.service, layout.clientApplication]) {
     runHostCommand("codesign", ["--verify", "--strict", "--verbose=2", path]);
   }

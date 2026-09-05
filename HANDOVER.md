@@ -19,10 +19,11 @@ Read, in order:
   `BottiePythonXPCClient.app`, which owns the private service under its `Contents/XPCServices` directory. The Rust
   resolver requires that exact complete layout and fails closed when any client, service, helper, evidence, or runtime
   resource is missing.
-- The credential-free provenance job creates a one-day self-signed code-signing identity in a transient keychain,
-  signs runner -> service -> client app inside out without a timestamp, and only then trusts the public certificate for
-  code signing on the disposable runner. Its bounded unconditional cleanup deletes and verifies removal of the system
-  certificate before removing the keychain, certificate, private key, and archive.
+- The credential-free provenance job creates a one-day self-signed code-signing identity in a transient keychain, makes
+  that keychain the job's user search/default keychain, and adds the public certificate to system trust for code signing.
+  It then signs runner -> service -> client app inside out without a timestamp before building and proving the package.
+  Bounded unconditional cleanup deletes and verifies removal of the system certificate before removing the keychain,
+  certificate, private key, and archive.
 - The packaged verifier inspects the exact signed client, service, helper, and runtime, verifies the same packaged code
   signatures, then exercises ordinary private-pipe execution, direct host-fixture denial, caller cancellation, and
   client-exit cleanup without rebuilding or substituting nested code. Uploaded evidence remains bounded and path-free.
