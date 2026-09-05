@@ -4,9 +4,8 @@ Last verified: 2026-09-05
 
 ## Start here
 
-PR #147 merged into `main` at `993bc3f`. The Ollama Python continuation is on
-`codex/ollama-python-tool`. Microsoft Store certification and publication remain deferred until fresh release-owner
-notice.
+PR #147 merged into `main` at `993bc3f`. Draft PR #148 is open from `codex/ollama-python-tool`. Microsoft Store
+certification and publication remain deferred until fresh release-owner notice.
 
 Read, in order:
 
