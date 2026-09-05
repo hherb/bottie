@@ -5,7 +5,7 @@
 import { spawnSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { selectAppleDevelopmentIdentity } from "./macos-development-signing.mjs";
@@ -23,27 +23,42 @@ const PARENT_EXIT_TIMEOUT_MS = 5_000;
 const PARENT_EXIT_POLL_MS = 50;
 const MAX_CAPTURED_OUTPUT_BYTES = 128 * 1_024;
 const PRODUCT_CLIENT_BASENAME = "bottie-python-xpc-client";
+const PRODUCT_CLIENT_APPLICATION = "BottiePythonXPCClient.app";
+const PRODUCT_CLIENT_IDENTIFIER = "com.bottie.python-xpc-client";
 const PRODUCT_RUNTIME_DIRECTORY = "python-runtime";
 const PRODUCT_EVIDENCE_FILENAME = "python-runtime-evidence.json";
 const SUPPORTED_PRODUCT_TARGETS = new Set(["aarch64-apple-darwin", "x86_64-apple-darwin"]);
 
-/** Returns Tauri's target-suffixed input name for the native product bridge. */
-export function productClientSourceName(target) {
-  if (!SUPPORTED_PRODUCT_TARGETS.has(target)) throw new Error("The macOS Python product target is unsupported.");
-  return `${PRODUCT_CLIENT_BASENAME}-${target}`;
-}
-
 /** Returns every fixed staged path for the unsigned development product transport. */
 export function productBundleLayout(outputRoot, target) {
-  const service = join(outputRoot, `${SERVICE_IDENTIFIER}.xpc`);
+  if (!SUPPORTED_PRODUCT_TARGETS.has(target)) throw new Error("The macOS Python product target is unsupported.");
+  const clientApplication = join(outputRoot, PRODUCT_CLIENT_APPLICATION);
+  const clientContents = join(clientApplication, "Contents");
+  const service = join(clientContents, "XPCServices", `${SERVICE_IDENTIFIER}.xpc`);
   return {
-    client: join(outputRoot, productClientSourceName(target)),
+    client: join(clientContents, "MacOS", PRODUCT_CLIENT_BASENAME),
+    clientApplication,
+    clientInfo: join(clientContents, "Info.plist"),
     evidence: join(service, "Contents", "Resources", PRODUCT_EVIDENCE_FILENAME),
     runner: join(service, "Contents", "Helpers", RUNNER_EXECUTABLE),
     runtime: join(service, "Contents", "Resources", PRODUCT_RUNTIME_DIRECTORY),
     service,
     serviceExecutable: join(service, "Contents", "MacOS", SERVICE_EXECUTABLE),
     serviceInfo: join(service, "Contents", "Info.plist"),
+  };
+}
+
+/** Returns fixed metadata for the packaged client app that owns the private XPC service. */
+export function clientBundleMetadata() {
+  return {
+    CFBundleExecutable: PRODUCT_CLIENT_BASENAME,
+    CFBundleIdentifier: PRODUCT_CLIENT_IDENTIFIER,
+    CFBundleInfoDictionaryVersion: "6.0",
+    CFBundleName: "Bottie Python XPC Client",
+    CFBundlePackageType: "APPL",
+    CFBundleShortVersionString: "0.1.0",
+    CFBundleVersion: "1",
+    LSMinimumSystemVersion: "14.0",
   };
 }
 
@@ -151,7 +166,12 @@ function encodePlist(value) {
   ].join("\n");
 }
 
-/** Runs one host command and never includes its arguments or raw output in failures. */
+/** Returns a path-free executable name for stable command diagnostics. */
+export function commandLabel(command) {
+  return basename(command);
+}
+
+/** Runs one host command and never includes its arguments, paths, or raw output in failures. */
 function runHostCommand(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
     encoding: options.encoding ?? "utf8",
@@ -161,7 +181,7 @@ function runHostCommand(command, arguments_, options = {}) {
     timeout: options.timeout ?? PROOF_TIMEOUT_MS,
   });
   if (result.error || result.status !== 0) {
-    throw new Error(`${command} failed while building or exercising the containment proof.`);
+    throw new Error(`${commandLabel(command)} failed while building or exercising the containment proof.`);
   }
   return { stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
 }
@@ -221,10 +241,16 @@ async function prepareProductBundle(repository, outputRoot, target) {
     SWIFT_MODULECACHE_PATH: moduleCache,
   };
   const architecture = productSwiftArchitecture(target);
-  await rm(layout.service, { recursive: true, force: true });
-  for (const directory of [dirname(layout.runner), dirname(layout.runtime), dirname(layout.serviceExecutable)]) {
+  await rm(layout.clientApplication, { recursive: true, force: true });
+  for (const directory of [
+    dirname(layout.client),
+    dirname(layout.runner),
+    dirname(layout.runtime),
+    dirname(layout.serviceExecutable),
+  ]) {
     await mkdir(directory, { recursive: true });
   }
+  await writeFile(layout.clientInfo, encodePlist(clientBundleMetadata()));
   await writeFile(layout.serviceInfo, encodePlist(serviceBundleMetadata()));
   runHostCommand(
     "xcrun",
@@ -366,7 +392,7 @@ function runProofHost(layout, mode, request, extraArguments = []) {
 }
 
 /** Exercises execution, cancellation, client-exit cleanup, and the outer sandbox denial. */
-async function exerciseProof(layout, fixtureDirectory) {
+export async function exerciseProof(layout, fixtureDirectory) {
   const ordinaryRequest = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove private-pipe execution" });
   const ordinary = parseProofOutput(runProofHost(layout, "execute", ordinaryRequest));
   if (ordinary.status !== "ok" || ordinary.stdout.trim() !== "42") {

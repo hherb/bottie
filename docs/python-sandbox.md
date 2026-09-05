@@ -1,8 +1,8 @@
 # Python sandbox feasibility slice
 
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
-official-source runtime provenance with unsigned development-package inspection plus installed Windows MSI and Linux
-DEB containment, the approval-required native
+official-source runtime provenance with packaged macOS app containment plus installed Windows MSI and Linux DEB
+containment, the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume,
 append-only durable audit, explicit oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible mappings, and
 selected-lineage execution-result presentation are implemented. The native waiter also publishes bounded approval
@@ -80,7 +80,7 @@ The credential-free pull-request workflow downloads and verifies the official in
 stages the reviewed 539-file runtime, cleans and rebuilds at that same path, then requires the two staged trees and
 path-free evidence documents to be byte-identical. It passes that exact artifact to macOS, Windows, and Linux jobs,
 which build the locked native helper plus the platform XPC client/service or AppContainer controller, create an opt-in
-unsigned Tauri package, extract it, and compare the packaged helper/runtime against the original evidence while
+development Tauri package, extract it, and compare the packaged helper/runtime against the original evidence while
 recording each required native transport's package-relative path, byte count, and digest. Same-path repeatability is a
 bounded hosted proof, not a claim that independent hosts produce identical bytes.
 
@@ -94,19 +94,30 @@ reinspects the controller, helper, and runtime, and requires its path-free evide
 evidence. It then copies only those installed bytes into the transient AppContainer-owned proof tree and runs the
 existing token, access, private-pipe, cancellation, and controller-close checks without a helper or controller rebuild.
 
+The macOS job creates a one-day self-signed code-signing identity in a transient keychain, trusts it only for code
+signing on the disposable runner, and removes the trust, keychain, certificate, and private key in an unconditional
+cleanup step. It signs runner -> service -> client app inside out before packaging, updates only the nested evidence's
+runner size and digest changed by signing, and then builds an otherwise unsigned Bottie development app. The verifier
+inspects the exact packaged client app, service, helper, and runtime before running ordinary execution, direct
+host-fixture denial, cancellation, and client-exit cleanup against those same paths. Uploaded evidence contains only
+package-relative identities, digests, sizes, runtime provenance, and closed Boolean outcomes.
+
 The runtime, helper, evidence, and platform-native transport are selected only by the three
 `src-tauri/tauri.python-development.*.conf.json` overlays; Bottie's base and protected distribution configurations
-remain unchanged. macOS places the helper/runtime inside the private XPC service and requires macOS 14 for this
-development bundle. Windows and Linux retain the resource directory plus sidecar layout. The official CPython licence
+remain unchanged. macOS places a signed client app under `Contents/Helpers`, with the helper/runtime inside its private
+XPC service, and requires macOS 14 for this development bundle. Windows and Linux retain the resource directory plus
+sidecar layout. The official CPython licence
 is checked by digest, included in `THIRD-PARTY-NOTICES.txt`, and represented alongside the complete runner Cargo graph
 in `dependency-inventory.json`. No application runtime download occurs.
 
 On the current Apple-silicon macOS host, the locally built official runtime is 40,864,108 bytes with tree digest
 `293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b`; the optimized unsigned helper is 14,273,328
-bytes. An unsigned `.app` was built with its target-suffixed native XPC client and nested service; extracted-package
-inspection matched all 539 runtime files and the helper, and the packaged Bottie executable started with the native
-resolver active. These are development-host measurements, not cross-platform, signed, notarized, containment,
-installed-package, or release evidence.
+bytes. An otherwise unsigned `.app` was built with its native XPC transport under a nested signed client app;
+extracted-package inspection matched all 539 runtime files and the helper, and the packaged Bottie executable started
+with the native resolver active. The local host could not complete the new credential-free trust ceremony because it
+does not permit noninteractive system-trust changes; the pull-request macOS job is the authoritative packaged
+containment evidence. These are development measurements, not distribution-signed, notarized, installed-production,
+or release evidence.
 
 Wasmtime and `wasmtime-wasi` are exactly pinned to 45.0.3 for this slice. That patch contains the fix for Wasmtime's
 June 2026 read-only-directory bypass advisory. Re-audit the current supported Wasmtime release and RustSec/GitHub
@@ -139,11 +150,12 @@ connection invalidation kills every retained child, and a direct service-process
 the container is denied.
 
 The transient app, service, helper, copied checksum-verified runtime, and fixture are deleted after the proof. The
-unsigned development `.app` now places the XPC client beside Bottie and the service under `Contents/XPCServices`; the
-native resolver requires the complete fixed layout before retaining the client-backed runner. This proves bundle
-placement and byte identity only. Distribution packages must still prove the exact shipping nested code, containment
-launch, hardened runtime, notarization, Gatekeeper acceptance, and release-candidate hashes. Deprecated custom
-sandbox profiles are not a release strategy.
+packaged development app places the XPC executable as the main executable of a signed client app under
+`Contents/Helpers`, with the service under that client's `Contents/XPCServices`; the native resolver requires this
+complete fixed layout before retaining the client-backed runner. The credential-free hosted smoke inspects and runs
+those exact packaged paths. This proves development-package identity and containment only. Distribution packages must
+still prove the exact shipping nested code, containment launch, hardened runtime, notarization, Gatekeeper acceptance,
+and release-candidate hashes. Deprecated custom sandbox profiles are not a release strategy.
 
 References: [Apple XPC documentation](https://developer.apple.com/documentation/xpc) and
 [Apple's XPC service guidance](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html).
@@ -404,9 +416,8 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add a credential-free macOS packaged-development-app XPC smoke for the exact inspected
-client, service, helper, and runtime. It should prove exact package-byte identity, the existing App Sandbox and
-host-fixture denial contract, ordinary private-pipe execution, caller cancellation, and client-exit cleanup without
-rebuilding or substituting nested code. It must not change default or protected package configs, claim shipping
-containment, sign for distribution, notarize, release, publish, or perform Microsoft Store work. Those actions remain
-separately authorized and deferred.
+The next bounded slice can add a credential-free release-candidate binding contract over the existing path-free macOS,
+Windows, and Linux Python package/containment evidence. It should reject missing, mixed-revision, or inconsistent
+development evidence without creating signatures, claiming shipping containment, changing default/protected package
+configs, notarizing, releasing, publishing, or performing Microsoft Store work. Those actions remain separately
+authorized and deferred.

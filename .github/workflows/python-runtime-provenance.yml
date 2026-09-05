@@ -10,6 +10,8 @@ on:
       - "python-runner/**"
       - "scripts/macos-python-xpc.mjs"
       - "scripts/macos-python-xpc.test.mjs"
+      - "scripts/macos-packaged-python-smoke.mjs"
+      - "scripts/macos-packaged-python-smoke.test.mjs"
       - "scripts/linux-python-containment.mjs"
       - "scripts/linux-python-containment.test.mjs"
       - "scripts/python-runtime-bundle.mjs"
@@ -217,6 +219,43 @@ jobs:
             --prepare $target package/python-provenance/runtime `
             python-runner/target/release/bottie-python-runner.exe package/python-development
 
+      - name: Create an ephemeral macOS development-signing identity
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          signing_root="$RUNNER_TEMP/bottie-python-signing"
+          keychain="$signing_root/bottie-python.keychain-db"
+          certificate="$signing_root/bottie-python.crt"
+          private_key="$signing_root/bottie-python.key"
+          identity_archive="$signing_root/bottie-python.p12"
+          archive_password="$(openssl rand -hex 24)"
+          mkdir -p "$signing_root"
+          exec 3>> "$GITHUB_ENV"
+          printf 'BOTTIE_EPHEMERAL_SIGNING_CERT=%s\n' "$certificate" >&3
+          printf 'BOTTIE_EPHEMERAL_SIGNING_KEYCHAIN=%s\n' "$keychain" >&3
+          printf 'BOTTIE_EPHEMERAL_SIGNING_PRIVATE_KEY=%s\n' "$private_key" >&3
+          printf 'BOTTIE_EPHEMERAL_SIGNING_ARCHIVE=%s\n' "$identity_archive" >&3
+          openssl req -new -newkey rsa:2048 -nodes -x509 -days 1 \
+            -subj "/CN=Bottie Python CI Ephemeral Code Signing/" \
+            -addext "keyUsage=digitalSignature" -addext "extendedKeyUsage=codeSigning" \
+            -keyout "$private_key" -out "$certificate"
+          BOTTIE_P12_PASSWORD="$archive_password" openssl pkcs12 -export -legacy \
+            -inkey "$private_key" -in "$certificate" -out "$identity_archive" \
+            -passout env:BOTTIE_P12_PASSWORD
+          security create-keychain -p "" "$keychain"
+          security unlock-keychain -p "" "$keychain"
+          security import "$identity_archive" -k "$keychain" -P "$archive_password" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$keychain"
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign \
+            -k /Library/Keychains/System.keychain "$certificate"
+          identity="$(security find-identity -v -p codesigning "$keychain" \
+            | awk '/Bottie Python CI Ephemeral Code Signing/ {print $2}')"
+          test "${#identity}" -eq 40
+          printf 'BOTTIE_EPHEMERAL_SIGNING_IDENTITY=%s\n' "$identity" >&3
+          exec 3>&-
+
       - name: Stage the macOS product XPC transport
         if: runner.os == 'macOS'
         shell: bash
@@ -224,6 +263,8 @@ jobs:
           set -euo pipefail
           target="$(rustc --print host-tuple)"
           node scripts/macos-python-xpc.mjs --prepare-product "$target" package/python-development
+          node scripts/macos-packaged-python-smoke.mjs \
+            --sign-inputs "$target" package/python-development
 
       - name: Stage the Windows product AppContainer controller
         if: runner.os == 'Windows'
@@ -256,14 +297,25 @@ jobs:
           npm run tauri -- build --bundles ${{ matrix.bundle }} --no-sign --ci
           --config src-tauri/tauri.python-development.${{ matrix.platform }}.conf.json -- --locked
 
-      - name: Inspect the macOS development bundle
+      - name: Inspect and prove the macOS development bundle
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          mkdir -p package/python-package-evidence
-          node scripts/python-runtime-bundle.mjs \
-            --inspect-package macos src-tauri/target/release/bundle/macos/bottie.app \
-            | tee package/python-package-evidence/macos.json
+          set -euo pipefail
+          npm run --silent python:xpc:prove-packaged -- \
+            src-tauri/target/release/bundle/macos/bottie.app \
+            package/python-package-evidence/macos.json \
+            | tee package/python-package-evidence/macos-containment.json
+
+      - name: Remove the ephemeral macOS development-signing identity
+        if: always() && runner.os == 'macOS'
+        shell: bash
+        run: |
+          sudo security remove-trusted-cert -d "$BOTTIE_EPHEMERAL_SIGNING_CERT" || true
+          security delete-keychain "$BOTTIE_EPHEMERAL_SIGNING_KEYCHAIN" || true
+          rm -f "$BOTTIE_EPHEMERAL_SIGNING_ARCHIVE" \
+            "$BOTTIE_EPHEMERAL_SIGNING_CERT" "$BOTTIE_EPHEMERAL_SIGNING_PRIVATE_KEY"
+          rmdir "$RUNNER_TEMP/bottie-python-signing" || true
 
       - name: Extract and inspect the Windows development bundle
         if: runner.os == 'Windows'

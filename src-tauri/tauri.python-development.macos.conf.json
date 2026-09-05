@@ -1,9 +1,8 @@
 {
   "bundle": {
-    "externalBin": ["../package/python-development/bottie-python-xpc-client"],
     "macOS": {
       "files": {
-        "XPCServices/com.bottie.python-runner.xpc": "../package/python-development/com.bottie.python-runner.xpc"
+        "Helpers/BottiePythonXPCClient.app": "../package/python-development/BottiePythonXPCClient.app"
       },
       "minimumSystemVersion": "14.0"
     },
