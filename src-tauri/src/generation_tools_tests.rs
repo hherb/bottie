@@ -432,6 +432,8 @@ fn streams_an_ollama_tool_call_result_and_final_answer_across_two_requests() {
         Some(Arc::new(GenerationWebSearchExecutor)),
         None,
         None,
+        Arc::new(crate::python_approval::PythonApprovalController::default()),
+        None,
     ))
     .expect("two-round Ollama generation should complete")
     .expect("fixture reports usage");
@@ -550,6 +552,7 @@ mod anthropic_email;
 mod anthropic_web_fetch;
 mod ollama_email;
 mod ollama_gating;
+mod ollama_python;
 mod ollama_web_fetch;
 mod omlx;
 mod omlx_email;

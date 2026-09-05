@@ -126,8 +126,8 @@ pub(crate) fn enabled_native_tool_definitions(
     definitions
 }
 
-/// Returns the oMLX definitions, adding Python only when its contained runtime is available.
-pub(crate) fn omlx_native_tool_definitions(
+/// Returns mapped local-provider definitions, adding Python only with a contained runtime.
+pub(crate) fn python_enabled_native_tool_definitions(
     memory_enabled: bool,
     web_enabled: bool,
     email_enabled: bool,

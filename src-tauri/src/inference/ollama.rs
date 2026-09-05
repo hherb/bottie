@@ -13,7 +13,7 @@ use self::protocol::{
     NdjsonDecoder, OllamaChatRequest, OllamaErrorResponse, OllamaShowRequest, OllamaShowResponse,
     decode_model_list, decode_running_models, decode_stream_line, model_info, normalize_usage,
 };
-use crate::tool_contract::enabled_native_tool_definitions;
+use crate::tool_contract::python_enabled_native_tool_definitions;
 
 mod protocol;
 
@@ -26,12 +26,13 @@ pub(crate) struct OllamaToolSession {
 
 impl OllamaToolSession {
     /// Starts a session with exactly the closed native tools enabled for this request.
-    pub(crate) fn new(request: ChatRequest) -> Result<Self, ProviderError> {
+    pub(crate) fn new(request: ChatRequest, python_available: bool) -> Result<Self, ProviderError> {
         validate_request(&request)?;
-        let definitions = enabled_native_tool_definitions(
+        let definitions = python_enabled_native_tool_definitions(
             request.memory_enabled,
             request.web_enabled,
             request.email_enabled,
+            python_available,
         );
         Ok(Self {
             request: OllamaChatRequest::with_tools(request, definitions),

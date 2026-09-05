@@ -9,9 +9,8 @@ use crate::{
     generation_web_tools::{NativeWebFetchExecutor, NativeWebSearchExecutor, dispatch_native_tool},
     inference::{
         AnthropicProvider, AnthropicToolCall, AnthropicToolResult, AnthropicToolSession,
-        ChatRequest, OllamaProvider, OllamaToolCall, OllamaToolResult, OllamaToolSession,
-        OpenAiProvider, OpenAiToolCall, OpenAiToolResult, OpenAiToolSession, ProviderError,
-        ProviderErrorCode, StreamSink, Usage,
+        ChatRequest, OpenAiProvider, OpenAiToolCall, OpenAiToolResult, OpenAiToolSession,
+        ProviderError, ProviderErrorCode, StreamSink, Usage,
     },
     provider_registry::RoutedProvider,
     semantic_indexer::SemanticQueryEmbedder,
@@ -27,12 +26,22 @@ use crate::{
     tool_policy::{ToolExecutionPolicy, tool_execution_policy},
 };
 
+#[cfg(test)]
+use crate::inference::{OllamaToolCall, OllamaToolResult};
+
 mod anthropic;
+mod mapped;
+mod ollama;
 mod omlx;
+
+use mapped::MappedNativeToolExecutor;
 
 #[cfg(test)]
 pub(crate) use anthropic::execute_anthropic_tool_round;
 pub(crate) use anthropic::stream_anthropic_tools;
+#[cfg(test)]
+pub(crate) use ollama::execute_ollama_tool_round_async;
+pub(crate) use ollama::stream_ollama_tools;
 #[cfg(test)]
 pub(crate) use omlx::execute_omlx_tool_round;
 pub(crate) use omlx::stream_omlx_tools;
@@ -65,6 +74,8 @@ pub(crate) async fn stream_native_tools(
                 web_search,
                 web_fetch,
                 localmail,
+                python_approval,
+                python_runner,
             )
             .await
         }
@@ -181,70 +192,8 @@ pub(crate) async fn stream_openai_tools(
     }
 }
 
-/// Runs repeated Ollama chat/tool rounds through one durable provider run and shared policy state.
-pub(crate) async fn stream_ollama_tools(
-    provider: OllamaProvider,
-    request: ChatRequest,
-    sink: impl StreamSink + Clone + Send + Sync + 'static,
-    store: ConversationStore,
-    provider_run_id: String,
-    query_embedder: SemanticQueryEmbedder,
-    cancellation: ToolLoopCancellation,
-    web_search: Option<Arc<dyn NativeWebSearchExecutor>>,
-    web_fetch: Option<Arc<dyn NativeWebFetchExecutor>>,
-    localmail: Option<Arc<dyn NativeLocalmailToolExecutor>>,
-) -> Result<Option<Usage>, ProviderError> {
-    let memory_enabled = request.memory_enabled;
-    let mut session = OllamaToolSession::new(request)?;
-    let mut loop_state: Option<ToolLoopState> = None;
-    let mut cumulative_usage = None;
-    loop {
-        let round = provider.stream_tool_round(&session, sink.clone()).await?;
-        cumulative_usage = merge_usage(cumulative_usage, round.usage.clone());
-        if let Some(usage) = &cumulative_usage {
-            sink.usage_updated(usage.clone())?;
-        }
-        if round.tool_calls.is_empty() {
-            if let Some(state) = &mut loop_state {
-                state.complete(&cancellation).map_err(tool_loop_error)?;
-            }
-            return Ok(cumulative_usage);
-        }
-
-        let mut state = loop_state.unwrap_or_else(|| ToolLoopState::new(std::time::Instant::now()));
-        let calls = round.tool_calls.clone();
-        let round_store = store.clone();
-        let round_run_id = provider_run_id.clone();
-        let mut round_embedder = query_embedder.clone();
-        let round_cancellation = cancellation.clone();
-        let round_localmail = localmail.clone();
-        let round_web_search = web_search.clone();
-        let round_web_fetch = web_fetch.clone();
-        let (returned_state, results) = tauri::async_runtime::spawn_blocking(move || {
-            let results = execute_ollama_tool_round(
-                &round_store,
-                &round_run_id,
-                &mut round_embedder,
-                &mut state,
-                calls,
-                &round_cancellation,
-                memory_enabled,
-                round_web_search.as_ref().map(Arc::as_ref),
-                round_web_fetch.as_ref().map(Arc::as_ref),
-                round_localmail.as_ref().map(Arc::as_ref),
-            );
-            (state, results)
-        })
-        .await
-        .map_err(|_| {
-            ProviderError::internal("The native tool worker stopped unexpectedly.", None)
-        })?;
-        loop_state = Some(returned_state);
-        session.append_results(round, results?)?;
-    }
-}
-
 /// Executes one Ollama-emitted call batch with durable call/result checkpoints before provider reuse.
+#[cfg(test)]
 pub(crate) fn execute_ollama_tool_round(
     store: &ConversationStore,
     provider_run_id: &str,

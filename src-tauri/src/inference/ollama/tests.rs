@@ -209,7 +209,7 @@ fn maps_closed_native_memory_definitions_into_ollama_tools() {
 #[test]
 fn maps_the_clock_when_memory_and_web_are_both_disabled() {
     let body = serde_json::to_value(
-        OllamaToolSession::new(live_request("tool-model".into(), "what time is it"))
+        OllamaToolSession::new(live_request("tool-model".into(), "what time is it"), false)
             .unwrap()
             .request,
     )
@@ -217,6 +217,30 @@ fn maps_the_clock_when_memory_and_web_are_both_disabled() {
 
     assert_eq!(body["tools"].as_array().map(Vec::len), Some(1));
     assert_eq!(body["tools"][0]["function"]["name"], "current_time");
+}
+
+#[test]
+fn maps_python_only_when_the_contained_runtime_is_available() {
+    let unavailable = serde_json::to_value(
+        OllamaToolSession::new(
+            live_request("tool-model".into(), "calculate exactly"),
+            false,
+        )
+        .unwrap()
+        .request,
+    )
+    .unwrap();
+    let available = serde_json::to_value(
+        OllamaToolSession::new(live_request("tool-model".into(), "calculate exactly"), true)
+            .unwrap()
+            .request,
+    )
+    .unwrap();
+
+    assert_eq!(unavailable["tools"].as_array().map(Vec::len), Some(1));
+    assert_eq!(available["tools"].as_array().map(Vec::len), Some(2));
+    assert_eq!(available["tools"][0]["function"]["name"], "current_time");
+    assert_eq!(available["tools"][1]["function"]["name"], "run_python");
 }
 
 #[test]
