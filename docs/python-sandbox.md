@@ -88,9 +88,12 @@ Each platform job also writes a closed marker for its checked-out source revisio
 containment proofs pass, a credential-free aggregate job downloads their path-free JSON and runs
 `python:evidence:bind`. The binder requires one complete macOS/Windows/Linux set at the candidate revision, exact
 extracted/installed equality on Windows and Linux, closed successful containment records, reviewed native transport
-paths, supported targets, bounded byte counts, valid hashes, and one identical CPython/WASI runtime identity. It emits
-only normalized public metadata and canonical input hashes to `package/python-release-candidate-evidence.json`.
-Missing, mixed-revision, added-field, or inconsistent evidence is rejected rather than downgraded.
+paths, supported targets, bounded byte counts, valid hashes, and one identical CPython/WASI runtime core. macOS and
+Linux must retain the same 539-file runtime tree. Windows must retain the same core plus its one deterministic
+`python314.zip`, producing a separately recorded 540-file platform tree. The binder emits only normalized public
+metadata, exact per-platform runtime identities, and canonical input hashes to
+`package/python-release-candidate-evidence.json`. Missing, mixed-revision, added-field, or inconsistent evidence is
+rejected rather than downgraded.
 
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result

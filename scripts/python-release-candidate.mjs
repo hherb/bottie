@@ -77,9 +77,21 @@ export function bindPythonReleaseCandidate(sourceSha, evidenceByPlatform) {
   requireSourceSha(sourceSha);
   requireExactKeys(evidenceByPlatform, PLATFORMS, "The Python evidence set");
   const validated = PLATFORMS.map((platform) => validatePlatformEvidence(platform, evidenceByPlatform[platform]));
-  const sharedRuntime = validated[0].inspection.runtime;
-  if (validated.some((item) => canonicalJson(item.inspection.runtime) !== canonicalJson(sharedRuntime))) {
-    throw new Error("The packaged Python runtime identity is inconsistent across platforms.");
+  const runtimes = Object.fromEntries(validated.map((item) => [item.platform, item.inspection.runtime]));
+  const sharedRuntimeCore = runtimeCore(runtimes.linux);
+  if (
+    validated.some((item) => canonicalJson(runtimeCore(item.inspection.runtime)) !== canonicalJson(sharedRuntimeCore))
+  ) {
+    throw new Error("The packaged Python runtime core is inconsistent across platforms.");
+  }
+  if (canonicalJson(runtimes.macos) !== canonicalJson(runtimes.linux)) {
+    throw new Error("The macOS and Linux packaged Python runtime identities are inconsistent.");
+  }
+  if (
+    runtimes.windows.fileCount !== runtimes.linux.fileCount + 1 ||
+    runtimes.windows.totalBytes <= runtimes.linux.totalBytes
+  ) {
+    throw new Error("The Windows packaged Python runtime layout is inconsistent.");
   }
   if (validated.some((item) => item.marker.sourceSha !== sourceSha)) {
     throw new Error("The Python evidence source revision does not match the release candidate.");
@@ -88,7 +100,7 @@ export function bindPythonReleaseCandidate(sourceSha, evidenceByPlatform) {
     schemaVersion: SCHEMA_VERSION,
     sourceSha,
     status: "accepted",
-    runtime: sharedRuntime,
+    runtimeCore: sharedRuntimeCore,
     platforms: validated.map(({ containment, inspection, installedInspection, platform }) => ({
       containment,
       containmentSha256: evidenceSha256(containment),
@@ -97,8 +109,20 @@ export function bindPythonReleaseCandidate(sourceSha, evidenceByPlatform) {
       nativeTransports: inspection.nativeTransports,
       platform,
       runner: { bytes: inspection.runnerBytes, sha256: inspection.runnerSha256 },
+      runtime: inspection.runtime,
       target: inspection.target,
     })),
+  };
+}
+
+/** Selects the immutable runtime fields that must agree despite platform-specific packaging. */
+function runtimeCore(runtime) {
+  return {
+    schemaVersion: runtime.schemaVersion,
+    licenceSha256: runtime.licenceSha256,
+    pythonVersion: runtime.pythonVersion,
+    pythonWasmSha256: runtime.pythonWasmSha256,
+    wasiSdkVersion: runtime.wasiSdkVersion,
   };
 }
 

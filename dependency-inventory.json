@@ -90,7 +90,7 @@
     "python-runner/runtime-manifest.json": "4ba948694f71ea852e73aaa7bd55fa2dd369cbf4e1a110b7809ba018e5ab7c25",
     "scripts/macos-python-xpc.mjs": "e4297784c8c814ddd1396aa51ac62df0a66304548d05c8e6b070bdef16d6d986",
     "scripts/macos-packaged-python-smoke.mjs": "c384640b18da54e0c9de4894b460f7c03b2d13e4aaa13cdda623dc49be3bcdae",
-    "scripts/python-release-candidate.mjs": "bcbb37c243c55038ec55cc469a86e58e1dc3bf61acb8e370c4370d0b16a97fff",
+    "scripts/python-release-candidate.mjs": "e6d50d9aceeff38cc5ad904b9632db1083271062cbe5073e8d339287316bd6b3",
     "scripts/windows-python-appcontainer.mjs": "7cd718f338a2a3710dd27a4e4976bf3d4cdd9f8207448cca9ad63113ba880d64",
     "src-tauri/tauri.python-development.linux.conf.json": "2609c6bd8e27519d13db8196a7165169910824a5b4ebee825faba190e921cfb7",
     "src-tauri/tauri.python-development.macos.conf.json": "cb6bc6020d7cfffb1b6256630f63ac211d851dee4f66873cd2db79fc7fc0e4d7",

@@ -20,11 +20,12 @@ Read, in order:
   lowercase 40-character source revision.
 - A final credential-free provenance job downloads the complete three-platform evidence set and fails closed on a
   missing platform, mixed revision, unknown field, unsupported target, incomplete containment result, invalid digest or
-  byte count, unexpected native transport, changed installed Windows/Linux bytes, or inconsistent shared CPython/WASI
-  runtime identity.
-- The accepted release-candidate evidence contains one source revision, one normalized shared runtime identity, exact
-  canonical hashes of every accepted package/containment input, and only package-relative native transport metadata.
-  It does not retain runner paths, host paths, identities, credentials, or raw command output.
+  byte count, unexpected native transport, changed installed Windows/Linux bytes, an inconsistent shared CPython/WASI
+  runtime core, or an unexpected platform runtime layout.
+- The accepted release-candidate evidence contains one source revision, one normalized shared runtime core, each exact
+  platform runtime identity, canonical hashes of every accepted package/containment input, and only package-relative
+  native transport metadata. It does not retain runner paths, host paths, identities, credentials, or raw command
+  output.
 - Default and protected package configurations are unchanged. The outer Bottie development app remains unsigned, and
   no Apple credential, distribution signature, notarization, release, publication, or Microsoft Store action is used.
 
@@ -40,10 +41,12 @@ The unrelated untracked logo-kit, screenshot, and Linux signing-public-key files
 
 ## Validation
 
-The focused test failed first because the release-candidate evidence binder did not exist. Six focused tests now cover
-the exact source marker, deterministic accepted manifest, missing and mixed revisions, extracted/installed mismatch,
-shared-runtime mismatch, incomplete containment, added path-bearing fields, and workflow wiring. The related macOS,
-Windows, Linux, runtime-bundle, and binder suites pass 35 tests.
+The initial focused test failed because the release-candidate evidence binder did not exist. The hosted aggregate then
+correctly exposed that Windows adds one deterministic `python314.zip` and therefore cannot share the macOS/Linux runtime
+tree hash. The regression fixture now preserves that 539-file versus 540-file distinction. Six focused tests cover the
+exact source marker, deterministic accepted manifest, missing and mixed revisions, extracted/installed mismatch, shared
+runtime-core mismatch, platform layout, incomplete containment, added path-bearing fields, and workflow wiring. The
+related macOS, Windows, Linux, runtime-bundle, and binder suites pass 35 tests.
 
 `npm run format:check`, `npm run check`, `npm test`, and `npm run build` pass: Svelte reports zero errors/warnings, and
 302 frontend/script tests pass with 3 skipped. `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`,

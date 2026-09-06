@@ -41,6 +41,12 @@ function inspection(platform) {
     ],
     windows: ["bottie-python-appcontainer.exe"],
   };
+  const packagedRuntime = runtime();
+  if (platform === "windows") {
+    packagedRuntime.fileCount = 540;
+    packagedRuntime.runtimeTreeSha256 = "f".repeat(64);
+    packagedRuntime.totalBytes = 34_000_000;
+  }
   return {
     bundled: true,
     nativeTransports: transports[platform].map((path, index) => ({
@@ -50,7 +56,7 @@ function inspection(platform) {
     })),
     runnerBytes: 14_000_000,
     runnerSha256: SHA,
-    runtime: runtime(),
+    runtime: packagedRuntime,
     target: targets[platform],
   };
 }
@@ -138,11 +144,23 @@ describe("Python release-candidate evidence", () => {
       schemaVersion: 1,
       sourceSha: CANDIDATE_SHA,
       status: "accepted",
-      runtime: runtime(),
+      runtimeCore: {
+        schemaVersion: 1,
+        licenceSha256: SHA,
+        pythonVersion: "3.14.7",
+        pythonWasmSha256: "d".repeat(64),
+        wasiSdkVersion: "24",
+      },
     });
     expect(first.platforms.map((item) => item.platform)).toEqual(["linux", "macos", "windows"]);
     expect(first.platforms.every((item) => /^[a-f0-9]{64}$/.test(item.inspectionSha256))).toBe(true);
     expect(first.platforms.find((item) => item.platform === "macos").installedInspectionSha256).toBeNull();
+    expect(first.platforms.find((item) => item.platform === "linux").runtime.fileCount).toBe(539);
+    expect(first.platforms.find((item) => item.platform === "windows").runtime).toMatchObject({
+      fileCount: 540,
+      runtimeTreeSha256: "f".repeat(64),
+      totalBytes: 34_000_000,
+    });
   });
 
   it("rejects missing or mixed-revision evidence", () => {
@@ -161,9 +179,14 @@ describe("Python release-candidate evidence", () => {
     expect(() => bindPythonReleaseCandidate(CANDIDATE_SHA, installedMismatch)).toThrow(/installed inspection/);
 
     const runtimeMismatch = candidateInputs();
-    runtimeMismatch.linux.inspection.runtime.runtimeTreeSha256 = "f".repeat(64);
-    runtimeMismatch.linux.installedInspection.runtime.runtimeTreeSha256 = "f".repeat(64);
-    expect(() => bindPythonReleaseCandidate(CANDIDATE_SHA, runtimeMismatch)).toThrow(/runtime identity/);
+    runtimeMismatch.linux.inspection.runtime.pythonWasmSha256 = "0".repeat(64);
+    runtimeMismatch.linux.installedInspection.runtime.pythonWasmSha256 = "0".repeat(64);
+    expect(() => bindPythonReleaseCandidate(CANDIDATE_SHA, runtimeMismatch)).toThrow(/runtime core/);
+
+    const layoutMismatch = candidateInputs();
+    layoutMismatch.windows.inspection.runtime.fileCount = 541;
+    layoutMismatch.windows.installedInspection.runtime.fileCount = 541;
+    expect(() => bindPythonReleaseCandidate(CANDIDATE_SHA, layoutMismatch)).toThrow(/Windows.*layout/);
   });
 
   it("rejects incomplete or path-bearing evidence instead of retaining it", () => {
