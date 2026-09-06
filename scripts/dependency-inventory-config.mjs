@@ -17,6 +17,7 @@ export const PYTHON_RUNTIME_INVENTORY_INPUTS = [
   "python-runner/runtime-manifest.json",
   "scripts/macos-python-xpc.mjs",
   "scripts/macos-packaged-python-smoke.mjs",
+  "scripts/linux-shipping-python-containment.mjs",
   "scripts/macos-protected-python-package.mjs",
   "scripts/macos-shipping-python-containment.mjs",
   "scripts/python-protected-package.mjs",

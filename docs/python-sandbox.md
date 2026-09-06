@@ -3,7 +3,8 @@
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with packaged macOS app containment plus installed Windows MSI and Linux DEB
 containment, a credential-free future protected-package comparison contract plus macOS staging/inspection and
-shipping-containment producers, the approval-required native proposal/review contract, a process-local one-use
+shipping-containment producers and a Linux protected-DEB inspection/installed-containment producer, the
+approval-required native proposal/review contract, a process-local one-use
 approve/deny lifecycle, provider-neutral async wait/resume,
 append-only durable audit, explicit oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible mappings, and
 selected-lineage execution-result presentation are implemented. The native waiter also publishes bounded approval
@@ -13,7 +14,8 @@ macOS XPC client, or a Windows AppContainer controller. Only an explicitly marke
 tool, and only on a discovered tool-capable mapped-provider route. Credential-free macOS producers can now stage and
 inspect an opt-in unsigned protected app after candidate acceptance, then verify and exercise an already signed copy.
 The protected macOS distribution workflow has a separate optional composition for those inputs; its default path
-remains unchanged. Bottie does not ship a Python tool.
+remains unchanged. The Linux producer is not composed into its protected distribution workflow. Bottie does not ship a
+Python tool.
 
 ## Chosen core
 
@@ -157,6 +159,21 @@ Leaving the optional run ID blank retains the existing standard distribution com
 the updater-publication workflow. No pull request, push, or release trigger was added. This composition has not been
 dispatched and establishes no current signed, notarized, stapled, Gatekeeper-accepted, contained, or published Python
 artifact.
+
+The separate Linux shipping-containment producer accepts one source revision, already signed DEB, accepted candidate,
+and separate inspection and containment output paths. It strips protected signing, updater-signing, GnuPG, and loader
+override environment values, creates transient private public-trust roots from Bottie's checked-in certificate and
+policy, and requires `debsig-verify` to accept the package before extraction. It then inspects the extracted helper,
+runtime, and package-owned runtime marker and requires the complete runtime identity to match the accepted Linux
+candidate.
+
+The producer does not install the DEB. After the caller has separately installed those exact bytes, it reinspects only
+the fixed `/usr/bin/bottie-python-runner` and `/usr/lib/bottie/python-runtime` layout and requires the installed
+inspection to equal the extracted signed-package inspection canonically. Only then does it run the existing installed
+Landlock/seccomp/rlimit, private-pipe, cancellation, and parent-close proof. The outputs are the closed path-free
+inspection and its source-, target-, and inspection-digest-bound shipping record. The producer cannot build, sign,
+install, compose or dispatch a workflow, release, or publish, and it has not produced Linux shipping evidence on this
+macOS host.
 
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
@@ -367,6 +384,19 @@ code object independently, and emits the inspection-bound containment record onl
 It neither signs nor changes the app. The comparison step remains separate and still requires the accepted candidate,
 protected inspection, and this containment record.
 
+On Linux, after a separately authorized path has built, signed, verified, and installed one protected Python DEB, run
+the credential-free producer with:
+
+```sh
+npm run python:protected:linux:prove-shipping -- \
+  <source-sha> <signed-deb> <candidate-json> \
+  <inspection-output-json> <containment-output-json>
+```
+
+The command verifies the DEB again from checked-in public trust material, extracts and candidate-validates its Python
+resources, requires the fixed installed resources to match that extraction, and runs the installed native proof. It
+does not install or mutate the supplied DEB. `python:protected:compare` remains a separate final gate.
+
 The credential-dependent composition is intentionally available only through the manual `macOS distribution
 validation` workflow's `python_provenance_run_id` input. Selecting it imports protected Apple and updater credentials
 after the exact source-bound unsigned app has been recreated. Do not dispatch it without separate release-owner
@@ -539,8 +569,8 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add an opt-in composition to the existing protected macOS distribution path that carries the
-accepted candidate and protected inspection through final app signing, notarization, stapling, and Gatekeeper
-verification, then invokes this credential-free producer and `python:protected:compare` on those exact bytes. It must
-not dispatch the protected workflow, change the default distribution path, release, publish, or perform Microsoft Store
-work. Those actions remain separately authorized and deferred.
+The next bounded slice can add an optional same-revision Python composition to the existing manual protected Linux
+distribution path: acquire only the accepted provenance inputs, create and inspect the protected DEB before credentials,
+sign it through the existing path, install those exact final bytes, then invoke the credential-free Linux producer and
+`python:protected:compare`. It must preserve the default workflow path and must not dispatch the protected workflow,
+release, publish, or perform Microsoft Store work. Those actions remain separately authorized and deferred.

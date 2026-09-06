@@ -248,8 +248,8 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 
 Status: core feasibility, macOS/Windows/Linux native containment proofs, opt-in development-bundle runner injection,
 durable provider-neutral audit, all four mapped-provider integrations, and selected-lineage result presentation
-complete; an opt-in macOS protected-distribution composition is also complete, while shipping evidence remains
-pending.
+complete; an opt-in macOS protected-distribution composition and a credential-free Linux protected-DEB
+inspection/installed-containment producer are also complete, while shipping evidence remains pending.
 
 - [x] standalone Rust helper with a bounded stdin/stdout JSON contract and no shell interpolation;
 - [x] CPython/WASI execution through Wasmtime's interpreter-only Pulley target;
@@ -281,7 +281,10 @@ pending.
 - [x] opt-in protected macOS distribution composition that accepts only same-revision successful provenance, recreates
   the inspected app before credentials, signs nested code inside out, notarizes/staples/Gatekeeper-verifies the outer
   app, and runs final shipping containment plus protected-package comparison without changing the default path;
-- [ ] exact shipping-helper/runtime containment, signing, and installed-package inspection;
+- [x] credential-free Linux protected-DEB public-signature verification, candidate-bound extraction inspection, exact
+  fixed-layout installed helper/runtime equality, and Landlock/seccomp/rlimit plus process-lifecycle containment;
+- [ ] protected Linux Python workflow composition and exact Windows shipping-helper/runtime containment, signing, and
+  installed-package inspection;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;
 - [x] process-local one-use approve/deny decisions bound to the unchanged complete call, with an opaque-token modal and
