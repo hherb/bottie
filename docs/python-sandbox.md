@@ -14,9 +14,9 @@ provider-neutral Rust execution boundary into the helper's bounded private-pipe 
 macOS XPC client, or a Windows AppContainer controller. Only an explicitly marked development bundle advertises the
 tool, and only on a discovered tool-capable mapped-provider route. Credential-free macOS producers can now stage and
 inspect an opt-in unsigned protected app after candidate acceptance, then verify and exercise an already signed copy.
-The protected macOS and Linux distribution workflows have separate optional same-revision compositions for those
-inputs; their default paths remain unchanged. Neither protected composition has been dispatched. Bottie does not ship
-a Python tool.
+The protected macOS, Linux, and Windows distribution workflows have separate optional same-revision compositions for
+those inputs; their default paths remain unchanged. None of the protected compositions has been dispatched. Bottie
+does not ship a Python tool.
 
 ## Chosen core
 
@@ -207,6 +207,25 @@ zero-capability AppContainer proof for low integrity, stripped privileges, host-
 private-pipe execution, cancellation, and controller-close cleanup. The outputs are the path-free protected inspection
 and exact inspection-digest-bound shipping record. The producer cannot build, sign, install, compose or dispatch a
 workflow, release, publish, or perform Store work, and no Windows shipping evidence was produced on this macOS host.
+
+The manual protected Windows distribution workflow now accepts an optional prior provenance run ID. The opt-in path
+requires a successful `Python runtime provenance` run for the exact checked-out revision and downloads only its runtime
+and accepted candidate. Before Authenticode or updater credentials enter a command environment, it rebuilds the locked
+runner and AppContainer controller, creates the Python-bearing MSI through the explicit development-resource overlay,
+extracts it administratively, and candidate-validates its complete unsigned Python inspection.
+
+The protected distribution mode signs and independently verifies the staged controller and runner before bundling,
+refreshing only the package-owned runner size and digest changed by Authenticode. It then reuses the existing signed
+Bottie executable, MSI, and updater path. The workflow installs the exact exported final MSI into a fresh application
+directory, invokes the credential-free Windows shipping-containment producer, and runs `python:protected:compare`.
+Only path-free distribution, signed inspection, containment, and comparison evidence is uploaded alongside the
+existing one-day updater bytes. The installed product, signing material, updater bytes, runtime, candidate, and
+intermediate evidence are removed after the run.
+
+Leaving the optional run ID blank retains the existing standard build, isolated smoke, signing, and evidence path,
+including reusable workflow calls. No pull request, push, release, or Store trigger was added. This composition has not
+been dispatched and establishes no current signed, installed, contained, released, published, or Microsoft
+Store-certified Python artifact.
 
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
@@ -447,10 +466,10 @@ candidate-validates the exact Python resources, requires the separately installe
 installed AppContainer proof. It does not install or mutate the supplied MSI. `python:protected:compare` remains a
 separate final gate.
 
-The credential-dependent compositions are intentionally available only through the manual macOS and Linux
+The credential-dependent compositions are intentionally available only through the manual macOS, Linux, and Windows
 distribution workflows' `python_provenance_run_id` input. Each requires an exact source-bound unsigned package before
-its platform credentials are used. Do not dispatch either path without separate release-owner authorization; running
-local contract tests does not create shipping evidence.
+its platform credentials are used. Do not dispatch any path without separate release-owner authorization; running local
+contract tests does not create shipping evidence.
 
 The provenance workflow is the authoritative official-source build and package-inspection recipe. Locally, after
 building official CPython with the exact manifest inputs, stage and inspect it with:
@@ -619,9 +638,8 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add an optional same-revision Python composition to the existing manual Windows distribution
-workflow: acquire only the accepted provenance inputs, create and inspect the protected MSI before credentials, sign it
-through the existing Authenticode and updater path, install those exact final bytes, then invoke the credential-free
-Windows producer and `python:protected:compare`. It must preserve the default workflow path and must not dispatch the
-protected workflow, release, publish, or perform Microsoft Store work. Those actions remain separately authorized and
-deferred.
+The next bounded slice can add a credential-free aggregate contract for the three accepted protected-platform
+comparison records. It must require one exact source revision, the complete macOS/Windows/Linux set, canonical
+inspection/containment bindings, and one shared accepted runtime core while retaining each platform's signed native
+identities. It must not dispatch protected workflows, sign, release, publish, or perform Microsoft Store work. Those
+actions remain separately authorized and deferred.

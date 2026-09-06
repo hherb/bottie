@@ -2,9 +2,21 @@ name: Windows distribution validation
 
 on:
   workflow_dispatch:
+    inputs:
+      python_provenance_run_id:
+        description: Prior successful Python runtime provenance run ID; leave blank for the standard distribution
+        required: false
+        type: string
   workflow_call:
+    inputs:
+      python_provenance_run_id:
+        description: Prior successful Python runtime provenance run ID
+        required: false
+        type: string
+        default: ""
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -32,7 +44,89 @@ jobs:
       - name: Verify credential-free distribution contracts
         run: |
           node --check scripts/windows-distribution.mjs
-          npm test -- scripts/windows-distribution.test.mjs scripts/release-candidate.test.mjs
+          node --check scripts/windows-shipping-python-containment.mjs
+          node --check scripts/python-protected-package.mjs
+          npm test -- scripts/windows-distribution.test.mjs `
+            scripts/windows-shipping-python-containment.test.mjs `
+            scripts/python-protected-package.test.mjs scripts/release-candidate.test.mjs
+
+      - name: Validate the selected Python provenance run
+        if: inputs.python_provenance_run_id != ''
+        shell: pwsh
+        env:
+          BOTTIE_PYTHON_PROVENANCE_RUN_ID: ${{ inputs.python_provenance_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:BOTTIE_PYTHON_PROVENANCE_RUN_ID -notmatch '^[1-9][0-9]*$') {
+            throw "The Python provenance run ID must be a positive integer."
+          }
+          $runRecord = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BOTTIE_PYTHON_PROVENANCE_RUN_ID" |
+            ConvertFrom-Json
+          if (
+            $runRecord.name -ne "Python runtime provenance" -or
+            $runRecord.head_sha -ne $env:GITHUB_SHA -or
+            $runRecord.conclusion -ne "success"
+          ) {
+            throw "The selected run is not successful Python provenance for this exact source revision."
+          }
+
+      - name: Download the accepted Python runtime
+        if: inputs.python_provenance_run_id != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bottie-python-runtime-provenance
+          path: package/python-provenance
+          run-id: ${{ inputs.python_provenance_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download the accepted Python candidate
+        if: inputs.python_provenance_run_id != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bottie-python-release-candidate-evidence
+          path: package/python-protected-input
+          run-id: ${{ inputs.python_provenance_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Recreate and inspect the protected Python MSI
+        if: inputs.python_provenance_run_id != ''
+        shell: pwsh
+        run: |
+          cargo build --manifest-path python-runner/Cargo.toml --release --locked
+          $target = (rustc --print host-tuple).Trim()
+          if ($target -ne "x86_64-pc-windows-msvc") { throw "The protected Windows target is unsupported." }
+          node scripts/python-runtime-bundle.mjs `
+            --prepare $target package/python-provenance/runtime `
+            python-runner/target/release/bottie-python-runner.exe package/python-development
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if ([string]::IsNullOrWhiteSpace($visualStudio)) { throw "MSVC build tools are unavailable." }
+          Import-Module "$visualStudio\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $visualStudio -SkipAutomaticLocation `
+            -DevCmdArguments "-arch=x64 -host_arch=x64"
+          node scripts/windows-python-appcontainer.mjs `
+            --prepare-product $target package/python-development
+          npm run tauri -- build --bundles msi --no-sign --ci `
+            --config src-tauri/tauri.python-development.windows.conf.json -- --locked
+          $installers = @(Get-ChildItem src-tauri/target/release/bundle/msi -Recurse -Filter *.msi)
+          if ($installers.Count -ne 1) { throw "Expected exactly one protected Python MSI." }
+          $extracted = Join-Path $env:RUNNER_TEMP "bottie-python-protected-msi"
+          $process = Start-Process msiexec.exe -ArgumentList @(
+            "/a", $installers[0].FullName, "/qn", "/norestart", "TARGETDIR=$extracted"
+          ) -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Protected Python MSI extraction failed." }
+          $applications = @(Get-ChildItem $extracted -Recurse -Filter bottie.exe)
+          if ($applications.Count -ne 1) { throw "Expected exactly one protected Bottie executable." }
+          New-Item -ItemType Directory -Force package/python-protected-evidence | Out-Null
+          node scripts/python-runtime-bundle.mjs `
+            --inspect-package windows $applications[0].Directory.FullName `
+            | Out-File -Encoding utf8 package/python-protected-evidence/windows-unsigned-raw.json
+          npm run --silent python:protected:inspect -- `
+            $env:GITHUB_SHA windows package/python-protected-input/python-release-candidate-evidence.json `
+            package/python-protected-evidence/windows-unsigned-raw.json `
+            package/python-protected-evidence/windows-unsigned.json
+          Remove-Item -LiteralPath package/python-protected-evidence/windows-unsigned-raw.json -Force
 
       - name: Prepare protected Windows signing material
         shell: pwsh
@@ -53,11 +147,44 @@ jobs:
           "BOTTIE_WINDOWS_SIGNTOOL_PATH=$signTool" | Out-File $env:GITHUB_ENV -Append
 
       - name: Sign, verify, inspect, and smoke-test Windows distribution
+        if: inputs.python_provenance_run_id == ''
         env:
           BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run package:windows:distribution
+
+      - name: Sign and verify the protected Python distribution
+        if: inputs.python_provenance_run_id != ''
+        env:
+          BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.BOTTIE_WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run package:windows:distribution:python
+
+      - name: Install and prove the protected Python MSI
+        if: inputs.python_provenance_run_id != ''
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem package/updater-artifacts -Filter *.msi)
+          if ($installers.Count -ne 1) { throw "Expected exactly one signed protected Python MSI." }
+          $installed = Join-Path $env:RUNNER_TEMP "bottie-python-protected-installed"
+          $install = Start-Process msiexec.exe -ArgumentList @(
+            "/i", $installers[0].FullName, "/qn", "/norestart", "INSTALLDIR=$installed"
+          ) -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Protected Python MSI installation failed." }
+          New-Item -ItemType File -Force (Join-Path $env:RUNNER_TEMP "bottie-python-protected-install-complete") |
+            Out-Null
+          npm run --silent python:protected:windows:prove-shipping -- `
+            $env:GITHUB_SHA $installers[0].FullName $installed `
+            package/python-protected-input/python-release-candidate-evidence.json `
+            package/python-protected-evidence/windows-signed.json `
+            package/python-protected-evidence/windows-containment.json
+          npm run --silent python:protected:compare -- `
+            $env:GITHUB_SHA windows package/python-protected-input/python-release-candidate-evidence.json `
+            package/python-protected-evidence/windows-signed.json `
+            package/python-protected-evidence/windows-containment.json `
+            package/python-protected-evidence/windows-accepted.json
 
       - name: Upload identity-free evidence
         uses: actions/upload-artifact@v4
@@ -75,6 +202,34 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Upload identity-free protected Python evidence
+        if: inputs.python_provenance_run_id != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottie-python-windows-protected-distribution-evidence
+          path: |
+            package/python-protected-evidence/windows-signed.json
+            package/python-protected-evidence/windows-containment.json
+            package/python-protected-evidence/windows-accepted.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove installed protected Python package
+        if: always() && inputs.python_provenance_run_id != ''
+        shell: pwsh
+        run: |
+          $marker = Join-Path $env:RUNNER_TEMP "bottie-python-protected-install-complete"
+          if (Test-Path -LiteralPath $marker) {
+            $installers = @(Get-ChildItem package/updater-artifacts -Filter *.msi -ErrorAction SilentlyContinue)
+            if ($installers.Count -eq 1) {
+              $uninstall = Start-Process msiexec.exe -ArgumentList @(
+                "/x", $installers[0].FullName, "/qn", "/norestart"
+              ) -Wait -PassThru
+              if ($uninstall.ExitCode -ne 0) { throw "Protected Python MSI removal failed." }
+            }
+            Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Remove protected Windows signing material
         if: always()
         shell: pwsh
@@ -82,3 +237,7 @@ jobs:
           $certificatePath = Join-Path $env:RUNNER_TEMP "bottie-windows-signing.pfx"
           Remove-Item -LiteralPath $certificatePath -Force -ErrorAction SilentlyContinue
           Remove-Item -LiteralPath package/updater-artifacts -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath package/python-development -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath package/python-protected-evidence -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath package/python-protected-input -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item -LiteralPath package/python-provenance -Recurse -Force -ErrorAction SilentlyContinue

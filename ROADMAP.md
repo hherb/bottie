@@ -288,7 +288,7 @@ while shipping evidence remains pending.
   existing signing, installed-package containment, and final candidate comparison without changing the default path;
 - [x] credential-free Windows protected-MSI and extracted-executable verification, candidate-bound extraction,
   fixed-layout installed controller/helper/runtime equality, and AppContainer/process-lifecycle containment;
-- [ ] optional same-revision protected Windows Python workflow composition through exact pre-credential inspection,
+- [x] optional same-revision protected Windows Python workflow composition through exact pre-credential inspection,
   existing Authenticode/updater signing, installed-package containment, and final candidate comparison;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;

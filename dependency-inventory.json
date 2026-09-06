@@ -20,7 +20,7 @@
     "limitation": "Rust entries are the union of the locked Bottie application and development Python runner graphs for macOS arm64/x64, Windows x64, and Linux x64. Each Cargo.lock remains a conservative superset for other architectures."
   },
   "inputs": {
-    "package.json": "34665166a48cfe97bbfd6b2feea964f06db6b0b6859e7e9dbec3002c287ee810",
+    "package.json": "b97a358bacf7c727a5cd2286e8cc822e6edf257a8b8eeafced8d119c7db43b07",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
     "src-tauri/Cargo.toml": "f6fe745671c9463d50a37de1b8b36aaafcad30873636aa0429952d969ab27b7d",
     "src-tauri/Cargo.lock": "6d5f9368a834bb5cd776e75269dafa8d5b8d727123a6ab18eaa5bdddfa477fbf",
@@ -43,7 +43,7 @@
     "scripts/macos-distribution.mjs": "4f514fb670310d7394f244255e0dd4feffe4089217897d33392ff0bcbf9611ee",
     "scripts/windows-package.mjs": "0f614dac9be5b0c443426e5cd48d9988701467fc19fec1d0e5156ae4e439aea0",
     "scripts/windows-signature.mjs": "1247e1a276635865bd6eb8a16d8e2e4f90df03e83a8a31d03ee0d5f6387f7d96",
-    "scripts/windows-distribution.mjs": "33f7b7b12b6db23f2b3075e4b35f70d05af7283826f82d45c01b95f1917d0352",
+    "scripts/windows-distribution.mjs": "3f2e587b73c7263006f9f2d95e979d181696e9fbc3698c1bb07ef0889f1d76cd",
     "scripts/windows-store.mjs": "66a4ec5fca1d6c50608be1ee6a8cbd718af83f9e1e7501289857c9cabcffd63f",
     "scripts/linux-package.mjs": "712dbcdfa9c76063ea236eb3c89cda91fe322d72a6774b8773fcf617bb5cf1f5",
     "scripts/linux-distribution.mjs": "78d4f99744302ad5bef8fca918fd1797a365b14a0daa2a7047affb84c09928a1",
@@ -56,7 +56,7 @@
     "distribution/update/README.md": "ba08ffc92ae72dc2e7b8f057de4e3e9449bbe463abb704834f09610476ac61bb",
     "distribution/update/bottie-updater.pub": "fd4adf69a4bea10958a0f63f0658083fa29bfad10c48c792877dcdcdb8c6355c",
     ".github/workflows/macos-distribution-validation.yml": "6dcd3c5be8cfce24c5de04d22c647709f3b013409d3e5c6d915b45a013fe409f",
-    ".github/workflows/windows-distribution-validation.yml": "d1a87aa1bd4e8e46195790a938f9a5c4708786c5a237d8496bf9cab709dc2a85",
+    ".github/workflows/windows-distribution-validation.yml": "cbe750d387db3f57a9003e94c285e4086c6057e9a63da12f0a2118d5ba8c1343",
     ".github/workflows/linux-distribution-validation.yml": "efe113356ac426456be9dfb27935214447799cbfd8a4e5144ea53bc6ecef957f",
     ".github/workflows/updater-publication.yml": "8eb6d3233aeb8e8fc3df2ec0599dc7dec716b55806fe8c82744d0831f1b9e6e1",
     "LICENSE": "6f78c7d9d21c1432be2769ec843d045e00a87cf94c90c0cf325b932628772884",
