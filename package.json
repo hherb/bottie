@@ -16,6 +16,7 @@
     "python:bundle:test": "vitest run scripts/python-runtime-bundle.test.mjs --pool=forks --maxWorkers=1",
     "python:evidence:bind": "node scripts/python-release-candidate.mjs --bind",
     "python:protected:compare": "node scripts/python-protected-package.mjs --compare",
+    "python:protected:macos:produce": "node scripts/macos-protected-python-package.mjs --produce",
     "python:linux:prove": "node scripts/linux-python-containment.mjs --prove",
     "python:linux:prove-installed": "node scripts/linux-python-containment.mjs --prove-installed",
     "python:xpc:prove": "node scripts/macos-python-xpc.mjs --prove",

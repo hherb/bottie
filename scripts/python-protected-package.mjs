@@ -105,8 +105,8 @@ export function protectedInspectionSha256(inspection) {
   return sha256(canonicalJson(inspection));
 }
 
-/** Binds one protected package to its development runtime identity and native containment proof. */
-export function bindProtectedPythonPackage(sourceSha, platform, releaseCandidate, inspection, containment) {
+/** Validates one protected inspection and returns the matching accepted candidate evidence. */
+function validatedProtectedPythonInspection(sourceSha, platform, releaseCandidate, inspection) {
   requireSourceSha(sourceSha);
   requirePlatform(platform);
   const candidate = validatedReleaseCandidate(releaseCandidate);
@@ -118,6 +118,21 @@ export function bindProtectedPythonPackage(sourceSha, platform, releaseCandidate
   if (canonicalJson(protectedInspection.runtime) !== canonicalJson(candidatePlatform.runtime)) {
     throw new Error("The protected Python runtime identity does not match the release candidate.");
   }
+  return { candidate, candidatePlatform, inspection: protectedInspection };
+}
+
+/** Validates one protected inspection against the accepted platform runtime before containment exists. */
+export function validateProtectedPythonInspection(sourceSha, platform, releaseCandidate, inspection) {
+  return validatedProtectedPythonInspection(sourceSha, platform, releaseCandidate, inspection).inspection;
+}
+
+/** Binds one protected package to its development runtime identity and native containment proof. */
+export function bindProtectedPythonPackage(sourceSha, platform, releaseCandidate, inspection, containment) {
+  const {
+    candidate,
+    candidatePlatform,
+    inspection: protectedInspection,
+  } = validatedProtectedPythonInspection(sourceSha, platform, releaseCandidate, inspection);
   const protectedInspectionDigest = protectedInspectionSha256(protectedInspection);
   const shippingContainment = validateShippingContainment(
     sourceSha,

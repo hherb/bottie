@@ -273,6 +273,8 @@ complete; shipping evidence remains pending.
   evidence to one shared source revision and CPython/WASI runtime core while retaining exact platform layouts;
 - [x] credential-free protected-package comparison against the accepted development runtime identity, requiring a
   separate exact-inspection-bound platform-native shipping containment record;
+- [x] credential-free opt-in macOS protected-package staging and exact unsigned app inspection against the accepted
+  runtime identity, without changing the default or protected distribution configuration;
 - [ ] exact shipping-helper/runtime containment, signing, and installed-package inspection;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;

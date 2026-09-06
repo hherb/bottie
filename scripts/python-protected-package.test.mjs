@@ -3,7 +3,11 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import { bindPythonReleaseCandidate, buildSourceMarker } from "./python-release-candidate.mjs";
-import { bindProtectedPythonPackage, protectedInspectionSha256 } from "./python-protected-package.mjs";
+import {
+  bindProtectedPythonPackage,
+  protectedInspectionSha256,
+  validateProtectedPythonInspection,
+} from "./python-protected-package.mjs";
 
 const CANDIDATE_SHA = "a".repeat(40);
 const OTHER_SHA = "b".repeat(40);
@@ -190,6 +194,18 @@ function shippingContainment(platform, inspection) {
 }
 
 describe("protected Python package comparison", () => {
+  it("validates a protected inspection before separate shipping containment exists", () => {
+    const inspection = protectedInspection("macos");
+
+    expect(validateProtectedPythonInspection(CANDIDATE_SHA, "macos", releaseCandidate(), inspection)).toEqual(
+      inspection,
+    );
+    inspection.runtime.runtimeTreeSha256 = "0".repeat(64);
+    expect(() => validateProtectedPythonInspection(CANDIDATE_SHA, "macos", releaseCandidate(), inspection)).toThrow(
+      /runtime identity/,
+    );
+  });
+
   it("accepts changed signed native bytes only when the exact runtime identity remains unchanged", () => {
     const candidate = releaseCandidate();
     const inspection = protectedInspection("macos");

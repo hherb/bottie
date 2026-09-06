@@ -1,0 +1,16 @@
+{
+  "bundle": {
+    "macOS": {
+      "files": {
+        "Helpers/BottiePythonXPCClient.app": "../package/python-protected/BottiePythonXPCClient.app"
+      },
+      "minimumSystemVersion": "14.0"
+    },
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../MODEL-NOTICE.txt": "MODEL-NOTICE.txt",
+      "../THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
+      "../package/python-protected/python-runtime-evidence.json": "python-runtime-evidence.json"
+    }
+  }
+}

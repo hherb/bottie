@@ -2,15 +2,17 @@
 
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with packaged macOS app containment plus installed Windows MSI and Linux DEB
-containment, a credential-free future protected-package comparison contract, the approval-required native
-proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume,
+containment, a credential-free future protected-package comparison contract and macOS staging/inspection producer, the
+approval-required native proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral
+async wait/resume,
 append-only durable audit, explicit oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible mappings, and
 selected-lineage execution-result presentation are implemented. The native waiter also publishes bounded approval
 lifecycle events to the existing WebView review state. An approved exact mapped-provider call can now cross the
 provider-neutral Rust execution boundary into the helper's bounded private-pipe protocol through Linux containment, a
 macOS XPC client, or a Windows AppContainer controller. Only an explicitly marked development bundle advertises the
-tool, and only on a discovered tool-capable mapped-provider route. Bottie does not ship a Python tool. Default and
-protected packages remain unchanged.
+tool, and only on a discovered tool-capable mapped-provider route. A credential-free macOS producer can now stage and
+inspect an opt-in unsigned protected app after candidate acceptance. Bottie does not ship a Python tool. The default
+configuration and existing protected distribution workflow remain unchanged.
 
 ## Chosen core
 
@@ -109,6 +111,19 @@ app. The shipping record includes the same source revision, target, and canonica
 or substituted containment evidence fails closed. The accepted result is path-free and contains no credential,
 identity, host path, or raw command output.
 
+The macOS protected-package producer is a separate pre-containment step. It copies only the exact source runner,
+runtime tree, and runtime evidence from the development artifact into a fresh ignored root, rejecting unsupported
+targets, overlapping roots, non-regular top-level inputs, and links or special entries in the runtime. It compiles a
+fresh XPC client and service, composes the existing updater config with a dedicated opt-in Python overlay, and builds
+only an app with `--no-sign`, `--ci`, and locked Cargo inputs. Before invoking Rust, Swift, frontend, or Tauri tools it
+removes Bottie, Apple, Tauri-signing, updater, and platform signing environment values.
+
+After packaging, the producer inspects the exact client, service, runner, and runtime paths into the comparison
+contract's bounded path-free shape and requires the runtime identity to match the accepted macOS candidate. The
+credential-free provenance workflow runs this job only after all three development platforms have been accepted and
+uploads only the inspection JSON. It does not sign nested code, exercise App Sandbox containment, produce a shipping
+containment record, invoke the protected macOS distribution workflow, notarize, or publish anything.
+
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
 byte for byte. It then runs the same Landlock/seccomp/rlimit and process-lifecycle verifier directly against the
@@ -128,11 +143,12 @@ verifier inspects the exact packaged client app, service, helper, and runtime be
 host-fixture denial, cancellation, and client-exit cleanup against those same paths. Uploaded evidence contains only
 package-relative identities, digests, sizes, runtime provenance, and closed Boolean outcomes.
 
-The runtime, helper, evidence, and platform-native transport are selected only by the three
-`src-tauri/tauri.python-development.*.conf.json` overlays; Bottie's base and protected distribution configurations
-remain unchanged. macOS places a signed client app under `Contents/Helpers`, with the helper/runtime inside its private
-XPC service, and requires macOS 14 for this development bundle. Windows and Linux retain the resource directory plus
-sidecar layout. The official CPython licence
+The development runtime, helper, evidence, and platform-native transport are selected only by the three
+`src-tauri/tauri.python-development.*.conf.json` overlays. The staging-only protected macOS producer explicitly selects
+`src-tauri/tauri.python-protected.macos.conf.json` alongside the unchanged updater config; Bottie's base configuration
+and protected distribution workflow remain unchanged. macOS places the client app under `Contents/Helpers`, with the
+helper/runtime inside its private XPC service, and requires macOS 14. Windows and Linux retain the resource directory
+plus sidecar layout. The official CPython licence
 is checked by digest, included in `THIRD-PARTY-NOTICES.txt`, and represented alongside the complete runner Cargo graph
 in `dependency-inventory.json`. No application runtime download occurs.
 
@@ -292,6 +308,18 @@ node scripts/python-protected-package.mjs --compare \
 The comparison command consumes only pre-existing path-free evidence. It does not build a protected package, use
 credentials, sign or notarize bytes, dispatch a workflow, or establish shipping containment by itself.
 
+On macOS, after the current candidate runtime/helper inputs have been placed in `package/python-development`, produce
+the unsigned opt-in protected app inspection with:
+
+```sh
+npm run python:protected:macos:produce -- \
+  <source-sha> <candidate-json> <inspection-output-json>
+```
+
+The command deletes and recreates only ignored `package/python-protected`, rebuilds the exact app with both the updater
+and protected-Python overlays, and writes only the candidate-validated inspection. It strips signing credentials and
+does not produce the separate containment input required by `python:protected:compare`.
+
 The provenance workflow is the authoritative official-source build and package-inspection recipe. Locally, after
 building official CPython with the exact manifest inputs, stage and inspect it with:
 
@@ -439,13 +467,13 @@ existing structured audit representation.
 The mapped-provider integration deliberately does not:
 
 - decide automatically that Python is appropriate for a user question;
-- expose Python in a default or protected package without the complete native runtime marker;
+- expose Python in a default or shipping package without the complete native runtime marker;
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed production behavior, or release identity on macOS, Windows, or Linux.
 
-The protected-package comparison contract does not change these exclusions. It defines the exact future acceptance
-boundary, but no default or protected package currently selects the Python resources and no platform-native shipping
-containment record currently exists.
+The protected-package comparison and staging contracts do not change these exclusions. The opt-in unsigned macOS app
+selects Python only to produce exact pre-containment inspection evidence; no default or protected distribution build
+currently selects the resources, and no platform-native shipping containment record exists.
 
 The OpenAI-compatible mapping uses the same asynchronous provider-neutral executor as the local providers. It adds the
 definition only for an explicitly tool-capable selected model with the complete marked development runtime, retains the
@@ -458,7 +486,7 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add the credential-free macOS protected-package staging and inspection producer consumed by
-the comparison contract, without changing the default package or claiming native shipping containment. It must not use
-credentials, dispatch protected workflows, sign, notarize, release, publish, or perform Microsoft Store work. Those
-actions remain separately authorized and deferred.
+The next bounded slice can add a credential-free macOS shipping-containment producer that consumes an already signed
+protected app plus its exact inspection, reruns the packaged App Sandbox denial and lifecycle checks, and emits the
+closed inspection-bound shipping record. It must not sign or notarize bytes, dispatch protected workflows, release,
+publish, or perform Microsoft Store work. Those actions remain separately authorized and deferred.
