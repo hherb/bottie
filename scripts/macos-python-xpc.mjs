@@ -384,31 +384,32 @@ async function waitForProcessExit(processIdentifier) {
 }
 
 /** Runs one proof-host mode with request bytes supplied only over stdin. */
-function runProofHost(layout, mode, request, extraArguments = []) {
+function runProofHost(layout, mode, request, extraArguments = [], environment = process.env) {
   return runHostCommand(layout.applicationExecutable, [mode, ...extraArguments], {
+    env: environment,
     input: request,
     timeout: PROOF_TIMEOUT_MS,
   }).stdout;
 }
 
 /** Exercises execution, cancellation, client-exit cleanup, and the outer sandbox denial. */
-export async function exerciseProof(layout, fixtureDirectory) {
+export async function exerciseProof(layout, fixtureDirectory, environment = process.env) {
   const ordinaryRequest = JSON.stringify({ code: "print(6 * 7)", purpose: "Prove private-pipe execution" });
-  const ordinary = parseProofOutput(runProofHost(layout, "execute", ordinaryRequest));
+  const ordinary = parseProofOutput(runProofHost(layout, "execute", ordinaryRequest, [], environment));
   if (ordinary.status !== "ok" || ordinary.stdout.trim() !== "42") {
     throw new Error("Private-pipe execution did not return the expected bounded result.");
   }
 
   const infiniteRequest = JSON.stringify({ code: "while True:\n    pass", purpose: "Prove cancellation" });
-  const cancelled = parseProofOutput(runProofHost(layout, "cancel", infiniteRequest));
+  const cancelled = parseProofOutput(runProofHost(layout, "cancel", infiniteRequest, [], environment));
   if (cancelled.status !== "cancelled") throw new Error("The XPC service did not cancel its runner.");
 
   const fixture = join(fixtureDirectory, "host-owned-denial-fixture.txt");
   await writeFile(fixture, "the restricted service must not read this fixture");
-  const denied = parseProofOutput(runProofHost(layout, "probe", undefined, [fixture]));
+  const denied = parseProofOutput(runProofHost(layout, "probe", undefined, [fixture], environment));
   if (denied.status !== "denied") throw new Error("The XPC service could read the host-owned denial fixture.");
 
-  const parent = parseProofOutput(runProofHost(layout, "start-and-exit", infiniteRequest));
+  const parent = parseProofOutput(runProofHost(layout, "start-and-exit", infiniteRequest, [], environment));
   if (parent.status !== "started" || !Number.isSafeInteger(parent.pid) || parent.pid <= 0) {
     throw new Error("The parent-exit proof did not return a valid isolated child identifier.");
   }

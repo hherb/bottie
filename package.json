@@ -17,6 +17,7 @@
     "python:evidence:bind": "node scripts/python-release-candidate.mjs --bind",
     "python:protected:compare": "node scripts/python-protected-package.mjs --compare",
     "python:protected:macos:produce": "node scripts/macos-protected-python-package.mjs --produce",
+    "python:protected:macos:prove-shipping": "node scripts/macos-shipping-python-containment.mjs --prove",
     "python:linux:prove": "node scripts/linux-python-containment.mjs --prove",
     "python:linux:prove-installed": "node scripts/linux-python-containment.mjs --prove-installed",
     "python:xpc:prove": "node scripts/macos-python-xpc.mjs --prove",

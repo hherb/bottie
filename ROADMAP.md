@@ -275,6 +275,8 @@ complete; shipping evidence remains pending.
   separate exact-inspection-bound platform-native shipping containment record;
 - [x] credential-free opt-in macOS protected-package staging and exact unsigned app inspection against the accepted
   runtime identity, without changing the default or protected distribution configuration;
+- [x] credential-free macOS shipping-containment producer for an already signed protected app, with exact reinspection,
+  independent signature verification, App Sandbox denial, private-pipe execution, cancellation, and client-exit cleanup;
 - [ ] exact shipping-helper/runtime containment, signing, and installed-package inspection;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;
