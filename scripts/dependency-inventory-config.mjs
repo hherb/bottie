@@ -18,6 +18,7 @@ export const PYTHON_RUNTIME_INVENTORY_INPUTS = [
   "scripts/macos-python-xpc.mjs",
   "scripts/macos-packaged-python-smoke.mjs",
   "scripts/linux-shipping-python-containment.mjs",
+  "scripts/linux-package-config.mjs",
   "scripts/macos-protected-python-package.mjs",
   "scripts/macos-shipping-python-containment.mjs",
   "scripts/python-protected-package.mjs",
@@ -52,6 +53,6 @@ export const PYTHON_RUNTIME_ASSET = {
   delivery:
     "Built from the official checksum-pinned CPython source only in the opt-in development provenance workflow. " +
     "The runtime and native helper are inspected in unsigned development packages and are not selected by " +
-    "Bottie's default or protected release configurations.",
+    "Bottie's default release configuration; protected compositions remain explicit and manual.",
   source: "third-party/cpython-3.14.7/LICENSE",
 };

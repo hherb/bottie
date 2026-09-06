@@ -13,9 +13,9 @@ provider-neutral Rust execution boundary into the helper's bounded private-pipe 
 macOS XPC client, or a Windows AppContainer controller. Only an explicitly marked development bundle advertises the
 tool, and only on a discovered tool-capable mapped-provider route. Credential-free macOS producers can now stage and
 inspect an opt-in unsigned protected app after candidate acceptance, then verify and exercise an already signed copy.
-The protected macOS distribution workflow has a separate optional composition for those inputs; its default path
-remains unchanged. The Linux producer is not composed into its protected distribution workflow. Bottie does not ship a
-Python tool.
+The protected macOS and Linux distribution workflows have separate optional same-revision compositions for those
+inputs; their default paths remain unchanged. Neither protected composition has been dispatched. Bottie does not ship
+a Python tool.
 
 ## Chosen core
 
@@ -174,6 +174,23 @@ Landlock/seccomp/rlimit, private-pipe, cancellation, and parent-close proof. The
 inspection and its source-, target-, and inspection-digest-bound shipping record. The producer cannot build, sign,
 install, compose or dispatch a workflow, release, or publish, and it has not produced Linux shipping evidence on this
 macOS host.
+
+The manual protected Linux distribution workflow now accepts an optional prior provenance run ID. The opt-in path
+requires a successful `Python runtime provenance` run for the exact checked-out revision and downloads only its runtime
+and accepted candidate. Before signing credentials enter a command environment, it rebuilds the locked helper, creates
+the Python-bearing product and isolated-smoke DEBs through the existing package inspector, and candidate-validates a
+fresh extraction with `python:protected:inspect`.
+
+The workflow then signs that one retained product DEB through the existing OpenPGP and updater path, installs those
+exact final bytes, and invokes the credential-free Linux shipping-containment producer. The final extracted inspection
+must equal the pre-credential inspection byte for byte before `python:protected:compare` can emit accepted evidence.
+Only path-free distribution, signed inspection, containment, comparison, and short-lived updater evidence are
+uploaded. The installed package, transient trust roots, package bytes, and Python inputs are removed even after
+failure.
+
+Leaving the optional run ID blank retains the existing standard build, inspection, smoke, and signing commands,
+including reusable workflow calls. No pull request, push, or release trigger was added. This composition has not been
+dispatched and establishes no current signed, installed, contained, or published Linux Python artifact.
 
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
@@ -352,6 +369,8 @@ The credential-free development evidence binder and future protected-package com
 
 ```sh
 npm test -- scripts/python-release-candidate.test.mjs scripts/python-protected-package.test.mjs
+node scripts/python-protected-package.mjs --inspect \
+  <source-sha> <platform> <candidate-json> <raw-inspection-json> <accepted-inspection-json>
 node scripts/python-protected-package.mjs --compare \
   <source-sha> <platform> <candidate-json> <inspection-json> <containment-json> <output-json>
 ```
@@ -397,10 +416,10 @@ The command verifies the DEB again from checked-in public trust material, extrac
 resources, requires the fixed installed resources to match that extraction, and runs the installed native proof. It
 does not install or mutate the supplied DEB. `python:protected:compare` remains a separate final gate.
 
-The credential-dependent composition is intentionally available only through the manual `macOS distribution
-validation` workflow's `python_provenance_run_id` input. Selecting it imports protected Apple and updater credentials
-after the exact source-bound unsigned app has been recreated. Do not dispatch it without separate release-owner
-authorization; running local contract tests does not create shipping evidence.
+The credential-dependent compositions are intentionally available only through the manual macOS and Linux
+distribution workflows' `python_provenance_run_id` input. Each requires an exact source-bound unsigned package before
+its platform credentials are used. Do not dispatch either path without separate release-owner authorization; running
+local contract tests does not create shipping evidence.
 
 The provenance workflow is the authoritative official-source build and package-inspection recipe. Locally, after
 building official CPython with the exact manifest inputs, stage and inspect it with:
@@ -550,13 +569,13 @@ The mapped-provider integration deliberately does not:
 
 - decide automatically that Python is appropriate for a user question;
 - expose Python in a default or shipping package without the complete native runtime marker;
-- select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
+- select the development bundle config for normal distribution, automatically dispatch protected distribution, or
+  publish the runtime/helper; or
 - claim shipping-package containment, installed production behavior, or release identity on macOS, Windows, or Linux.
 
 The protected-package comparison, staging, and shipping-containment producer contracts do not change these exclusions.
-The opt-in unsigned macOS app selects Python only to produce exact pre-containment inspection evidence; no default or
-protected distribution build currently selects the resources. The shipping producer requires a matching already signed
-app, and no current path has produced its record.
+Only the explicit macOS and Linux protected-distribution inputs select Python resources; neither default path does. The
+shipping producers require matching already trusted bytes, and neither optional workflow has produced a current record.
 
 The OpenAI-compatible mapping uses the same asynchronous provider-neutral executor as the local providers. It adds the
 definition only for an explicitly tool-capable selected model with the complete marked development runtime, retains the
@@ -569,8 +588,8 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add an optional same-revision Python composition to the existing manual protected Linux
-distribution path: acquire only the accepted provenance inputs, create and inspect the protected DEB before credentials,
-sign it through the existing path, install those exact final bytes, then invoke the credential-free Linux producer and
-`python:protected:compare`. It must preserve the default workflow path and must not dispatch the protected workflow,
-release, publish, or perform Microsoft Store work. Those actions remain separately authorized and deferred.
+The next bounded slice can add the credential-free Windows shipping-containment producer for an already signed and
+separately installed protected MSI. It must re-inspect the exact controller, helper, runtime, and package-owned marker,
+require installed equality, then reuse the existing AppContainer denial, private-pipe, cancellation, and controller
+cleanup proof. It must not compose or dispatch the Windows protected workflow, sign, release, publish, or perform
+Microsoft Store work. Those actions remain separately authorized and deferred.

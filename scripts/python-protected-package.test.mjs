@@ -303,6 +303,9 @@ describe("protected Python package comparison", () => {
     expect(packageManifest.scripts["python:protected:compare"]).toBe(
       "node scripts/python-protected-package.mjs --compare",
     );
+    expect(packageManifest.scripts["python:protected:inspect"]).toBe(
+      "node scripts/python-protected-package.mjs --inspect",
+    );
     expect(dependencyConfig).toContain('"scripts/python-protected-package.mjs"');
   });
 });

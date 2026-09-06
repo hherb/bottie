@@ -2,9 +2,21 @@ name: Linux distribution validation
 
 on:
   workflow_dispatch:
+    inputs:
+      python_provenance_run_id:
+        description: Prior successful Python runtime provenance run ID; leave blank for the standard distribution
+        required: false
+        type: string
   workflow_call:
+    inputs:
+      python_provenance_run_id:
+        description: Prior successful Python runtime provenance run ID
+        required: false
+        type: string
+        default: ""
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -55,12 +67,78 @@ jobs:
           node --check scripts/linux-distribution.mjs
           node --check scripts/linux-distribution-integration-contract.mjs
           node --check scripts/linux-distribution.integration.mjs
+          node --check scripts/linux-shipping-python-containment.mjs
+          node --check scripts/python-protected-package.mjs
           npm run package:linux:test
-          npm test -- scripts/linux-distribution.test.mjs scripts/release-candidate.test.mjs
+          npm test -- scripts/linux-distribution.test.mjs scripts/linux-shipping-python-containment.test.mjs \
+            scripts/python-protected-package.test.mjs scripts/release-candidate.test.mjs
           npm run package:linux:distribution:test:integration
 
       - name: Build, inspect, and smoke-test unsigned product bytes
+        if: inputs.python_provenance_run_id == ''
         run: dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke
+
+      - name: Validate the selected Python provenance run
+        if: inputs.python_provenance_run_id != ''
+        env:
+          BOTTIE_PYTHON_PROVENANCE_RUN_ID: ${{ inputs.python_provenance_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! "$BOTTIE_PYTHON_PROVENANCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "The Python provenance run ID must be a positive integer." >&2
+            exit 1
+          fi
+          run_record="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BOTTIE_PYTHON_PROVENANCE_RUN_ID"
+          )"
+          if ! jq -e --arg source "$GITHUB_SHA" \
+            '.name == "Python runtime provenance" and .head_sha == $source and .conclusion == "success"' \
+            <<<"$run_record" >/dev/null; then
+            echo "The selected run is not successful Python provenance for this exact source revision." >&2
+            exit 1
+          fi
+
+      - name: Download the accepted Python runtime
+        if: inputs.python_provenance_run_id != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bottie-python-runtime-provenance
+          path: package/python-provenance
+          run-id: ${{ inputs.python_provenance_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download the accepted Python candidate
+        if: inputs.python_provenance_run_id != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bottie-python-release-candidate-evidence
+          path: package/python-protected-input
+          run-id: ${{ inputs.python_provenance_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Recreate and inspect the protected Python DEB
+        if: inputs.python_provenance_run_id != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path python-runner/Cargo.toml --release --locked
+          target="$(rustc --print host-tuple)"
+          node scripts/python-runtime-bundle.mjs \
+            --prepare "$target" package/python-provenance/runtime \
+            python-runner/target/release/bottie-python-runner package/python-development
+          dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke:python
+          mapfile -t installers < <(find package/linux -maxdepth 1 -type f -name '*.deb')
+          test "${#installers[@]}" -eq 1
+          extracted="$RUNNER_TEMP/bottie-python-protected-deb"
+          mkdir -p "$extracted" package/python-protected-evidence
+          dpkg-deb --extract "${installers[0]}" "$extracted"
+          node scripts/python-runtime-bundle.mjs --inspect-package linux "$extracted" \
+            > package/python-protected-evidence/linux-unsigned-raw.json
+          npm run --silent python:protected:inspect -- \
+            "$GITHUB_SHA" linux package/python-protected-input/python-release-candidate-evidence.json \
+            package/python-protected-evidence/linux-unsigned-raw.json \
+            package/python-protected-evidence/linux-unsigned.json
+          rm package/python-protected-evidence/linux-unsigned-raw.json
 
       - name: Prepare protected Linux signing material
         shell: bash
@@ -170,6 +248,41 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run package:linux:distribution
 
+      - name: Remove protected Linux signing material
+        if: always()
+        shell: bash
+        run: |
+          if test -d "$RUNNER_TEMP/bottie-linux-signing/gnupg"; then
+            /usr/bin/gpgconf --homedir "$RUNNER_TEMP/bottie-linux-signing/gnupg" --kill gpg-agent || true
+          fi
+          rm -rf "$RUNNER_TEMP/bottie-linux-signing"
+
+      - name: Install and prove the protected Python DEB
+        if: inputs.python_provenance_run_id != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t installers < <(find package/linux -maxdepth 1 -type f -name '*.deb')
+          test "${#installers[@]}" -eq 1
+          installer="$(realpath "${installers[0]}")"
+          if dpkg-query --show --showformat='${Status}' bottie 2>/dev/null | grep -q 'install ok installed'; then
+            echo "The protected Linux runner already has Bottie installed." >&2
+            exit 1
+          fi
+          touch "$RUNNER_TEMP/bottie-python-protected-installed"
+          sudo apt-get install --yes "$installer"
+          npm run --silent python:protected:linux:prove-shipping -- \
+            "$GITHUB_SHA" "$installer" package/python-protected-input/python-release-candidate-evidence.json \
+            package/python-protected-evidence/linux-signed.json \
+            package/python-protected-evidence/linux-containment.json
+          cmp package/python-protected-evidence/linux-unsigned.json \
+            package/python-protected-evidence/linux-signed.json
+          npm run --silent python:protected:compare -- \
+            "$GITHUB_SHA" linux package/python-protected-input/python-release-candidate-evidence.json \
+            package/python-protected-evidence/linux-signed.json \
+            package/python-protected-evidence/linux-containment.json \
+            package/python-protected-evidence/linux-accepted.json
+
       - name: Upload identity-free evidence
         uses: actions/upload-artifact@v7
         with:
@@ -186,10 +299,35 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Remove protected Linux signing material and package bytes
+      - name: Upload identity-free protected Python evidence
+        if: inputs.python_provenance_run_id != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: bottie-python-linux-protected-distribution-evidence
+          path: |
+            package/python-protected-evidence/linux-signed.json
+            package/python-protected-evidence/linux-containment.json
+            package/python-protected-evidence/linux-accepted.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove installed protected Python package
+        if: always() && inputs.python_provenance_run_id != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f "$RUNNER_TEMP/bottie-python-protected-installed"; then
+            if dpkg-query --show --showformat='${Status}' bottie 2>/dev/null | grep -q 'install ok installed'; then
+              sudo apt-get remove --yes bottie
+            fi
+            rm -f "$RUNNER_TEMP/bottie-python-protected-installed"
+          fi
+
+      - name: Remove protected Linux package bytes
         if: always()
         shell: bash
         run: |
-          rm -rf "$RUNNER_TEMP/bottie-linux-signing"
           rm -rf package/linux
           rm -rf package/updater-artifacts
+          rm -rf package/python-development package/python-protected-evidence package/python-protected-input
+          rm -rf package/python-provenance

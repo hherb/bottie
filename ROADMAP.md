@@ -283,8 +283,9 @@ inspection/installed-containment producer are also complete, while shipping evid
   app, and runs final shipping containment plus protected-package comparison without changing the default path;
 - [x] credential-free Linux protected-DEB public-signature verification, candidate-bound extraction inspection, exact
   fixed-layout installed helper/runtime equality, and Landlock/seccomp/rlimit plus process-lifecycle containment;
-- [ ] protected Linux Python workflow composition and exact Windows shipping-helper/runtime containment, signing, and
-  installed-package inspection;
+- [x] optional same-revision protected Linux Python workflow composition through exact pre-credential inspection,
+  existing signing, installed-package containment, and final candidate comparison without changing the default path;
+- [ ] exact Windows shipping-helper/runtime containment, signing, and installed-package inspection;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;
 - [x] process-local one-use approve/deny decisions bound to the unchanged complete call, with an opaque-token modal and

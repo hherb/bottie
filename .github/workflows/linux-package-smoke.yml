@@ -16,6 +16,7 @@ on:
       - "scripts/linux-distribution.mjs"
       - "scripts/linux-distribution.test.mjs"
       - "scripts/linux-package.contract.mjs"
+      - "scripts/linux-package-config.mjs"
       - "scripts/linux-package.mjs"
       - "distribution/linux/**"
       - "src/**"

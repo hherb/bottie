@@ -10,12 +10,27 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  linuxBuildArguments,
+  linuxPythonBuildArguments,
+  linuxPythonSmokeBuildArguments,
+  linuxSmokeBuildArguments,
+  offlineProviderSettings,
+  smokeXdgDirectories,
+} from "./linux-package-config.mjs";
 import { classifyDebianSignatureMembers } from "./linux-signature.mjs";
+
+export {
+  linuxBuildArguments,
+  linuxPythonBuildArguments,
+  linuxPythonSmokeBuildArguments,
+  linuxSmokeBuildArguments,
+  offlineProviderSettings,
+  smokeXdgDirectories,
+} from "./linux-package-config.mjs";
 
 const DEFAULT_DEB_DIRECTORY = "src-tauri/target/release/bundle/deb";
 const LINUX_EXECUTABLE_NAME = "bottie";
-const SMOKE_IDENTIFIER = "com.bottie.packaging-smoke";
-const SMOKE_PRODUCT_NAME = "bottie-packaging-smoke";
 const SMOKE_STARTUP_TIMEOUT_MS = 120_000;
 const SMOKE_SETTLE_MS = 3_000;
 const SMOKE_POLL_MS = 100;
@@ -37,40 +52,6 @@ const REQUIRED_DISTRIBUTION_DOCUMENTS = new Map([
   ["MODEL-NOTICE.txt", "modelNotice"],
   ["THIRD-PARTY-NOTICES.txt", "thirdPartyNotices"],
 ]);
-
-/** Returns the exact locked, DEB-only Tauri arguments used by the package command. */
-export function linuxBuildArguments() {
-  return ["build", "--bundles", "deb", "--no-sign", "--ci", "--", "--locked"];
-}
-
-/** Returns a locked build that isolates smoke storage under a distinct application identity. */
-export function linuxSmokeBuildArguments() {
-  const config = JSON.stringify({ identifier: SMOKE_IDENTIFIER, productName: SMOKE_PRODUCT_NAME });
-  return ["build", "--bundles", "deb", "--no-sign", "--ci", "--config", config, "--", "--locked"];
-}
-
-/** Produces provider settings that can contact only the supplied isolated loopback endpoint. */
-export function offlineProviderSettings(port) {
-  return {
-    omlxBaseUrl: `http://127.0.0.1:${port}/`,
-    ollamaBaseUrl: `http://127.0.0.1:${port}/`,
-    setupCompleted: true,
-    lastProviderId: "omlx",
-    lastModelId: "packaging-offline-smoke",
-  };
-}
-
-/** Resolves the process-owned XDG roots and exact distinct-identity app paths used by smoke. */
-export function smokeXdgDirectories(root) {
-  return {
-    cache: join(root, "cache"),
-    config: join(root, "config"),
-    data: join(root, "data"),
-    runtime: join(root, "runtime"),
-    support: join(root, "data", SMOKE_IDENTIFIER),
-    settings: join(root, "config", SMOKE_IDENTIFIER, "providers.json"),
-  };
-}
 
 /** Reads one closed Bottie icon identity from a packaged freedesktop launcher. */
 export function packagedLinuxIconName(desktopEntry) {
@@ -414,7 +395,11 @@ export function combineLinuxPackageEvidence(bundle, smoke) {
 }
 
 /** Builds and inspects the product DEB, then smoke-tests a separate application identity. */
-async function runLinuxSmoke(repositoryRoot) {
+async function runLinuxSmoke(
+  repositoryRoot,
+  packageArguments = linuxBuildArguments(),
+  smokeArguments = linuxSmokeBuildArguments(),
+) {
   const temporaryRoot = await mkdtemp(join(tmpdir(), "bottie-linux-smoke-"));
   try {
     const packageTargetDirectory = join(temporaryRoot, "package-target");
@@ -425,7 +410,7 @@ async function runLinuxSmoke(repositoryRoot) {
     await mkdir(packageExtractedDirectory);
     await mkdir(smokeExtractedDirectory);
 
-    buildLinuxBundle(repositoryRoot, linuxBuildArguments(), packageTargetDirectory);
+    buildLinuxBundle(repositoryRoot, packageArguments, packageTargetDirectory);
     const debPath = await findSingleDeb(join(packageTargetDirectory, "release", "bundle", "deb"));
     if (process.env.BOTTIE_LINUX_ARTIFACT_DIRECTORY) {
       const artifactDirectory = resolve(repositoryRoot, process.env.BOTTIE_LINUX_ARTIFACT_DIRECTORY);
@@ -434,7 +419,7 @@ async function runLinuxSmoke(repositoryRoot) {
     }
     const bundle = await inspectLinuxDeb(debPath, packageExtractedDirectory);
 
-    buildLinuxBundle(repositoryRoot, linuxSmokeBuildArguments(), smokeTargetDirectory);
+    buildLinuxBundle(repositoryRoot, smokeArguments, smokeTargetDirectory);
     const smokeDebPath = await findSingleDeb(join(smokeTargetDirectory, "release", "bundle", "deb"));
     const smokeBundle = await inspectLinuxDeb(smokeDebPath, smokeExtractedDirectory);
     const smoke = await smokeLinuxBundle(smokeExtractedDirectory, smokeBundle, smokeRoot);
@@ -473,6 +458,16 @@ async function main() {
   const [mode, suppliedPath] = process.argv.slice(2);
   if (mode === "--smoke") {
     await emitEvidence(repositoryRoot, await versionedEvidence(repositoryRoot, await runLinuxSmoke(repositoryRoot)));
+    return;
+  }
+  if (mode === "--smoke-python") {
+    await emitEvidence(
+      repositoryRoot,
+      await versionedEvidence(
+        repositoryRoot,
+        await runLinuxSmoke(repositoryRoot, linuxPythonBuildArguments(), linuxPythonSmokeBuildArguments()),
+      ),
+    );
     return;
   }
   const temporaryRoot = await mkdtemp(join(tmpdir(), "bottie-linux-inspect-"));
