@@ -10,6 +10,8 @@ on:
       - "python-runner/**"
       - "scripts/linux-python-containment.mjs"
       - "scripts/linux-python-containment.test.mjs"
+      - "scripts/linux-shipping-python-containment.mjs"
+      - "scripts/linux-shipping-python-containment.test.mjs"
   workflow_dispatch:
 
 permissions:
@@ -36,7 +38,8 @@ jobs:
 
       - name: Verify runtime-free contracts
         run: |
-          npm test -- scripts/linux-python-containment.test.mjs
+          npm test -- scripts/linux-python-containment.test.mjs \
+            scripts/linux-shipping-python-containment.test.mjs
           cargo test --manifest-path python-runner/Cargo.toml --locked
 
       - name: Download and independently verify the pinned development runtime

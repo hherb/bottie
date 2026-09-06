@@ -216,8 +216,11 @@ official-source runtime and exact package inspection. An explicitly marked devel
 The selected response's Tool activity labels approved source, bounded stdout/stderr, stable outcomes, and
 contained-runtime provenance from the durable path-free native audit. Separate credential-free macOS producers can
 stage and inspect an opt-in unsigned protected app after candidate acceptance, then re-inspect and exercise an already
-signed app into the closed shipping-containment input. The default configuration and existing protected distribution
-workflow remain unchanged, and no shipping record exists without a matching signed app and successful native proof.
+signed app into the closed shipping-containment input. A separate Linux producer verifies an already signed protected
+DEB from checked-in public trust material, requires its candidate-bound extracted Python resources to equal the fixed
+installed layout, and exercises the installed Landlock/seccomp boundary. The default configurations and protected
+distribution workflows remain unchanged, and no shipping record exists without matching final bytes and a successful
+native proof.
 See [`docs/python-sandbox.md`](docs/python-sandbox.md).
 
 ## Provider support

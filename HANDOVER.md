@@ -4,8 +4,9 @@ Last verified: 2026-09-06
 
 ## Start here
 
-PR #157 merged into `main` at `92a64e6`. The current branch is `codex/macos-protected-python-composition`. Microsoft
-Store certification and publication remain deferred until fresh release-owner notice.
+PR #158 merged into `main` at `3b72351`. The current branch is
+`codex/linux-protected-python-inspection-containment`. Microsoft Store certification and publication remain deferred
+until fresh release-owner notice.
 
 Read, in order:
 
@@ -15,60 +16,60 @@ Read, in order:
 
 ## Completed slice
 
-- The manual macOS distribution workflow now has one optional prior-provenance run ID. It accepts only a successful
-  `Python runtime provenance` run for the exact checked-out source revision, then downloads only its runtime, accepted
-  candidate, and protected inspection artifacts.
-- Before Apple credentials are exposed, the opt-in path rebuilds the helper and protected app through the existing
-  credential-free producer and requires its inspection to equal the carried inspection byte for byte. Apple values are
-  no longer job-wide; only credential verification/import and the selected signing step receive them.
-- The exact `package:macos:distribution:python` mode revalidates the candidate, inspection, and staged app, then signs
-  the runner, XPC service, and XPC client inside out with hardened runtime, secure timestamps, and their existing
-  least-privilege entitlements before the outer Bottie app enters the unchanged notarization, stapling, Gatekeeper, and
-  updater-evidence path.
-- After final trust verification, the mode emits a fresh candidate-validated signed inspection. The workflow then runs
-  the credential-free shipping-containment producer and `python:protected:compare` against those exact bytes and
-  uploads only bounded path-free evidence. Leaving the input blank retains the existing standard distribution command,
-  including the updater-publication caller.
+- `python:protected:linux:prove-shipping` accepts only one source revision, already signed DEB, accepted candidate, and
+  separate inspection/containment outputs. It does not build, sign, install, or mutate the supplied package.
+- Before extraction, the producer strips signing, updater, GnuPG, and loader overrides, creates transient private trust
+  roots from Bottie's checked-in public certificate and policy, and requires `debsig-verify` to accept the DEB.
+- The extracted helper, runtime, and package-owned evidence marker must form a closed protected inspection whose full
+  runtime identity matches the accepted Linux candidate. The fixed installed helper/runtime inspection must then equal
+  that exact extracted inspection canonically.
+- Only after signed-package verification and installed-byte equality does the producer reuse the existing installed
+  Landlock/seccomp/rlimit proof for host-fixture, network, process, and exec denial, private-pipe execution, cancellation,
+  and parent-close cleanup. It emits only the path-free protected inspection and an exact inspection-digest-bound
+  shipping-containment record.
 
 ## Current limits
 
 Python remains available only in an explicitly marked development bundle and only to a discovered tool-capable oMLX,
 Ollama, OpenAI-compatible, or Anthropic-compatible model. A configured remote provider receives the tool definition
-and the source/purpose it proposes; execution remains local and requires exact one-use approval. The locally available
-macOS staging app is unsigned and not a protected distribution. The opt-in workflow was not dispatched, so no current
-signed, notarized, stapled, Gatekeeper-accepted, shipping-containment, protected-package, or updater evidence was
-produced.
+and the source/purpose it proposes; execution remains local and requires exact one-use approval.
 
-The composition is a manual contract, not current distribution evidence. It does not establish installed production
-behavior, release identity, publication, or Microsoft Store certification, and it adds no Windows or Linux shipping
-evidence. No pull request, push, release, or automatic protected-workflow trigger was added.
+The Linux producer assumes the caller has separately installed the exact signed DEB and proves only its Python
+helper/runtime identity and containment boundary. It is not wired into the protected Linux workflow, no signed Python
+DEB is available on this macOS host, and no native Linux shipping proof was run. The existing macOS opt-in composition
+also remains undispatched. No current protected Python distribution, installed production, release, updater,
+publication, or Microsoft Store evidence was produced.
 
 The unrelated untracked logo-kit, screenshot, and Linux signing-public-key files remain untouched.
 
 ## Validation
 
-The focused tests first failed because the protected nested-signing plan, package command, and workflow composition did
-not exist. Three new tests cover inside-out production signing, candidate/inspection validation before signing, final
-inspection after notarization, the exact prior-run gate, pre-credential rebuild/equality, default-path preservation,
-and final containment/comparison ordering. The related distribution, shipping-containment, and comparison suites pass
-30 tests.
+The focused test first failed because the Linux producer module did not exist. Six new tests cover the closed
+inspection-bound record, malformed and path-bearing native evidence, exact extracted/installed equality, public-only
+signature verification, credential/loader stripping, verification-to-execution ordering, command registration, and
+absence from both protected workflows. The related runtime, candidate, comparison, containment, and distribution suites
+pass 46 tests.
 
-Frontend formatting, type/Svelte checks, the production build, and the full test suite pass; the suite reports 323
-tests passed and 3 skipped across 66 passing and 1 skipped files. Application Cargo formatting and `cargo check` pass.
+Frontend formatting, type/Svelte checks, the production build, and the full test suite pass; the suite reports 329
+tests passed and 3 skipped across 67 passing and 1 skipped files. Application Cargo formatting and `cargo check` pass.
 The serial application test suite reaches 497 passed and 36 ignored; the same four unchanged macOS/Windows
 private-process fixture tests time out or return their fixed helper failure at their unchanged boundaries. The
 limitation is retained without altering the native transport contract.
-Python-runner formatting, strict offline clippy, tests, and the locked offline release build pass. Dependency inventory,
-notice, release-asset, workflow-lint, targeted Prettier, and diff checks pass. Full `ROADMAP.md` Prettier retains its
-pre-existing unrelated formatting warning; the changed documentation and code are formatted.
+Python-runner formatting, strict offline clippy, 8 tests with 3 runtime-dependent ignores, and the locked offline
+release build pass. Dependency inventory, notice, release-asset, targeted Prettier, workflow-lint, command syntax, and
+diff checks pass. Full `ROADMAP.md` Prettier retains its pre-existing unrelated formatting warning; the changed section
+is formatted consistently.
 
 No browser or native-app UI review is required for this packaging contract. No protected distribution workflow was
-dispatched, and draft-PR hosted evidence is pending.
+composed or dispatched, macOS cannot run the signed/installed Linux proof, and draft-PR hosted contract checks are
+pending. Native signed/installed Linux evidence remains unavailable by design until the protected workflow is composed
+and separately authorized for dispatch.
 
 ## Next bounded action
 
-Add a credential-free Linux protected-DEB inspection and installed-containment producer against an already signed
-package. Reuse the existing Landlock/seccomp runner and fixed installed layout, but do not compose or dispatch the
-protected Linux workflow, release, publish, or perform Microsoft Store certification.
+Add an optional same-revision Python composition to the manual protected Linux workflow. Recreate and inspect the
+protected DEB before credentials, sign it through the existing path, install those exact final bytes, then run the
+credential-free producer and `python:protected:compare`. Preserve the default workflow path, and do not dispatch the
+protected workflow, release, publish, or perform Microsoft Store certification.
 
 Preserve the unrelated untracked assets and public key. Do not merge the draft PR without separate authorization.
