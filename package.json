@@ -32,6 +32,7 @@
     "package:macos:inspect": "node scripts/macos-package.mjs --inspect",
     "package:macos:smoke": "node scripts/macos-package.mjs --smoke",
     "package:macos:distribution": "node scripts/macos-distribution.mjs --run",
+    "package:macos:distribution:python": "node scripts/macos-distribution.mjs --run-python",
     "package:windows": "node scripts/windows-package.mjs --build",
     "package:windows:inspect": "node scripts/windows-package.mjs --inspect",
     "package:windows:smoke": "node scripts/windows-package.mjs --smoke",

@@ -381,6 +381,12 @@ values only into runner-temporary storage, uploads bounded evidence for seven da
 signature for one day, and deletes runner copies and temporary credentials even after failure. It does not create a
 tag, release, or `latest.json` by itself.
 
+Its optional `python_provenance_run_id` input selects a separate protected-Python composition. That path accepts only a
+successful Python provenance run for the exact checked-out revision, recreates and matches the inspected unsigned app
+before credentials, signs the nested runner, service, and client inside out, and runs final contained-execution and
+protected-package comparison gates after notarization and Gatekeeper acceptance. Leaving the input blank preserves the
+standard distribution path. This option is not dispatched automatically and does not publish a release.
+
 The protected environment and updater secrets are configured, but its Developer ID PKCS #12, temporary-keychain
 password, and notarization API-key secrets are not. The workflow therefore remains undispatched until those existing
 platform credentials are explicitly configured; source tests are not macOS distribution evidence.
