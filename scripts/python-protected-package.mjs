@@ -444,15 +444,29 @@ async function readJson(path) {
   }
 }
 
-/** Writes one private path-free comparison document. */
+/** Writes one private path-free protected-package evidence document. */
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
 }
 
-/** Dispatches the credential-free protected-package comparison command. */
+/** Dispatches the credential-free protected-package inspection and comparison commands. */
 async function main() {
   const [mode, ...arguments_] = process.argv.slice(2);
+  if (mode === "--inspect" && arguments_.length === 5) {
+    const [sourceSha, platform, candidatePath, inspectionPath, outputPath] = arguments_;
+    await writeJson(
+      resolve(outputPath),
+      validateProtectedPythonInspection(
+        sourceSha,
+        platform,
+        await readJson(resolve(candidatePath)),
+        await readJson(resolve(inspectionPath)),
+      ),
+    );
+    console.log("[bottie] Credential-free protected Python inspection accepted.");
+    return;
+  }
   if (mode === "--compare" && arguments_.length === 6) {
     const [sourceSha, platform, candidatePath, inspectionPath, containmentPath, outputPath] = arguments_;
     await writeJson(
@@ -468,7 +482,7 @@ async function main() {
     console.log("[bottie] Credential-free protected Python package evidence accepted.");
     return;
   }
-  throw new Error("Use --compare with exact inputs.");
+  throw new Error("Use --inspect or --compare with exact inputs.");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

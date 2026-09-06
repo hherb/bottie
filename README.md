@@ -218,9 +218,10 @@ contained-runtime provenance from the durable path-free native audit. Separate c
 stage and inspect an opt-in unsigned protected app after candidate acceptance, then re-inspect and exercise an already
 signed app into the closed shipping-containment input. A separate Linux producer verifies an already signed protected
 DEB from checked-in public trust material, requires its candidate-bound extracted Python resources to equal the fixed
-installed layout, and exercises the installed Landlock/seccomp boundary. The default configurations and protected
-distribution workflows remain unchanged, and no shipping record exists without matching final bytes and a successful
-native proof.
+installed layout, and exercises the installed Landlock/seccomp boundary. The manual protected Linux workflow has an
+optional exact-source composition that recreates and inspects those bytes before credentials, then signs, installs,
+proves, and compares them; leaving its input blank preserves the standard path. Neither optional protected workflow is
+dispatched automatically, and no shipping record exists without matching final bytes and a successful native proof.
 See [`docs/python-sandbox.md`](docs/python-sandbox.md).
 
 ## Provider support
@@ -530,6 +531,12 @@ canonical `debian-binary`, control-archive, and data-archive bytes, verifies the
 exactly one `origin` signature with `debsigs`, requires `debsig-verify` to accept the signed DEB through the published
 policy and public key, and only then signs those final DEB bytes for Tauri update delivery. Merely finding an `_gpg*`
 archive member is classified as identified but unverified and cannot pass the release gate.
+
+Its optional `python_provenance_run_id` input accepts only a successful Python provenance run for the exact checked-out
+revision. That path rebuilds and candidate-validates the Python-bearing DEB before signing credentials are used, signs
+the same retained product bytes through the existing distribution command, installs those final bytes, and requires
+the installed Landlock/seccomp proof plus `python:protected:compare` to pass. Leaving the input blank preserves the
+standard distribution path. The optional path is manual, has not been dispatched, and does not publish a release.
 
 Protected workflow run [`33279780950`](https://github.com/hherb/bottie/actions/runs/33279780950) passed from exact
 source `2bb1ead`. Its identity-free evidence binds the 23,442,642-byte final DEB and updater artifact to the same

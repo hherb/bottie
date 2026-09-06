@@ -9,6 +9,8 @@ import {
   combineLinuxPackageEvidence,
   inspectExtractedLinuxBundle,
   linuxBuildArguments,
+  linuxPythonBuildArguments,
+  linuxPythonSmokeBuildArguments,
   linuxSmokeBuildArguments,
   offlineProviderSettings,
   packagedLinuxIconName,
@@ -103,6 +105,36 @@ describe("Linux package evidence", () => {
       "--",
       "--locked",
     ]);
+  });
+
+  it("adds the opt-in Python resources without changing the default package arguments", () => {
+    const pythonConfig = "src-tauri/tauri.python-development.linux.conf.json";
+
+    assert.deepEqual(linuxPythonBuildArguments(), [
+      "build",
+      "--bundles",
+      "deb",
+      "--no-sign",
+      "--ci",
+      "--config",
+      pythonConfig,
+      "--",
+      "--locked",
+    ]);
+    assert.deepEqual(linuxPythonSmokeBuildArguments(), [
+      "build",
+      "--bundles",
+      "deb",
+      "--no-sign",
+      "--ci",
+      "--config",
+      JSON.stringify({ identifier: "com.bottie.packaging-smoke", productName: "bottie-packaging-smoke" }),
+      "--config",
+      pythonConfig,
+      "--",
+      "--locked",
+    ]);
+    assert.deepEqual(linuxBuildArguments(), ["build", "--bundles", "deb", "--no-sign", "--ci", "--", "--locked"]);
   });
 
   it("inventories required payload files and native runtimes using relative paths", async () => {
