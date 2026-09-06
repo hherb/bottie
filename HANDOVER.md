@@ -4,8 +4,8 @@ Last verified: 2026-09-06
 
 ## Start here
 
-PR #155 merged into `main` at `29b2d9e`. The current branch is `codex/macos-protected-python-staging`. Microsoft Store
-certification and publication remain deferred until fresh release-owner notice.
+PR #156 merged into `main` at `0d7ea02`. The current branch is `codex/macos-shipping-python-containment`. Microsoft
+Store certification and publication remain deferred until fresh release-owner notice.
 
 Read, in order:
 
@@ -15,62 +15,61 @@ Read, in order:
 
 ## Completed slice
 
-- A dedicated opt-in macOS overlay now composes the existing updater configuration with staged Python resources only
-  for the credential-free protected-package producer. Bottie's default configuration and existing protected
-  distribution workflow remain unchanged.
-- The producer copies only the exact source runner, runtime tree, and runtime evidence into a fresh ignored staging
-  root. It rejects unsupported targets, equal or nested source/destination roots, non-regular inputs, and links or
-  special entries anywhere in the runtime before replacing stale staged bytes.
-- Every Bottie, Tauri, Apple, updater, and platform signing environment value is removed before the producer invokes
-  Rust, Swift, frontend, or Tauri build tools. The application build is app-only, locked, non-interactive, and explicitly
-  `--no-sign`.
-- The packaged client, service, runner, and runtime are independently inspected into the existing bounded path-free
-  shape. A new comparison seam validates that inspection against the exact accepted macOS candidate runtime before any
-  separate containment evidence exists. The credential-free pull-request workflow runs this producer only after the
-  three-platform candidate is accepted and uploads only the inspection JSON.
+- A new local credential-free macOS shipping-containment producer accepts only an exact source revision, already signed
+  protected app, its closed path-free inspection, and an output path. It does not build or change application bytes.
+- The producer re-inspects the packaged client, service, runner, and runtime before execution. Both the supplied and
+  fresh inspection pass the existing closed macOS validator, and their canonical inspection digests must agree.
+- The packaged runner, XPC service, XPC client, and outer Bottie app are verified independently with strict `codesign`
+  checks and no recursive verification. Only then does the producer reuse the existing private-pipe execution,
+  cancellation, App Sandbox host-fixture denial, and client-exit cleanup proof.
+- Bottie, Apple, and Tauri signing environment values plus dynamic-loader and code-signing tool overrides are removed
+  from verification and proof children. Signature checks use the fixed system `codesign` executable. The output is the
+  existing closed shipping record bound to the source revision, target, and protected-inspection digest; identities,
+  credentials, host paths, and raw command output are absent.
 
 ## Current limits
 
 Python remains available only in an explicitly marked development bundle and only to a discovered tool-capable oMLX,
 Ollama, OpenAI-compatible, or Anthropic-compatible model. A configured remote provider receives the tool definition
-and the source/purpose it proposes; execution remains local and requires exact one-use approval. The new macOS app is
-an unsigned staging artifact, not a protected distribution. No platform has produced a shipping containment record,
-and the existing protected macOS workflow does not select this overlay. The producer does not establish nested signing,
-App Sandbox launch/denial, cancellation, client-exit cleanup, notarization, Gatekeeper acceptance, installed production
-behavior, release identity, publication, or Microsoft Store certification.
+and the source/purpose it proposes; execution remains local and requires exact one-use approval. The locally available
+macOS app is the unsigned PR #156 staging artifact, not a protected distribution, and strict signature verification
+rejects it as expected. No shipping containment record was produced. The existing protected macOS workflow neither
+selects the Python overlay nor invokes the new producer or comparison gate.
+
+The producer contract does not establish or perform signing, notarization, stapling, Gatekeeper acceptance, installed
+production behavior, release identity, workflow dispatch, publication, or Microsoft Store certification. It adds no
+Windows or Linux shipping evidence.
 
 The unrelated untracked logo-kit, screenshot, and Linux signing-public-key files remain untouched.
 
 ## Validation
 
-The focused test first failed because the producer module, protected overlay, workflow job, and pre-containment
-inspection validator did not exist. Thirteen focused tests cover exact locked build composition, credential scrubbing,
-fresh staging, unsupported targets, top-level and nested links, local command/overlay wiring, post-candidate workflow
-ordering, normalized inspection validation, runtime drift, and the existing closed comparison contract. The six related
-runtime, XPC, development-package, candidate, comparison, and producer suites pass 38 tests.
+The focused test first failed because the shipping-containment producer did not exist. Five new tests cover the exact
+closed output, canonical reinspection equality, stale and expanded inspection rejection, source-revision validation,
+independent non-signing verification, local command registration, dependency inventory, and absence from hosted
+workflow dispatch. The five related producer, XPC, packaged-smoke, inspection, and comparison suites pass 30 tests.
 
-The real local producer built the outer app with signing explicitly skipped, created only the opt-in app and updater
-archive, and returned a path-free macOS inspection. It records the exact four package-relative XPC transport entries,
+Read-only inspection of the existing unsigned app still records the exact four package-relative XPC transport entries,
 the 14,273,328-byte runner, and the accepted 539-file, 40,864,108-byte runtime with tree digest
-`293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b`. This is package identity evidence only.
+`293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b`. Strict `codesign` verification rejects that
+staging app, so the new proof correctly cannot run locally and no containment record is claimed.
 
-Frontend formatting, type/Svelte checks, the production build, and the full test suite pass; the suite reports 315
-tests passed and 3 skipped across 65 passing and 1 skipped files. Application Cargo formatting and `cargo check` pass.
-The application test suite reaches 497 passed and 36 ignored, but four unchanged private-process fixture tests time out
-under the default parallel runner; a serial rerun reaches 498 passed and 36 ignored with three of those fixture tests
-still timing out. Executing the generated closed-pipe fixture directly in a clean environment succeeds, so the local
-limitation is recorded without weakening or changing the transport contract. Python-runner formatting, strict offline
-clippy, tests, and the locked offline release build pass. Dependency inventory, notice, release-asset, targeted Prettier,
-workflow-lint, and diff checks pass.
+Frontend formatting, type/Svelte checks, the production build, and the full test suite pass; the suite reports 320
+tests passed and 3 skipped across 66 passing and 1 skipped files. Application Cargo formatting and `cargo check` pass.
+The serial application test suite reaches 497 passed and 36 ignored; the same four unchanged macOS/Windows
+private-process fixture tests time out or return their fixed helper failure, including an isolated macOS private-pipe
+rerun at its unchanged 45-second boundary. The limitation is retained without altering the native transport contract.
+Python-runner formatting, strict offline clippy, tests, and the locked offline release build pass. Dependency inventory,
+notice, release-asset, workflow-lint, targeted Prettier, and diff checks pass.
 
-No browser or native-app review is required for this packaging contract. No protected distribution workflow was
-dispatched, and draft-PR hosted evidence is pending.
+No browser or native-app UI review is required for this packaging contract. No protected distribution workflow was
+changed or dispatched, and draft-PR hosted evidence is pending.
 
 ## Next bounded action
 
-Add a credential-free macOS shipping-containment producer that consumes an already signed protected app plus its exact
-inspection, reruns the packaged App Sandbox denial and lifecycle checks, and emits the closed inspection-bound shipping
-record. Do not make it sign or notarize bytes, dispatch protected workflows, release, publish, or perform Microsoft
-Store certification.
+Add an opt-in composition to the existing protected macOS distribution path that carries the accepted candidate and
+protected inspection through final app signing, notarization, stapling, and Gatekeeper verification, then invokes this
+credential-free producer and `python:protected:compare` against those exact bytes. Do not dispatch the protected
+workflow, change the default distribution path, release, publish, or perform Microsoft Store certification.
 
 Preserve the unrelated untracked assets and public key. Do not merge the draft PR without separate authorization.

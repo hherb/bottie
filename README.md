@@ -214,9 +214,10 @@ official-source runtime and exact package inspection. An explicitly marked devel
 `run_python` contract to a discovered tool-capable oMLX, Ollama, OpenAI-compatible, or Anthropic-compatible model. Its
 32 KiB source and 512-character purpose require exact one-use approval before the platform-contained helper can run.
 The selected response's Tool activity labels approved source, bounded stdout/stderr, stable outcomes, and
-contained-runtime provenance from the durable path-free native audit. A separate credential-free macOS producer can
-stage and inspect an opt-in unsigned protected app after candidate acceptance; the default configuration, existing
-protected distribution workflow, and shipping claims remain unchanged.
+contained-runtime provenance from the durable path-free native audit. Separate credential-free macOS producers can
+stage and inspect an opt-in unsigned protected app after candidate acceptance, then re-inspect and exercise an already
+signed app into the closed shipping-containment input. The default configuration and existing protected distribution
+workflow remain unchanged, and no shipping record exists without a matching signed app and successful native proof.
 See [`docs/python-sandbox.md`](docs/python-sandbox.md).
 
 ## Provider support

@@ -18,6 +18,7 @@ export const PYTHON_RUNTIME_INVENTORY_INPUTS = [
   "scripts/macos-python-xpc.mjs",
   "scripts/macos-packaged-python-smoke.mjs",
   "scripts/macos-protected-python-package.mjs",
+  "scripts/macos-shipping-python-containment.mjs",
   "scripts/python-protected-package.mjs",
   "scripts/python-release-candidate.mjs",
   "scripts/windows-python-appcontainer.mjs",

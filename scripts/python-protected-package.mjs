@@ -126,6 +126,12 @@ export function validateProtectedPythonInspection(sourceSha, platform, releaseCa
   return validatedProtectedPythonInspection(sourceSha, platform, releaseCandidate, inspection).inspection;
 }
 
+/** Validates one protected-package inspection without making a candidate or containment claim. */
+export function validateProtectedPackageInspection(platform, inspection) {
+  requirePlatform(platform);
+  return validateInspection(platform, inspection, "protected package");
+}
+
 /** Binds one protected package to its development runtime identity and native containment proof. */
 export function bindProtectedPythonPackage(sourceSha, platform, releaseCandidate, inspection, containment) {
   const {
