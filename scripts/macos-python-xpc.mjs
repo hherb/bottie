@@ -229,14 +229,14 @@ async function createBundle(layout) {
 }
 
 /** Stages one unsigned product client and nested XPC service for Tauri packaging. */
-async function prepareProductBundle(repository, outputRoot, target) {
+export async function prepareProductBundle(repository, outputRoot, target, environment = process.env) {
   if (process.platform !== "darwin") throw new Error("The macOS Python product transport requires macOS.");
   const output = resolve(outputRoot);
   const layout = productBundleLayout(output, target);
   const sourceRoot = join(repository, "macos-python-xpc");
   const moduleCache = join(output, "swift-module-cache");
   const swiftEnvironment = {
-    ...process.env,
+    ...environment,
     CLANG_MODULE_CACHE_PATH: moduleCache,
     SWIFT_MODULECACHE_PATH: moduleCache,
   };
