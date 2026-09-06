@@ -10,6 +10,8 @@ on:
       - "python-runner/**"
       - "scripts/windows-python-appcontainer.mjs"
       - "scripts/windows-python-appcontainer.test.mjs"
+      - "scripts/windows-shipping-python-containment.mjs"
+      - "scripts/windows-shipping-python-containment.test.mjs"
       - "windows-python-appcontainer/**"
   workflow_dispatch:
 
@@ -37,7 +39,8 @@ jobs:
 
       - name: Verify runtime-free contracts
         run: |
-          npm test -- scripts/windows-python-appcontainer.test.mjs
+          npm test -- scripts/windows-python-appcontainer.test.mjs `
+            scripts/windows-shipping-python-containment.test.mjs
           cargo test --manifest-path python-runner/Cargo.toml --locked
 
       - name: Download and independently verify the pinned development runtime

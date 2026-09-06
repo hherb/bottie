@@ -220,8 +220,11 @@ signed app into the closed shipping-containment input. A separate Linux producer
 DEB from checked-in public trust material, requires its candidate-bound extracted Python resources to equal the fixed
 installed layout, and exercises the installed Landlock/seccomp boundary. The manual protected Linux workflow has an
 optional exact-source composition that recreates and inspects those bytes before credentials, then signs, installs,
-proves, and compares them; leaving its input blank preserves the standard path. Neither optional protected workflow is
-dispatched automatically, and no shipping record exists without matching final bytes and a successful native proof.
+proves, and compares them; leaving its input blank preserves the standard path. The Windows producer independently
+verifies an already signed protected MSI and its extracted executables, requires candidate-bound controller, helper,
+runtime, and marker bytes to equal the separately installed layout, and reuses the installed AppContainer proof.
+Neither optional protected workflow is dispatched automatically, and no shipping record exists without matching final
+bytes and a successful native proof.
 See [`docs/python-sandbox.md`](docs/python-sandbox.md).
 
 ## Provider support
@@ -488,6 +491,14 @@ thumbprints, passwords, host paths, or raw SignTool output. The release-candidat
 and extracted executable signatures to be identified, securely timestamped, and independently valid, plus an updater
 signature bound to the exact MSI hash. The required-reviewer environment and updater secrets are configured, but no
 Authenticode PFX or password is configured. No current Windows distribution or updater evidence is therefore claimed.
+
+After a separately authorized path has prepared, signed, independently verified, and installed one protected Python
+MSI, the credential-free `python:protected:windows:prove-shipping` command accepts the exact MSI and installed
+application directory. It requires Windows SDK SignTool through `BOTTIE_WINDOWS_SIGNTOOL_PATH`, verifies the MSI before
+extraction, independently verifies the extracted Bottie executable, AppContainer controller, and Python runner, then
+requires the candidate-bound extracted Python inspection to equal the installed controller/helper/runtime/marker
+inspection before running the existing installed AppContainer proof. The command neither installs nor mutates the MSI,
+and it is not composed into the protected Windows workflow.
 
 ### Linux package verification
 

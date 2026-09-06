@@ -249,7 +249,8 @@ MCP interoperability can follow after bottie's own tool contract and policy mode
 Status: core feasibility, macOS/Windows/Linux native containment proofs, opt-in development-bundle runner injection,
 durable provider-neutral audit, all four mapped-provider integrations, and selected-lineage result presentation
 complete; an opt-in macOS protected-distribution composition and a credential-free Linux protected-DEB
-inspection/installed-containment producer are also complete, while shipping evidence remains pending.
+inspection/installed-containment producer and Windows protected-MSI shipping-containment producer are also complete,
+while shipping evidence remains pending.
 
 - [x] standalone Rust helper with a bounded stdin/stdout JSON contract and no shell interpolation;
 - [x] CPython/WASI execution through Wasmtime's interpreter-only Pulley target;
@@ -285,7 +286,10 @@ inspection/installed-containment producer are also complete, while shipping evid
   fixed-layout installed helper/runtime equality, and Landlock/seccomp/rlimit plus process-lifecycle containment;
 - [x] optional same-revision protected Linux Python workflow composition through exact pre-credential inspection,
   existing signing, installed-package containment, and final candidate comparison without changing the default path;
-- [ ] exact Windows shipping-helper/runtime containment, signing, and installed-package inspection;
+- [x] credential-free Windows protected-MSI and extracted-executable verification, candidate-bound extraction,
+  fixed-layout installed controller/helper/runtime equality, and AppContainer/process-lifecycle containment;
+- [ ] optional same-revision protected Windows Python workflow composition through exact pre-credential inspection,
+  existing Authenticode/updater signing, installed-package containment, and final candidate comparison;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;
 - [x] process-local one-use approve/deny decisions bound to the unchanged complete call, with an opaque-token modal and

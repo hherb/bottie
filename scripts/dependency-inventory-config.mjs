@@ -24,6 +24,7 @@ export const PYTHON_RUNTIME_INVENTORY_INPUTS = [
   "scripts/python-protected-package.mjs",
   "scripts/python-release-candidate.mjs",
   "scripts/windows-python-appcontainer.mjs",
+  "scripts/windows-shipping-python-containment.mjs",
   "src-tauri/tauri.python-development.linux.conf.json",
   "src-tauri/tauri.python-development.macos.conf.json",
   "src-tauri/tauri.python-development.windows.conf.json",
