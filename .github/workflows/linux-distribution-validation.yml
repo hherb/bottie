@@ -248,6 +248,15 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BOTTIE_UPDATER_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run package:linux:distribution
 
+      - name: Remove protected Linux signing material
+        if: always()
+        shell: bash
+        run: |
+          if test -d "$RUNNER_TEMP/bottie-linux-signing/gnupg"; then
+            /usr/bin/gpgconf --homedir "$RUNNER_TEMP/bottie-linux-signing/gnupg" --kill gpg-agent || true
+          fi
+          rm -rf "$RUNNER_TEMP/bottie-linux-signing"
+
       - name: Install and prove the protected Python DEB
         if: inputs.python_provenance_run_id != ''
         shell: bash
@@ -314,11 +323,10 @@ jobs:
             rm -f "$RUNNER_TEMP/bottie-python-protected-installed"
           fi
 
-      - name: Remove protected Linux signing material and package bytes
+      - name: Remove protected Linux package bytes
         if: always()
         shell: bash
         run: |
-          rm -rf "$RUNNER_TEMP/bottie-linux-signing"
           rm -rf package/linux
           rm -rf package/updater-artifacts
           rm -rf package/python-development package/python-protected-evidence package/python-protected-input

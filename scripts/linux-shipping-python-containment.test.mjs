@@ -162,6 +162,10 @@ describe("Linux shipping Python containment producer", () => {
       new URL("../.github/workflows/linux-distribution-validation.yml", import.meta.url),
       "utf8",
     );
+    const packageSmokeWorkflow = await readFile(
+      new URL("../.github/workflows/linux-package-smoke.yml", import.meta.url),
+      "utf8",
+    );
     const containmentWorkflow = await readFile(
       new URL("../.github/workflows/linux-python-containment.yml", import.meta.url),
       "utf8",
@@ -181,6 +185,7 @@ describe("Linux shipping Python containment producer", () => {
     const recreation = protectedWorkflow.indexOf("- name: Recreate and inspect the protected Python DEB");
     const credentials = protectedWorkflow.indexOf("- name: Prepare protected Linux signing material");
     const distribution = protectedWorkflow.indexOf("- name: Sign and independently verify Linux distribution");
+    const credentialCleanup = protectedWorkflow.indexOf("- name: Remove protected Linux signing material");
     const installation = protectedWorkflow.indexOf("- name: Install and prove the protected Python DEB");
 
     expect(protectedWorkflow).toContain("python_provenance_run_id:");
@@ -199,7 +204,11 @@ describe("Linux shipping Python containment producer", () => {
     expect(recreation).toBeLessThan(credentials);
     expect(protectedWorkflow.slice(recreation, credentials)).not.toContain("secrets.");
     expect(distribution).toBeGreaterThan(credentials);
-    expect(installation).toBeGreaterThan(distribution);
+    expect(credentialCleanup).toBeGreaterThan(distribution);
+    expect(installation).toBeGreaterThan(credentialCleanup);
+    expect(protectedWorkflow.slice(credentialCleanup, installation)).toContain(
+      'rm -rf "$RUNNER_TEMP/bottie-linux-signing"',
+    );
     expect(protectedWorkflow.slice(installation)).toContain("The protected Linux runner already has Bottie installed.");
     expect(protectedWorkflow.slice(installation)).toContain("bottie-python-protected-installed");
     expect(protectedWorkflow.slice(installation)).toContain("apt-get install --yes");
@@ -209,6 +218,8 @@ describe("Linux shipping Python containment producer", () => {
     expect(protectedWorkflow).toContain('test -f "$RUNNER_TEMP/bottie-python-protected-installed"');
     expect(protectedWorkflow).toContain("if: inputs.python_provenance_run_id == ''");
     expect(protectedWorkflow).not.toMatch(/pull_request:|push:|release:/);
+    expect(packageSmokeWorkflow).toContain('"scripts/linux-package-config.mjs"');
+    expect(provenanceWorkflow).toContain('"scripts/linux-package-config.mjs"');
     expect(producer.indexOf("linuxShippingVerificationPlan(repository, temporary, deb)")).toBeLessThan(
       producer.indexOf('runHostCommand("dpkg-deb"'),
     );

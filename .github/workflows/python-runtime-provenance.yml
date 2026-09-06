@@ -16,6 +16,7 @@ on:
       - "scripts/macos-protected-python-package.test.mjs"
       - "scripts/linux-python-containment.mjs"
       - "scripts/linux-python-containment.test.mjs"
+      - "scripts/linux-package-config.mjs"
       - "scripts/python-runtime-bundle.mjs"
       - "scripts/python-runtime-bundle.test.mjs"
       - "scripts/python-release-candidate.mjs"
