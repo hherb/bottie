@@ -84,6 +84,17 @@ development Tauri package, extract it, and compare the packaged helper/runtime a
 recording each required native transport's package-relative path, byte count, and digest. Same-path repeatability is a
 bounded hosted proof, not a claim that independent hosts produce identical bytes.
 
+Each platform job also writes a closed marker for its checked-out source revision. After all three package and native
+containment proofs pass, a credential-free aggregate job downloads their path-free JSON and runs
+`python:evidence:bind`. The binder requires one complete macOS/Windows/Linux set at the candidate revision, exact
+extracted/installed equality on Windows and Linux, closed successful containment records, reviewed native transport
+paths, supported targets, bounded byte counts, valid hashes, and one identical CPython/WASI runtime core. macOS and
+Linux must retain the same 539-file runtime tree. Windows must retain the same core plus its one deterministic
+`python314.zip`, producing a separately recorded 540-file platform tree. The binder emits only normalized public
+metadata, exact per-platform runtime identities, and canonical input hashes to
+`package/python-release-candidate-evidence.json`. Missing, mixed-revision, added-field, or inconsistent evidence is
+rejected rather than downgraded.
+
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
 byte for byte. It then runs the same Landlock/seccomp/rlimit and process-lifecycle verifier directly against the
@@ -418,8 +429,7 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add a credential-free release-candidate binding contract over the existing path-free macOS,
-Windows, and Linux Python package/containment evidence. It should reject missing, mixed-revision, or inconsistent
-development evidence without creating signatures, claiming shipping containment, changing default/protected package
-configs, notarizing, releasing, publishing, or performing Microsoft Store work. Those actions remain separately
-authorized and deferred.
+The next bounded slice can add a credential-free comparison contract for future protected packages to prove that their
+bundled Python runtime matches the accepted development release-candidate runtime identity while requiring separate
+platform-native shipping containment evidence. It must not use credentials, dispatch protected workflows, sign,
+notarize, release, publish, or perform Microsoft Store work. Those actions remain separately authorized and deferred.
