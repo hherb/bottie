@@ -12,8 +12,8 @@ provider-neutral Rust execution boundary into the helper's bounded private-pipe 
 macOS XPC client, or a Windows AppContainer controller. Only an explicitly marked development bundle advertises the
 tool, and only on a discovered tool-capable mapped-provider route. Credential-free macOS producers can now stage and
 inspect an opt-in unsigned protected app after candidate acceptance, then verify and exercise an already signed copy.
-Bottie does not ship a Python tool. The default configuration and existing protected distribution workflow remain
-unchanged.
+The protected macOS distribution workflow has a separate optional composition for those inputs; its default path
+remains unchanged. Bottie does not ship a Python tool.
 
 ## Chosen core
 
@@ -136,8 +136,27 @@ Signing-related Bottie, Apple, and Tauri environment values plus dynamic-loader 
 removed from every verification and proof child. Signature checks invoke the fixed system `codesign` executable. The
 producer cannot build, sign, notarize, staple, dispatch a workflow, or publish. Its output is exactly the closed macOS
 shipping record required by `python:protected:compare`, bound to the canonical supplied-inspection digest and source
-revision without identities, credentials, host paths, or raw command output. The current protected distribution
-workflow does not invoke it, and an unsigned staging app cannot produce this record.
+revision without identities, credentials, host paths, or raw command output. An unsigned staging app cannot produce
+this record.
+
+The manual protected macOS distribution workflow now accepts an optional prior provenance run ID. The opt-in path
+first requires that run to be a successful `Python runtime provenance` run for the exact checked-out source revision,
+then downloads only its runtime, accepted candidate, and protected inspection artifacts. Before Apple credentials are
+made available, it rebuilds the helper and protected app through the credential-free producer and requires the new
+inspection to equal the carried inspection byte for byte.
+
+The exact `package:macos:distribution:python` mode revalidates that candidate and inspection against the staged app,
+then signs the runner, XPC service, and XPC client inside out with hardened runtime, secure timestamps, and the existing
+least-privilege entitlements before signing the outer app. It reuses the existing notarization, stapling, Gatekeeper,
+and updater-evidence path and emits a fresh candidate-validated inspection only after final trust verification. The
+workflow then runs the credential-free shipping-containment producer and `python:protected:compare` against that final
+inspection. Only path-free inspection, containment, comparison, distribution, and short-lived updater evidence are
+uploaded.
+
+Leaving the optional run ID blank retains the existing standard distribution command, including the reusable call from
+the updater-publication workflow. No pull request, push, or release trigger was added. This composition has not been
+dispatched and establishes no current signed, notarized, stapled, Gatekeeper-accepted, contained, or published Python
+artifact.
 
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
@@ -347,6 +366,11 @@ The command re-inspects the signed app, rejects any change from the supplied clo
 code object independently, and emits the inspection-bound containment record only if all four packaged XPC checks pass.
 It neither signs nor changes the app. The comparison step remains separate and still requires the accepted candidate,
 protected inspection, and this containment record.
+
+The credential-dependent composition is intentionally available only through the manual `macOS distribution
+validation` workflow's `python_provenance_run_id` input. Selecting it imports protected Apple and updater credentials
+after the exact source-bound unsigned app has been recreated. Do not dispatch it without separate release-owner
+authorization; running local contract tests does not create shipping evidence.
 
 The provenance workflow is the authoritative official-source build and package-inspection recipe. Locally, after
 building official CPython with the exact manifest inputs, stage and inspect it with:

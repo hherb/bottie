@@ -9,6 +9,10 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { fileURLToPath } from "node:url";
 
 import { inspectBundleFiles, macosUpdaterBuildArguments } from "./macos-package.mjs";
+import { packagedBundleLayout } from "./macos-packaged-python-smoke.mjs";
+import { requireMatchingMacosProtectedInspection } from "./macos-shipping-python-containment.mjs";
+import { validateProtectedPythonInspection } from "./python-protected-package.mjs";
+import { inspectPackagedPythonBundle, validateRuntimeManifest } from "./python-runtime-bundle.mjs";
 import { bindUpdaterArtifactEvidence, exportUpdaterArtifact, signUpdaterArtifact } from "./updater-artifact.mjs";
 
 const DEVELOPER_ID_APPLICATION_PREFIX = "Developer ID Application:";
@@ -18,6 +22,30 @@ const ENTITLEMENTS_PATH = "src-tauri/Entitlements.plist";
 const NOTARIZATION_ARCHIVE_PATH = "package/macos/bottie-notarization.zip";
 const NOTARIZATION_TIMEOUT = "30m";
 const UPDATER_ARCHIVE_PATH = "src-tauri/target/release/bundle/macos/bottie.app.tar.gz";
+
+/** Returns the exact inside-out Developer ID signing plan for protected Python nested code. */
+export function protectedPythonDistributionSigningPlan(repositoryRoot, applicationRoot, identity) {
+  const layout = packagedBundleLayout(applicationRoot);
+  const entitlementRoot = join(resolve(repositoryRoot), "macos-python-xpc");
+  const signingPrefix = ["--force", "--sign", identity, "--options", "runtime", "--timestamp"];
+  return [
+    {
+      arguments: [...signingPrefix, "--entitlements", join(entitlementRoot, "Runner.entitlements"), layout.runner],
+      label: "packaged Python runner",
+      path: layout.runner,
+    },
+    {
+      arguments: [...signingPrefix, "--entitlements", join(entitlementRoot, "Service.entitlements"), layout.service],
+      label: "packaged Python XPC service",
+      path: layout.service,
+    },
+    {
+      arguments: [...signingPrefix, layout.application],
+      label: "packaged Python XPC client",
+      path: layout.application,
+    },
+  ];
+}
 
 /** Selects one usable Developer ID Application identity without returning its certificate label. */
 export function selectDeveloperIdApplicationIdentity(output, requestedIdentity = "") {
@@ -148,6 +176,14 @@ function runStructuredHostCommand(command, arguments_) {
   return result.stdout ?? "";
 }
 
+/** Signs and independently verifies protected Python nested code before the outer app. */
+function signProtectedPythonCode(repositoryRoot, bundlePath, identity) {
+  for (const step of protectedPythonDistributionSigningPlan(repositoryRoot, bundlePath, identity)) {
+    runHostCommand("/usr/bin/codesign", step.arguments);
+    runHostCommand("/usr/bin/codesign", ["--verify", "--strict", "--verbose=2", step.path]);
+  }
+}
+
 /** Builds the same locked unsigned application bundle used by local packaging. */
 function buildUnsignedBundle(repositoryRoot) {
   const script = join(repositoryRoot, "scripts", "macos-development-signing.mjs");
@@ -241,14 +277,57 @@ async function createDistributionEvidence(bundlePath, entitlementsPath, archive,
   };
 }
 
+/** Reads one required protected Python JSON input without reflecting its host path. */
+async function readProtectedPythonJson(path) {
+  try {
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    throw new Error("Required protected macOS Python evidence is unavailable or malformed.");
+  }
+}
+
+/** Inspects the exact protected Python bytes against the pinned runtime manifest. */
+async function inspectProtectedPythonBundle(repositoryRoot, bundlePath) {
+  const manifest = validateRuntimeManifest(
+    await readProtectedPythonJson(join(repositoryRoot, "python-runner", "runtime-manifest.json")),
+  );
+  return inspectPackagedPythonBundle(bundlePath, "macos", manifest);
+}
+
+/** Loads and revalidates the carried candidate and unsigned protected inspection. */
+async function loadProtectedPythonContext(repositoryRoot, bundlePath, configuration) {
+  const candidate = await readProtectedPythonJson(configuration.candidatePath);
+  const suppliedInspection = validateProtectedPythonInspection(
+    configuration.sourceSha,
+    "macos",
+    candidate,
+    await readProtectedPythonJson(configuration.inspectionPath),
+  );
+  requireMatchingMacosProtectedInspection(
+    suppliedInspection,
+    await inspectProtectedPythonBundle(repositoryRoot, bundlePath),
+  );
+  return { candidate };
+}
+
+/** Writes the final candidate-validated signed inspection with private permissions. */
+async function writeProtectedPythonInspection(path, inspection) {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(inspection, null, 2)}\n`, { mode: 0o600 });
+}
+
 /** Runs the credential-dependent distribution contract without publishing the application. */
-async function runDistribution(repositoryRoot) {
+async function runDistribution(repositoryRoot, protectedPython = null) {
   const bundlePath = resolve(repositoryRoot, DEFAULT_BUNDLE_PATH);
   const entitlementsPath = resolve(repositoryRoot, ENTITLEMENTS_PATH);
   const archivePath = resolve(repositoryRoot, NOTARIZATION_ARCHIVE_PATH);
   const evidencePath = resolve(repositoryRoot, DEFAULT_EVIDENCE_PATH);
   await rm(evidencePath, { force: true });
-  buildUnsignedBundle(repositoryRoot);
+  if (protectedPython) await rm(protectedPython.outputPath, { force: true });
+  const protectedContext = protectedPython
+    ? await loadProtectedPythonContext(repositoryRoot, bundlePath, protectedPython)
+    : null;
+  if (!protectedContext) buildUnsignedBundle(repositoryRoot);
   const identities = spawnSync("security", ["find-identity", "-v", "-p", "codesigning"], { encoding: "utf8" });
   if (identities.error || identities.status !== 0) {
     throw new Error("Bottie could not inspect the active code-signing identities.");
@@ -258,6 +337,7 @@ async function runDistribution(repositoryRoot) {
     process.env.BOTTIE_APPLE_DISTRIBUTION_IDENTITY,
   );
   const authenticationArguments = resolveNotaryAuthentication(process.env, repositoryRoot);
+  if (protectedContext) signProtectedPythonCode(repositoryRoot, bundlePath, identity);
   runHostCommand("codesign", distributionSigningArguments(identity, entitlementsPath, bundlePath));
   inspectDistributionSignature(bundlePath);
   try {
@@ -277,6 +357,15 @@ async function runDistribution(repositoryRoot) {
     );
     await mkdir(dirname(evidencePath), { recursive: true });
     await writeFile(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
+    if (protectedContext) {
+      const inspection = validateProtectedPythonInspection(
+        protectedPython.sourceSha,
+        "macos",
+        protectedContext.candidate,
+        await inspectProtectedPythonBundle(repositoryRoot, bundlePath),
+      );
+      await writeProtectedPythonInspection(protectedPython.outputPath, inspection);
+    }
     return evidence;
   } finally {
     await rm(archivePath, { force: true });
@@ -286,10 +375,29 @@ async function runDistribution(repositoryRoot) {
 /** Dispatches the single explicit distribution-validation mode. */
 async function main() {
   if (process.platform !== "darwin") throw new Error("The macOS distribution workflow requires a macOS host.");
-  const arguments_ = process.argv.slice(2);
-  if (arguments_.length !== 1 || arguments_[0] !== "--run") throw new Error("Use the exact --run mode.");
+  const [mode, ...arguments_] = process.argv.slice(2);
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  console.log(JSON.stringify(await runDistribution(repositoryRoot), null, 2));
+  if (mode === "--run" && arguments_.length === 0) {
+    console.log(JSON.stringify(await runDistribution(repositoryRoot), null, 2));
+    return;
+  }
+  if (mode === "--run-python" && arguments_.length === 4) {
+    const [sourceSha, candidatePath, inspectionPath, outputPath] = arguments_;
+    console.log(
+      JSON.stringify(
+        await runDistribution(repositoryRoot, {
+          candidatePath: resolve(candidatePath),
+          inspectionPath: resolve(inspectionPath),
+          outputPath: resolve(outputPath),
+          sourceSha,
+        }),
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+  throw new Error("Use the exact --run mode or --run-python with source, candidate, inspection, and output.");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

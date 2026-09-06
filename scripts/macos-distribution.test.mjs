@@ -10,6 +10,7 @@ import {
   macosUpdaterTarget,
   notarySubmitArguments,
   parseNotaryResult,
+  protectedPythonDistributionSigningPlan,
   resolveNotaryAuthentication,
   selectDeveloperIdApplicationIdentity,
   staplerArguments,
@@ -108,6 +109,43 @@ describe("macOS distribution signing and notarization", () => {
     ]);
     expect(arguments_).not.toContain("--deep");
     expect(arguments_).not.toContain("--timestamp=none");
+  });
+
+  it("signs protected Python nested code inside out with production policy", () => {
+    const plan = protectedPythonDistributionSigningPlan("/repo", "/repo/bottie.app", "B".repeat(40));
+
+    expect(plan.map(({ label }) => label)).toEqual([
+      "packaged Python runner",
+      "packaged Python XPC service",
+      "packaged Python XPC client",
+    ]);
+    expect(plan[0].arguments).toContain("/repo/macos-python-xpc/Runner.entitlements");
+    expect(plan[1].arguments).toContain("/repo/macos-python-xpc/Service.entitlements");
+    for (const step of plan) {
+      expect(step.arguments).toContain("--sign");
+      expect(step.arguments[step.arguments.indexOf("--sign") + 1]).toBe("B".repeat(40));
+      expect(step.arguments).toContain("--options");
+      expect(step.arguments).toContain("runtime");
+      expect(step.arguments).toContain("--timestamp");
+      expect(step.arguments).not.toContain("--timestamp=none");
+      expect(step.arguments).not.toContain("--deep");
+    }
+  });
+
+  it("validates carried Python evidence before signing and inspects final trusted bytes", async () => {
+    const script = await readFile(new URL("./macos-distribution.mjs", import.meta.url), "utf8");
+    const distribution = script.slice(script.indexOf("async function runDistribution"));
+
+    expect(distribution.indexOf("loadProtectedPythonContext(")).toBeLessThan(
+      distribution.indexOf("signProtectedPythonCode("),
+    );
+    expect(distribution.indexOf("signProtectedPythonCode(")).toBeLessThan(
+      distribution.indexOf("distributionSigningArguments("),
+    );
+    expect(distribution.indexOf("notarizeAndVerify(")).toBeLessThan(
+      distribution.lastIndexOf("inspectProtectedPythonBundle("),
+    );
+    expect(distribution).toContain("if (!protectedContext) buildUnsignedBundle(repositoryRoot)");
   });
 
   it("keeps the hardened-runtime entitlement policy minimal and credential-free", async () => {
@@ -214,6 +252,43 @@ describe("macOS distribution signing and notarization", () => {
     expect(workflow).toContain("package/macos-distribution-evidence.json");
     expect(workflow).not.toMatch(/pull_request:|push:|release:/);
     expect(workflow).not.toMatch(/package\/macos\/.*\.(?:app|zip|dmg)/);
+  });
+
+  it("adds only an explicit prior-provenance composition to the protected workflow", async () => {
+    const workflow = await readFile(
+      new URL("../.github/workflows/macos-distribution-validation.yml", import.meta.url),
+      "utf8",
+    );
+    const packageManifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    const stage = workflow.indexOf("- name: Recreate the accepted protected Python app");
+    const credentials = workflow.indexOf("- name: Verify protected Apple credential presence");
+    const distribution = workflow.indexOf("- name: Sign and verify the protected Python app");
+    const containment = workflow.indexOf("- name: Prove final protected Python containment");
+
+    expect(packageManifest.scripts["package:macos:distribution:python"]).toBe(
+      "node scripts/macos-distribution.mjs --run-python",
+    );
+    expect(workflow).toContain("python_provenance_run_id:");
+    expect(workflow).toContain("actions: read");
+    expect(workflow).toContain('gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BOTTIE_PYTHON_PROVENANCE_RUN_ID"');
+    expect(workflow).toContain('.name == "Python runtime provenance"');
+    expect(workflow).toContain(".head_sha == $source");
+    expect(workflow).toContain('.conclusion == "success"');
+    expect(workflow).toContain("bottie-python-runtime-provenance");
+    expect(workflow).toContain("bottie-python-release-candidate-evidence");
+    expect(workflow).toContain("bottie-python-macos-protected-inspection");
+    expect(stage).toBeGreaterThan(-1);
+    expect(stage).toBeLessThan(credentials);
+    expect(workflow.slice(stage, credentials)).not.toContain("secrets.");
+    expect(distribution).toBeGreaterThan(credentials);
+    expect(containment).toBeGreaterThan(distribution);
+    expect(workflow.slice(stage, credentials)).toContain("cmp");
+    expect(workflow.slice(distribution, containment)).toContain("package:macos:distribution:python");
+    expect(workflow.slice(containment)).toContain("python:protected:macos:prove-shipping");
+    expect(workflow.slice(containment)).toContain("python:protected:compare");
+    expect(workflow.slice(containment)).not.toContain("BOTTIE_APPLE_NOTARY_KEY_PATH");
+    expect(workflow).toContain("if: inputs.python_provenance_run_id == ''");
+    expect(workflow).not.toMatch(/pull_request:|push:|release:/);
   });
 
   it("rejects host-absolute symlink targets before they can enter retained evidence", async () => {
