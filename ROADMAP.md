@@ -271,7 +271,9 @@ complete; shipping evidence remains pending.
   private-pipe execution, cancellation, and client-exit cleanup smoke;
 - [x] credential-free release-candidate binding of the exact macOS, Windows, and Linux development package/containment
   evidence to one shared source revision and CPython/WASI runtime core while retaining exact platform layouts;
-- [ ] exact shipping-helper/runtime containment, signing, release-candidate comparison, and installed-package inspection;
+- [x] credential-free protected-package comparison against the accepted development runtime identity, requiring a
+  separate exact-inspection-bound platform-native shipping containment record;
+- [ ] exact shipping-helper/runtime containment, signing, and installed-package inspection;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;
 - [x] process-local one-use approve/deny decisions bound to the unchanged complete call, with an opaque-token modal and
