@@ -3,7 +3,8 @@
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with packaged macOS app containment plus installed Windows MSI and Linux DEB
 containment, a credential-free future protected-package comparison contract plus macOS staging/inspection and
-shipping-containment producers and a Linux protected-DEB inspection/installed-containment producer, the
+shipping-containment producers plus Linux protected-DEB and Windows protected-MSI inspection/installed-containment
+producers, the
 approval-required native proposal/review contract, a process-local one-use
 approve/deny lifecycle, provider-neutral async wait/resume,
 append-only durable audit, explicit oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible mappings, and
@@ -191,6 +192,21 @@ failure.
 Leaving the optional run ID blank retains the existing standard build, inspection, smoke, and signing commands,
 including reusable workflow calls. No pull request, push, or release trigger was added. This composition has not been
 dispatched and establishes no current signed, installed, contained, or published Linux Python artifact.
+
+The separate Windows shipping-containment producer accepts one source revision, already signed MSI, separately
+installed application directory, accepted candidate, and separate inspection and containment output paths. It requires
+one caller-selected absolute Windows SDK SignTool path, removes that path plus signing, updater, Python-runtime, Node,
+.NET profiling, and startup-hook environment overrides from every child, and independently verifies the MSI under
+Windows distribution policy before administrative extraction. It then verifies the extracted Bottie executable,
+AppContainer controller, and Python runner independently without retaining signer identities or tool output.
+
+The extracted controller, runner, runtime, and package-owned evidence marker must form a closed protected inspection
+whose runtime identity matches the accepted Windows candidate. The producer reinspects the same fixed files below the
+supplied installed application root, requires exact canonical equality, and only then invokes the existing installed
+zero-capability AppContainer proof for low integrity, stripped privileges, host-fixture denial, resource limits,
+private-pipe execution, cancellation, and controller-close cleanup. The outputs are the path-free protected inspection
+and exact inspection-digest-bound shipping record. The producer cannot build, sign, install, compose or dispatch a
+workflow, release, publish, or perform Store work, and no Windows shipping evidence was produced on this macOS host.
 
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
@@ -416,6 +432,21 @@ The command verifies the DEB again from checked-in public trust material, extrac
 resources, requires the fixed installed resources to match that extraction, and runs the installed native proof. It
 does not install or mutate the supplied DEB. `python:protected:compare` remains a separate final gate.
 
+On Windows, after a separately authorized path has built, signed, verified, and installed one protected Python MSI,
+run the credential-free producer with:
+
+```powershell
+$env:BOTTIE_WINDOWS_SIGNTOOL_PATH = "C:\absolute\Windows SDK\signtool.exe"
+npm run python:protected:windows:prove-shipping -- `
+  <source-sha> <signed-msi> <installed-application-directory> <candidate-json> `
+  <inspection-output-json> <containment-output-json>
+```
+
+The command verifies the MSI before extracting it, verifies each extracted executable independently,
+candidate-validates the exact Python resources, requires the separately installed inspection to match, and runs the
+installed AppContainer proof. It does not install or mutate the supplied MSI. `python:protected:compare` remains a
+separate final gate.
+
 The credential-dependent compositions are intentionally available only through the manual macOS and Linux
 distribution workflows' `python_provenance_run_id` input. Each requires an exact source-bound unsigned package before
 its platform credentials are used. Do not dispatch either path without separate release-owner authorization; running
@@ -588,8 +619,9 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add the credential-free Windows shipping-containment producer for an already signed and
-separately installed protected MSI. It must re-inspect the exact controller, helper, runtime, and package-owned marker,
-require installed equality, then reuse the existing AppContainer denial, private-pipe, cancellation, and controller
-cleanup proof. It must not compose or dispatch the Windows protected workflow, sign, release, publish, or perform
-Microsoft Store work. Those actions remain separately authorized and deferred.
+The next bounded slice can add an optional same-revision Python composition to the existing manual Windows distribution
+workflow: acquire only the accepted provenance inputs, create and inspect the protected MSI before credentials, sign it
+through the existing Authenticode and updater path, install those exact final bytes, then invoke the credential-free
+Windows producer and `python:protected:compare`. It must preserve the default workflow path and must not dispatch the
+protected workflow, release, publish, or perform Microsoft Store work. Those actions remain separately authorized and
+deferred.
