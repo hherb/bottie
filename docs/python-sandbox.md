@@ -2,7 +2,7 @@
 
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with packaged macOS app containment plus installed Windows MSI and Linux DEB
-containment, the approval-required native
+containment, a credential-free future protected-package comparison contract, the approval-required native
 proposal/review contract, a process-local one-use approve/deny lifecycle, provider-neutral async wait/resume,
 append-only durable audit, explicit oMLX, Ollama, OpenAI-compatible, and Anthropic-compatible mappings, and
 selected-lineage execution-result presentation are implemented. The native waiter also publishes bounded approval
@@ -94,6 +94,20 @@ Linux must retain the same 539-file runtime tree. Windows must retain the same c
 metadata, exact per-platform runtime identities, and canonical input hashes to
 `package/python-release-candidate-evidence.json`. Missing, mixed-revision, added-field, or inconsistent evidence is
 rejected rather than downgraded.
+
+`python:protected:compare` is the separate credential-free gate for a future protected package. It independently
+revalidates the accepted three-platform manifest and its canonical package, installed-package, and containment hashes;
+then it requires one closed protected-package inspection at the same source revision and platform target. The complete
+runtime identity must equal that platform's accepted development identity, including the Windows-only deterministic
+standard-library ZIP. The runner and native transport bytes may differ because shipping signatures can change them,
+but their exact protected-package sizes and hashes remain in the comparison result.
+
+Runtime equality is not treated as containment. A separate closed platform-native shipping record must report the
+existing denial, private-pipe, cancellation, resource, and owned-process cleanup outcomes appropriate to that target.
+Windows and Linux additionally require installed-protected-package evidence; macOS requires inspection of the protected
+app. The shipping record includes the same source revision, target, and canonical protected-inspection hash, so stale
+or substituted containment evidence fails closed. The accepted result is path-free and contains no credential,
+identity, host path, or raw command output.
 
 The Linux job additionally installs that one inspected development DEB, reinspects the fixed installed helper and
 runtime against the package-owned evidence marker, and requires the installed result to match the extracted result
@@ -267,6 +281,17 @@ cargo test --manifest-path python-runner/Cargo.toml --offline
 cargo build --manifest-path python-runner/Cargo.toml --release --locked --offline
 ```
 
+The credential-free development evidence binder and future protected-package comparison contracts can be checked with:
+
+```sh
+npm test -- scripts/python-release-candidate.test.mjs scripts/python-protected-package.test.mjs
+node scripts/python-protected-package.mjs --compare \
+  <source-sha> <platform> <candidate-json> <inspection-json> <containment-json> <output-json>
+```
+
+The comparison command consumes only pre-existing path-free evidence. It does not build a protected package, use
+credentials, sign or notarize bytes, dispatch a workflow, or establish shipping containment by itself.
+
 The provenance workflow is the authoritative official-source build and package-inspection recipe. Locally, after
 building official CPython with the exact manifest inputs, stage and inspect it with:
 
@@ -418,6 +443,10 @@ The mapped-provider integration deliberately does not:
 - select the development bundle config for normal or protected distribution, sign or publish the runtime/helper; or
 - claim shipping-package containment, installed production behavior, or release identity on macOS, Windows, or Linux.
 
+The protected-package comparison contract does not change these exclusions. It defines the exact future acceptance
+boundary, but no default or protected package currently selects the Python resources and no platform-native shipping
+containment record currently exists.
+
 The OpenAI-compatible mapping uses the same asynchronous provider-neutral executor as the local providers. It adds the
 definition only for an explicitly tool-capable selected model with the complete marked development runtime, retains the
 provider's exact Chat Completions call ID through invocation, approval, result, and follow-up request, and reuses the
@@ -429,7 +458,7 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add a credential-free comparison contract for future protected packages to prove that their
-bundled Python runtime matches the accepted development release-candidate runtime identity while requiring separate
-platform-native shipping containment evidence. It must not use credentials, dispatch protected workflows, sign,
-notarize, release, publish, or perform Microsoft Store work. Those actions remain separately authorized and deferred.
+The next bounded slice can add the credential-free macOS protected-package staging and inspection producer consumed by
+the comparison contract, without changing the default package or claiming native shipping containment. It must not use
+credentials, dispatch protected workflows, sign, notarize, release, publish, or perform Microsoft Store work. Those
+actions remain separately authorized and deferred.

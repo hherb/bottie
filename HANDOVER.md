@@ -4,8 +4,9 @@ Last verified: 2026-09-06
 
 ## Start here
 
-PR #153 merged into `main` at `de8547f`. The current branch is `codex/python-evidence-binding`. Microsoft Store
-certification and publication remain deferred until fresh release-owner notice.
+PR #154 merged into `main` at `9a9160e`. The current branch is
+`codex/python-protected-package-comparison`. Microsoft Store certification and publication remain deferred until fresh
+release-owner notice.
 
 Read, in order:
 
@@ -15,58 +16,57 @@ Read, in order:
 
 ## Completed slice
 
-- Each macOS, Windows, and Linux development-package proof now writes a closed marker for its exact checked-out Git
-  revision beside the existing package and containment evidence. The marker accepts only a supported platform and one
-  lowercase 40-character source revision.
-- A final credential-free provenance job downloads the complete three-platform evidence set and fails closed on a
-  missing platform, mixed revision, unknown field, unsupported target, incomplete containment result, invalid digest or
-  byte count, unexpected native transport, changed installed Windows/Linux bytes, an inconsistent shared CPython/WASI
-  runtime core, or an unexpected platform runtime layout.
-- The accepted release-candidate evidence contains one source revision, one normalized shared runtime core, each exact
-  platform runtime identity, canonical hashes of every accepted package/containment input, and only package-relative
-  native transport metadata. It does not retain runner paths, host paths, identities, credentials, or raw command
-  output.
-- Default and protected package configurations are unchanged. The outer Bottie development app remains unsigned, and
-  no Apple credential, distribution signature, notarization, release, publication, or Microsoft Store action is used.
+- A credential-free comparison now independently revalidates the accepted three-platform development manifest before
+  accepting any future protected package. It checks the exact source revision, platform target, closed package shape,
+  canonical input hashes, shared runtime core, and platform-specific runtime layout rather than trusting the manifest's
+  accepted label.
+- The protected package must retain the exact accepted runtime identity for its platform. Its signed runner and native
+  transport bytes may differ, but their exact sizes and digests are preserved in the normalized result.
+- Runtime equality cannot substitute for containment. A separate closed platform-native shipping record must contain
+  all target-specific denial, private-pipe, cancellation, resource, and owned-process cleanup outcomes and must bind to
+  the exact protected inspection digest. Windows and Linux additionally require installed-protected-package evidence;
+  macOS requires inspection of the protected app.
+- The command consumes and emits only bounded, path-free evidence. Default and protected package configurations are
+  unchanged, and no credential, protected workflow, signing, notarization, release, publication, or Microsoft Store
+  action is used.
 
 ## Current limits
 
 Python remains available only in an explicitly marked development bundle and only to a discovered tool-capable oMLX,
 Ollama, OpenAI-compatible, or Anthropic-compatible model. A configured remote provider receives the tool definition
-and the source/purpose it proposes; execution remains local and requires exact one-use approval. The new binding accepts
-only credential-free development-package evidence. It does not establish shipping containment, protected signing,
-notarization, installed production behavior, publication, or Microsoft Store certification.
+and the source/purpose it proposes; execution remains local and requires exact one-use approval. The comparison is an
+acceptance contract for future protected evidence, not that evidence itself. No current protected package contains the
+Python resources, and no platform has produced a shipping containment record. The contract does not establish signing,
+notarization, installed production behavior, release identity, publication, or Microsoft Store certification.
 
 The unrelated untracked logo-kit, screenshot, and Linux signing-public-key files remain untouched.
 
 ## Validation
 
-The initial focused test failed because the release-candidate evidence binder did not exist. The hosted aggregate then
-correctly exposed that Windows adds one deterministic `python314.zip` and therefore cannot share the macOS/Linux runtime
-tree hash. The regression fixture now preserves that 539-file versus 540-file distinction. Six focused tests cover the
-exact source marker, deterministic accepted manifest, missing and mixed revisions, extracted/installed mismatch, shared
-runtime-core mismatch, platform layout, incomplete containment, added path-bearing fields, and workflow wiring. The
-related macOS, Windows, Linux, runtime-bundle, and binder suites pass 35 tests.
+The initial focused test failed because the protected-package comparison module did not exist. Five focused tests cover
+accepted runtime equality with changed signed native bytes; exact target and source matching; runtime drift; tampered
+candidate evidence; missing, false, stale, unknown, and path-bearing containment fields; and the local command plus
+dependency-inventory wiring.
 
-`npm run format:check`, `npm run check`, `npm test`, and `npm run build` pass: Svelte reports zero errors/warnings, and
-302 frontend/script tests pass with 3 skipped. `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`,
-`cargo check --manifest-path src-tauri/Cargo.toml`, and `cargo test --manifest-path src-tauri/Cargo.toml` pass. The
-application library reports 501 passed and 36 ignored, plus the updater evidence test and doc tests.
+`npm run format:check`, `npm run check`, `npm test`, and `npm run build` pass. Svelte reports zero errors or warnings;
+307 frontend/script tests pass with 3 skipped. The explicit application Cargo format and check commands pass. Its test
+suite passes with 501 library tests and 36 opt-in tests ignored, plus the updater-evidence test and doc tests. One
+unchanged timing-sensitive macOS XPC cancellation fixture initially timed out waiting for its child fixture to start;
+the exact isolated retry and the complete suite rerun both pass.
 
-The Python runner's format, strict offline Clippy, offline tests, and locked offline release build pass; seven unit
-tests and the explicit missing-runtime guard pass, while three runtime-dependent tests remain intentionally ignored.
-Dependency inventory regeneration/check, third-party notices, release assets, Prettier, workflow lint, local unsigned
-development-app build and package inspection, and `git diff --check` pass.
+The Python runner's format, strict offline Clippy, offline tests, and locked offline release build pass. Seven unit tests
+and the explicit missing-runtime guard pass, while three runtime-dependent tests remain intentionally ignored.
+Dependency inventory regeneration/check, third-party notices, release assets, Prettier, workflow lint, and
+`git diff --check` pass.
 
-The exact aggregate evidence still requires the three GitHub-hosted package jobs; this macOS host cannot produce the
-Windows AppContainer or Linux Landlock/seccomp installed-package results. No protected distribution workflow was
-dispatched. Draft-PR hosted evidence is pending.
+No browser or native-app review is required for this pure script contract. This macOS host cannot produce Windows or
+Linux shipping containment, and this slice deliberately does not produce macOS shipping containment. No protected
+distribution workflow was dispatched. Draft-PR hosted evidence is pending.
 
 ## Next bounded action
 
-Add a credential-free comparison contract for future protected packages to prove that their bundled Python runtime
-matches the accepted development release-candidate runtime identity while requiring separate platform-native shipping
-containment evidence. Do not use credentials, dispatch protected workflows, sign, notarize, release, publish, or perform
-Microsoft Store certification.
+Add the credential-free macOS protected-package staging and inspection producer consumed by the comparison contract,
+without changing the default package or claiming native shipping containment. Do not use credentials, dispatch
+protected workflows, sign, notarize, release, publish, or perform Microsoft Store certification.
 
 Preserve the unrelated untracked assets and public key. Do not merge the draft PR without separate authorization.
