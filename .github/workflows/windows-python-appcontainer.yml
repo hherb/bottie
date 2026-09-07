@@ -4,12 +4,15 @@ on:
   pull_request:
     paths:
       - ".github/workflows/windows-python-appcontainer.yml"
+      - ".github/workflows/windows-distribution-validation.yml"
       - "docs/python-sandbox.md"
       - "package-lock.json"
       - "package.json"
       - "python-runner/**"
       - "scripts/windows-python-appcontainer.mjs"
       - "scripts/windows-python-appcontainer.test.mjs"
+      - "scripts/windows-distribution.mjs"
+      - "scripts/windows-distribution.test.mjs"
       - "scripts/windows-shipping-python-containment.mjs"
       - "scripts/windows-shipping-python-containment.test.mjs"
       - "windows-python-appcontainer/**"
@@ -40,7 +43,8 @@ jobs:
       - name: Verify runtime-free contracts
         run: |
           npm test -- scripts/windows-python-appcontainer.test.mjs `
-            scripts/windows-shipping-python-containment.test.mjs
+            scripts/windows-shipping-python-containment.test.mjs `
+            scripts/windows-distribution.test.mjs
           cargo test --manifest-path python-runner/Cargo.toml --locked
 
       - name: Download and independently verify the pinned development runtime

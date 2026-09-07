@@ -155,7 +155,7 @@ describe("Windows shipping Python containment producer", () => {
     }
   });
 
-  it("registers only a credential-free local proof and pull-request contract coverage", async () => {
+  it("registers the credential-free proof without giving the producer signing authority", async () => {
     const packageManifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
     const dependencyConfig = await readFile(new URL("./dependency-inventory-config.mjs", import.meta.url), "utf8");
     const producer = await readFile(new URL("./windows-shipping-python-containment.mjs", import.meta.url), "utf8");
@@ -173,7 +173,10 @@ describe("Windows shipping Python containment producer", () => {
     );
     expect(dependencyConfig).toContain('"scripts/windows-shipping-python-containment.mjs"');
     expect(containmentWorkflow).toContain("scripts/windows-shipping-python-containment.test.mjs");
-    expect(distributionWorkflow).not.toContain("python:protected:windows:prove-shipping");
+    expect(containmentWorkflow).toContain("scripts/windows-distribution.test.mjs");
+    expect(containmentWorkflow).toContain('".github/workflows/windows-distribution-validation.yml"');
+    expect(distributionWorkflow).toContain("python:protected:windows:prove-shipping");
+    expect(distributionWorkflow).toContain("python:protected:compare");
     expect(
       producer.indexOf("runVerificationPlan(windowsShippingVerificationPlan(signTool, msi), environment)"),
     ).toBeLessThan(producer.indexOf("msiAdministrativeInstallArguments(msi, extracted)"));
