@@ -250,7 +250,7 @@ Status: core feasibility, macOS/Windows/Linux native containment proofs, opt-in 
 durable provider-neutral audit, all four mapped-provider integrations, and selected-lineage result presentation
 complete; an opt-in macOS protected-distribution composition and a credential-free Linux protected-DEB
 inspection/installed-containment producer and Windows protected-MSI shipping-containment producer are also complete,
-while shipping evidence remains pending.
+with a credential-free aggregate protected-platform comparison contract, while shipping evidence remains pending.
 
 - [x] standalone Rust helper with a bounded stdin/stdout JSON contract and no shell interpolation;
 - [x] CPython/WASI execution through Wasmtime's interpreter-only Pulley target;
@@ -290,6 +290,12 @@ while shipping evidence remains pending.
   fixed-layout installed controller/helper/runtime equality, and AppContainer/process-lifecycle containment;
 - [x] optional same-revision protected Windows Python workflow composition through exact pre-credential inspection,
   existing Authenticode/updater signing, installed-package containment, and final candidate comparison;
+- [x] credential-free aggregate binding of the exact Linux, macOS, and Windows protected-package comparisons to one
+  source revision, accepted release candidate, shared runtime core, and canonical inspection/containment identities;
+- [x] manual read-only aggregation workflow that accepts only three explicit same-revision successful distribution
+  runs, downloads dedicated path-free comparison artifacts, and uploads only the bounded aggregate record;
+- [x] credential-free protected-Python release-eligibility binding of one closed ready ordinary candidate to the exact
+  same-revision aggregate while retaining canonical input digests and signed native identities;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;
 - [x] process-local one-use approve/deny decisions bound to the unchanged complete call, with an opaque-token modal and

@@ -1,0 +1,120 @@
+name: Protected Python platform evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      linux_run_id:
+        description: Prior successful protected Linux distribution run ID
+        required: true
+        type: string
+      macos_run_id:
+        description: Prior successful protected macOS distribution run ID
+        required: true
+        type: string
+      windows_run_id:
+        description: Prior successful protected Windows distribution run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  bind-platforms:
+    name: Bind protected platform comparisons
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Use Node 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Verify credential-free platform binding contracts
+        run: npm test -- scripts/python-protected-platforms.test.mjs scripts/python-protected-package.test.mjs
+
+      - name: Validate selected protected distribution runs
+        env:
+          BOTTIE_LINUX_RUN_ID: ${{ inputs.linux_run_id }}
+          BOTTIE_MACOS_RUN_ID: ${{ inputs.macos_run_id }}
+          BOTTIE_WINDOWS_RUN_ID: ${{ inputs.windows_run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          validate_run() {
+            local run_id="$1"
+            local workflow_name="$2"
+            if [[ ! "$run_id" =~ ^[1-9][0-9]*$ ]]; then
+              echo "Each protected distribution run ID must be a positive integer." >&2
+              exit 1
+            fi
+            run_record="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            if ! jq -e --arg source "$GITHUB_SHA" --arg name "$workflow_name" \
+              '.name == $name and .head_sha == $source and .conclusion == "success" and
+               .event == "workflow_dispatch"' <<<"$run_record" >/dev/null; then
+              echo "The selected run is not a successful manual protected distribution for this revision." >&2
+              exit 1
+            fi
+          }
+          validate_run "$BOTTIE_LINUX_RUN_ID" "Linux distribution validation"
+          validate_run "$BOTTIE_MACOS_RUN_ID" "macOS distribution validation"
+          validate_run "$BOTTIE_WINDOWS_RUN_ID" "Windows distribution validation"
+
+      - name: Download the accepted protected Linux comparison
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bottie-python-linux-protected-comparison
+          path: package/python-protected-download/linux
+          run-id: ${{ inputs.linux_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download the accepted protected macOS comparison
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bottie-python-macos-protected-comparison
+          path: package/python-protected-download/macos
+          run-id: ${{ inputs.macos_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download the accepted protected Windows comparison
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bottie-python-windows-protected-comparison
+          path: package/python-protected-download/windows
+          run-id: ${{ inputs.windows_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Stage only the fixed comparison records
+        run: |
+          set -euo pipefail
+          mkdir -p package/python-protected-comparisons
+          for platform in linux macos windows; do
+            mapfile -t files < <(find "package/python-protected-download/$platform" -maxdepth 1 -type f)
+            test "${#files[@]}" -eq 1
+            test "${files[0]}" = "package/python-protected-download/$platform/$platform-accepted.json"
+            mv "${files[0]}" "package/python-protected-comparisons/$platform-protected-comparison.json"
+          done
+
+      - name: Bind protected platform comparisons
+        run: >-
+          npm run --silent python:protected:bind-platforms -- "$GITHUB_SHA"
+          package/python-protected-comparisons package/python-protected-platform-evidence.json
+
+      - name: Upload bounded protected platform evidence
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: bottie-python-protected-platform-evidence
+          path: package/python-protected-platform-evidence.json
+          if-no-files-found: error
+          retention-days: 7
