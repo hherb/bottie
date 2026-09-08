@@ -2,7 +2,8 @@
 
 Status: the standalone runner, its inner denial tests, development-only macOS, Windows, and Linux containment proofs,
 official-source runtime provenance with packaged macOS app containment plus installed Windows MSI and Linux DEB
-containment, a credential-free future protected-package comparison contract plus macOS staging/inspection and
+containment, credential-free protected-package comparison and three-platform aggregate contracts plus macOS
+staging/inspection and
 shipping-containment producers plus Linux protected-DEB and Windows protected-MSI inspection/installed-containment
 producers, the
 approval-required native proposal/review contract, a process-local one-use
@@ -114,6 +115,30 @@ Windows and Linux additionally require installed-protected-package evidence; mac
 app. The shipping record includes the same source revision, target, and canonical protected-inspection hash, so stale
 or substituted containment evidence fails closed. The accepted result is path-free and contains no credential,
 identity, host path, or raw command output.
+
+`python:protected:bind-platforms` independently revalidates the complete Linux, macOS, and Windows comparison set.
+It requires one exact source revision and accepted release-candidate digest, reconstructs and canonically hashes every
+protected inspection, validates and hashes each platform's closed shipping-containment record, and requires one shared
+CPython/WASI runtime core. Linux and macOS retain the same runtime tree, while Windows retains its platform-specific
+standard-library ZIP layout. The aggregate keeps each signed runner and native transport size/digest instead of
+collapsing platform identity. It reads only fixed comparison filenames from a supplied private directory and emits one
+path-free JSON record; it does not download artifacts, dispatch workflows, use credentials, or create shipping proof.
+
+The separate manual `Protected Python platform evidence` workflow accepts three explicit prior distribution run IDs.
+It checks that each ID is a successful manual Linux, macOS, or Windows distribution run for the exact checked-out
+revision before downloading a dedicated one-file comparison artifact. It rejects unexpected file counts or names,
+stages the three fixed binder inputs, and uploads only the aggregate path-free record for seven days. The producing
+distribution workflows retain their existing combined evidence artifacts and additionally expose only the accepted
+comparison as the dedicated input. The aggregate workflow has read-only repository/action permissions, no protected
+environment or secrets, and cannot trigger a distribution, sign bytes, release, publish, or perform Store work.
+
+`python:protected:release-eligibility` then binds one closed, fully passed ordinary Bottie release-candidate manifest to
+one revalidated same-revision protected-platform aggregate. It canonically hashes both inputs, retains the ordinary
+versioned beta metadata, shared CPython/WASI runtime core, and every protected runner/native transport identity, and
+emits only a path-free `eligible` record. Eligibility is evidence review, not authority: the command cannot build,
+sign, upload, tag, release, publish an updater, or perform Store work. The current contract does not claim that each
+inner Python comparison digest is cryptographically tied to the ordinary candidate's outer distribution summary;
+today that association is limited to the exact source-bound distribution runs selected by the aggregate workflow.
 
 The macOS protected-package producer is a separate pre-containment step. It copies only the exact source runner,
 runtime tree, and runtime evidence from the development artifact into a fresh ignored root, rejecting unsupported
@@ -400,18 +425,27 @@ cargo test --manifest-path python-runner/Cargo.toml --offline
 cargo build --manifest-path python-runner/Cargo.toml --release --locked --offline
 ```
 
-The credential-free development evidence binder and future protected-package comparison contracts can be checked with:
+The credential-free development, protected-package comparison, and aggregate contracts can be checked with:
 
 ```sh
-npm test -- scripts/python-release-candidate.test.mjs scripts/python-protected-package.test.mjs
+npm test -- scripts/python-release-candidate.test.mjs scripts/python-protected-package.test.mjs \
+  scripts/python-protected-platforms.test.mjs
 node scripts/python-protected-package.mjs --inspect \
   <source-sha> <platform> <candidate-json> <raw-inspection-json> <accepted-inspection-json>
 node scripts/python-protected-package.mjs --compare \
   <source-sha> <platform> <candidate-json> <inspection-json> <containment-json> <output-json>
+npm run python:protected:bind-platforms -- \
+  <source-sha> <comparison-directory> <aggregate-output-json>
+npm run python:protected:release-eligibility -- \
+  <source-sha> <ordinary-release-candidate-json> <protected-platform-json> <eligibility-output-json>
 ```
 
 The comparison command consumes only pre-existing path-free evidence. It does not build a protected package, use
 credentials, sign or notarize bytes, dispatch a workflow, or establish shipping containment by itself.
+The aggregate command likewise consumes only fixed `linux-protected-comparison.json`,
+`macos-protected-comparison.json`, and `windows-protected-comparison.json` inputs copied into the supplied directory.
+The manual workflow runs the same command only after validating the three explicit source-bound distribution run IDs;
+it is not called automatically by pull requests, releases, or any protected distribution workflow.
 
 On macOS, after the current candidate runtime/helper inputs have been placed in `package/python-development`, produce
 the unsigned opt-in protected app inspection with:
@@ -623,9 +657,11 @@ The mapped-provider integration deliberately does not:
   publish the runtime/helper; or
 - claim shipping-package containment, installed production behavior, or release identity on macOS, Windows, or Linux.
 
-The protected-package comparison, staging, and shipping-containment producer contracts do not change these exclusions.
-Only the explicit macOS and Linux protected-distribution inputs select Python resources; neither default path does. The
-shipping producers require matching already trusted bytes, and neither optional workflow has produced a current record.
+The protected-package comparison, aggregate, staging, and shipping-containment producer contracts do not change these
+exclusions.
+Only the explicit macOS, Linux, and Windows protected-distribution inputs select Python resources; no default path does.
+The shipping producers require matching already trusted bytes, and none of the optional workflows has produced a
+current record.
 
 The OpenAI-compatible mapping uses the same asynchronous provider-neutral executor as the local providers. It adds the
 definition only for an explicitly tool-capable selected model with the complete marked development runtime, retains the
@@ -638,8 +674,8 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add a credential-free aggregate contract for the three accepted protected-platform
-comparison records. It must require one exact source revision, the complete macOS/Windows/Linux set, canonical
-inspection/containment bindings, and one shared accepted runtime core while retaining each platform's signed native
-identities. It must not dispatch protected workflows, sign, release, publish, or perform Microsoft Store work. Those
-actions remain separately authorized and deferred.
+The next bounded slice can add a credential-free per-platform envelope that binds each accepted Python comparison to
+the normalized outer distribution evidence produced by the same protected workflow run, then carry those canonical
+distribution bindings through the aggregate and release-eligibility records. It must not change distribution execution
+or treat evidence linkage as authorization. Protected workflow dispatch, signing, release, publication, and Microsoft
+Store work remain separately authorized and deferred.
