@@ -71,39 +71,39 @@ jobs:
           validate_run "$BOTTIE_MACOS_RUN_ID" "macOS distribution validation"
           validate_run "$BOTTIE_WINDOWS_RUN_ID" "Windows distribution validation"
 
-      - name: Download the accepted protected Linux comparison
+      - name: Download the accepted protected Linux envelope
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: bottie-python-linux-protected-comparison
+          name: bottie-python-linux-protected-envelope
           path: package/python-protected-download/linux
           run-id: ${{ inputs.linux_run_id }}
           github-token: ${{ github.token }}
 
-      - name: Download the accepted protected macOS comparison
+      - name: Download the accepted protected macOS envelope
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: bottie-python-macos-protected-comparison
+          name: bottie-python-macos-protected-envelope
           path: package/python-protected-download/macos
           run-id: ${{ inputs.macos_run_id }}
           github-token: ${{ github.token }}
 
-      - name: Download the accepted protected Windows comparison
+      - name: Download the accepted protected Windows envelope
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: bottie-python-windows-protected-comparison
+          name: bottie-python-windows-protected-envelope
           path: package/python-protected-download/windows
           run-id: ${{ inputs.windows_run_id }}
           github-token: ${{ github.token }}
 
-      - name: Stage only the fixed comparison records
+      - name: Stage only the fixed envelope records
         run: |
           set -euo pipefail
           mkdir -p package/python-protected-comparisons
           for platform in linux macos windows; do
             mapfile -t files < <(find "package/python-protected-download/$platform" -maxdepth 1 -type f)
             test "${#files[@]}" -eq 1
-            test "${files[0]}" = "package/python-protected-download/$platform/$platform-accepted.json"
-            mv "${files[0]}" "package/python-protected-comparisons/$platform-protected-comparison.json"
+            test "${files[0]}" = "package/python-protected-download/$platform/$platform-envelope.json"
+            mv "${files[0]}" "package/python-protected-comparisons/$platform-protected-envelope.json"
           done
 
       - name: Bind protected platform comparisons

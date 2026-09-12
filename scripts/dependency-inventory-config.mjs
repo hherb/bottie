@@ -21,6 +21,7 @@ export const PYTHON_RUNTIME_INVENTORY_INPUTS = [
   "scripts/linux-package-config.mjs",
   "scripts/macos-protected-python-package.mjs",
   "scripts/macos-shipping-python-containment.mjs",
+  "scripts/python-protected-distribution.mjs",
   "scripts/python-protected-package.mjs",
   "scripts/python-protected-platforms.mjs",
   "scripts/python-protected-release.mjs",

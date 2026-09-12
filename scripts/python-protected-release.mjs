@@ -39,6 +39,13 @@ export function bindProtectedPythonReleaseEligibility(sourceSha, releaseCandidat
   } catch {
     throw new Error("The protected Python platform evidence is invalid.");
   }
+  if (
+    protectedPlatforms.platforms.some(
+      (record) => canonicalJson(record.outerDistribution) !== canonicalJson(release.artifacts[record.platform]),
+    )
+  ) {
+    throw new Error("The protected Python outer distribution does not match the ordinary release candidate.");
+  }
   return {
     schemaVersion: SCHEMA_VERSION,
     sourceSha,
@@ -53,6 +60,8 @@ export function bindProtectedPythonReleaseEligibility(sourceSha, releaseCandidat
       target: record.target,
       protectedInspectionSha256: record.protectedInspectionSha256,
       containmentSha256: record.containmentSha256,
+      outerDistributionSha256: record.outerDistributionSha256,
+      bindingSha256: record.bindingSha256,
       runner: record.runner,
       nativeTransports: record.nativeTransports,
     })),
@@ -104,7 +113,7 @@ function validateReleaseCandidate(candidate) {
       throw new Error("The ordinary release gates are incomplete.");
     }
   });
-  return { release: { channel, notesSha256, tag, title, version } };
+  return { artifacts: candidate.artifacts, release: { channel, notesSha256, tag, title, version } };
 }
 
 /** Requires an object to contain exactly one allowlisted field set. */

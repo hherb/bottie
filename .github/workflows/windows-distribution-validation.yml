@@ -46,6 +46,7 @@ jobs:
           node --check scripts/windows-distribution.mjs
           node --check scripts/windows-shipping-python-containment.mjs
           node --check scripts/python-protected-package.mjs
+          node --check scripts/python-protected-platforms.mjs
           npm test -- scripts/windows-distribution.test.mjs `
             scripts/windows-shipping-python-containment.test.mjs `
             scripts/python-protected-package.test.mjs scripts/release-candidate.test.mjs
@@ -185,6 +186,9 @@ jobs:
             package/python-protected-evidence/windows-signed.json `
             package/python-protected-evidence/windows-containment.json `
             package/python-protected-evidence/windows-accepted.json
+          npm run --silent python:protected:bind-envelope -- `
+            $env:GITHUB_SHA windows package/python-protected-evidence/windows-accepted.json `
+            package/windows-package-evidence.json package/python-protected-evidence/windows-envelope.json
 
       - name: Upload identity-free evidence
         uses: actions/upload-artifact@v4
@@ -214,12 +218,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Upload the accepted protected Python comparison
+      - name: Upload the accepted protected Python envelope
         if: inputs.python_provenance_run_id != ''
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: bottie-python-windows-protected-comparison
-          path: package/python-protected-evidence/windows-accepted.json
+          name: bottie-python-windows-protected-envelope
+          path: package/python-protected-evidence/windows-envelope.json
           if-no-files-found: error
           retention-days: 7
 

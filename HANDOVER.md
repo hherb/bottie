@@ -1,76 +1,53 @@
 # Bottie handover
 
-Last verified: 2026-09-08
+Last verified: 2026-09-12
 
 ## Start here
 
-PR #162 merged into `main` at `d394a5c`. The current branch is
-`codex/protected-python-aggregate-comparison`. Microsoft Store certification and publication remain deferred until
-fresh release-owner notice.
+PR #163 merged into `main` at `9e5502f`. The current branch is
+`codex/protected-python-outer-envelope`.
 
-Read, in order:
+Read `docs/python-sandbox.md`, then the Milestone 5 sandboxed-Python section of `ROADMAP.md`.
 
-1. `HANDOVER.md`
-2. `docs/python-sandbox.md`
-3. the Milestone 5 sandboxed-Python section of `ROADMAP.md`
+## Completed slice
 
-## Completed slices
+- `python:protected:bind-envelope` revalidates one accepted protected-package comparison, normalizes the final outer
+  distribution from that same protected run with the existing ordinary release-candidate normalizer, rejects incomplete
+  or wrong-target evidence, and emits a closed path-free record with canonical comparison, outer-distribution, and
+  relationship hashes.
+- Each optional protected macOS, Linux, and Windows producer now writes that envelope after its existing comparison and
+  exposes only the one-file envelope as the aggregate workflow input.
+- `python:protected:bind-platforms` now revalidates the three fixed envelope records and carries each canonical
+  outer-distribution binding through the aggregate.
+- `python:protected:release-eligibility` now requires exact equality between those three protected-run distribution
+  summaries and the corresponding normalized artifacts in the ready ordinary release candidate. Its platform records
+  retain the outer-distribution and relationship hashes.
+- Tests cover normalization, source/platform substitution, comparison and distribution digest drift, open/path-bearing
+  envelopes, incomplete evidence, shared runtime constraints, workflow filenames, and ordinary-candidate substitution.
+  Test fixtures were split out to preserve the practical 500-line source limit.
 
-- `python:protected:bind-platforms` consumes fixed Linux, macOS, and Windows accepted comparison filenames and
-  independently revalidates their closed schemas, exact source revision, accepted candidate digest, reconstructed
-  protected-inspection hashes, shipping-containment hashes, shared CPython/WASI core, and platform runtime layouts.
-  Its path-free aggregate retains every signed runner and native transport identity.
-- The manual `Protected Python platform evidence` workflow accepts three explicit run IDs. It requires successful
-  manual Linux/macOS/Windows distribution runs at the checked-out revision, downloads dedicated one-file comparison
-  artifacts, rejects unexpected filenames/counts, runs the binder, and uploads only the aggregate for seven days.
-  It has read-only repository/action permissions and no protected environment or secrets.
-- `python:protected:release-eligibility` revalidates one closed, fully passed ordinary Bottie release-candidate
-  manifest and the complete same-revision protected aggregate. It emits canonical input hashes plus versioned release
-  metadata, the shared runtime core, and signed native identities without building or publishing anything.
-- The dependency inventory covers both new scripts and the aggregate/producer workflows. No default distribution path,
-  provider behavior, protected trigger, credential flow, signing step, release path, publication path, or Store path
-  changed.
-
-## Current limits
-
-Python remains available only in an explicitly marked development bundle and only to a discovered tool-capable oMLX,
-Ollama, OpenAI-compatible, or Anthropic-compatible model. A configured remote provider receives the tool definition
-and the source/purpose it proposes; execution remains local and requires exact one-use approval.
-
-The protected macOS, Linux, and Windows compositions and the new aggregate workflow remain undispatched. This macOS
-host cannot produce signed/installed Linux or Windows evidence. No current protected Python distribution, aggregate,
-release eligibility, installed production, release, updater publication, or Microsoft Store evidence was produced.
-
-Release eligibility binds the accepted ordinary and protected records at one source revision, but it does not yet
-cryptographically tie each inner Python comparison to the ordinary candidate's outer distribution summary. That
-association currently depends on selecting the exact source-bound protected distribution runs.
-
-The unrelated untracked logo-kit, screenshot, and Linux signing-public-key files remain untouched.
+No default distribution path, provider behavior, protected trigger, credential flow, signing implementation, release
+path, publication path, or Store path changed. Unrelated untracked logo-kit, screenshot, and Linux public-key files remain
+untouched.
 
 ## Validation
 
-The tests first failed for the missing aggregate binder, workflow, and release-eligibility contract. The focused
-candidate, protected-package, aggregate, workflow, and eligibility suites now pass 21 tests. They cover missing or
-mixed platforms/revisions/candidates, canonical inspection and containment recomputation, shared runtime identity,
-platform layouts, retained signed native identities, exact prior workflow-run gates, closed ordinary release gates,
-and path-free output.
-
-`npm run format:check`, `npm run check`, `npm test`, and `npm run build` pass. The full frontend suite reports 349 tests
-passed and 3 skipped across 69 passing and 1 skipped files. Dependency inventory, notices, release assets, Actionlint,
-JavaScript syntax, and diff checks pass.
+The focused envelope, aggregate, release-eligibility, and ordinary release-candidate suite passes 17 tests. The full
+frontend/script suite passes 352 tests with 3 skipped across 69 passing and 1 skipped files. `npm run format:check`,
+`npm run check`, `npm run build`, dependency-inventory verification, JavaScript syntax checks, and diff checks pass.
 
 Application Cargo formatting and `cargo check` pass. The serial application suite passes 501 library tests with 36
-ignored plus the updater-evidence binary test; doc tests pass. No browser or native-app UI review is required for these
-path-free evidence and workflow contracts.
+ignored plus the updater-evidence binary test; doc tests pass. Cargo reports only the existing future-incompatibility
+notice for `block 0.1.6`.
 
-## Next bounded action
+No browser or native-app UI review is required for this path-free evidence/workflow contract. The optional protected
+workflows remain undispatched, and this macOS host cannot produce signed/installed Linux or Windows evidence.
 
-Add a credential-free per-platform envelope that binds each accepted Python comparison to the normalized outer
-distribution evidence produced by the same protected workflow run. Reuse the existing release-candidate distribution
-normalizers, reject mixed platform/revision or added/path-bearing fields, and carry the canonical outer-distribution
-binding through the aggregate and release-eligibility records. Update each dedicated one-file artifact to contain the
-envelope, with focused regression tests for substitution and digest drift.
+## Next boundary
 
-Do not change distribution execution or dispatch protected workflows. Do not sign, release, publish, or perform
-Microsoft Store work. Preserve the unrelated untracked assets and public key. Do not merge the draft PR without
-separate authorization.
+The next meaningful step is to produce fresh same-revision protected macOS, Linux, and Windows evidence, then run the
+read-only aggregate and eligibility review. Do not dispatch it without explicit release-owner authorization: it uses
+protected environments, hosted-runner source egress, platform signing credentials, and macOS notarization. Confirm the
+required credentials are configured before any authorized run.
+
+Do not sign, release, publish, perform Microsoft Store work, or merge the draft PR without separate authorization.

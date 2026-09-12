@@ -7,12 +7,27 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  normalizeProtectedPythonOuterDistribution,
+  validateProtectedPythonOuterDistribution,
+} from "./python-protected-distribution.mjs";
 import { protectedInspectionSha256, validateProtectedPackageInspection } from "./python-protected-package.mjs";
 
 const SCHEMA_VERSION = 1;
 const SOURCE_SHA_PATTERN = /^[a-f0-9]{40}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const PLATFORMS = ["linux", "macos", "windows"];
+const ENVELOPE_FIELDS = [
+  "bindingSha256",
+  "comparison",
+  "comparisonSha256",
+  "outerDistribution",
+  "outerDistributionSha256",
+  "platform",
+  "schemaVersion",
+  "sourceSha",
+  "status",
+];
 const COMPARISON_FIELDS = [
   "containment",
   "containmentSha256",
@@ -63,6 +78,26 @@ const SHIPPING_CONTAINMENT_FIELDS = {
     "resourceLimits",
   ],
 };
+/** Binds one accepted comparison to normalized outer evidence produced by the same protected run. */
+export function bindProtectedPythonDistributionEnvelope(sourceSha, platform, comparison, distributionEvidence) {
+  requireSourceSha(sourceSha);
+  requirePlatform(platform);
+  const acceptedComparison = validateComparison(sourceSha, platform, comparison);
+  const outerDistribution = normalizeProtectedPythonOuterDistribution(platform, distributionEvidence);
+  const comparisonSha256 = sha256(canonicalJson(acceptedComparison));
+  const outerDistributionSha256 = sha256(canonicalJson(outerDistribution));
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    sourceSha,
+    status: "accepted",
+    platform,
+    comparison: acceptedComparison,
+    comparisonSha256,
+    outerDistribution,
+    outerDistributionSha256,
+    bindingSha256: distributionBindingSha256(sourceSha, platform, comparisonSha256, outerDistributionSha256),
+  };
+}
 
 /** Binds three independently accepted protected-package comparisons into one closed record. */
 export function bindProtectedPythonPlatforms(sourceSha, comparisons) {
@@ -73,7 +108,14 @@ export function bindProtectedPythonPlatforms(sourceSha, comparisons) {
     "The protected Python comparison set",
     " must contain exactly three platforms.",
   );
-  const platforms = PLATFORMS.map((platform) => validateComparison(sourceSha, platform, comparisons[platform]));
+  const envelopes = PLATFORMS.map((platform) => validateEnvelope(sourceSha, platform, comparisons[platform]));
+  const platforms = envelopes.map((envelope) => ({
+    ...envelope.comparison,
+    comparisonSha256: envelope.comparisonSha256,
+    outerDistribution: envelope.outerDistribution,
+    outerDistributionSha256: envelope.outerDistributionSha256,
+    bindingSha256: envelope.bindingSha256,
+  }));
   const releaseCandidateSha256 = platforms[0].releaseCandidateSha256;
   if (platforms.some((record) => record.releaseCandidateSha256 !== releaseCandidateSha256)) {
     throw new Error("The protected Python comparisons do not share one release candidate.");
@@ -122,7 +164,26 @@ export function validateProtectedPythonPlatformEvidence(sourceSha, evidence) {
       if (record?.platform !== PLATFORMS[index]) {
         throw new Error("The protected Python platform evidence is invalid.");
       }
-      return [record.platform, record];
+      requireExactKeys(
+        record,
+        [...COMPARISON_FIELDS, "bindingSha256", "comparisonSha256", "outerDistribution", "outerDistributionSha256"],
+        "The protected Python aggregate platform record",
+      );
+      const comparison = Object.fromEntries(COMPARISON_FIELDS.map((field) => [field, record[field]]));
+      return [
+        record.platform,
+        {
+          schemaVersion: record.schemaVersion,
+          sourceSha: record.sourceSha,
+          status: record.status,
+          platform: record.platform,
+          comparison,
+          bindingSha256: record.bindingSha256,
+          comparisonSha256: record.comparisonSha256,
+          outerDistribution: record.outerDistribution,
+          outerDistributionSha256: record.outerDistributionSha256,
+        },
+      ];
     }),
   );
   const rebuilt = bindProtectedPythonPlatforms(sourceSha, comparisons);
@@ -130,6 +191,46 @@ export function validateProtectedPythonPlatformEvidence(sourceSha, evidence) {
     throw new Error("The protected Python platform evidence is invalid.");
   }
   return rebuilt;
+}
+
+/** Revalidates one closed same-run comparison and outer-distribution envelope. */
+function validateEnvelope(sourceSha, platform, envelope) {
+  requireExactKeys(envelope, ENVELOPE_FIELDS, "The protected Python distribution envelope");
+  if (
+    envelope.schemaVersion !== SCHEMA_VERSION ||
+    envelope.sourceSha !== sourceSha ||
+    envelope.status !== "accepted" ||
+    envelope.platform !== platform
+  ) {
+    throw new Error("The protected Python distribution envelope is invalid.");
+  }
+  const comparison = validateComparison(sourceSha, platform, envelope.comparison);
+  if (envelope.comparisonSha256 !== sha256(canonicalJson(comparison))) {
+    throw new Error("The protected Python comparison envelope binding is invalid.");
+  }
+  const outerDistribution = validateProtectedPythonOuterDistribution(platform, envelope.outerDistribution);
+  if (envelope.outerDistributionSha256 !== sha256(canonicalJson(outerDistribution))) {
+    throw new Error("The protected Python outer-distribution binding is invalid.");
+  }
+  if (
+    envelope.bindingSha256 !==
+    distributionBindingSha256(sourceSha, platform, envelope.comparisonSha256, envelope.outerDistributionSha256)
+  ) {
+    throw new Error("The protected Python comparison/distribution binding is invalid.");
+  }
+  return { ...envelope, comparison, outerDistribution };
+}
+
+/** Hashes the closed relationship between one source/platform comparison and outer distribution. */
+function distributionBindingSha256(sourceSha, platform, comparisonSha256, outerDistributionSha256) {
+  return sha256(
+    canonicalJson({ schemaVersion: SCHEMA_VERSION, sourceSha, platform, comparisonSha256, outerDistributionSha256 }),
+  );
+}
+
+/** Requires a platform name supported by both protected and ordinary distribution evidence. */
+function requirePlatform(platform) {
+  if (!PLATFORMS.includes(platform)) throw new Error("The protected Python envelope platform is invalid.");
 }
 
 /** Revalidates one comparison record and all of its canonical bindings. */
@@ -260,13 +361,13 @@ async function readJson(path) {
   }
 }
 
-/** Loads the fixed comparison filenames from one private merged-artifact directory. */
-async function loadComparisons(directory) {
+/** Loads the fixed envelope filenames from one private merged-artifact directory. */
+async function loadEnvelopes(directory) {
   return Object.fromEntries(
     await Promise.all(
       PLATFORMS.map(async (platform) => [
         platform,
-        await readJson(join(directory, `${platform}-protected-comparison.json`)),
+        await readJson(join(directory, `${platform}-protected-envelope.json`)),
       ]),
     ),
   );
@@ -281,16 +382,30 @@ async function writeJson(path, value) {
 /** Dispatches the exact credential-free protected-platform binding command. */
 async function main() {
   const [mode, ...arguments_] = process.argv.slice(2);
+  if (mode === "--envelope" && arguments_.length === 5) {
+    const [sourceSha, platform, comparisonPath, distributionPath, outputPath] = arguments_;
+    await writeJson(
+      resolve(outputPath),
+      bindProtectedPythonDistributionEnvelope(
+        sourceSha,
+        platform,
+        await readJson(resolve(comparisonPath)),
+        await readJson(resolve(distributionPath)),
+      ),
+    );
+    console.log("[bottie] Credential-free protected Python distribution envelope accepted.");
+    return;
+  }
   if (mode === "--bind" && arguments_.length === 3) {
     const [sourceSha, inputDirectory, outputPath] = arguments_;
     await writeJson(
       resolve(outputPath),
-      bindProtectedPythonPlatforms(sourceSha, await loadComparisons(resolve(inputDirectory))),
+      bindProtectedPythonPlatforms(sourceSha, await loadEnvelopes(resolve(inputDirectory))),
     );
     console.log("[bottie] Credential-free protected Python platform evidence accepted.");
     return;
   }
-  throw new Error("Use --bind with the exact source revision, input directory, and output path.");
+  throw new Error("Use --envelope with five exact inputs or --bind with source, directory, and output.");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

@@ -2,248 +2,72 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
-import { bindProtectedPythonPackage, protectedInspectionSha256 } from "./python-protected-package.mjs";
-import { bindProtectedPythonPlatforms } from "./python-protected-platforms.mjs";
+import {
+  bindProtectedPythonDistributionEnvelope,
+  bindProtectedPythonPlatforms,
+} from "./python-protected-platforms.mjs";
+import {
+  comparisons,
+  envelopes,
+  ordinaryReleaseCandidate,
+  OTHER_OUTER_SHA,
+  OTHER_SHA,
+  outerDistributionEvidence,
+  PLATFORMS,
+  SHA,
+  SOURCE_SHA,
+} from "./python-protected-platforms-fixtures.mjs";
 import { bindProtectedPythonReleaseEligibility } from "./python-protected-release.mjs";
-import { bindPythonReleaseCandidate, buildSourceMarker } from "./python-release-candidate.mjs";
-
-const SOURCE_SHA = "a".repeat(40);
-const OTHER_SHA = "b".repeat(40);
-const SHA = "c".repeat(64);
-const PLATFORMS = ["linux", "macos", "windows"];
-
-/** Returns the shared reviewed runtime identity recorded by every package inspection. */
-function runtime(fileCount = 539, pythonWasmSha256 = "d".repeat(64)) {
-  return {
-    schemaVersion: 1,
-    fileCount,
-    licenceSha256: SHA,
-    pythonVersion: "3.14.7",
-    pythonWasmSha256,
-    runtimeTreeSha256: "e".repeat(64),
-    totalBytes: 24_000_000 + (fileCount - 539) * 1_000,
-    wasiSdkVersion: "24",
-  };
-}
-
-/** Returns one complete package inspection for a supported platform. */
-function inspection(platform, protectedPackage = false, baseFileCount = 539, pythonWasmSha256 = "d".repeat(64)) {
-  const targets = {
-    linux: "x86_64-unknown-linux-gnu",
-    macos: "aarch64-apple-darwin",
-    windows: "x86_64-pc-windows-msvc",
-  };
-  const transports = {
-    linux: [],
-    macos: [
-      "Contents/Helpers/BottiePythonXPCClient.app/Contents/Info.plist",
-      "Contents/Helpers/BottiePythonXPCClient.app/Contents/MacOS/bottie-python-xpc-client",
-      "Contents/Helpers/BottiePythonXPCClient.app/Contents/XPCServices/" +
-        "com.bottie.python-runner.xpc/Contents/Info.plist",
-      "Contents/Helpers/BottiePythonXPCClient.app/Contents/XPCServices/" +
-        "com.bottie.python-runner.xpc/Contents/MacOS/bottie-python-xpc-service",
-    ],
-    windows: ["bottie-python-appcontainer.exe"],
-  };
-  const packagedRuntime = runtime(baseFileCount, pythonWasmSha256);
-  if (platform === "windows") {
-    packagedRuntime.fileCount = baseFileCount + 1;
-    packagedRuntime.runtimeTreeSha256 = "f".repeat(64);
-    packagedRuntime.totalBytes = 34_000_000;
-  }
-  return {
-    bundled: true,
-    nativeTransports: transports[platform].map((path, index) => ({
-      bytes: index + (protectedPackage ? 2_058 : 10),
-      path,
-      sha256: `${index + (protectedPackage ? 6 : 1)}`.repeat(64),
-    })),
-    runnerBytes: protectedPackage ? 14_001_024 : 14_000_000,
-    runnerSha256: protectedPackage ? "6".repeat(64) : SHA,
-    runtime: packagedRuntime,
-    target: targets[platform],
-  };
-}
-
-/** Returns the complete closed development containment record for one platform. */
-function developmentContainment(platform) {
-  if (platform === "macos") {
-    return {
-      appSandboxDeniedHostFixture: true,
-      cancellation: true,
-      clientExitKilledRunner: true,
-      credentialFreeEphemeralSignaturesVerified: true,
-      inspectedPackagedBytes: true,
-      privatePipeExecution: true,
-      status: "ok",
-    };
-  }
-  if (platform === "windows") {
-    return {
-      appContainerDeniedHostFixture: true,
-      appContainerLowIntegrity: true,
-      appContainerNoCapabilities: true,
-      cancellation: true,
-      installedDevelopmentBundle: true,
-      jobCloseKilledRunner: true,
-      privatePipeExecution: true,
-      privilegesStripped: true,
-      resourceLimits: true,
-      status: "ok",
-    };
-  }
-  return {
-    cancellation: true,
-    environmentIsolated: true,
-    execDenied: true,
-    landlockDeniedHostFixture: true,
-    networkDenied: true,
-    parentCloseKilledRunner: true,
-    parentDeathSignal: true,
-    processCreationDenied: true,
-    resourceLimits: true,
-    runtimeReadable: true,
-    status: "ok",
-    workspaceReadable: true,
-  };
-}
-
-/** Returns the complete closed shipping containment record for one platform. */
-function shippingContainment(platform, packageInspection) {
-  const common = {
-    inspectionSha256: protectedInspectionSha256(packageInspection),
-    platform,
-    schemaVersion: 1,
-    sourceSha: SOURCE_SHA,
-    status: "ok",
-    target: packageInspection.target,
-  };
-  if (platform === "macos") {
-    return {
-      ...common,
-      appSandboxDeniedHostFixture: true,
-      cancellation: true,
-      clientExitKilledRunner: true,
-      inspectedProtectedPackage: true,
-      privatePipeExecution: true,
-    };
-  }
-  if (platform === "windows") {
-    return {
-      ...common,
-      appContainerDeniedHostFixture: true,
-      appContainerLowIntegrity: true,
-      appContainerNoCapabilities: true,
-      cancellation: true,
-      installedProtectedPackage: true,
-      jobCloseKilledRunner: true,
-      privatePipeExecution: true,
-      privilegesStripped: true,
-      resourceLimits: true,
-    };
-  }
-  return {
-    ...common,
-    cancellation: true,
-    environmentIsolated: true,
-    execDenied: true,
-    installedProtectedPackage: true,
-    landlockDeniedHostFixture: true,
-    networkDenied: true,
-    parentCloseKilledRunner: true,
-    parentDeathSignal: true,
-    processCreationDenied: true,
-    resourceLimits: true,
-    runtimeReadable: true,
-    workspaceReadable: true,
-  };
-}
-
-/** Returns one accepted development candidate for all three platforms. */
-function releaseCandidate(baseFileCount = 539, pythonWasmSha256 = "d".repeat(64)) {
-  return bindPythonReleaseCandidate(
-    SOURCE_SHA,
-    Object.fromEntries(
-      PLATFORMS.map((platform) => {
-        const packageInspection = inspection(platform, false, baseFileCount, pythonWasmSha256);
-        return [
-          platform,
-          {
-            containment: developmentContainment(platform),
-            inspection: packageInspection,
-            installedInspection: platform === "macos" ? undefined : structuredClone(packageInspection),
-            marker: buildSourceMarker(platform, SOURCE_SHA),
-          },
-        ];
-      }),
-    ),
-  );
-}
-
-/** Returns one complete set of independently accepted protected-platform comparisons. */
-function comparisons(baseFileCount = 539, pythonWasmSha256 = "d".repeat(64)) {
-  const candidate = releaseCandidate(baseFileCount, pythonWasmSha256);
-  return Object.fromEntries(
-    PLATFORMS.map((platform) => {
-      const packageInspection = inspection(platform, true, baseFileCount, pythonWasmSha256);
-      return [
-        platform,
-        bindProtectedPythonPackage(
-          SOURCE_SHA,
-          platform,
-          candidate,
-          packageInspection,
-          shippingContainment(platform, packageInspection),
-        ),
-      ];
-    }),
-  );
-}
-
-/** Returns one normalized ordinary release-candidate manifest with every existing release gate passed. */
-function ordinaryReleaseCandidate() {
-  const gateIds = [
-    "release-notes",
-    "version-alignment",
-    "dependency-inventory-current",
-    "dependency-review",
-    "licence-and-notices",
-    "runtime-assets",
-    "model-terms",
-    "artwork",
-    "macos-distribution",
-    "windows-package",
-    "windows-distribution",
-    "linux-package",
-    "linux-distribution",
-  ];
-  return {
-    schemaVersion: 1,
-    release: {
-      channel: "beta",
-      notesSha256: SHA,
-      tag: "v0.9.0",
-      title: "Bottie 0.9.0 beta",
-      version: "0.9.0",
-    },
-    inputs: {
-      dependencyInventorySha256: SHA,
-      licenceSha256: SHA,
-      modelTermsSha256: SHA,
-      noticesSha256: SHA,
-      runtimeAssetsSha256: SHA,
-    },
-    artifacts: { linux: { digest: SHA }, macos: { digest: SHA }, windows: { digest: SHA } },
-    gates: gateIds.map((id) => ({ id, passed: true })),
-    ready: true,
-  };
-}
 
 describe("protected Python platform aggregation", () => {
-  it("deterministically binds one complete same-revision protected platform set", () => {
-    const evidence = bindProtectedPythonPlatforms(SOURCE_SHA, comparisons());
+  it("binds one comparison to the normalized same-run outer distribution", () => {
+    const comparison = comparisons().macos;
+    const rawOuter = outerDistributionEvidence("macos");
+    rawOuter.privatePath = "/Users/private/bottie.app";
+    const envelope = bindProtectedPythonDistributionEnvelope(SOURCE_SHA, "macos", comparison, rawOuter);
 
-    expect(bindProtectedPythonPlatforms(SOURCE_SHA, comparisons())).toEqual(evidence);
+    expect(envelope).toMatchObject({
+      schemaVersion: 1,
+      sourceSha: SOURCE_SHA,
+      status: "accepted",
+      platform: "macos",
+      comparison,
+      outerDistribution: { identifier: "com.bottie.app", version: "0.9.0" },
+    });
+    expect(envelope.comparisonSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(envelope.outerDistributionSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(envelope.bindingSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.stringify(envelope)).not.toContain("/Users/private");
+  });
+
+  it("rejects substituted, digest-drifted, or open envelopes", () => {
+    const records = envelopes();
+    records.macos.platform = "linux";
+    expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, records)).toThrow(/envelope/);
+
+    const digestDrift = envelopes();
+    digestDrift.linux.outerDistribution.bundleDigest = OTHER_OUTER_SHA;
+    expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, digestDrift)).toThrow(/outer-distribution binding/);
+
+    const open = envelopes();
+    open.windows.privatePath = "C:\\private\\bottie.msi";
+    expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, open)).toThrow(/not closed/);
+
+    const nestedOpen = envelopes();
+    nestedOpen.windows.outerDistribution.smoke.privatePath = "C:\\private\\support";
+    expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, nestedOpen)).toThrow(/not closed/);
+
+    const incompleteOuter = outerDistributionEvidence("windows");
+    incompleteOuter.bundle.installer.size = 0;
+    expect(() =>
+      bindProtectedPythonDistributionEnvelope(SOURCE_SHA, "windows", comparisons().windows, incompleteOuter),
+    ).toThrow(/outer distribution.*complete/);
+  });
+
+  it("deterministically binds one complete same-revision protected platform set", () => {
+    const evidence = bindProtectedPythonPlatforms(SOURCE_SHA, envelopes());
+
+    expect(bindProtectedPythonPlatforms(SOURCE_SHA, envelopes())).toEqual(evidence);
     expect(evidence).toMatchObject({
       schemaVersion: 1,
       sourceSha: SOURCE_SHA,
@@ -263,44 +87,63 @@ describe("protected Python platform aggregation", () => {
   });
 
   it("rejects missing, mixed-revision, or mixed-candidate platform records", () => {
-    const missing = comparisons();
+    const missing = envelopes();
     delete missing.windows;
     expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, missing)).toThrow(/three platforms/);
 
-    const mixedRevision = comparisons();
-    mixedRevision.macos.sourceSha = OTHER_SHA;
+    const mixedRevision = envelopes();
+    mixedRevision.macos.comparison.sourceSha = OTHER_SHA;
     expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, mixedRevision)).toThrow(/source revision/);
 
-    const mixedCandidate = comparisons();
-    mixedCandidate.windows.releaseCandidateSha256 = "0".repeat(64);
+    const mixedCandidate = envelopes();
+    const substitutedComparison = structuredClone(mixedCandidate.windows.comparison);
+    substitutedComparison.releaseCandidateSha256 = "0".repeat(64);
+    mixedCandidate.windows = bindProtectedPythonDistributionEnvelope(
+      SOURCE_SHA,
+      "windows",
+      substitutedComparison,
+      outerDistributionEvidence("windows"),
+    );
     expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, mixedCandidate)).toThrow(/release candidate/);
   });
 
   it("recomputes canonical inspection and containment bindings", () => {
-    const changedInspection = comparisons();
-    changedInspection.macos.runner.bytes += 1;
+    const changedInspection = envelopes();
+    changedInspection.macos.comparison.runner.bytes += 1;
     expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, changedInspection)).toThrow(/inspection/);
 
-    const changedContainment = comparisons();
-    changedContainment.linux.containment.cancellation = false;
+    const changedContainment = envelopes();
+    changedContainment.linux.comparison.containment.cancellation = false;
     expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, changedContainment)).toThrow(/containment/);
 
-    const pathBearing = comparisons();
-    pathBearing.windows.containment.privatePath = "C:\\private\\runner.exe";
+    const pathBearing = envelopes();
+    pathBearing.windows.comparison.containment.privatePath = "C:\\private\\runner.exe";
     expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, pathBearing)).toThrow(/not closed/);
   });
 
   it("requires one shared runtime core while retaining platform-specific layouts", () => {
-    const changedCore = comparisons();
-    const otherCore = comparisons(539, "0".repeat(64));
-    otherCore.windows.releaseCandidateSha256 = changedCore.windows.releaseCandidateSha256;
-    changedCore.windows = otherCore.windows;
+    const changedCore = envelopes();
+    const otherComparisons = comparisons(539, "0".repeat(64));
+    otherComparisons.windows.releaseCandidateSha256 = changedCore.windows.comparison.releaseCandidateSha256;
+    const otherCore = bindProtectedPythonDistributionEnvelope(
+      SOURCE_SHA,
+      "windows",
+      otherComparisons.windows,
+      outerDistributionEvidence("windows"),
+    );
+    changedCore.windows = otherCore;
     expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, changedCore)).toThrow(/runtime core/);
 
-    const changedLayout = comparisons();
-    const otherLayout = comparisons(540);
-    otherLayout.windows.releaseCandidateSha256 = changedLayout.windows.releaseCandidateSha256;
-    changedLayout.windows = otherLayout.windows;
+    const changedLayout = envelopes();
+    const otherLayoutComparisons = comparisons(540);
+    otherLayoutComparisons.windows.releaseCandidateSha256 = changedLayout.windows.comparison.releaseCandidateSha256;
+    const otherLayout = bindProtectedPythonDistributionEnvelope(
+      SOURCE_SHA,
+      "windows",
+      otherLayoutComparisons.windows,
+      outerDistributionEvidence("windows"),
+    );
+    changedLayout.windows = otherLayout;
     expect(() => bindProtectedPythonPlatforms(SOURCE_SHA, changedLayout)).toThrow(/Windows.*layout/);
   });
 
@@ -310,6 +153,9 @@ describe("protected Python platform aggregation", () => {
 
     expect(packageManifest.scripts["python:protected:bind-platforms"]).toBe(
       "node scripts/python-protected-platforms.mjs --bind",
+    );
+    expect(packageManifest.scripts["python:protected:bind-envelope"]).toBe(
+      "node scripts/python-protected-platforms.mjs --envelope",
     );
     expect(dependencyConfig).toContain('"scripts/python-protected-platforms.mjs"');
   });
@@ -334,26 +180,31 @@ describe("protected Python platform aggregation", () => {
     expect(workflow).toContain("contents: read");
     expect(workflow).toContain('.head_sha == $source and .conclusion == "success"');
     expect(workflow).toContain('event == "workflow_dispatch"');
-    expect(workflow).toContain("bottie-python-linux-protected-comparison");
-    expect(workflow).toContain("bottie-python-macos-protected-comparison");
-    expect(workflow).toContain("bottie-python-windows-protected-comparison");
+    expect(workflow).toContain("bottie-python-linux-protected-envelope");
+    expect(workflow).toContain("bottie-python-macos-protected-envelope");
+    expect(workflow).toContain("bottie-python-windows-protected-envelope");
     expect(workflow).toContain("python:protected:bind-platforms");
     expect(workflow).toContain("package/python-protected-platform-evidence.json");
     expect(workflow).not.toMatch(/secrets\.|environment:/);
 
-    expect(producers[0]).toContain("name: bottie-python-linux-protected-comparison");
-    expect(producers[0]).toContain("package/python-protected-evidence/linux-accepted.json");
-    expect(producers[1]).toContain("name: bottie-python-macos-protected-comparison");
-    expect(producers[1]).toContain("package/python-protected-evidence/macos-accepted.json");
-    expect(producers[2]).toContain("name: bottie-python-windows-protected-comparison");
-    expect(producers[2]).toContain("package/python-protected-evidence/windows-accepted.json");
+    expect(producers[0]).toContain("name: bottie-python-linux-protected-envelope");
+    expect(producers[0]).toContain("package/python-protected-evidence/linux-envelope.json");
+    expect(producers[1]).toContain("name: bottie-python-macos-protected-envelope");
+    expect(producers[1]).toContain("package/python-protected-evidence/macos-envelope.json");
+    expect(producers[2]).toContain("name: bottie-python-windows-protected-envelope");
+    expect(producers[2]).toContain("package/python-protected-evidence/windows-envelope.json");
   });
 });
 
 describe("protected Python release eligibility", () => {
   it("binds one ready ordinary candidate to exact same-revision protected platform evidence", () => {
-    const platformEvidence = bindProtectedPythonPlatforms(SOURCE_SHA, comparisons());
-    const evidence = bindProtectedPythonReleaseEligibility(SOURCE_SHA, ordinaryReleaseCandidate(), platformEvidence);
+    const platformEnvelopes = envelopes();
+    const platformEvidence = bindProtectedPythonPlatforms(SOURCE_SHA, platformEnvelopes);
+    const evidence = bindProtectedPythonReleaseEligibility(
+      SOURCE_SHA,
+      ordinaryReleaseCandidate(platformEnvelopes),
+      platformEvidence,
+    );
 
     expect(evidence).toMatchObject({
       schemaVersion: 1,
@@ -365,32 +216,47 @@ describe("protected Python release eligibility", () => {
     });
     expect(evidence.platforms.map(({ platform }) => platform)).toEqual(PLATFORMS);
     expect(evidence.platforms[1].nativeTransports[0].sha256).toBe("6".repeat(64));
+    expect(evidence.platforms[1].outerDistributionSha256).toBe(platformEnvelopes.macos.outerDistributionSha256);
+    expect(evidence.platforms[1].bindingSha256).toBe(platformEnvelopes.macos.bindingSha256);
     expect(JSON.stringify(evidence)).not.toMatch(/Users|C:\\\\|\/private\/|credential|rawOutput/);
   });
 
   it("rejects an unready, malformed, or version-inconsistent ordinary release candidate", () => {
-    const platformEvidence = bindProtectedPythonPlatforms(SOURCE_SHA, comparisons());
-    const unready = ordinaryReleaseCandidate();
+    const platformEnvelopes = envelopes();
+    const platformEvidence = bindProtectedPythonPlatforms(SOURCE_SHA, platformEnvelopes);
+    const unready = ordinaryReleaseCandidate(platformEnvelopes);
     unready.ready = false;
     expect(() => bindProtectedPythonReleaseEligibility(SOURCE_SHA, unready, platformEvidence)).toThrow(/not ready/);
 
-    const openGate = ordinaryReleaseCandidate();
+    const openGate = ordinaryReleaseCandidate(platformEnvelopes);
     openGate.gates[0] = { failure: "invalid-release-notes", id: "release-notes", passed: false };
     expect(() => bindProtectedPythonReleaseEligibility(SOURCE_SHA, openGate, platformEvidence)).toThrow(
       /release gates/,
     );
 
-    const wrongTag = ordinaryReleaseCandidate();
+    const wrongTag = ordinaryReleaseCandidate(platformEnvelopes);
     wrongTag.release.tag = "v0.8.0";
     expect(() => bindProtectedPythonReleaseEligibility(SOURCE_SHA, wrongTag, platformEvidence)).toThrow(/release/);
   });
 
-  it("revalidates the protected aggregate and exposes only a credential-free command", async () => {
-    const tampered = bindProtectedPythonPlatforms(SOURCE_SHA, comparisons());
-    tampered.platforms[0].containmentSha256 = "0".repeat(64);
-    expect(() => bindProtectedPythonReleaseEligibility(SOURCE_SHA, ordinaryReleaseCandidate(), tampered)).toThrow(
-      /platform evidence/,
+  it("rejects substitution between protected envelopes and ordinary outer distributions", () => {
+    const platformEnvelopes = envelopes();
+    const platformEvidence = bindProtectedPythonPlatforms(SOURCE_SHA, platformEnvelopes);
+    const substituted = ordinaryReleaseCandidate(platformEnvelopes);
+    substituted.artifacts.windows.installer.sha256 = OTHER_OUTER_SHA;
+
+    expect(() => bindProtectedPythonReleaseEligibility(SOURCE_SHA, substituted, platformEvidence)).toThrow(
+      /outer distribution/,
     );
+  });
+
+  it("revalidates the protected aggregate and exposes only a credential-free command", async () => {
+    const platformEnvelopes = envelopes();
+    const tampered = bindProtectedPythonPlatforms(SOURCE_SHA, platformEnvelopes);
+    tampered.platforms[0].containmentSha256 = "0".repeat(64);
+    expect(() =>
+      bindProtectedPythonReleaseEligibility(SOURCE_SHA, ordinaryReleaseCandidate(platformEnvelopes), tampered),
+    ).toThrow(/platform evidence/);
 
     const packageManifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
     expect(packageManifest.scripts["python:protected:release-eligibility"]).toBe(

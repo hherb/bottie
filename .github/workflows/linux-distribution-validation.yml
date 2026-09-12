@@ -69,6 +69,7 @@ jobs:
           node --check scripts/linux-distribution.integration.mjs
           node --check scripts/linux-shipping-python-containment.mjs
           node --check scripts/python-protected-package.mjs
+          node --check scripts/python-protected-platforms.mjs
           npm run package:linux:test
           npm test -- scripts/linux-distribution.test.mjs scripts/linux-shipping-python-containment.test.mjs \
             scripts/python-protected-package.test.mjs scripts/release-candidate.test.mjs
@@ -282,6 +283,9 @@ jobs:
             package/python-protected-evidence/linux-signed.json \
             package/python-protected-evidence/linux-containment.json \
             package/python-protected-evidence/linux-accepted.json
+          npm run --silent python:protected:bind-envelope -- \
+            "$GITHUB_SHA" linux package/python-protected-evidence/linux-accepted.json \
+            package/linux-package-evidence.json package/python-protected-evidence/linux-envelope.json
 
       - name: Upload identity-free evidence
         uses: actions/upload-artifact@v7
@@ -311,12 +315,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Upload the accepted protected Python comparison
+      - name: Upload the accepted protected Python envelope
         if: inputs.python_provenance_run_id != ''
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: bottie-python-linux-protected-comparison
-          path: package/python-protected-evidence/linux-accepted.json
+          name: bottie-python-linux-protected-envelope
+          path: package/python-protected-evidence/linux-envelope.json
           if-no-files-found: error
           retention-days: 7
 

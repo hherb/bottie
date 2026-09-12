@@ -290,12 +290,14 @@ with a credential-free aggregate protected-platform comparison contract, while s
   fixed-layout installed controller/helper/runtime equality, and AppContainer/process-lifecycle containment;
 - [x] optional same-revision protected Windows Python workflow composition through exact pre-credential inspection,
   existing Authenticode/updater signing, installed-package containment, and final candidate comparison;
-- [x] credential-free aggregate binding of the exact Linux, macOS, and Windows protected-package comparisons to one
-  source revision, accepted release candidate, shared runtime core, and canonical inspection/containment identities;
+- [x] credential-free per-platform envelopes and aggregate binding of the exact Linux, macOS, and Windows
+  protected-package comparisons to one source revision, accepted release candidate, shared runtime core, canonical
+  inspection/containment identities, and the normalized outer distribution produced by each protected run;
 - [x] manual read-only aggregation workflow that accepts only three explicit same-revision successful distribution
-  runs, downloads dedicated path-free comparison artifacts, and uploads only the bounded aggregate record;
+  runs, downloads dedicated path-free comparison/distribution envelopes, and uploads only the bounded aggregate record;
 - [x] credential-free protected-Python release-eligibility binding of one closed ready ordinary candidate to the exact
-  same-revision aggregate while retaining canonical input digests and signed native identities;
+  same-revision aggregate while requiring its three normalized outer distributions to match the protected-run
+  envelopes and retaining canonical input digests and signed native identities;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
   or provider advertisement;
 - [x] process-local one-use approve/deny decisions bound to the unchanged complete call, with an opaque-token modal and

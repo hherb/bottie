@@ -116,29 +116,37 @@ app. The shipping record includes the same source revision, target, and canonica
 or substituted containment evidence fails closed. The accepted result is path-free and contains no credential,
 identity, host path, or raw command output.
 
-`python:protected:bind-platforms` independently revalidates the complete Linux, macOS, and Windows comparison set.
-It requires one exact source revision and accepted release-candidate digest, reconstructs and canonically hashes every
-protected inspection, validates and hashes each platform's closed shipping-containment record, and requires one shared
-CPython/WASI runtime core. Linux and macOS retain the same runtime tree, while Windows retains its platform-specific
-standard-library ZIP layout. The aggregate keeps each signed runner and native transport size/digest instead of
-collapsing platform identity. It reads only fixed comparison filenames from a supplied private directory and emits one
-path-free JSON record; it does not download artifacts, dispatch workflows, use credentials, or create shipping proof.
+`python:protected:bind-envelope` first revalidates one accepted comparison and normalizes the final outer-distribution
+record produced by that same protected run through the ordinary release-candidate distribution normalizer. Its closed,
+path-free envelope carries canonical hashes for both records plus a relationship hash over source, platform, and both
+digests. Missing values, the wrong updater target, digest drift, added envelope fields, or a substituted
+source/platform/comparison fails closed.
+
+`python:protected:bind-platforms` independently revalidates the complete Linux, macOS, and Windows envelope set. It
+requires one exact source revision and accepted release-candidate digest, reconstructs and canonically hashes every
+protected inspection, validates and hashes each platform's closed shipping-containment record and outer-distribution
+binding, and requires one shared CPython/WASI runtime core. Linux and macOS retain the same runtime tree, while Windows
+retains its platform-specific standard-library ZIP layout. The aggregate keeps each signed runner and native transport
+size/digest plus each canonical outer-distribution digest instead of collapsing platform identity. It reads only fixed
+envelope filenames from a supplied private directory and emits one path-free JSON record; it does not download
+artifacts, dispatch workflows, use credentials, or create shipping proof.
 
 The separate manual `Protected Python platform evidence` workflow accepts three explicit prior distribution run IDs.
 It checks that each ID is a successful manual Linux, macOS, or Windows distribution run for the exact checked-out
-revision before downloading a dedicated one-file comparison artifact. It rejects unexpected file counts or names,
+revision before downloading a dedicated one-file envelope artifact. It rejects unexpected file counts or names,
 stages the three fixed binder inputs, and uploads only the aggregate path-free record for seven days. The producing
 distribution workflows retain their existing combined evidence artifacts and additionally expose only the accepted
-comparison as the dedicated input. The aggregate workflow has read-only repository/action permissions, no protected
-environment or secrets, and cannot trigger a distribution, sign bytes, release, publish, or perform Store work.
+comparison plus normalized same-run outer evidence as the dedicated envelope. The aggregate workflow has read-only
+repository/action permissions, no protected environment or secrets, and cannot trigger a distribution, sign bytes,
+release, publish, or perform Store work.
 
 `python:protected:release-eligibility` then binds one closed, fully passed ordinary Bottie release-candidate manifest to
 one revalidated same-revision protected-platform aggregate. It canonically hashes both inputs, retains the ordinary
-versioned beta metadata, shared CPython/WASI runtime core, and every protected runner/native transport identity, and
-emits only a path-free `eligible` record. Eligibility is evidence review, not authority: the command cannot build,
-sign, upload, tag, release, publish an updater, or perform Store work. The current contract does not claim that each
-inner Python comparison digest is cryptographically tied to the ordinary candidate's outer distribution summary;
-today that association is limited to the exact source-bound distribution runs selected by the aggregate workflow.
+versioned beta metadata, shared CPython/WASI runtime core, and every protected runner/native transport identity. It
+also requires each ordinary candidate artifact summary to exactly match the corresponding revalidated protected-run
+outer distribution and retains that canonical digest in the output. It emits only a path-free `eligible` record.
+Eligibility is evidence review, not authority: the command cannot build, sign, upload, tag, release, publish an updater,
+or perform Store work.
 
 The macOS protected-package producer is a separate pre-containment step. It copies only the exact source runner,
 runtime tree, and runtime evidence from the development artifact into a fresh ignored root, rejecting unsupported
@@ -434,16 +442,18 @@ node scripts/python-protected-package.mjs --inspect \
   <source-sha> <platform> <candidate-json> <raw-inspection-json> <accepted-inspection-json>
 node scripts/python-protected-package.mjs --compare \
   <source-sha> <platform> <candidate-json> <inspection-json> <containment-json> <output-json>
+npm run python:protected:bind-envelope -- \
+  <source-sha> <platform> <comparison-json> <outer-distribution-json> <envelope-output-json>
 npm run python:protected:bind-platforms -- \
-  <source-sha> <comparison-directory> <aggregate-output-json>
+  <source-sha> <envelope-directory> <aggregate-output-json>
 npm run python:protected:release-eligibility -- \
   <source-sha> <ordinary-release-candidate-json> <protected-platform-json> <eligibility-output-json>
 ```
 
 The comparison command consumes only pre-existing path-free evidence. It does not build a protected package, use
 credentials, sign or notarize bytes, dispatch a workflow, or establish shipping containment by itself.
-The aggregate command likewise consumes only fixed `linux-protected-comparison.json`,
-`macos-protected-comparison.json`, and `windows-protected-comparison.json` inputs copied into the supplied directory.
+The aggregate command likewise consumes only fixed `linux-protected-envelope.json`, `macos-protected-envelope.json`,
+and `windows-protected-envelope.json` inputs copied into the supplied directory.
 The manual workflow runs the same command only after validating the three explicit source-bound distribution run IDs;
 it is not called automatically by pull requests, releases, or any protected distribution workflow.
 
@@ -674,8 +684,8 @@ and redacted-thinking blocks, returns each bounded success or error as a Message
 opaque `tool_use` identity through invocation, approval, durable audit, and the follow-up request. Denial and shared
 cancellation remain terminal non-execution paths, while usage and the existing loop budgets span the whole exchange.
 
-The next bounded slice can add a credential-free per-platform envelope that binds each accepted Python comparison to
-the normalized outer distribution evidence produced by the same protected workflow run, then carry those canonical
-distribution bindings through the aggregate and release-eligibility records. It must not change distribution execution
-or treat evidence linkage as authorization. Protected workflow dispatch, signing, release, publication, and Microsoft
-Store work remain separately authorized and deferred.
+The next step is fresh same-revision protected macOS, Linux, and Windows evidence production followed by aggregate and
+eligibility review. That crosses protected environments, platform credentials, signing/notarization, and hosted-runner
+source egress, so it requires explicit release-owner authorization and configured credentials before dispatch. Evidence
+linkage is not release authority; release, publication, and Microsoft Store work remain separately authorized and
+deferred.
