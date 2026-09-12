@@ -42,6 +42,7 @@ jobs:
       - name: Verify credential-free distribution contracts
         run: |
           node --check scripts/macos-distribution.mjs
+          node --check scripts/python-protected-platforms.mjs
           npm test -- scripts/macos-distribution.test.mjs scripts/macos-shipping-python-containment.test.mjs \
             scripts/python-protected-package.test.mjs
 
@@ -184,6 +185,9 @@ jobs:
             package/python-protected-evidence/macos-signed.json \
             package/python-protected-evidence/macos-containment.json \
             package/python-protected-evidence/macos-accepted.json
+          npm run --silent python:protected:bind-envelope -- \
+            "$GITHUB_SHA" macos package/python-protected-evidence/macos-accepted.json \
+            package/macos-distribution-evidence.json package/python-protected-evidence/macos-envelope.json
 
       - name: Upload identity-free evidence
         uses: actions/upload-artifact@v4
@@ -213,12 +217,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Upload the accepted protected Python comparison
+      - name: Upload the accepted protected Python envelope
         if: inputs.python_provenance_run_id != ''
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: bottie-python-macos-protected-comparison
-          path: package/python-protected-evidence/macos-accepted.json
+          name: bottie-python-macos-protected-envelope
+          path: package/python-protected-evidence/macos-envelope.json
           if-no-files-found: error
           retention-days: 7
 
