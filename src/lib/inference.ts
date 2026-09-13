@@ -93,6 +93,7 @@ export type ProviderSettings = {
   ollamaBaseUrl: string;
   openaiBaseUrl: string;
   anthropicBaseUrl: string;
+  qwenImageBaseUrl: string;
   webSearchProviderId: WebSearchProviderId;
   webNetworkPolicy: WebNetworkPolicy;
   setupCompleted: boolean;
@@ -104,7 +105,7 @@ export type ProviderSettings = {
 };
 
 /** Stable native provider identities allowed to own an OS-vault credential. */
-export type CredentialProviderId = "openai" | "anthropic" | WebSearchProviderId;
+export type CredentialProviderId = "openai" | "anthropic" | "qwen-image" | WebSearchProviderId;
 
 /** Secret-free availability for one native provider credential. */
 export type ProviderCredentialStatus = {
@@ -127,6 +128,19 @@ export type ProviderConnectionTest = {
 export type WebSearchConnectionTest = {
   providerId: WebSearchProviderId;
   elapsedMs: number;
+  message: string;
+};
+
+/** Exact Qwen Image capabilities validated without a billable provider request. */
+export type ImageGenerationSetupStatus = {
+  providerId: "qwen-image";
+  modelId: "qwen-image-2.0-2026-03-03";
+  baseUrl: string;
+  execution: "cloud";
+  generation: boolean;
+  editing: boolean;
+  maxOutputs: number;
+  maxPixels: number;
   message: string;
 };
 
@@ -224,6 +238,17 @@ export async function testWebSearchConnection(
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<WebSearchConnectionTest>("test_web_search_connection", {
     draft: { providerId, apiKey: apiKey || null },
+  });
+}
+
+/** Validates exact Qwen-Image-2.0 setup without sending a billable generation request. */
+export async function validateQwenImageConfiguration(
+  baseUrl: string,
+  apiKey?: string,
+): Promise<ImageGenerationSetupStatus> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<ImageGenerationSetupStatus>("validate_qwen_image_configuration", {
+    draft: { baseUrl, apiKey: apiKey || null },
   });
 }
 

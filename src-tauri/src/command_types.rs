@@ -99,6 +99,40 @@ pub(crate) struct WebSearchConnectionTest {
     pub(crate) message: String,
 }
 
+/// Candidate Qwen Image setup checked without issuing a billable generation request.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub(crate) struct ImageGenerationSetupDraft {
+    /// Credential-free DashScope or Model Studio workspace API root.
+    pub(crate) base_url: String,
+    /// Optional unsaved Model Studio API key used only for this validation.
+    pub(crate) api_key: Option<String>,
+}
+
+/// Exact image-provider capability status safe to return to the WebView.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageGenerationSetupStatus {
+    /// Stable Bottie image-provider identity.
+    pub(crate) provider_id: &'static str,
+    /// Exact provider-owned checkpoint identity.
+    pub(crate) model_id: &'static str,
+    /// Normalized credential-free API root.
+    pub(crate) base_url: String,
+    /// Whether this concrete adapter executes locally or through a cloud service.
+    pub(crate) execution: &'static str,
+    /// Whether text-to-image generation is implemented.
+    pub(crate) generation: bool,
+    /// Whether the selected model supports instruction-based image editing.
+    pub(crate) editing: bool,
+    /// Maximum output count accepted by one request.
+    pub(crate) max_outputs: u8,
+    /// Maximum output pixel area accepted by the provider.
+    pub(crate) max_pixels: u64,
+    /// User-readable validation result that states no billable request was made.
+    pub(crate) message: &'static str,
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -150,10 +184,16 @@ mod tests {
             "modelId": "qwen3:latest",
             "filesystemPath": "/tmp/model"
         }));
+        let image = serde_json::from_value::<ImageGenerationSetupDraft>(json!({
+            "baseUrl": "https://dashscope-intl.aliyuncs.com/api/v1/",
+            "apiKey": null,
+            "outputPath": "/tmp/generated.png"
+        }));
 
         assert!(provider.is_err());
         assert!(search.is_err());
         assert!(selection.is_err());
+        assert!(image.is_err());
     }
 
     #[test]
@@ -174,5 +214,26 @@ mod tests {
                 "biometricProtected": true
             })
         );
+    }
+
+    #[test]
+    fn image_setup_status_is_exact_and_path_free() {
+        let status = ImageGenerationSetupStatus {
+            provider_id: "qwen-image",
+            model_id: "qwen-image-2.0-2026-03-03",
+            base_url: "https://workspace.ap-southeast-1.maas.aliyuncs.com/api/v1/".into(),
+            execution: "cloud",
+            generation: true,
+            editing: true,
+            max_outputs: 6,
+            max_pixels: 4_194_304,
+            message: "Qwen Image setup is structurally valid; no billed request was sent.",
+        };
+
+        let value = serde_json::to_value(status).expect("status should serialize");
+        assert_eq!(value["modelId"], "qwen-image-2.0-2026-03-03");
+        assert_eq!(value["execution"], "cloud");
+        assert!(value.get("apiKey").is_none());
+        assert!(value.get("filesystemPath").is_none());
     }
 }

@@ -260,6 +260,21 @@ npm run tauri dev
 On first use, Bottie asks you to confirm a working provider and model after explaining which data stays local and which
 data follows the selected route.
 
+### Qwen Image foundation
+
+Settings can retain a Model Studio key in the operating-system credential vault and validate a credential-free
+DashScope or Model Studio workspace root for the exact `qwen-image-2.0-2026-03-03` checkpoint. Validation performs no
+provider request, generates no image, and incurs no model charge. The native adapter already fixes the request model,
+bounds dimensions and output count, and accepts only bounded HTTPS result references; the user-facing generation and
+durable-image flow remains the next implementation slice.
+
+Qwen-Image-2.0 local execution remains intentionally unavailable until its weights and a compatible runtime are
+actually published. Local work can proceed now against the distinct open `Qwen/Qwen-Image-2512` text-to-image
+checkpoint, prioritizing MLX-Gen on Apple silicon and a pinned Diffusers worker on proven Linux/Windows GPU targets.
+Every local adapter will share the same provider-neutral contract and durable native-byte path. Bottie will neither
+route exact 2.0 through oMLX or an older implementation nor label 2512 output as Qwen-Image-2.0. See Milestone 8 in
+`ROADMAP.md` for the phased implementation and hardware acceptance plan.
+
 On macOS, the package script development-signs each newly linked executable with an available Apple Development
 identity before Cargo runs it. If more than one identity is usable, set `BOTTIE_APPLE_SIGNING_IDENTITY` to the exact
 certificate label or SHA-1 fingerprint you intend to use. This affects development signing only.

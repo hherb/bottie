@@ -98,6 +98,7 @@ export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {
   ollamaBaseUrl: "http://127.0.0.1:11434/",
   openaiBaseUrl: "https://api.openai.com/v1/",
   anthropicBaseUrl: "https://api.anthropic.com/v1/",
+  qwenImageBaseUrl: "https://dashscope-intl.aliyuncs.com/api/v1/",
   webSearchProviderId: "brave",
   webNetworkPolicy: {
     httpsOnly: true,
