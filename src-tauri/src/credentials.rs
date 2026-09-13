@@ -14,19 +14,26 @@ const SERVICE_NAME: &str = "com.hherb.bottie.provider-api-keys";
 const STATUS_SERVICE_NAME: &str = "com.hherb.bottie.provider-api-key-status";
 const CONFIGURED_MARKER: &str = "configured";
 const AUTHENTICATION_REASON: &str =
-    "unlock saved cloud, search, and connector credentials for this Bottie session";
+    "unlock saved cloud, search, image, and connector credentials for this Bottie session";
 const AUTHENTICATION_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Stable native provider identities allowed to own credential-vault entries.
-pub(crate) const NATIVE_CREDENTIAL_IDS: [&str; 4] = ["openai", "anthropic", "brave", "exa"];
-/// Vault identity reserved for the first-party Localmail connector token.
-pub(crate) const LOCALMAIL_CREDENTIAL_ID: &str = "localmail";
-/// Every credential Bottie warms after the single app-session authentication.
-const NATIVE_SESSION_CREDENTIAL_IDS: [&str; 5] = [
+pub(crate) const NATIVE_CREDENTIAL_IDS: [&str; 5] = [
     "openai",
     "anthropic",
     "brave",
     "exa",
+    crate::image_generation::QWEN_IMAGE_PROVIDER_ID,
+];
+/// Vault identity reserved for the first-party Localmail connector token.
+pub(crate) const LOCALMAIL_CREDENTIAL_ID: &str = "localmail";
+/// Every credential Bottie warms after the single app-session authentication.
+const NATIVE_SESSION_CREDENTIAL_IDS: [&str; 6] = [
+    "openai",
+    "anthropic",
+    "brave",
+    "exa",
+    crate::image_generation::QWEN_IMAGE_PROVIDER_ID,
     LOCALMAIL_CREDENTIAL_ID,
 ];
 

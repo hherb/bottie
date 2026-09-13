@@ -5,6 +5,7 @@
   import AppearancePreferences from "$lib/AppearancePreferences.svelte";
   import Icon from "$lib/Icon.svelte";
   import MemoryIndexControl from "$lib/MemoryIndexControl.svelte";
+  import QwenImageSettingsControl from "$lib/QwenImageSettingsControl.svelte";
   import UpdateControl from "$lib/UpdateControl.svelte";
   import LocalmailSettingsControl from "$lib/LocalmailSettingsControl.svelte";
   import LocalSpeechSettings from "$lib/LocalSpeechSettings.svelte";
@@ -73,18 +74,26 @@
     anthropic: { providerId: "anthropic", configured: false, unlocked: false, biometricProtected: false },
     brave: { providerId: "brave", configured: false, unlocked: false, biometricProtected: false },
     exa: { providerId: "exa", configured: false, unlocked: false, biometricProtected: false },
+    "qwen-image": {
+      providerId: "qwen-image",
+      configured: false,
+      unlocked: false,
+      biometricProtected: false,
+    },
   });
   let credentialDrafts = $state<Record<CredentialProviderId, string>>({
     openai: "",
     anthropic: "",
     brave: "",
     exa: "",
+    "qwen-image": "",
   });
   let removeCredentials = $state<Record<CredentialProviderId, boolean>>({
     openai: false,
     anthropic: false,
     brave: false,
     exa: false,
+    "qwen-image": false,
   });
   let dialog = $state<HTMLDivElement>();
   onMount(() => focusFirstModalControl(dialog));
@@ -204,7 +213,7 @@
     settingsError = "";
     try {
       const saved = await updateProviderSettings({ ...settingsDraft });
-      for (const providerId of ["openai", "anthropic", "brave", "exa"] as const) {
+      for (const providerId of ["openai", "anthropic", "brave", "exa", "qwen-image"] as const) {
         const apiKey = credentialDrafts[providerId].trim();
         if (apiKey || removeCredentials[providerId]) {
           const status = await updateProviderCredential(providerId, apiKey || null, removeCredentials[providerId]);
@@ -330,6 +339,21 @@
           {/if}
         </div>
       {/each}
+
+      <QwenImageSettingsControl
+        baseUrl={settingsDraft.qwenImageBaseUrl}
+        credential={credentialStatus["qwen-image"]}
+        credentialDraft={credentialDrafts["qwen-image"]}
+        removeCredential={removeCredentials["qwen-image"]}
+        disabled={settingsSaving}
+        onbaseurlchange={(baseUrl) => (settingsDraft.qwenImageBaseUrl = baseUrl)}
+        oncredentialdraftchange={(apiKey) => {
+          credentialDrafts["qwen-image"] = apiKey;
+          removeCredentials["qwen-image"] = false;
+        }}
+        onremovecredentialchange={(remove) => (removeCredentials["qwen-image"] = remove)}
+        ondiagnosticschange={refreshDiagnostics}
+      />
 
       <div class="provider-setting">
         <div class="provider-setting-heading">

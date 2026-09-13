@@ -30,6 +30,13 @@ describe("ProviderSettingsDialog", () => {
 
     expect(html).toContain("Brave Search");
     expect(html).toContain("Exa Search");
+    expect(html).toContain("Qwen-Image-2.0");
+    expect(html).toContain("qwen-image-2.0-2026-03-03");
+    expect(html).toContain('id="qwen-image-api-key"');
+    expect(html).toContain('id="qwen-image-endpoint"');
+    expect(html).toContain("Validate setup");
+    expect(html).toContain("Singapore is the default region");
+    expect(html).toContain("no image is generated or billed");
     expect(html).toContain("Fixed native HTTPS search route");
     expect(html).toContain('id="brave-api-key"');
     expect(html).toContain('id="exa-api-key"');

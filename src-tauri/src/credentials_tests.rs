@@ -49,6 +49,7 @@ fn credential_accounts_are_limited_to_native_providers() {
     assert!(validate_native_credential_provider("anthropic").is_ok());
     assert!(validate_native_credential_provider("brave").is_ok());
     assert!(validate_native_credential_provider("exa").is_ok());
+    assert!(validate_native_credential_provider("qwen-image").is_ok());
     assert!(validate_native_credential_provider("localmail").is_ok());
     assert!(validate_native_credential_provider("ollama").is_err());
     assert!(validate_native_credential_provider("").is_err());
@@ -64,7 +65,7 @@ fn only_existing_locked_credentials_require_authentication() {
 #[test]
 fn warms_every_configured_credential_after_one_session_authentication() {
     let mut session = CredentialSession::default();
-    let configured = HashSet::from(["openai", "brave", "localmail"]);
+    let configured = HashSet::from(["openai", "brave", "qwen-image", "localmail"]);
     let mut authentication_count = 0;
     let mut read_ids = Vec::new();
 
@@ -84,8 +85,8 @@ fn warms_every_configured_credential_after_one_session_authentication() {
     .expect("configured credentials should warm the native session");
 
     assert_eq!(authentication_count, 1);
-    assert_eq!(read_ids, ["openai", "brave", "localmail"]);
-    assert_eq!(session.secrets.len(), 3);
+    assert_eq!(read_ids, ["openai", "brave", "qwen-image", "localmail"]);
+    assert_eq!(session.secrets.len(), 4);
     assert!(session.authenticated);
 
     warm_configured_credentials(
@@ -149,6 +150,12 @@ fn reports_saved_and_absent_credentials_as_exact_secret_free_metadata() {
             },
             {
                 "providerId": "exa",
+                "configured": false,
+                "unlocked": false,
+                "biometricProtected": true
+            },
+            {
+                "providerId": "qwen-image",
                 "configured": false,
                 "unlocked": false,
                 "biometricProtected": true

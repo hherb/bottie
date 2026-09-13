@@ -1,53 +1,68 @@
 # Bottie handover
 
-Last verified: 2026-09-12
+Last verified: 2026-09-13
 
 ## Start here
 
-PR #163 merged into `main` at `9e5502f`. The current branch is
-`codex/protected-python-outer-envelope`.
+PR #164 merged into `main` at `3a08b32`. The current branch is `codex/qwen-image-2-provider`.
 
-Read `docs/python-sandbox.md`, then the Milestone 5 sandboxed-Python section of `ROADMAP.md`.
+Read the Milestone 8 generated-images section of `ROADMAP.md`, then `src-tauri/src/image_generation/mod.rs` and
+`src-tauri/src/image_generation/dashscope.rs`.
 
 ## Completed slice
 
-- `python:protected:bind-envelope` revalidates one accepted protected-package comparison, normalizes the final outer
-  distribution from that same protected run with the existing ordinary release-candidate normalizer, rejects incomplete
-  or wrong-target evidence, and emits a closed path-free record with canonical comparison, outer-distribution, and
-  relationship hashes.
-- Each optional protected macOS, Linux, and Windows producer now writes that envelope after its existing comparison and
-  exposes only the one-file envelope as the aggregate workflow input.
-- `python:protected:bind-platforms` now revalidates the three fixed envelope records and carries each canonical
-  outer-distribution binding through the aggregate.
-- `python:protected:release-eligibility` now requires exact equality between those three protected-run distribution
-  summaries and the corresponding normalized artifacts in the ready ordinary release candidate. Its platform records
-  retain the outer-distribution and relationship hashes.
-- Tests cover normalization, source/platform substitution, comparison and distribution digest drift, open/path-bearing
-  envelopes, incomplete evidence, shared runtime constraints, workflow filenames, and ordinary-candidate substitution.
-  Test fixtures were split out to preserve the practical 500-line source limit.
+- Added a provider-neutral native image-generation contract with bounded prompt, dimension, output-count, capability,
+  execution, and temporary-result types.
+- Added an exact synchronous DashScope adapter pinned to `qwen-image-2.0-2026-03-03`; it uses the documented
+  multimodal-generation route and request shape, disables redirects, keeps the bearer key in a sensitive header, limits
+  the response envelope, requires terminal assistant choices, and accepts only the exact count of HTTPS image URLs.
+- Added a credential-free persisted DashScope/Model Studio workspace root and a `qwen-image` operating-system-vault
+  credential identity, including the existing one-authentication session warmup path.
+- Added a path-free Tauri setup-validation command and Settings card. Validation checks the normalized HTTPS root,
+  credential shape, fixed model identity, and static capabilities without making a provider request, generating an
+  image, or incurring a model charge.
+- Documented the staged hosted path and the explicit no-local-weights boundary. Future local execution must implement
+  the same contract after exact Qwen-Image-2.0 weights and compatible runtimes are actually published; do not route the
+  model through oMLX or an older Qwen-Image implementation.
 
-No default distribution path, provider behavior, protected trigger, credential flow, signing implementation, release
-path, publication path, or Store path changed. Unrelated untracked logo-kit, screenshot, and Linux public-key files remain
-untouched.
+No billable provider request, generated-image download, image persistence, conversation-schema change, local runtime,
+model download, release, signing, publication, workflow dispatch, or Store action is included. Unrelated untracked
+logo-kit, screenshot, and Linux public-key files remain untouched.
 
 ## Validation
 
-The focused envelope, aggregate, release-eligibility, and ordinary release-candidate suite passes 17 tests. The full
-frontend/script suite passes 352 tests with 3 skipped across 69 passing and 1 skipped files. `npm run format:check`,
-`npm run check`, `npm run build`, dependency-inventory verification, JavaScript syntax checks, and diff checks pass.
+The full frontend/script suite passes 352 tests with 3 skipped across 69 passing and 1 skipped files.
+`npm run format:check`, `npm run check`, and `npm run build` pass.
 
-Application Cargo formatting and `cargo check` pass. The serial application suite passes 501 library tests with 36
+Application Cargo formatting and `cargo check` pass. The serial application suite passes 512 library tests with 36
 ignored plus the updater-evidence binary test; doc tests pass. Cargo reports only the existing future-incompatibility
 notice for `block 0.1.6`.
 
-No browser or native-app UI review is required for this path-free evidence/workflow contract. The optional protected
-workflows remain undispatched, and this macOS host cannot produce signed/installed Linux or Windows evidence.
+The browser presentation was reviewed at a desktop viewport: the exact checkpoint, credential and endpoint fields,
+non-billable validation disclosure, cloud badge, and native-only disabled state render cleanly. The native app built and
+launched successfully. macOS accessibility automation could not inspect the running native window, so no native
+interaction is claimed. No live Model Studio test was run because this slice deliberately performs no provider I/O.
 
 ## Next boundary
 
-The next meaningful step is to produce fresh same-revision protected macOS, Linux, and Windows evidence, then run the
-read-only aggregate and eligibility review. Do not dispatch it without explicit release-owner authorization: it uses
-protected environments, hosted-runner source egress, platform signing credentials, and macOS notarization. Confirm the
-required credentials are configured before any authorized run.
+Implement one explicit, cancellable text-to-image action that requires a saved configuration and clear cloud-delivery
+and cost disclosure. Rust must call the existing exact adapter, immediately download each temporary result, validate
+content type, decoded format, dimensions, and byte/pixel ceilings, then store content-addressed app-private PNG bytes.
+Only path-free durable image metadata may cross IPC.
 
-Do not sign, release, publish, perform Microsoft Store work, or merge the draft PR without separate authorization.
+Add assistant-authored image persistence and exact `providerId`, `modelId`, and `execution` provenance before showing a
+generated result in the conversation. Do not reuse the current user-attachment association in a way that attributes an
+assistant-generated image to the user. Editing/reference-image support is a later slice.
+
+Do not add a local Qwen-Image-2.0 adapter until exact weights are publicly available and verified. At that point, assess
+MLX on Apple silicon and released CUDA/ROCm/Windows-capable runtimes behind explicit capability discovery and execution
+choice, with no silent cloud fallback.
+
+After the shared durable generation slice, add the distinct open `Qwen/Qwen-Image-2512` local text-to-image track:
+MLX-Gen first on Apple silicon, pinned Diffusers on proven Linux/Windows NVIDIA hardware, then evidence-gated Linux ROCm
+and a possible stable-diffusion.cpp Vulkan/GGUF fallback. Keep 2512 and exact 2.0 model identities visibly separate.
+
+App-store shipping and other distribution work are paused while Milestone 8 is the active product priority.
+
+Do not commit, push, open a PR, dispatch workflows, sign, release, publish, or perform Store work without separate
+authorization.
