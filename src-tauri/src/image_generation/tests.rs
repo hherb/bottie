@@ -1,9 +1,19 @@
+use std::{
+    io::{Cursor, Read, Write},
+    net::TcpListener,
+    thread,
+};
+
+use image::{DynamicImage, ImageFormat, Rgba, RgbaImage};
 use serde_json::json;
+use url::Url;
 
 use super::{
-    DASHSCOPE_QWEN_IMAGE_MODEL_ID, DashScopeQwenImageProvider, ImageGenerationProvider,
-    ImageGenerationRequest, validate_qwen_image_base_url,
+    DASHSCOPE_QWEN_IMAGE_MODEL_ID, DashScopeQwenImageProvider, GeneratedImageDownloader,
+    GeneratedImageReference, ImageGenerationProvider, ImageGenerationRequest,
+    validate_qwen_image_base_url,
 };
+use crate::storage::ConversationStore;
 
 #[test]
 fn accepts_only_official_qwen_image_api_roots() {
@@ -169,4 +179,167 @@ fn advertises_exact_generation_and_editing_capabilities() {
     assert_eq!(capabilities.max_outputs, 6);
     assert_eq!(capabilities.max_pixels, 2_048 * 2_048);
     assert_eq!(capabilities.execution, "cloud");
+}
+
+#[test]
+fn downloads_decodes_and_stages_only_the_exact_requested_png_dimensions() {
+    let body = png_fixture(64, 32);
+    let (url, server) = download_fixture("200 OK", "image/png", &body, None);
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("store should initialize");
+    let reference = GeneratedImageReference {
+        url,
+        width: 64,
+        height: 32,
+    };
+
+    let images = tauri::async_runtime::block_on(
+        GeneratedImageDownloader::for_fixture()
+            .expect("downloader should build")
+            .download_all(&[reference], &store),
+    )
+    .expect("valid PNG should download");
+    server.join().expect("fixture server should stop");
+
+    assert_eq!(images.len(), 1);
+    assert_eq!((images[0].width, images[0].height), (64, 32));
+    assert!(images[0].temporary_path.is_file());
+    assert!(!images[0].sha256.is_empty());
+}
+
+#[test]
+fn rejects_wrong_media_type_signature_dimensions_and_redirects_without_urls_in_errors() {
+    let fixtures = [
+        ("200 OK", "text/plain", png_fixture(64, 32), None, (64, 32)),
+        ("200 OK", "image/png", b"not a png".to_vec(), None, (64, 32)),
+        ("200 OK", "image/png", png_fixture(32, 64), None, (64, 32)),
+        (
+            "302 Found",
+            "image/png",
+            Vec::new(),
+            Some("https://secret.example/result.png"),
+            (64, 32),
+        ),
+    ];
+
+    for (status, media_type, body, location, dimensions) in fixtures {
+        let (url, server) = download_fixture(status, media_type, &body, location);
+        let store =
+            ConversationStore::initialize(test_database_path()).expect("store should initialize");
+        let reference = GeneratedImageReference {
+            url: url.clone(),
+            width: dimensions.0,
+            height: dimensions.1,
+        };
+
+        let error = tauri::async_runtime::block_on(
+            GeneratedImageDownloader::for_fixture()
+                .expect("downloader should build")
+                .download_all(&[reference], &store),
+        )
+        .expect_err("unsafe response should fail closed");
+        server.join().expect("fixture server should stop");
+
+        let serialized = serde_json::to_string(&error).expect("error should serialize");
+        assert!(!serialized.contains(url.as_str()));
+        assert!(!serialized.contains("secret.example"));
+    }
+}
+
+#[test]
+fn removes_every_temporary_file_when_a_later_output_fails() {
+    let database_path = test_database_path();
+    let store = ConversationStore::initialize(database_path).expect("store should initialize");
+    let temporary_directory = store.generated_asset_temporary_directory();
+    let valid_body = png_fixture(64, 32);
+    let invalid_body = b"not a png".to_vec();
+    let (valid_url, valid_server) = download_fixture("200 OK", "image/png", &valid_body, None);
+    let (invalid_url, invalid_server) =
+        download_fixture("200 OK", "image/png", &invalid_body, None);
+    let references = [
+        GeneratedImageReference {
+            url: valid_url,
+            width: 64,
+            height: 32,
+        },
+        GeneratedImageReference {
+            url: invalid_url,
+            width: 64,
+            height: 32,
+        },
+    ];
+
+    tauri::async_runtime::block_on(
+        GeneratedImageDownloader::for_fixture()
+            .expect("downloader should build")
+            .download_all(&references, &store),
+    )
+    .expect_err("one invalid output should reject the complete result set");
+    valid_server.join().expect("valid fixture should stop");
+    invalid_server.join().expect("invalid fixture should stop");
+
+    assert_eq!(
+        std::fs::read_dir(temporary_directory)
+            .expect("temporary directory should exist")
+            .count(),
+        0
+    );
+}
+
+/// Creates one deterministic PNG response body.
+fn png_fixture(width: u32, height: u32) -> Vec<u8> {
+    let image = DynamicImage::ImageRgba8(RgbaImage::from_pixel(
+        width,
+        height,
+        Rgba([20, 40, 60, 255]),
+    ));
+    let mut bytes = Cursor::new(Vec::new());
+    image
+        .write_to(&mut bytes, ImageFormat::Png)
+        .expect("PNG fixture should encode");
+    bytes.into_inner()
+}
+
+/// Serves one fixed loopback response for strict downloader tests.
+fn download_fixture(
+    status: &str,
+    media_type: &str,
+    body: &[u8],
+    location: Option<&str>,
+) -> (Url, thread::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("fixture listener should bind");
+    let address = listener.local_addr().expect("fixture address should exist");
+    let status = status.to_owned();
+    let media_type = media_type.to_owned();
+    let body = body.to_vec();
+    let location = location.map(str::to_owned);
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("fixture request should arrive");
+        let mut request = [0_u8; 2_048];
+        let _ = stream.read(&mut request);
+        let location_header = location
+            .map(|value| format!("Location: {value}\r\n"))
+            .unwrap_or_default();
+        let response = format!(
+            "HTTP/1.1 {status}\r\nContent-Type: {media_type}\r\nContent-Length: {}\r\n{location_header}Connection: close\r\n\r\n",
+            body.len()
+        );
+        stream
+            .write_all(response.as_bytes())
+            .expect("fixture headers should write");
+        stream.write_all(&body).expect("fixture body should write");
+    });
+    (
+        Url::parse(&format!("http://{address}/temporary-result.png"))
+            .expect("fixture URL should parse"),
+        server,
+    )
+}
+
+/// Creates an isolated application-private path for downloader tests.
+fn test_database_path() -> std::path::PathBuf {
+    let directory =
+        std::env::temp_dir().join(format!("bottie-image-download-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&directory).expect("test directory should exist");
+    directory.join("bottie.sqlite3")
 }

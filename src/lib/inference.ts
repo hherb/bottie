@@ -1,6 +1,6 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 
-import type { ProviderRunContext } from "./storage";
+import type { ProviderRunContext, StoredMessage } from "./storage";
 
 /** Provider-qualified model metadata returned by native discovery. */
 export type ModelInfo = {
@@ -144,6 +144,30 @@ export type ImageGenerationSetupStatus = {
   message: string;
 };
 
+/** Explicit hosted image-generation request sent only by the image composer action. */
+export type StartImageGenerationRequest = {
+  conversationId: string;
+  prompt: string;
+  width: number;
+  height: number;
+  count: number;
+  execution: "cloud";
+};
+
+/** Opaque accepted image-run identity and its already-durable pending assistant message. */
+export type ImageGenerationRun = {
+  runId: string;
+  message: StoredMessage;
+};
+
+/** Path-free native progress and durable terminal events for one image generation. */
+export type ImageGenerationEvent =
+  | { type: "started"; runId: string; message: StoredMessage }
+  | { type: "progress"; runId: string; stage: "generating" | "downloading"; total: number }
+  | { type: "completed"; runId: string; message: StoredMessage }
+  | { type: "cancelled"; runId: string; message: StoredMessage }
+  | { type: "failed"; runId: string; message: StoredMessage | null; error: ProviderError };
+
 /** Secret-redacted native provider diagnostic. */
 export type DiagnosticEntry = {
   timestampMs: number;
@@ -280,6 +304,23 @@ export async function startChat(
 export async function cancelChat(runId: string): Promise<boolean> {
   if (!isTauri()) return false;
   return invoke<boolean>("cancel_chat", { runId });
+}
+
+/** Starts one explicit cancellable image generation through saved native configuration. */
+export async function startImageGeneration(
+  request: StartImageGenerationRequest,
+  onEvent: (event: ImageGenerationEvent) => void,
+): Promise<ImageGenerationRun> {
+  if (!isTauri()) throw unavailableInBrowser();
+  const channel = new Channel<ImageGenerationEvent>();
+  channel.onmessage = onEvent;
+  return invoke<ImageGenerationRun>("start_image_generation", { request, onEvent: channel });
+}
+
+/** Requests cancellation of one native image generation by its Bottie-owned identity. */
+export async function cancelImageGeneration(runId: string): Promise<boolean> {
+  if (!isTauri()) return false;
+  return invoke<boolean>("cancel_image_generation", { runId });
 }
 
 /** Converts an unknown native invocation failure into the stable provider error shape. */

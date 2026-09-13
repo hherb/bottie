@@ -127,6 +127,23 @@ export type StoredAttachment = {
   normalization: ImageNormalization;
 };
 
+/** Path-free assistant-generated image metadata with exact model and execution provenance. */
+export type StoredGeneratedAsset = {
+  id: string;
+  ordinal: number;
+  status: "pending" | "completed" | "cancelled" | "failed";
+  mediaType: "image/png" | null;
+  width: number | null;
+  height: number | null;
+  byteSize: number | null;
+  providerId: string;
+  modelId: string;
+  execution: "cloud" | "local";
+  seed: number | null;
+  errorCode: string | null;
+  createdAtMs: number;
+};
+
 /** Safe native ingestion metadata including whether retained content was reused. */
 export type IngestedAttachment = StoredAttachment & {
   duplicate: boolean;
@@ -209,6 +226,7 @@ export type StoredMessage = {
   providerRun: StoredProviderRun | null;
   rating: ResponseRating | null;
   attachments: StoredAttachment[];
+  generatedAssets: StoredGeneratedAsset[];
   createdAtMs: number;
 };
 

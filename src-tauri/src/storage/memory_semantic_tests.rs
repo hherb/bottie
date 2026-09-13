@@ -71,7 +71,8 @@ fn migration_registers_static_vec_and_records_versioned_empty_index() {
         .expect("semantic schema should be removable in the fixture");
     connection
         .execute_batch(
-            "DROP TABLE conversation_retention_policies;
+            "DROP TABLE generated_assets;
+             DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;",
         )
         .expect("later memory preference schema should be removable in the fixture");
@@ -117,7 +118,7 @@ fn migration_registers_static_vec_and_records_versioned_empty_index() {
             .status()
             .expect("status should load")
             .schema_version,
-        22
+        23
     );
     assert_eq!(
         metadata,

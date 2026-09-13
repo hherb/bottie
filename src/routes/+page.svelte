@@ -339,11 +339,17 @@
         prompt={state.prompt}
         isGenerating={state.isGenerating}
         canCompose={state.canCompose}
-        canSend={state.canSend && !state.microphone.isActive && state.attachmentsCanSubmit && state.audioCanSubmit}
-        attachmentNote={composerAttachmentNote(
-          nextRequestAttachments(state.attachment.items, state.history.conversationAttachments),
-          state.selectedModel,
-        )}
+        canSend={state.imageMode
+          ? state.canGenerateImage
+          : state.canSend && !state.microphone.isActive && state.attachmentsCanSubmit && state.audioCanSubmit}
+        attachmentNote={state.imageMode
+          ? state.attachment.items.length > 0
+            ? "Remove draft attachments before text-to-image generation. Reference-image editing is a later slice."
+            : "Image generation is explicit and separate from ordinary chat send."
+          : composerAttachmentNote(
+              nextRequestAttachments(state.attachment.items, state.history.conversationAttachments),
+              state.selectedModel,
+            )}
         providerStatus={state.providerStatus}
         memoryAvailable={state.memoryAvailable}
         memoryEnabled={state.memory.enabled}
@@ -353,6 +359,10 @@
         emailEnabled={state.email.enabled}
         emailBoundaryNote={state.emailBoundaryNote}
         emailUnavailableReason={state.emailUnavailableReason}
+        imageMode={state.imageMode}
+        imageSize={state.imageSize}
+        imageCount={state.imageCount}
+        imageFeedback={state.imageFeedback}
         microphoneStatus={state.microphone.status}
         microphoneAvailable={state.microphone.available}
         microphoneWillInterrupt={state.isGenerating || state.speech.status.phase === "speaking"}
@@ -375,6 +385,9 @@
         ontogglememory={() => void state.toggleTool("memory")}
         ontoggleweb={() => void state.toggleTool("web")}
         ontoggleemail={() => void state.toggleTool("email")}
+        ontoggleimage={() => (state.imageMode = !state.imageMode)}
+        onimagesize={(size) => (state.imageSize = size)}
+        onimagecount={(count) => (state.imageCount = count)}
         onstartmicrophone={() => void state.startMicrophoneCapture()}
         onstopmicrophone={() => void state.microphone.stop()}
         ondiscardmicrophone={() => void state.discardMicrophoneCapture()}

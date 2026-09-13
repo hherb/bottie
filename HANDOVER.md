@@ -4,65 +4,56 @@ Last verified: 2026-09-13
 
 ## Start here
 
-PR #164 merged into `main` at `3a08b32`. The current branch is `codex/qwen-image-2-provider`.
+PR #165 merged into `main` at `ece9518`. The current branch is `codex/durable-image-generation`.
 
-Read the Milestone 8 generated-images section of `ROADMAP.md`, then `src-tauri/src/image_generation/mod.rs` and
-`src-tauri/src/image_generation/dashscope.rs`.
+Read Milestone 8.2 in `ROADMAP.md`, then `src-tauri/src/storage/generated_assets.rs`,
+`src-tauri/src/image_generation/controller.rs`, and `src/routes/page-state.svelte.ts`.
 
-## Completed slice
+## Completed slices
 
-- Added a provider-neutral native image-generation contract with bounded prompt, dimension, output-count, capability,
-  execution, and temporary-result types.
-- Added an exact synchronous DashScope adapter pinned to `qwen-image-2.0-2026-03-03`; it uses the documented
-  multimodal-generation route and request shape, disables redirects, keeps the bearer key in a sensitive header, limits
-  the response envelope, requires terminal assistant choices, and accepts only the exact count of HTTPS image URLs.
-- Added a credential-free persisted DashScope/Model Studio workspace root and a `qwen-image` operating-system-vault
-  credential identity, including the existing one-authentication session warmup path.
-- Added a path-free Tauri setup-validation command and Settings card. Validation checks the normalized HTTPS root,
-  credential shape, fixed model identity, and static capabilities without making a provider request, generating an
-  image, or incurring a model charge.
-- Documented the staged hosted path and the explicit no-local-weights boundary. Future local execution must implement
-  the same contract after exact Qwen-Image-2.0 weights and compatible runtimes are actually published; do not route the
-  model through oMLX or an older Qwen-Image implementation.
+- Schema version 23 owns generated assets from assistant messages and persists ordered lifecycle state, content hash,
+  PNG metadata, exact provider/model/execution provenance, optional seed, and path-free errors.
+- The Rust controller admits one image run, creates the pending assistant message before provider I/O, supports exact
+  cancellation shared with microphone capture, and emits bounded path-free progress and terminal events.
+- Hosted Qwen-Image-2.0 results are downloaded immediately inside Rust with redirects disabled, HTTPS-only production
+  URLs, fixed time and 25 MiB limits, exact PNG type/signature/decode/dimension checks, metadata-free normalization,
+  all-or-nothing cleanup, and content-addressed app-private storage.
+- The separate composer Image mode exposes prompt, aspect ratio, count, exact cloud checkpoint, delivery/cost disclosure,
+  and cancellation. Pending, completed, failed, and cancelled assistant image messages survive reopen; completed images
+  use natural-ratio previews over an opaque GET-only protocol with no paths, URLs, hashes, or provider correlation
+  identifiers in IPC. Image prompts are normalized and bounded before durable user-message insertion, then revalidated
+  authoritatively by Rust.
 
-No billable provider request, generated-image download, image persistence, conversation-schema change, local runtime,
-model download, release, signing, publication, workflow dispatch, or Store action is included. Unrelated untracked
-logo-kit, screenshot, and Linux public-key files remain untouched.
+No live or billable Model Studio generation was run. No local model/runtime, reference-image editing, release, signing,
+publication, workflow dispatch, or Store action is included. Unrelated untracked logo-kit, screenshot, and Linux
+public-key files remain untouched.
 
 ## Validation
 
-The full frontend/script suite passes 352 tests with 3 skipped across 69 passing and 1 skipped files.
-`npm run format:check`, `npm run check`, and `npm run build` pass.
+Frontend formatting, type checks, build, dependency/icon checks, and all 357 tests pass with 3 skipped. The serial Rust
+suite passes 522 library tests with 36 ignored, the updater-evidence test, and doc tests; formatting and `cargo check`
+pass with only the existing `block 0.1.6` future-incompatibility notice. The development-signed native launch reached
+the Bottie binary, and immutable inspection reports schema 23, `quick_check` `ok`, and the generated-assets table.
 
-Application Cargo formatting and `cargo check` pass. The serial application suite passes 512 library tests with 36
-ignored plus the updater-evidence binary test; doc tests pass. Cargo reports only the existing future-incompatibility
-notice for `block 0.1.6`.
+The desktop browser preview was reviewed in Image mode: exact checkpoint, aspect ratio/count controls, cloud/cost
+disclosure, disabled attachment action, and editing boundary render cleanly. Native-window accessibility inspection was
+unavailable, so no native interaction is claimed.
 
-The browser presentation was reviewed at a desktop viewport: the exact checkpoint, credential and endpoint fields,
-non-billable validation disclosure, cloud badge, and native-only disabled state render cleanly. The native app built and
-launched successfully. macOS accessibility automation could not inspect the running native window, so no native
-interaction is claimed. No live Model Studio test was run because this slice deliberately performs no provider I/O.
+## Next slice
 
-## Next boundary
+Finish Milestone 8.2 item 5 with generated-asset actions and ownership, without widening IPC. First add migration 24 for
+the accepted request dimensions/options so failed and cancelled messages can be retried exactly from the preceding
+durable user prompt; output count already survives as ordered asset rows. Then add explicit retry plus native
+open/copy/export and deletion flows that use only opaque asset/message identities. Revalidate selected-branch ownership
+and ensure actions cannot expose native paths, content hashes, temporary provider URLs, credentials, or provider
+correlation identifiers.
 
-Implement one explicit, cancellable text-to-image action that requires a saved configuration and clear cloud-delivery
-and cost disclosure. Rust must call the existing exact adapter, immediately download each temporary result, validate
-content type, decoded format, dimensions, and byte/pixel ceilings, then store content-addressed app-private PNG bytes.
-Only path-free durable image metadata may cross IPC.
+After that, extend portable export, backup/restore, retention, branch ownership, deletion, and garbage collection so
+generated blobs have the same recovery guarantees as attachment bytes. Add startup recovery for a pending image message
+whose process disappeared, and fault/cancellation tests at each new boundary.
 
-Add assistant-authored image persistence and exact `providerId`, `modelId`, and `execution` provenance before showing a
-generated result in the conversation. Do not reuse the current user-attachment association in a way that attributes an
-assistant-generated image to the user. Editing/reference-image support is a later slice.
+Keep Qwen-Image-2.0 local execution unavailable until exact 2.0 weights are officially published and verified. Keep the
+distinct open `Qwen/Qwen-Image-2512` local track visibly separate. App-store and distribution work remain paused while
+Milestone 8 is the active product priority.
 
-Do not add a local Qwen-Image-2.0 adapter until exact weights are publicly available and verified. At that point, assess
-MLX on Apple silicon and released CUDA/ROCm/Windows-capable runtimes behind explicit capability discovery and execution
-choice, with no silent cloud fallback.
-
-After the shared durable generation slice, add the distinct open `Qwen/Qwen-Image-2512` local text-to-image track:
-MLX-Gen first on Apple silicon, pinned Diffusers on proven Linux/Windows NVIDIA hardware, then evidence-gated Linux ROCm
-and a possible stable-diffusion.cpp Vulkan/GGUF fallback. Keep 2512 and exact 2.0 model identities visibly separate.
-
-App-store shipping and other distribution work are paused while Milestone 8 is the active product priority.
-
-Do not commit, push, open a PR, dispatch workflows, sign, release, publish, or perform Store work without separate
-authorization.
+Do not merge, dispatch workflows, sign, release, publish, or perform Store work without separate authorization.

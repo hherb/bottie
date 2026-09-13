@@ -78,6 +78,14 @@ impl StorageError {
         }
     }
 
+    /// Creates a path- and provider-payload-redacted generated-image failure.
+    pub(crate) fn generated_image() -> Self {
+        Self {
+            code: "internal",
+            message: "Bottie could not safely retain the generated image.".into(),
+        }
+    }
+
     /// Creates a path-redacted SQLite-backup failure.
     pub(crate) fn backup() -> Self {
         Self {

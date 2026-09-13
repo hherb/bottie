@@ -22,6 +22,10 @@
     emailEnabled: boolean;
     emailBoundaryNote: string;
     emailUnavailableReason: string;
+    imageMode: boolean;
+    imageSize: "square" | "landscape" | "portrait";
+    imageCount: number;
+    imageFeedback: string;
     microphoneStatus: MicrophoneStatus;
     microphoneAvailable: boolean;
     microphoneWillInterrupt: boolean;
@@ -44,6 +48,9 @@
     ontogglememory: () => void;
     ontoggleweb: () => void;
     ontoggleemail: () => void;
+    ontoggleimage: () => void;
+    onimagesize: (size: "square" | "landscape" | "portrait") => void;
+    onimagecount: (count: number) => void;
     onstartmicrophone: () => void;
     onstopmicrophone: () => void;
     ondiscardmicrophone: () => void;
@@ -73,6 +80,10 @@
     emailEnabled,
     emailBoundaryNote,
     emailUnavailableReason,
+    imageMode,
+    imageSize,
+    imageCount,
+    imageFeedback,
     microphoneStatus,
     microphoneAvailable,
     microphoneWillInterrupt,
@@ -95,6 +106,9 @@
     ontogglememory,
     ontoggleweb,
     ontoggleemail,
+    ontoggleimage,
+    onimagesize,
+    onimagecount,
     onstartmicrophone,
     onstopmicrophone,
     ondiscardmicrophone,
@@ -153,9 +167,11 @@
       {onkeydown}
       rows="1"
       disabled={!canCompose && !isGenerating}
-      placeholder={providerStatus === "available"
-        ? "Message the selected model…"
-        : "Connect a provider to send a message"}
+      placeholder={imageMode
+        ? "Describe the image to generate…"
+        : providerStatus === "available"
+          ? "Message the selected model…"
+          : "Connect a provider to send a message"}
       aria-describedby={`composer-guidance${emailEnabled || emailUnavailableReason ? " composer-email-guidance" : ""}`}
       aria-label="Message bottie"></textarea>
 
@@ -169,8 +185,17 @@
           multiple
           tabindex="-1"
         />
-        <button aria-label="Attach files" onclick={onadd}>
+        <button aria-label="Attach files" disabled={imageMode || isGenerating} onclick={onadd}>
           <Icon name="paperclip" size={18} />
+        </button>
+        <button
+          class="tool-toggle"
+          aria-label={imageMode ? "Use text chat" : "Generate an image"}
+          aria-pressed={imageMode}
+          disabled={isGenerating}
+          onclick={ontoggleimage}
+        >
+          <Icon name="image" size={17} /><span>Image</span>
         </button>
         <button
           class="tool-toggle"
@@ -218,7 +243,7 @@
         class="send-button"
         class:enabled={(prompt.trim().length > 0 && canSend) || isGenerating}
         disabled={(!prompt.trim() || !canSend) && !isGenerating}
-        aria-label={isGenerating ? "Stop generating" : "Send message"}
+        aria-label={isGenerating ? "Stop generating" : imageMode ? "Generate image" : "Send message"}
         onclick={onsend}
       >
         {#if isGenerating}
@@ -228,6 +253,39 @@
         {/if}
       </button>
     </div>
+    {#if imageMode}
+      <div class="image-generation-options" aria-label="Image generation options">
+        <label>
+          <span>Size</span>
+          <select
+            value={imageSize}
+            disabled={isGenerating}
+            onchange={(event) => onimagesize(event.currentTarget.value as typeof imageSize)}
+          >
+            <option value="square">Square · 2048×2048</option>
+            <option value="landscape">Landscape · 2688×1536</option>
+            <option value="portrait">Portrait · 1536×2688</option>
+          </select>
+        </label>
+        <label>
+          <span>Images</span>
+          <select
+            value={imageCount}
+            disabled={isGenerating}
+            onchange={(event) => onimagecount(Number(event.currentTarget.value))}
+          >
+            {#each [1, 2, 3, 4, 5, 6] as count}<option value={count}>{count}</option>{/each}
+          </select>
+        </label>
+        <span class="image-execution"><strong>Cloud</strong> · <code>qwen-image-2.0-2026-03-03</code></span>
+      </div>
+      <p class="image-delivery-note">
+        Your image prompt is sent to Alibaba Model Studio and may incur provider charges. Rust downloads each temporary
+        result immediately, validates it, and stores only app-private PNG bytes. Local image generation is not
+        installed.
+      </p>
+      {#if imageFeedback}<p class="image-generation-feedback" role="status">{imageFeedback}</p>{/if}
+    {/if}
     <MicrophoneControl
       status={microphoneStatus}
       disabled={!microphoneAvailable}

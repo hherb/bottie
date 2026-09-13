@@ -192,6 +192,35 @@
             </div>
           {/if}
 
+          {#if message.role === "assistant" && message.generatedAssets?.length}
+            <div class="generated-image-grid" aria-label="Generated images">
+              {#each message.generatedAssets as asset (asset.id)}
+                <figure class:failed={asset.status === "failed"} class="generated-image">
+                  {#if asset.previewUrl}
+                    <img
+                      src={asset.previewUrl}
+                      alt={`Generated image ${asset.ordinal + 1}`}
+                      width={asset.width ?? undefined}
+                      height={asset.height ?? undefined}
+                    />
+                  {:else}
+                    <div class="generated-image-placeholder">
+                      <Icon name={asset.status === "failed" ? "x" : "image"} size={24} />
+                      <span>{asset.status === "pending" ? "Generating…" : asset.status}</span>
+                    </div>
+                  {/if}
+                  <figcaption>
+                    <strong>{asset.modelId}</strong>
+                    <span>{asset.execution === "cloud" ? "Cloud" : "Local"} · {asset.providerId}</span>
+                    {#if asset.width && asset.height && asset.byteSize}
+                      <span>{asset.width}×{asset.height} · {Math.ceil(asset.byteSize / 1024)} KiB PNG</span>
+                    {/if}
+                  </figcaption>
+                </figure>
+              {/each}
+            </div>
+          {/if}
+
           {#if message.role === "user" && message.storageId && message.attachments?.length}
             <div class="message-attachment-list" aria-label="Message attachments">
               {#each message.attachments as attachment (attachment.id)}

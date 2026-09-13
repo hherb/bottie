@@ -166,7 +166,7 @@ fn migration_maps_existing_extraction_outcomes_without_exposing_text() {
     }
     let connection = store.open().expect("open store");
     connection
-        .execute_batch("DROP TABLE attachment_text_indexing;")
+        .execute_batch("DROP TABLE generated_assets; DROP TABLE attachment_text_indexing;")
         .expect("remove current indexing table");
     connection
         .execute("DELETE FROM schema_migrations WHERE version = 14", [])

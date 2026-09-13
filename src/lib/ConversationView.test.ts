@@ -4,6 +4,73 @@ import { describe, expect, it, vi } from "vitest";
 import ConversationView from "./ConversationView.svelte";
 
 describe("ConversationView", () => {
+  it("renders a completed generated image from only opaque path-free metadata", () => {
+    const html = render(ConversationView, {
+      props: {
+        messages: [
+          {
+            id: 1,
+            storageId: "message-1",
+            role: "assistant",
+            content: "Generated image.",
+            generatedAssets: [
+              {
+                id: "asset-1",
+                ordinal: 0,
+                status: "completed",
+                mediaType: "image/png",
+                width: 2_688,
+                height: 1_536,
+                byteSize: 4_096,
+                providerId: "qwen-image",
+                modelId: "qwen-image-2.0-2026-03-03",
+                execution: "cloud",
+                seed: null,
+                errorCode: null,
+                createdAtMs: 1,
+                previewUrl: "bottie-generated-asset://asset-1",
+              },
+            ],
+          },
+        ],
+        providerStatus: "available",
+        providerError: null,
+        selectedModel: undefined,
+        activeStage: -1,
+        inferenceStages: [],
+        isGenerating: false,
+        canGenerate: true,
+        branches: [],
+        currentBranchId: null,
+        speechAvailable: false,
+        speechVoices: [],
+        speechStatus: {
+          phase: "idle",
+          selectedVoiceId: null,
+          errorCode: null,
+          latency: { playbackAcceptedMs: null },
+        },
+        speakingMessageId: null,
+        microphoneCapturing: false,
+        onretry: vi.fn(),
+        onselectbranch: vi.fn(),
+        oneditmessage: vi.fn(),
+        onregenerate: vi.fn(),
+        onretryresponse: vi.fn(),
+        onrateresponse: vi.fn(),
+        onremoveattachment: vi.fn(),
+        onspeakresponse: vi.fn(),
+        onstopspeech: vi.fn(),
+        onscrollready: vi.fn(),
+      },
+    }).body;
+
+    expect(html).toContain('aria-label="Generated images"');
+    expect(html).toContain('src="bottie-generated-asset://asset-1"');
+    expect(html).toContain('width="2688" height="1536"');
+    expect(html).toContain("qwen-image-2.0-2026-03-03");
+    expect(html).toContain("2688×1536");
+  });
   it("labels a durable failed response without replacing its stable content or retry action", () => {
     const html = render(ConversationView, {
       props: {

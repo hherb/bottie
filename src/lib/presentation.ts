@@ -4,6 +4,7 @@ import type {
   AttachmentIndexing,
   ImageNormalization,
   ResponseRating,
+  StoredGeneratedAsset,
   StoredToolInvocation,
 } from "./storage";
 
@@ -39,6 +40,13 @@ export type Message = {
   rating?: ResponseRating;
   toolInvocations?: StoredToolInvocation[];
   attachments?: Attachment[];
+  generatedAssets?: GeneratedAsset[];
+};
+
+/** Browser presentation for one path-free assistant-generated image. */
+export type GeneratedAsset = StoredGeneratedAsset & {
+  /** ID-only native protocol URL available only for completed images. */
+  previewUrl: string | null;
 };
 
 /** Browser-side attachment metadata used by the presentation-only attachment preview. */
