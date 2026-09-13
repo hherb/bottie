@@ -41,8 +41,10 @@ only the typed information it needs to render the interface.
 - Reopen conversations after restart, including checkpointed partial output from interrupted runs.
 - Edit or regenerate from earlier messages without overwriting the original branch.
 - Search active and archived histories and reopen the exact branch containing a match.
-- Export the visible lineage as readable Markdown or versioned JSON, with portable attachment bundles when needed.
-- Create verified backups, recover from corruption, and use forward-only staged database migrations.
+- Export the visible lineage as readable Markdown or versioned JSON, with portable attachment and generated-image
+  bundles when needed.
+- Create verified backups that include durable generated PNGs, recover from corruption, and use forward-only staged
+  database migrations.
 
 ### Bring context under your control
 
@@ -272,6 +274,10 @@ provider, model, and execution provenance. Only opaque asset identities and boun
 Completed images can be opened in the native default viewer, copied from the bounded normalized preview, exported
 through a Rust-owned Save dialog, or deleted after native confirmation. Failed and cancelled image responses can be
 retried only from their exact durable selected-branch prompt, dimensions, output count, and provider provenance.
+Interrupted pending image responses recover to a stable failed state after restart and retain those same exact retry
+inputs. Portable exports include only the selected lineage's generated images, while verified backups preserve every
+durable generated PNG needed for full database recovery. Retention and garbage collection keep shared or Trash-owned
+bytes until their final durable reference is removed.
 
 Qwen-Image-2.0 local execution remains intentionally unavailable until its weights and a compatible runtime are
 actually published. Local work can proceed now against the distinct open `Qwen/Qwen-Image-2512` text-to-image

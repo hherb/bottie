@@ -143,6 +143,12 @@ impl ConversationStore {
                    SELECT 1 FROM provider_runs
                    WHERE provider_runs.conversation_id = conversations.id
                      AND provider_runs.state = 'running'
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM generated_assets
+                   JOIN messages ON messages.id = generated_assets.message_id
+                   WHERE messages.conversation_id = conversations.id
+                     AND generated_assets.status = 'pending'
                )",
             params![DEFAULT_PROFILE_ID, cutoff_ms],
         )?;

@@ -9,8 +9,9 @@ use super::{
     ResponseRating, StorageError, StoredConversation, StoredMessage, StoredReasoningEffort,
     StoredRole, StoredUsage, load_conversation_from_connection,
     portable_export::{
-        ConversationFileExport, PortableAttachmentReference, portable_attachment_reference,
-        write_attachment_markdown_section,
+        ConversationFileExport, PortableAttachmentReference, PortableGeneratedAssetReference,
+        portable_attachment_reference, portable_generated_asset_reference,
+        write_attachment_markdown_section, write_generated_asset_markdown_section,
     },
 };
 
@@ -19,10 +20,10 @@ const EXPORT_FILENAME_PREFIX: &str = "bottie-";
 const MARKDOWN_FILENAME_EXTENSION: &str = ".md";
 const JSON_FILENAME_EXTENSION: &str = ".json";
 const JSON_EXPORT_FORMAT: &str = "bottie-conversation";
-const JSON_EXPORT_VERSION: u8 = 5;
+const JSON_EXPORT_VERSION: u8 = 6;
 const BATCH_JSON_EXPORT_FILE_NAME: &str = "bottie-conversations.json";
 const BATCH_JSON_EXPORT_FORMAT: &str = "bottie-conversation-batch";
-const BATCH_JSON_EXPORT_VERSION: u8 = 5;
+const BATCH_JSON_EXPORT_VERSION: u8 = 6;
 
 impl ConversationStore {
     /// Prepares the current visible lineage without changing the profile's open-conversation selection.
@@ -33,7 +34,7 @@ impl ConversationStore {
         let connection = self.open()?;
         let conversation = load_conversation_from_connection(&connection, conversation_id)?;
         let export = markdown_export(&conversation);
-        Ok(self.bundle_export(export, &[&conversation]))
+        self.bundle_export(export, &[&conversation])
     }
 
     /// Prepares portable JSON for the visible lineage without changing profile selection.
@@ -44,7 +45,7 @@ impl ConversationStore {
         let connection = self.open()?;
         let conversation = load_conversation_from_connection(&connection, conversation_id)?;
         let export = json_export(&conversation)?;
-        Ok(self.bundle_export(export, &[&conversation]))
+        self.bundle_export(export, &[&conversation])
     }
 
     /// Prepares every non-deleted conversation's selected lineage as one portable JSON document.
@@ -91,7 +92,7 @@ impl ConversationStore {
             .iter()
             .map(|item| &item.conversation)
             .collect::<Vec<_>>();
-        Ok(self.bundle_export(export, &conversation_refs))
+        self.bundle_export(export, &conversation_refs)
     }
 }
 
@@ -197,6 +198,8 @@ struct JsonMessageExport<'a> {
     rating: Option<ResponseRating>,
     /// Ordered retained files associated with this selected-lineage message.
     attachments: Vec<PortableAttachmentReference>,
+    /// Ordered assistant-owned generated images without opaque storage identities.
+    generated_assets: Vec<PortableGeneratedAssetReference>,
     /// Persisted creation time as Unix milliseconds.
     created_at_ms: i64,
 }
@@ -298,6 +301,11 @@ impl<'a> From<&'a StoredMessage> for JsonMessageExport<'a> {
                 .iter()
                 .map(portable_attachment_reference)
                 .collect(),
+            generated_assets: message
+                .generated_assets
+                .iter()
+                .map(portable_generated_asset_reference)
+                .collect(),
             created_at_ms: message.created_at_ms,
         }
     }
@@ -381,6 +389,7 @@ fn write_assistant_metadata(markdown: &mut String, message: &StoredMessage) {
 
 /// Writes reasoning separately from the assistant response while preserving their exact source text.
 fn write_assistant_content(markdown: &mut String, message: &StoredMessage) {
+    write_generated_asset_markdown_section(markdown, &message.generated_assets);
     if let Some(reasoning) = message.reasoning.as_deref() {
         markdown.push_str("### Reasoning\n\n");
         markdown.push_str(reasoning);

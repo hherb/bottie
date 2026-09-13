@@ -1,5 +1,6 @@
 //! Assistant-owned generated-image metadata and content-addressed PNG storage.
 
+mod recovery;
 mod retry;
 mod types;
 
@@ -252,7 +253,7 @@ impl ConversationStore {
     }
 
     /// Returns the native generated-image storage root beside the SQLite store.
-    fn generated_asset_root(&self) -> PathBuf {
+    pub(super) fn generated_asset_root(&self) -> PathBuf {
         self.path
             .parent()
             .unwrap_or_else(|| Path::new("."))

@@ -25,6 +25,7 @@ use super::{
 const DAMAGED_STORE_DIRECTORY_PREFIX: &str = "bottie-damaged-data";
 const RECOVERY_REPLACEMENT_PREFIX: &str = ".bottie-recovery-replacement";
 const RECOVERY_ATTACHMENT_STAGING_PREFIX: &str = ".bottie-recovery-attachments";
+const RECOVERY_GENERATED_ASSET_STAGING_PREFIX: &str = ".bottie-recovery-generated-assets";
 const SQLITE_SIDECAR_SUFFIXES: &[&str] = &["-wal", "-shm"];
 
 /// Startup result that keeps the native app available when SQLite reports corruption.
@@ -146,16 +147,19 @@ impl ConversationStore {
         let staging = restore_staging_path(&self.path)?;
         let replacement = recovery_replacement_path(&self.path)?;
         let attachment_staging = recovery_attachment_staging_path(&self.path)?;
+        let generated_asset_staging = recovery_generated_asset_staging_path(&self.path)?;
         let result = self.recover_through_replacement(
             source,
             preservation,
             &staging,
             &replacement,
             &attachment_staging,
+            &generated_asset_staging,
         );
         remove_database_files(&staging);
         remove_database_files(&replacement);
         let _ = fs::remove_dir_all(&attachment_staging);
+        let _ = fs::remove_dir_all(&generated_asset_staging);
         result
     }
 
@@ -167,18 +171,24 @@ impl ConversationStore {
         staging: &Path,
         replacement: &Path,
         attachment_staging: &Path,
+        generated_asset_staging: &Path,
     ) -> Result<(), StorageError> {
         copy_database(source, staging).map_err(|_| StorageError::invalid_backup())?;
         ConversationStore::initialize(staging.to_path_buf())
             .map_err(|_| StorageError::invalid_backup())?;
-        let has_portable_payload = extract_portable_payload(staging, attachment_staging)?;
+        let has_portable_payload =
+            extract_portable_payload(staging, attachment_staging, generated_asset_staging)?;
+        let has_generated_asset_payload = generated_asset_staging.exists();
         strip_portable_payload(staging)?;
         copy_database(staging, replacement).map_err(|_| StorageError::restore())?;
         validate_restore_source(replacement).map_err(|_| StorageError::restore())?;
 
         let mut moved = preserve_database_bundle(&self.path, preservation)?;
         if has_portable_payload {
-            preserve_attachment_root(&self.path, preservation, &mut moved)?;
+            preserve_content_root(&self.path, preservation, "attachments", &mut moved)?;
+        }
+        if has_generated_asset_payload {
+            preserve_content_root(&self.path, preservation, "generated-assets", &mut moved)?;
         }
         if fs::rename(replacement, &self.path).is_err() {
             rollback_preserved_bundle(&moved);
@@ -189,10 +199,23 @@ impl ConversationStore {
             rollback_preserved_bundle(&moved);
             return Err(StorageError::restore());
         }
+        if has_generated_asset_payload
+            && fs::rename(generated_asset_staging, self.generated_asset_root()).is_err()
+        {
+            remove_database_files(&self.path);
+            if has_portable_payload {
+                let _ = fs::remove_dir_all(self.attachment_root());
+            }
+            rollback_preserved_bundle(&moved);
+            return Err(StorageError::restore());
+        }
         if ConversationStore::initialize(self.path.clone()).is_err() {
             remove_database_files(&self.path);
             if has_portable_payload {
                 let _ = fs::remove_dir_all(self.attachment_root());
+            }
+            if has_generated_asset_payload {
+                let _ = fs::remove_dir_all(self.generated_asset_root());
             }
             rollback_preserved_bundle(&moved);
             return Err(StorageError::restore());
@@ -293,20 +316,21 @@ fn rollback_preserved_bundle(moved: &[(PathBuf, PathBuf)]) {
     }
 }
 
-/// Moves the live attachment tree into the same damaged-data preservation directory.
-fn preserve_attachment_root(
+/// Moves one live content tree into the same damaged-data preservation directory.
+fn preserve_content_root(
     live: &Path,
     preservation: &Path,
+    directory_name: &str,
     moved: &mut Vec<(PathBuf, PathBuf)>,
 ) -> Result<(), StorageError> {
     let source = live
         .parent()
         .ok_or_else(StorageError::recovery_preservation)?
-        .join("attachments");
+        .join(directory_name);
     if !source.exists() {
         return Ok(());
     }
-    let destination = preservation.join("attachments");
+    let destination = preservation.join(directory_name);
     if fs::rename(&source, &destination).is_err() {
         rollback_preserved_bundle(moved);
         let _ = fs::remove_dir(preservation);
@@ -332,6 +356,15 @@ fn recovery_attachment_staging_path(live: &Path) -> Result<PathBuf, StorageError
     let parent = live.parent().ok_or_else(StorageError::restore)?;
     Ok(parent.join(format!(
         "{RECOVERY_ATTACHMENT_STAGING_PREFIX}-{}",
+        uuid::Uuid::new_v4()
+    )))
+}
+
+/// Chooses a unique directory for rehydrating a recovery snapshot's generated PNGs.
+fn recovery_generated_asset_staging_path(live: &Path) -> Result<PathBuf, StorageError> {
+    let parent = live.parent().ok_or_else(StorageError::restore)?;
+    Ok(parent.join(format!(
+        "{RECOVERY_GENERATED_ASSET_STAGING_PREFIX}-{}",
         uuid::Uuid::new_v4()
     )))
 }

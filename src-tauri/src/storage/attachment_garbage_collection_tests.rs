@@ -5,7 +5,9 @@ use std::fs;
 use image::{ExtendedColorType, ImageEncoder, codecs::png::PngEncoder};
 
 use super::{
-    ConversationStore, MessageState, NewStoredMessage, StoredRole,
+    ConversationRetentionPeriod, ConversationStore, GeneratedAssetExecution,
+    GeneratedImageProvenance, GeneratedImageRequestOptions, MessageState, NewStoredMessage,
+    PreparedGeneratedImage, StoredRole,
     tests::{completed_ingestion, test_database_path},
 };
 
@@ -261,4 +263,103 @@ fn preserves_recent_unreferenced_content_for_the_cross_process_safety_window() {
             .expect("recent catalog should remain readable")
             .is_some()
     );
+}
+
+#[test]
+fn preserves_live_generated_pngs_and_removes_orphans() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("storage should initialize");
+    let conversation = store
+        .create_conversation("Generated garbage collection")
+        .expect("conversation should be created");
+    let request = store
+        .append_message(NewStoredMessage {
+            conversation_id: conversation.id.clone(),
+            role: StoredRole::User,
+            text: "A retained generated square".into(),
+            reasoning: None,
+            state: MessageState::Final,
+            provider_id: None,
+            model_id: None,
+        })
+        .expect("prompt should persist");
+    let provenance = GeneratedImageProvenance::new(
+        "qwen-image",
+        "qwen-image-2.0-2026-03-03",
+        GeneratedAssetExecution::Cloud,
+        None,
+    )
+    .expect("provenance should be valid");
+    let options =
+        GeneratedImageRequestOptions::new(1_024, 1_024, true).expect("options should be valid");
+    let pending = store
+        .start_generated_image_message(
+            &conversation.id,
+            &request.id,
+            &request.text,
+            1,
+            &provenance,
+            &options,
+        )
+        .expect("generation should start")
+        .message;
+    let prepared = generated_gc_png(&store, [10, 20, 30, 255]);
+    let completed = store
+        .complete_generated_image_message(&pending.id, &[prepared])
+        .expect("generation should complete");
+    let live_hash = completed.generated_assets[0]
+        .sha256
+        .as_deref()
+        .expect("completed hash should exist");
+    let live_path = store
+        .generated_asset_blob_path(live_hash)
+        .expect("live path should resolve");
+    let orphan = generated_gc_png(&store, [40, 50, 60, 255]);
+    let orphan_path = store
+        .generated_asset_blob_path(&orphan.sha256)
+        .expect("orphan path should resolve");
+    fs::create_dir_all(orphan_path.parent().expect("orphan parent should exist"))
+        .expect("orphan directory should be created");
+    fs::rename(&orphan.temporary_path, &orphan_path).expect("orphan should enter managed storage");
+
+    let outcome = store
+        .collect_all_unreferenced_attachments_for_test()
+        .expect("garbage collection should complete");
+
+    assert!(live_path.is_file());
+    assert!(!orphan_path.exists());
+    assert_eq!(outcome.generated_files_removed, 1);
+
+    store
+        .delete_conversation(&conversation.id)
+        .expect("conversation should move to Trash");
+    store
+        .collect_all_unreferenced_attachments_for_test()
+        .expect("Trash collection should complete");
+    assert!(live_path.is_file());
+    store
+        .set_conversation_retention_period(ConversationRetentionPeriod::ThirtyDays)
+        .expect("retention should be enabled");
+    let retention = store
+        .apply_conversation_retention_at(i64::MAX)
+        .expect("expired Trash should be forgotten");
+    let forgotten = store
+        .collect_all_unreferenced_attachments_for_test()
+        .expect("forgotten content collection should complete");
+    assert_eq!(retention.forgotten_conversations, 1);
+    assert!(!live_path.exists());
+    assert_eq!(forgotten.generated_files_removed, 1);
+}
+
+/// Creates one small generated PNG in the native temporary directory.
+fn generated_gc_png(store: &ConversationStore, color: [u8; 4]) -> PreparedGeneratedImage {
+    use image::{ImageFormat, Rgba, RgbaImage};
+
+    let directory = store.generated_asset_temporary_directory();
+    fs::create_dir_all(&directory).expect("generated temporary directory should exist");
+    let path = directory.join(format!("{}.png.part", uuid::Uuid::new_v4()));
+    RgbaImage::from_pixel(2, 2, Rgba(color))
+        .save_with_format(&path, ImageFormat::Png)
+        .expect("generated PNG should be written");
+    PreparedGeneratedImage::from_validated_png(path, 2, 2).expect("generated PNG should prepare")
 }

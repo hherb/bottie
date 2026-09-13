@@ -153,7 +153,7 @@ fn embeds_and_verifies_original_attachment_blobs_and_ready_derivatives() {
         )
         .expect("deduplicated derivative count should be readable");
 
-    assert_eq!(manifest, ("bottie-portable-backup".into(), 1));
+    assert_eq!(manifest, ("bottie-portable-backup".into(), 2));
     assert!(!sidecar_path(&backup_path, "-wal").exists());
     assert!(!sidecar_path(&backup_path, "-shm").exists());
     assert_eq!(document_bytes, b"portable attachment notes");
@@ -325,6 +325,46 @@ fn rejects_a_backup_with_tampered_portable_bytes_without_changing_live_state() {
         original.id
     );
     assert!(!safety_path.exists());
+}
+
+#[test]
+fn restores_legacy_version_one_portable_attachment_backups() {
+    let live_path = tests::test_database_path();
+    let backup_path = live_path.with_file_name("legacy-portable-backup.sqlite3");
+    let safety_path = live_path.with_file_name("legacy-portable-safety.sqlite3");
+    let live = ConversationStore::initialize(live_path).expect("live storage should initialize");
+    let source_path = live
+        .path
+        .with_file_name("legacy-portable-source")
+        .join("bottie.sqlite3");
+    let source = ConversationStore::initialize(source_path).expect("source should initialize");
+    let attachment = ingest_backup_fixture(&source, "legacy.txt", b"legacy portable bytes");
+    let conversation = source
+        .create_conversation("Legacy portable backup")
+        .expect("conversation should be created");
+    source
+        .add_conversation_attachments(&conversation.id, &[attachment.id.clone()])
+        .expect("attachment should associate");
+    source
+        .backup_to(&backup_path)
+        .expect("backup should complete");
+    let backup = Connection::open(&backup_path).expect("backup should open");
+    backup
+        .execute_batch(
+            "UPDATE bottie_portable_manifest SET version = 1;
+             DROP TABLE bottie_portable_generated_asset_blobs;",
+        )
+        .expect("backup should be converted to the version-one contract");
+    drop(backup);
+
+    live.restore_from(&backup_path, &safety_path)
+        .expect("legacy portable backup should restore");
+
+    assert_eq!(
+        fs::read(live.attachment_blob_path(&attachment.sha256))
+            .expect("legacy attachment bytes should restore"),
+        b"legacy portable bytes"
+    );
 }
 
 #[test]

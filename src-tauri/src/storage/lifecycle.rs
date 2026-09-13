@@ -59,6 +59,7 @@ impl ConversationStore {
         let mut connection = self.open()?;
         let transaction =
             connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        require_no_pending_image(&transaction, conversation_id)?;
         let archived_at_ms = archived.then(now_ms).transpose()?;
         let changed = transaction.execute(
             "UPDATE conversations SET archived_at_ms = ?1
@@ -94,18 +95,11 @@ impl ConversationStore {
         if !available {
             return Err(missing_conversation());
         }
-        let has_active_run = transaction.query_row(
-            "SELECT EXISTS (
-                 SELECT 1 FROM provider_runs WHERE conversation_id = ?1 AND state = 'running'
-             )",
-            [conversation_id],
-            |row| row.get::<_, bool>(0),
+        require_no_active_response(
+            &transaction,
+            conversation_id,
+            "Wait for the active response to finish before changing memory access.",
         )?;
-        if has_active_run {
-            return Err(StorageError::invalid(
-                "Wait for the active response to finish before changing memory access.",
-            ));
-        }
         if excluded {
             transaction.execute(
                 "INSERT INTO conversation_memory_preferences (conversation_id, excluded, updated_at_ms)
@@ -137,6 +131,7 @@ impl ConversationStore {
         let mut connection = self.open()?;
         let transaction =
             connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        require_no_pending_image(&transaction, conversation_id)?;
         let changed = transaction.execute(
             "UPDATE conversations SET deleted_at_ms = ?1
              WHERE id = ?2 AND profile_id = ?3 AND deleted_at_ms IS NULL",
@@ -183,18 +178,11 @@ impl ConversationStore {
                 "Move the conversation to Trash before forgetting it permanently.",
             ));
         }
-        let has_active_run = transaction.query_row(
-            "SELECT EXISTS (
-                 SELECT 1 FROM provider_runs WHERE conversation_id = ?1 AND state = 'running'
-             )",
-            [conversation_id],
-            |row| row.get::<_, bool>(0),
+        require_no_active_response(
+            &transaction,
+            conversation_id,
+            "Wait for the active response to finish before forgetting this conversation.",
         )?;
-        if has_active_run {
-            return Err(StorageError::invalid(
-                "Wait for the active response to finish before forgetting this conversation.",
-            ));
-        }
         let changed = transaction.execute(
             "DELETE FROM conversations
              WHERE id = ?1 AND profile_id = ?2 AND deleted_at_ms IS NOT NULL",
@@ -202,6 +190,53 @@ impl ConversationStore {
         )?;
         require_change(changed)?;
         transaction.commit()?;
+        Ok(())
+    }
+}
+
+/// Rejects lifecycle changes while text or image generation owns an unfinished response.
+fn require_no_active_response(
+    connection: &Connection,
+    conversation_id: &str,
+    message: &'static str,
+) -> Result<(), StorageError> {
+    let active: bool = connection.query_row(
+        "SELECT EXISTS (
+             SELECT 1 FROM provider_runs WHERE conversation_id = ?1 AND state = 'running'
+             UNION ALL
+             SELECT 1 FROM generated_assets
+             JOIN messages ON messages.id = generated_assets.message_id
+             WHERE messages.conversation_id = ?1 AND generated_assets.status = 'pending'
+         )",
+        [conversation_id],
+        |row| row.get(0),
+    )?;
+    if active {
+        Err(StorageError::invalid(message))
+    } else {
+        Ok(())
+    }
+}
+
+/// Rejects selection-removing lifecycle changes only while image generation is pending.
+fn require_no_pending_image(
+    connection: &Connection,
+    conversation_id: &str,
+) -> Result<(), StorageError> {
+    let pending: bool = connection.query_row(
+        "SELECT EXISTS (
+             SELECT 1 FROM generated_assets
+             JOIN messages ON messages.id = generated_assets.message_id
+             WHERE messages.conversation_id = ?1 AND generated_assets.status = 'pending'
+         )",
+        [conversation_id],
+        |row| row.get(0),
+    )?;
+    if pending {
+        Err(StorageError::invalid(
+            "Wait for image generation to finish before changing this conversation.",
+        ))
+    } else {
         Ok(())
     }
 }

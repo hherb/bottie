@@ -38,7 +38,8 @@ fn upgrades_version_seven_stores_with_an_empty_attachment_catalog() {
         .expect("tool audit columns should be removable in the fixture");
     connection
         .execute_batch(
-            "DROP TABLE generated_assets;
+            "DROP TABLE generated_image_requests;
+             DROP TABLE generated_assets;
              DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;
@@ -88,7 +89,8 @@ fn upgrades_version_eight_stores_with_empty_message_associations() {
         .expect("tool audit columns should be removable in the fixture");
     connection
         .execute_batch(
-            "DROP TABLE generated_assets;
+            "DROP TABLE generated_image_requests;
+             DROP TABLE generated_assets;
              DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;
@@ -138,7 +140,8 @@ fn upgrades_version_nine_stores_and_extracts_existing_text_content() {
         .expect("tool audit columns should be removable in the fixture");
     connection
         .execute_batch(
-            "DROP TABLE generated_assets;
+            "DROP TABLE generated_image_requests;
+             DROP TABLE generated_assets;
              DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;
@@ -194,7 +197,8 @@ fn upgrades_version_fourteen_stores_with_empty_conversation_scope() {
         .expect("tool audit columns should be removable in the fixture");
     connection
         .execute_batch(
-            "DROP TABLE generated_assets;
+            "DROP TABLE generated_image_requests;
+             DROP TABLE generated_assets;
              DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;",

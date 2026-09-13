@@ -6,9 +6,13 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
-use super::{ConversationStore, StorageError, StoredAttachment, StoredConversation};
+use super::{
+    ConversationStore, GeneratedAssetExecution, GeneratedAssetStatus, StorageError,
+    StoredAttachment, StoredConversation, StoredGeneratedAsset,
+};
 
 const ATTACHMENT_ARCHIVE_DIRECTORY: &str = "attachments";
+const GENERATED_ASSET_ARCHIVE_DIRECTORY: &str = "generated-images";
 const ZIP_FILENAME_EXTENSION: &str = "zip";
 
 /// Native-only file payload prepared before Bottie opens a save dialog.
@@ -113,13 +117,47 @@ pub(super) struct PortableAttachmentReference {
     pub(super) file: String,
 }
 
+/// Path-free generated-image metadata shared by JSON and Markdown documents.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct PortableGeneratedAssetReference {
+    /// Stable zero-based order within the assistant response.
+    pub(super) ordinal: u8,
+    /// Durable output state at export time.
+    pub(super) status: GeneratedAssetStatus,
+    /// Completed MIME type, absent for non-completed output.
+    pub(super) media_type: Option<String>,
+    /// Completed decoded width, absent for non-completed output.
+    pub(super) width: Option<u32>,
+    /// Completed decoded height, absent for non-completed output.
+    pub(super) height: Option<u32>,
+    /// Completed exact byte size, absent for non-completed output.
+    pub(super) byte_size: Option<u64>,
+    /// Stable Bottie provider identity.
+    pub(super) provider_id: String,
+    /// Exact provider-owned model identity.
+    pub(super) model_id: String,
+    /// Explicit local or cloud execution class.
+    pub(super) execution: GeneratedAssetExecution,
+    /// Deterministic seed when supported by the backend.
+    pub(super) seed: Option<i64>,
+    /// Stable path-free terminal error category.
+    pub(super) error_code: Option<String>,
+    /// Native creation time as Unix milliseconds.
+    pub(super) created_at_ms: i64,
+    /// Portable content identity, present only for a completed output.
+    pub(super) sha256: Option<String>,
+    /// Safe relative ZIP member, present only for a completed output.
+    pub(super) file: Option<String>,
+}
+
 impl ConversationStore {
     /// Upgrades one plain export to a ZIP only when its selected data references retained files.
     pub(super) fn bundle_export(
         &self,
         mut export: ConversationFileExport,
         conversations: &[&StoredConversation],
-    ) -> ConversationFileExport {
+    ) -> Result<ConversationFileExport, StorageError> {
         let mut attachments = BTreeMap::new();
         for attachment in conversations.iter().flat_map(|conversation| {
             conversation.attachments.iter().chain(
@@ -129,17 +167,45 @@ impl ConversationStore {
                     .flat_map(|message| message.attachments.iter()),
             )
         }) {
+            let archive_path = attachment_archive_path(attachment);
             attachments
-                .entry(attachment.sha256.clone())
+                .entry(archive_path.clone())
                 .or_insert_with(|| PortableAttachmentFile {
-                    archive_path: attachment_archive_path(attachment),
+                    archive_path,
                     source_path: self.attachment_blob_path(&attachment.sha256),
                     byte_size: attachment.byte_size,
                     sha256: attachment.sha256.clone(),
                 });
         }
+        for asset in conversations
+            .iter()
+            .flat_map(|conversation| conversation.messages.iter())
+            .flat_map(|message| message.generated_assets.iter())
+        {
+            let (sha256, byte_size) = match (asset.status, asset.sha256.as_ref(), asset.byte_size) {
+                (GeneratedAssetStatus::Completed, Some(sha256), Some(byte_size))
+                    if is_sha256(sha256) =>
+                {
+                    (sha256, byte_size)
+                }
+                (GeneratedAssetStatus::Completed, _, _) => return Err(StorageError::export()),
+                _ => continue,
+            };
+            let archive_path = generated_asset_archive_path(sha256);
+            let source_path = self
+                .generated_asset_blob_path(sha256)
+                .map_err(|_| StorageError::export())?;
+            attachments
+                .entry(archive_path.clone())
+                .or_insert(PortableAttachmentFile {
+                    archive_path,
+                    source_path,
+                    byte_size,
+                    sha256: sha256.clone(),
+                });
+        }
         if attachments.is_empty() {
-            return export;
+            return Ok(export);
         }
         let document_file_name = export.file_name.clone();
         export.file_name = format!(
@@ -152,8 +218,74 @@ impl ConversationStore {
         );
         export.document_file_name = Some(document_file_name);
         export.attachments = attachments.into_values().collect();
-        export
+        Ok(export)
     }
+}
+
+/// Builds stable generated-image metadata without exposing opaque database identities.
+pub(super) fn portable_generated_asset_reference(
+    asset: &StoredGeneratedAsset,
+) -> PortableGeneratedAssetReference {
+    let sha256 = asset.sha256.as_deref().filter(|value| is_sha256(value));
+    PortableGeneratedAssetReference {
+        ordinal: asset.ordinal,
+        status: asset.status,
+        media_type: asset.media_type.clone(),
+        width: asset.width,
+        height: asset.height,
+        byte_size: asset.byte_size,
+        provider_id: asset.provider_id.clone(),
+        model_id: asset.model_id.clone(),
+        execution: asset.execution,
+        seed: asset.seed,
+        error_code: asset.error_code.clone(),
+        created_at_ms: asset.created_at_ms,
+        sha256: sha256.map(str::to_owned),
+        file: sha256.map(generated_asset_archive_path),
+    }
+}
+
+/// Writes completed and terminal generated-image metadata using archive-relative links only.
+pub(super) fn write_generated_asset_markdown_section(
+    markdown: &mut String,
+    assets: &[StoredGeneratedAsset],
+) {
+    if assets.is_empty() {
+        return;
+    }
+    markdown.push_str("### Generated images\n\n");
+    for asset in assets {
+        let reference = portable_generated_asset_reference(asset);
+        if let (Some(file), Some(sha256), Some(byte_size), Some(width), Some(height)) = (
+            reference.file.as_deref(),
+            reference.sha256.as_deref(),
+            reference.byte_size,
+            reference.width,
+            reference.height,
+        ) {
+            writeln!(
+                markdown,
+                "- [Generated image {}](<{}>) — `{}`, {}×{}, {} bytes, SHA-256 `{}`",
+                u16::from(reference.ordinal) + 1,
+                file,
+                reference.media_type.as_deref().unwrap_or("image/png"),
+                width,
+                height,
+                byte_size,
+                sha256,
+            )
+            .expect("writing to a string cannot fail");
+        } else {
+            writeln!(
+                markdown,
+                "- Generated image {} — {}",
+                u16::from(reference.ordinal) + 1,
+                generated_asset_status_label(reference.status),
+            )
+            .expect("writing to a string cannot fail");
+        }
+    }
+    markdown.push('\n');
 }
 
 /// Builds the stable path-free metadata rendered into portable documents.
@@ -205,6 +337,29 @@ struct PortableAttachmentFile {
 /// Produces a safe collision-resistant relative ZIP path from trusted metadata.
 fn attachment_archive_path(attachment: &StoredAttachment) -> String {
     format!("{ATTACHMENT_ARCHIVE_DIRECTORY}/{}", attachment.sha256)
+}
+
+/// Produces a collision-resistant generated PNG member from its verified content identity.
+fn generated_asset_archive_path(sha256: &str) -> String {
+    format!("{GENERATED_ASSET_ARCHIVE_DIRECTORY}/{sha256}.png")
+}
+
+/// Returns a stable human-readable generated output state.
+fn generated_asset_status_label(status: GeneratedAssetStatus) -> &'static str {
+    match status {
+        GeneratedAssetStatus::Pending => "Pending",
+        GeneratedAssetStatus::Completed => "Completed bytes unavailable",
+        GeneratedAssetStatus::Cancelled => "Cancelled",
+        GeneratedAssetStatus::Failed => "Failed",
+    }
+}
+
+/// Accepts only the lowercase content identities Bottie itself creates.
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
 }
 
 /// Escapes Markdown punctuation inside a generated link label.

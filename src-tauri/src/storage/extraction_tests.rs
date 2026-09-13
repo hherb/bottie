@@ -212,7 +212,8 @@ fn upgrades_version_eleven_docx_state_and_extracts_retained_content() {
         .expect("version eleven DOCX should be unsupported");
     connection
         .execute_batch(
-            "DROP TABLE generated_assets;
+            "DROP TABLE generated_image_requests;
+             DROP TABLE generated_assets;
              DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;
@@ -392,7 +393,8 @@ fn upgrades_version_ten_pdf_state_and_extracts_retained_content() {
         .expect("version ten PDF should be unsupported");
     connection
         .execute_batch(
-            "DROP TABLE generated_assets;
+            "DROP TABLE generated_image_requests;
+             DROP TABLE generated_assets;
              DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;

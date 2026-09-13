@@ -32,6 +32,8 @@ mod forget_tests;
 mod generated_asset_actions;
 #[cfg(test)]
 mod generated_asset_actions_tests;
+#[cfg(test)]
+mod generated_asset_recovery_tests;
 mod generated_assets;
 mod generated_assets_migration;
 mod image_codec;
@@ -155,6 +157,7 @@ impl ConversationStore {
         }
         drop(connection);
         store.recover_interrupted_runs()?;
+        store.recover_interrupted_generated_images()?;
         Ok(store)
     }
 
@@ -234,6 +237,10 @@ impl ConversationStore {
             let has_active_run: bool = transaction.query_row(
                 "SELECT EXISTS (
                      SELECT 1 FROM provider_runs WHERE conversation_id = ?1 AND state = 'running'
+                     UNION ALL
+                     SELECT 1 FROM generated_assets
+                     JOIN messages ON messages.id = generated_assets.message_id
+                     WHERE messages.conversation_id = ?1 AND generated_assets.status = 'pending'
                  )",
                 [&message.conversation_id],
                 |row| row.get(0),
