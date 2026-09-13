@@ -4,7 +4,7 @@ Last verified: 2026-09-14
 
 ## Start here
 
-PR #166 merged into `main` at `7069f8f`. The current branch is `codex/generated-asset-actions`.
+PR #166 merged into `main` at `7069f8f`. Draft PR #167 is open from `codex/generated-asset-actions`.
 
 Read Milestone 8.2 in `ROADMAP.md`, then `src-tauri/src/storage/generated_asset_actions.rs`,
 `src-tauri/src/storage/generated_assets/retry.rs`, `src-tauri/src/storage/portable_export.rs`, and
