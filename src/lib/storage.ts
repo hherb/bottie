@@ -144,6 +144,12 @@ export type StoredGeneratedAsset = {
   createdAtMs: number;
 };
 
+/** Path-redacted result of opening or exporting one generated image. */
+export type GeneratedAssetActionOutcome = {
+  status: "opened" | "saved" | "cancelled";
+  fileName: string | null;
+};
+
 /** Safe native ingestion metadata including whether retained content was reused. */
 export type IngestedAttachment = StoredAttachment & {
   duplicate: boolean;
@@ -306,6 +312,24 @@ export async function exportConversationJson(conversationId: string): Promise<Co
 export async function exportConversationBatchJson(): Promise<ConversationExportOutcome> {
   if (!isTauri()) throw unavailableInBrowser();
   return invoke<ConversationExportOutcome>("export_conversation_batch_json");
+}
+
+/** Opens one completed selected-branch generated image in the native default viewer. */
+export async function openGeneratedAsset(assetId: string): Promise<GeneratedAssetActionOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<GeneratedAssetActionOutcome>("open_generated_asset", { assetId });
+}
+
+/** Exports one completed selected-branch generated image through a native Save dialog. */
+export async function exportGeneratedAsset(assetId: string): Promise<GeneratedAssetActionOutcome> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<GeneratedAssetActionOutcome>("export_generated_asset", { assetId });
+}
+
+/** Deletes one confirmed selected-branch output and returns the refreshed conversation. */
+export async function deleteGeneratedAsset(assetId: string): Promise<StoredConversation | null> {
+  if (!isTauri()) throw unavailableInBrowser();
+  return invoke<StoredConversation | null>("delete_generated_asset", { assetId });
 }
 
 /** Saves a verified SQLite snapshot with embedded retained and normalized attachment bytes. */

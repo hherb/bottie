@@ -11,8 +11,8 @@ use crate::{
     diagnostics::{record_diagnostic, sanitized},
     inference::ProviderError,
     storage::{
-        GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageProvenance, StorageError,
-        StoredMessage,
+        GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageProvenance,
+        GeneratedImageRequestOptions, StartedGeneratedImage, StorageError, StoredMessage,
     },
 };
 
@@ -39,6 +39,8 @@ struct ActiveImageRun {
 pub(crate) struct StartImageGenerationRequest {
     /// Existing durable conversation that owns the assistant image message.
     pub(crate) conversation_id: String,
+    /// Exact durable user message that owns the prompt sent to the provider.
+    pub(crate) request_message_id: String,
     /// User-authored image description kept behind the native provider boundary.
     pub(crate) prompt: String,
     /// Explicit requested output width.
@@ -49,6 +51,14 @@ pub(crate) struct StartImageGenerationRequest {
     pub(crate) count: u8,
     /// Explicit execution backend; this slice accepts cloud only.
     pub(crate) execution: GeneratedAssetExecution,
+}
+
+/// Opaque terminal image response selected for exact native retry.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct RetryImageGenerationRequest {
+    /// Failed or cancelled assistant image message on the selected branch.
+    pub(crate) message_id: String,
 }
 
 /// Opaque accepted run identity and already-durable pending assistant message.
@@ -185,6 +195,12 @@ pub(crate) async fn start_image_generation(
     }
     let generation_request =
         ImageGenerationRequest::new(request.prompt, request.width, request.height, request.count)?;
+    let options = GeneratedImageRequestOptions::new(
+        request.width,
+        request.height,
+        generation_request.prompt_extend(),
+    )
+    .map_err(storage_error)?;
     let settings = state.providers.read().await.settings();
     let api_key = state
         .credentials
@@ -210,27 +226,136 @@ pub(crate) async fn start_image_generation(
             "Wait for the active image generation to finish.",
         ));
     }
-    let pending_message = match state.conversations.start_generated_image_message(
+    let started: StartedGeneratedImage = match state.conversations.start_generated_image_message(
         &request.conversation_id,
+        &request.request_message_id,
+        generation_request.prompt(),
         request.count,
         &provenance,
+        &options,
     ) {
-        Ok(message) => message,
+        Ok(started) => started,
         Err(error) => {
             state.image_runs.finish(&run_id).await;
             return Err(storage_error(error));
         }
     };
+    Ok(spawn_image_run(
+        state.image_runs.clone(),
+        state.conversations.clone(),
+        state.diagnostics.clone(),
+        run_id,
+        abort_registration,
+        started.message,
+        request.count,
+        generation_request,
+        provider,
+        downloader,
+        on_event,
+    ))
+}
+
+#[tauri::command]
+/// Retries one selected terminal image response from only its durable native request.
+pub(crate) async fn retry_image_generation(
+    state: State<'_, AppState>,
+    request: RetryImageGenerationRequest,
+    on_event: Channel<ImageGenerationEvent>,
+) -> Result<ImageGenerationRun, ProviderError> {
+    if state.microphone.is_capturing() {
+        return Err(ProviderError::invalid_request(
+            "Stop or discard local voice capture before generating an image.",
+        ));
+    }
+    let settings = state.providers.read().await.settings();
+    let api_key = state
+        .credentials
+        .get(QWEN_IMAGE_PROVIDER_ID)?
+        .ok_or_else(|| {
+            ProviderError::invalid_request(
+                "Save a Model Studio API key before generating a cloud image.",
+            )
+        })?;
+    let provider = DashScopeQwenImageProvider::new(&settings.qwen_image_base_url, api_key)?;
+    let downloader = GeneratedImageDownloader::new()?;
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let (abort_handle, abort_registration) = AbortHandle::new_pair();
+    if !state.image_runs.reserve(run_id.clone(), abort_handle).await {
+        return Err(ProviderError::invalid_request(
+            "Wait for the active image generation to finish.",
+        ));
+    }
+    let started = match state
+        .conversations
+        .retry_generated_image_message(&request.message_id)
+    {
+        Ok(started) => started,
+        Err(error) => {
+            state.image_runs.finish(&run_id).await;
+            return Err(storage_error(error));
+        }
+    };
+    let output_count = started.output_count;
+    let generation_request = ImageGenerationRequest::new(
+        started.prompt,
+        started.options.width,
+        started.options.height,
+        output_count,
+    );
+    let valid_provenance = started.provenance.provider_id == QWEN_IMAGE_PROVIDER_ID
+        && started.provenance.model_id == DASHSCOPE_QWEN_IMAGE_MODEL_ID
+        && started.provenance.execution == GeneratedAssetExecution::Cloud
+        && started.options.prompt_extend;
+    let generation_request = match (valid_provenance, generation_request) {
+        (true, Ok(request)) => request,
+        _ => {
+            let _ = state.conversations.fail_generated_image_message(
+                &started.message.id,
+                GeneratedAssetStatus::Failed,
+                Some("invalid_retry_request"),
+            );
+            state.image_runs.finish(&run_id).await;
+            return Err(ProviderError::invalid_request(
+                "That image response cannot be retried.",
+            ));
+        }
+    };
+    Ok(spawn_image_run(
+        state.image_runs.clone(),
+        state.conversations.clone(),
+        state.diagnostics.clone(),
+        run_id,
+        abort_registration,
+        started.message,
+        output_count,
+        generation_request,
+        provider,
+        downloader,
+        on_event,
+    ))
+}
+
+/// Spawns one already-reserved provider run and returns its path-free accepted state.
+#[allow(clippy::too_many_arguments)]
+fn spawn_image_run(
+    runs: ImageGenerationRuns,
+    conversations: crate::storage::ConversationStore,
+    diagnostics: crate::diagnostics::Diagnostics,
+    run_id: String,
+    abort_registration: futures_util::future::AbortRegistration,
+    pending_message: StoredMessage,
+    output_count: u8,
+    generation_request: ImageGenerationRequest,
+    provider: DashScopeQwenImageProvider,
+    downloader: GeneratedImageDownloader,
+    on_event: Channel<ImageGenerationEvent>,
+) -> ImageGenerationRun {
     let accepted = ImageGenerationRun {
         run_id: run_id.clone(),
         message: pending_message.clone(),
     };
-    let runs = state.image_runs.clone();
-    let conversations = state.conversations.clone();
-    let diagnostics = state.diagnostics.clone();
     let task_run_id = run_id.clone();
     let message_id = pending_message.id.clone();
-    let output_count = request.count;
     tauri::async_runtime::spawn(async move {
         let _ = on_event.send(ImageGenerationEvent::Started {
             run_id: task_run_id.clone(),
@@ -323,7 +448,7 @@ pub(crate) async fn start_image_generation(
         }
         runs.finish(&task_run_id).await;
     });
-    Ok(accepted)
+    accepted
 }
 
 #[tauri::command]

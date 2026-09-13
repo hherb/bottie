@@ -269,6 +269,9 @@ explicit cloud-delivery and cost disclosure, aspect ratio, and output count. A g
 follows from an ordinary chat send. Rust immediately downloads the provider's temporary PNG results under fixed
 redirect, time, byte, decode, pixel, and dimension limits, then retains content-addressed app-private bytes with exact
 provider, model, and execution provenance. Only opaque asset identities and bounded previews cross into the WebView.
+Completed images can be opened in the native default viewer, copied from the bounded normalized preview, exported
+through a Rust-owned Save dialog, or deleted after native confirmation. Failed and cancelled image responses can be
+retried only from their exact durable selected-branch prompt, dimensions, output count, and provider provenance.
 
 Qwen-Image-2.0 local execution remains intentionally unavailable until its weights and a compatible runtime are
 actually published. Local work can proceed now against the distinct open `Qwen/Qwen-Image-2512` text-to-image

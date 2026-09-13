@@ -26,6 +26,7 @@ import {
   rememberProviderSelection,
   startChat,
   startImageGeneration as invokeImageGeneration,
+  retryImageGeneration as invokeImageGenerationRetry,
   validateQwenImageConfiguration,
   type ImageGenerationEvent,
   type ModelInfo,
@@ -419,11 +420,14 @@ export class PageState {
     });
     this.prompt = "";
     this.interaction.resizeComposer();
-    await this.startImageGeneration(runContext.conversationId, submittedPrompt);
+    await this.startImageGeneration(runContext, submittedPrompt);
   }
 
   /** Starts one native image run from an already-persisted prompt. */
-  private async startImageGeneration(conversationId: string, prompt: string): Promise<void> {
+  private async startImageGeneration(
+    runContext: import("$lib/storage").ProviderRunContext,
+    prompt: string,
+  ): Promise<void> {
     this.isGenerating = true;
     this.activeGenerationKind = "image";
     this.cancellationRequested = false;
@@ -435,7 +439,8 @@ export class PageState {
     try {
       const accepted = await invokeImageGeneration(
         {
-          conversationId,
+          conversationId: runContext.conversationId,
+          requestMessageId: runContext.requestMessageId,
           prompt,
           ...dimensions,
           count: this.imageCount,
@@ -486,6 +491,76 @@ export class PageState {
       this.providerError = event.error;
       this.imageFeedback = event.error.message;
       void this.finalizeNativeGeneration(run);
+    }
+  }
+
+  /** Retries one selected failed or cancelled image response from its native durable request. */
+  async retryGeneratedImage(responseId: number): Promise<void> {
+    if (this.isGenerating) return;
+    const response = this.messages.find(
+      (message) =>
+        message.id === responseId &&
+        message.role === "assistant" &&
+        message.storageId &&
+        message.generatedAssets?.length &&
+        message.generatedAssets.every((asset) => asset.status === "failed" || asset.status === "cancelled"),
+    );
+    if (!response?.storageId) return;
+    this.isGenerating = true;
+    this.activeGenerationKind = "image";
+    this.cancellationRequested = false;
+    this.activeRunId = null;
+    this.providerError = null;
+    this.imageFeedback = "Retrying the saved image request…";
+    const run = ++this.generationRun;
+    try {
+      const accepted = await invokeImageGenerationRetry({ messageId: response.storageId }, (event) =>
+        this.handleImageGenerationEvent(event, run),
+      );
+      if (run !== this.generationRun) {
+        await cancelImageGeneration(accepted.runId);
+        return;
+      }
+      if (this.activeRunId === null) this.activeRunId = accepted.runId;
+      if (!this.messages.some((message) => message.storageId === accepted.message.id)) {
+        this.applyGeneratedMessage(accepted.message);
+      }
+      if (this.cancellationRequested) await cancelImageGeneration(accepted.runId);
+    } catch (error) {
+      if (run !== this.generationRun) return;
+      const normalized = providerErrorFromUnknown(error);
+      this.providerError = normalized;
+      this.imageFeedback = normalized.message;
+      this.finishGeneration(run);
+    }
+  }
+
+  /** Opens one completed generated image through the native default viewer. */
+  async openGeneratedImage(assetId: string): Promise<void> {
+    const outcome = await this.history.openGeneratedImage(assetId);
+    this.imageFeedback =
+      outcome?.status === "opened" ? "Opened generated image." : (this.history.storageError?.message ?? "");
+  }
+
+  /** Exports one completed generated image without receiving its destination path. */
+  async exportGeneratedImage(assetId: string): Promise<void> {
+    const outcome = await this.history.exportGeneratedImage(assetId);
+    if (outcome?.status === "saved") {
+      this.imageFeedback = `Exported ${outcome.fileName ?? "generated image"}.`;
+    } else if (this.history.storageError) {
+      this.imageFeedback = this.history.storageError.message;
+    }
+  }
+
+  /** Applies one native-confirmed generated-image deletion to the visible selected lineage. */
+  async deleteGeneratedImage(assetId: string): Promise<void> {
+    if (this.isGenerating) return;
+    const messages = await this.history.deleteGeneratedImage(assetId);
+    if (messages) {
+      this.messages = messages;
+      this.imageFeedback = "Deleted generated image.";
+    } else if (this.history.storageError) {
+      this.imageFeedback = this.history.storageError.message;
     }
   }
 

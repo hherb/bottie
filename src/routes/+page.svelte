@@ -327,6 +327,10 @@
         oneditmessage={(message, text) => void state.editAndRegenerate(message, text)}
         onregenerate={(responseId) => void state.regenerateResponse(responseId)}
         onretryresponse={(responseId) => void state.regenerateResponse(responseId, true)}
+        onretryimage={(responseId) => void state.retryGeneratedImage(responseId)}
+        onopenasset={(assetId) => void state.openGeneratedImage(assetId)}
+        onexportasset={(assetId) => void state.exportGeneratedImage(assetId)}
+        ondeleteasset={(assetId) => void state.deleteGeneratedImage(assetId)}
         onrateresponse={(responseId, rating) => void state.history.rateResponse(state.messages, responseId, rating)}
         onremoveattachment={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
         onspeakresponse={(messageId, markdown) => void state.speech.speak(messageId, markdown)}

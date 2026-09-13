@@ -14,12 +14,15 @@ import {
   conversationExportFeedback,
   createConversation,
   deleteConversation,
+  deleteGeneratedAsset,
   exportConversationBatchJson,
   exportConversationJson,
   exportConversationMarkdown,
+  exportGeneratedAsset,
   listConversations,
   loadConversation,
   loadLastOpenConversation,
+  openGeneratedAsset,
   rateConversationResponse,
   removeConversationAttachment,
   removeConversationMessageAttachment,
@@ -41,6 +44,7 @@ import {
   type StorageError,
   type StoredConversation,
   type StoredAttachment,
+  type GeneratedAssetActionOutcome,
 } from "$lib/storage";
 
 import { storedMessageToPresentation } from "./conversation-presentation";
@@ -215,6 +219,48 @@ export class ConversationState {
   /** Opens the native Save dialog for all active and archived selected lineages as JSON. */
   async exportBatchJson(): Promise<void> {
     await this.exportConversation("batch-json");
+  }
+
+  /** Opens one selected generated image through the native default viewer. */
+  async openGeneratedImage(assetId: string): Promise<GeneratedAssetActionOutcome | null> {
+    try {
+      const outcome = await openGeneratedAsset(assetId);
+      this.storageError = null;
+      return outcome;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      return null;
+    }
+  }
+
+  /** Exports one selected generated image through the Rust-owned Save dialog. */
+  async exportGeneratedImage(assetId: string): Promise<GeneratedAssetActionOutcome | null> {
+    try {
+      const outcome = await exportGeneratedAsset(assetId);
+      this.storageError = null;
+      return outcome;
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      return null;
+    }
+  }
+
+  /** Runs native-confirmed generated-image deletion and applies its selected lineage. */
+  async deleteGeneratedImage(assetId: string): Promise<Message[] | null> {
+    if (this.isManaging) return null;
+    this.isManaging = true;
+    try {
+      const conversation = await deleteGeneratedAsset(assetId);
+      if (!conversation) return null;
+      this.storageError = null;
+      await this.refresh();
+      return this.applyConversation(conversation);
+    } catch (error) {
+      this.storageError = storageErrorFromUnknown(error);
+      return null;
+    } finally {
+      this.isManaging = false;
+    }
   }
 
   /** Runs one path-redacted native export flow and owns its shared presentation feedback. */

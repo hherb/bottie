@@ -29,6 +29,9 @@ mod export;
 pub(crate) mod extraction;
 #[cfg(test)]
 mod forget_tests;
+mod generated_asset_actions;
+#[cfg(test)]
+mod generated_asset_actions_tests;
 mod generated_assets;
 mod generated_assets_migration;
 mod image_codec;
@@ -79,7 +82,8 @@ pub(crate) use extraction::StoredAttachmentExtraction;
 pub(crate) use extraction::{AttachmentExtractionFormat, AttachmentExtractionState};
 pub(crate) use generated_assets::{
     GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageProvenance,
-    PreparedGeneratedImage, StoredGeneratedAsset, normalize_generated_png,
+    GeneratedImageRequestOptions, PreparedGeneratedImage, StartedGeneratedImage,
+    StoredGeneratedAsset, normalize_generated_png,
 };
 pub(crate) use image_normalization::StoredImageNormalization;
 pub(crate) use memory_file_tool::{
@@ -112,7 +116,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 23;
+const CURRENT_SCHEMA_VERSION: i64 = 24;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";

@@ -15,11 +15,15 @@ use crate::{
 
 mod attachments;
 mod export;
+mod generated_assets;
 mod outcomes;
 
 pub(crate) use attachments::ingest_attachments;
 pub(crate) use export::{
     export_conversation_batch_json, export_conversation_json, export_conversation_markdown,
+};
+pub(crate) use generated_assets::{
+    delete_generated_asset, export_generated_asset, open_generated_asset,
 };
 pub(crate) use outcomes::{BackupOutcome, RestoreOutcome};
 use outcomes::{cancelled_backup, cancelled_restore, leaf_name, restored, saved_backup};

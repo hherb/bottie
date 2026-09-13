@@ -1,28 +1,28 @@
 # Bottie handover
 
-Last verified: 2026-09-13
+Last verified: 2026-09-14
 
 ## Start here
 
-PR #165 merged into `main` at `ece9518`. The current branch is `codex/durable-image-generation`.
+PR #166 merged into `main` at `7069f8f`. The current branch is `codex/generated-asset-actions`.
 
-Read Milestone 8.2 in `ROADMAP.md`, then `src-tauri/src/storage/generated_assets.rs`,
-`src-tauri/src/image_generation/controller.rs`, and `src/routes/page-state.svelte.ts`.
+Read Milestone 8.2 in `ROADMAP.md`, then `src-tauri/src/storage/generated_asset_actions.rs`,
+`src-tauri/src/storage/generated_assets/retry.rs`, `src-tauri/src/storage/portable_export.rs`, and
+`src-tauri/src/storage/backup.rs`.
 
 ## Completed slices
 
-- Schema version 23 owns generated assets from assistant messages and persists ordered lifecycle state, content hash,
-  PNG metadata, exact provider/model/execution provenance, optional seed, and path-free errors.
-- The Rust controller admits one image run, creates the pending assistant message before provider I/O, supports exact
-  cancellation shared with microphone capture, and emits bounded path-free progress and terminal events.
-- Hosted Qwen-Image-2.0 results are downloaded immediately inside Rust with redirects disabled, HTTPS-only production
-  URLs, fixed time and 25 MiB limits, exact PNG type/signature/decode/dimension checks, metadata-free normalization,
-  all-or-nothing cleanup, and content-addressed app-private storage.
-- The separate composer Image mode exposes prompt, aspect ratio, count, exact cloud checkpoint, delivery/cost disclosure,
-  and cancellation. Pending, completed, failed, and cancelled assistant image messages survive reopen; completed images
-  use natural-ratio previews over an opaque GET-only protocol with no paths, URLs, hashes, or provider correlation
-  identifiers in IPC. Image prompts are normalized and bounded before durable user-message insertion, then revalidated
-  authoritatively by Rust.
+- Schema version 24 binds each new assistant image response to its exact durable user prompt plus accepted width,
+  height, and prompt-extension option; output count remains the ordered asset-row count.
+- Initial generation now proves the WebView prompt matches the latest selected durable user request before inserting a
+  pending assistant message. Failed and cancelled responses retry from only their opaque assistant-message identity,
+  exact native request/options, output count, and provenance; active, completed, superseded, and non-selected responses
+  fail closed.
+- Completed selected-branch outputs have explicit open, copy, export, and deletion actions. Rust resolves and rehashes
+  app-private PNGs for the native default viewer and Save dialog; clipboard copy fetches only the existing bounded PNG
+  preview. Deletion requires native confirmation, updates multi-output message state, and tombstones/removes the
+  content-addressed blob only after its final durable reference disappears.
+- Generated-image messages no longer expose ordinary text-response rating, speech, copy, or regeneration actions.
 
 No live or billable Model Studio generation was run. No local model/runtime, reference-image editing, release, signing,
 publication, workflow dispatch, or Store action is included. Unrelated untracked logo-kit, screenshot, and Linux
@@ -30,30 +30,29 @@ public-key files remain untouched.
 
 ## Validation
 
-Frontend formatting, type checks, build, dependency/icon checks, and all 357 tests pass with 3 skipped. The serial Rust
-suite passes 522 library tests with 36 ignored, the updater-evidence test, and doc tests; formatting and `cargo check`
-pass with only the existing `block 0.1.6` future-incompatibility notice. The development-signed native launch reached
-the Bottie binary, and immutable inspection reports schema 23, `quick_check` `ok`, and the generated-assets table.
+Frontend formatting, Svelte checks, and the production build pass with no diagnostics. All 360 frontend tests pass with
+3 skipped, including opaque PNG clipboard policy and completed/terminal generated-image action presentation.
+The desktop browser preview was reviewed in Image mode at its default viewport; controls and disclosure remain clean.
+The preview has no durable generated-image fixture, so action layout is covered by server-rendered component tests rather
+than a populated browser/native interaction. No native Open, Save, clipboard, confirmation, or retry action is claimed.
 
-The desktop browser preview was reviewed in Image mode: exact checkpoint, aspect ratio/count controls, cloud/cost
-disclosure, disabled attachment action, and editing boundary render cleanly. Native-window accessibility inspection was
-unavailable, so no native interaction is claimed.
+`cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and `cargo test --manifest-path src-tauri/Cargo.toml
+--no-run` pass. The compiled Rust test binary still parks at macOS `_dyld_start` before the test harness reaches `main`;
+`cargo clippy` likewise stalls while running a newly linked build script. This is a host execution limitation, not a
+reported product-test failure; do not claim the Rust suite or Clippy passed until they run normally or hosted CI executes
+them. Static review and `git diff --check` pass.
 
 ## Next slice
 
-Finish Milestone 8.2 item 5 with generated-asset actions and ownership, without widening IPC. First add migration 24 for
-the accepted request dimensions/options so failed and cancelled messages can be retried exactly from the preceding
-durable user prompt; output count already survives as ordered asset rows. Then add explicit retry plus native
-open/copy/export and deletion flows that use only opaque asset/message identities. Revalidate selected-branch ownership
-and ensure actions cannot expose native paths, content hashes, temporary provider URLs, credentials, or provider
-correlation identifiers.
+Finish Milestone 8.2 items 6–7 as one recovery-focused slice. Extend portable single/batch export bundles, manual and
+automatic backup, restore validation, retention deletion, branch ownership, and restart-boundary garbage collection so
+generated PNG bytes have the same exact selected-lineage and recovery guarantees as attachment bytes. Then recover a
+pending image message whose process disappeared into a stable failed/interrupted state, and add fault tests for missing,
+changed, orphaned, shared, superseded-branch, deleted-conversation, backup, and restore bytes.
 
-After that, extend portable export, backup/restore, retention, branch ownership, deletion, and garbage collection so
-generated blobs have the same recovery guarantees as attachment bytes. Add startup recovery for a pending image message
-whose process disappeared, and fault/cancellation tests at each new boundary.
-
-Keep Qwen-Image-2.0 local execution unavailable until exact 2.0 weights are officially published and verified. Keep the
-distinct open `Qwen/Qwen-Image-2512` local track visibly separate. App-store and distribution work remain paused while
-Milestone 8 is the active product priority.
+Preserve schema-24 request identity and closed IPC: no native paths, content hashes, temporary provider URLs,
+credentials, or provider correlation identifiers may cross into Svelte. Do not broaden generated assets into the user
+attachment association. Keep Qwen-Image-2.0 local execution unavailable until exact 2.0 weights are officially
+published and verified; keep the distinct `Qwen/Qwen-Image-2512` local track visibly separate.
 
 Do not merge, dispatch workflows, sign, release, publish, or perform Store work without separate authorization.
