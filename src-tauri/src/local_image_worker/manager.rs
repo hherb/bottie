@@ -1,6 +1,6 @@
 //! Pure lifecycle policy for one long-lived, single-operation local image worker.
 
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 use super::protocol::{
     CURRENT_PROTOCOL_VERSION, HostMessage, ModelLocation, ProtocolError, WorkerCapabilities,
@@ -22,6 +22,8 @@ pub(crate) enum ManagerError {
     Protocol,
     /// The worker replied for a request other than the active request.
     CorrelationMismatch,
+    /// Completed outputs differ from the exact accepted generation request.
+    ResultMismatch,
     /// The requested generation exceeds negotiated worker capabilities.
     CapabilityMismatch,
     /// A valid message arrived out of handshake or operation order.
@@ -76,7 +78,19 @@ enum Phase {
 struct ActiveOperation {
     request_id: String,
     operation: WorkerOperation,
+    generation: Option<GenerationExpectation>,
     cancellation_started: Option<Duration>,
+}
+
+#[derive(Clone, Debug)]
+struct GenerationExpectation {
+    width: u32,
+    height: u32,
+    count: u8,
+    seed: Option<u64>,
+    supports_seed: bool,
+    max_outputs: u8,
+    max_pixels: u64,
 }
 
 /// Rust-owned lifecycle state for a worker process that will be attached by a later transport slice.
@@ -127,7 +141,7 @@ impl WorkerManager {
         &mut self,
         client_version: impl Into<String>,
     ) -> Result<HostMessage, ManagerError> {
-        if self.phase != Phase::Stopped {
+        if self.phase != Phase::Stopped || self.teardown_required {
             return Err(ManagerError::InvalidState);
         }
         let message = HostMessage::Hello {
@@ -136,7 +150,6 @@ impl WorkerManager {
         };
         validate_outgoing(&message)?;
         self.phase = Phase::AwaitingHello;
-        self.teardown_required = false;
         Ok(message)
     }
 
@@ -159,6 +172,7 @@ impl WorkerManager {
         self.active = Some(ActiveOperation {
             request_id,
             operation: WorkerOperation::Load,
+            generation: None,
             cancellation_started: None,
         });
         self.phase = Phase::Busy;
@@ -208,6 +222,15 @@ impl WorkerManager {
         self.active = Some(ActiveOperation {
             request_id,
             operation: WorkerOperation::Generate,
+            generation: Some(GenerationExpectation {
+                width,
+                height,
+                count,
+                seed,
+                supports_seed: capabilities.supports_seed,
+                max_outputs: capabilities.max_outputs,
+                max_pixels: capabilities.max_pixels,
+            }),
             cancellation_started: None,
         });
         self.phase = Phase::Busy;
@@ -294,9 +317,9 @@ impl WorkerManager {
         result
     }
 
-    /// Returns and clears whether the owning transport must be killed and reaped.
-    pub(crate) fn take_teardown_required(&mut self) -> bool {
-        std::mem::take(&mut self.teardown_required)
+    /// Reports whether the owning transport must be killed and reaped before restart.
+    pub(crate) fn teardown_required(&self) -> bool {
+        self.teardown_required
     }
 
     fn accept_result(
@@ -306,6 +329,7 @@ impl WorkerManager {
         result: WorkerResult,
     ) -> Result<ManagerEvent, ManagerError> {
         self.require_active_request(&request_id, Some(operation))?;
+        self.validate_result_relationship(operation, &result)?;
         let event = match result {
             WorkerResult::Completed { outputs: _ } if operation == WorkerOperation::Load => {
                 self.loaded_model = self.pending_model.take();
@@ -321,6 +345,48 @@ impl WorkerManager {
         self.active = None;
         self.phase = Phase::Idle;
         Ok(event)
+    }
+
+    fn validate_result_relationship(
+        &self,
+        operation: WorkerOperation,
+        result: &WorkerResult,
+    ) -> Result<(), ManagerError> {
+        let WorkerResult::Completed { outputs } = result else {
+            return Ok(());
+        };
+        if operation == WorkerOperation::Load {
+            return Ok(());
+        }
+        let expected = self
+            .active
+            .as_ref()
+            .and_then(|active| active.generation.as_ref())
+            .ok_or(ManagerError::ResultMismatch)?;
+        let output_names = outputs
+            .iter()
+            .map(|output| output.output_name.as_str())
+            .collect::<HashSet<_>>();
+        let outputs_match = outputs.len() == usize::from(expected.count)
+            && outputs.len() <= usize::from(expected.max_outputs)
+            && output_names.len() == outputs.len()
+            && outputs.iter().all(|output| {
+                let pixels = u64::from(output.width).saturating_mul(u64::from(output.height));
+                let seed_matches = match expected.seed {
+                    Some(seed) => output.seed == Some(seed),
+                    None if !expected.supports_seed => output.seed.is_none(),
+                    None => true,
+                };
+                output.width == expected.width
+                    && output.height == expected.height
+                    && pixels <= expected.max_pixels
+                    && seed_matches
+            });
+        if outputs_match {
+            Ok(())
+        } else {
+            Err(ManagerError::ResultMismatch)
+        }
     }
 
     fn require_idle(&self) -> Result<(), ManagerError> {

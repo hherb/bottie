@@ -1,5 +1,7 @@
 //! Field and relationship validation for closed local image-worker messages.
 
+use std::path::{Component, Path};
+
 use super::{
     CURRENT_PROTOCOL_VERSION, HostMessage, ModelLocation, ProtocolError, WorkerCapabilities,
     WorkerMessage, WorkerOperation, WorkerOutput, WorkerResult,
@@ -131,13 +133,11 @@ fn validate_model_location(model: &ModelLocation) -> Result<(), ProtocolError> {
 }
 
 fn is_absolute_native_path(path: &str) -> bool {
-    let bytes = path.as_bytes();
-    path.starts_with('/')
-        || path.starts_with("\\\\")
-        || (bytes.len() >= 3
-            && bytes[0].is_ascii_alphabetic()
-            && bytes[1] == b':'
-            && matches!(bytes[2], b'/' | b'\\'))
+    let path = Path::new(path);
+    path.is_absolute()
+        && !path
+            .components()
+            .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
 }
 
 fn validate_capabilities(capabilities: &WorkerCapabilities) -> Result<(), ProtocolError> {

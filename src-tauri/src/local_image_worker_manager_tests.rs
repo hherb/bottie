@@ -24,8 +24,18 @@ fn model() -> ModelLocation {
     ModelLocation {
         model_id: "Qwen/Qwen-Image-2512".into(),
         model_revision: "0123456789abcdef".into(),
-        model_directory: "/private/app-cache/qwen-image-2512".into(),
+        model_directory: test_model_directory().into(),
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn test_model_directory() -> &'static str {
+    "/private/app-cache/qwen-image-2512"
+}
+
+#[cfg(target_os = "windows")]
+fn test_model_directory() -> &'static str {
+    r"C:\app-cache\qwen-image-2512"
 }
 
 fn ready_manager() -> WorkerManager {
@@ -41,6 +51,20 @@ fn ready_manager() -> WorkerManager {
         .accept(WorkerMessage::Capabilities {
             protocol_version: CURRENT_PROTOCOL_VERSION,
             capabilities: capabilities(),
+        })
+        .unwrap();
+    manager
+}
+
+fn loaded_manager() -> WorkerManager {
+    let mut manager = ready_manager();
+    manager.begin_load("load-1", model()).unwrap();
+    manager
+        .accept(WorkerMessage::Result {
+            protocol_version: CURRENT_PROTOCOL_VERSION,
+            request_id: "load-1".into(),
+            operation: WorkerOperation::Load,
+            result: WorkerResult::Completed { outputs: vec![] },
         })
         .unwrap();
     manager
@@ -197,7 +221,7 @@ fn rejects_cross_request_results_and_requires_teardown() {
         }),
         Err(ManagerError::CorrelationMismatch)
     );
-    assert!(manager.take_teardown_required());
+    assert!(manager.teardown_required());
     assert_eq!(manager.readiness(), WorkerReadiness::Stopped);
 }
 
@@ -215,8 +239,78 @@ fn cross_request_progress_also_fails_closed_and_requires_teardown() {
         }),
         Err(ManagerError::CorrelationMismatch)
     );
-    assert!(manager.take_teardown_required());
+    assert!(manager.teardown_required());
     assert_eq!(manager.readiness(), WorkerReadiness::Stopped);
+}
+
+#[test]
+fn teardown_observation_does_not_allow_restart_before_process_exit() {
+    let mut manager = ready_manager();
+    manager.begin_load("load-1", model()).unwrap();
+    assert_eq!(
+        manager.accept(WorkerMessage::Progress {
+            protocol_version: CURRENT_PROTOCOL_VERSION,
+            request_id: "other".into(),
+            stage: WorkerProgressStage::Loading,
+            completed_steps: 1,
+            total_steps: 2,
+        }),
+        Err(ManagerError::CorrelationMismatch)
+    );
+    assert!(manager.teardown_required());
+    assert_eq!(
+        manager.begin_handshake("0.9.0"),
+        Err(ManagerError::InvalidState)
+    );
+    manager.mark_stopped();
+    assert!(manager.begin_handshake("0.9.0").is_ok());
+}
+
+#[test]
+fn completed_generation_must_match_requested_outputs_dimensions_and_seed() {
+    for outputs in [
+        vec![
+            WorkerOutput {
+                output_name: "output-0.png".into(),
+                width: 1_024,
+                height: 1_024,
+                seed: Some(7),
+            },
+            WorkerOutput {
+                output_name: "output-1.png".into(),
+                width: 1_024,
+                height: 1_024,
+                seed: Some(7),
+            },
+        ],
+        vec![WorkerOutput {
+            output_name: "output-0.png".into(),
+            width: 512,
+            height: 1_024,
+            seed: Some(7),
+        }],
+        vec![WorkerOutput {
+            output_name: "output-0.png".into(),
+            width: 1_024,
+            height: 1_024,
+            seed: Some(8),
+        }],
+    ] {
+        let mut manager = loaded_manager();
+        manager
+            .begin_generation("generation-1", "image", 1_024, 1_024, 1, Some(7))
+            .unwrap();
+        assert_eq!(
+            manager.accept(WorkerMessage::Result {
+                protocol_version: CURRENT_PROTOCOL_VERSION,
+                request_id: "generation-1".into(),
+                operation: WorkerOperation::Generate,
+                result: WorkerResult::Completed { outputs },
+            }),
+            Err(ManagerError::ResultMismatch)
+        );
+        assert!(manager.teardown_required());
+    }
 }
 
 #[test]

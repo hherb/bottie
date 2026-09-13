@@ -19,9 +19,11 @@ and `src-tauri/src/local_image_worker/` before adding transport behavior.
   credential-shaped errors fail closed without retaining raw detail.
 - The pure Rust manager requires ordered hello/capability negotiation, keeps one verified model identity warm, admits
   one load or generation at a time, correlates progress/results to the exact operation, rejects stale or cross-request
-  events, and clears process-specific state on failure or exit.
+  events, validates completed count/dimensions/seed/output uniqueness against the accepted request and negotiated
+  capabilities, and clears process-specific state on failure or exit.
 - Cooperative cancellation has a named three-second grace policy. A terminal result inside the grace restores idle
-  state; expiry requires the future transport to kill and reap the worker. Clean shutdown is admitted only while idle.
+  state; expiry requires the future transport to kill and reap the worker. A new handshake remains blocked until the
+  transport explicitly records process exit. Clean shutdown is admitted only while idle.
 - This subsystem remains separate from Bottie's user-approved Python tool runtime. Exact hosted
   `qwen-image-2.0-2026-03-03` remains distinct from local open-weight `Qwen/Qwen-Image-2512`.
 
@@ -31,9 +33,9 @@ and `src-tauri/src/local_image_worker/` before adding transport behavior.
 - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`, `cargo check --manifest-path src-tauri/Cargo.toml`, and
   the serialized Rust suite pass using isolated `/private/tmp/bottie-local-worker-target` because the standard target
   directory remains held by a pre-existing Cargo build lock.
-- The host-local Rust suite passes 554 tests with 36 intentionally ignored, plus 1 updater-evidence test. Its initial
+- The host-local Rust suite passes 557 tests with 36 intentionally ignored, plus 1 updater-evidence test. Its initial
   sandboxed run failed only because three existing image-download fixtures could not bind loopback listeners; the
-  identical host-local rerun passed. The focused local-worker suite passes 17 protocol and lifecycle tests.
+  identical host-local rerun passed. The focused local-worker suite passes 20 protocol and lifecycle tests.
 - `git diff --check` and final self-review pass.
 - No process, localhost listener, model/runtime load, hardware probe, local generation, UI behavior, provider request,
   or billable action was exercised. No WebView presentation changed, so browser/native UI review was not applicable.

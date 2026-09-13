@@ -11,8 +11,18 @@ fn model_location() -> ModelLocation {
     ModelLocation {
         model_id: "Qwen/Qwen-Image-2512".into(),
         model_revision: "0123456789abcdef".into(),
-        model_directory: "/private/app-cache/qwen-image-2512".into(),
+        model_directory: test_model_directory().into(),
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn test_model_directory() -> &'static str {
+    "/private/app-cache/qwen-image-2512"
+}
+
+#[cfg(target_os = "windows")]
+fn test_model_directory() -> &'static str {
+    r"C:\app-cache\qwen-image-2512"
 }
 
 fn generate_message() -> HostMessage {
@@ -225,6 +235,27 @@ fn rejects_relative_model_directories_and_payloads_over_the_frame_limit() {
     assert_eq!(
         decode_host_payload(&vec![b' '; MAX_FRAME_BYTES + 1]),
         Err(ProtocolError::FrameTooLarge)
+    );
+}
+
+#[test]
+fn rejects_absolute_path_syntax_from_a_different_target_platform() {
+    #[cfg(not(target_os = "windows"))]
+    let foreign_path = r"C:\models\qwen-image-2512";
+    #[cfg(target_os = "windows")]
+    let foreign_path = "/private/app-cache/qwen-image-2512";
+    let invalid = HostMessage::Load {
+        protocol_version: CURRENT_PROTOCOL_VERSION,
+        request_id: "load-1".into(),
+        model: ModelLocation {
+            model_directory: foreign_path.into(),
+            ..model_location()
+        },
+    };
+
+    assert_eq!(
+        encode_host_frame(&invalid),
+        Err(ProtocolError::InvalidField)
     );
 }
 
