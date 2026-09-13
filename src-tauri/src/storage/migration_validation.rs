@@ -26,6 +26,7 @@ const SOURCE_IDENTITIES: &[(&str, &str)] = &[
     ("tool_invocations", "hex(CAST(id AS BLOB))"),
     ("tool_results", "hex(CAST(id AS BLOB))"),
     ("attachments", "hex(CAST(id AS BLOB))"),
+    ("generated_assets", "hex(CAST(id AS BLOB))"),
     (
         "message_attachments",
         "hex(CAST(message_id AS BLOB)) || ':' || hex(CAST(attachment_id AS BLOB))",

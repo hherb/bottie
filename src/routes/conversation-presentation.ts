@@ -2,6 +2,8 @@
 
 import { persistedCompletionMeta, persistedMessagePresentation } from "$lib/chat";
 import { nextMessageId, type Message } from "$lib/presentation";
+import { convertFileSrc } from "@tauri-apps/api/core";
+
 import { storedAttachmentToPresentation, type StoredMessage } from "$lib/storage";
 
 /** Maps one durable record into the richer ephemeral presentation shape. */
@@ -29,5 +31,9 @@ export function storedMessageToPresentation(message: StoredMessage): Message {
     rating: message.rating ?? undefined,
     toolInvocations: message.providerRun?.toolInvocations,
     attachments: message.attachments.map(storedAttachmentToPresentation),
+    generatedAssets: message.generatedAssets.map((asset) => ({
+      ...asset,
+      previewUrl: asset.status === "completed" ? convertFileSrc(asset.id, "bottie-generated-asset") : null,
+    })),
   };
 }

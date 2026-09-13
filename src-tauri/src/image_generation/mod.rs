@@ -1,6 +1,8 @@
 //! Provider-neutral image-generation contracts and concrete native adapters.
 
+mod controller;
 mod dashscope;
+mod download;
 
 #[cfg(test)]
 mod tests;
@@ -8,7 +10,9 @@ mod tests;
 use crate::inference::ProviderError;
 use url::Url;
 
+pub(crate) use controller::{ImageGenerationRuns, cancel_image_generation, start_image_generation};
 pub(crate) use dashscope::DashScopeQwenImageProvider;
+pub(crate) use download::GeneratedImageDownloader;
 
 /// Stable Bottie provider identity for the hosted Qwen Image route.
 pub(crate) const QWEN_IMAGE_PROVIDER_ID: &str = "qwen-image";

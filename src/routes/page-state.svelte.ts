@@ -18,12 +18,16 @@ import {
   toggleReasoningEffort,
 } from "$lib/chat";
 import {
+  cancelImageGeneration,
   cancelChat,
   discoverModels,
   getProviderSettings,
   providerErrorFromUnknown,
   rememberProviderSelection,
   startChat,
+  startImageGeneration as invokeImageGeneration,
+  validateQwenImageConfiguration,
+  type ImageGenerationEvent,
   type ModelInfo,
   type ProviderId,
   type ProviderError,
@@ -32,6 +36,7 @@ import {
   type StreamEvent,
   type Usage,
 } from "$lib/inference";
+import { imageGenerationDimensions, type ImageGenerationSize } from "$lib/image-generation";
 import {
   DEFAULT_PROVIDER_SETTINGS,
   INITIAL_MESSAGES,
@@ -41,6 +46,7 @@ import {
   type RuntimeInfo,
 } from "$lib/presentation";
 import { ConversationState } from "./conversation-state.svelte";
+import { storedMessageToPresentation } from "./conversation-presentation";
 import { AttachmentState } from "./attachment-state.svelte";
 import { RecoveryState } from "./recovery-state.svelte";
 import {
@@ -83,6 +89,10 @@ export class PageState {
   providerError = $state<ProviderError | null>(null);
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
+  imageMode = $state(false);
+  imageSize = $state<ImageGenerationSize>("square");
+  imageCount = $state(1);
+  imageFeedback = $state("");
   microphoneTranscriptDraftFeedback = $state("");
   microphoneTranscriptDraftError = $state(false);
   tools = new ToolPreferenceState();
@@ -102,6 +112,7 @@ export class PageState {
 
   private generationRun = 0;
   private cancellationRequested = false;
+  private activeGenerationKind: "chat" | "image" | null = null;
   /** Currently selected provider-qualified model, when discovery has produced one. */
   get selectedModel(): ModelInfo | undefined {
     return this.models.find((model) => modelKey(model) === this.selectedModelKey);
@@ -114,7 +125,17 @@ export class PageState {
   get canCompose(): boolean {
     return (
       !this.isPersistingMessage &&
-      (this.canSend || this.prompt.length > 0 || canUseTranscriptAsText(this.microphone.status))
+      (this.imageMode || this.canSend || this.prompt.length > 0 || canUseTranscriptAsText(this.microphone.status))
+    );
+  }
+  /** Whether the explicit cloud-image action can start without reusing attachment editing. */
+  get canGenerateImage(): boolean {
+    return (
+      isTauri() &&
+      !this.isGenerating &&
+      !this.isPersistingMessage &&
+      !this.microphone.isActive &&
+      this.attachment.items.length === 0
     );
   }
   /** Whether every current image has a ready derivative and an explicitly vision-capable route. */
@@ -354,6 +375,115 @@ export class PageState {
     await this.startGeneration(runContext);
   }
 
+  /** Persists one explicit image prompt, then starts only the disclosed cloud image route. */
+  async generateImage(): Promise<void> {
+    const submittedPrompt = this.prompt.trim();
+    if (!submittedPrompt || !this.imageMode || !this.canGenerateImage) return;
+    this.imageFeedback = "Checking the saved cloud image setup…";
+    try {
+      await validateQwenImageConfiguration(this.providerSettings.qwenImageBaseUrl);
+    } catch (error) {
+      const normalized = providerErrorFromUnknown(error);
+      this.providerError = normalized;
+      this.imageFeedback = normalized.message;
+      return;
+    }
+    this.isPersistingMessage = true;
+    this.imageFeedback = "Saving the image prompt locally…";
+    if (this.speech.status.phase === "speaking") await this.speech.stop();
+    const runContext = await this.history.persistUserMessage(submittedPrompt, []);
+    this.isPersistingMessage = false;
+    if (!runContext) {
+      this.imageFeedback = "The image prompt could not be saved.";
+      return;
+    }
+    this.messages.push({
+      id: nextMessageId(),
+      storageId: runContext.requestMessageId,
+      role: "user",
+      content: submittedPrompt,
+    });
+    this.prompt = "";
+    this.interaction.resizeComposer();
+    await this.startImageGeneration(runContext.conversationId, submittedPrompt);
+  }
+
+  /** Starts one native image run from an already-persisted prompt. */
+  private async startImageGeneration(conversationId: string, prompt: string): Promise<void> {
+    this.isGenerating = true;
+    this.activeGenerationKind = "image";
+    this.cancellationRequested = false;
+    this.activeRunId = null;
+    this.providerError = null;
+    this.imageFeedback = "Starting the disclosed cloud generation…";
+    const run = ++this.generationRun;
+    const dimensions = imageGenerationDimensions(this.imageSize);
+    try {
+      const accepted = await invokeImageGeneration(
+        {
+          conversationId,
+          prompt,
+          ...dimensions,
+          count: this.imageCount,
+          execution: "cloud",
+        },
+        (event) => this.handleImageGenerationEvent(event, run),
+      );
+      if (run !== this.generationRun) {
+        await cancelImageGeneration(accepted.runId);
+        return;
+      }
+      if (this.activeRunId === null) this.activeRunId = accepted.runId;
+      if (!this.messages.some((message) => message.storageId === accepted.message.id)) {
+        this.applyGeneratedMessage(accepted.message);
+      }
+      if (this.cancellationRequested) await cancelImageGeneration(accepted.runId);
+    } catch (error) {
+      if (run !== this.generationRun) return;
+      const normalized = providerErrorFromUnknown(error);
+      this.providerError = normalized;
+      this.imageFeedback = normalized.message;
+      this.finishGeneration(run);
+    }
+  }
+
+  /** Applies path-free progress and already-durable terminal image messages. */
+  private handleImageGenerationEvent(event: ImageGenerationEvent, run: number): void {
+    if (run !== this.generationRun) return;
+    this.activeRunId = event.runId;
+    if (event.type === "started") {
+      this.applyGeneratedMessage(event.message);
+      this.imageFeedback = "Generating with the exact hosted Qwen-Image-2.0 checkpoint…";
+    } else if (event.type === "progress") {
+      this.imageFeedback =
+        event.stage === "generating"
+          ? `Generating ${event.total} cloud image${event.total === 1 ? "" : "s"}…`
+          : `Downloading and validating ${event.total} temporary result${event.total === 1 ? "" : "s"}…`;
+    } else if (event.type === "completed") {
+      this.applyGeneratedMessage(event.message);
+      this.imageFeedback = "Generated PNG bytes are stored privately on this device.";
+      void this.finalizeNativeGeneration(run);
+    } else if (event.type === "cancelled") {
+      this.applyGeneratedMessage(event.message);
+      this.imageFeedback = "Image generation cancelled; temporary bytes were discarded.";
+      void this.finalizeNativeGeneration(run);
+    } else {
+      if (event.message) this.applyGeneratedMessage(event.message);
+      this.providerError = event.error;
+      this.imageFeedback = event.error.message;
+      void this.finalizeNativeGeneration(run);
+    }
+  }
+
+  /** Inserts or replaces one assistant image message by its opaque durable identity. */
+  private applyGeneratedMessage(stored: import("$lib/storage").StoredMessage): void {
+    const message = storedMessageToPresentation(stored);
+    const index = this.messages.findIndex((candidate) => candidate.storageId === stored.id);
+    if (index === -1) this.messages.push(message);
+    else this.messages[index] = { ...message, id: this.messages[index].id };
+    void this.interaction.scrollToBottom("auto");
+  }
+
   /** Removes one durable selected-lineage association while preserving retained bytes. */
   async removeMessageAttachment(messageId: string, attachmentId: string): Promise<void> {
     if (this.isGenerating || this.isPersistingMessage) return;
@@ -394,6 +524,7 @@ export class PageState {
   /** Starts provider generation from one already-persisted request on the selected branch. */
   private async startGeneration(runContext: import("$lib/storage").ProviderRunContext): Promise<void> {
     this.isGenerating = true;
+    this.activeGenerationKind = "chat";
     const run = ++this.generationRun;
     this.activeStage = STARTING_STAGE;
     this.activeRunId = null;
@@ -521,6 +652,7 @@ export class PageState {
     this.activeRunId = null;
     this.activeAssistantId = null;
     this.cancellationRequested = false;
+    this.activeGenerationKind = null;
   }
 
   /** Requests cancellation while native orchestration retains the latest durable checkpoint. */
@@ -530,7 +662,10 @@ export class PageState {
     const runId = this.activeRunId;
     const reply = this.messages.find((message) => message.id === this.activeAssistantId);
     if (reply) reply.meta = "Stopping · saving partial response";
-    if (runId) void cancelChat(runId);
+    if (runId) {
+      if (this.activeGenerationKind === "image") void cancelImageGeneration(runId);
+      else void cancelChat(runId);
+    }
   }
   /** Interrupts active Bottie output before starting one explicit local voice capture. */
   async startMicrophoneCapture(): Promise<void> {
@@ -576,11 +711,15 @@ export class PageState {
   /** Sends the draft or cancels the current stream according to generation state. */
   handleSendButton(): void {
     if (this.isGenerating) this.stopGenerating();
+    else if (this.imageMode) void this.generateImage();
     else void this.sendMessage();
   }
   /** Clears the active thread; its first submitted prompt creates durable storage. */
   async startNewChat(): Promise<void> {
-    if (this.activeRunId) void cancelChat(this.activeRunId);
+    if (this.activeRunId) {
+      if (this.activeGenerationKind === "image") void cancelImageGeneration(this.activeRunId);
+      else void cancelChat(this.activeRunId);
+    }
     if (this.speech.status.phase === "speaking") await this.speech.stop();
     this.messages = [];
     await this.history.startNew();
@@ -590,6 +729,7 @@ export class PageState {
     this.activeRunId = null;
     this.activeAssistantId = null;
     this.cancellationRequested = false;
+    this.activeGenerationKind = null;
     this.prompt = "";
     this.showSidebar = false;
     this.interaction.focusAfterUpdate();

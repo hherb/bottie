@@ -38,6 +38,7 @@ export function performanceStoredMessages(): StoredMessage[] {
     providerRun: null,
     rating: null,
     attachments: [],
+    generatedAssets: [],
     createdAtMs: FIXTURE_NOW_MS + index,
   }));
 }

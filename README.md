@@ -264,9 +264,11 @@ data follows the selected route.
 
 Settings can retain a Model Studio key in the operating-system credential vault and validate a credential-free
 DashScope or Model Studio workspace root for the exact `qwen-image-2.0-2026-03-03` checkpoint. Validation performs no
-provider request, generates no image, and incurs no model charge. The native adapter already fixes the request model,
-bounds dimensions and output count, and accepts only bounded HTTPS result references; the user-facing generation and
-durable-image flow remains the next implementation slice.
+provider request, generates no image, and incurs no model charge. The composer has a separate Image mode with an
+explicit cloud-delivery and cost disclosure, aspect ratio, and output count. A generation is cancellable and never
+follows from an ordinary chat send. Rust immediately downloads the provider's temporary PNG results under fixed
+redirect, time, byte, decode, pixel, and dimension limits, then retains content-addressed app-private bytes with exact
+provider, model, and execution provenance. Only opaque asset identities and bounded previews cross into the WebView.
 
 Qwen-Image-2.0 local execution remains intentionally unavailable until its weights and a compatible runtime are
 actually published. Local work can proceed now against the distinct open `Qwen/Qwen-Image-2512` text-to-image

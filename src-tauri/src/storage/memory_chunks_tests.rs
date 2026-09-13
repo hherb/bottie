@@ -105,7 +105,8 @@ fn migration_backfills_final_messages_and_ready_documents_without_reasoning() {
         .expect("chunk schema should be removable in the fixture");
     connection
         .execute_batch(
-            "DROP TABLE conversation_retention_policies;
+            "DROP TABLE generated_assets;
+             DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;",
         )
         .expect("later memory preference schema should be removable in the fixture");
@@ -151,7 +152,7 @@ fn migration_backfills_final_messages_and_ready_documents_without_reasoning() {
             .status()
             .expect("status should load")
             .schema_version,
-        22
+        23
     );
     assert!(message_chunks.len() > 1);
     assert!(attachment_chunks.len() > 1);

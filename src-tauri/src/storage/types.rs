@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    StorageError, attachment_indexing::StoredAttachmentIndexing,
+    StorageError, StoredGeneratedAsset, attachment_indexing::StoredAttachmentIndexing,
     extraction::StoredAttachmentExtraction, image_normalization::StoredImageNormalization,
     tools::StoredToolInvocation,
 };
@@ -364,6 +364,8 @@ pub(crate) struct StoredMessage {
     pub(crate) rating: Option<ResponseRating>,
     /// Ordered retained files associated with this user message.
     pub(crate) attachments: Vec<StoredAttachment>,
+    /// Ordered assistant-owned generated images with path-free provenance.
+    pub(crate) generated_assets: Vec<StoredGeneratedAsset>,
     /// Persisted creation time.
     pub(crate) created_at_ms: i64,
 }

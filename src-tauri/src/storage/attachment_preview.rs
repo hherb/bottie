@@ -1,6 +1,6 @@
 //! Bounded native previews for ready normalized image attachments.
 
-use std::{fs::File, io::BufReader};
+use std::{fs::File, io::BufReader, path::Path};
 
 use image::{
     DynamicImage, ExtendedColorType, ImageDecoder, ImageEncoder, ImageFormat, ImageReader, Limits,
@@ -52,17 +52,26 @@ impl ConversationStore {
     }
 
     /// Reads one trusted derivative and re-encodes only bounded thumbnail pixels.
-    fn encode_preview(
+    pub(super) fn encode_preview(
         &self,
         sha256: &str,
         stored_format: &str,
     ) -> Result<AttachmentPreview, StorageError> {
         let format = NormalizedImageFormat::from_database(stored_format)?;
+        let path = self.normalized_image_path(sha256, format)?;
+        Self::encode_preview_file(&path, format)
+    }
+
+    /// Reads one trusted image path and re-encodes only bounded thumbnail pixels.
+    pub(super) fn encode_preview_file(
+        path: &Path,
+        format: NormalizedImageFormat,
+    ) -> Result<AttachmentPreview, StorageError> {
         let image_format = match format {
             NormalizedImageFormat::Jpeg => ImageFormat::Jpeg,
             NormalizedImageFormat::Png => ImageFormat::Png,
         };
-        let source = File::open(self.normalized_image_path(sha256, format)?)?;
+        let source = File::open(path)?;
         let reader = ImageReader::with_format(BufReader::new(source), image_format);
         let mut decoder = reader
             .into_decoder()

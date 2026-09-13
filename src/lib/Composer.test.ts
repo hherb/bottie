@@ -23,6 +23,7 @@ function renderedComposer(
   emailUnavailableReason = "Save Localmail certificate trust and a bearer token in Settings before enabling Email.",
   isGenerating = false,
   microphoneWillInterrupt = false,
+  imageMode = false,
 ): string {
   return render(Composer, {
     props: {
@@ -41,6 +42,10 @@ function renderedComposer(
       emailEnabled,
       emailBoundaryNote,
       emailUnavailableReason,
+      imageMode,
+      imageSize: "square",
+      imageCount: 1,
+      imageFeedback: "",
       microphoneStatus: INITIAL_MICROPHONE_STATUS,
       microphoneAvailable: true,
       microphoneWillInterrupt,
@@ -61,6 +66,9 @@ function renderedComposer(
       ontogglememory: vi.fn(),
       ontoggleweb: vi.fn(),
       ontoggleemail: vi.fn(),
+      ontoggleimage: vi.fn(),
+      onimagesize: vi.fn(),
+      onimagecount: vi.fn(),
       onstartmicrophone: vi.fn(),
       onstopmicrophone: vi.fn(),
       ondiscardmicrophone: vi.fn(),
@@ -79,6 +87,30 @@ function renderedComposer(
 }
 
 describe("Composer", () => {
+  it("shows exact cloud delivery and cost disclosure only for the explicit image action", () => {
+    const html = renderedComposer(
+      true,
+      true,
+      [],
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      "Email unavailable.",
+      "Email unavailable.",
+      false,
+      false,
+      true,
+    );
+
+    expect(html).toContain('aria-label="Image generation options"');
+    expect(html).toContain("qwen-image-2.0-2026-03-03");
+    expect(html).toContain("may incur provider charges");
+    expect(html).toContain('aria-label="Generate image"');
+    expect(html).toMatch(/aria-label="Attach files"[^>]*disabled/);
+  });
   it("keeps text input enabled when an attachment blocks only submission", () => {
     const html = renderedComposer(true, false);
 

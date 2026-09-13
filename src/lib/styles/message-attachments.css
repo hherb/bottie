@@ -97,3 +97,50 @@
   cursor: default;
   opacity: 0.45;
 }
+.generated-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+.generated-image {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.generated-image.failed {
+  border-color: rgba(217, 143, 145, 0.38);
+}
+.generated-image img,
+.generated-image-placeholder {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1;
+  place-items: center;
+  object-fit: cover;
+  background: rgba(91, 216, 200, 0.045);
+}
+.generated-image-placeholder {
+  align-content: center;
+  gap: 7px;
+  color: var(--subtle-text);
+  font-size: 9px;
+  text-transform: capitalize;
+}
+.generated-image figcaption {
+  display: grid;
+  gap: 2px;
+  padding: 8px 9px;
+  color: var(--subtle-text);
+  font-size: 8px;
+  line-height: 1.35;
+}
+.generated-image figcaption strong {
+  overflow: hidden;
+  color: var(--muted-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

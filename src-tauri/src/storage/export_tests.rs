@@ -26,6 +26,7 @@ fn export_message(
         provider_run: None,
         rating: (role == StoredRole::Assistant).then_some(ResponseRating::Good),
         attachments: Vec::new(),
+        generated_assets: Vec::new(),
         created_at_ms: 1,
     }
 }

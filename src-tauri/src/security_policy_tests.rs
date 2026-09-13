@@ -27,7 +27,7 @@ fn csp_allows_only_bundled_ui_ipc_and_opaque_attachment_previews() {
             "font-src": "'self'",
             "form-action": "'none'",
             "frame-src": "'none'",
-            "img-src": "'self' bottie-attachment: http://bottie-attachment.localhost",
+            "img-src": "'self' bottie-attachment: http://bottie-attachment.localhost bottie-generated-asset: http://bottie-generated-asset.localhost",
             "object-src": "'none'",
             "script-src": "'self'",
             "style-src": "'self' 'unsafe-inline'"

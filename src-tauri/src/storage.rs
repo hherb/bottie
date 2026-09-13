@@ -29,6 +29,8 @@ mod export;
 pub(crate) mod extraction;
 #[cfg(test)]
 mod forget_tests;
+mod generated_assets;
+mod generated_assets_migration;
 mod image_codec;
 mod image_normalization;
 mod lifecycle;
@@ -75,6 +77,10 @@ use clock::now_ms;
 pub(crate) use error::StorageError;
 pub(crate) use extraction::StoredAttachmentExtraction;
 pub(crate) use extraction::{AttachmentExtractionFormat, AttachmentExtractionState};
+pub(crate) use generated_assets::{
+    GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageProvenance,
+    PreparedGeneratedImage, StoredGeneratedAsset, normalize_generated_png,
+};
 pub(crate) use image_normalization::StoredImageNormalization;
 pub(crate) use memory_file_tool::{
     MAX_SEARCH_ATTACHED_FILE_RESULTS, SEARCH_ATTACHED_FILES_TOOL_NAME, SearchAttachedFilesArguments,
@@ -106,7 +112,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 22;
+const CURRENT_SCHEMA_VERSION: i64 = 23;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";
@@ -257,6 +263,7 @@ impl ConversationStore {
             provider_run: None,
             rating: None,
             attachments: Vec::new(),
+            generated_assets: Vec::new(),
             created_at_ms: now_ms()?,
         };
         transaction.execute(
@@ -380,6 +387,7 @@ fn load_conversation_from_connection(
             .map(|run_id| runs::load_provider_run(connection, run_id))
             .transpose()?;
         let attachments = attachments::load_message_attachments(connection, &id)?;
+        let generated_assets = generated_assets::load_message_generated_assets(connection, &id)?;
         messages.push(StoredMessage {
             id,
             role: StoredRole::from_database(&role)?,
@@ -394,6 +402,7 @@ fn load_conversation_from_connection(
                 .map(ResponseRating::from_database)
                 .transpose()?,
             attachments,
+            generated_assets,
             created_at_ms,
         });
     }
@@ -454,6 +463,8 @@ mod branch_tests;
 mod export_tests;
 #[cfg(test)]
 mod extraction_tests;
+#[cfg(test)]
+mod generated_assets_tests;
 #[cfg(test)]
 mod image_normalization_tests;
 #[cfg(test)]

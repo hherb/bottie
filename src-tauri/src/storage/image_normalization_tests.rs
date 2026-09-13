@@ -205,7 +205,8 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
         .expect("tool audit columns should be removable in the fixture");
     connection
         .execute_batch(
-            "DROP TABLE conversation_retention_policies;
+            "DROP TABLE generated_assets;
+             DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;
              DROP TABLE conversation_attachments;
              DROP TABLE attachment_text_indexing;
@@ -234,7 +235,7 @@ fn upgrades_version_twelve_images_and_resumes_normalization() {
             .status()
             .expect("status should load")
             .schema_version,
-        22
+        23
     );
     assert_eq!(
         stored.normalization.state,
