@@ -197,7 +197,12 @@
               {#each message.generatedAssets as asset (asset.id)}
                 <figure class:failed={asset.status === "failed"} class="generated-image">
                   {#if asset.previewUrl}
-                    <img src={asset.previewUrl} alt={`Generated image ${asset.ordinal + 1}`} />
+                    <img
+                      src={asset.previewUrl}
+                      alt={`Generated image ${asset.ordinal + 1}`}
+                      width={asset.width ?? undefined}
+                      height={asset.height ?? undefined}
+                    />
                   {:else}
                     <div class="generated-image-placeholder">
                       <Icon name={asset.status === "failed" ? "x" : "image"} size={24} />

@@ -36,7 +36,11 @@ import {
   type StreamEvent,
   type Usage,
 } from "$lib/inference";
-import { imageGenerationDimensions, type ImageGenerationSize } from "$lib/image-generation";
+import {
+  imageGenerationDimensions,
+  prepareImageGenerationPrompt,
+  type ImageGenerationSize,
+} from "$lib/image-generation";
 import {
   DEFAULT_PROVIDER_SETTINGS,
   INITIAL_MESSAGES,
@@ -377,8 +381,18 @@ export class PageState {
 
   /** Persists one explicit image prompt, then starts only the disclosed cloud image route. */
   async generateImage(): Promise<void> {
-    const submittedPrompt = this.prompt.trim();
-    if (!submittedPrompt || !this.imageMode || !this.canGenerateImage) return;
+    if (!this.imageMode || !this.canGenerateImage) return;
+    const preparedPrompt = prepareImageGenerationPrompt(this.prompt);
+    if (!preparedPrompt.ok) {
+      this.providerError = {
+        code: "invalid_request",
+        message: preparedPrompt.message,
+        retryable: false,
+      };
+      this.imageFeedback = preparedPrompt.message;
+      return;
+    }
+    const submittedPrompt = preparedPrompt.prompt;
     this.imageFeedback = "Checking the saved cloud image setup…";
     try {
       await validateQwenImageConfiguration(this.providerSettings.qwenImageBaseUrl);

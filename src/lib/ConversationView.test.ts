@@ -19,8 +19,8 @@ describe("ConversationView", () => {
                 ordinal: 0,
                 status: "completed",
                 mediaType: "image/png",
-                width: 2_048,
-                height: 2_048,
+                width: 2_688,
+                height: 1_536,
                 byteSize: 4_096,
                 providerId: "qwen-image",
                 modelId: "qwen-image-2.0-2026-03-03",
@@ -67,8 +67,9 @@ describe("ConversationView", () => {
 
     expect(html).toContain('aria-label="Generated images"');
     expect(html).toContain('src="bottie-generated-asset://asset-1"');
+    expect(html).toContain('width="2688" height="1536"');
     expect(html).toContain("qwen-image-2.0-2026-03-03");
-    expect(html).toContain("2048×2048");
+    expect(html).toContain("2688×1536");
   });
   it("labels a durable failed response without replacing its stable content or retry action", () => {
     const html = render(ConversationView, {

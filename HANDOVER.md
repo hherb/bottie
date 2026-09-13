@@ -20,7 +20,9 @@ Read Milestone 8.2 in `ROADMAP.md`, then `src-tauri/src/storage/generated_assets
   all-or-nothing cleanup, and content-addressed app-private storage.
 - The separate composer Image mode exposes prompt, aspect ratio, count, exact cloud checkpoint, delivery/cost disclosure,
   and cancellation. Pending, completed, failed, and cancelled assistant image messages survive reopen; completed images
-  use an opaque GET-only preview protocol with no paths, URLs, hashes, or provider correlation identifiers in IPC.
+  use natural-ratio previews over an opaque GET-only protocol with no paths, URLs, hashes, or provider correlation
+  identifiers in IPC. Image prompts are normalized and bounded before durable user-message insertion, then revalidated
+  authoritatively by Rust.
 
 No live or billable Model Studio generation was run. No local model/runtime, reference-image editing, release, signing,
 publication, workflow dispatch, or Store action is included. Unrelated untracked logo-kit, screenshot, and Linux
@@ -28,7 +30,7 @@ public-key files remain untouched.
 
 ## Validation
 
-Frontend formatting, type checks, build, dependency/icon checks, and all 355 tests pass with 3 skipped. The serial Rust
+Frontend formatting, type checks, build, dependency/icon checks, and all 357 tests pass with 3 skipped. The serial Rust
 suite passes 522 library tests with 36 ignored, the updater-evidence test, and doc tests; formatting and `cargo check`
 pass with only the existing `block 0.1.6` future-incompatibility notice. The development-signed native launch reached
 the Bottie binary, and immutable inspection reports schema 23, `quick_check` `ok`, and the generated-assets table.

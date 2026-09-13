@@ -114,16 +114,18 @@
 .generated-image.failed {
   border-color: rgba(217, 143, 145, 0.38);
 }
-.generated-image img,
+.generated-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  background: rgba(91, 216, 200, 0.045);
+}
 .generated-image-placeholder {
   display: grid;
   width: 100%;
   aspect-ratio: 1;
   place-items: center;
-  object-fit: cover;
-  background: rgba(91, 216, 200, 0.045);
-}
-.generated-image-placeholder {
   align-content: center;
   gap: 7px;
   color: var(--subtle-text);
