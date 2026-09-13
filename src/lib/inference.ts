@@ -147,11 +147,17 @@ export type ImageGenerationSetupStatus = {
 /** Explicit hosted image-generation request sent only by the image composer action. */
 export type StartImageGenerationRequest = {
   conversationId: string;
+  requestMessageId: string;
   prompt: string;
   width: number;
   height: number;
   count: number;
   execution: "cloud";
+};
+
+/** One opaque terminal image response selected for exact native retry. */
+export type RetryImageGenerationRequest = {
+  messageId: string;
 };
 
 /** Opaque accepted image-run identity and its already-durable pending assistant message. */
@@ -315,6 +321,17 @@ export async function startImageGeneration(
   const channel = new Channel<ImageGenerationEvent>();
   channel.onmessage = onEvent;
   return invoke<ImageGenerationRun>("start_image_generation", { request, onEvent: channel });
+}
+
+/** Retries one failed or cancelled image request without accepting prompt or option overrides. */
+export async function retryImageGeneration(
+  request: RetryImageGenerationRequest,
+  onEvent: (event: ImageGenerationEvent) => void,
+): Promise<ImageGenerationRun> {
+  if (!isTauri()) throw unavailableInBrowser();
+  const channel = new Channel<ImageGenerationEvent>();
+  channel.onmessage = onEvent;
+  return invoke<ImageGenerationRun>("retry_image_generation", { request, onEvent: channel });
 }
 
 /** Requests cancellation of one native image generation by its Bottie-owned identity. */

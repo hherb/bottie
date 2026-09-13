@@ -97,8 +97,8 @@ use diagnostics::{DiagnosticEntry, Diagnostics, export_diagnostics, record_diagn
 use generation::start_chat;
 use image_generation::{
     DashScopeQwenImageProvider, ImageGenerationProvider, ImageGenerationRuns,
-    QWEN_IMAGE_PROVIDER_ID, cancel_image_generation, start_image_generation,
-    validate_qwen_image_base_url,
+    QWEN_IMAGE_PROVIDER_ID, cancel_image_generation, retry_image_generation,
+    start_image_generation, validate_qwen_image_base_url,
 };
 use inference::{
     AnthropicProvider, InferenceProvider, ModelInfo, OllamaProvider, OmlxProvider, OpenAiProvider,
@@ -124,10 +124,11 @@ use storage::ConversationStore;
 use storage_commands::{
     add_conversation_attachments, append_conversation_message, backup_conversation_store,
     branch_conversation_message, clear_last_open_conversation, create_conversation,
-    delete_conversation, export_conversation_batch_json, export_conversation_json,
-    export_conversation_markdown, forget_conversation, get_conversation_retention_policy,
-    get_semantic_index_progress, get_storage_recovery_status, ingest_attachments,
-    list_conversations, load_conversation, load_last_open_conversation, rate_conversation_response,
+    delete_conversation, delete_generated_asset, export_conversation_batch_json,
+    export_conversation_json, export_conversation_markdown, export_generated_asset,
+    forget_conversation, get_conversation_retention_policy, get_semantic_index_progress,
+    get_storage_recovery_status, ingest_attachments, list_conversations, load_conversation,
+    load_last_open_conversation, open_generated_asset, rate_conversation_response,
     reindex_semantic_memory, remove_conversation_attachment,
     remove_conversation_message_attachment, rename_conversation, restore_conversation,
     restore_conversation_store, restore_latest_automatic_backup, search_conversations,
@@ -782,6 +783,7 @@ pub fn run() {
             update_provider_credential,
             validate_qwen_image_configuration,
             start_image_generation,
+            retry_image_generation,
             cancel_image_generation,
             update_provider_settings,
             remember_provider_selection,
@@ -822,6 +824,9 @@ pub fn run() {
             export_conversation_markdown,
             export_conversation_json,
             export_conversation_batch_json,
+            open_generated_asset,
+            export_generated_asset,
+            delete_generated_asset,
             backup_conversation_store,
             restore_conversation_store,
             restore_latest_automatic_backup,

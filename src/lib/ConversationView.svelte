@@ -2,6 +2,7 @@
   import { onDestroy } from "svelte";
 
   import { copyAssistantResponse } from "$lib/clipboard";
+  import { copyGeneratedAsset } from "$lib/generated-asset-actions";
   import ConversationStatus from "$lib/ConversationStatus.svelte";
   import Icon from "$lib/Icon.svelte";
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
@@ -43,6 +44,10 @@
     oneditmessage: (message: Message, text: string) => void;
     onregenerate: (responseId: number) => void;
     onretryresponse: (responseId: number) => void;
+    onretryimage?: (responseId: number) => void;
+    onopenasset?: (assetId: string) => void;
+    onexportasset?: (assetId: string) => void;
+    ondeleteasset?: (assetId: string) => void;
     onrateresponse: (responseId: number, rating: ResponseRating) => void;
     onremoveattachment: (messageId: string, attachmentId: string) => void;
     onspeakresponse: (messageId: number, markdown: string) => void;
@@ -71,6 +76,10 @@
     oneditmessage,
     onregenerate,
     onretryresponse,
+    onretryimage = () => {},
+    onopenasset = () => {},
+    onexportasset = () => {},
+    ondeleteasset = () => {},
     onrateresponse,
     onremoveattachment,
     onspeakresponse,
@@ -82,6 +91,7 @@
   let editedText = $state("");
   let copyFeedback = $state<{ messageId: number; succeeded: boolean } | null>(null);
   let copyFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
+  let generatedAssetFeedback = $state<{ assetId: string; message: string; failed: boolean } | null>(null);
 
   /** Time that clipboard success or failure feedback remains visible. */
   const COPY_FEEDBACK_DURATION_MS = 2_400;
@@ -95,6 +105,16 @@
       copyFeedback = null;
       copyFeedbackTimer = undefined;
     }, COPY_FEEDBACK_DURATION_MS);
+  }
+
+  /** Copies one already-normalized generated PNG through its opaque preview URL. */
+  async function copyGeneratedImage(assetId: string, previewUrl: string): Promise<void> {
+    const succeeded = await copyGeneratedAsset(previewUrl);
+    generatedAssetFeedback = {
+      assetId,
+      message: succeeded ? "Image copied" : "Image copy failed",
+      failed: !succeeded,
+    };
   }
 
   $effect(() => {
@@ -209,6 +229,40 @@
                       <span>{asset.status === "pending" ? "Generating…" : asset.status}</span>
                     </div>
                   {/if}
+                  {#if asset.status === "completed" && asset.previewUrl}
+                    <div class="generated-image-item-actions">
+                      <button
+                        aria-label={`Open generated image ${asset.ordinal + 1}`}
+                        onclick={() => onopenasset(asset.id)}
+                      >
+                        <Icon name="image" size={14} />
+                      </button>
+                      <button
+                        aria-label={`Copy generated image ${asset.ordinal + 1}`}
+                        onclick={() => void copyGeneratedImage(asset.id, asset.previewUrl!)}
+                      >
+                        <Icon name="copy" size={14} />
+                      </button>
+                      <button
+                        aria-label={`Export generated image ${asset.ordinal + 1}`}
+                        onclick={() => onexportasset(asset.id)}
+                      >
+                        <Icon name="file" size={14} />
+                      </button>
+                      <button
+                        aria-label={`Delete generated image ${asset.ordinal + 1}`}
+                        disabled={isGenerating}
+                        onclick={() => ondeleteasset(asset.id)}
+                      >
+                        <Icon name="trash" size={14} />
+                      </button>
+                    </div>
+                    {#if generatedAssetFeedback?.assetId === asset.id}
+                      <span class:error={generatedAssetFeedback.failed} class="copy-status" role="status">
+                        {generatedAssetFeedback.message}
+                      </span>
+                    {/if}
+                  {/if}
                   <figcaption>
                     <strong>{asset.modelId}</strong>
                     <span>{asset.execution === "cloud" ? "Cloud" : "Local"} · {asset.providerId}</span>
@@ -219,6 +273,17 @@
                 </figure>
               {/each}
             </div>
+            {#if message.storageId && message.generatedAssets.every((asset) => asset.status === "failed" || asset.status === "cancelled")}
+              <div class="message-actions generated-image-actions">
+                <button
+                  class="retry-response"
+                  aria-label="Retry image generation"
+                  disabled={isGenerating}
+                  onclick={() => onretryimage(message.id)}
+                  ><Icon name="refresh" size={15} /><span>Retry image</span></button
+                >
+              </div>
+            {/if}
           {/if}
 
           {#if message.role === "user" && message.storageId && message.attachments?.length}
@@ -306,7 +371,7 @@
                 }}><Icon name="edit" size={14} /></button
               >
             </div>
-          {:else if message.role === "assistant" && (message.content !== "" || message.retryable)}
+          {:else if message.role === "assistant" && !message.generatedAssets?.length && (message.content !== "" || message.retryable)}
             <div class="message-actions">
               {#if message.content !== ""}
                 {#if speechAvailable}

@@ -5,7 +5,7 @@ use rusqlite::{Connection, params};
 use super::{
     CURRENT_SCHEMA_VERSION, ConversationStore, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME,
     StorageError,
-    generated_assets_migration::MIGRATION_23,
+    generated_assets_migration::{MIGRATION_23, MIGRATION_24},
     memory_chunks::backfill_memory_chunks,
     memory_chunks_migration::MIGRATION_17,
     memory_exclusion_migration::MIGRATION_19,
@@ -47,6 +47,7 @@ pub(super) const MIGRATION_NAMES: [&str; CURRENT_SCHEMA_VERSION as usize] = [
     "structured tool execution audit",
     "append-only tool approval decisions",
     "assistant-owned generated image assets",
+    "generated image request retry contract",
 ];
 
 /// Returns the exact ledger name for one supported schema version.
@@ -145,6 +146,9 @@ impl ConversationStore {
         }
         if version < 23 {
             apply_migration(connection, MIGRATION_23, 23)?;
+        }
+        if version < 24 {
+            apply_migration(connection, MIGRATION_24, 24)?;
         }
         Ok(())
     }

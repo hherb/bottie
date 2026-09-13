@@ -37,3 +37,16 @@ CREATE INDEX generated_assets_message_idx ON generated_assets(message_id, ordina
 CREATE INDEX generated_assets_content_idx
     ON generated_assets(sha256) WHERE sha256 IS NOT NULL;
 "#;
+
+/// Adds the durable user-prompt link and accepted options needed for exact retry.
+pub(super) const MIGRATION_24: &str = r#"
+CREATE TABLE generated_image_requests (
+    message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+    request_message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    width INTEGER NOT NULL CHECK (width > 0),
+    height INTEGER NOT NULL CHECK (height > 0),
+    prompt_extend INTEGER NOT NULL CHECK (prompt_extend IN (0, 1))
+) STRICT;
+CREATE INDEX generated_image_requests_prompt_idx
+    ON generated_image_requests(request_message_id);
+"#;

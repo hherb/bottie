@@ -92,6 +92,48 @@ pub(crate) struct GeneratedImageProvenance {
     pub(crate) seed: Option<i64>,
 }
 
+/// Native-only accepted request options retained for exact image retry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct GeneratedImageRequestOptions {
+    /// Requested output width in pixels.
+    pub(crate) width: u32,
+    /// Requested output height in pixels.
+    pub(crate) height: u32,
+    /// Whether the provider may enhance the durable user prompt.
+    pub(crate) prompt_extend: bool,
+}
+
+impl GeneratedImageRequestOptions {
+    /// Creates one non-zero request-option record for durable storage.
+    pub(crate) fn new(width: u32, height: u32, prompt_extend: bool) -> Result<Self, StorageError> {
+        if width == 0 || height == 0 {
+            return Err(StorageError::invalid(
+                "The generated image dimensions are invalid.",
+            ));
+        }
+        Ok(Self {
+            width,
+            height,
+            prompt_extend,
+        })
+    }
+}
+
+/// Native-only durable prompt, options, provenance, and pending message for one accepted run.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct StartedGeneratedImage {
+    /// Newly inserted pending assistant message.
+    pub(crate) message: super::super::StoredMessage,
+    /// Exact validated output count retained independently of presentation reconstruction.
+    pub(crate) output_count: u8,
+    /// Exact preceding durable user prompt to validate and send natively.
+    pub(crate) prompt: String,
+    /// Exact accepted dimensions and provider option.
+    pub(crate) options: GeneratedImageRequestOptions,
+    /// Exact provider provenance retained for all requested outputs.
+    pub(crate) provenance: GeneratedImageProvenance,
+}
+
 impl GeneratedImageProvenance {
     /// Creates non-empty exact provenance before any durable message is inserted.
     pub(crate) fn new(

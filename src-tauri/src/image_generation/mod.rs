@@ -10,7 +10,9 @@ mod tests;
 use crate::inference::ProviderError;
 use url::Url;
 
-pub(crate) use controller::{ImageGenerationRuns, cancel_image_generation, start_image_generation};
+pub(crate) use controller::{
+    ImageGenerationRuns, cancel_image_generation, retry_image_generation, start_image_generation,
+};
 pub(crate) use dashscope::DashScopeQwenImageProvider;
 pub(crate) use download::GeneratedImageDownloader;
 

@@ -90,7 +90,7 @@ fn migration_backfills_final_message_text_without_reasoning() {
             .status()
             .expect("status should load")
             .schema_version,
-        23
+        24
     );
     assert_eq!(visible.len(), 1);
     assert_eq!(visible[0].source_kind, MemorySourceKind::Message);

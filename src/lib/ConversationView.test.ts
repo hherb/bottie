@@ -70,6 +70,77 @@ describe("ConversationView", () => {
     expect(html).toContain('width="2688" height="1536"');
     expect(html).toContain("qwen-image-2.0-2026-03-03");
     expect(html).toContain("2688×1536");
+    expect(html).toContain('aria-label="Open generated image 1"');
+    expect(html).toContain('aria-label="Copy generated image 1"');
+    expect(html).toContain('aria-label="Export generated image 1"');
+    expect(html).toContain('aria-label="Delete generated image 1"');
+    expect(html).not.toContain('aria-label="Regenerate response"');
+  });
+
+  it("offers exact retry only for a durable terminal generated-image request", () => {
+    const html = render(ConversationView, {
+      props: {
+        messages: [
+          {
+            id: 1,
+            storageId: "message-1",
+            role: "assistant",
+            content: "Image generation failed.",
+            generatedAssets: [
+              {
+                id: "asset-1",
+                ordinal: 0,
+                status: "failed",
+                mediaType: null,
+                width: null,
+                height: null,
+                byteSize: null,
+                providerId: "qwen-image",
+                modelId: "qwen-image-2.0-2026-03-03",
+                execution: "cloud",
+                seed: null,
+                errorCode: "provider_failed",
+                createdAtMs: 1,
+                previewUrl: null,
+              },
+            ],
+          },
+        ],
+        providerStatus: "available",
+        providerError: null,
+        selectedModel: undefined,
+        activeStage: -1,
+        inferenceStages: [],
+        isGenerating: false,
+        canGenerate: true,
+        branches: [],
+        currentBranchId: null,
+        speechAvailable: false,
+        speechVoices: [],
+        speechStatus: {
+          phase: "idle",
+          selectedVoiceId: null,
+          errorCode: null,
+          latency: { playbackAcceptedMs: null },
+        },
+        speakingMessageId: null,
+        microphoneCapturing: false,
+        onretry: vi.fn(),
+        onselectbranch: vi.fn(),
+        oneditmessage: vi.fn(),
+        onregenerate: vi.fn(),
+        onretryresponse: vi.fn(),
+        onrateresponse: vi.fn(),
+        onremoveattachment: vi.fn(),
+        onspeakresponse: vi.fn(),
+        onstopspeech: vi.fn(),
+        onscrollready: vi.fn(),
+      },
+    }).body;
+
+    expect(html).toContain('aria-label="Retry image generation"');
+    expect(html).not.toContain('aria-label="Retry response"');
+    expect(html).not.toContain('aria-label="Copy generated image 1"');
   });
   it("labels a durable failed response without replacing its stable content or retry action", () => {
     const html = render(ConversationView, {

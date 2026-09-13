@@ -1,5 +1,6 @@
 //! Assistant-owned generated-image metadata and content-addressed PNG storage.
 
+mod retry;
 mod types;
 
 use std::{
@@ -18,7 +19,8 @@ use super::{
 
 pub(crate) use types::{
     GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageProvenance,
-    PreparedGeneratedImage, StoredGeneratedAsset, normalize_generated_png,
+    GeneratedImageRequestOptions, PreparedGeneratedImage, StartedGeneratedImage,
+    StoredGeneratedAsset, normalize_generated_png,
 };
 
 const GENERATED_ASSET_DIRECTORY_NAME: &str = "generated-assets";
@@ -57,78 +59,56 @@ impl ConversationStore {
     pub(crate) fn start_generated_image_message(
         &self,
         conversation_id: &str,
+        request_message_id: &str,
+        expected_prompt: &str,
         output_count: u8,
         provenance: &GeneratedImageProvenance,
-    ) -> Result<StoredMessage, StorageError> {
-        if !(MIN_OUTPUT_COUNT..=MAX_OUTPUT_COUNT).contains(&output_count) {
-            return Err(StorageError::invalid(
-                "Generate between 1 and 6 images at a time.",
-            ));
-        }
+        options: &GeneratedImageRequestOptions,
+    ) -> Result<StartedGeneratedImage, StorageError> {
+        validate_output_count(output_count)?;
         let mut connection = self.open()?;
         let transaction =
             connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let branch_id = selected_branch_without_active_generation(&transaction, conversation_id)?;
-        let parent_message_id: Option<String> = transaction
+        let prompt = transaction
             .query_row(
-                "SELECT id FROM messages WHERE branch_id = ?1 ORDER BY sequence DESC LIMIT 1",
-                [&branch_id],
+                "SELECT message_blocks.text_content FROM messages
+                 JOIN message_blocks ON message_blocks.message_id = messages.id
+                    AND message_blocks.ordinal = 0 AND message_blocks.block_type = 'text'
+                 WHERE messages.id = ?1 AND messages.conversation_id = ?2
+                   AND messages.branch_id = ?3 AND messages.role = 'user' AND messages.state = 'final'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM messages AS later
+                       WHERE later.branch_id = messages.branch_id AND later.sequence > messages.sequence
+                   )",
+                params![request_message_id, conversation_id, branch_id],
                 |row| row.get(0),
             )
-            .optional()?;
-        let sequence: i64 = transaction.query_row(
-            "SELECT COALESCE(MAX(sequence), -1) + 1 FROM messages WHERE branch_id = ?1",
-            [&branch_id],
-            |row| row.get(0),
-        )?;
-        let message_id = uuid::Uuid::new_v4().to_string();
-        let created_at_ms = now_ms()?;
-        transaction.execute(
-            "INSERT INTO messages
-             (id, conversation_id, branch_id, parent_message_id, role, state, provider_id, model_id,
-              created_at_ms, sequence, provider_run_id)
-             VALUES (?1, ?2, ?3, ?4, 'assistant', 'partial', ?5, ?6, ?7, ?8, NULL)",
-            params![
-                message_id,
-                conversation_id,
-                branch_id,
-                parent_message_id,
-                provenance.provider_id,
-                provenance.model_id,
-                created_at_ms,
-                sequence,
-            ],
-        )?;
-        transaction.execute(
-            "INSERT INTO message_blocks (id, message_id, ordinal, block_type, text_content)
-             VALUES (?1, ?2, 0, 'text', 'Generating image…')",
-            params![uuid::Uuid::new_v4().to_string(), message_id],
-        )?;
-        for ordinal in 0..output_count {
-            transaction.execute(
-                "INSERT INTO generated_assets
-                 (id, message_id, ordinal, status, provider_id, model_id, execution, seed,
-                  created_at_ms, updated_at_ms)
-                 VALUES (?1, ?2, ?3, 'pending', ?4, ?5, ?6, ?7, ?8, ?8)",
-                params![
-                    uuid::Uuid::new_v4().to_string(),
-                    message_id,
-                    ordinal,
-                    provenance.provider_id,
-                    provenance.model_id,
-                    provenance.execution.as_str(),
-                    provenance.seed,
-                    created_at_ms,
-                ],
-            )?;
+            .optional()?
+            .ok_or_else(|| StorageError::invalid("That image prompt is no longer the selected request."))?;
+        if prompt != expected_prompt {
+            return Err(StorageError::invalid(
+                "The image prompt did not match the durable selected request.",
+            ));
         }
-        transaction.execute(
-            "UPDATE conversations SET updated_at_ms = ?1, archived_at_ms = NULL WHERE id = ?2",
-            params![created_at_ms, conversation_id],
+        let message_id = insert_generated_image_message(
+            &transaction,
+            conversation_id,
+            &branch_id,
+            request_message_id,
+            output_count,
+            provenance,
+            options,
         )?;
         let message = load_generated_message(&transaction, conversation_id, &message_id)?;
         transaction.commit()?;
-        Ok(message)
+        Ok(StartedGeneratedImage {
+            message,
+            output_count,
+            prompt,
+            options: *options,
+            provenance: provenance.clone(),
+        })
     }
 
     /// Commits an exact set of validated PNGs and finalizes their assistant message.
@@ -280,6 +260,97 @@ impl ConversationStore {
     }
 }
 
+/// Inserts one pending assistant image message and its exact request record in an existing transaction.
+pub(super) fn insert_generated_image_message(
+    transaction: &Transaction<'_>,
+    conversation_id: &str,
+    branch_id: &str,
+    request_message_id: &str,
+    output_count: u8,
+    provenance: &GeneratedImageProvenance,
+    options: &GeneratedImageRequestOptions,
+) -> Result<String, StorageError> {
+    validate_output_count(output_count)?;
+    let parent_message_id: String = transaction.query_row(
+        "SELECT id FROM messages WHERE branch_id = ?1 ORDER BY sequence DESC LIMIT 1",
+        [branch_id],
+        |row| row.get(0),
+    )?;
+    let sequence: i64 = transaction.query_row(
+        "SELECT COALESCE(MAX(sequence), -1) + 1 FROM messages WHERE branch_id = ?1",
+        [branch_id],
+        |row| row.get(0),
+    )?;
+    let message_id = uuid::Uuid::new_v4().to_string();
+    let created_at_ms = now_ms()?;
+    transaction.execute(
+        "INSERT INTO messages
+         (id, conversation_id, branch_id, parent_message_id, role, state, provider_id, model_id,
+          created_at_ms, sequence, provider_run_id)
+         VALUES (?1, ?2, ?3, ?4, 'assistant', 'partial', ?5, ?6, ?7, ?8, NULL)",
+        params![
+            message_id,
+            conversation_id,
+            branch_id,
+            parent_message_id,
+            provenance.provider_id,
+            provenance.model_id,
+            created_at_ms,
+            sequence,
+        ],
+    )?;
+    transaction.execute(
+        "INSERT INTO message_blocks (id, message_id, ordinal, block_type, text_content)
+         VALUES (?1, ?2, 0, 'text', 'Generating image…')",
+        params![uuid::Uuid::new_v4().to_string(), message_id],
+    )?;
+    transaction.execute(
+        "INSERT INTO generated_image_requests
+         (message_id, request_message_id, width, height, prompt_extend)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            message_id,
+            request_message_id,
+            options.width,
+            options.height,
+            options.prompt_extend,
+        ],
+    )?;
+    for ordinal in 0..output_count {
+        transaction.execute(
+            "INSERT INTO generated_assets
+             (id, message_id, ordinal, status, provider_id, model_id, execution, seed,
+              created_at_ms, updated_at_ms)
+             VALUES (?1, ?2, ?3, 'pending', ?4, ?5, ?6, ?7, ?8, ?8)",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                message_id,
+                ordinal,
+                provenance.provider_id,
+                provenance.model_id,
+                provenance.execution.as_str(),
+                provenance.seed,
+                created_at_ms,
+            ],
+        )?;
+    }
+    transaction.execute(
+        "UPDATE conversations SET updated_at_ms = ?1, archived_at_ms = NULL WHERE id = ?2",
+        params![created_at_ms, conversation_id],
+    )?;
+    Ok(message_id)
+}
+
+/// Applies the durable output-count bound shared by first attempts and retry.
+pub(super) fn validate_output_count(output_count: u8) -> Result<(), StorageError> {
+    if !(MIN_OUTPUT_COUNT..=MAX_OUTPUT_COUNT).contains(&output_count) {
+        return Err(StorageError::invalid(
+            "Generate between 1 and 6 images at a time.",
+        ));
+    }
+    Ok(())
+}
+
 /// Loads ordered path-free generated assets for one message.
 pub(super) fn load_message_generated_assets(
     connection: &Connection,
@@ -335,7 +406,7 @@ pub(super) fn load_message_generated_assets(
 }
 
 /// Selects an active conversation branch with no text or image generation already pending.
-fn selected_branch_without_active_generation(
+pub(super) fn selected_branch_without_active_generation(
     transaction: &Transaction<'_>,
     conversation_id: &str,
 ) -> Result<String, StorageError> {
@@ -411,7 +482,7 @@ fn finish_generated_message(
 }
 
 /// Reloads one newly appended image message through the ordinary conversation contract.
-fn load_generated_message(
+pub(super) fn load_generated_message(
     connection: &Connection,
     conversation_id: &str,
     message_id: &str,
@@ -429,7 +500,11 @@ fn verify_prepared_image(image: &PreparedGeneratedImage) -> Result<(), StorageEr
 }
 
 /// Verifies exact size and SHA-256 identity without exposing a native path in errors.
-fn verify_content_file(path: &Path, byte_size: u64, sha256: &str) -> Result<(), StorageError> {
+pub(super) fn verify_content_file(
+    path: &Path,
+    byte_size: u64,
+    sha256: &str,
+) -> Result<(), StorageError> {
     let bytes = fs::read(path).map_err(|_| StorageError::generated_image())?;
     if bytes.len() as u64 != byte_size || format!("{:x}", Sha256::digest(bytes)) != sha256 {
         return Err(StorageError::generated_image());
