@@ -29,11 +29,13 @@ fn collection_diagnostic(
             "info",
             "Attachment cleanup completed",
             format!(
-                "{} catalog item(s), {} original(s), {} derivative(s), and {} interrupted temporary file(s) removed; \
+                "{} catalog item(s), {} original(s), {} derivative(s), {} generated image(s), and {} interrupted \
+                 temporary file(s) removed; \
                  {} byte(s) reclaimed",
                 outcome.catalog_entries_removed,
                 outcome.original_files_removed,
                 outcome.derivative_files_removed,
+                outcome.generated_files_removed,
                 outcome.temporary_files_removed,
                 outcome.reclaimed_bytes
             ),
@@ -52,6 +54,7 @@ mod tests {
             catalog_entries_removed: 2,
             original_files_removed: 3,
             derivative_files_removed: 4,
+            generated_files_removed: 2,
             temporary_files_removed: 5,
             reclaimed_bytes: 6,
         }));
@@ -59,7 +62,8 @@ mod tests {
         assert_eq!(event, "Attachment cleanup completed");
         assert_eq!(
             detail,
-            "2 catalog item(s), 3 original(s), 4 derivative(s), and 5 interrupted temporary file(s) removed; \
+            "2 catalog item(s), 3 original(s), 4 derivative(s), 2 generated image(s), and 5 interrupted temporary \
+             file(s) removed; \
              6 byte(s) reclaimed"
         );
         assert!(!detail.contains('/'));

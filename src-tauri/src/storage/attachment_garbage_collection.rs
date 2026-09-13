@@ -15,6 +15,8 @@ const BLOB_DIRECTORY_NAME: &str = "blobs";
 const NORMALIZED_DIRECTORY_NAME: &str = "normalized-images";
 const INGESTION_TEMPORARY_DIRECTORY_NAME: &str = "temporary";
 const NORMALIZATION_TEMPORARY_DIRECTORY_NAME: &str = "normalization-temporary";
+const GENERATED_BLOB_DIRECTORY_NAME: &str = "blobs";
+const GENERATED_TEMPORARY_DIRECTORY_NAME: &str = "temporary";
 const SHA256_HEX_LENGTH: usize = 64;
 const SHA256_SHARD_LENGTH: usize = 2;
 const MILLISECONDS_PER_HOUR: i64 = 60 * 60 * 1_000;
@@ -30,7 +32,9 @@ pub(crate) struct AttachmentGarbageCollection {
     pub(crate) original_files_removed: usize,
     /// Unreferenced or crash-left normalized derivative files removed from managed storage.
     pub(crate) derivative_files_removed: usize,
-    /// Interrupted ingestion or normalization files removed from dedicated temporary storage.
+    /// Unreferenced or crash-left generated PNG files removed from managed storage.
+    pub(crate) generated_files_removed: usize,
+    /// Interrupted attachment or generated-image files removed from dedicated temporary storage.
     pub(crate) temporary_files_removed: usize,
     /// Exact bytes reclaimed from regular files that were present when removal began.
     pub(crate) reclaimed_bytes: u64,
@@ -40,6 +44,7 @@ pub(crate) struct AttachmentGarbageCollection {
 struct LiveContent {
     originals: HashSet<String>,
     derivatives: HashSet<(String, String)>,
+    generated_assets: HashSet<String>,
 }
 
 /// File-removal totals shared by managed-content and temporary-directory sweeps.
@@ -110,6 +115,13 @@ impl ConversationStore {
                 })
             },
         )?;
+        let generated_root = self.generated_asset_root();
+        let generated_assets = sweep_managed_content(
+            &generated_root.join(GENERATED_BLOB_DIRECTORY_NAME),
+            ManagedContentKind::Generated,
+            file_cutoff,
+            |sha256, _| live_content.generated_assets.contains(sha256),
+        )?;
         let ingestion_temporary = clear_temporary_directory(
             &attachment_root.join(INGESTION_TEMPORARY_DIRECTORY_NAME),
             file_cutoff,
@@ -118,20 +130,28 @@ impl ConversationStore {
             &attachment_root.join(NORMALIZATION_TEMPORARY_DIRECTORY_NAME),
             file_cutoff,
         )?;
+        let generated_temporary = clear_temporary_directory(
+            &generated_root.join(GENERATED_TEMPORARY_DIRECTORY_NAME),
+            file_cutoff,
+        )?;
         sweep_transaction.commit()?;
 
         Ok(AttachmentGarbageCollection {
             catalog_entries_removed,
             original_files_removed: originals.files,
             derivative_files_removed: derivatives.files,
+            generated_files_removed: generated_assets.files,
             temporary_files_removed: ingestion_temporary
                 .files
-                .saturating_add(normalization_temporary.files),
+                .saturating_add(normalization_temporary.files)
+                .saturating_add(generated_temporary.files),
             reclaimed_bytes: originals
                 .bytes
                 .saturating_add(derivatives.bytes)
                 .saturating_add(ingestion_temporary.bytes)
-                .saturating_add(normalization_temporary.bytes),
+                .saturating_add(normalization_temporary.bytes)
+                .saturating_add(generated_assets.bytes)
+                .saturating_add(generated_temporary.bytes),
         })
     }
 
@@ -160,9 +180,15 @@ fn load_live_content(connection: &rusqlite::Connection) -> Result<LiveContent, S
     let derivatives = derivative_statement
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
         .collect::<Result<HashSet<(String, String)>, _>>()?;
+    let mut generated_statement = connection
+        .prepare("SELECT DISTINCT sha256 FROM generated_assets WHERE status = 'completed'")?;
+    let generated_assets = generated_statement
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<HashSet<String>, _>>()?;
     Ok(LiveContent {
         originals,
         derivatives,
+        generated_assets,
     })
 }
 
@@ -171,6 +197,7 @@ fn load_live_content(connection: &rusqlite::Connection) -> Result<LiveContent, S
 enum ManagedContentKind {
     Original,
     Derivative,
+    Generated,
 }
 
 /// Removes only strict managed files absent from the live SQLite identity sets.
@@ -237,6 +264,10 @@ fn managed_identity<'a>(
                 return None;
             }
             (sha256, Some(format))
+        }
+        ManagedContentKind::Generated => {
+            let sha256 = name.strip_suffix(".png")?;
+            (sha256, None)
         }
     };
     (is_sha256(sha256) && &sha256[..SHA256_SHARD_LENGTH] == shard).then_some((sha256, format))

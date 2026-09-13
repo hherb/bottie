@@ -175,7 +175,8 @@ fn upgrades_existing_tool_rows_with_honest_legacy_audit_metadata() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE generated_assets;
+            "DROP TABLE generated_image_requests;
+             DROP TABLE generated_assets;
              DROP TABLE tool_approvals;
              ALTER TABLE tool_invocations DROP COLUMN execution_policy;
              ALTER TABLE tool_results DROP COLUMN outcome_code;
@@ -419,7 +420,8 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE generated_assets;
+            "DROP TABLE generated_image_requests;
+             DROP TABLE generated_assets;
              DROP TABLE tool_approvals;
              DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;

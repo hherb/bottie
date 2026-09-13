@@ -151,6 +151,10 @@ fn ensure_no_active_run(
     let has_active_run: bool = transaction.query_row(
         "SELECT EXISTS (
              SELECT 1 FROM provider_runs WHERE conversation_id = ?1 AND state = 'running'
+             UNION ALL
+             SELECT 1 FROM generated_assets
+             JOIN messages ON messages.id = generated_assets.message_id
+             WHERE messages.conversation_id = ?1 AND generated_assets.status = 'pending'
          )",
         [conversation_id],
         |row| row.get(0),

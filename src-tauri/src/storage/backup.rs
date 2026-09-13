@@ -59,7 +59,13 @@ impl ConversationStore {
         source
             .backup(MAIN_DB, destination, None)
             .map_err(|_| StorageError::backup())?;
-        if embed_portable_payload(destination, &self.attachment_root()).is_err() {
+        if embed_portable_payload(
+            destination,
+            &self.attachment_root(),
+            &self.generated_asset_root(),
+        )
+        .is_err()
+        {
             remove_database_files(destination);
             return Err(StorageError::backup());
         }
@@ -157,10 +163,17 @@ impl ConversationStore {
         validate_restore_source(source)?;
         let staging = restore_staging_path(&self.path)?;
         let attachment_staging = attachment_restore_staging_path(&self.path)?;
-        let restore_result =
-            self.restore_through_staging(source, safety_copy, &staging, &attachment_staging);
+        let generated_asset_staging = generated_asset_restore_staging_path(&self.path)?;
+        let restore_result = self.restore_through_staging(
+            source,
+            safety_copy,
+            &staging,
+            &attachment_staging,
+            &generated_asset_staging,
+        );
         remove_database_files(&staging);
         let _ = fs::remove_dir_all(&attachment_staging);
+        let _ = fs::remove_dir_all(&generated_asset_staging);
         restore_result
     }
 
@@ -171,12 +184,14 @@ impl ConversationStore {
         safety_copy: &Path,
         staging: &Path,
         attachment_staging: &Path,
+        generated_asset_staging: &Path,
     ) -> Result<(), StorageError> {
         copy_database(source, staging).map_err(|_| StorageError::invalid_backup())?;
         ConversationStore::initialize(staging.to_path_buf())
             .map_err(|_| StorageError::invalid_backup())?;
         validate_restore_source(staging)?;
-        let has_portable_payload = extract_portable_payload(staging, &attachment_staging)?;
+        let has_portable_payload =
+            extract_portable_payload(staging, attachment_staging, generated_asset_staging)?;
         strip_portable_payload(staging)?;
         self.backup_to(safety_copy)
             .map_err(|_| StorageError::restore_safety_copy())?;
@@ -188,9 +203,26 @@ impl ConversationStore {
         } else {
             None
         };
+        let generated_asset_rollback = if generated_asset_staging.exists() {
+            match install_attachment_staging(generated_asset_staging, &self.generated_asset_root())
+            {
+                Ok(rollback) => Some(rollback),
+                Err(error) => {
+                    if let Some(rollback) = attachment_rollback.as_deref() {
+                        rollback_attachment_install(&self.attachment_root(), rollback);
+                    }
+                    return Err(error);
+                }
+            }
+        } else {
+            None
+        };
         let mut live = match self.open() {
             Ok(live) => live,
             Err(_) => {
+                if let Some(rollback) = generated_asset_rollback.as_deref() {
+                    rollback_attachment_install(&self.generated_asset_root(), rollback);
+                }
                 if let Some(rollback) = attachment_rollback.as_deref() {
                     rollback_attachment_install(&self.attachment_root(), rollback);
                 }
@@ -202,12 +234,18 @@ impl ConversationStore {
         {
             let _ = live.restore(MAIN_DB, safety_copy, None::<fn(_)>);
             let _ = strip_portable_payload_from_connection(&live);
+            if let Some(rollback) = generated_asset_rollback.as_deref() {
+                rollback_attachment_install(&self.generated_asset_root(), rollback);
+            }
             if let Some(rollback) = attachment_rollback.as_deref() {
                 rollback_attachment_install(&self.attachment_root(), rollback);
             }
             return Err(StorageError::restore());
         }
         if let Some(rollback) = attachment_rollback {
+            let _ = fs::remove_dir_all(rollback);
+        }
+        if let Some(rollback) = generated_asset_rollback {
             let _ = fs::remove_dir_all(rollback);
         }
         Ok(())
@@ -322,6 +360,15 @@ fn attachment_restore_staging_path(live: &Path) -> Result<PathBuf, StorageError>
     let parent = live.parent().ok_or_else(StorageError::restore)?;
     Ok(parent.join(format!(
         ".bottie-attachment-restore-{}",
+        uuid::Uuid::new_v4()
+    )))
+}
+
+/// Chooses a unique same-parent directory for rehydrating generated PNG payloads.
+fn generated_asset_restore_staging_path(live: &Path) -> Result<PathBuf, StorageError> {
+    let parent = live.parent().ok_or_else(StorageError::restore)?;
+    Ok(parent.join(format!(
+        ".bottie-generated-asset-restore-{}",
         uuid::Uuid::new_v4()
     )))
 }

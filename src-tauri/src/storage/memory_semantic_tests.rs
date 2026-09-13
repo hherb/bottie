@@ -71,7 +71,8 @@ fn migration_registers_static_vec_and_records_versioned_empty_index() {
         .expect("semantic schema should be removable in the fixture");
     connection
         .execute_batch(
-            "DROP TABLE generated_assets;
+            "DROP TABLE generated_image_requests;
+             DROP TABLE generated_assets;
              DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;",
         )

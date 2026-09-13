@@ -5,7 +5,8 @@ use std::fs;
 use rusqlite::{Connection, params};
 
 use super::{
-    ConversationStore, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME, MIGRATION_1,
+    CURRENT_SCHEMA_VERSION, ConversationStore, DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME,
+    MIGRATION_1,
     migration_rollback::{
         MigrationFault, managed_recovery_points, migration_marker_path, prune_recovery_points,
     },
@@ -221,14 +222,14 @@ fn newer_schema_and_malformed_ledger_fail_without_managed_artifacts() {
     let newer_path = test_database_path();
     let newer = version_one_fixture(&newer_path, "newer-source");
     newer
-        .pragma_update(None, "user_version", 24)
+        .pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION + 1)
         .expect("newer version should be set");
     drop(newer);
 
     let newer_error = ConversationStore::initialize(newer_path.clone())
         .expect_err("newer schema should fail closed");
     assert_eq!(newer_error.code, "newer_schema");
-    assert_eq!(database_version(&newer_path), 24);
+    assert_eq!(database_version(&newer_path), CURRENT_SCHEMA_VERSION + 1);
     assert!(
         managed_recovery_points(&newer_path)
             .expect("recovery points should list")
