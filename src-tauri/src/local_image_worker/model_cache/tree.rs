@@ -16,6 +16,22 @@ pub(super) fn validate_cache_tree(
     root: &Path,
     manifest: &ModelPackageManifest,
 ) -> Result<(), CacheError> {
+    validate_cache_tree_with_hashes(root, manifest, true)
+}
+
+/// Rejects unknown entries and unsafe types before a separate exact activation hash pass.
+pub(super) fn validate_cache_tree_shape(
+    root: &Path,
+    manifest: &ModelPackageManifest,
+) -> Result<(), CacheError> {
+    validate_cache_tree_with_hashes(root, manifest, false)
+}
+
+fn validate_cache_tree_with_hashes(
+    root: &Path,
+    manifest: &ModelPackageManifest,
+    verify_complete_files: bool,
+) -> Result<(), CacheError> {
     let files: HashSet<PathBuf> = manifest
         .files
         .iter()
@@ -29,7 +45,14 @@ pub(super) fn validate_cache_tree(
             parent = path.parent();
         }
     }
-    validate_tree_entries(root, root, &files, &directories, manifest)
+    validate_tree_entries(
+        root,
+        root,
+        &files,
+        &directories,
+        manifest,
+        verify_complete_files,
+    )
 }
 
 fn validate_tree_entries(
@@ -38,6 +61,7 @@ fn validate_tree_entries(
     files: &HashSet<PathBuf>,
     directories: &HashSet<PathBuf>,
     manifest: &ModelPackageManifest,
+    verify_complete_files: bool,
 ) -> Result<(), CacheError> {
     for entry in fs::read_dir(current).map_err(|_| CacheError::Integrity)? {
         let entry = entry.map_err(|_| CacheError::Integrity)?;
@@ -48,7 +72,14 @@ fn validate_tree_entries(
         }
         let relative = path.strip_prefix(root).map_err(|_| CacheError::Integrity)?;
         if metadata.is_dir() && directories.contains(relative) {
-            validate_tree_entries(root, &path, files, directories, manifest)?;
+            validate_tree_entries(
+                root,
+                &path,
+                files,
+                directories,
+                manifest,
+                verify_complete_files,
+            )?;
         } else if metadata.is_file() && relative == Path::new(SOURCE_BINDING_FILE) {
             let binding = fs::read_to_string(&path).map_err(|_| CacheError::Integrity)?;
             if !valid_source_binding(&binding) {
@@ -69,7 +100,7 @@ fn validate_tree_entries(
             {
                 return Err(CacheError::Integrity);
             }
-            if metadata.len() == contract.byte_size {
+            if verify_complete_files && metadata.len() == contract.byte_size {
                 verify_contract_file(&path, contract)?;
             }
         }

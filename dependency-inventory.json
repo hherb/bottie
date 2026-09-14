@@ -22,8 +22,8 @@
   "inputs": {
     "package.json": "7cfe5f6dc255db8af96e4d0336ac60da42eea373793a63d46abd76d482d8d118",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
-    "src-tauri/Cargo.toml": "f6fe745671c9463d50a37de1b8b36aaafcad30873636aa0429952d969ab27b7d",
-    "src-tauri/Cargo.lock": "6d5f9368a834bb5cd776e75269dafa8d5b8d727123a6ab18eaa5bdddfa477fbf",
+    "src-tauri/Cargo.toml": "ba20bce8724b688201c0babaacbf9fcd093e005d73d4cd806b8907012618b896",
+    "src-tauri/Cargo.lock": "ba90084a7ee5771b643c6d0e0498d0d01bf83d50527017a3ca3c8a87364ad462",
     "src-tauri/tauri.conf.json": "f8e1ac4a5304f5c25517eb825da447c100586ebeca2958ff674b8cb1768ab44d",
     "src-tauri/tauri.updater.conf.json": "c1d7d16c801bc2b87747d5b0a71f8fae927122e4897453eea23e51e98b191e33",
     "src-tauri/src/semantic_indexer.rs": "37cc38d5ac94f3556fde8a18a6a6b0e5b69fccc6ed32128e23c1d8688ed339ec",

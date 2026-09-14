@@ -235,6 +235,12 @@ impl WorkerTransport {
         self.manager.readiness()
     }
 
+    /// Returns the native process identity only to the explicitly enabled runtime-proof tool.
+    #[cfg(feature = "local-image-runtime-proof")]
+    pub(crate) fn process_id(&self) -> Option<u32> {
+        self.child.as_ref().and_then(Child::id)
+    }
+
     /// Sends one exact verified-model load request.
     pub(crate) async fn begin_load(
         &mut self,

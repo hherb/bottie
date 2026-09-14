@@ -117,7 +117,7 @@ fn resumes_only_with_an_exact_range_validator_and_remaining_length() {
 }
 
 #[test]
-fn rejects_ignored_or_wrong_ranges_and_validator_drift_then_discards_partial() {
+fn rejects_ignored_or_wrong_ranges_and_validator_drift_without_discarding_verified_prefix() {
     for (name, mut fixture) in [
         (
             "ignored",
@@ -180,7 +180,7 @@ fn rejects_ignored_or_wrong_ranges_and_validator_drift_then_discards_partial() {
             "{name}"
         );
         let replacement = ModelCacheTransaction::open(&cache, manifest()).unwrap();
-        assert_eq!(replacement.resume_offset("weights/model.bin").unwrap(), 0);
+        assert_eq!(replacement.resume_offset("weights/model.bin").unwrap(), 3);
         fs::remove_dir_all(cache).unwrap();
     }
 }

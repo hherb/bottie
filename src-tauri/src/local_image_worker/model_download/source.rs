@@ -208,13 +208,7 @@ impl ModelSourcePlan {
         }
         let host = resolved.host_str().ok_or(DownloadError::InvalidResponse)?;
         if host == HUGGING_FACE_HOST {
-            let expected_path = format!(
-                "/api/resolve-cache/models/{}/{}/{}",
-                hugging_face_repository_id(&self.repository_root)?,
-                self.manifest.source_revision,
-                source.relative_path
-            );
-            if resolved.path() != expected_path {
+            if resolved.path() != hugging_face_cache_path(self, source)?.as_str() {
                 return Err(DownloadError::InvalidResponse);
             }
         } else if !host.ends_with(".cdn.hf.co") && !host.ends_with(".xethub.hf.co") {
@@ -247,6 +241,29 @@ impl ModelSourcePlan {
     pub(crate) fn resume_binding_for_test(&self) -> String {
         self.resume_binding()
     }
+}
+
+fn hugging_face_cache_path(
+    plan: &ModelSourcePlan,
+    source: &ModelFileSource,
+) -> Result<String, DownloadError> {
+    let repository_id = hugging_face_repository_id(&plan.repository_root)?;
+    let (owner, repository) = repository_id
+        .split_once('/')
+        .ok_or(DownloadError::InvalidResponse)?;
+    let mut cache_url = Url::parse(&format!(
+        "https://{HUGGING_FACE_HOST}/api/resolve-cache/models/"
+    ))
+    .map_err(|_| DownloadError::InvalidResponse)?;
+    cache_url
+        .path_segments_mut()
+        .map_err(|_| DownloadError::InvalidResponse)?
+        .pop_if_empty()
+        .push(owner)
+        .push(repository)
+        .push(&plan.manifest.source_revision)
+        .push(&source.relative_path);
+    Ok(cache_url.path().to_owned())
 }
 
 fn hugging_face_repository_root(repository_id: &str) -> Result<Url, DownloadError> {

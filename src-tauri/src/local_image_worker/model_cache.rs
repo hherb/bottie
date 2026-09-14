@@ -27,7 +27,7 @@ use filesystem::{
     hash_prefix, open_for_append, remove_failed_file, remove_managed_entry,
     symlink_metadata_if_exists, sync_directory, sync_parent, verify_contract_file,
 };
-use tree::validate_cache_tree;
+use tree::{validate_cache_tree, validate_cache_tree_shape};
 pub(crate) use writer::CacheFileWriter;
 
 /// Directory containing resumable transactions.
@@ -131,7 +131,7 @@ impl ModelCacheTransaction {
         let packages_parent = ensure_managed_directory(&cache_root, PACKAGES_DIRECTORY)?;
         let manifest_bytes = manifest_bytes(&manifest)?;
         let staging_root = staging_parent.join(identity_digest(manifest.model_id.as_bytes()));
-        let final_root = packages_parent.join(identity_digest(&manifest_bytes));
+        let final_root = packages_parent.join(identity_digest(&package_identity_bytes(&manifest)?));
 
         if let Some(metadata) = symlink_metadata_if_exists(&staging_root)? {
             let resumes_exactly = metadata.is_dir()
@@ -232,7 +232,7 @@ impl ModelCacheTransaction {
         if read_manifest(&self.staging_root)? != self.manifest {
             return Err(CacheError::Integrity);
         }
-        validate_cache_tree(&self.staging_root, &self.manifest)?;
+        validate_cache_tree_shape(&self.staging_root, &self.manifest)?;
         activate_package(&self.staging_root, &self.manifest)?;
         if symlink_metadata_if_exists(&self.final_root)?.is_some() {
             match reopen_exact_package(&self.final_root, &self.manifest) {
@@ -319,7 +319,7 @@ pub(crate) fn reopen_cached_package(
     validate_manifest(&manifest)?;
     let cache_root = prepare_cache_root(cache_root)?;
     let packages = ensure_managed_directory(&cache_root, PACKAGES_DIRECTORY)?;
-    let final_root = packages.join(identity_digest(&manifest_bytes(&manifest)?));
+    let final_root = packages.join(identity_digest(&package_identity_bytes(&manifest)?));
     if symlink_metadata_if_exists(&final_root)?.is_none() {
         return Ok(None);
     }
@@ -354,6 +354,20 @@ fn manifest_bytes(manifest: &ModelPackageManifest) -> Result<Vec<u8>, CacheError
         return Err(CacheError::InvalidManifest);
     }
     Ok(bytes)
+}
+
+fn package_identity_bytes(manifest: &ModelPackageManifest) -> Result<Vec<u8>, CacheError> {
+    let mut identity = manifest.clone();
+    identity.expected_memory_bytes = 0;
+    manifest_bytes(&identity)
+}
+
+fn same_package_content(left: &ModelPackageManifest, right: &ModelPackageManifest) -> bool {
+    let mut left = left.clone();
+    let mut right = right.clone();
+    left.expected_memory_bytes = 0;
+    right.expected_memory_bytes = 0;
+    left == right
 }
 
 fn identity_digest(bytes: &[u8]) -> String {
@@ -469,10 +483,12 @@ fn reopen_exact_package(
     if metadata.file_type().is_symlink() || !metadata.is_dir() {
         return Err(CacheError::Integrity);
     }
-    if read_manifest(root)? != *manifest {
+    let stored_manifest = read_manifest(root)?;
+    validate_manifest(&stored_manifest)?;
+    if !same_package_content(&stored_manifest, manifest) {
         return Err(CacheError::Integrity);
     }
-    validate_cache_tree(root, manifest)?;
+    validate_cache_tree_shape(root, manifest)?;
     activate_package(root, manifest)
 }
 

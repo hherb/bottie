@@ -21,7 +21,18 @@ const LICENSE: &str = "Apache-2.0";
 const EXPECTED_DISK_BYTES: u64 = 17_442_350_812;
 const MAX_CANCELLATION_LATENCY_MS: u64 = 3_000;
 const MAX_WORKER_BYTES: u64 = 4 * 1_024 * 1_024 * 1_024;
+const MAX_WORKER_BUNDLE_BYTES: u64 = 8 * 1_024 * 1_024 * 1_024;
 const SHA256_HEX_BYTES: usize = 64;
+const ACCEPTED_GENERATED_RGB_SHA256: &str =
+    "4cd2921c3cf0a43f791cd725cf72da1ff0be04fe97883a9a4b32332cc9cfc0a5";
+const ACCEPTED_WORKER_SHA256: &str =
+    "187bfc58b30328278e52500c2b28999f2ff56cf510dd0790a3e90100aa81464b";
+const ACCEPTED_WORKER_BYTES: u64 = 56_008_496;
+const ACCEPTED_WORKER_BUNDLE_SHA256: &str =
+    "7a5db3e6c1c59c5d9264d8fed1f40f9a160bc8c4d64c642464588504856f0bf1";
+const ACCEPTED_WORKER_BUNDLE_BYTES: u64 = 1_107_880_778;
+const ACCEPTED_PEAK_MEMORY_BYTES: u64 = 29_526_129_448;
+const ACCEPTED_CANCELLATION_LATENCY_MS: u64 = 110;
 
 #[derive(Clone, Copy)]
 struct ReviewedFile {
@@ -174,16 +185,22 @@ pub(crate) struct PackageAcceptanceEvidence {
     pub(crate) hardware_profile: String,
     /// Exact bounded generation profile used to produce the reviewed PNG.
     pub(crate) generation_profile: String,
-    /// SHA-256 digest of the decoded, visually reviewed PNG output.
-    pub(crate) generated_png_sha256: String,
+    /// SHA-256 digest of the decoded, visually reviewed RGB pixel bytes.
+    pub(crate) generated_rgb_sha256: String,
     /// SHA-256 digest of the exact worker executable used by the run.
     pub(crate) worker_sha256: String,
     /// Exact worker executable byte length used by the run.
     pub(crate) worker_byte_size: u64,
+    /// SHA-256 digest of the canonical regular-file inventory for the exact worker runtime bundle.
+    pub(crate) worker_bundle_sha256: String,
+    /// Sum of regular-file bytes represented by the canonical worker bundle inventory.
+    pub(crate) worker_bundle_byte_size: u64,
     /// Measured whole-process peak memory for the bounded generation profile.
     pub(crate) peak_memory_bytes: u64,
     /// Measured cooperative cancellation latency at an active generation step.
     pub(crate) cancellation_latency_ms: u64,
+    /// Whether the worker's operating-system network sandbox was exercised and denied a connection.
+    pub(crate) network_sandbox_proved: bool,
     /// Whether a human reviewed the decoded output for usable image content.
     pub(crate) visual_reviewed: bool,
 }
@@ -223,6 +240,21 @@ impl ModelPackageCandidate {
         EXPECTED_DISK_BYTES
     }
 
+    /// Builds the exact acquisition plan used only by the explicitly enabled runtime-proof tool.
+    #[cfg(feature = "local-image-runtime-proof")]
+    pub(crate) fn proof_source_plan(
+        self,
+        expected_memory_bytes: u64,
+    ) -> Result<ModelSourcePlan, PackageEvidenceError> {
+        ModelSourcePlan::for_hugging_face(
+            model_manifest(expected_memory_bytes),
+            PACKAGE_ID,
+            QWEN_IMAGE_2512_PACKAGE_REVISION,
+            source_contracts(),
+        )
+        .map_err(|_| PackageEvidenceError::InvalidEvidence)
+    }
+
     /// Accepts only measurements tied to this exact package, runtime, hardware, and profile.
     pub(crate) fn accept(
         self,
@@ -232,13 +264,17 @@ impl ModelPackageCandidate {
             || evidence.runtime_revision != MLX_GEN_RUNTIME_REVISION
             || evidence.hardware_profile != QWEN_IMAGE_2512_HARDWARE_PROFILE
             || evidence.generation_profile != QWEN_IMAGE_2512_GENERATION_PROFILE
-            || !is_lowercase_sha256(&evidence.generated_png_sha256)
+            || !is_lowercase_sha256(&evidence.generated_rgb_sha256)
             || !is_lowercase_sha256(&evidence.worker_sha256)
             || evidence.worker_byte_size == 0
             || evidence.worker_byte_size > MAX_WORKER_BYTES
+            || !is_lowercase_sha256(&evidence.worker_bundle_sha256)
+            || evidence.worker_bundle_byte_size == 0
+            || evidence.worker_bundle_byte_size > MAX_WORKER_BUNDLE_BYTES
             || evidence.peak_memory_bytes == 0
             || evidence.cancellation_latency_ms == 0
             || evidence.cancellation_latency_ms > MAX_CANCELLATION_LATENCY_MS
+            || !evidence.network_sandbox_proved
             || !evidence.visual_reviewed
         {
             return Err(PackageEvidenceError::InvalidEvidence);
@@ -263,6 +299,26 @@ impl ModelPackageCandidate {
 /// Returns the one reviewed MLX-Gen package candidate without making it available for download.
 pub(crate) fn qwen_image_2512_q4_candidate() -> ModelPackageCandidate {
     ModelPackageCandidate
+}
+
+/// Returns the exact package selected by the reviewed Apple M3 Max runtime proof.
+pub(crate) fn selected_qwen_image_2512_q4_package()
+-> Result<SelectedModelPackage, PackageEvidenceError> {
+    qwen_image_2512_q4_candidate().accept(PackageAcceptanceEvidence {
+        package_revision: QWEN_IMAGE_2512_PACKAGE_REVISION.into(),
+        runtime_revision: MLX_GEN_RUNTIME_REVISION.into(),
+        hardware_profile: QWEN_IMAGE_2512_HARDWARE_PROFILE.into(),
+        generation_profile: QWEN_IMAGE_2512_GENERATION_PROFILE.into(),
+        generated_rgb_sha256: ACCEPTED_GENERATED_RGB_SHA256.into(),
+        worker_sha256: ACCEPTED_WORKER_SHA256.into(),
+        worker_byte_size: ACCEPTED_WORKER_BYTES,
+        worker_bundle_sha256: ACCEPTED_WORKER_BUNDLE_SHA256.into(),
+        worker_bundle_byte_size: ACCEPTED_WORKER_BUNDLE_BYTES,
+        peak_memory_bytes: ACCEPTED_PEAK_MEMORY_BYTES,
+        cancellation_latency_ms: ACCEPTED_CANCELLATION_LATENCY_MS,
+        network_sandbox_proved: true,
+        visual_reviewed: true,
+    })
 }
 
 /// Exact manifest and source plan produced only after native runtime evidence acceptance.

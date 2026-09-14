@@ -421,7 +421,6 @@ fn discards_transaction(error: DownloadError) -> bool {
     matches!(
         error,
         DownloadError::InvalidPlan
-            | DownloadError::InvalidResponse
             | DownloadError::LimitExceeded
             | DownloadError::Cache(CacheError::Integrity | CacheError::InvalidPath)
     )
