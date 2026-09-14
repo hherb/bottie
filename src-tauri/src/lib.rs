@@ -19,6 +19,7 @@ mod generation_web_tools;
 mod image_generation;
 mod inference;
 mod local_audio_preferences;
+mod local_image_worker;
 mod localmail;
 mod microphone;
 mod provider_registry;
@@ -47,6 +48,10 @@ mod web_search_commands;
 
 #[cfg(test)]
 mod generation_tools_tests;
+#[cfg(test)]
+mod local_image_worker_manager_tests;
+#[cfg(test)]
+mod local_image_worker_tests;
 #[cfg(test)]
 mod localmail_tool_tests;
 #[cfg(test)]

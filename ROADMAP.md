@@ -483,11 +483,13 @@ Implement this once for both hosted and local adapters before adding more runtim
 
 ### 8.3 Local worker and model lifecycle
 
-- [ ] Define a versioned private worker protocol shared by every local backend: `hello/capabilities`, `load`,
+- [x] Define a versioned private worker protocol shared by every local backend: `hello/capabilities`, `load`,
   `generate`, `progress`, `cancel`, `result`, and `shutdown`, with closed schemas and bounded frames over private pipes
   rather than a public localhost API;
 - [ ] add a long-lived Rust-owned worker manager so large weights load once, with one generation at a time initially,
-  cooperative step cancellation, forced teardown after a bounded grace period, and no shell interpretation;
+  cooperative step cancellation, forced teardown after a bounded grace period, and no shell interpretation. The pure
+  ordered lifecycle/correlation policy is complete; process ownership, pipe I/O, timeout enforcement, kill, and reap
+  remain before this item is complete;
 - [ ] keep model acquisition separate and explicit: show exact model/runtime IDs, license, expected disk and memory use,
   source revision, download progress, and verified file hashes before activation;
 - [ ] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
