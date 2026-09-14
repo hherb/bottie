@@ -497,13 +497,16 @@ Implement this once for both hosted and local adapters before adding more runtim
   ranged download, source-bound partial restart, fixed byte/time ceilings, cancellation, and durable progress reporting
   are also complete. Hugging Face delivery now uses one manually validated 302/307 resolution envelope with automatic
   redirects still disabled. The exact q4 candidate now has measured acceptance and a selected package manifest;
-  path-free presentation remains;
+  native path-free availability states and exact installed-worker/cache re-verification are complete, while
+  presentation remains;
 - [ ] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
   generation, and expose only readiness/capability metadata to Svelte. App-owned resumable staging and atomic verified
-  promotion and the real-runtime network-denied proof are complete; packaged-runtime integration and path-free
-  presentation remain;
+  promotion, read-only readiness re-verification, and the real-runtime network-denied proof are complete;
+  packaged-runtime integration and path-free presentation remain;
 - [ ] probe hardware and runtime support rather than inferring it from the operating system. An unavailable local route
-  remains unavailable; there is no silent cloud fallback;
+  remains unavailable; there is no silent cloud fallback. The native macOS probe now combines OS-owned physical memory,
+  compile-target architecture, the exact accepted Apple M3 Max 128 GiB profile, worker-bundle evidence, and cache
+  integrity. Other hardware profiles and application-service wiring remain unavailable;
 - [ ] normalize local results through the same Rust PNG validation, durable storage, provenance, cancellation, export,
   and deletion path as hosted results;
 - [ ] keep this worker distinct from Bottie's user-approved Python tool runtime: image generation is a product
@@ -516,7 +519,9 @@ Implement this once for both hosted and local adapters before adding more runtim
   published packages are roughly 16.2 GiB for mixed 4-bit and 27.5 GiB for 8-bit; do not auto-download either. The
   mixed q4/q8 `AbstractFramework/qwen-image-2512-4bit` candidate is pinned to an immutable 18-file revision and exact
   MLX-Gen 0.18.2 commit. Its exact worker bundle, decoded output, 29,526,129,448-byte lifetime peak footprint, visual
-  quality, network denial, and 110 ms denoising-boundary cancellation are accepted on the named target hardware;
+  quality, network denial, and 110 ms denoising-boundary cancellation are accepted on the named target hardware. The
+  native availability gate fails closed for every other hardware profile and for missing or mismatched worker/cache
+  bytes;
 - [ ] **Linux NVIDIA:** prove pinned PyTorch + Diffusers `QwenImagePipeline` first, including CUDA capability, VRAM,
   CPU-offload, deterministic seed, cancellation latency, and cold/warm generation measurements;
 - [ ] **Windows NVIDIA:** use the same pinned Diffusers worker and protocol after a native Windows CUDA/package proof;

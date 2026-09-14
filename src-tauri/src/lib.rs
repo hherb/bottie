@@ -49,6 +49,8 @@ mod web_search_commands;
 #[cfg(test)]
 mod generation_tools_tests;
 #[cfg(test)]
+mod local_image_worker_availability_tests;
+#[cfg(test)]
 mod local_image_worker_manager_tests;
 #[cfg(test)]
 mod local_image_worker_model_acquisition_tests;

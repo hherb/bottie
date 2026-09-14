@@ -18,6 +18,8 @@ use super::{
 
 #[path = "model_cache/filesystem.rs"]
 mod filesystem;
+#[path = "model_cache/inspection.rs"]
+mod inspection;
 #[path = "model_cache/tree.rs"]
 mod tree;
 #[path = "model_cache/writer.rs"]
@@ -27,6 +29,8 @@ use filesystem::{
     hash_prefix, open_for_append, remove_failed_file, remove_managed_entry,
     symlink_metadata_if_exists, sync_directory, sync_parent, verify_contract_file,
 };
+#[allow(unused_imports)]
+pub(crate) use inspection::{inspect_cached_package, reopen_cached_package};
 use tree::{validate_cache_tree, validate_cache_tree_shape};
 pub(crate) use writer::CacheFileWriter;
 
@@ -309,21 +313,6 @@ fn valid_source_binding(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
-}
-
-/// Reopens one promoted exact package through the existing all-files activation gate.
-pub(crate) fn reopen_cached_package(
-    cache_root: &Path,
-    manifest: ModelPackageManifest,
-) -> Result<Option<ModelLocation>, CacheError> {
-    validate_manifest(&manifest)?;
-    let cache_root = prepare_cache_root(cache_root)?;
-    let packages = ensure_managed_directory(&cache_root, PACKAGES_DIRECTORY)?;
-    let final_root = packages.join(identity_digest(&package_identity_bytes(&manifest)?));
-    if symlink_metadata_if_exists(&final_root)?.is_none() {
-        return Ok(None);
-    }
-    reopen_exact_package(&final_root, &manifest).map(Some)
 }
 
 /// Re-verifies every promoted byte immediately before sending one private worker load frame.

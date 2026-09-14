@@ -76,5 +76,8 @@ failures still discard it. The live proof resumed after interruption and crossed
 
 The proof cache, worker build, and PNG remain ignored local evidence and are not application payloads. No Svelte UI,
 automatic download, general hardware availability, cloud fallback, signing, release, or distribution work was
-performed. Product integration must probe hardware, verify the packaged worker against the accepted bundle evidence,
-and expose only path-free readiness metadata before any local route becomes available.
+performed. The native availability contract now reads macOS physical memory, checks the compile-target architecture,
+accepts only the exact Apple M3 Max 128 GiB evidence profile, re-hashes the installed executable and complete worker
+bundle, and re-verifies promoted model bytes without mutating an absent cache. Its result is one coarse path-free state;
+no path, digest, or hardware marketing string is returned. Product integration must still resolve fixed app-owned
+worker/cache locations and expose only path-free readiness metadata before any local route becomes available.
