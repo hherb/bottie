@@ -15,6 +15,7 @@ fn digest(bytes: &[u8]) -> String {
 fn manifest(files: Vec<ModelFileContract>) -> ModelPackageManifest {
     ModelPackageManifest {
         model_id: "Qwen/Qwen-Image-2512".into(),
+        package_id: "fixture/Qwen-Image-2512-4bit".into(),
         runtime_id: "mlx-gen@0123456789abcdef".into(),
         license: "Apache-2.0".into(),
         source_revision: "0123456789abcdef0123456789abcdef01234567".into(),
@@ -50,6 +51,7 @@ fn exposes_path_free_exact_metadata_before_download() {
     let status = acquisition.status();
     assert_eq!(status.phase, AcquisitionPhase::AwaitingApproval);
     assert_eq!(status.model_id, "Qwen/Qwen-Image-2512");
+    assert_eq!(status.package_id, "fixture/Qwen-Image-2512-4bit");
     assert_eq!(status.runtime_id, "mlx-gen@0123456789abcdef");
     assert_eq!(status.license, "Apache-2.0");
     assert_eq!(status.total_files, 1);

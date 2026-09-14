@@ -21,6 +21,7 @@ use crate::local_image_worker::{
 pub(super) const MODEL_BYTES: &[u8] = b"weights";
 pub(super) const SOURCE_REVISION: &str = "0123456789abcdef0123456789abcdef01234567";
 pub(super) const SOURCE_ETAG: &str = "\"fixture-weights-v1\"";
+const FIXTURE_ACCEPT_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(Clone)]
 pub(super) struct FixtureResponse {
@@ -38,6 +39,7 @@ fn digest(bytes: &[u8]) -> String {
 pub(super) fn manifest() -> ModelPackageManifest {
     ModelPackageManifest {
         model_id: "Qwen/Qwen-Image-2512".into(),
+        package_id: "AbstractFramework/qwen-image-2512-4bit".into(),
         runtime_id: "fixture-runtime@0123456789abcdef".into(),
         license: "Apache-2.0".into(),
         source_revision: SOURCE_REVISION.into(),
@@ -66,6 +68,19 @@ pub(super) fn source_plan_with_etag(root: &str, etag: &str) -> ModelSourcePlan {
         }],
     )
     .expect("fixture source plan should be valid")
+}
+
+pub(super) fn hugging_face_source_plan(root: &str) -> ModelSourcePlan {
+    ModelSourcePlan::for_loopback_hugging_face_fixture(
+        manifest(),
+        root,
+        SOURCE_REVISION,
+        vec![ModelFileSource {
+            relative_path: "weights/model.bin".into(),
+            strong_etag: SOURCE_ETAG.into(),
+        }],
+    )
+    .expect("fixture Hugging Face source plan should be valid")
 }
 
 pub(super) fn approved_acquisition() -> ModelAcquisition {
@@ -129,7 +144,7 @@ pub(super) fn serve(
     let captured = Arc::clone(&request_text);
     let server = thread::spawn(move || {
         listener.set_nonblocking(true).unwrap();
-        let deadline = Instant::now() + Duration::from_secs(1);
+        let deadline = Instant::now() + FIXTURE_ACCEPT_TIMEOUT;
         let mut stream = loop {
             match listener.accept() {
                 Ok((stream, _)) => break stream,
@@ -142,12 +157,11 @@ pub(super) fn serve(
                 Err(error) => panic!("fixture accept failed: {error}"),
             }
         };
+        stream.set_nonblocking(false).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(1)))
             .unwrap();
-        let mut request = [0_u8; 4_096];
-        let count = stream.read(&mut request).unwrap_or(0);
-        *captured.lock().unwrap() = String::from_utf8_lossy(&request[..count]).into_owned();
+        *captured.lock().unwrap() = read_request(&mut stream);
         let mut headers = format!("HTTP/1.1 {}\r\n", response.status);
         for (name, value) in response.headers {
             headers.push_str(&format!("{name}: {value}\r\n"));
@@ -162,4 +176,65 @@ pub(super) fn serve(
         let _ = stream.write_all(&response.delayed_body);
     });
     (format!("http://{address}/models/"), request_text, server)
+}
+
+pub(super) fn serve_sequence(
+    responses: Vec<FixtureResponse>,
+) -> (String, Arc<Mutex<Vec<String>>>, thread::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("fixture listener should bind");
+    let address = listener.local_addr().unwrap();
+    let request_texts = Arc::new(Mutex::new(Vec::new()));
+    let captured = Arc::clone(&request_texts);
+    let server = thread::spawn(move || {
+        listener.set_nonblocking(true).unwrap();
+        for response in responses {
+            let deadline = Instant::now() + FIXTURE_ACCEPT_TIMEOUT;
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        if Instant::now() >= deadline {
+                            return;
+                        }
+                        thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("fixture accept failed: {error}"),
+                }
+            };
+            stream.set_nonblocking(false).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(1)))
+                .unwrap();
+            captured.lock().unwrap().push(read_request(&mut stream));
+            let mut headers = format!("HTTP/1.1 {}\r\n", response.status);
+            for (name, value) in response.headers {
+                headers.push_str(&format!("{name}: {value}\r\n"));
+            }
+            headers.push_str("Connection: close\r\n\r\n");
+            stream.write_all(headers.as_bytes()).unwrap();
+            stream.write_all(&response.first_body).unwrap();
+            stream.flush().unwrap();
+            if !response.delay.is_zero() {
+                thread::sleep(response.delay);
+            }
+            let _ = stream.write_all(&response.delayed_body);
+        }
+    });
+    (format!("http://{address}/models/"), request_texts, server)
+}
+
+fn read_request(stream: &mut std::net::TcpStream) -> String {
+    const MAX_REQUEST_BYTES: usize = 4_096;
+    const READ_BYTES: usize = 512;
+
+    let mut request = Vec::new();
+    while request.len() < MAX_REQUEST_BYTES && !request.ends_with(b"\r\n\r\n") {
+        let mut buffer = [0_u8; READ_BYTES];
+        let remaining = MAX_REQUEST_BYTES - request.len();
+        match stream.read(&mut buffer[..remaining.min(READ_BYTES)]) {
+            Ok(0) | Err(_) => break,
+            Ok(count) => request.extend_from_slice(&buffer[..count]),
+        }
+    }
+    String::from_utf8_lossy(&request).into_owned()
 }

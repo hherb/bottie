@@ -9,6 +9,8 @@ pub(crate) mod model_acquisition;
 pub(crate) mod model_cache;
 #[allow(dead_code)]
 pub(crate) mod model_download;
+#[allow(dead_code)]
+pub(crate) mod model_package;
 #[allow(dead_code, unused_imports)]
 pub(crate) mod protocol;
 #[allow(dead_code)]

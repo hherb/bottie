@@ -60,6 +60,8 @@ pub(crate) struct ModelFileContract {
 pub(crate) struct ModelPackageManifest {
     /// Exact open-weight model identity, never an alias for hosted Qwen Image 2.0.
     pub(crate) model_id: String,
+    /// Exact immutable-package repository identity shown separately from the base model.
+    pub(crate) package_id: String,
     /// Exact runtime identity with a pinned source or package revision.
     pub(crate) runtime_id: String,
     /// SPDX license identifier shown before acquisition.
@@ -96,6 +98,8 @@ pub(crate) enum AcquisitionPhase {
 pub(crate) struct ModelAcquisitionStatus {
     /// Exact open-weight model identity.
     pub(crate) model_id: String,
+    /// Exact reviewed package repository identity.
+    pub(crate) package_id: String,
     /// Exact pinned runtime identity.
     pub(crate) runtime_id: String,
     /// Reviewed SPDX license identifier.
@@ -145,6 +149,7 @@ impl ModelAcquisition {
     pub(crate) fn status(&self) -> ModelAcquisitionStatus {
         ModelAcquisitionStatus {
             model_id: self.manifest.model_id.clone(),
+            package_id: self.manifest.package_id.clone(),
             runtime_id: self.manifest.runtime_id.clone(),
             license: self.manifest.license.clone(),
             source_revision: self.manifest.source_revision.clone(),
@@ -239,6 +244,8 @@ impl ModelAcquisition {
 fn validate_manifest(manifest: &ModelPackageManifest) -> Result<(), AcquisitionError> {
     if !valid_identity(&manifest.model_id)
         || manifest.model_id == HOSTED_QWEN_IMAGE_2_MODEL_ID
+        || !valid_identity(&manifest.package_id)
+        || manifest.package_id == HOSTED_QWEN_IMAGE_2_MODEL_ID
         || !valid_pinned_runtime(&manifest.runtime_id)
         || !valid_license(&manifest.license)
         || !valid_revision(&manifest.source_revision)

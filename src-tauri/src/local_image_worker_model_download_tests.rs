@@ -18,6 +18,8 @@ use crate::local_image_worker::{
 
 #[path = "local_image_worker_model_download_tests/fixtures.rs"]
 mod fixtures;
+#[path = "local_image_worker_model_download_tests/hugging_face.rs"]
+mod hugging_face;
 
 use fixtures::{
     FixtureResponse, MODEL_BYTES, SOURCE_ETAG, SOURCE_REVISION, approved_acquisition, block_on,
