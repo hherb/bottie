@@ -42,3 +42,16 @@ because they require local oMLX or Ollama services; their commands are documente
 For meaningful presentation changes, also inspect the browser preview at the desktop default and a relevant responsive
 breakpoint. For native provider, credential, persistence, or cancellation changes, manually exercise the affected Tauri
 flow before completing the slice.
+
+## Pre-PR review
+
+Before opening even a draft PR:
+
+1. Inspect the complete local diff and worktree, run `git diff --check`, and confirm every intended new file is included
+   while unrelated work remains unstaged.
+2. Review the changed contracts adversarially for failure recovery, path and secret containment, cancellation, durable
+   ordering, and platform-specific path, handle, permission, and filesystem semantics.
+3. Add regression tests for every locally identified defect. Exercise each supported target locally when available;
+   state unsupported-target gaps explicitly instead of inferring cross-platform success from the host build.
+4. Rerun the relevant focused tests and the complete required check set after review fixes.
+5. Stage only explicit reviewed paths and inspect `git diff --cached` before committing, pushing, or opening the PR.

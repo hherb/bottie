@@ -118,7 +118,7 @@ pub(super) fn sync_directory(path: &Path) -> io::Result<()> {
 
     const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
     OpenOptions::new()
-        .read(true)
+        .write(true)
         .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
         .open(path)?
         .sync_all()

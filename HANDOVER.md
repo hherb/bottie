@@ -21,7 +21,9 @@ load boundary. Read `ROADMAP.md` Milestone 8.3 and `src-tauri/src/local_image_wo
   exact managed partial transaction.
 - A complete staging tree passes the existing all-files size/SHA-256 activation gate before one same-volume directory
   rename. Manifest files, changed entries, and the staging/packages directories are synced around promotion; Windows
-  directory sync uses a backup-semantics handle.
+  directory sync uses a write-capable backup-semantics handle.
+- Cache tree membership compares native `Path` values instead of platform-rendered separators. After a replacement
+  staging tree verifies, an invalid exact promoted entry is removed safely so reacquisition cannot remain blocked.
 - Promoted packages reopen only through the same activation gate. `begin_cached_model_load` repeats that verification
   immediately before the private worker load frame; detected post-promotion mutation leaves the worker idle.
 - Exact hosted `qwen-image-2.0-2026-03-03` remains distinct from local open-weight `Qwen/Qwen-Image-2512`, and this
@@ -29,19 +31,22 @@ load boundary. Read `ROADMAP.md` Milestone 8.3 and `src-tauri/src/local_image_wo
 
 ## Validation
 
-- Focused cache suite: 8 passed, covering interrupted writes/restart resume, manifest drift, path/symlink escape,
-  digest/size mismatch, pre-rename atomicity, gate-based reopen, broken-link replacement, and exact cleanup.
+- Focused cache suite: 10 passed, covering interrupted writes/restart resume, manifest drift, path/symlink escape,
+  digest/size mismatch, pre-rename atomicity, gate-based reopen, broken-link replacement, invalid-final reacquisition,
+  pre-promotion manifest revalidation, and exact cleanup.
 - Private-process integration suite: 10 passed, including cached load and rejection of mutated promoted bytes before any
   worker load frame.
 - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and an isolated-target
   `cargo check --manifest-path src-tauri/Cargo.toml` pass.
-- The host-local full Rust suite passes 571 library tests with 36 intentionally ignored, 1 updater-evidence test, and
+- The host-local full Rust suite passes 573 library tests with 36 intentionally ignored, 1 updater-evidence test, and
   all 10 private-process integration tests. The sandboxed run failed only because the three existing image-download
   fixtures could not bind loopback listeners; the identical host-local rerun passed.
 - `npm run format:check`, `npm run check`, `npm test` (360 passed, 3 skipped), and `npm run build` pass. No WebView
   presentation changed, so browser/native UI review is not applicable.
 - No real model/runtime bytes, network downloader, non-fixture image worker, hardware probe, provider request, billable
   action, local generation, UI behavior, or user-approved Python execution was exercised.
+- The Windows directory-handle and native-separator fixes were not executed locally because no Windows Rust target is
+  installed on this macOS host; they remain covered by platform-specific code and hosted Windows validation.
 
 ## Next slice
 

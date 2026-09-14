@@ -1,7 +1,6 @@
 //! Transactional app-owned cache for exact local image-model packages.
 
 use std::{
-    collections::HashSet,
     fs::{self, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
@@ -19,11 +18,14 @@ use super::{
 
 #[path = "model_cache/filesystem.rs"]
 mod filesystem;
+#[path = "model_cache/tree.rs"]
+mod tree;
 
 use filesystem::{
     hash_prefix, open_for_append, remove_failed_file, remove_managed_entry,
     symlink_metadata_if_exists, sync_directory, sync_parent, verify_contract_file,
 };
+use tree::validate_cache_tree;
 
 /// Directory containing resumable transactions.
 const STAGING_DIRECTORY: &str = "staging";
@@ -110,7 +112,7 @@ impl ModelCacheTransaction {
             let resumes_exactly = metadata.is_dir()
                 && !metadata.file_type().is_symlink()
                 && read_manifest(&staging_root).is_ok_and(|cached| cached == manifest)
-                && validate_staging_tree(&staging_root, &manifest).is_ok();
+                && validate_cache_tree(&staging_root, &manifest).is_ok();
             if !resumes_exactly {
                 remove_managed_entry(&staging_parent, &staging_root)?;
             }
@@ -120,7 +122,7 @@ impl ModelCacheTransaction {
             sync_directory(&staging_parent).map_err(|_| CacheError::Storage)?;
             write_manifest(&staging_root, &manifest_bytes)?;
         }
-        validate_staging_tree(&staging_root, &manifest)?;
+        validate_cache_tree(&staging_root, &manifest)?;
         Ok(Self {
             manifest,
             staging_root,
@@ -225,12 +227,22 @@ impl ModelCacheTransaction {
         &self,
         fault: CachePromotionFault,
     ) -> Result<ModelLocation, CacheError> {
-        validate_staging_tree(&self.staging_root, &self.manifest)?;
+        if read_manifest(&self.staging_root)? != self.manifest {
+            return Err(CacheError::Integrity);
+        }
+        validate_cache_tree(&self.staging_root, &self.manifest)?;
         activate_package(&self.staging_root, &self.manifest)?;
         if symlink_metadata_if_exists(&self.final_root)?.is_some() {
-            let location = reopen_exact_package(&self.final_root, &self.manifest)?;
-            remove_managed_entry(&self.staging_parent, &self.staging_root)?;
-            return Ok(location);
+            match reopen_exact_package(&self.final_root, &self.manifest) {
+                Ok(location) => {
+                    remove_managed_entry(&self.staging_parent, &self.staging_root)?;
+                    return Ok(location);
+                }
+                Err(CacheError::Integrity) => {
+                    remove_managed_entry(&self.packages_parent, &self.final_root)?;
+                }
+                Err(error) => return Err(error),
+            }
         }
         if fault == CachePromotionFault::BeforeRename {
             return Err(CacheError::Storage);
@@ -396,65 +408,6 @@ fn read_manifest(root: &Path) -> Result<ModelPackageManifest, CacheError> {
     serde_json::from_slice(&bytes).map_err(|_| CacheError::Integrity)
 }
 
-fn validate_staging_tree(root: &Path, manifest: &ModelPackageManifest) -> Result<(), CacheError> {
-    let files: HashSet<&str> = manifest
-        .files
-        .iter()
-        .map(|contract| contract.relative_path.as_str())
-        .collect();
-    let mut directories = HashSet::new();
-    for file in &manifest.files {
-        let mut parent = Path::new(&file.relative_path).parent();
-        while let Some(path) = parent.filter(|path| !path.as_os_str().is_empty()) {
-            directories.insert(path.to_string_lossy().into_owned());
-            parent = path.parent();
-        }
-    }
-    validate_tree_entries(root, root, &files, &directories, manifest)
-}
-
-fn validate_tree_entries(
-    root: &Path,
-    current: &Path,
-    files: &HashSet<&str>,
-    directories: &HashSet<String>,
-    manifest: &ModelPackageManifest,
-) -> Result<(), CacheError> {
-    for entry in fs::read_dir(current).map_err(|_| CacheError::Integrity)? {
-        let entry = entry.map_err(|_| CacheError::Integrity)?;
-        let path = entry.path();
-        let metadata = fs::symlink_metadata(&path).map_err(|_| CacheError::Integrity)?;
-        if metadata.file_type().is_symlink() {
-            return Err(CacheError::Integrity);
-        }
-        let relative = path
-            .strip_prefix(root)
-            .ok()
-            .and_then(Path::to_str)
-            .ok_or(CacheError::Integrity)?;
-        if metadata.is_dir() && directories.contains(relative) {
-            validate_tree_entries(root, &path, files, directories, manifest)?;
-        } else if !metadata.is_file() || (relative != MANIFEST_FILE && !files.contains(relative)) {
-            return Err(CacheError::Integrity);
-        }
-    }
-    for contract in &manifest.files {
-        let path = root.join(&contract.relative_path);
-        if let Some(metadata) = symlink_metadata_if_exists(&path)? {
-            if metadata.file_type().is_symlink()
-                || !metadata.is_file()
-                || metadata.len() > contract.byte_size
-            {
-                return Err(CacheError::Integrity);
-            }
-            if metadata.len() == contract.byte_size {
-                verify_contract_file(&path, contract)?;
-            }
-        }
-    }
-    Ok(())
-}
-
 fn activate_package(
     root: &Path,
     manifest: &ModelPackageManifest,
@@ -483,7 +436,7 @@ fn reopen_exact_package(
     if read_manifest(root)? != *manifest {
         return Err(CacheError::Integrity);
     }
-    validate_staging_tree(root, manifest)?;
+    validate_cache_tree(root, manifest)?;
     activate_package(root, manifest)
 }
 

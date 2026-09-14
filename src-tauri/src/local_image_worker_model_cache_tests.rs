@@ -250,6 +250,58 @@ fn verified_promotion_is_atomic_and_retryable_before_rename() {
 }
 
 #[test]
+fn reacquisition_replaces_an_invalid_exact_promoted_package() {
+    let root = temp_cache("replace-corrupt-final");
+    let package = manifest();
+    let original = ModelCacheTransaction::open(&root, package.clone()).unwrap();
+    original
+        .write_file("model.json", 0, &mut Cursor::new(CONFIG_BYTES))
+        .unwrap();
+    original
+        .write_file("weights/model.bin", 0, &mut Cursor::new(MODEL_BYTES))
+        .unwrap();
+    let final_root = original.final_root_for_test();
+    original.promote().unwrap();
+    fs::write(final_root.join("weights/model.bin"), b"changed").unwrap();
+
+    let replacement = ModelCacheTransaction::open(&root, package.clone()).unwrap();
+    replacement
+        .write_file("model.json", 0, &mut Cursor::new(CONFIG_BYTES))
+        .unwrap();
+    replacement
+        .write_file("weights/model.bin", 0, &mut Cursor::new(MODEL_BYTES))
+        .unwrap();
+    replacement.promote().unwrap();
+
+    assert_eq!(
+        fs::read(final_root.join("weights/model.bin")).unwrap(),
+        MODEL_BYTES
+    );
+    assert!(reopen_cached_package(&root, package).unwrap().is_some());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn promotion_rechecks_the_exact_native_manifest_before_rename() {
+    let root = temp_cache("manifest-before-rename");
+    let transaction = ModelCacheTransaction::open(&root, manifest()).unwrap();
+    transaction
+        .write_file("model.json", 0, &mut Cursor::new(CONFIG_BYTES))
+        .unwrap();
+    transaction
+        .write_file("weights/model.bin", 0, &mut Cursor::new(MODEL_BYTES))
+        .unwrap();
+    let staging = transaction.staging_root_for_test();
+    let final_root = transaction.final_root_for_test();
+    fs::remove_file(staging.join(".bottie-model-manifest.json")).unwrap();
+
+    assert_eq!(transaction.promote(), Err(CacheError::Integrity));
+    assert!(staging.is_dir());
+    assert!(!final_root.exists());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn explicit_discard_removes_only_the_exact_partial_transaction() {
     let root = temp_cache("cleanup");
     let transaction = ModelCacheTransaction::open(&root, manifest()).unwrap();
