@@ -4,58 +4,65 @@ Last verified: 2026-09-14
 
 ## Start here
 
-PR #169 merged into `main` at `2be34bf`. Branch `codex/local-image-worker-transport` completes the next two bounded
-Milestone 8.3 foundations: private process ownership for the local image-worker manager and the explicit native model
-acquisition/activation policy. Read `ROADMAP.md` Milestone 8.3 and `src-tauri/src/local_image_worker/` before
-continuing.
+PR #170 merged into `main` at `e0e8984`. Branch `codex/local-image-model-cache` completes the next two bounded
+Milestone 8.3 foundations: transactional app-owned model caching and exact cache re-verification at the private worker
+load boundary. Read `ROADMAP.md` Milestone 8.3 and `src-tauri/src/local_image_worker/` before continuing.
 
 ## Completed slices
 
-- `WorkerTransport` spawns one exact absolute executable without a shell, clears inherited environment and stdio,
-  negotiates the existing protocol over private stdin/stdout, and continuously discards stderr under a 64 KiB ceiling.
-  Handshake, event reads, frame writes, shutdown, and reaping have named deadlines.
-- Fragmented and consecutive frames feed the existing strict lifecycle/correlation manager. Protocol, ordering, EOF,
-  read/write, stderr, cancellation, and shutdown failures kill and reap the child and clear process-specific model and
-  capability state. Cooperative cancellation retains the warm worker only when its terminal result arrives inside the
-  existing three-second grace period.
-- A deterministic Rust fixture process covers private-pipe negotiation, environment isolation, long-lived load and
-  generation, early exit, hung handshake/operation/shutdown, malformed and out-of-order output, stderr overflow,
-  cooperative cancellation, forced cancellation teardown, and clean shutdown. No localhost service is involved.
-- `ModelAcquisition` validates bounded exact model/runtime/license/source/file metadata before approval, exposes only
-  typed path-free status, requires monotonic download progress and explicit phase order, retains paths and hashes in
-  Rust, and produces a worker `ModelLocation` only after every declared file passes exact size and SHA-256 verification.
-  Portable file names are collision-checked case-insensitively, symlink escapes fail, and hosted-only
-  `qwen-image-2.0-2026-03-03` cannot masquerade as a local package.
-- Exact hosted Qwen Image 2.0 remains distinct from local open-weight `Qwen/Qwen-Image-2512`. The local image worker
-  remains separate from Bottie's user-approved Python tool runtime.
+- `ModelCacheTransaction` validates the existing exact native manifest before deriving opaque SHA-256 staging and final
+  directory identities. A model identity has one resumable staging slot; only the complete serialized manifest derives
+  the promoted-package identity.
+- Cache writes accept only exact declared portable paths and exact durable resume offsets. Existing bytes are
+  re-hashed, new bytes are size-bounded and hashed while streaming, partials are synced for restart, and digest/size
+  failures remove the untrusted file.
+- Restart resumes only an exactly matching manifest. Runtime/source/file drift, malformed markers, unknown entries,
+  unsafe file types, symlinks, case-colliding paths, traversal, and escaped parents fail closed or discard only the
+  exact managed partial transaction.
+- A complete staging tree passes the existing all-files size/SHA-256 activation gate before one same-volume directory
+  rename. Manifest files, changed entries, and the staging/packages directories are synced around promotion; Windows
+  directory sync uses a write-capable backup-semantics handle.
+- Cache tree membership compares native `Path` values instead of platform-rendered separators. After a replacement
+  staging tree verifies, an invalid exact promoted entry is removed safely so reacquisition cannot remain blocked.
+- Promoted packages reopen only through the same activation gate. `begin_cached_model_load` repeats that verification
+  immediately before the private worker load frame; detected post-promotion mutation leaves the worker idle.
+- Exact hosted `qwen-image-2.0-2026-03-03` remains distinct from local open-weight `Qwen/Qwen-Image-2512`, and this
+  subsystem remains separate from Bottie's user-approved Python tool runtime.
 
 ## Validation
 
-- Focused private-process suite: 8 passed.
-- Focused model-acquisition suite: 6 passed on this macOS host, including the Unix symlink-escape case.
-- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and
+- Focused cache suite: 10 passed, covering interrupted writes/restart resume, manifest drift, path/symlink escape,
+  digest/size mismatch, pre-rename atomicity, gate-based reopen, broken-link replacement, invalid-final reacquisition,
+  pre-promotion manifest revalidation, and exact cleanup.
+- Private-process integration suite: 10 passed, including cached load and rejection of mutated promoted bytes before any
+  worker load frame.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and an isolated-target
   `cargo check --manifest-path src-tauri/Cargo.toml` pass.
-- The host-local full Rust suite passes 563 library tests with 36 intentionally ignored, 1 updater-evidence test, and
-  all 8 private-process integration tests. Its initial sandboxed run failed only because the three existing
-  image-download fixtures could not bind loopback listeners; the identical host-local rerun passed.
+- The host-local full Rust suite passes 573 library tests with 36 intentionally ignored, 1 updater-evidence test, and
+  all 10 private-process integration tests. The sandboxed run failed only because the three existing image-download
+  fixtures could not bind loopback listeners; the identical host-local rerun passed.
 - `npm run format:check`, `npm run check`, `npm test` (360 passed, 3 skipped), and `npm run build` pass. No WebView
   presentation changed, so browser/native UI review is not applicable.
-- No model/runtime package, process outside the deterministic fixture, localhost listener, hardware probe, provider
-  request, billable action, local generation, UI behavior, or user-approved Python execution was exercised.
+- No real model/runtime bytes, network downloader, non-fixture image worker, hardware probe, provider request, billable
+  action, local generation, UI behavior, or user-approved Python execution was exercised.
+- The Windows directory-handle and native-separator fixes were not executed locally because no Windows Rust target is
+  installed on this macOS host; they remain covered by platform-specific code and hosted Windows validation.
 
 ## Next slice
 
-Add an app-owned transactional model cache behind the acquisition policy. Derive fixed staging and final directories
-from a native manifest identity, accept writes only for declared portable paths, hash and size while streaming, resume
-only an exact matching model/runtime/source manifest, discard drifted or failed partials, durably promote a completely
-verified package, and reopen it through the existing all-files activation gate. Exercise interrupted writes, restart
-resume, manifest drift, symlink/path escape, digest/size mismatch, atomic promotion, and cleanup with injected local
-byte sources.
+Add a strict Rust-owned model source plan and resumable downloader that feeds `ModelCacheTransaction`. Bind every file
+to an approved HTTPS repository root, immutable source revision, and declared portable path; disable redirects; accept
+resume only when status, `Content-Range`, validator, offset, and remaining length agree; enforce per-file/package byte
+and time ceilings; propagate cancellation; and publish progress only after cache bytes sync. Use injected loopback
+responses to cover full and ranged downloads, restart resume, ignored/wrong ranges, validator or revision drift,
+redirects, truncation/overflow, cancellation, timeouts, and cache cleanup.
 
-Do not bundle a network downloader, a guessed MLX-Gen package, model weights, runtime execution, hardware probing,
-Svelte IPC/UI, provider fallback, or the user-approved Python tool runtime into that slice. The acquisition roadmap item
-remains incomplete until a measured package manifest, downloader, and explicit presentation exist. Do not claim the
-cache prevents post-verification mutation until the worker load boundary re-verifies or otherwise binds the exact bytes.
+Do not guess or claim a supported MLX-Gen package, hard-code unmeasured weights, download multi-gigabyte
+model/runtime artifacts, execute a runtime, probe hardware, add Svelte IPC/UI, or add provider fallback in that slice.
+A selected local package still requires separately reviewed official revisions, exact file hashes/sizes/license, and
+measured disk, memory, output, and cancellation evidence. Do not claim worker network isolation until a real
+runtime-specific process proof exists; load-boundary re-verification detects drift but does not make the cache
+generally immutable.
 
 Do not merge, dispatch workflows, sign, release, publish, distribute, or perform Store work without separate
 authorization. Preserve unrelated untracked logo-kit, screenshot, and Linux public-key files.

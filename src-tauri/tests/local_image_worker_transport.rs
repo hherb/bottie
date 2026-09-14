@@ -1,16 +1,24 @@
 //! End-to-end process tests for the private local image-worker transport.
 #![allow(dead_code)]
 
-use std::{ffi::OsString, path::PathBuf, time::Duration};
+use std::{ffi::OsString, fs, io::Cursor, path::PathBuf, time::Duration};
+
+use sha2::{Digest, Sha256};
 
 #[path = "../src/local_image_worker/manager.rs"]
 mod manager;
+#[path = "../src/local_image_worker/model_acquisition.rs"]
+mod model_acquisition;
+#[path = "../src/local_image_worker/model_cache.rs"]
+mod model_cache;
 #[path = "../src/local_image_worker/protocol.rs"]
 mod protocol;
 #[path = "../src/local_image_worker/transport.rs"]
 mod transport;
 
 use manager::{ManagerError, ManagerEvent, WorkerReadiness};
+use model_acquisition::{ModelFileContract, ModelPackageManifest};
+use model_cache::{CachedModelLoadError, ModelCacheTransaction, begin_cached_model_load};
 use protocol::ModelLocation;
 use transport::{TransportError, TransportTimeouts, WorkerProcessSpec, WorkerTransport};
 
@@ -50,6 +58,39 @@ fn model() -> ModelLocation {
         model_revision: "0123456789abcdef".into(),
         model_directory: model_directory().into(),
     }
+}
+
+fn cache_manifest() -> ModelPackageManifest {
+    let bytes = b"weights";
+    ModelPackageManifest {
+        model_id: "Qwen/Qwen-Image-2512".into(),
+        runtime_id: "fixture-runtime@0123456789abcdef".into(),
+        license: "Apache-2.0".into(),
+        source_revision: "0123456789abcdef0123456789abcdef01234567".into(),
+        expected_disk_bytes: bytes.len() as u64,
+        expected_memory_bytes: 20 * 1_024 * 1_024 * 1_024,
+        files: vec![ModelFileContract {
+            relative_path: "weights.bin".into(),
+            byte_size: bytes.len() as u64,
+            sha256: format!("{:x}", Sha256::digest(bytes)),
+        }],
+    }
+}
+
+fn prepared_cache(name: &str) -> (PathBuf, ModelPackageManifest, PathBuf) {
+    let root = std::env::temp_dir().join(format!(
+        "bottie-worker-cache-{name}-{}",
+        uuid::Uuid::new_v4()
+    ));
+    fs::create_dir_all(&root).unwrap();
+    let manifest = cache_manifest();
+    let transaction = ModelCacheTransaction::open(&root, manifest.clone()).unwrap();
+    transaction
+        .write_file("weights.bin", 0, &mut Cursor::new(b"weights"))
+        .unwrap();
+    let final_root = transaction.final_root_for_test();
+    transaction.promote().unwrap();
+    (root, manifest, final_root)
 }
 
 async fn loaded_transport(mode: &str) -> WorkerTransport {
@@ -202,4 +243,41 @@ async fn clean_shutdown_reaps_and_hung_shutdown_is_forcibly_reaped() {
 
     let result = loaded_transport("hung-shutdown").await.shutdown().await;
     assert_eq!(result.unwrap_err(), TransportError::ShutdownTimeout);
+}
+
+#[tokio::test]
+async fn cached_load_reverifies_the_exact_promoted_package_at_the_transport_boundary() {
+    let (root, manifest, _) = prepared_cache("verified-load");
+    let mut transport =
+        WorkerTransport::spawn_with_timeouts(fixture_spec("normal"), "0.9.0", test_timeouts())
+            .await
+            .unwrap();
+    begin_cached_model_load(&mut transport, "load-1", &root, manifest)
+        .await
+        .unwrap();
+    assert_eq!(
+        transport.next_event().await.unwrap(),
+        ManagerEvent::ModelLoaded
+    );
+    transport.shutdown().await.unwrap();
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn post_promotion_mutation_is_rejected_before_any_worker_load_frame() {
+    let (root, manifest, final_root) = prepared_cache("mutated-load");
+    fs::write(final_root.join("weights.bin"), b"changed").unwrap();
+    let mut transport =
+        WorkerTransport::spawn_with_timeouts(fixture_spec("normal"), "0.9.0", test_timeouts())
+            .await
+            .unwrap();
+    assert_eq!(
+        begin_cached_model_load(&mut transport, "load-1", &root, manifest).await,
+        Err(CachedModelLoadError::Cache(
+            model_cache::CacheError::Integrity
+        ))
+    );
+    assert_eq!(transport.readiness(), WorkerReadiness::Ready);
+    transport.shutdown().await.unwrap();
+    fs::remove_dir_all(root).unwrap();
 }

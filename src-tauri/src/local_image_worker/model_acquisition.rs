@@ -7,7 +7,7 @@ use std::{
     path::{Component, Path},
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::protocol::ModelLocation;
@@ -43,7 +43,8 @@ pub(crate) enum AcquisitionError {
 }
 
 /// One native-only file identity required by an immutable model package.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct ModelFileContract {
     /// Portable relative path beneath the app-owned package directory.
     pub(crate) relative_path: String,
@@ -54,7 +55,8 @@ pub(crate) struct ModelFileContract {
 }
 
 /// Immutable local model/runtime package metadata reviewed before download.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct ModelPackageManifest {
     /// Exact open-weight model identity, never an alias for hosted Qwen Image 2.0.
     pub(crate) model_id: String,
