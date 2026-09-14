@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   cargoRunnerValue,
+  pythonDevelopmentArguments,
+  pythonDevelopmentEnvironment,
   resolveTauriCliPath,
   selectAppleDevelopmentIdentity,
   shouldConfigureDevelopmentSigning,
@@ -51,5 +53,50 @@ describe("macOS development signing", () => {
     expect(resolveTauriCliPath("/repo/node_modules/@tauri-apps/cli/main.js")).toBe(
       "/repo/node_modules/@tauri-apps/cli/tauri.js",
     );
+  });
+
+  it("selects the explicit platform Python development resources only for dev", () => {
+    expect(pythonDevelopmentArguments("linux", ["dev"])).toEqual([
+      "dev",
+      "--config",
+      "src-tauri/tauri.python-development.linux.conf.json",
+    ]);
+    expect(pythonDevelopmentArguments("win32", ["dev", "--no-watch"])).toEqual([
+      "dev",
+      "--no-watch",
+      "--config",
+      "src-tauri/tauri.python-development.windows.conf.json",
+    ]);
+
+    const macos = pythonDevelopmentArguments("darwin", ["dev"]);
+    expect(macos.slice(0, 2)).toEqual(["dev", "--config"]);
+    expect(JSON.parse(macos[2])).toEqual({
+      bundle: {
+        resources: {
+          "../package/python-development/BottiePythonXPCClient.app": "BottiePythonXPCClient.app",
+          "../package/python-development/python-runtime-evidence.json": "python-runtime-evidence.json",
+        },
+      },
+    });
+    expect(() => pythonDevelopmentArguments("darwin", ["build"])).toThrow(/development/);
+    expect(() => pythonDevelopmentArguments("freebsd", ["dev"])).toThrow(/platform/);
+    expect(pythonDevelopmentArguments("linux", ["dev", "--", "application-argument"])).toEqual([
+      "dev",
+      "--config",
+      "src-tauri/tauri.python-development.linux.conf.json",
+      "--",
+      "application-argument",
+    ]);
+  });
+
+  it("scopes debug Python activation to the explicit command environment", () => {
+    expect(pythonDevelopmentEnvironment({ EXISTING: "value" })).toEqual({
+      EXISTING: "value",
+      BOTTIE_PYTHON_DEVELOPMENT: "1",
+    });
+    expect(pythonDevelopmentEnvironment({ BOTTIE_PYTHON_DEVELOPMENT: "1" })).toEqual({
+      BOTTIE_PYTHON_DEVELOPMENT: "1",
+    });
+    expect(() => pythonDevelopmentEnvironment({ BOTTIE_PYTHON_DEVELOPMENT: "unexpected" })).toThrow(/already set/);
   });
 });

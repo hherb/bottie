@@ -4,31 +4,44 @@ Last verified: 2026-09-15
 
 ## Start here
 
-`main` includes merged PR #173 at `e219644`. Branch `codex/local-image-runtime-proof` completes the bounded Apple M3
-Max runtime proof for Milestones 8.3-8.4. Read `docs/local-image-model-package.md`, `ROADMAP.md` Milestones 8.3-8.4,
-and `src-tauri/src/local_image_worker/`.
+`main` includes merged PR #174 at `46191d0`. Branch `codex/local-image-availability` completes the next bounded
+Milestones 8.3-8.4 availability slices. Read `ROADMAP.md` Milestones 8.3-8.4,
+`docs/local-image-model-package.md`, and `src-tauri/src/local_image_worker/`.
 
 ## Completed slice
 
-- The frozen 17,442,350,812-byte q4 package downloaded through the explicit feature-gated proof tool, resumed from
-  durable verified prefixes, passed all 18 size/SHA-256 contracts, promoted atomically, and reopened successfully.
-  Exact percent-encoded Hugging Face nested cache paths are accepted; invalid HTTP envelopes retain safe prefixes,
-  while source, path, and integrity drift still discard them.
-- A private Python 3.13.14/PyInstaller 6.16.0 worker built from MLX-Gen 0.18.2 commit
-  `fca64a283737c68b67a7bfd88d93f7aa9101a95c`. Its onedir layout explicitly places `mlx.metallib` beside PyInstaller's
-  relocated `libmlx.dylib`; the bundle is network-denied by `sandbox-exec` and a Python audit hook.
-- The exact Apple M3 Max 128 GB, 512x512, 15-step proof passed: decoded and visually reviewed RGB pixel SHA-256
-  `4cd2921c3cf0a43f791cd725cf72da1ff0be04fe97883a9a4b32332cc9cfc0a5`, 29,526,129,448-byte whole-process
-  lifetime peak footprint, and 110 ms cooperative cancellation at a denoising boundary.
-- `selected_qwen_image_2512_q4_package` freezes the accepted worker executable/bundle hashes and all proof evidence.
-  The proof cache, 1.1 GB worker bundle, pinned checkout, and PNG remain ignored local evidence, not app payloads.
+- A pure path-free evaluator now fails closed in this order: unsupported platform, unsupported architecture,
+  insufficient physical memory, unproved hardware profile, missing/mismatched worker, missing/mismatched model, then
+  ready. It uses the selected package's measured 29,526,129,448-byte peak and still requires the exact accepted
+  `apple-m3-max-128gb` evidence profile; it does not generalize support to other Apple-silicon machines.
+- The native macOS probe reads `hw.memsize` and `machdep.cpu.brand_string` through `sysctlbyname`, combines those with
+  the compile-target architecture, and maps only Apple M3 Max plus exactly 128 GiB to the accepted profile. The current
+  host reported `Apple M3 Max` and 137,438,953,472 bytes.
+- Availability re-hashes the exact installed executable and canonical symlink-free worker bundle against selected
+  evidence. Unix readiness now rejects an otherwise byte-identical worker without runnable execute permission.
+  Promoted model inspection reuses the all-files activation gate through a new read-only cache path that does not create
+  or repair an absent cache. Six focused tests cover every state, exact-profile rejection, byte or permission drift,
+  cache tampering, and no-mutation absence.
+- `npm run tauri:python` now selects the complete ignored platform development bundle explicitly. On macOS it supplies
+  the nested XPC client as a debug resource and the native resolver accepts that marked adjacent layout; packaged apps
+  still require the client under `Contents/Helpers`. A fixed process-scoped debug opt-in prevents staged resources from
+  leaking into later ordinary runs. Ordinary development and base packages remain Python-free, and provider
+  advertisement still requires a discovered tool-capable model plus the resolved contained runner.
+
+## Validation
+
+Formatting, Svelte diagnostics, the production frontend build, 362 frontend/script tests (3 skipped), 602 Rust library
+tests (36 ignored), updater evidence, all 10 local-image process-transport tests, and Rust doc tests pass. The focused
+Python filter passed 55 tests (3 loopback fixtures ignored). `npm run tauri:python -- --no-watch` staged the exact marked
+macOS debug XPC layout, development-signed and launched Bottie, and was stopped without making a provider request.
 
 ## Next slice
 
-Add a pure native local-image availability evaluator that combines exact hardware facts, the selected package's measured
-memory requirement, installed worker executable/bundle re-hashing, and verified-cache readiness into path-free states.
-Test missing/mismatched bundles, insufficient memory, unsupported architectures, and ready state. Do not add Svelte UI,
-auto-download, package the 1.1 GB proof bundle, start generation, or infer support from macOS/model names alone.
+Add a Rust-owned local-image availability service that resolves one fixed app-resource worker layout and one app-data
+model-cache root, evaluates the selected q4 package off the UI thread, and exposes typed path-free metadata through a
+read-only Tauri command. Test missing/unsafe layouts, repeated requests, exact IDs and byte requirements, and serialized
+absence of paths and hashes. Do not add Svelte presentation yet, package or auto-download the 1.1 GB proof bundle, start
+the worker, load/generate images, or perform an expensive re-hash on the WebView thread.
 
 Keep local 2512 distinct from hosted Qwen Image 2.0. Do not silently fall back to cloud or reuse Bottie's approved
 Python-tool runtime. Do not merge, dispatch workflows, sign, release, publish, distribute, or perform Store work without

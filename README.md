@@ -259,6 +259,17 @@ npm install
 npm run tauri dev
 ```
 
+The ordinary development command keeps Python execution disabled. When the complete ignored platform bundle has been
+staged under `package/python-development`, start the explicit contained-Python development build with:
+
+```sh
+npm run tauri:python
+```
+
+That command adds only the current platform's development resources. `run_python` is then advertised only when the
+selected model also reports native tool support, and every proposed execution still requires exact one-use approval.
+Its process-scoped activation also prevents resources left in the debug target from enabling later ordinary dev runs.
+
 On first use, Bottie asks you to confirm a working provider and model after explaining which data stays local and which
 data follows the selected route.
 
@@ -284,7 +295,9 @@ actually published. Local work can proceed now against the distinct open `Qwen/Q
 checkpoint, prioritizing MLX-Gen on Apple silicon and a pinned Diffusers worker on proven Linux/Windows GPU targets.
 Every local adapter will share the same provider-neutral contract and durable native-byte path. Bottie will neither
 route exact 2.0 through oMLX or an older implementation nor label 2512 output as Qwen-Image-2.0. See Milestone 8 in
-`ROADMAP.md` for the phased implementation and hardware acceptance plan.
+`ROADMAP.md` for the phased implementation and hardware acceptance plan. The first native availability contract accepts
+only the measured Apple M3 Max 128 GiB profile and re-verifies the exact worker bundle and model cache; all other local
+hardware and missing or changed bytes remain unavailable.
 
 On macOS, the package script development-signs each newly linked executable with an available Apple Development
 identity before Cargo runs it. If more than one identity is usable, set `BOTTIE_APPLE_SIGNING_IDENTITY` to the exact

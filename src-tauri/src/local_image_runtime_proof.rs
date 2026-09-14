@@ -26,8 +26,9 @@ use local_image_worker::{
         QWEN_IMAGE_2512_HARDWARE_PROFILE, QWEN_IMAGE_2512_PACKAGE_REVISION,
         qwen_image_2512_q4_candidate,
     },
-    runtime_proof::{hash_worker_bundle, lifetime_peak_memory},
+    runtime_proof::lifetime_peak_memory,
     transport::{TransportTimeouts, WorkerProcessSpec, WorkerTransport},
+    worker_bundle::hash_worker_bundle,
 };
 
 const ACKNOWLEDGEMENT_FLAG: &str = "--runtime-revision";

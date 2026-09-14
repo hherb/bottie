@@ -288,6 +288,13 @@ plus sidecar layout. The official CPython licence
 is checked by digest, included in `THIRD-PARTY-NOTICES.txt`, and represented alongside the complete runner Cargo graph
 in `dependency-inventory.json`. No application runtime download occurs.
 
+For interactive development, `npm run tauri:python` is the only convenience entry point that selects these ignored
+resources. Linux and Windows reuse their existing development overlays. macOS supplies the complete nested XPC client
+as a debug resource because `tauri dev` runs an adjacent executable rather than a packaged `Contents/MacOS` binary;
+the native resolver accepts that exact marked debug layout while continuing to require `Contents/Helpers` in packaged
+apps. A fixed process-scoped flag is set only for that command, so copied debug resources left by Tauri cannot enable a
+later ordinary run. The ordinary `npm run tauri dev` path and every base package remain Python-free.
+
 On the current Apple-silicon macOS host, the locally built official runtime is 40,864,108 bytes with tree digest
 `293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b`; the optimized unsigned helper is 14,273,328
 bytes. An otherwise unsigned `.app` was built with its native XPC transport under a nested signed client app;
@@ -663,13 +670,13 @@ The mapped-provider integration deliberately does not:
 
 - decide automatically that Python is appropriate for a user question;
 - expose Python in a default or shipping package without the complete native runtime marker;
-- select the development bundle config for normal distribution, automatically dispatch protected distribution, or
-  publish the runtime/helper; or
+- select the development bundle config for ordinary development or distribution, automatically dispatch protected
+  distribution, or publish the runtime/helper; or
 - claim shipping-package containment, installed production behavior, or release identity on macOS, Windows, or Linux.
 
 The protected-package comparison, aggregate, staging, and shipping-containment producer contracts do not change these
 exclusions.
-Only the explicit macOS, Linux, and Windows protected-distribution inputs select Python resources; no default path does.
+Only the explicit development command and protected-distribution inputs select Python resources; no default path does.
 The shipping producers require matching already trusted bytes, and none of the optional workflows has produced a
 current record.
 

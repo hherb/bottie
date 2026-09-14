@@ -4,7 +4,7 @@
 //! development bundle must contain every fixed platform resource or startup fails closed. Native
 //! paths remain in Rust and are never exposed through a Tauri command.
 
-use std::{fs, path::Path, path::PathBuf, sync::Arc};
+use std::{ffi::OsStr, fs, path::Path, path::PathBuf, sync::Arc};
 
 #[cfg(any(test, target_os = "windows"))]
 use std::ffi::OsString;
@@ -23,6 +23,7 @@ use crate::python_execution::PythonRunner;
 use crate::python_execution::WindowsAppContainerPythonRunner;
 
 const EVIDENCE_FILENAME: &str = "python-runtime-evidence.json";
+const PYTHON_DEVELOPMENT_ENVIRONMENT: &str = "BOTTIE_PYTHON_DEVELOPMENT";
 const RUNTIME_DIRECTORY: &str = "python-runtime";
 const RUNNER_BASENAME: &str = "bottie-python-runner";
 const MACOS_CLIENT_BASENAME: &str = "bottie-python-xpc-client";
@@ -94,6 +95,10 @@ impl PythonRuntimeState {
 pub(crate) fn initialize_python_runtime<R: Runtime>(
     app: &App<R>,
 ) -> Result<Option<PythonRuntimeState>, PythonRuntimeError> {
+    let development_opt_in = std::env::var_os(PYTHON_DEVELOPMENT_ENVIRONMENT);
+    if !python_runtime_is_enabled(cfg!(debug_assertions), development_opt_in.as_deref()) {
+        return Ok(None);
+    }
     let executable = std::env::current_exe().map_err(|_| PythonRuntimeError)?;
     let executable_directory = executable.parent().ok_or(PythonRuntimeError)?;
     let resource_directory = app.path().resource_dir().map_err(|_| PythonRuntimeError)?;
@@ -107,6 +112,14 @@ pub(crate) fn initialize_python_runtime<R: Runtime>(
     };
 
     construct_runtime(paths).map(Some)
+}
+
+/// Allows release-bundle resolution while gating debug resolution to the explicit command.
+pub(crate) fn python_runtime_is_enabled(
+    development_build: bool,
+    development_opt_in: Option<&OsStr>,
+) -> bool {
+    !development_build || development_opt_in == Some(OsStr::new("1"))
 }
 
 /// Resolves fixed native paths while treating a missing evidence marker as opt-out.
@@ -132,11 +145,7 @@ pub(crate) fn resolve_python_bundle_paths(
             PythonBundlePaths::Linux { runner, runtime }
         }
         PythonBundlePlatform::Macos => {
-            let contents = resource_directory.parent().ok_or(PythonRuntimeError)?;
-            let client_contents = contents
-                .join("Helpers")
-                .join(MACOS_CLIENT_BUNDLE)
-                .join("Contents");
+            let client_contents = macos_client_contents(executable_directory, resource_directory)?;
             let client = client_contents.join("MacOS").join(MACOS_CLIENT_BASENAME);
             let service = client_contents
                 .join("XPCServices")
@@ -170,6 +179,27 @@ pub(crate) fn resolve_python_bundle_paths(
         }
     };
     Ok(Some(paths))
+}
+
+/// Selects the fixed packaged or explicit development-resource client layout.
+fn macos_client_contents(
+    executable_directory: &Path,
+    resource_directory: &Path,
+) -> Result<PathBuf, PythonRuntimeError> {
+    let packaged = executable_directory.file_name() == Some(OsStr::new("MacOS"))
+        && resource_directory.file_name() == Some(OsStr::new("Resources"))
+        && executable_directory.parent() == resource_directory.parent();
+    if packaged {
+        return Ok(resource_directory
+            .parent()
+            .ok_or(PythonRuntimeError)?
+            .join("Helpers")
+            .join(MACOS_CLIENT_BUNDLE)
+            .join("Contents"));
+    }
+    Ok(resource_directory
+        .join(MACOS_CLIENT_BUNDLE)
+        .join("Contents"))
 }
 
 /// Requires one ordinary file and rejects directory or symlink substitution.

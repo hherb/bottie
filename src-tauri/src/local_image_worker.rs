@@ -2,6 +2,12 @@
 
 // The protocol intentionally lands before any runtime-specific worker implementation consumes it.
 #[allow(dead_code)]
+#[path = "local_image_worker/availability.rs"]
+pub(crate) mod availability;
+#[allow(dead_code)]
+#[path = "local_image_worker/hardware.rs"]
+pub(crate) mod hardware;
+#[allow(dead_code)]
 #[path = "local_image_worker/manager.rs"]
 pub(crate) mod manager;
 #[allow(dead_code)]
@@ -26,3 +32,6 @@ pub(crate) mod runtime_proof;
 #[allow(dead_code)]
 #[path = "local_image_worker/transport.rs"]
 pub(crate) mod transport;
+#[allow(dead_code)]
+#[path = "local_image_worker/worker_bundle.rs"]
+pub(crate) mod worker_bundle;
