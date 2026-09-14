@@ -494,8 +494,10 @@ Implement this once for both hosted and local adapters before adding more runtim
   source revision, download progress, and verified file hashes before activation. The native manifest, path-free status,
   explicit approval/progress phases, all-files size/SHA-256 activation gate, transactional app-owned cache, and
   load-boundary re-verification are complete. Strict approved-root/revision/path/validator source planning, resumable
-  redirect-free ranged download, source-bound partial restart, fixed byte/time ceilings, cancellation, and durable
-  progress reporting are also complete; a selected package manifest and presentation remain;
+  ranged download, source-bound partial restart, fixed byte/time ceilings, cancellation, and durable progress reporting
+  are also complete. Hugging Face delivery now uses one manually validated 302/307 resolution envelope with automatic
+  redirects still disabled. The exact q4 candidate repository facts and runtime-evidence gate are frozen; measured
+  acceptance, a selected package manifest, and presentation remain;
 - [ ] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
   generation, and expose only readiness/capability metadata to Svelte. App-owned resumable staging and atomic verified
   promotion are complete; real-runtime offline proof and path-free presentation remain;
@@ -510,7 +512,10 @@ Implement this once for both hosted and local adapters before adding more runtim
 
 - [ ] **macOS Apple silicon:** prove a pinned [MLX-Gen](https://github.com/lpalbou/mlx-gen) worker with
   `Qwen/Qwen-Image-2512`, then choose one supported MLX-Gen package tier from measured hardware evidence. Current
-  published packages are roughly 16.2 GiB for mixed 4-bit and 27.5 GiB for 8-bit; do not auto-download either;
+  published packages are roughly 16.2 GiB for mixed 4-bit and 27.5 GiB for 8-bit; do not auto-download either. The
+  mixed q4/q8 `AbstractFramework/qwen-image-2512-4bit` candidate is pinned to an immutable 18-file revision and exact
+  MLX-Gen 0.18.2 commit, but remains unavailable until worker bytes, output, peak memory, visual quality, and active-step
+  cancellation are measured on the named target hardware;
 - [ ] **Linux NVIDIA:** prove pinned PyTorch + Diffusers `QwenImagePipeline` first, including CUDA capability, VRAM,
   CPU-offload, deterministic seed, cancellation latency, and cold/warm generation measurements;
 - [ ] **Windows NVIDIA:** use the same pinned Diffusers worker and protocol after a native Windows CUDA/package proof;

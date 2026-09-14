@@ -38,6 +38,7 @@ fn manifest() -> ModelPackageManifest {
     ];
     ModelPackageManifest {
         model_id: "Qwen/Qwen-Image-2512".into(),
+        package_id: "fixture/Qwen-Image-2512-4bit".into(),
         runtime_id: "mlx-gen@0123456789abcdef".into(),
         license: "Apache-2.0".into(),
         source_revision: "0123456789abcdef0123456789abcdef01234567".into(),

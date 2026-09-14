@@ -4,59 +4,47 @@ Last verified: 2026-09-14
 
 ## Start here
 
-`main` includes PR #171 at `fbb13f5`. Branch `codex/local-image-model-downloader` completes the next Milestone 8.3
-foundations: exact model source planning, resumable native download into the transactional cache, and source-bound
-restart safety. Read `ROADMAP.md` Milestone 8.3 and `src-tauri/src/local_image_worker/` before continuing.
+`main` includes merged PR #172 at `e6c28c1`. Branch `codex/local-image-package-evidence` continues Milestone 8.3 with
+the first immutable MLX-Gen model candidate and the Hugging Face delivery contract needed to acquire it. Read
+`docs/local-image-model-package.md`, `ROADMAP.md` Milestones 8.3-8.4, and `src-tauri/src/local_image_worker/`.
 
 ## Completed slice
 
-- `ModelSourcePlan` accepts one native-reviewed repository root only as canonical HTTPS, then binds every manifest file
-  in exact order to the same immutable source revision, portable path, and bounded strong ETag. Test-only HTTP accepts
-  literal loopback hosts; credentials, queries, fragments, percent-encoded roots, weak validators, and revision drift
-  fail closed.
-- `ModelDownloader` cannot open cache or network work until the matching `ModelAcquisition` has entered its explicit
-  downloading phase. It keeps redirects disabled and enforces fixed connection, per-file, package-time, per-file-byte,
-  and package-byte ceilings.
-- Full responses require exact `200`, ETag, and `Content-Length` metadata. Resumes additionally require exact `206`,
-  `Content-Range`, `If-Range`, offset, total size, and remaining length; ignored/wrong ranges and duplicate or changed
-  validators are rejected before response bytes are retained.
-- Partial files now use a one-pass cache writer: the retained prefix is re-hashed once, chunks cannot exceed the exact
-  file size, and progress becomes observable only after file and directory sync. Transport interruption, timeout, and
-  cancellation retain a synced resumable prefix; unsafe response or integrity failure discards only the exact staging
-  transaction.
-- Staging persists only an opaque SHA-256 binding over repository root, revision, paths, and validators. Source-plan
-  drift discards an old partial before issuing a new full request, while final activation still requires every exact
-  manifest size and SHA-256. Successful promotion advances the approved acquisition through verification to `Ready`.
-- Exact hosted `qwen-image-2.0-2026-03-03` remains distinct from local open-weight `Qwen/Qwen-Image-2512`, and this
-  subsystem remains separate from Bottie's user-approved Python tool runtime.
+- The reviewed candidate is `AbstractFramework/qwen-image-2512-4bit` revision
+  `423f1f5bf708c6e11eb78881ef9738422cea0814`: 18 exact files totaling 17,442,350,812 bytes, Apache-2.0, derived from
+  `Qwen/Qwen-Image-2512`, and bound to MLX-Gen 0.18.2 commit `fca64a283737c68b67a7bfd88d93f7aa9101a95c`.
+- Base-model and package identities are distinct in the manifest and path-free acquisition status. The candidate cannot
+  produce an active manifest/source plan until exact worker bytes, target hardware/profile, output digest and visual
+  review, measured peak memory, and sub-three-second active cancellation evidence all agree.
+- Hugging Face sources permit one manually validated 302/307 envelope while automatic redirects remain disabled. The
+  resolver requires exact commit, linked ETag, optional linked size, and a tightly allowlisted HTTPS destination; a
+  second redirect, metadata drift, unsafe host, malformed range, or final-length mismatch fails before bytes are kept.
+- Resume staging now binds the delivery policy in addition to root, revision, paths, and validators. Full and ranged
+  two-hop fixtures cover exact success, drift, unsafe hosts, second redirects, and direct-source separation.
 
 ## Validation
 
-- Focused acquisition/cache/downloader suites: 26 passed, including full and ranged transfer, restart resume,
-  ignored/wrong/duplicate range metadata, validator and source-plan drift, redirects, truncation/overflow, byte limits,
-  explicit approval, sync-before-progress, cancellation, timeout, cache cleanup, promotion, and activation.
-- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and isolated-target
-  `cargo check --manifest-path src-tauri/Cargo.toml` pass. The ordinary-target Cargo check also passes.
-- The host-local full Rust suite passes 583 library tests with 36 intentionally ignored, one updater-evidence test, and
-  all 10 private-process integration tests. `npm run format:check`, `npm run check`, `npm test` (360 passed, 3 skipped),
-  and `npm run build` pass.
-- All-target Clippy reaches only existing unrelated warnings under `-D warnings`; it reports no changed-file finding.
-- No real model/runtime bytes, selected MLX-Gen package, external network download, provider request, billable action,
-  runtime execution, hardware probe, local generation, Svelte IPC/UI, or user-approved Python execution was exercised.
+- Focused package-evidence tests: 3 passed.
+- Focused direct/Hugging Face downloader tests: 16 passed using host-local loopback.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and
+  `cargo check --manifest-path src-tauri/Cargo.toml` pass.
+- The full Rust library suite passes 592 tests with 36 intentionally ignored; the updater evidence test and all 10
+  private-process integration tests pass. One combined-suite transport teardown attempt failed transiently, then passed
+  both alone and with all 10 transport tests on exact rerun.
+- `npm run format:check`, `npm run check`, `npm test` (360 passed, 3 skipped), and `npm run build` pass.
+- No model weights, MLX-Gen environment, worker runtime, provider request, or generated output was downloaded or run.
 
 ## Next slice
 
-Freeze one actually supported Apple-silicon MLX-Gen package only after reviewing official immutable revisions and
-collecting exact model/runtime paths, sizes, SHA-256 digests, strong validators, license material, and measured disk,
-peak-memory, output, and cancellation evidence on the target hardware. Encode that evidence as Bottie's first selected
-`ModelPackageManifest` plus `ModelSourcePlan`, with regression fixtures that require every reviewed value before the
-existing approval/downloader/cache/worker-load path can become available.
+After explicit approval for a 17,442,350,812-byte model download and runtime execution, build an isolated worker from
+the pinned MLX-Gen commit, hash its exact executable/runtime bundle, acquire the frozen q4 package through the existing
+approval/downloader/cache path, and run the fixed Apple M3 Max 128 GB, 512x512, 15-step proof. Record whole-process peak
+memory, decoded PNG hash plus visual review, and active-step cancellation latency. Only accepted evidence may turn the
+candidate into the selected manifest/source plan.
 
-Do not infer a package tier from model names, use a moving branch/tag, hard-code unmeasured weights, download
-multi-gigabyte artifacts without explicit approval, execute a runtime, add UI availability, or claim hardware support
-before that evidence exists. Presentation should follow the selected package contract and expose only path-free status;
-there is still no silent cloud fallback and no worker network-isolation claim without a real runtime-specific process
-proof.
+Do not add UI availability, infer support from macOS/model names, weaken the evidence gate, reuse Bottie's approved
+Python-tool runtime, download the model or execute MLX-Gen without explicit approval, claim worker network isolation
+without a runtime-specific proof, or silently fall back to cloud.
 
 Do not merge, dispatch workflows, sign, release, publish, distribute, or perform Store work without separate
 authorization. Preserve unrelated untracked logo-kit, screenshot, and Linux public-key files.

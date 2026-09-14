@@ -4,8 +4,8 @@ use std::{path::Path, time::Duration};
 
 use futures_util::StreamExt;
 use reqwest::{
-    Client, Response, StatusCode,
-    header::{CONTENT_LENGTH, CONTENT_RANGE, ETAG, HeaderName, IF_RANGE, RANGE},
+    Client, RequestBuilder,
+    header::{IF_RANGE, RANGE},
 };
 use tokio::time::Instant;
 
@@ -17,8 +17,15 @@ use super::{
 
 #[path = "model_download/limits.rs"]
 mod limits;
+#[path = "model_download/response.rs"]
+mod response;
 #[path = "model_download/source.rs"]
 mod source;
+
+use response::{
+    validate_direct_response, validate_hugging_face_resolution, validate_resolved_response,
+};
+use source::SourceDelivery;
 
 pub(crate) use limits::{ModelDownloadCancellation, ModelDownloadLimits, ModelDownloadProgress};
 pub(crate) use source::{ModelFileSource, ModelSourcePlan};
@@ -45,7 +52,7 @@ pub(crate) enum DownloadError {
     Cache(CacheError),
 }
 
-/// Redirect-free native downloader that feeds only the transactional app-owned cache.
+/// Native downloader with no automatic redirects that feeds only the transactional app-owned cache.
 #[derive(Clone)]
 pub(crate) struct ModelDownloader {
     client: Client,
@@ -189,23 +196,29 @@ impl ModelDownloader {
                 .header(RANGE, format!("bytes={offset}-"))
                 .header(IF_RANGE, &source.strong_etag);
         }
-        let request_remaining = remaining(deadline)?;
-        let response = tokio::select! {
-            biased;
-            _ = cancellation.cancelled() => return Err(DownloadError::Cancelled),
-            result = tokio::time::timeout(
-                request_remaining,
-                request.timeout(request_remaining).send(),
-            ) => {
-                match result {
-                    Err(_) => return Err(DownloadError::Timeout),
-                    Ok(Err(error)) if error.is_timeout() => return Err(DownloadError::Timeout),
-                    Ok(Err(_)) => return Err(DownloadError::Transport),
-                    Ok(Ok(response)) => response,
+        let mut response = self.send_request(request, deadline, cancellation).await?;
+        match plan.delivery() {
+            SourceDelivery::Direct => {
+                validate_direct_response(
+                    &response,
+                    offset,
+                    contract.byte_size,
+                    &source.strong_etag,
+                )?;
+            }
+            SourceDelivery::HuggingFace => {
+                let resolved_url =
+                    validate_hugging_face_resolution(&response, plan, source, contract.byte_size)?;
+                let mut resolved_request = self.client.get(resolved_url);
+                if offset > 0 {
+                    resolved_request = resolved_request.header(RANGE, format!("bytes={offset}-"));
                 }
+                response = self
+                    .send_request(resolved_request, deadline, cancellation)
+                    .await?;
+                validate_resolved_response(&response, offset, contract.byte_size)?;
             }
         };
-        validate_response(&response, offset, contract.byte_size, &source.strong_etag)?;
         let mut writer = transaction
             .begin_file_write(&source.relative_path, offset)
             .map_err(DownloadError::Cache)?;
@@ -303,6 +316,30 @@ impl ModelDownloader {
         }
     }
 
+    async fn send_request(
+        &self,
+        request: RequestBuilder,
+        deadline: Instant,
+        cancellation: &ModelDownloadCancellation,
+    ) -> Result<reqwest::Response, DownloadError> {
+        let request_remaining = remaining(deadline)?;
+        tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => Err(DownloadError::Cancelled),
+            result = tokio::time::timeout(
+                request_remaining,
+                request.timeout(request_remaining).send(),
+            ) => {
+                match result {
+                    Err(_) => Err(DownloadError::Timeout),
+                    Ok(Err(error)) if error.is_timeout() => Err(DownloadError::Timeout),
+                    Ok(Err(_)) => Err(DownloadError::Transport),
+                    Ok(Ok(response)) => Ok(response),
+                }
+            }
+        }
+    }
+
     fn validate_limits(&self, plan: &ModelSourcePlan) -> Result<(), DownloadError> {
         if plan.manifest.expected_disk_bytes > self.limits.max_package_bytes
             || plan
@@ -327,58 +364,6 @@ fn contract<'a>(
         .iter()
         .find(|file| file.relative_path == source.relative_path)
         .ok_or(DownloadError::InvalidPlan)
-}
-
-fn validate_response(
-    response: &Response,
-    offset: u64,
-    total_size: u64,
-    expected_etag: &str,
-) -> Result<(), DownloadError> {
-    if response.status().is_redirection() || exact_header(response, &ETAG)? != Some(expected_etag) {
-        return Err(DownloadError::InvalidResponse);
-    }
-    let expected_remaining = total_size
-        .checked_sub(offset)
-        .ok_or(DownloadError::InvalidResponse)?;
-    if exact_content_length(response)? != expected_remaining {
-        return Err(DownloadError::InvalidResponse);
-    }
-    if offset == 0 {
-        if response.status() != StatusCode::OK || exact_header(response, &CONTENT_RANGE)?.is_some()
-        {
-            return Err(DownloadError::InvalidResponse);
-        }
-    } else {
-        if response.status() != StatusCode::PARTIAL_CONTENT {
-            return Err(DownloadError::InvalidResponse);
-        }
-        let expected = format!("bytes {offset}-{}/{}", total_size - 1, total_size);
-        if exact_header(response, &CONTENT_RANGE)? != Some(expected.as_str()) {
-            return Err(DownloadError::InvalidResponse);
-        }
-    }
-    Ok(())
-}
-
-fn exact_content_length(response: &Response) -> Result<u64, DownloadError> {
-    exact_header(response, &CONTENT_LENGTH)?
-        .and_then(|value| value.parse().ok())
-        .ok_or(DownloadError::InvalidResponse)
-}
-
-fn exact_header<'a>(
-    response: &'a Response,
-    name: &HeaderName,
-) -> Result<Option<&'a str>, DownloadError> {
-    let mut values = response.headers().get_all(name).iter();
-    let first = values.next();
-    if values.next().is_some() {
-        return Err(DownloadError::InvalidResponse);
-    }
-    first
-        .map(|value| value.to_str().map_err(|_| DownloadError::InvalidResponse))
-        .transpose()
 }
 
 fn remaining(deadline: Instant) -> Result<Duration, DownloadError> {
