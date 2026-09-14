@@ -493,7 +493,9 @@ Implement this once for both hosted and local adapters before adding more runtim
 - [ ] keep model acquisition separate and explicit: show exact model/runtime IDs, license, expected disk and memory use,
   source revision, download progress, and verified file hashes before activation. The native manifest, path-free status,
   explicit approval/progress phases, all-files size/SHA-256 activation gate, transactional app-owned cache, and
-  load-boundary re-verification are complete; a selected package manifest, downloader, and presentation remain;
+  load-boundary re-verification are complete. Strict approved-root/revision/path/validator source planning, resumable
+  redirect-free ranged download, source-bound partial restart, fixed byte/time ceilings, cancellation, and durable
+  progress reporting are also complete; a selected package manifest and presentation remain;
 - [ ] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
   generation, and expose only readiness/capability metadata to Svelte. App-owned resumable staging and atomic verified
   promotion are complete; real-runtime offline proof and path-free presentation remain;

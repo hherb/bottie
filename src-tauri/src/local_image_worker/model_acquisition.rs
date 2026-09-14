@@ -158,6 +158,11 @@ impl ModelAcquisition {
         }
     }
 
+    /// Returns the exact native manifest for trusted acquisition orchestration only.
+    pub(crate) fn manifest(&self) -> &ModelPackageManifest {
+        &self.manifest
+    }
+
     /// Records explicit approval and permits the separate downloader to start.
     pub(crate) fn begin_download(&mut self) -> Result<(), AcquisitionError> {
         if self.phase != AcquisitionPhase::AwaitingApproval {

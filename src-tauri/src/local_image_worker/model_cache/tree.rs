@@ -7,8 +7,8 @@ use std::{
 };
 
 use super::{
-    CacheError, MANIFEST_FILE, ModelPackageManifest, symlink_metadata_if_exists,
-    verify_contract_file,
+    CacheError, MANIFEST_FILE, ModelPackageManifest, SOURCE_BINDING_FILE,
+    symlink_metadata_if_exists, valid_source_binding, verify_contract_file,
 };
 
 /// Rejects unknown entries, unsafe types, escaped links, and invalid complete files.
@@ -49,6 +49,11 @@ fn validate_tree_entries(
         let relative = path.strip_prefix(root).map_err(|_| CacheError::Integrity)?;
         if metadata.is_dir() && directories.contains(relative) {
             validate_tree_entries(root, &path, files, directories, manifest)?;
+        } else if metadata.is_file() && relative == Path::new(SOURCE_BINDING_FILE) {
+            let binding = fs::read_to_string(&path).map_err(|_| CacheError::Integrity)?;
+            if !valid_source_binding(&binding) {
+                return Err(CacheError::Integrity);
+            }
         } else if !metadata.is_file()
             || (relative != Path::new(MANIFEST_FILE) && !files.contains(relative))
         {
