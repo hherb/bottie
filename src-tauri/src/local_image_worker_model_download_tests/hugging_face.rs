@@ -276,10 +276,15 @@ fn production_plan_rejects_untrusted_repository_and_resolution_hosts() {
     );
     let relative = format!(
         "/api/resolve-cache/models/AbstractFramework/qwen-image-2512-4bit/{SOURCE_REVISION}/\
-         weights/model.bin?etag=fixture"
+         weights%2Fmodel.bin?etag=fixture"
     )
     .replace(char::is_whitespace, "");
     assert!(plan.resolved_url(&source, &relative).is_ok());
+    let unencoded = relative.replace("weights%2Fmodel.bin", "weights/model.bin");
+    assert_eq!(
+        plan.resolved_url(&source, &unencoded).unwrap_err(),
+        DownloadError::InvalidResponse
+    );
 }
 
 #[test]

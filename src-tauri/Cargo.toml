@@ -6,6 +6,9 @@ license = "MIT"
 edition = "2024"
 default-run = "bottie"
 
+[features]
+local-image-runtime-proof = []
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -29,6 +32,18 @@ path = "src/updater_evidence.rs"
 name = "bottie-local-image-worker-fixture"
 path = "src/local_image_worker_fixture.rs"
 test = false
+bench = false
+
+[[bin]]
+name = "bottie-local-image-model-fetch"
+path = "src/local_image_model_fetch.rs"
+required-features = ["local-image-runtime-proof"]
+bench = false
+
+[[bin]]
+name = "bottie-local-image-runtime-proof"
+path = "src/local_image_runtime_proof.rs"
+required-features = ["local-image-runtime-proof"]
 bench = false
 
 [build-dependencies]
@@ -77,6 +92,7 @@ tokio = { version = "1", features = ["io-util", "process"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
+libc = "0.2"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSError", "NSString"] }
 objc2-local-authentication = { version = "0.3", features = ["LAContext", "block2"] }

@@ -123,6 +123,50 @@ fn interrupted_stream_resumes_after_restart_and_reopens_through_activation() {
 }
 
 #[test]
+fn promoted_content_reopens_after_runtime_proof_refines_expected_memory() {
+    let root = temp_cache("measured-memory");
+    let package = manifest();
+    let transaction = ModelCacheTransaction::open(&root, package.clone()).unwrap();
+    transaction
+        .write_file("model.json", 0, &mut Cursor::new(CONFIG_BYTES))
+        .unwrap();
+    transaction
+        .write_file("weights/model.bin", 0, &mut Cursor::new(MODEL_BYTES))
+        .unwrap();
+    transaction.promote().unwrap();
+
+    let mut measured = package;
+    measured.expected_memory_bytes = 24 * 1_024 * 1_024 * 1_024;
+    assert!(reopen_cached_package(&root, measured).unwrap().is_some());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn refined_memory_does_not_bypass_stored_manifest_validation() {
+    let root = temp_cache("invalid-stored-memory");
+    let package = manifest();
+    let transaction = ModelCacheTransaction::open(&root, package.clone()).unwrap();
+    transaction
+        .write_file("model.json", 0, &mut Cursor::new(CONFIG_BYTES))
+        .unwrap();
+    transaction
+        .write_file("weights/model.bin", 0, &mut Cursor::new(MODEL_BYTES))
+        .unwrap();
+    let location = transaction.promote().unwrap();
+    let manifest_path = PathBuf::from(location.model_directory).join(".bottie-model-manifest.json");
+    let mut stored: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    stored["expectedMemoryBytes"] = 0.into();
+    fs::write(manifest_path, serde_json::to_vec(&stored).unwrap()).unwrap();
+
+    assert_eq!(
+        reopen_cached_package(&root, package),
+        Err(CacheError::InvalidManifest)
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn manifest_drift_discards_the_previous_partial_transaction() {
     let root = temp_cache("drift");
     let transaction = ModelCacheTransaction::open(&root, manifest()).unwrap();

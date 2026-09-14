@@ -1,6 +1,6 @@
 # Local image model package evidence
 
-Last reviewed: 2026-09-14
+Last reviewed: 2026-09-15
 
 ## Candidate
 
@@ -25,19 +25,36 @@ Reviewed upstream material:
 - [MLX-Gen v0.18.2 commit](https://github.com/lpalbou/mlx-gen/commit/fca64a283737c68b67a7bfd88d93f7aa9101a95c)
 - [MLX-Gen package and quantization guidance](https://github.com/lpalbou/mlx-gen/blob/main/docs/quantization.md)
 
-## Acceptance boundary
+## Accepted Apple-silicon proof
 
-The candidate is deliberately not selected or downloadable yet. `model_package.rs` requires native evidence tied to
-the exact package revision, runtime commit, hardware profile, and bounded generation profile before it can produce a
-`ModelPackageManifest` and `ModelSourcePlan`. Acceptance also requires:
+The candidate passed its bounded proof and is now the selected first package for the exact
+`apple-m3-max-128gb` evidence profile. Selection does not make the product route available on unprobed hardware.
+
+- Decoded RGB pixel SHA-256: `4cd2921c3cf0a43f791cd725cf72da1ff0be04fe97883a9a4b32332cc9cfc0a5`
+- Worker executable: 56,008,496 bytes, SHA-256
+  `187bfc58b30328278e52500c2b28999f2ff56cf510dd0790a3e90100aa81464b`
+- Canonical worker bundle: 1,107,880,778 bytes, SHA-256
+  `7a5db3e6c1c59c5d9264d8fed1f40f9a160bc8c4d64c642464588504856f0bf1`
+- Whole-process lifetime peak physical footprint: 29,526,129,448 bytes
+- Active denoising-boundary cooperative cancellation: 110 ms
+- Operating-system network-denial probe: passed
+- Decoded 512x512 RGB PNG visual review: passed
+
+The worker was built from the pinned MLX-Gen checkout and frozen `uv.lock` with CPython 3.13.14, PyInstaller 6.16.0,
+and `pyinstaller-hooks-contrib` 2026.7. PyInstaller relocates `libmlx.dylib` to its onedir root, so the build explicitly
+places the exact `mlx.metallib` beside that relocated library; omitting that data placement fails closed at model load.
+
+`model_package.rs` requires evidence tied to the exact package revision, runtime commit, hardware profile, bounded
+generation profile, and network sandbox before it can produce a `ModelPackageManifest` and `ModelSourcePlan`.
+Acceptance also requires:
 
 - an exact worker executable size and SHA-256;
 - a measured whole-process peak-memory value;
-- a decoded PNG SHA-256 plus explicit visual review;
+- a decoded RGB pixel SHA-256 plus explicit visual review;
 - active-step cooperative cancellation within the worker manager's three-second grace.
 
-These fields are a fail-closed native contract, not evidence that a run happened. Bottie must obtain them from an
-isolated real-runtime proof before the candidate can be enabled.
+These fields remain a fail-closed native contract. The selected evidence is frozen in code so later runtime integration
+can re-hash the installed worker bundle before use.
 
 ## Hugging Face delivery
 
@@ -48,12 +65,16 @@ keeps automatic redirects disabled and treats the first response as a resolution
 - the exact revision/path under Hugging Face's relative resolve-cache route; or
 - HTTPS destinations beneath `*.cdn.hf.co` or `*.xethub.hf.co`, without user info, fragments, or custom ports.
 
-The second response cannot redirect again and must still match the exact full or ranged byte contract. Final package
+Nested Hugging Face cache paths are accepted only in the resolver's exact percent-encoded single-segment form. The
+second response cannot redirect again and must still match the exact full or ranged byte contract. Final package
 promotion rechecks every file size and SHA-256. Resumable staging binds the delivery mode as well as repository root,
-revision, paths, and validators, so a transport-policy change cannot reuse an old partial.
+revision, paths, and validators, so a transport-policy change cannot reuse an old partial. A response-envelope or range
+failure cannot append bytes and therefore retains an already verified prefix; source drift, unsafe paths, and integrity
+failures still discard it. The live proof resumed after interruption and crossed the previously failing nested path.
 
-## Not performed
+## Remaining boundary
 
-No model weights were downloaded, no MLX-Gen environment or worker was built, no runtime was executed, and no output,
-memory, cancellation, offline-generation, or worker network-isolation claim was made. The next proof needs separate
-approval because the exact candidate download is 17,442,350,812 bytes.
+The proof cache, worker build, and PNG remain ignored local evidence and are not application payloads. No Svelte UI,
+automatic download, general hardware availability, cloud fallback, signing, release, or distribution work was
+performed. Product integration must probe hardware, verify the packaged worker against the accepted bundle evidence,
+and expose only path-free readiness metadata before any local route becomes available.
