@@ -5,6 +5,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
 import { DEFAULT_APPEARANCE, type AppearancePreferences } from "$lib/appearance";
 import { buildTranscriptComposerDraft, canUseTranscriptAsText } from "$lib/microphone";
+import { getLocalImageAvailability, type LocalImageAvailabilityMetadata } from "$lib/local-image";
 import {
   chatTurnsForMessages,
   completionMeta,
@@ -98,6 +99,8 @@ export class PageState {
   imageSize = $state<ImageGenerationSize>("square");
   imageCount = $state(1);
   imageFeedback = $state("");
+  localImageAvailability = $state<LocalImageAvailabilityMetadata | null>(null);
+  localImageAvailabilityFailed = $state(!isTauri());
   microphoneTranscriptDraftFeedback = $state("");
   microphoneTranscriptDraftError = $state(false);
   tools = new ToolPreferenceState();
@@ -212,6 +215,7 @@ export class PageState {
     } catch (error) {
       console.warn("Could not read provider settings", error);
     }
+    void this.refreshLocalImageAvailability();
     if (!(await this.recovery.initialize())) {
       this.providerStatus = "offline";
       return;
@@ -226,6 +230,17 @@ export class PageState {
     ]);
     this.messages = messages;
     this.tools.restore(this.providerSettings, this.toolAvailability);
+  }
+  /** Refreshes exact path-free local-image readiness without blocking other startup work. */
+  async refreshLocalImageAvailability(): Promise<void> {
+    this.localImageAvailabilityFailed = false;
+    try {
+      this.localImageAvailability = await getLocalImageAvailability();
+    } catch (error) {
+      this.localImageAvailability = null;
+      this.localImageAvailabilityFailed = true;
+      console.warn("Could not verify local image availability", error);
+    }
   }
   /** Releases native event listeners when the page is unmounted. */
   dispose(): void {

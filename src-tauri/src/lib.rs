@@ -49,6 +49,8 @@ mod web_search_commands;
 #[cfg(test)]
 mod generation_tools_tests;
 #[cfg(test)]
+mod local_image_worker_availability_service_tests;
+#[cfg(test)]
 mod local_image_worker_availability_tests;
 #[cfg(test)]
 mod local_image_worker_manager_tests;
@@ -121,6 +123,9 @@ use inference::{
     save_provider_settings,
 };
 use local_audio_preferences::LocalAudioPreferenceStore;
+use local_image_worker::availability_service::{
+    LocalImageAvailabilityMetadata, LocalImageAvailabilityService, LocalImageServiceError,
+};
 use localmail::{
     get_localmail_connection_status, open_email, probe_localmail_connection, search_email,
     test_localmail_connection, update_localmail_connection,
@@ -171,6 +176,7 @@ struct AppState {
     attachment_processing: AttachmentProcessor,
     semantic_indexing: SemanticIndexer,
     storage_management: tauri::async_runtime::Mutex<()>,
+    local_image_availability: LocalImageAvailabilityService,
 }
 
 /// Starts the non-blocking startup rotation and records only path-redacted session diagnostics.
@@ -205,6 +211,14 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
         };
         record_diagnostic(&diagnostics, level, event, None, Some(&detail)).await;
     });
+}
+
+#[tauri::command]
+/// Re-verifies the selected local-image installation off the WebView task and returns path-free metadata.
+async fn get_local_image_availability(
+    state: State<'_, AppState>,
+) -> Result<LocalImageAvailabilityMetadata, LocalImageServiceError> {
+    state.local_image_availability.inspect().await
 }
 
 #[tauri::command]
@@ -712,6 +726,11 @@ pub fn run() {
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
             let embedding_cache_path = app.path().app_data_dir()?.join("embedding-models");
             let speech_model_cache_path = app.path().app_data_dir()?.join("speech-models");
+            let local_image_availability = LocalImageAvailabilityService::new(
+                app.path().resource_dir()?,
+                app.path().app_data_dir()?,
+            )
+            .map_err(|_| std::io::Error::other("local image availability setup failed"))?;
             let python_runtime = initialize_python_runtime(app)
                 .map_err(|error| std::io::Error::other(error.message()))?;
             let startup = ConversationStore::initialize_for_app(database_path)
@@ -788,6 +807,7 @@ pub fn run() {
                 attachment_processing,
                 semantic_indexing,
                 storage_management: tauri::async_runtime::Mutex::new(()),
+                local_image_availability,
             });
             Ok(())
         })
@@ -803,6 +823,7 @@ pub fn run() {
             update_provider_settings,
             remember_provider_selection,
             complete_first_run_setup,
+            get_local_image_availability,
             get_microphone_status,
             list_microphone_input_devices,
             select_microphone_input_device,

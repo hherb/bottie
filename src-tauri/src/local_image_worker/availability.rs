@@ -2,6 +2,7 @@
 
 use std::{fs, io::ErrorKind, path::Path};
 
+use serde::Serialize;
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
@@ -98,7 +99,8 @@ pub(crate) enum ModelCacheReadiness {
 }
 
 /// Coarse path-free reason that the selected local image route is or is not ready.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum LocalImageAvailability {
     /// The selected runtime has no accepted implementation for this operating system.
     UnsupportedPlatform,
@@ -160,7 +162,13 @@ pub(crate) fn inspect_worker_installation(
     executable: &Path,
     evidence: &PackageAcceptanceEvidence,
 ) -> WorkerInstallationReadiness {
-    if path_is_missing(bundle_root) || path_is_missing(executable) {
+    if path_is_missing(bundle_root) {
+        return WorkerInstallationReadiness::Missing;
+    }
+    if !bundle_root_is_safe_directory(bundle_root) {
+        return WorkerInstallationReadiness::Mismatch;
+    }
+    if path_is_missing(executable) {
         return WorkerInstallationReadiness::Missing;
     }
     if !executable_is_runnable(executable) {
@@ -178,6 +186,10 @@ pub(crate) fn inspect_worker_installation(
     } else {
         WorkerInstallationReadiness::Mismatch
     }
+}
+
+fn bundle_root_is_safe_directory(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_dir())
 }
 
 /// Re-verifies a promoted exact model without creating cache state or returning its location.
