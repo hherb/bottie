@@ -4,54 +4,58 @@ Last verified: 2026-09-14
 
 ## Start here
 
-PR #168 merged into `main` at `d2ae4be`. The current branch completes the first two bounded Milestone 8.3 foundations:
-the closed private worker protocol and its pure long-lived manager lifecycle policy. Read Milestone 8.3 in `ROADMAP.md`
-and `src-tauri/src/local_image_worker/` before adding transport behavior.
+PR #169 merged into `main` at `2be34bf`. Branch `codex/local-image-worker-transport` completes the next two bounded
+Milestone 8.3 foundations: private process ownership for the local image-worker manager and the explicit native model
+acquisition/activation policy. Read `ROADMAP.md` Milestone 8.3 and `src-tauri/src/local_image_worker/` before
+continuing.
 
 ## Completed slices
 
-- Protocol version 1 defines closed `hello`, `capabilities`, `load`, `generate`, `progress`, `cancel`, `result`, and
-  `shutdown` schemas. Four-byte unsigned big-endian framing has a 1 MiB payload ceiling and supports fragmented and
-  consecutive private-pipe frames.
-- Every identity, prompt, dimension, count, capability, progress, model directory, output name, and safe worker error
-  has an explicit bound. Unknown messages/fields, unsupported versions, malformed/truncated/oversized frames, invalid
-  result relationships, duplicate terminal results, relative model directories, path-shaped errors, and
-  credential-shaped errors fail closed without retaining raw detail.
-- The pure Rust manager requires ordered hello/capability negotiation, keeps one verified model identity warm, admits
-  one load or generation at a time, correlates progress/results to the exact operation, rejects stale or cross-request
-  events, validates completed count/dimensions/seed/output uniqueness against the accepted request and negotiated
-  capabilities, and clears process-specific state on failure or exit.
-- Cooperative cancellation has a named three-second grace policy. A terminal result inside the grace restores idle
-  state; expiry requires the future transport to kill and reap the worker. A new handshake remains blocked until the
-  transport explicitly records process exit. Clean shutdown is admitted only while idle.
-- This subsystem remains separate from Bottie's user-approved Python tool runtime. Exact hosted
-  `qwen-image-2.0-2026-03-03` remains distinct from local open-weight `Qwen/Qwen-Image-2512`.
+- `WorkerTransport` spawns one exact absolute executable without a shell, clears inherited environment and stdio,
+  negotiates the existing protocol over private stdin/stdout, and continuously discards stderr under a 64 KiB ceiling.
+  Handshake, event reads, frame writes, shutdown, and reaping have named deadlines.
+- Fragmented and consecutive frames feed the existing strict lifecycle/correlation manager. Protocol, ordering, EOF,
+  read/write, stderr, cancellation, and shutdown failures kill and reap the child and clear process-specific model and
+  capability state. Cooperative cancellation retains the warm worker only when its terminal result arrives inside the
+  existing three-second grace period.
+- A deterministic Rust fixture process covers private-pipe negotiation, environment isolation, long-lived load and
+  generation, early exit, hung handshake/operation/shutdown, malformed and out-of-order output, stderr overflow,
+  cooperative cancellation, forced cancellation teardown, and clean shutdown. No localhost service is involved.
+- `ModelAcquisition` validates bounded exact model/runtime/license/source/file metadata before approval, exposes only
+  typed path-free status, requires monotonic download progress and explicit phase order, retains paths and hashes in
+  Rust, and produces a worker `ModelLocation` only after every declared file passes exact size and SHA-256 verification.
+  Portable file names are collision-checked case-insensitively, symlink escapes fail, and hosted-only
+  `qwen-image-2.0-2026-03-03` cannot masquerade as a local package.
+- Exact hosted Qwen Image 2.0 remains distinct from local open-weight `Qwen/Qwen-Image-2512`. The local image worker
+  remains separate from Bottie's user-approved Python tool runtime.
 
 ## Validation
 
-- `npm run format:check`, `npm run check`, `npm test`, and `npm run build` pass.
-- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`, `cargo check --manifest-path src-tauri/Cargo.toml`, and
-  the serialized Rust suite pass using isolated `/private/tmp/bottie-local-worker-target` because the standard target
-  directory remains held by a pre-existing Cargo build lock.
-- The host-local Rust suite passes 557 tests with 36 intentionally ignored, plus 1 updater-evidence test. Its initial
-  sandboxed run failed only because three existing image-download fixtures could not bind loopback listeners; the
-  identical host-local rerun passed. The focused local-worker suite passes 20 protocol and lifecycle tests.
-- `git diff --check` and final self-review pass.
-- No process, localhost listener, model/runtime load, hardware probe, local generation, UI behavior, provider request,
-  or billable action was exercised. No WebView presentation changed, so browser/native UI review was not applicable.
+- Focused private-process suite: 8 passed.
+- Focused model-acquisition suite: 6 passed on this macOS host, including the Unix symlink-escape case.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check` and
+  `cargo check --manifest-path src-tauri/Cargo.toml` pass.
+- The host-local full Rust suite passes 563 library tests with 36 intentionally ignored, 1 updater-evidence test, and
+  all 8 private-process integration tests. Its initial sandboxed run failed only because the three existing
+  image-download fixtures could not bind loopback listeners; the identical host-local rerun passed.
+- `npm run format:check`, `npm run check`, `npm test` (360 passed, 3 skipped), and `npm run build` pass. No WebView
+  presentation changed, so browser/native UI review is not applicable.
+- No model/runtime package, process outside the deterministic fixture, localhost listener, hardware probe, provider
+  request, billable action, local generation, UI behavior, or user-approved Python execution was exercised.
 
 ## Next slice
 
-Attach a private-process transport to the existing manager policy. Spawn only one exact trusted executable without a
-shell, clear inherited environment and stdio, use its private stdin/stdout for the versioned frames, bound and discard
-stderr, enforce handshake/read/write/shutdown deadlines, and make every protocol/order/EOF/timeout failure kill and reap
-the child. Exercise the transport with a deterministic fixture worker, including fragmented frames, early exit, hung
-handshake, malformed output, cooperative cancellation inside three seconds, forced teardown after three seconds, clean
-shutdown, and absence of inherited environment values.
+Add an app-owned transactional model cache behind the acquisition policy. Derive fixed staging and final directories
+from a native manifest identity, accept writes only for declared portable paths, hash and size while streaming, resume
+only an exact matching model/runtime/source manifest, discard drifted or failed partials, durably promote a completely
+verified package, and reopen it through the existing all-files activation gate. Exercise interrupted writes, restart
+resume, manifest drift, symlink/path escape, digest/size mismatch, atomic promotion, and cleanup with injected local
+byte sources.
 
-Do not bundle MLX-Gen, Python, Diffusers, model acquisition, network access, hardware probing, actual weight loading or
-generation, Svelte IPC/UI, provider fallback, or the user-approved Python tool runtime into that slice. Do not claim
-the roadmap's worker-manager item complete until process ownership, kill, and reap are connected and tested.
+Do not bundle a network downloader, a guessed MLX-Gen package, model weights, runtime execution, hardware probing,
+Svelte IPC/UI, provider fallback, or the user-approved Python tool runtime into that slice. The acquisition roadmap item
+remains incomplete until a measured package manifest, downloader, and explicit presentation exist. Do not claim the
+cache prevents post-verification mutation until the worker load boundary re-verifies or otherwise binds the exact bytes.
 
 Do not merge, dispatch workflows, sign, release, publish, distribute, or perform Store work without separate
 authorization. Preserve unrelated untracked logo-kit, screenshot, and Linux public-key files.

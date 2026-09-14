@@ -51,6 +51,8 @@ mod generation_tools_tests;
 #[cfg(test)]
 mod local_image_worker_manager_tests;
 #[cfg(test)]
+mod local_image_worker_model_acquisition_tests;
+#[cfg(test)]
 mod local_image_worker_tests;
 #[cfg(test)]
 mod localmail_tool_tests;

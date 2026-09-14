@@ -4,7 +4,9 @@ use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
 
+#[path = "protocol/framing.rs"]
 mod framing;
+#[path = "protocol/validation.rs"]
 mod validation;
 
 use framing::encode_frame;
