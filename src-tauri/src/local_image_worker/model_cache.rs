@@ -20,12 +20,15 @@ use super::{
 mod filesystem;
 #[path = "model_cache/tree.rs"]
 mod tree;
+#[path = "model_cache/writer.rs"]
+mod writer;
 
 use filesystem::{
     hash_prefix, open_for_append, remove_failed_file, remove_managed_entry,
     symlink_metadata_if_exists, sync_directory, sync_parent, verify_contract_file,
 };
 use tree::validate_cache_tree;
+pub(crate) use writer::CacheFileWriter;
 
 /// Directory containing resumable transactions.
 const STAGING_DIRECTORY: &str = "staging";
@@ -33,6 +36,8 @@ const STAGING_DIRECTORY: &str = "staging";
 const PACKAGES_DIRECTORY: &str = "packages";
 /// Native-only exact manifest retained with staged and promoted bytes.
 const MANIFEST_FILE: &str = ".bottie-model-manifest.json";
+/// Opaque digest binding resumable bytes to their exact repository source plan.
+const SOURCE_BINDING_FILE: &str = ".bottie-model-source-binding";
 /// Prefix for a same-directory durable manifest write.
 const MANIFEST_TEMP_PREFIX: &str = ".bottie-model-manifest";
 /// Maximum serialized exact manifest accepted from the cache.
@@ -100,6 +105,26 @@ impl ModelCacheTransaction {
         cache_root: &Path,
         manifest: ModelPackageManifest,
     ) -> Result<Self, CacheError> {
+        Self::open_internal(cache_root, manifest, None)
+    }
+
+    /// Opens a transaction whose retained partials must match one exact opaque source-plan digest.
+    pub(crate) fn open_bound(
+        cache_root: &Path,
+        manifest: ModelPackageManifest,
+        source_binding: &str,
+    ) -> Result<Self, CacheError> {
+        if !valid_source_binding(source_binding) {
+            return Err(CacheError::InvalidState);
+        }
+        Self::open_internal(cache_root, manifest, Some(source_binding))
+    }
+
+    fn open_internal(
+        cache_root: &Path,
+        manifest: ModelPackageManifest,
+        source_binding: Option<&str>,
+    ) -> Result<Self, CacheError> {
         validate_manifest(&manifest)?;
         let cache_root = prepare_cache_root(cache_root)?;
         let staging_parent = ensure_managed_directory(&cache_root, STAGING_DIRECTORY)?;
@@ -112,6 +137,9 @@ impl ModelCacheTransaction {
             let resumes_exactly = metadata.is_dir()
                 && !metadata.file_type().is_symlink()
                 && read_manifest(&staging_root).is_ok_and(|cached| cached == manifest)
+                && source_binding.is_none_or(|expected| {
+                    read_source_binding(&staging_root).is_ok_and(|cached| cached == expected)
+                })
                 && validate_cache_tree(&staging_root, &manifest).is_ok();
             if !resumes_exactly {
                 remove_managed_entry(&staging_parent, &staging_root)?;
@@ -121,6 +149,9 @@ impl ModelCacheTransaction {
             fs::create_dir(&staging_root).map_err(|_| CacheError::Storage)?;
             sync_directory(&staging_parent).map_err(|_| CacheError::Storage)?;
             write_manifest(&staging_root, &manifest_bytes)?;
+            if let Some(source_binding) = source_binding {
+                write_source_binding(&staging_root, source_binding)?;
+            }
         }
         validate_cache_tree(&staging_root, &manifest)?;
         Ok(Self {
@@ -158,63 +189,34 @@ impl ModelCacheTransaction {
         expected_offset: u64,
         source: &mut dyn Read,
     ) -> Result<CacheWriteStatus, CacheError> {
+        let mut writer = self.begin_file_write(relative_path, expected_offset)?;
+        let mut buffer = [0_u8; STREAM_BUFFER_BYTES];
+        loop {
+            let count = match source.read(&mut buffer) {
+                Ok(count) => count,
+                Err(_) => return writer.retain_partial(CacheError::Interrupted),
+            };
+            if count == 0 {
+                break;
+            }
+            writer.append(&buffer[..count])?;
+        }
+        writer.finish()
+    }
+
+    /// Opens one exact file once so an async downloader can hash and append without quadratic re-reads.
+    pub(crate) fn begin_file_write(
+        &self,
+        relative_path: &str,
+        expected_offset: u64,
+    ) -> Result<CacheFileWriter, CacheError> {
         let contract = self.contract(relative_path)?;
         let path = self.secure_file_path(contract, true)?;
         let current_offset = self.resume_offset(relative_path)?;
         if current_offset != expected_offset || current_offset == contract.byte_size {
             return Err(CacheError::InvalidState);
         }
-        let mut hasher = hash_prefix(&path, current_offset)?;
-        let mut destination = open_for_append(&path, current_offset)?;
-        let mut total = current_offset;
-        let mut buffer = [0_u8; STREAM_BUFFER_BYTES];
-        loop {
-            let count = match source.read(&mut buffer) {
-                Ok(count) => count,
-                Err(_) => {
-                    if destination.sync_all().is_err() {
-                        drop(destination);
-                        remove_failed_file(&path)?;
-                        return Err(CacheError::Storage);
-                    }
-                    drop(destination);
-                    sync_parent(&path)?;
-                    return Err(CacheError::Interrupted);
-                }
-            };
-            if count == 0 {
-                break;
-            }
-            total = total
-                .checked_add(count as u64)
-                .ok_or(CacheError::Integrity)?;
-            if total > contract.byte_size {
-                drop(destination);
-                remove_failed_file(&path)?;
-                return Err(CacheError::Integrity);
-            }
-            if destination.write_all(&buffer[..count]).is_err() {
-                drop(destination);
-                remove_failed_file(&path)?;
-                return Err(CacheError::Storage);
-            }
-            hasher.update(&buffer[..count]);
-        }
-        if destination.sync_all().is_err() {
-            drop(destination);
-            remove_failed_file(&path)?;
-            return Err(CacheError::Storage);
-        }
-        drop(destination);
-        sync_parent(&path)?;
-        if total < contract.byte_size {
-            return Ok(CacheWriteStatus::Incomplete);
-        }
-        if format!("{:x}", hasher.finalize()) != contract.sha256 {
-            remove_failed_file(&path)?;
-            return Err(CacheError::Integrity);
-        }
-        Ok(CacheWriteStatus::Complete)
+        CacheFileWriter::open(path, current_offset, contract)
     }
 
     /// Verifies and atomically promotes a complete transaction into the immutable package area.
@@ -300,6 +302,13 @@ impl ModelCacheTransaction {
     pub(crate) fn final_root_for_test(&self) -> PathBuf {
         self.final_root.clone()
     }
+}
+
+fn valid_source_binding(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
 /// Reopens one promoted exact package through the existing all-files activation gate.
@@ -406,6 +415,33 @@ fn read_manifest(root: &Path) -> Result<ModelPackageManifest, CacheError> {
     }
     let bytes = fs::read(path).map_err(|_| CacheError::Integrity)?;
     serde_json::from_slice(&bytes).map_err(|_| CacheError::Integrity)
+}
+
+fn write_source_binding(root: &Path, source_binding: &str) -> Result<(), CacheError> {
+    let destination = root.join(SOURCE_BINDING_FILE);
+    let mut file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&destination)
+        .map_err(|_| CacheError::Storage)?;
+    file.write_all(source_binding.as_bytes())
+        .map_err(|_| CacheError::Storage)?;
+    file.sync_all().map_err(|_| CacheError::Storage)?;
+    drop(file);
+    sync_directory(root).map_err(|_| CacheError::Storage)
+}
+
+fn read_source_binding(root: &Path) -> Result<String, CacheError> {
+    let path = root.join(SOURCE_BINDING_FILE);
+    let metadata = fs::symlink_metadata(&path).map_err(|_| CacheError::Integrity)?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() || metadata.len() != 64 {
+        return Err(CacheError::Integrity);
+    }
+    let value = fs::read_to_string(path).map_err(|_| CacheError::Integrity)?;
+    if !valid_source_binding(&value) {
+        return Err(CacheError::Integrity);
+    }
+    Ok(value)
 }
 
 fn activate_package(
