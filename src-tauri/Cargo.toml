@@ -25,6 +25,12 @@ bench = false
 name = "bottie-updater-evidence"
 path = "src/updater_evidence.rs"
 
+[[bin]]
+name = "bottie-local-image-worker-fixture"
+path = "src/local_image_worker_fixture.rs"
+test = false
+bench = false
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

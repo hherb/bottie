@@ -486,12 +486,14 @@ Implement this once for both hosted and local adapters before adding more runtim
 - [x] Define a versioned private worker protocol shared by every local backend: `hello/capabilities`, `load`,
   `generate`, `progress`, `cancel`, `result`, and `shutdown`, with closed schemas and bounded frames over private pipes
   rather than a public localhost API;
-- [ ] add a long-lived Rust-owned worker manager so large weights load once, with one generation at a time initially,
-  cooperative step cancellation, forced teardown after a bounded grace period, and no shell interpretation. The pure
-  ordered lifecycle/correlation policy is complete; process ownership, pipe I/O, timeout enforcement, kill, and reap
-  remain before this item is complete;
+- [x] add a long-lived Rust-owned worker manager so large weights load once, with one generation at a time initially,
+  cooperative step cancellation, forced teardown after a bounded grace period, and no shell interpretation. The
+  ordered lifecycle/correlation policy and private child-process transport own bounded stdin/stdout/stderr, clear the
+  inherited environment, enforce handshake/read/write/shutdown deadlines, and kill and reap on failure;
 - [ ] keep model acquisition separate and explicit: show exact model/runtime IDs, license, expected disk and memory use,
-  source revision, download progress, and verified file hashes before activation;
+  source revision, download progress, and verified file hashes before activation. The native manifest, path-free status,
+  explicit approval/progress phases, and all-files size/SHA-256 activation gate are complete; app-owned cache
+  transactions, a selected package manifest, downloader, and presentation remain;
 - [ ] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
   generation, and expose only readiness/capability metadata to Svelte;
 - [ ] probe hardware and runtime support rather than inferring it from the operating system. An unavailable local route

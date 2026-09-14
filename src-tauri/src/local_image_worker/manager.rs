@@ -9,7 +9,7 @@ use super::protocol::{
 };
 
 /// Cooperative cancellation grace before the owning transport must kill the worker.
-const CANCELLATION_GRACE: Duration = Duration::from_secs(3);
+pub(super) const CANCELLATION_GRACE: Duration = Duration::from_secs(3);
 
 /// Stable manager failures without worker payload or native path detail.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,7 +93,7 @@ struct GenerationExpectation {
     max_pixels: u64,
 }
 
-/// Rust-owned lifecycle state for a worker process that will be attached by a later transport slice.
+/// Rust-owned lifecycle state for one attached private worker process.
 #[derive(Debug)]
 pub(crate) struct WorkerManager {
     phase: Phase,
