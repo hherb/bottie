@@ -2,6 +2,9 @@
 
 use std::{fs, io::ErrorKind, path::Path};
 
+#[cfg(unix)]
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
+
 use super::{
     model_cache::inspect_cached_package,
     model_package::{
@@ -160,6 +163,9 @@ pub(crate) fn inspect_worker_installation(
     if path_is_missing(bundle_root) || path_is_missing(executable) {
         return WorkerInstallationReadiness::Missing;
     }
+    if !executable_is_runnable(executable) {
+        return WorkerInstallationReadiness::Mismatch;
+    }
     let Ok(measured) = hash_worker_bundle(bundle_root, executable) else {
         return WorkerInstallationReadiness::Mismatch;
     };
@@ -191,4 +197,49 @@ fn path_is_missing(path: &Path) -> bool {
         fs::symlink_metadata(path),
         Err(error) if error.kind() == ErrorKind::NotFound
     )
+}
+
+#[cfg(unix)]
+fn executable_is_runnable(path: &Path) -> bool {
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return false;
+    };
+    if !metadata.file_type().is_file() {
+        return false;
+    }
+    // SAFETY: these identity reads have no pointer arguments or side effects.
+    let (effective_user, effective_group) = unsafe { (libc::geteuid(), libc::getegid()) };
+    let mode = metadata.permissions().mode();
+    if effective_user == 0 {
+        return mode & 0o111 != 0;
+    }
+    let required_bit = if metadata.uid() == effective_user {
+        0o100
+    } else if process_belongs_to_group(metadata.gid(), effective_group) {
+        0o010
+    } else {
+        0o001
+    };
+    mode & required_bit != 0
+}
+
+#[cfg(unix)]
+fn process_belongs_to_group(group: libc::gid_t, effective_group: libc::gid_t) -> bool {
+    if group == effective_group {
+        return true;
+    }
+    // SAFETY: a zero-size query requires no output buffer.
+    let count = unsafe { libc::getgroups(0, std::ptr::null_mut()) };
+    if count <= 0 {
+        return false;
+    }
+    let mut groups = vec![0; count as usize];
+    // SAFETY: the vector is writable for exactly the count returned by the preceding query.
+    let copied = unsafe { libc::getgroups(count, groups.as_mut_ptr()) };
+    copied == count && groups.contains(&group)
+}
+
+#[cfg(not(unix))]
+fn executable_is_runnable(_path: &Path) -> bool {
+    true
 }

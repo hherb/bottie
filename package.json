@@ -60,7 +60,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"scripts/**/*.mjs\" \"static/**/*.js\"",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "node scripts/macos-development-signing.mjs --tauri"
+    "tauri": "node scripts/macos-development-signing.mjs --tauri",
+    "tauri:python": "node scripts/macos-development-signing.mjs --tauri-python dev"
   },
   "license": "MIT",
   "dependencies": {

@@ -2,6 +2,9 @@
 
 use std::fs;
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 use sha2::{Digest, Sha256};
 
 use crate::local_image_worker::{
@@ -164,6 +167,8 @@ fn installed_worker_is_rehashed_against_the_selected_evidence() {
     fs::create_dir_all(root.join("runtime")).unwrap();
     let executable = root.join("bottie-local-image-mlx-worker");
     fs::write(&executable, b"worker").unwrap();
+    #[cfg(unix)]
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
     fs::write(root.join("runtime/library"), b"runtime").unwrap();
     let measured = hash_worker_bundle(&root, &executable).unwrap();
     let selected = selected_package(
@@ -186,6 +191,44 @@ fn installed_worker_is_rehashed_against_the_selected_evidence() {
     assert_eq!(
         inspect_worker_installation(&root.join("absent"), &executable, selected.evidence()),
         WorkerInstallationReadiness::Missing
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn installed_worker_requires_executable_permission() {
+    let root = temporary_directory("availability-worker-permission");
+    fs::create_dir_all(root.join("runtime")).unwrap();
+    let executable = root.join("bottie-local-image-mlx-worker");
+    fs::write(&executable, b"worker").unwrap();
+    fs::write(root.join("runtime/library"), b"runtime").unwrap();
+    let measured = hash_worker_bundle(&root, &executable).unwrap();
+    let selected = selected_package(
+        measured.executable_sha256,
+        measured.executable_byte_size,
+        measured.bundle_sha256,
+        measured.bundle_byte_size,
+        24 * GIB,
+    );
+
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o644)).unwrap();
+    assert_eq!(
+        inspect_worker_installation(&root, &executable, selected.evidence()),
+        WorkerInstallationReadiness::Mismatch
+    );
+    // SAFETY: reading the effective user identity has no pointer arguments or side effects.
+    if unsafe { libc::geteuid() } != 0 {
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o401)).unwrap();
+        assert_eq!(
+            inspect_worker_installation(&root, &executable, selected.evidence()),
+            WorkerInstallationReadiness::Mismatch
+        );
+    }
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o500)).unwrap();
+    assert_eq!(
+        inspect_worker_installation(&root, &executable, selected.evidence()),
+        WorkerInstallationReadiness::Verified
     );
     fs::remove_dir_all(root).unwrap();
 }

@@ -5,8 +5,8 @@ use std::{fs, path::Path};
 use uuid::Uuid;
 
 use crate::python_runtime::{
-    PythonBundlePaths, PythonBundlePlatform, resolve_python_bundle_paths,
-    windows_profile_arguments, windows_profile_moniker,
+    PythonBundlePaths, PythonBundlePlatform, python_runtime_is_enabled,
+    resolve_python_bundle_paths, windows_profile_arguments, windows_profile_moniker,
 };
 
 /// Creates one isolated fixture root below the host temporary directory.
@@ -21,6 +21,30 @@ fn write_file(path: &Path) {
     fs::create_dir_all(path.parent().expect("fixture file should have a parent"))
         .expect("fixture parent should be created");
     fs::write(path, b"fixture").expect("fixture file should be written");
+}
+
+/// Creates the complete macOS client and its nested private service.
+fn macos_client_bundle(client_contents: &Path) {
+    write_file(&client_contents.join("Info.plist"));
+    write_file(
+        &client_contents
+            .join("MacOS")
+            .join("bottie-python-xpc-client"),
+    );
+    let service = client_contents
+        .join("XPCServices")
+        .join("com.bottie.python-runner.xpc")
+        .join("Contents");
+    write_file(&service.join("Info.plist"));
+    write_file(&service.join("MacOS").join("bottie-python-xpc-service"));
+    write_file(&service.join("Helpers").join("bottie-python-runner"));
+    write_file(
+        &service
+            .join("Resources")
+            .join("python-runtime-evidence.json"),
+    );
+    fs::create_dir_all(service.join("Resources").join("python-runtime"))
+        .expect("nested runtime directory should be created");
 }
 
 /// Creates the common opt-in marker and runtime directory.
@@ -43,6 +67,20 @@ fn absent_evidence_marker_keeps_default_packages_disabled() {
 
     assert_eq!(resolved, None);
     fs::remove_dir_all(root).expect("fixture should be removed");
+}
+
+#[test]
+fn debug_runtime_requires_one_exact_process_scoped_opt_in() {
+    assert!(!python_runtime_is_enabled(true, None));
+    assert!(!python_runtime_is_enabled(
+        true,
+        Some(std::ffi::OsStr::new("true"))
+    ));
+    assert!(python_runtime_is_enabled(
+        true,
+        Some(std::ffi::OsStr::new("1"))
+    ));
+    assert!(python_runtime_is_enabled(false, None));
 }
 
 #[test]
@@ -90,15 +128,7 @@ fn resolves_each_platform_only_from_fixed_native_bundle_locations() {
     let macos_resources = macos_contents.join("Resources");
     common_bundle(&macos_executable, &macos_resources);
     let client = macos_contents.join("Helpers/BottiePythonXPCClient.app/Contents");
-    write_file(&client.join("Info.plist"));
-    write_file(&client.join("MacOS/bottie-python-xpc-client"));
-    let service = client.join("XPCServices/com.bottie.python-runner.xpc/Contents");
-    write_file(&service.join("Info.plist"));
-    write_file(&service.join("MacOS/bottie-python-xpc-service"));
-    write_file(&service.join("Helpers/bottie-python-runner"));
-    write_file(&service.join("Resources/python-runtime-evidence.json"));
-    fs::create_dir_all(service.join("Resources/python-runtime"))
-        .expect("nested runtime directory should be created");
+    macos_client_bundle(&client);
     assert_eq!(
         resolve_python_bundle_paths(
             PythonBundlePlatform::Macos,
@@ -108,6 +138,22 @@ fn resolves_each_platform_only_from_fixed_native_bundle_locations() {
         .expect("complete macOS bundle should resolve"),
         Some(PythonBundlePaths::Macos {
             client: client.join("MacOS/bottie-python-xpc-client"),
+        })
+    );
+
+    let macos_development = root.join("macos-development/target/debug");
+    common_bundle(&macos_development, &macos_development);
+    let development_client = macos_development.join("BottiePythonXPCClient.app/Contents");
+    macos_client_bundle(&development_client);
+    assert_eq!(
+        resolve_python_bundle_paths(
+            PythonBundlePlatform::Macos,
+            &macos_development,
+            &macos_development,
+        )
+        .expect("complete macOS development resources should resolve"),
+        Some(PythonBundlePaths::Macos {
+            client: development_client.join("MacOS/bottie-python-xpc-client"),
         })
     );
 

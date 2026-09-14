@@ -8,6 +8,20 @@ import { fileURLToPath } from "node:url";
 
 const APPLE_DEVELOPMENT_PREFIX = "Apple Development:";
 const DEVELOPMENT_IDENTIFIER = "com.bottie.app.dev";
+const PYTHON_DEVELOPMENT_ENVIRONMENT = "BOTTIE_PYTHON_DEVELOPMENT";
+const MACOS_PYTHON_DEVELOPMENT_CONFIG = JSON.stringify({
+  bundle: {
+    resources: {
+      "../package/python-development/BottiePythonXPCClient.app": "BottiePythonXPCClient.app",
+      "../package/python-development/python-runtime-evidence.json": "python-runtime-evidence.json",
+    },
+  },
+});
+const PYTHON_DEVELOPMENT_CONFIGS = {
+  darwin: MACOS_PYTHON_DEVELOPMENT_CONFIG,
+  linux: "src-tauri/tauri.python-development.linux.conf.json",
+  win32: "src-tauri/tauri.python-development.windows.conf.json",
+};
 const SIGNATURE_PAGE_SIZE = "4096";
 const RUNNER_ENVIRONMENTS = ["CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER", "CARGO_TARGET_X86_64_APPLE_DARWIN_RUNNER"];
 
@@ -53,6 +67,27 @@ export function resolveTauriCliPath(packageEntryPath) {
   return join(dirname(packageEntryPath), "tauri.js");
 }
 
+/** Adds the opt-in Python resources to one development-only Tauri invocation. */
+export function pythonDevelopmentArguments(platform, arguments_) {
+  if (arguments_[0] !== "dev") {
+    throw new Error("Bottie's Python resource command is development-only.");
+  }
+  const config = PYTHON_DEVELOPMENT_CONFIGS[platform];
+  if (!config) throw new Error("Bottie's contained Python runtime is unavailable on this platform.");
+  const separator = arguments_.indexOf("--");
+  const insertion = separator < 0 ? arguments_.length : separator;
+  return [...arguments_.slice(0, insertion), "--config", config, ...arguments_.slice(insertion)];
+}
+
+/** Returns a child environment that enables only the explicit Python development run. */
+export function pythonDevelopmentEnvironment(environment) {
+  const existing = environment[PYTHON_DEVELOPMENT_ENVIRONMENT];
+  if (existing !== undefined && existing !== "1") {
+    throw new Error(`${PYTHON_DEVELOPMENT_ENVIRONMENT} is already set to an unsupported value.`);
+  }
+  return { ...environment, [PYTHON_DEVELOPMENT_ENVIRONMENT]: "1" };
+}
+
 /** Runs one child process and mirrors its terminal lifecycle. */
 function runChild(command, arguments_, options = {}) {
   return new Promise((resolve, reject) => {
@@ -84,9 +119,10 @@ function runChild(command, arguments_, options = {}) {
 }
 
 /** Runs the real Tauri CLI while adding signing only to macOS development builds. */
-async function runTauri(arguments_) {
-  const environment = { ...process.env };
-  if (shouldConfigureDevelopmentSigning(process.platform, arguments_)) {
+async function runTauri(arguments_, pythonDevelopment = false) {
+  const tauriArguments = pythonDevelopment ? pythonDevelopmentArguments(process.platform, arguments_) : arguments_;
+  const environment = pythonDevelopment ? pythonDevelopmentEnvironment(process.env) : { ...process.env };
+  if (shouldConfigureDevelopmentSigning(process.platform, tauriArguments)) {
     const runner = cargoRunnerValue(process.execPath, fileURLToPath(import.meta.url));
     for (const name of RUNNER_ENVIRONMENTS) {
       if (environment[name] && environment[name] !== runner) {
@@ -96,7 +132,7 @@ async function runTauri(arguments_) {
     }
   }
   const tauriCli = resolveTauriCliPath(fileURLToPath(import.meta.resolve("@tauri-apps/cli")));
-  return runChild(process.execPath, [tauriCli, ...arguments_], { env: environment });
+  return runChild(process.execPath, [tauriCli, ...tauriArguments], { env: environment });
 }
 
 /** Signs and verifies the exact freshly linked executable before replacing the runner process. */
@@ -135,8 +171,9 @@ async function signAndRun(arguments_) {
 async function main() {
   const [mode, ...arguments_] = process.argv.slice(2);
   if (mode === "--tauri") return runTauri(arguments_);
+  if (mode === "--tauri-python") return runTauri(arguments_, true);
   if (mode === "--cargo-runner") return signAndRun(arguments_);
-  throw new Error("Use this script through npm run tauri or Cargo's configured development runner.");
+  throw new Error("Use this script through npm run tauri, npm run tauri:python, or Cargo's development runner.");
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
