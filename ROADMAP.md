@@ -492,10 +492,11 @@ Implement this once for both hosted and local adapters before adding more runtim
   inherited environment, enforce handshake/read/write/shutdown deadlines, and kill and reap on failure;
 - [ ] keep model acquisition separate and explicit: show exact model/runtime IDs, license, expected disk and memory use,
   source revision, download progress, and verified file hashes before activation. The native manifest, path-free status,
-  explicit approval/progress phases, and all-files size/SHA-256 activation gate are complete; app-owned cache
-  transactions, a selected package manifest, downloader, and presentation remain;
+  explicit approval/progress phases, all-files size/SHA-256 activation gate, transactional app-owned cache, and
+  load-boundary re-verification are complete; a selected package manifest, downloader, and presentation remain;
 - [ ] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
-  generation, and expose only readiness/capability metadata to Svelte;
+  generation, and expose only readiness/capability metadata to Svelte. App-owned resumable staging and atomic verified
+  promotion are complete; real-runtime offline proof and path-free presentation remain;
 - [ ] probe hardware and runtime support rather than inferring it from the operating system. An unavailable local route
   remains unavailable; there is no silent cloud fallback;
 - [ ] normalize local results through the same Rust PNG validation, durable storage, provenance, cancellation, export,
