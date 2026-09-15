@@ -74,6 +74,11 @@ impl ImageGenerationRuns {
         true
     }
 
+    /// Returns whether hosted or local image generation currently owns the process-wide slot.
+    pub(crate) async fn is_active(&self) -> bool {
+        self.active.lock().await.is_some()
+    }
+
     async fn reserve(&self, run_id: String, cancellation: ActiveCancellation) -> bool {
         let mut active = self.active.lock().await;
         if active.is_some() {
@@ -105,6 +110,7 @@ mod tests {
         tauri::async_runtime::block_on(async {
             let runs = ImageGenerationRuns::default();
             let first = runs.reserve_abortable("first".into()).await.unwrap();
+            assert!(runs.is_active().await);
             assert!(runs.reserve_cooperative("second".into()).await.is_none());
             assert!(!runs.cancel("wrong").await);
             assert!(runs.cancel("first").await);
@@ -115,6 +121,7 @@ mod tests {
             );
             assert!(runs.reserve_abortable("blocked".into()).await.is_none());
             runs.finish("first").await;
+            assert!(!runs.is_active().await);
 
             let cooperative = runs.reserve_cooperative("third".into()).await.unwrap();
             assert!(runs.cancel_active().await);

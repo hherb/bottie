@@ -466,9 +466,9 @@ Implement this once for both hosted and local adapters before adding more runtim
    count, created time, provider ID, exact model ID, execution backend, seed when supported, and terminal status.
 2. [x] Add a Rust-owned generation controller with one active run identity, shared cancellation, bounded progress
    events, terminal cleanup, and no provider or worker correlation identifier crossing IPC.
-3. [ ] Add an explicit composer action for prompt, aspect ratio, count, execution choice, and provider delivery/cost
-   disclosure. The explicit cloud-only action and disclosure are implemented; the execution selector remains unavailable
-   until a local worker exists. Cloud generation must never follow from an ordinary chat send or failed local route.
+3. [x] Add an explicit composer action for prompt, aspect ratio, count, execution choice, and provider delivery/cost
+   disclosure. Cloud and exact Local 2512 execution are explicit, while unavailable local state remains disabled. Cloud
+   generation must never follow from an ordinary chat send or failed local route.
 4. [x] For hosted 2.0, immediately download temporary URLs inside Rust, with redirects disabled, fixed byte/time limits,
    content sniffing, PNG decode, actual dimension/pixel checks, and content-addressed app-private storage. Discard URLs
    and partial bytes before returning path-free metadata.
@@ -502,11 +502,12 @@ Implement this once for both hosted and local adapters before adding more runtim
   acknowledgement binds every displayed package fact, startup inspection is read-only, cancellation retains only
   exact synced partials, and atomic promotion refreshes readiness without exposing paths, hashes, URLs, or response
   detail;
-- [ ] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
+- [x] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
   generation, and expose only readiness/capability metadata to Svelte. App-owned resumable staging and atomic verified
   promotion, read-only readiness re-verification, and the real-runtime network-denied proof are complete;
-  fixed-path app-service resolution, explicit model installation, fresh execution-time verification, network-denied
-  native execution, and path-free presentation are complete, while packaged-worker installation remains;
+  app-cache-only service resolution, explicit model and worker installation, fresh execution-time verification,
+  network-denied native execution, and path-free presentation are complete. The worker is imported transactionally from
+  a user-selected native folder because no automatic worker source or accepted archive digest exists;
 - [ ] probe hardware and runtime support rather than inferring it from the operating system. An unavailable local route
   remains unavailable; there is no silent cloud fallback. The native macOS probe now combines OS-owned physical memory,
   compile-target architecture, the exact accepted Apple M3 Max 128 GiB profile, worker-bundle evidence, and cache

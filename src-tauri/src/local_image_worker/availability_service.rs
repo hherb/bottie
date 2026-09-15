@@ -10,13 +10,16 @@ use serde::Serialize;
 use super::{
     availability::{
         LocalImageAvailability, ModelCacheReadiness, WorkerInstallationReadiness,
-        evaluate_local_image_availability, inspect_model_cache, inspect_worker_installation,
+        evaluate_local_image_availability, inspect_model_cache,
     },
     execution::VerifiedLocalImageInstallation,
     hardware::probe_local_image_hardware,
     model_acquisition::ModelPackageManifest,
     model_download::ModelSourcePlan,
     model_package::{SelectedModelPackage, selected_qwen_image_2512_q4_package},
+    worker_cache::{
+        WorkerCacheError, WorkerImportApproval, import_worker_bundle, resolve_promoted_worker,
+    },
 };
 
 /// Exact native-only package and location returned only after hardware and worker verification.
@@ -49,10 +52,10 @@ impl VerifiedLocalImageAcquisition {
     }
 }
 
-/// Fixed resource directory containing the complete selected local-image worker bundle.
-pub(crate) const LOCAL_IMAGE_WORKER_DIRECTORY: &str = "local-image-worker";
 /// Exact executable name inside the selected local-image worker bundle.
 pub(crate) const LOCAL_IMAGE_WORKER_EXECUTABLE: &str = "bottie-local-image-mlx-worker";
+/// Fixed application-data directory owning promoted private worker bundles.
+pub(crate) const LOCAL_IMAGE_WORKER_CACHE_DIRECTORY: &str = "local-image-workers";
 /// Fixed application-data directory owning transactional local-image model caches.
 pub(crate) const LOCAL_IMAGE_MODEL_CACHE_DIRECTORY: &str = "local-image-models";
 
@@ -86,6 +89,8 @@ pub(crate) struct LocalImageAvailabilityMetadata {
     pub(crate) source_revision: String,
     /// Exact package bytes required in the app-owned model cache.
     pub(crate) expected_disk_bytes: u64,
+    /// Exact accepted worker-bundle bytes required in the app-owned worker cache.
+    pub(crate) worker_expected_disk_bytes: u64,
     /// Measured whole-process peak bytes required by the accepted hardware proof.
     pub(crate) required_memory_bytes: u64,
     /// Coarse fail-closed native readiness state.
@@ -95,8 +100,7 @@ pub(crate) struct LocalImageAvailabilityMetadata {
 /// Immutable app-owned locations for native-only local-image inspection.
 #[derive(Clone, Debug)]
 struct LocalImageInstallationLayout {
-    worker_bundle_root: PathBuf,
-    worker_executable: PathBuf,
+    worker_cache_root: PathBuf,
     model_cache_root: PathBuf,
 }
 
@@ -109,17 +113,13 @@ pub(crate) struct LocalImageAvailabilityService {
 }
 
 impl LocalImageAvailabilityService {
-    /// Resolves the one fixed worker and model-cache layout without touching the filesystem.
+    /// Resolves the fixed app-owned worker and model-cache layout without touching the filesystem.
     pub(crate) fn new(
-        resource_directory: impl AsRef<Path>,
         app_data_directory: impl AsRef<Path>,
     ) -> Result<Self, LocalImageServiceError> {
-        let resources = safe_absolute_root(resource_directory.as_ref())?;
         let app_data = safe_absolute_root(app_data_directory.as_ref())?;
-        let worker_bundle_root = resources.join(LOCAL_IMAGE_WORKER_DIRECTORY);
         let layout = LocalImageInstallationLayout {
-            worker_executable: worker_bundle_root.join(LOCAL_IMAGE_WORKER_EXECUTABLE),
-            worker_bundle_root,
+            worker_cache_root: app_data.join(LOCAL_IMAGE_WORKER_CACHE_DIRECTORY),
             model_cache_root: app_data.join(LOCAL_IMAGE_MODEL_CACHE_DIRECTORY),
         };
         let selected = selected_qwen_image_2512_q4_package()
@@ -186,6 +186,36 @@ impl LocalImageAvailabilityService {
         })
     }
 
+    /// Imports one user-selected exact worker bundle after approval without exposing its location.
+    pub(crate) async fn import_worker(
+        &self,
+        source_root: PathBuf,
+        approval: WorkerImportApproval,
+    ) -> Result<(), WorkerCacheError> {
+        let _inspection = self.inspection.lock().await;
+        let cache_root = self.layout.worker_cache_root.clone();
+        let layout = self.layout.clone();
+        let selected = self.selected.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let inspection = inspect_installation(&layout, &selected)
+                .map_err(|_| WorkerCacheError::Unavailable)?;
+            if !worker_import_is_eligible(inspection.metadata.availability) {
+                return Err(WorkerCacheError::Unavailable);
+            }
+            import_worker_bundle(
+                &cache_root,
+                &source_root,
+                LOCAL_IMAGE_WORKER_EXECUTABLE,
+                &selected.manifest().runtime_id,
+                selected.evidence(),
+                &approval,
+            )
+            .map(|_| ())
+        })
+        .await
+        .map_err(|_| WorkerCacheError::Storage)?
+    }
+
     /// Returns the fixed native cache root for read-only acquisition-progress inspection.
     pub(crate) fn acquisition_cache_root(&self) -> PathBuf {
         self.layout.model_cache_root.clone()
@@ -197,15 +227,9 @@ impl LocalImageAvailabilityService {
     }
 
     #[cfg(test)]
-    /// Returns the fixed worker bundle root for native layout tests only.
-    pub(crate) fn worker_bundle_root_for_test(&self) -> &Path {
-        &self.layout.worker_bundle_root
-    }
-
-    #[cfg(test)]
-    /// Returns the fixed worker executable for native layout tests only.
-    pub(crate) fn worker_executable_for_test(&self) -> &Path {
-        &self.layout.worker_executable
+    /// Returns the fixed app-owned worker-cache root for native layout tests only.
+    pub(crate) fn worker_cache_root_for_test(&self) -> &Path {
+        &self.layout.worker_cache_root
     }
 
     #[cfg(test)]
@@ -220,6 +244,14 @@ struct InspectedInstallation {
     installation: Option<VerifiedLocalImageInstallation>,
 }
 
+/// Returns whether exact worker import is the only missing native readiness prerequisite.
+pub(crate) fn worker_import_is_eligible(availability: LocalImageAvailability) -> bool {
+    matches!(
+        availability,
+        LocalImageAvailability::WorkerMissing | LocalImageAvailability::WorkerMismatch
+    )
+}
+
 fn inspect_installation(
     layout: &LocalImageInstallationLayout,
     selected: &SelectedModelPackage,
@@ -232,12 +264,22 @@ fn inspect_installation(
         WorkerInstallationReadiness::Missing,
         ModelCacheReadiness::Missing,
     );
+    let mut promoted_worker = None;
     if matches!(availability, LocalImageAvailability::WorkerMissing) {
-        let worker = inspect_worker_installation(
-            &layout.worker_bundle_root,
-            &layout.worker_executable,
+        let resolution = resolve_promoted_worker(
+            &layout.worker_cache_root,
+            LOCAL_IMAGE_WORKER_EXECUTABLE,
+            &selected.manifest().runtime_id,
             selected.evidence(),
         );
+        let worker = match resolution {
+            Ok(Some(worker)) => {
+                promoted_worker = Some(worker);
+                WorkerInstallationReadiness::Verified
+            }
+            Ok(None) => WorkerInstallationReadiness::Missing,
+            Err(_) => WorkerInstallationReadiness::Mismatch,
+        };
         availability = evaluate_local_image_availability(
             selected,
             hardware,
@@ -253,13 +295,17 @@ fn inspect_installation(
             );
         }
     }
-    let installation = matches!(availability, LocalImageAvailability::Ready).then(|| {
-        VerifiedLocalImageInstallation::verified(
-            layout.worker_executable.clone(),
-            layout.model_cache_root.clone(),
-            selected.manifest().clone(),
-        )
-    });
+    let installation = if matches!(availability, LocalImageAvailability::Ready) {
+        promoted_worker.map(|worker| {
+            VerifiedLocalImageInstallation::verified(
+                worker.executable().to_path_buf(),
+                layout.model_cache_root.clone(),
+                selected.manifest().clone(),
+            )
+        })
+    } else {
+        None
+    };
     Ok(InspectedInstallation {
         metadata: metadata_for_availability(selected, availability),
         installation,
@@ -279,6 +325,7 @@ pub(crate) fn metadata_for_availability(
         license: manifest.license.clone(),
         source_revision: manifest.source_revision.clone(),
         expected_disk_bytes: manifest.expected_disk_bytes,
+        worker_expected_disk_bytes: selected.evidence().worker_bundle_byte_size,
         required_memory_bytes: selected.evidence().peak_memory_bytes,
         availability,
     }

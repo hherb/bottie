@@ -56,6 +56,8 @@ function renderedComposer(
       localImageAvailabilityFailed,
       localImageAcquisitionStatus,
       localImageAcquisitionFeedback: "",
+      localImageWorkerImporting: false,
+      localImageWorkerImportFeedback: "",
       microphoneStatus: INITIAL_MICROPHONE_STATUS,
       microphoneAvailable: true,
       microphoneWillInterrupt,
@@ -82,6 +84,7 @@ function renderedComposer(
       onimagecount: vi.fn(),
       oninstalllocalimage: vi.fn(),
       oncancellocalimage: vi.fn(),
+      onimportlocalimageworker: vi.fn(),
       onstartmicrophone: vi.fn(),
       onstopmicrophone: vi.fn(),
       ondiscardmicrophone: vi.fn(),
@@ -133,6 +136,7 @@ describe("Composer", () => {
       license: "Apache-2.0",
       sourceRevision: "423f1f5bf708c6e11eb78881ef9738422cea0814",
       expectedDiskBytes: 17_442_350_812,
+      workerExpectedDiskBytes: 1_107_880_778,
       requiredMemoryBytes: 29_526_129_448,
       availability: "worker_missing",
     };
@@ -164,6 +168,9 @@ describe("Composer", () => {
     expect(html).toMatch(/<option value="local" disabled/);
     expect(html).toContain("Local 2512 · unavailable");
     expect(html).toContain("No automatic download or cloud fallback");
+    expect(html).toContain('aria-label="Local image worker installation"');
+    expect(html).toContain("Select and install 1.0 GiB worker");
+    expect(html).toContain("selected folder stays inside native code");
   });
 
   it("exposes an explicit ready local route with fixed output options and private disclosure", () => {
@@ -174,6 +181,7 @@ describe("Composer", () => {
       license: "Apache-2.0",
       sourceRevision: "423f1f5bf708c6e11eb78881ef9738422cea0814",
       expectedDiskBytes: 17_442_350_812,
+      workerExpectedDiskBytes: 1_107_880_778,
       requiredMemoryBytes: 29_526_129_448,
       availability: "ready",
     };
@@ -212,6 +220,7 @@ describe("Composer", () => {
       license: "Apache-2.0",
       sourceRevision: "423f1f5bf708c6e11eb78881ef9738422cea0814",
       expectedDiskBytes: 17_442_350_812,
+      workerExpectedDiskBytes: 1_107_880_778,
       requiredMemoryBytes: 29_526_129_448,
       availability: "model_missing",
     };
@@ -261,6 +270,7 @@ describe("Composer", () => {
       license: "Apache-2.0",
       sourceRevision: "423f1f5bf708c6e11eb78881ef9738422cea0814",
       expectedDiskBytes: 17_442_350_812,
+      workerExpectedDiskBytes: 1_107_880_778,
       requiredMemoryBytes: 29_526_129_448,
       availability: "model_missing",
       phase: "downloading",

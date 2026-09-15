@@ -118,6 +118,11 @@ impl LocalImageAcquisitionCoordinator {
         Ok(status)
     }
 
+    /// Returns whether model acquisition currently owns its native mutation slot.
+    pub(crate) fn is_active(&self) -> bool {
+        lock(&self.session).is_active()
+    }
+
     async fn inspect_resume(
         &self,
     ) -> Result<Option<CacheResumeProgress>, LocalImageAcquisitionError> {

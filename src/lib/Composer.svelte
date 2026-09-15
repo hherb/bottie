@@ -6,6 +6,7 @@
   import {
     localImageAcquisitionPresentation,
     localImageAvailabilityPresentation,
+    localImageWorkerImportPresentation,
     type LocalImageAcquisitionStatus,
     type LocalImageAvailabilityMetadata,
   } from "$lib/local-image";
@@ -38,6 +39,8 @@
     localImageAvailabilityFailed: boolean;
     localImageAcquisitionStatus: LocalImageAcquisitionStatus | null;
     localImageAcquisitionFeedback: string;
+    localImageWorkerImporting: boolean;
+    localImageWorkerImportFeedback: string;
     microphoneStatus: MicrophoneStatus;
     microphoneAvailable: boolean;
     microphoneWillInterrupt: boolean;
@@ -66,6 +69,7 @@
     onimagecount: (count: number) => void;
     oninstalllocalimage: () => void;
     oncancellocalimage: () => void;
+    onimportlocalimageworker: () => void;
     onstartmicrophone: () => void;
     onstopmicrophone: () => void;
     ondiscardmicrophone: () => void;
@@ -104,6 +108,8 @@
     localImageAvailabilityFailed,
     localImageAcquisitionStatus,
     localImageAcquisitionFeedback,
+    localImageWorkerImporting,
+    localImageWorkerImportFeedback,
     microphoneStatus,
     microphoneAvailable,
     microphoneWillInterrupt,
@@ -132,6 +138,7 @@
     onimagecount,
     oninstalllocalimage,
     oncancellocalimage,
+    onimportlocalimageworker,
     onstartmicrophone,
     onstopmicrophone,
     ondiscardmicrophone,
@@ -282,6 +289,7 @@
       {@const acquisition = localImageAcquisitionStatus
         ? localImageAcquisitionPresentation(localImageAcquisitionStatus)
         : null}
+      {@const workerImport = localImageWorkerImportPresentation(localImageAvailability, localImageWorkerImporting)}
       <div class="image-generation-options" aria-label="Image generation options">
         <label>
           <span>Execution</span>
@@ -350,6 +358,22 @@
           <span>{localImageAvailability.license} · revision <code>{localImageAvailability.sourceRevision}</code></span>
         {/if}
         <small>{localImage.detail}. No automatic download or cloud fallback.</small>
+        {#if workerImport.action !== "none" || workerImport.active}
+          <div class="local-image-acquisition" aria-label="Local image worker installation">
+            <p>
+              Select the reviewed MLX-Gen worker folder. The selected folder stays inside native code; only exact
+              verified bytes are copied into Bottie’s app-owned cache.
+            </p>
+            <span>{workerImport.detail}</span>
+            {#if workerImport.action === "import"}
+              <button type="button" disabled={isGenerating} onclick={onimportlocalimageworker}
+                >{workerImport.label}</button
+              >
+            {:else}
+              <strong>{workerImport.label}</strong>
+            {/if}
+          </div>
+        {/if}
         {#if acquisition && (acquisition.action !== "none" || acquisition.active)}
           <div class="local-image-acquisition" aria-label="Local image model installation">
             <p>
@@ -374,6 +398,9 @@
         {/if}
         {#if localImageAcquisitionFeedback}
           <span class="local-image-acquisition-feedback" role="status">{localImageAcquisitionFeedback}</span>
+        {/if}
+        {#if localImageWorkerImportFeedback}
+          <span class="local-image-acquisition-feedback" role="status">{localImageWorkerImportFeedback}</span>
         {/if}
       </section>
       {#if imageFeedback}<p class="image-generation-feedback" role="status">{imageFeedback}</p>{/if}

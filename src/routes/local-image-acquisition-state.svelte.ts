@@ -63,6 +63,16 @@ export class LocalImageAcquisitionState {
     }
   }
 
+  /** Refreshes the idle native snapshot after a prerequisite such as worker import changes. */
+  async refresh(): Promise<void> {
+    if (!this.dependencies.isNative()) return;
+    try {
+      this.apply(await this.dependencies.get());
+    } catch (error) {
+      this.feedback = errorMessage(error);
+    }
+  }
+
   /** Starts or resumes only the exact package currently disclosed by the native status. */
   async start(): Promise<void> {
     if (!this.status || !["awaiting_approval", "paused", "failed"].includes(this.status.phase)) return;

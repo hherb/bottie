@@ -23,6 +23,7 @@ export type LocalImageAvailabilityMetadata = {
   license: string;
   sourceRevision: string;
   expectedDiskBytes: number;
+  workerExpectedDiskBytes: number;
   requiredMemoryBytes: number;
   availability: LocalImageAvailability;
 };
@@ -55,6 +56,27 @@ export type LocalImageAcquisitionApproval = Omit<
 export type LocalImageAcquisitionError = {
   code: "unavailable" | "approval_mismatch" | "already_active" | "not_active" | "invalid_state";
   message: string;
+};
+
+/** Exact affirmative disclosure sent only from the native worker-import control. */
+export type LocalImageWorkerImportApproval = {
+  runtimeId: string;
+  expectedDiskBytes: number;
+  approved: true;
+};
+
+/** Path-free result from the Rust-owned folder picker and transactional copy. */
+export type LocalImageWorkerImportOutcome = {
+  imported: boolean;
+  availability: LocalImageAvailabilityMetadata;
+};
+
+/** Calm explicit worker import copy derived from native availability only. */
+export type LocalImageWorkerImportPresentation = {
+  action: "none" | "import";
+  active: boolean;
+  label: string;
+  detail: string;
 };
 
 /** Calm progress and action copy derived only from the closed native status. */
@@ -93,6 +115,14 @@ export async function getLocalImageAvailability(): Promise<LocalImageAvailabilit
   return invoke<LocalImageAvailabilityMetadata>("get_local_image_availability");
 }
 
+/** Opens the native folder picker and imports only the exact approved worker bundle. */
+export async function importLocalImageWorker(
+  approval: LocalImageWorkerImportApproval,
+): Promise<LocalImageWorkerImportOutcome> {
+  if (!isTauri()) throw new Error("Native local-image worker import is unavailable in browser preview.");
+  return invoke<LocalImageWorkerImportOutcome>("import_local_image_worker", { approval });
+}
+
 /** Reads current exact resumable acquisition status without creating cache state. */
 export async function getLocalImageAcquisitionStatus(): Promise<LocalImageAcquisitionStatus> {
   if (!isTauri()) throw new Error("Native local-image acquisition is unavailable in browser preview.");
@@ -129,9 +159,45 @@ export function localImageAcquisitionApproval(status: LocalImageAcquisitionStatu
     license: status.license,
     sourceRevision: status.sourceRevision,
     expectedDiskBytes: status.expectedDiskBytes,
+    workerExpectedDiskBytes: status.workerExpectedDiskBytes,
     requiredMemoryBytes: status.requiredMemoryBytes,
     approved: true,
   };
+}
+
+/** Binds one affirmative worker-import action to the exact displayed runtime and bundle size. */
+export function localImageWorkerImportApproval(
+  metadata: LocalImageAvailabilityMetadata,
+): LocalImageWorkerImportApproval {
+  return {
+    runtimeId: metadata.runtimeId,
+    expectedDiskBytes: metadata.workerExpectedDiskBytes,
+    approved: true,
+  };
+}
+
+/** Offers worker import only while the exact promoted worker is missing or mismatched. */
+export function localImageWorkerImportPresentation(
+  metadata: LocalImageAvailabilityMetadata | null,
+  active: boolean,
+): LocalImageWorkerImportPresentation {
+  if (active) {
+    return {
+      action: "none",
+      active: true,
+      label: "Verifying and installing worker…",
+      detail: "The selected folder stays native and is re-verified before atomic activation.",
+    };
+  }
+  if (metadata && ["worker_missing", "worker_mismatch"].includes(metadata.availability)) {
+    return {
+      action: "import",
+      active: false,
+      label: `Select and install ${formatGib(metadata.workerExpectedDiskBytes)} worker`,
+      detail: "Bottie will copy only the exact reviewed MLX-Gen bundle into its app-owned cache.",
+    };
+  }
+  return { action: "none", active: false, label: "", detail: "" };
 }
 
 /** Derives bounded install, resume, cancel, and failure presentation from native status. */

@@ -298,14 +298,19 @@ checkpoint, prioritizing MLX-Gen on Apple silicon and a pinned Diffusers worker 
 Every local adapter will share the same provider-neutral contract and durable native-byte path. Bottie will neither
 route exact 2.0 through oMLX or an older implementation nor label 2512 output as Qwen-Image-2.0. See Milestone 8 in
 `ROADMAP.md` for the phased implementation and hardware acceptance plan. The first native availability contract accepts
-only the measured Apple M3 Max 128 GiB profile and re-verifies the exact worker bundle and model cache; all other local
-hardware and missing or changed bytes remain unavailable. A ready installation is re-verified again before each local
-start or retry, runs through a network-denied reusable MLX-Gen worker, and reaches the same private PNG storage and asset
-actions as Cloud without fallback. Once that exact worker is installed, the composer discloses the selected model,
+only the measured Apple M3 Max 128 GiB profile and re-verifies the exact app-owned worker bundle and model cache; all
+other local hardware and missing or changed bytes remain unavailable. A ready installation is re-verified again before
+each local start or retry, runs through a network-denied reusable MLX-Gen worker, and reaches the same private PNG
+storage and asset actions as Cloud without fallback. The composer can import that exact worker from a user-selected
+native folder into a
+transactional app-owned cache; the selected path and bundle hashes never cross IPC, copying requires an exact
+runtime/size acknowledgement, and the staged copy is re-hashed before atomic promotion. Once installed, the composer
+discloses the selected model,
 runtime, Apache-2.0 license, immutable revision, 16.2 GiB disk use, and 27.5 GiB measured peak memory before an explicit
-download action can mutate Bottie's app-owned cache. Acquisition is cancellable and resumable from exact synced partials;
+download action can mutate Bottie's app-owned cache. Acquisition is cancellable and resumable from exact synced
+partials;
 all 18 files are re-verified before atomic activation, and only path-free progress reaches the WebView. The 1.1 GB proof
-worker remains manually installed evidence rather than an application payload.
+worker remains a user-supplied reviewed bundle rather than an application payload or automatic download.
 
 On macOS, the package script development-signs each newly linked executable with an available Apple Development
 identity before Cargo runs it. If more than one identity is usable, set `BOTTIE_APPLE_SIGNING_IDENTITY` to the exact

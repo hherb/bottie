@@ -35,6 +35,7 @@ fn approval() -> LocalImageAcquisitionApproval {
         license: "Apache-2.0".into(),
         source_revision: "423f1f5bf708c6e11eb78881ef9738422cea0814".into(),
         expected_disk_bytes: 17_442_350_812,
+        worker_expected_disk_bytes: 1_107_880_778,
         required_memory_bytes: 29_526_129_448,
         approved: true,
     }
@@ -55,6 +56,7 @@ fn awaiting_status_discloses_the_exact_package_without_paths_or_hashes() {
             "license": "Apache-2.0",
             "sourceRevision": "423f1f5bf708c6e11eb78881ef9738422cea0814",
             "expectedDiskBytes": 17_442_350_812_u64,
+            "workerExpectedDiskBytes": 1_107_880_778_u64,
             "requiredMemoryBytes": 29_526_129_448_u64,
             "availability": "model_missing",
             "phase": "awaiting_approval",
