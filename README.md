@@ -302,7 +302,8 @@ explicit selection order. The composer discloses that the prompt and source byte
 incur charges before it calls the closed Tauri command with only opaque IDs. Rust then executes the exact request
 through the authenticated endpoint, strict response decoder, bounded temporary-result downloader, shared cancellation
 lifecycle, and durable completion path. Failed or cancelled edits reopen and revalidate their exact native bytes before
-retry. Local editing remains unavailable without fallback.
+retry. Each generated edit presents a compact expandable source count and ordered path-free source kind, dimensions,
+media type, and byte size; opaque source IDs are not rendered. Local editing remains unavailable without fallback.
 
 Qwen-Image-2.0 local execution remains intentionally unavailable until its weights and a compatible runtime are
 actually published. Local work can proceed now against the distinct open `Qwen/Qwen-Image-2512` text-to-image

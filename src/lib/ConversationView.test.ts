@@ -79,6 +79,98 @@ describe("ConversationView", () => {
     expect(html).toContain('aria-label="Use generated image 1 as a reference"');
     expect(html).toContain('aria-pressed="false"');
     expect(html).not.toContain('aria-label="Regenerate response"');
+    expect(html).not.toContain("Edit sources");
+  });
+
+  it("renders mixed durable edit lineage without exposing opaque source IDs", () => {
+    const html = render(ConversationView, {
+      props: {
+        messages: [
+          {
+            id: 1,
+            storageId: "message-1",
+            role: "assistant",
+            content: "Edited image.",
+            generatedAssets: [
+              {
+                id: "asset-1",
+                ordinal: 0,
+                status: "completed",
+                mediaType: "image/png",
+                width: 2_048,
+                height: 2_048,
+                byteSize: 8_192,
+                providerId: "qwen-image",
+                modelId: "qwen-image-2.0-2026-03-03",
+                execution: "cloud",
+                seed: null,
+                errorCode: null,
+                createdAtMs: 1,
+                sources: [
+                  {
+                    ordinal: 0,
+                    sourceType: "attachment",
+                    sourceId: "private-attachment-id",
+                    mediaType: "image/jpeg",
+                    width: 1_536,
+                    height: 2_688,
+                    byteSize: 4_096,
+                  },
+                  {
+                    ordinal: 1,
+                    sourceType: "generated_asset",
+                    sourceId: "private-generated-id",
+                    mediaType: "image/png",
+                    width: 2_048,
+                    height: 2_048,
+                    byteSize: 1_572_864,
+                  },
+                ],
+                previewUrl: "bottie-generated-asset://asset-1",
+              },
+            ],
+          },
+        ],
+        providerStatus: "available",
+        providerError: null,
+        selectedModel: undefined,
+        activeStage: -1,
+        inferenceStages: [],
+        isGenerating: false,
+        canGenerate: true,
+        branches: [],
+        currentBranchId: null,
+        speechAvailable: false,
+        speechVoices: [],
+        speechStatus: {
+          phase: "idle",
+          selectedVoiceId: null,
+          errorCode: null,
+          latency: { playbackAcceptedMs: null },
+        },
+        speakingMessageId: null,
+        microphoneCapturing: false,
+        onretry: vi.fn(),
+        onselectbranch: vi.fn(),
+        oneditmessage: vi.fn(),
+        onregenerate: vi.fn(),
+        onretryresponse: vi.fn(),
+        onrateresponse: vi.fn(),
+        onremoveattachment: vi.fn(),
+        onspeakresponse: vi.fn(),
+        onstopspeech: vi.fn(),
+        onscrollready: vi.fn(),
+      },
+    }).body;
+
+    expect(html).toContain("Edited from 2 sources");
+    expect(html).toContain('aria-label="Edit sources"');
+    expect(html).toContain("Attachment");
+    expect(html).toContain("1536×2688 · image/jpeg · 4 KB");
+    expect(html).toContain("Generated image");
+    expect(html).toContain("2048×2048 · image/png · 1.5 MB");
+    expect(html).not.toContain("private-attachment-id");
+    expect(html).not.toContain("private-generated-id");
   });
 
   it("marks an already selected generated reference as removable", () => {

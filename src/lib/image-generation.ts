@@ -2,6 +2,8 @@
 
 import type { ImageEditingSourceRequest } from "./inference";
 import type { Attachment, GeneratedAsset } from "./presentation";
+import type { StoredGeneratedImageSource } from "./storage";
+import { formatBytes } from "./chat";
 
 /** User-selected execution boundary for a newly submitted image request. */
 export type ImageGenerationExecution = "cloud" | "local";
@@ -35,6 +37,19 @@ export type PreparedImageEditingSources =
 const MAX_IMAGE_PROMPT_CHARACTERS = 1_000;
 const MAX_IMAGE_EDITING_SOURCES = 3;
 const CONTROL_CHARACTER = /\p{Cc}/u;
+
+/** Returns the compact disclosure label for one durable image-edit ancestry. */
+export function imageEditingLineageLabel(sourceCount: number): string {
+  return `Edited from ${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
+}
+
+/** Formats one path-free edit source without revealing its opaque native identity. */
+export function imageEditingSourcePresentation(source: StoredGeneratedImageSource): { kind: string; details: string } {
+  return {
+    kind: source.sourceType === "attachment" ? "Attachment" : "Generated image",
+    details: `${source.width}×${source.height} · ${source.mediaType} · ${formatBytes(source.byteSize)}`,
+  };
+}
 
 /** Normalizes and bounds a prompt while Rust remains the authoritative request validator. */
 export function prepareImageGenerationPrompt(prompt: string): PreparedImageGenerationPrompt {

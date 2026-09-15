@@ -4,37 +4,40 @@ Last verified: 2026-09-15
 
 ## Start here
 
-`main` includes merged PR #181 at `8cc3c27`. Branch `codex/qwen-image-editing-ui` completes the hosted editing UI and
-generated-ancestry selection slices. Read `ROADMAP.md` Milestone 8.5, `src/lib/image-generation.ts`,
-`src/lib/ConversationView.svelte`, and `src/routes/page-state.svelte.ts`.
+`main` includes merged user-manual PR #185 and developer-manual PR #184 at `95f22fb`. Branch
+`codex/qwen-image-edit-lineage-presentation` completes the remaining Milestone 8.5 durable edit-lineage presentation
+slice. Read `ROADMAP.md` Milestone 8.5, `src/lib/GeneratedImageGallery.svelte`, `src/lib/image-generation.ts`, and
+`src/routes/image-preview.ts`.
 
 ## Current state
 
-- Cloud Image mode accepts one to three ready normalized current-draft images, persists their exact attachment IDs on
-  the user request, and calls `startImageEditing` with ordered opaque IDs. No sources still uses text-to-image.
-- Completed generated images in the visible selected lineage can be added or removed as references. Draft attachments
-  precede generated sources; generated sources retain explicit selection order; the aggregate limit is three.
-- The composer exposes reference-image picking, accessible selected/disabled states, exact hosted model identity, and
-  prompt plus source-byte delivery/charge disclosure. Local 2512 editing stays disabled without fallback.
-- Rust still owns source resolution, bytes, paths, hashes, provider traffic, exact ancestry revalidation, durable
-  lineage, cancellation, download validation, and retry. Only path-free metadata and opaque IDs cross IPC.
+- Every generated edit presents a compact native disclosure with its durable ordered source count, source kind,
+  dimensions, media type, and byte size. Ordinary text-to-image results with no sources have no lineage panel.
+- Pure presentation helpers and component coverage prove mixed attachment/generated sources without rendering opaque
+  source IDs. Reopened-message coverage proves the existing native mapper retains the exact path-free source records.
+- `ConversationView.svelte` delegates the cohesive generated-image surface to `GeneratedImageGallery.svelte` and is now
+  comfortably below the practical 500-line limit. A development-only `?image=edit-lineage` fixture supports repeatable
+  desktop and responsive review.
+- An official-source check on 2026-09-15 found the Qwen Image 2.0 launch and technical report, but no exact 2.0 weight
+  release in the official Qwen repository/model registries. Released 2512/2511 weights remain different models.
 
 ## Validation and limits
 
-Prettier, Svelte diagnostics (0 errors and 0 warnings), all 399 active frontend/script tests (3 skipped), the production
+Prettier, Svelte diagnostics (0 errors and 0 warnings), all 407 active frontend/script tests (3 skipped), the production
 build, `cargo fmt --check`, and `cargo check` pass. The identical host-local Rust run passes all 646 active library tests
-(36 ignored), updater evidence, all 16 private-worker integration tests, and doc tests. A browser-preview desktop review
-confirmed the Cloud controls, disclosure, disabled over-limit state, and layout. No native app or live provider request
-was run; no credentials, credits, model bytes, or source assets left the device. Unrelated untracked logo-kit,
-screenshot, and Linux public-key files remain untouched.
+(36 ignored), updater evidence, all 16 private-worker integration tests, and doc tests. Desktop and 540×800 browser
+review confirmed the collapsed/expanded disclosure, ordered list, narrow layout, and ordinary generation without
+lineage. No native app or live provider request was run because this is WebView-only; no credentials, credits, model
+bytes, source assets, or private paths left the device. Unrelated untracked logo-kit, screenshot, and Linux public-key
+files remain untouched.
 
 ## Next slice
 
-Present durable edit lineage on each generated result using its existing ordered path-free `sources` metadata. Show a
-compact accessible source count plus source type, dimensions, media type, and byte size without rendering opaque IDs or
-adding native file access. Cover pure presentation and reopened-message rendering, including mixed attachment/generated
-sources and ordinary text-to-image outputs with no lineage panel.
+Recheck only official Qwen repositories and model registries for an exact Qwen Image 2.0 weight release. If it exists,
+freeze one immutable revision, complete file list and hashes, license, architecture metadata, and reference output
+before selecting any MLX or CUDA/ROCm/Windows runtime. If it does not exist, make no local-2.0 product change; a paper,
+API alias, community conversion, similarly named model, or 2512 package is not sufficient.
 
-Do not add live DashScope calls, local editing, source-byte/path IPC, exact-2.0 weight assumptions, automatic fallback,
-or new provider/storage contracts. Do not merge, dispatch workflows, sign, release, publish, distribute, or perform
-Store work without separate authorization.
+Do not add live DashScope calls, guessed 2.0 weights, local editing, source-byte/path IPC, automatic fallback, or a new
+provider/storage contract. Do not merge, dispatch workflows, sign, release, publish, distribute, or perform Store work
+without separate authorization.

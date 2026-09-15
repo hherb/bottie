@@ -555,7 +555,9 @@ Editing should first land through the unified hosted 2.0 model after generation 
   generated images from the visible ancestry, preserves ordered opaque source identities, and shows source-byte and
   charge disclosure before submission. Local editing remains unavailable without fallback;
 - [x] persist edit lineage from every source asset to the generated assistant asset, including exact hosted model and
-  execution provenance;
+  execution provenance. Generated edits now present a compact accessible source count and ordered path-free source
+  kind, dimensions, media type, and byte size after initial completion and durable reopen, without rendering opaque
+  IDs; ordinary text-to-image results omit the lineage panel;
 - [ ] monitor only official Qwen repositories/model registries for an exact 2.0 weight release. A paper, API alias,
   community conversion, similarly named model, or 2512 package is not sufficient;
 - [ ] when exact weights ship, freeze their revision, files, hashes, license, architecture metadata, and reference
