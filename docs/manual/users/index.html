@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="The evolving user manual for the Bottie local-first desktop chatbot."
+    />
+    <title>Bottie user manual</title>
+    <link rel="stylesheet" href="manual.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to the manual</a>
+    <header class="hero">
+      <div class="hero-inner">
+        <img
+          src="../../../assets/bottie-logo-kit/bottie-mark-color.svg"
+          alt=""
+          width="72"
+          height="72"
+        />
+        <div>
+          <p class="eyebrow">User manual · beta</p>
+          <h1>Bottie</h1>
+          <p class="lede">
+            Your guide to private, provider-flexible conversations.
+          </p>
+        </div>
+      </div>
+      <p class="version-note">
+        <strong>Living documentation.</strong> This first edition follows Bottie
+        0.9.0 and will grow as the app progresses.
+      </p>
+    </header>
+
+    <div class="layout">
+      <nav class="toc" aria-label="Manual contents">
+        <p class="toc-title">On this page</p>
+        <a href="#welcome">Welcome</a>
+        <a href="#before-you-start">Before you start</a>
+        <a href="#first-run">First run</a>
+        <a href="#workspace">Your workspace</a>
+        <a href="#chat">Start a conversation</a>
+        <a href="#context">Files and context</a>
+        <a href="#tools">Memory and tools</a>
+        <a href="#voice">Voice</a>
+        <a href="#conversations">Manage conversations</a>
+        <a href="#settings">Settings</a>
+        <a href="#privacy">Privacy model</a>
+        <a href="#shortcuts">Keyboard shortcuts</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+        <a href="#glossary">Glossary</a>
+      </nav>
+
+      <main id="content">
+        <section id="welcome">
+          <p class="kicker">Welcome</p>
+          <h2>A local-first place to work with AI</h2>
+          <p>
+            Bottie is a desktop chatbot that lets you choose a local or cloud
+            model while keeping conversations, files, and application data under
+            a native security boundary. It is
+            <strong>local-first, not necessarily local-only</strong>: prompts
+            sent to a cloud provider leave your device.
+          </p>
+          <div class="callout beta">
+            <strong>Beta status</strong>
+            <p>
+              Bottie 0.9.0 is being prepared for testers and is not yet a signed
+              end-user release. Screens and behavior may change. Keep backups of
+              important work.
+            </p>
+          </div>
+          <div class="card-grid three">
+            <article>
+              <span class="number">1</span>
+              <h3>Choose</h3>
+              <p>
+                Connect oMLX, Ollama, OpenAI-compatible, or Anthropic-compatible
+                models.
+              </p>
+            </article>
+            <article>
+              <span class="number">2</span>
+              <h3>Confirm</h3>
+              <p>
+                Check the provider route and enabled context before sending.
+              </p>
+            </article>
+            <article>
+              <span class="number">3</span>
+              <h3>Converse</h3>
+              <p>
+                Chat, branch, search, export, and revisit durable conversations.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section id="before-you-start">
+          <p class="kicker">Getting ready</p>
+          <h2>Before you start</h2>
+          <p>
+            You need the Bottie desktop application and at least one inference
+            provider. A browser preview is available to developers, but it
+            cannot connect to native providers, save conversations, use files,
+            or capture voice.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Where it runs</th>
+                <th>What you need</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>oMLX</td>
+                <td>Local loopback</td>
+                <td>A running oMLX server and downloaded model</td>
+              </tr>
+              <tr>
+                <td>Ollama</td>
+                <td>Local loopback</td>
+                <td>A running Ollama service and downloaded model</td>
+              </tr>
+              <tr>
+                <td>OpenAI-compatible</td>
+                <td>Your configured cloud origin</td>
+                <td>Base URL and, when required, an API key</td>
+              </tr>
+              <tr>
+                <td>Anthropic-compatible</td>
+                <td>Your configured cloud origin</td>
+                <td>Base URL and API key</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="note">
+            <strong>Tip:</strong> Start your local provider before opening
+            Bottie. Default local addresses are <code>127.0.0.1:8000</code> for
+            oMLX and <code>127.0.0.1:11434</code> for Ollama.
+          </p>
+        </section>
+
+        <section id="first-run">
+          <p class="kicker">Set up</p>
+          <h2>Your first run</h2>
+          <ol class="steps">
+            <li>
+              <div>
+                <strong>Open provider settings.</strong>
+                <p>
+                  Choose a provider, review its base URL, and add a credential
+                  if the service requires one.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Refresh the model list.</strong>
+                <p>
+                  Select a discovered model. Bottie shows capabilities
+                  advertised by the provider.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Review the route.</strong>
+                <p>
+                  The setup card labels the choice as local or cloud and
+                  explains what can be delivered.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Finish setup.</strong>
+                <p>
+                  Bottie remembers the acknowledgement and selected
+                  provider/model. Memory, Web, and Email remain separate
+                  choices.
+                </p>
+              </div>
+            </li>
+          </ol>
+          <div class="callout warning">
+            <strong>Do not paste secrets into chat.</strong>
+            <p>
+              Enter API keys only in the credential field in Settings. Bottie
+              stores configured keys in the operating-system credential vault.
+            </p>
+          </div>
+        </section>
+
+        <section id="workspace">
+          <p class="kicker">Orientation</p>
+          <h2>Your workspace</h2>
+          <figure>
+            <img
+              src="images/conversation-workspace.png"
+              alt="Bottie browser preview showing conversation navigation, a conversation, composer, and Context panel."
+            />
+            <figcaption>
+              The conversation workspace. This screenshot uses disconnected
+              sample data; the desktop app supplies live models and durable
+              history.
+            </figcaption>
+          </figure>
+          <dl class="tour">
+            <div>
+              <dt>Conversation sidebar</dt>
+              <dd>
+                Create a chat, search history, reopen a conversation, or use its
+                management menu.
+              </dd>
+            </div>
+            <div>
+              <dt>Provider toolbar</dt>
+              <dd>
+                See connection status, select a model, adjust supported
+                reasoning, and confirm local or cloud routing.
+              </dd>
+            </div>
+            <div>
+              <dt>Conversation</dt>
+              <dd>
+                Read messages, inspect activity, rate responses, branch from
+                earlier turns, and retry failures.
+              </dd>
+            </div>
+            <div>
+              <dt>Composer</dt>
+              <dd>
+                Write a prompt, attach a file, record voice, or switch to image
+                generation where available.
+              </dd>
+            </div>
+            <div>
+              <dt>Context panel</dt>
+              <dd>
+                Review exactly which files, memory citations, and web sources
+                are in view.
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section id="chat">
+          <p class="kicker">Everyday use</p>
+          <h2>Start a conversation</h2>
+          <ol class="steps compact">
+            <li>
+              <div>
+                Select <strong>New conversation</strong> in the sidebar.
+              </div>
+            </li>
+            <li>
+              <div>Choose the provider and model in the top toolbar.</div>
+            </li>
+            <li>
+              <div>
+                Check the route label and optional Memory, Web, or Email
+                controls.
+              </div>
+            </li>
+            <li>
+              <div>
+                Type in the composer and choose <strong>Send</strong>. Use
+                <strong>Stop</strong> to cancel generation.
+              </div>
+            </li>
+          </ol>
+          <h3>Work with a response</h3>
+          <ul>
+            <li>
+              <strong>Retry</strong> asks for another response without erasing
+              the existing branch.
+            </li>
+            <li>
+              <strong>Edit or regenerate</strong> from an earlier message
+              creates a new branch so the original remains available.
+            </li>
+            <li>
+              <strong>Rate</strong> a response with the available feedback
+              controls.
+            </li>
+            <li>
+              <strong>Play response aloud</strong> uses a local system voice and
+              speaks visible text rather than Markdown syntax or link
+              destinations.
+            </li>
+          </ul>
+          <p class="note">
+            Messages stream as they arrive. If a run is interrupted, Bottie can
+            retain checkpointed partial output so useful work is not silently
+            lost.
+          </p>
+        </section>
+
+        <section id="context">
+          <p class="kicker">Bring your material</p>
+          <h2>Files and context</h2>
+          <p>
+            Use the attachment action beside the composer to choose a supported
+            file. Bottie accepts text, Markdown, PDF, DOCX, JPEG, and PNG files.
+            Images are sent only when the selected model advertises vision
+            support.
+          </p>
+          <ol class="steps compact">
+            <li>
+              <div>
+                Choose <strong>Add attachment</strong> and select a file in the
+                native picker.
+              </div>
+            </li>
+            <li>
+              <div>
+                Wait for extraction, indexing, or image normalization to finish.
+              </div>
+            </li>
+            <li>
+              <div>
+                Review the attachment chip and its entry in
+                <strong>Context</strong>.
+              </div>
+            </li>
+            <li>
+              <div>
+                Remove anything you do not want included, then send your prompt.
+              </div>
+            </li>
+          </ol>
+          <div class="callout">
+            <strong>Native file boundary</strong>
+            <p>
+              The interface receives safe previews and metadata, not native file
+              paths. The Rust core owns file bytes, extraction, normalization,
+              and hashes.
+            </p>
+          </div>
+        </section>
+
+        <section id="tools">
+          <p class="kicker">Optional capabilities</p>
+          <h2>Memory, Web, Email, and Python</h2>
+          <p>
+            Tools are opt-in and appear only when the selected model supports
+            them. Their activity is recorded in the conversation so you can
+            inspect the call, outcome, duration, and retained result.
+          </p>
+          <div class="card-grid two">
+            <article>
+              <h3>Memory</h3>
+              <p>
+                Searches opted-in conversations and retained documents through
+                Bottie's local index. Citations appear in Context.
+              </p>
+            </article>
+            <article>
+              <h3>Web</h3>
+              <p>
+                Searches with the configured Brave or Exa service and fetches
+                validated public HTTP(S) pages. Sources remain visible.
+              </p>
+            </article>
+            <article>
+              <h3>Email</h3>
+              <p>
+                Uses a separately configured, read-only Localmail connection to
+                search or open mail and extracted attachment text.
+              </p>
+            </article>
+            <article>
+              <h3>Python</h3>
+              <p>
+                When available, proposed code requires an exact, one-use
+                approval. Read the purpose and source before approving.
+              </p>
+            </article>
+          </div>
+          <p class="note">
+            <strong>Remember:</strong> enabled tool results may be delivered to
+            the selected model provider. Inspect Context and Tool activity when
+            the destination matters.
+          </p>
+        </section>
+
+        <section id="voice">
+          <p class="kicker">Hands-free input</p>
+          <h2>Voice capture and playback</h2>
+          <ol class="steps compact">
+            <li>
+              <div>
+                Choose an input in Settings, or leave
+                <strong>System default</strong> selected.
+              </div>
+            </li>
+            <li>
+              <div>
+                Select <strong>Record voice</strong>. Microphone permission is
+                requested only now.
+              </div>
+            </li>
+            <li>
+              <div>
+                Stop recording, review the locally produced transcript, and
+                correct individual final turns if needed.
+              </div>
+            </li>
+            <li>
+              <div>
+                Choose <strong>Use transcript as text</strong> to copy it into
+                the editable draft without sending.
+              </div>
+            </li>
+          </ol>
+          <p>
+            Sending audio and retaining a local WAV are independent,
+            off-by-default choices. Audio delivery is available only for oMLX or
+            OpenAI-compatible models that advertise audio input. Otherwise use
+            the transcript as ordinary text. <strong>Discard</strong> clears the
+            session capture and transcript.
+          </p>
+          <div class="callout">
+            <strong>Session-only by default</strong>
+            <p>
+              Audio samples and speech-model details stay behind the native
+              boundary. A transcript is not inserted into a conversation or sent
+              until you explicitly use or deliver it.
+            </p>
+          </div>
+        </section>
+
+        <section id="conversations">
+          <p class="kicker">Keep useful work</p>
+          <h2>Manage conversations</h2>
+          <ul>
+            <li>
+              <strong>Search</strong> active and archived history and jump to
+              the matching branch.
+            </li>
+            <li>
+              <strong>Rename</strong> a conversation to make it easier to find.
+            </li>
+            <li>
+              <strong>Archive</strong> work you want to keep outside the active
+              list.
+            </li>
+            <li>
+              <strong>Exclude from memory</strong> to prevent that conversation
+              from contributing to later local memory searches.
+            </li>
+            <li>
+              <strong>Move to Trash</strong> for reversible removal, or
+              <strong>Forget permanently</strong> when you intend irreversible
+              deletion.
+            </li>
+            <li>
+              <strong>Export</strong> the visible lineage as Markdown or
+              versioned JSON. Attachment and generated-image bundles are
+              included when needed.
+            </li>
+          </ul>
+          <h3>Backups and recovery</h3>
+          <p>
+            Create verified backups before upgrades or important experiments.
+            Bottie's guided recovery screen can restore an automatic backup or
+            let you select a manual backup if local storage cannot be opened
+            safely.
+          </p>
+        </section>
+
+        <section id="settings">
+          <p class="kicker">Personalize</p>
+          <h2>Settings</h2>
+          <p>
+            Open Settings with the gear control or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>
+            + <kbd>,</kbd>.
+          </p>
+          <div class="card-grid two">
+            <article>
+              <h3>Providers</h3>
+              <p>
+                Configure endpoints and credentials, refresh models, and select
+                the last-used provider/model pair.
+              </p>
+            </article>
+            <article>
+              <h3>Appearance</h3>
+              <p>
+                Choose System, Light, or Dark theme and Comfortable or Compact
+                density. Changes apply immediately.
+              </p>
+            </article>
+            <article>
+              <h3>Voice</h3>
+              <p>
+                Select a microphone and local playback voice. If a saved device
+                disappears, Bottie falls back safely.
+              </p>
+            </article>
+            <article>
+              <h3>Updates</h3>
+              <p>
+                Check explicitly, review a newer version, then choose whether to
+                install it. No update is downloaded merely by opening Settings.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section id="privacy">
+          <p class="kicker">Know the boundary</p>
+          <h2>Privacy and data flow</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Stays in native Bottie storage</th>
+                <th>May go to the selected provider</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  Credentials, native paths, full file handling, SQLite data,
+                  backups, microphone samples, and tool policy
+                </td>
+                <td>
+                  Your prompt, conversation context needed for the request,
+                  explicitly delivered images or audio, and enabled tool results
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <ul class="check-list">
+            <li>
+              Prefer a local provider when prompts must remain on the device.
+            </li>
+            <li>
+              Confirm the route shown in the toolbar before sending sensitive
+              material.
+            </li>
+            <li>
+              Open Context and remove attachments or citations you do not want
+              used.
+            </li>
+            <li>
+              Enable Memory, Web, and Email only for requests that need them.
+            </li>
+            <li>
+              Review proposed Python source; approval applies to that exact
+              request once.
+            </li>
+          </ul>
+        </section>
+
+        <section id="shortcuts">
+          <p class="kicker">Move quickly</p>
+          <h2>Keyboard shortcuts</h2>
+          <p>
+            Use <kbd>⌘</kbd> on macOS and <kbd>Ctrl</kbd> on Windows or Linux.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Shortcut</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Open command palette</td>
+                <td><kbd>⌘/Ctrl</kbd> + <kbd>K</kbd></td>
+              </tr>
+              <tr>
+                <td>New conversation</td>
+                <td><kbd>⌘/Ctrl</kbd> + <kbd>N</kbd></td>
+              </tr>
+              <tr>
+                <td>Search conversations</td>
+                <td><kbd>⌘/Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></td>
+              </tr>
+              <tr>
+                <td>Focus conversation navigation</td>
+                <td><kbd>⌘/Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd></td>
+              </tr>
+              <tr>
+                <td>Toggle Context</td>
+                <td><kbd>⌘/Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd></td>
+              </tr>
+              <tr>
+                <td>Open Settings</td>
+                <td><kbd>⌘/Ctrl</kbd> + <kbd>,</kbd></td>
+              </tr>
+              <tr>
+                <td>Close palette or dialog</td>
+                <td><kbd>Esc</kbd></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="troubleshooting">
+          <p class="kicker">When something is wrong</p>
+          <h2>Troubleshooting</h2>
+          <details>
+            <summary>No models are available</summary>
+            <p>
+              Confirm the local service is running or the cloud endpoint is
+              reachable. Reopen Settings, verify the base URL and credential
+              status, then refresh discovery. The browser preview is always
+              disconnected.
+            </p>
+          </details>
+          <details>
+            <summary>Send is unavailable</summary>
+            <p>
+              Select an available model and wait for attachments to finish
+              processing. Remove an image if the model lacks vision support.
+              Stop active voice capture or another generation before trying
+              again.
+            </p>
+          </details>
+          <details>
+            <summary>A tool is unavailable</summary>
+            <p>
+              The selected model may not advertise native tool support, or the
+              service may not be configured. Email additionally requires a ready
+              Localmail connection; Web requires its search credential.
+            </p>
+          </details>
+          <details>
+            <summary>My saved microphone or voice disappeared</summary>
+            <p>
+              Refresh device discovery. Bottie uses System default when a
+              previously saved device is unavailable. An exact microphone that
+              disappears during a recording session fails rather than silently
+              switching.
+            </p>
+          </details>
+          <details>
+            <summary>Local data cannot be opened</summary>
+            <p>
+              Use the guided recovery screen. Try the latest automatic backup
+              first, or select a known manual backup. Avoid modifying
+              application storage by hand.
+            </p>
+          </details>
+          <details>
+            <summary>An update is not offered</summary>
+            <p>
+              The current beta does not yet have a working public release
+              channel. Update checks do not guarantee that a signed artifact is
+              published for your platform.
+            </p>
+          </details>
+        </section>
+
+        <section id="glossary">
+          <p class="kicker">Reference</p>
+          <h2>Glossary</h2>
+          <dl class="glossary">
+            <div>
+              <dt>Context</dt>
+              <dd>
+                The material available to a request, such as conversation turns,
+                attachments, memory citations, or web results.
+              </dd>
+            </div>
+            <div>
+              <dt>Local-first</dt>
+              <dd>
+                Storage and core operations default to your device; explicitly
+                chosen cloud providers can still receive request data.
+              </dd>
+            </div>
+            <div>
+              <dt>Provider</dt>
+              <dd>The local service or cloud endpoint that runs a model.</dd>
+            </div>
+            <div>
+              <dt>Branch</dt>
+              <dd>
+                An alternate continuation created by editing or regenerating
+                from an earlier turn without overwriting the original.
+              </dd>
+            </div>
+            <div>
+              <dt>Native boundary</dt>
+              <dd>
+                The Rust-controlled layer that owns secrets, files, networking,
+                storage, audio, and tool execution.
+              </dd>
+            </div>
+          </dl>
+          <p class="manual-footer">
+            Bottie user manual · initial edition · 15 September 2026
+          </p>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
