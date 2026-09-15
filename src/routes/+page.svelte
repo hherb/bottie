@@ -323,6 +323,12 @@
         speakingMessageId={state.speech.activeMessageId}
         microphoneCapturing={state.microphone.status.phase === "starting" ||
           state.microphone.status.phase === "recording"}
+        imageEditing={{
+          active: state.imageMode,
+          execution: state.imageExecution,
+          selectedSourceIds: state.selectedGeneratedImageSourceIds,
+          canSelectSource: state.canSelectGeneratedImageSource,
+        }}
         onretry={() => void state.refreshModels()}
         onselectbranch={(branchId) => void state.selectConversationBranch(branchId)}
         oneditmessage={(message, text) => void state.editAndRegenerate(message, text)}
@@ -332,6 +338,7 @@
         onopenasset={(assetId) => void state.openGeneratedImage(assetId)}
         onexportasset={(assetId) => void state.exportGeneratedImage(assetId)}
         ondeleteasset={(assetId) => void state.deleteGeneratedImage(assetId)}
+        ontoggleimagesource={(assetId) => state.toggleGeneratedImageSource(assetId)}
         onrateresponse={(responseId, rating) => void state.history.rateResponse(state.messages, responseId, rating)}
         onremoveattachment={(messageId, attachmentId) => void state.removeMessageAttachment(messageId, attachmentId)}
         onspeakresponse={(messageId, markdown) => void state.speech.speak(messageId, markdown)}
@@ -348,9 +355,7 @@
           ? state.canGenerateImage
           : state.canSend && !state.microphone.isActive && state.attachmentsCanSubmit && state.audioCanSubmit}
         attachmentNote={state.imageMode
-          ? state.attachment.items.length > 0
-            ? "Remove draft attachments before text-to-image generation. Reference-image editing is a later slice."
-            : "Image generation is explicit and separate from ordinary chat send."
+          ? state.imageAttachmentNote
           : composerAttachmentNote(
               nextRequestAttachments(state.attachment.items, state.history.conversationAttachments),
               state.selectedModel,
@@ -368,6 +373,7 @@
         imageExecution={state.imageExecution}
         imageSize={state.imageSize}
         imageCount={state.imageCount}
+        generatedImageSourceCount={state.selectedGeneratedImageSources.length}
         imageFeedback={state.imageFeedback}
         localImageAvailability={state.localImageAvailability}
         localImageAvailabilityFailed={state.localImageAvailabilityFailed || state.localImageAcquisition.failed}
@@ -397,8 +403,8 @@
         ontogglememory={() => void state.toggleTool("memory")}
         ontoggleweb={() => void state.toggleTool("web")}
         ontoggleemail={() => void state.toggleTool("email")}
-        ontoggleimage={() => (state.imageMode = !state.imageMode)}
-        onimageexecution={(execution) => (state.imageExecution = execution)}
+        ontoggleimage={() => state.toggleImageMode()}
+        onimageexecution={(execution) => state.setImageExecution(execution)}
         onimagesize={(size) => (state.imageSize = size)}
         onimagecount={(count) => (state.imageCount = count)}
         oninstalllocalimage={() => void state.localImageAcquisition.start()}

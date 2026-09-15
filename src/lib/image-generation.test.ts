@@ -1,6 +1,39 @@
 import { describe, expect, it } from "vitest";
 
-import { imageGenerationRequestOptions, prepareImageGenerationPrompt } from "./image-generation";
+import {
+  imageGenerationRequestOptions,
+  prepareImageEditingSources,
+  prepareImageGenerationPrompt,
+} from "./image-generation";
+import type { Attachment } from "./presentation";
+
+/** Builds one path-free attachment fixture for image-editing eligibility tests. */
+function attachment(id: string, state: Attachment["normalization"]["state"] = "ready"): Attachment {
+  return {
+    id,
+    name: `${id}.png`,
+    size: "4 KB",
+    kind: "image",
+    mimeType: "image/png",
+    previewUrl: null,
+    extraction: {
+      state: "unsupported",
+      format: null,
+      characterCount: null,
+      pageCount: null,
+      errorCode: null,
+    },
+    indexing: { state: "unsupported" },
+    normalization: {
+      state,
+      format: state === "ready" ? "png" : null,
+      width: state === "ready" ? 64 : null,
+      height: state === "ready" ? 64 : null,
+      byteSize: state === "ready" ? 4_096 : null,
+      errorCode: null,
+    },
+  };
+}
 
 describe("image generation presentation", () => {
   it("maps every Cloud aspect choice to exact bounded provider options", () => {
@@ -49,5 +82,69 @@ describe("image generation presentation", () => {
       ok: false,
       message: "The image description is too long or contains unsupported control characters.",
     });
+  });
+
+  it("preserves one to three ready Cloud attachment IDs in visible order", () => {
+    expect(prepareImageEditingSources("cloud", [])).toEqual({ ok: true, sources: [] });
+    expect(prepareImageEditingSources("cloud", [attachment("second"), attachment("first")])).toEqual({
+      ok: true,
+      sources: [
+        { sourceType: "attachment", sourceId: "second" },
+        { sourceType: "attachment", sourceId: "first" },
+      ],
+    });
+  });
+
+  it("fails closed for local, unready, non-image, duplicate, or excessive editing sources", () => {
+    expect(prepareImageEditingSources("local", [attachment("source")])).toMatchObject({ ok: false });
+    expect(prepareImageEditingSources("cloud", [attachment("pending", "pending")])).toMatchObject({ ok: false });
+    expect(prepareImageEditingSources("cloud", [{ ...attachment("document"), kind: "file" }])).toMatchObject({
+      ok: false,
+    });
+    expect(prepareImageEditingSources("cloud", [attachment("same"), attachment("same")])).toMatchObject({
+      ok: false,
+    });
+    expect(
+      prepareImageEditingSources("cloud", [
+        attachment("one"),
+        attachment("two"),
+        attachment("three"),
+        attachment("four"),
+      ]),
+    ).toMatchObject({ ok: false });
+  });
+
+  it("appends completed generated-image identities after visible draft attachments", () => {
+    const generated = {
+      id: "generated-source",
+      ordinal: 0,
+      status: "completed" as const,
+      mediaType: "image/png" as const,
+      width: 64,
+      height: 64,
+      byteSize: 4_096,
+      providerId: "qwen-image",
+      modelId: "qwen-image-2.0-2026-03-03",
+      execution: "cloud" as const,
+      seed: null,
+      errorCode: null,
+      createdAtMs: 1,
+      sources: [],
+      previewUrl: "bottie-generated-asset://generated-source",
+    };
+
+    expect(prepareImageEditingSources("cloud", [attachment("attachment-source")], [generated])).toEqual({
+      ok: true,
+      sources: [
+        { sourceType: "attachment", sourceId: "attachment-source" },
+        { sourceType: "generated_asset", sourceId: "generated-source" },
+      ],
+    });
+    expect(prepareImageEditingSources("cloud", [], [{ ...generated, status: "pending" }])).toMatchObject({
+      ok: false,
+    });
+    expect(
+      prepareImageEditingSources("cloud", [attachment("one"), attachment("two"), attachment("three")], [generated]),
+    ).toMatchObject({ ok: false });
   });
 });

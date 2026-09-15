@@ -29,6 +29,7 @@ function renderedComposer(
   localImageAvailabilityFailed = false,
   imageExecution: "cloud" | "local" = "cloud",
   localImageAcquisitionStatus: LocalImageAcquisitionStatus | null = null,
+  generatedImageSourceCount = 0,
 ): string {
   return render(Composer, {
     props: {
@@ -51,6 +52,7 @@ function renderedComposer(
       imageExecution,
       imageSize: "square",
       imageCount: 1,
+      generatedImageSourceCount,
       imageFeedback: "",
       localImageAvailability,
       localImageAvailabilityFailed,
@@ -125,7 +127,102 @@ describe("Composer", () => {
     expect(html).toContain("qwen-image-2.0-2026-03-03");
     expect(html).toContain("may incur provider charges");
     expect(html).toContain('aria-label="Generate image"');
-    expect(html).toMatch(/aria-label="Attach files"[^>]*disabled/);
+    expect(html).toContain('aria-label="Attach reference images"');
+  });
+
+  it("offers ordered Cloud reference-image selection with explicit byte delivery disclosure", () => {
+    const source: Attachment = {
+      id: "source-image",
+      name: "source.png",
+      size: "4 KB",
+      kind: "image",
+      mimeType: "image/png",
+      previewUrl: null,
+      extraction: {
+        state: "unsupported",
+        format: null,
+        characterCount: null,
+        pageCount: null,
+        errorCode: null,
+      },
+      indexing: { state: "unsupported" },
+      normalization: { state: "ready", format: "png", width: 64, height: 64, byteSize: 4_096, errorCode: null },
+    };
+    const html = renderedComposer(
+      true,
+      true,
+      [source],
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      "Email unavailable.",
+      "Email unavailable.",
+      false,
+      false,
+      true,
+    );
+
+    expect(html).toContain('aria-label="Attach reference images"');
+    expect(html).toContain('accept="image/png,image/jpeg"');
+    expect(html).toContain("Editing with 1 ready source image");
+    expect(html).toContain("prompt and normalized source image bytes are sent to Alibaba Model Studio");
+    expect(html).toMatch(/may incur\s+provider charges/);
+    expect(html).toContain('aria-label="Edit image"');
+  });
+
+  it("disables reference-image selection on the local 2512 route", () => {
+    const html = renderedComposer(
+      true,
+      true,
+      [],
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      "Email unavailable.",
+      "Email unavailable.",
+      false,
+      false,
+      true,
+      null,
+      false,
+      "local",
+    );
+
+    expect(html).toMatch(/aria-label="Reference-image editing is available only with Cloud execution"[^>]*disabled/);
+  });
+
+  it("discloses a selected generated image as a hosted editing source", () => {
+    const html = renderedComposer(
+      true,
+      true,
+      [],
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      "Email unavailable.",
+      "Email unavailable.",
+      false,
+      false,
+      true,
+      null,
+      false,
+      "cloud",
+      null,
+      1,
+    );
+
+    expect(html).toContain("Editing with 1 ready source image");
+    expect(html).toContain('aria-label="Edit image"');
+    expect(html).toMatch(/may incur\s+provider charges/);
   });
 
   it("shows the local route but disables selection until native readiness is exact", () => {
