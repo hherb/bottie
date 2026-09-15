@@ -4,11 +4,14 @@ use futures_util::future::Abortable;
 use serde::{Deserialize, Serialize};
 use tauri::{State, ipc::Channel};
 
+#[path = "controller/editing.rs"]
+pub(super) mod editing;
 #[path = "controller/local_run.rs"]
 mod local_run;
 #[path = "controller/retry.rs"]
 mod retry;
 
+pub(crate) use editing::start_image_editing;
 use local_run::spawn_local_image_run;
 pub(crate) use retry::retry_image_generation;
 
@@ -24,8 +27,30 @@ use crate::{
 
 use super::{
     DASHSCOPE_QWEN_IMAGE_MODEL_ID, DashScopeQwenImageProvider, GeneratedImageDownloader,
-    ImageGenerationProvider, ImageGenerationRequest, ImageGenerationRuns, QWEN_IMAGE_PROVIDER_ID,
+    ImageEditingProvider, ImageEditingRequest, ImageGenerationProvider, ImageGenerationRequest,
+    ImageGenerationRuns, QWEN_IMAGE_PROVIDER_ID,
 };
+
+/// Exact hosted operation retained behind one shared durable run lifecycle.
+pub(super) enum HostedImageRequest {
+    /// A text-only image generation request.
+    Generation(ImageGenerationRequest),
+    /// An edit over ordered validated native source bytes.
+    Editing(ImageEditingRequest),
+}
+
+impl HostedImageRequest {
+    /// Executes the exact selected hosted operation without fallback.
+    async fn execute(
+        self,
+        provider: &DashScopeQwenImageProvider,
+    ) -> Result<Vec<super::GeneratedImageReference>, ProviderError> {
+        match self {
+            Self::Generation(request) => provider.generate(request).await,
+            Self::Editing(request) => provider.edit(request).await,
+        }
+    }
+}
 
 /// Explicit path-free image generation request accepted from the composer.
 #[derive(Clone, Debug, Deserialize)]
@@ -205,7 +230,7 @@ async fn start_cloud_image_generation(
         abort_registration,
         started.message,
         request.count,
-        generation_request,
+        HostedImageRequest::Generation(generation_request),
         provider,
         downloader,
         on_event,
@@ -297,7 +322,7 @@ fn spawn_image_run(
     abort_registration: futures_util::future::AbortRegistration,
     pending_message: StoredMessage,
     output_count: u8,
-    generation_request: ImageGenerationRequest,
+    hosted_request: HostedImageRequest,
     provider: DashScopeQwenImageProvider,
     downloader: GeneratedImageDownloader,
     on_event: Channel<ImageGenerationEvent>,
@@ -319,7 +344,7 @@ fn spawn_image_run(
             total: output_count,
         });
         let generation = async {
-            let references = provider.generate(generation_request).await?;
+            let references = hosted_request.execute(&provider).await?;
             let _ = on_event.send(ImageGenerationEvent::Progress {
                 run_id: task_run_id.clone(),
                 stage: ImageGenerationStage::Downloading,

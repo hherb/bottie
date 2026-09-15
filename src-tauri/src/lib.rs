@@ -118,7 +118,7 @@ use diagnostics::{DiagnosticEntry, Diagnostics, export_diagnostics, record_diagn
 use generation::start_chat;
 use image_generation::{
     DashScopeQwenImageProvider, ImageGenerationProvider, ImageGenerationRuns, LocalImageGenerator,
-    QWEN_IMAGE_PROVIDER_ID, cancel_image_generation, retry_image_generation,
+    QWEN_IMAGE_PROVIDER_ID, cancel_image_generation, retry_image_generation, start_image_editing,
     start_image_generation, validate_qwen_image_base_url,
 };
 use inference::{
@@ -931,6 +931,7 @@ pub fn run() {
             get_provider_credential_status,
             update_provider_credential,
             validate_qwen_image_configuration,
+            start_image_editing,
             start_image_generation,
             retry_image_generation,
             cancel_image_generation,

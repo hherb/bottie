@@ -23,6 +23,7 @@ use super::{
 pub(crate) use lineage::{
     GeneratedImageSourceFormat, GeneratedImageSourceReference, GeneratedImageSourceType,
     StartedGeneratedImageEdit, StoredGeneratedImageSource, ValidatedGeneratedImageSource,
+    validate_generated_image_source_references,
 };
 pub(crate) use retry::GeneratedImageRetry;
 pub(super) use selection::{selected_branch_without_active_generation, selected_image_prompt};

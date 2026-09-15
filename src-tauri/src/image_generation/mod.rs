@@ -7,6 +7,8 @@ mod local;
 mod runs;
 
 #[cfg(test)]
+mod editing_controller_tests;
+#[cfg(test)]
 mod editing_tests;
 #[cfg(test)]
 mod tests;
@@ -21,7 +23,7 @@ use crate::storage::{
 use url::Url;
 
 pub(crate) use controller::{
-    cancel_image_generation, retry_image_generation, start_image_generation,
+    cancel_image_generation, retry_image_generation, start_image_editing, start_image_generation,
 };
 pub(crate) use dashscope::DashScopeQwenImageProvider;
 pub(crate) use download::GeneratedImageDownloader;
@@ -303,5 +305,14 @@ pub(crate) trait ImageGenerationProvider: Clone + Send + Sync + 'static {
     async fn generate(
         &self,
         request: ImageGenerationRequest,
+    ) -> Result<Vec<GeneratedImageReference>, ProviderError>;
+}
+
+/// Provider-neutral hosted image editing over exact Rust-owned source bytes.
+pub(crate) trait ImageEditingProvider: Clone + Send + Sync + 'static {
+    /// Edits one bounded request into temporary native-only image references.
+    async fn edit(
+        &self,
+        request: ImageEditingRequest,
     ) -> Result<Vec<GeneratedImageReference>, ProviderError>;
 }

@@ -3,14 +3,14 @@
 use tauri::{State, ipc::Channel};
 
 use super::{
-    ImageGenerationEvent, ImageGenerationRun, RetryImageGenerationRequest, spawn_image_run,
-    spawn_local_image_run, storage_error,
+    HostedImageRequest, ImageGenerationEvent, ImageGenerationRun, RetryImageGenerationRequest,
+    spawn_image_run, spawn_local_image_run, storage_error,
 };
 use crate::{
     AppState,
     image_generation::{
         DASHSCOPE_QWEN_IMAGE_MODEL_ID, DashScopeQwenImageProvider, GeneratedImageDownloader,
-        ImageGenerationRequest, QWEN_IMAGE_PROVIDER_ID,
+        ImageEditingRequest, ImageGenerationRequest, QWEN_IMAGE_PROVIDER_ID,
     },
     inference::ProviderError,
     storage::{
@@ -153,9 +153,7 @@ async fn start_retry(
     Err(invalid_retry_error())
 }
 
-fn validate_cloud_retry(
-    retry: &GeneratedImageRetry,
-) -> Result<ImageGenerationRequest, ProviderError> {
+fn validate_cloud_retry(retry: &GeneratedImageRetry) -> Result<HostedImageRequest, ProviderError> {
     if retry.provenance.provider_id != QWEN_IMAGE_PROVIDER_ID
         || retry.provenance.model_id != DASHSCOPE_QWEN_IMAGE_MODEL_ID
         || retry.provenance.seed.is_some()
@@ -163,18 +161,32 @@ fn validate_cloud_retry(
     {
         return Err(invalid_retry_error());
     }
-    ImageGenerationRequest::new(
+    if retry.sources.is_empty() {
+        return ImageGenerationRequest::new(
+            retry.prompt.clone(),
+            retry.options.width,
+            retry.options.height,
+            retry.output_count,
+        )
+        .map(HostedImageRequest::Generation);
+    }
+    ImageEditingRequest::new(
         retry.prompt.clone(),
         retry.options.width,
         retry.options.height,
         retry.output_count,
+        retry.sources.clone(),
     )
+    .map(HostedImageRequest::Editing)
 }
 
 fn validate_local_retry(
     retry: &GeneratedImageRetry,
 ) -> Result<ImageGenerationRequest, ProviderError> {
-    if retry.provenance.provider_id != QWEN_IMAGE_PROVIDER_ID || retry.options.prompt_extend {
+    if retry.provenance.provider_id != QWEN_IMAGE_PROVIDER_ID
+        || retry.options.prompt_extend
+        || !retry.sources.is_empty()
+    {
         return Err(invalid_retry_error());
     }
     ImageGenerationRequest::new_local(
@@ -199,4 +211,65 @@ fn active_run_error() -> ProviderError {
 
 fn invalid_retry_error() -> ProviderError {
     ProviderError::invalid_request("That image response cannot be retried.")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{HostedImageRequest, validate_cloud_retry, validate_local_retry};
+    use crate::storage::{
+        GeneratedAssetExecution, GeneratedImageProvenance, GeneratedImageRequestOptions,
+        GeneratedImageRetry, GeneratedImageSourceFormat, GeneratedImageSourceReference,
+        ValidatedGeneratedImageSource,
+    };
+
+    /// Creates one exact retry contract with optional native edit bytes.
+    fn retry(sources: Vec<ValidatedGeneratedImageSource>) -> GeneratedImageRetry {
+        GeneratedImageRetry::for_test(
+            "Edit this",
+            GeneratedImageProvenance::new(
+                "qwen-image",
+                "qwen-image-2.0-2026-03-03",
+                GeneratedAssetExecution::Cloud,
+                None,
+            )
+            .unwrap(),
+            GeneratedImageRequestOptions::new(1_024, 1_024, true).unwrap(),
+            sources,
+        )
+    }
+
+    /// Creates one bounded native edit source without a filesystem path.
+    fn source() -> ValidatedGeneratedImageSource {
+        ValidatedGeneratedImageSource::for_test(
+            GeneratedImageSourceReference::Attachment(uuid::Uuid::new_v4().to_string()),
+            GeneratedImageSourceFormat::Png,
+            8,
+            8,
+            vec![1, 2, 3],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn cloud_retry_routes_retained_sources_back_through_editing() {
+        assert!(matches!(
+            validate_cloud_retry(&retry(vec![source()])),
+            Ok(HostedImageRequest::Editing(_))
+        ));
+        assert!(matches!(
+            validate_cloud_retry(&retry(Vec::new())),
+            Ok(HostedImageRequest::Generation(_))
+        ));
+    }
+
+    #[test]
+    fn local_retry_rejects_edit_sources_without_fallback() {
+        let mut retry = retry(vec![source()]);
+        retry.provenance.execution = GeneratedAssetExecution::Local;
+        retry.provenance.model_id = "Qwen/Qwen-Image-2512".into();
+        retry.provenance.seed = Some(42);
+        retry.options = GeneratedImageRequestOptions::new(512, 512, false).unwrap();
+
+        assert!(validate_local_retry(&retry).is_err());
+    }
 }

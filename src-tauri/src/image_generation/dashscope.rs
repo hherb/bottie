@@ -1,5 +1,9 @@
 //! Exact DashScope Qwen-Image-2.0 adapter.
 
+#[cfg(test)]
+#[path = "dashscope/fixtures.rs"]
+mod fixtures;
+
 use std::time::Duration;
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -14,9 +18,10 @@ use url::Url;
 use crate::inference::{ProviderError, ProviderErrorCode};
 
 use super::{
-    DASHSCOPE_QWEN_IMAGE_MODEL_ID, GeneratedImageReference, ImageEditingRequest,
-    ImageGenerationCapabilities, ImageGenerationProvider, ImageGenerationRequest,
-    MAX_IMAGE_OUTPUTS, MAX_IMAGE_PIXELS, QWEN_IMAGE_PROVIDER_ID, validate_qwen_image_base_url,
+    DASHSCOPE_QWEN_IMAGE_MODEL_ID, GeneratedImageReference, ImageEditingProvider,
+    ImageEditingRequest, ImageGenerationCapabilities, ImageGenerationProvider,
+    ImageGenerationRequest, MAX_IMAGE_OUTPUTS, MAX_IMAGE_PIXELS, QWEN_IMAGE_PROVIDER_ID,
+    validate_qwen_image_base_url,
 };
 
 const GENERATION_PATH: &str = "services/aigc/multimodal-generation/generation";
@@ -87,6 +92,16 @@ impl DashScopeQwenImageProvider {
             .timeout(GENERATION_TIMEOUT)
     }
 
+    /// Builds one authenticated editing request without exposing source bytes outside its body.
+    fn edit_request_builder(&self, request: &ImageEditingRequest) -> reqwest::RequestBuilder {
+        self.client
+            .post(self.endpoint.clone())
+            .header(ACCEPT, "application/json")
+            .header(AUTHORIZATION, self.authorization.clone())
+            .json(&DashScopeImageEditRequest::from(request))
+            .timeout(GENERATION_TIMEOUT)
+    }
+
     /// Serializes one request for exact fixture assertions without sending it.
     #[cfg(test)]
     pub(super) fn fixture_request_json(
@@ -142,18 +157,44 @@ impl ImageGenerationProvider for DashScopeQwenImageProvider {
     ) -> Result<Vec<GeneratedImageReference>, ProviderError> {
         let expected_dimensions = request.dimensions();
         let expected_count = request.count();
-        let response = self
-            .request_builder(&request)
-            .send()
-            .await
-            .map_err(map_request_error)?;
-        if !response.status().is_success() {
-            return Err(map_status(response.status()));
-        }
-        validate_content_type(&response)?;
-        let bytes = read_bounded_body(response).await?;
-        decode_response(&bytes, expected_dimensions, expected_count)
+        execute_request(
+            self.request_builder(&request),
+            expected_dimensions,
+            expected_count,
+        )
+        .await
     }
+}
+
+impl ImageEditingProvider for DashScopeQwenImageProvider {
+    async fn edit(
+        &self,
+        request: ImageEditingRequest,
+    ) -> Result<Vec<GeneratedImageReference>, ProviderError> {
+        let expected_dimensions = request.dimensions();
+        let expected_count = request.count();
+        execute_request(
+            self.edit_request_builder(&request),
+            expected_dimensions,
+            expected_count,
+        )
+        .await
+    }
+}
+
+/// Executes one fixed hosted request through the shared status, body, and response decoder policy.
+async fn execute_request(
+    request: reqwest::RequestBuilder,
+    expected_dimensions: (u32, u32),
+    expected_count: u8,
+) -> Result<Vec<GeneratedImageReference>, ProviderError> {
+    let response = request.send().await.map_err(map_request_error)?;
+    if !response.status().is_success() {
+        return Err(map_status(response.status()));
+    }
+    validate_content_type(&response)?;
+    let bytes = read_bounded_body(response).await?;
+    decode_response(&bytes, expected_dimensions, expected_count)
 }
 
 #[derive(Serialize)]

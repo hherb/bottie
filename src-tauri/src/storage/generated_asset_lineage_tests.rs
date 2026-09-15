@@ -338,6 +338,11 @@ fn exact_retry_preserves_edit_sources_and_source_deletion_is_blocked() {
         )
         .expect("edit should fail durably");
 
+    let inspected = store
+        .inspect_generated_image_retry(&started.message.id)
+        .expect("edit retry bytes should reopen exactly");
+    assert_eq!(inspected.sources, started.sources);
+
     let retry = store
         .retry_generated_image_message(&started.message.id)
         .expect("edit should retry exactly");

@@ -4,40 +4,42 @@ Last verified: 2026-09-15
 
 ## Start here
 
-`main` includes merged PR #179 at `fece17e`. Branch `codex/qwen-image-editing-foundation` completes the durable
-Milestone 8.5 editing-lineage and offline request-serialization foundation. Read `ROADMAP.md` Milestone 8.5,
-`src-tauri/src/storage/generated_assets/lineage.rs`, and `src-tauri/src/image_generation/dashscope.rs`.
+`main` includes merged PR #180 at `5e2fc86`. Branch `codex/qwen-image-editing-execution` completes the Rust-only hosted
+Qwen-Image-2.0 editing execution and command slices. Read `ROADMAP.md` Milestone 8.5,
+`src-tauri/src/image_generation/controller/editing.rs`, and `src/routes/page-state.svelte.ts`.
 
 ## Completed slices
 
-- Schema version 25 adds ordered source lineage beneath each generated output. One to three sources may come only from
-  a ready normalized image attached to the exact current request or an earlier completed generated image in its
-  selected ancestry.
-- Acceptance re-reads and hashes native bytes, rejects malformed/cross-branch/duplicate content, caps each input at
-  10 MiB and the aggregate at 30 MiB, and requires exact hosted `qwen-image-2.0-2026-03-03` Cloud provenance.
-- Exact lineage survives reopen and retry. It blocks source deletion while referenced, participates in attachment
-  retention and garbage collection, and carries ordered path-free metadata plus exact source bytes through selected
-  export and verified backup/restore.
-- The provider-neutral edit request fixes provenance and bounded generation options. Its offline DashScope serializer
-  emits ordered Base64 data-URI images followed by one text item; no request is sent.
+- `ImageEditingProvider` and `DashScopeQwenImageProvider::edit` send the existing ordered native source bytes as exact
+  Base64 data URIs followed by the edit instruction. They reuse the fixed endpoint and authentication, strict terminal
+  response decoder, 256 KiB response ceiling, redirect-free bounded PNG downloader, and abortable hosted lifecycle.
+- `start_image_editing` is a closed path-free Tauri command. It accepts only ordered opaque attachment or generated
+  asset IDs, revalidates the selected request lineage and exact native bytes before insertion, stores source snapshots
+  under every pending output, and emits the existing bounded image-run events.
+- Failed and cancelled edits reopen and hash their identical per-output native source snapshot before exact retry.
+  Text-to-image retry remains unchanged, while any source-bearing local retry fails closed without cloud fallback.
 
 ## Validation
 
 Prettier, Svelte diagnostics (0 errors and 0 warnings), all 390 active frontend/script tests (3 skipped), the production
-build, `cargo fmt --check`, and `cargo check` pass. The complete host-local Rust run passes all 638 active library tests
-(36 ignored), the updater-evidence test, all 16 private-worker integration tests, and doc tests. This includes all 8 new
-lineage/lifecycle cases, all 3 request/serialization cases, and all 11 historical schema upgrades.
+build, `cargo fmt --check`, and `cargo check` pass. The complete host-local Rust run passes all 646 active library tests
+(36 ignored), the updater-evidence test, all 16 private-worker integration tests, and doc tests. This includes all 7
+editing request/execution cases, both closed-command cases, both exact retry routes, and the storage reopen regression.
+Loopback Rust tests require host-local execution because the sandbox denies listener binding.
 
-No native app was launched and no provider request was made. No credentials, credits, model bytes, or source assets
-left the device. Unrelated untracked logo-kit, screenshot, and Linux public-key files remain untouched.
+No native app was launched and no live provider request was made. No credentials, credits, model bytes, or source
+assets left the device. The command is registered and has a typed frontend wrapper, but no UI calls it. Unrelated
+untracked logo-kit, screenshot, and Linux public-key files remain untouched.
 
 ## Next slice
 
-Add the Rust-only hosted editing execution seam. Introduce a dedicated editing-provider contract and a DashScope
-adapter method that consumes the existing `ImageEditingRequest`, reuses the fixed endpoint/authentication, strict
-response decoder, and bounded downloader, and is covered by loopback fixtures for exact ordered data URIs,
-cancellation, transport/status failures, and response-size limits. Keep this slice below the Tauri command boundary.
+Add the first hosted editing UI using only one to three ready normalized images attached to the current draft. In Cloud
+Image mode, allow image picking, require every selected source to be ready and within the native count policy, persist
+the exact attachment IDs on the user request, show that the prompt and source image bytes go to Alibaba Model Studio
+and may incur charges, then invoke `startImageEditing` with the attachment IDs in visible order. Keep ordinary
+text-to-image available when no sources are selected, and keep Local 2512 source selection disabled.
 
-Do not make a live DashScope call, spend provider credits, expose a command or editing UI, forward native paths or
-unapproved attachment bytes, implement local editing, or claim local Qwen-Image-2.0 weights. Do not merge, dispatch
-workflows, sign, release, publish, distribute, or perform Store work without separate authorization.
+Cover pure eligibility/order policy, composer accessibility/disclosure, and page-state persistence/invocation tests.
+Do not yet add selection of earlier generated ancestry, a live DashScope call, local editing, source-byte/path IPC, or
+silent Cloud fallback. Do not merge, dispatch workflows, sign, release, publish, distribute, or perform Store work
+without separate authorization.
