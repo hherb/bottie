@@ -11,6 +11,8 @@ mod editing_controller_tests;
 #[cfg(test)]
 mod editing_tests;
 #[cfg(test)]
+mod live_tests;
+#[cfg(test)]
 mod tests;
 
 use crate::inference::ProviderError;

@@ -45,6 +45,7 @@
         <a href="#context">Files and context</a>
         <a href="#tools">Memory and tools</a>
         <a href="#voice">Voice</a>
+        <a href="#images">Images</a>
         <a href="#conversations">Manage conversations</a>
         <a href="#settings">Settings</a>
         <a href="#privacy">Privacy model</a>
@@ -433,6 +434,72 @@
               until you explicitly use or deliver it.
             </p>
           </div>
+        </section>
+
+        <section id="images">
+          <p class="kicker">Generate and edit</p>
+          <h2>Images</h2>
+          <p>
+            Switch the composer to <strong>Image</strong>, describe the result,
+            choose Cloud or Local, review the route disclosure, then generate.
+            Image generation never follows automatically from an ordinary chat
+            send or an unavailable local route.
+          </p>
+          <h3>Cloud Qwen-Image-2.0</h3>
+          <p>
+            Cloud mode uses the exact hosted
+            <code>qwen-image-2.0-2026-03-03</code> checkpoint. Your prompt—and
+            any one to three explicitly selected reference images for an
+            edit—goes to Alibaba Model Studio and may incur a charge. Bottie
+            downloads temporary results behind its native boundary and stores
+            only validated durable PNGs.
+          </p>
+          <h3>Local Qwen-Image-2512</h3>
+          <p>
+            Local mode is a separate text-to-image model and never claims to be
+            Qwen-Image-2.0. Bottie enables it only when the exact worker, model
+            cache, and measured hardware profile all pass native verification.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Host profile</th>
+                <th>Local status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Apple M3 Max with 128 GiB unified memory</td>
+                <td>Supported for one 512×512 text-to-image output</td>
+              </tr>
+              <tr>
+                <td>Other Apple silicon profiles</td>
+                <td>Unavailable pending exact measured evidence</td>
+              </tr>
+              <tr>
+                <td>Linux or Windows NVIDIA</td>
+                <td>Unavailable pending native CUDA evidence</td>
+              </tr>
+              <tr>
+                <td>Linux AMD</td>
+                <td>Unavailable pending native ROCm evidence</td>
+              </tr>
+              <tr>
+                <td>Windows AMD or Intel, and lower-memory GPUs</td>
+                <td>Unavailable pending a proved local runtime</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="note">
+            <strong>No silent fallback:</strong> if Local is unavailable,
+            Bottie does not send the request to Cloud. Local editing is not yet
+            supported.
+          </p>
+          <p>
+            Completed images can be opened, copied, exported, or deleted. An
+            edited image includes an expandable ordered source summary without
+            exposing native paths or opaque identifiers.
+          </p>
         </section>
 
         <section id="conversations">
