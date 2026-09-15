@@ -71,6 +71,24 @@ describe("PageState message submission", () => {
 });
 
 describe("PageState image execution", () => {
+  it("routes unmodified Enter through the explicit image action", () => {
+    const state = new PageState();
+    state.imageMode = true;
+    const generateImage = vi.spyOn(state, "generateImage").mockResolvedValue();
+    const sendMessage = vi.spyOn(state, "sendMessage").mockResolvedValue();
+    const event = {
+      key: "Enter",
+      shiftKey: false,
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent;
+
+    state.handleComposerKeydown(event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(generateImage).toHaveBeenCalledOnce();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it("skips Cloud credential validation before persisting a ready local request", async () => {
     const tauriRuntime = globalThis as typeof globalThis & { isTauri?: boolean };
     const previousIsTauri = tauriRuntime.isTauri;
@@ -190,6 +208,44 @@ describe("PageState image execution", () => {
         expect.any(Function),
       );
       expect(state.selectedGeneratedImageSources).toEqual([]);
+    } finally {
+      imageInference.startImageEditing.mockReset();
+      imageInference.validateQwenImageConfiguration.mockReset();
+      if (previousIsTauri === undefined) Reflect.deleteProperty(tauriRuntime, "isTauri");
+      else tauriRuntime.isTauri = previousIsTauri;
+    }
+  });
+
+  it("retains the complete edit draft when native source validation rejects the run", async () => {
+    const tauriRuntime = globalThis as typeof globalThis & { isTauri?: boolean };
+    const previousIsTauri = tauriRuntime.isTauri;
+    tauriRuntime.isTauri = true;
+    imageInference.validateQwenImageConfiguration.mockResolvedValue({});
+    imageInference.startImageEditing.mockRejectedValue({
+      code: "invalid_request",
+      message: "The image editing source is invalid.",
+      retryable: false,
+    });
+
+    try {
+      const state = new PageState();
+      state.imageMode = true;
+      state.imageExecution = "cloud";
+      state.prompt = "Keep this exact edit draft";
+      state.attachment.items = [readyImage("attachment-source")];
+      state.messages = [completedGeneratedMessage("generated-source")];
+      state.toggleGeneratedImageSource("generated-source");
+      vi.spyOn(state.history, "persistUserMessage").mockResolvedValue({
+        conversationId: "conversation",
+        requestMessageId: "request",
+      });
+
+      await state.generateImage();
+
+      expect(state.prompt).toBe("Keep this exact edit draft");
+      expect(state.attachment.items.map(({ id }) => id)).toEqual(["attachment-source"]);
+      expect(state.selectedGeneratedImageSourceIds).toEqual(["generated-source"]);
+      expect(state.isGenerating).toBe(false);
     } finally {
       imageInference.startImageEditing.mockReset();
       imageInference.validateQwenImageConfiguration.mockReset();

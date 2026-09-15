@@ -395,7 +395,7 @@
         microphoneTranscriptDraftError={state.microphoneTranscriptDraftError}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.interaction.resizeComposer()}
-        onkeydown={(event) => state.interaction.handleKeydown(event, () => void state.sendMessage())}
+        onkeydown={(event) => state.handleComposerKeydown(event)}
         onsend={() => state.handleSendButton()}
         onadd={() => void state.attachment.openPicker()}
         onfiles={(event) => state.attachment.addBrowserFiles(event)}

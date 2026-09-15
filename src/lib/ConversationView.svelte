@@ -160,7 +160,7 @@
       </div>
     {/if}
 
-    {#each messages as message (message.id)}
+    {#each messages as message, messageIndex (message.id)}
       {@const webCitationUrls = new Set(webSourcesForMessage(message).map((source) => source.url))}
       {@const speechText = message.role === "assistant" ? assistantSpeechText(message.content) : ""}
       {@const speechPlayable = speechTextWithinLimit(speechText)}
@@ -318,7 +318,7 @@
                     <small>
                       {attachment.size} · {attachment.mimeType} ·
                       {failure ? "Needs attention" : status} ·
-                      {attachmentDeliveryLabel(attachment, selectedModel)}
+                      {attachmentDeliveryLabel(attachment, selectedModel, messages[messageIndex + 1])}
                     </small>
                     {#if failure}
                       <small class="message-attachment-error"><span>{failure.title}</span>{failure.detail}</small>

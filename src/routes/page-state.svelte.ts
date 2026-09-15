@@ -552,20 +552,21 @@ export class PageState {
       content: submittedPrompt,
       attachments: completedAttachments,
     });
+    const accepted = await this.startImageGeneration(runContext, submittedPrompt, execution, preparedSources.sources);
+    if (!accepted) return;
     this.prompt = "";
     this.attachment.clear();
     this.selectedGeneratedImageSourceIds = [];
     this.interaction.resizeComposer();
-    await this.startImageGeneration(runContext, submittedPrompt, execution, preparedSources.sources);
   }
 
-  /** Starts one native image run from an already-persisted prompt and snapshotted route. */
+  /** Starts one native image run and reports whether the native boundary accepted it. */
   private async startImageGeneration(
     runContext: import("$lib/storage").ProviderRunContext,
     prompt: string,
     execution: ImageGenerationExecution,
     sources: ImageEditingSourceRequest[],
-  ): Promise<void> {
+  ): Promise<boolean> {
     this.isGenerating = true;
     this.activeGenerationKind = "image";
     this.cancellationRequested = false;
@@ -580,6 +581,7 @@ export class PageState {
         : "Starting the disclosed cloud generation…";
     const run = ++this.generationRun;
     const options = imageGenerationRequestOptions(this.activeImageExecution, this.imageSize, this.imageCount);
+    let nativeAccepted = false;
     try {
       const request = {
         conversationId: runContext.conversationId,
@@ -591,21 +593,24 @@ export class PageState {
       const accepted = this.activeImageEditing
         ? await invokeImageEditing({ ...request, sources }, onEvent)
         : await invokeImageGeneration({ ...request, execution: this.activeImageExecution }, onEvent);
+      nativeAccepted = true;
       if (run !== this.generationRun) {
         await cancelImageGeneration(accepted.runId);
-        return;
+        return false;
       }
       if (this.activeRunId === null) this.activeRunId = accepted.runId;
       if (!this.messages.some((message) => message.storageId === accepted.message.id)) {
         this.applyGeneratedMessage(accepted.message);
       }
       if (this.cancellationRequested) await cancelImageGeneration(accepted.runId);
+      return true;
     } catch (error) {
-      if (run !== this.generationRun) return;
+      if (run !== this.generationRun) return false;
       const normalized = providerErrorFromUnknown(error);
       this.providerError = normalized;
       this.imageFeedback = normalized.message;
       this.finishGeneration(run);
+      return nativeAccepted;
     }
   }
 
@@ -958,6 +963,10 @@ export class PageState {
     if (this.isGenerating) this.stopGenerating();
     else if (this.imageMode) void this.generateImage();
     else void this.sendMessage();
+  }
+  /** Routes the composer's keyboard submission through the same explicit action as its button. */
+  handleComposerKeydown(event: KeyboardEvent): void {
+    this.interaction.handleKeydown(event, () => this.handleSendButton());
   }
   /** Clears the active thread; its first submitted prompt creates durable storage. */
   async startNewChat(): Promise<void> {

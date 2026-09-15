@@ -21,6 +21,7 @@ import {
   toggleReasoningEffort,
 } from "./chat";
 import type { ModelInfo, Usage } from "./inference";
+import type { Message } from "./presentation";
 
 const ollamaModel: ModelInfo = {
   providerId: "ollama",
@@ -185,6 +186,44 @@ describe("chat presentation helpers", () => {
       "Normalized images will be sent to the selected vision model.",
     );
     expect(composerAttachmentNote([image], undefined)).toBe("Choose a vision-capable model to send normalized images.");
+
+    const response: Message = {
+      id: 2,
+      role: "assistant",
+      content: "",
+      generatedAssets: [
+        {
+          id: "asset-1",
+          ordinal: 0,
+          status: "completed",
+          mediaType: "image/png",
+          width: 64,
+          height: 64,
+          byteSize: 4_096,
+          providerId: "qwen-image",
+          modelId: "qwen-image-2.0-2026-03-03",
+          execution: "cloud",
+          seed: null,
+          errorCode: null,
+          createdAtMs: 1,
+          sources: [
+            {
+              ordinal: 0,
+              sourceType: "attachment",
+              sourceId: image.id,
+              mediaType: "image/png",
+              width: 64,
+              height: 64,
+              byteSize: 4_096,
+            },
+          ],
+          previewUrl: "bottie-generated-asset://asset-1",
+        },
+      ],
+    };
+    expect(attachmentDeliveryLabel(image, textModel, response)).toBe(
+      "Included in Alibaba Model Studio image edit · qwen-image-2.0-2026-03-03",
+    );
   });
 
   it("waits for current-draft image normalization and keeps documents local", () => {
