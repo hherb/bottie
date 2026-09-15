@@ -370,7 +370,9 @@
         imageCount={state.imageCount}
         imageFeedback={state.imageFeedback}
         localImageAvailability={state.localImageAvailability}
-        localImageAvailabilityFailed={state.localImageAvailabilityFailed}
+        localImageAvailabilityFailed={state.localImageAvailabilityFailed || state.localImageAcquisition.failed}
+        localImageAcquisitionStatus={state.localImageAcquisition.status}
+        localImageAcquisitionFeedback={state.localImageAcquisition.feedback}
         microphoneStatus={state.microphone.status}
         microphoneAvailable={state.microphone.available}
         microphoneWillInterrupt={state.isGenerating || state.speech.status.phase === "speaking"}
@@ -397,6 +399,8 @@
         onimageexecution={(execution) => (state.imageExecution = execution)}
         onimagesize={(size) => (state.imageSize = size)}
         onimagecount={(count) => (state.imageCount = count)}
+        oninstalllocalimage={() => void state.localImageAcquisition.start()}
+        oncancellocalimage={() => void state.localImageAcquisition.cancel()}
         onstartmicrophone={() => void state.startMicrophoneCapture()}
         onstopmicrophone={() => void state.microphone.stop()}
         ondiscardmicrophone={() => void state.discardMicrophoneCapture()}

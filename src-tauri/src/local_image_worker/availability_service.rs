@@ -14,8 +14,40 @@ use super::{
     },
     execution::VerifiedLocalImageInstallation,
     hardware::probe_local_image_hardware,
+    model_acquisition::ModelPackageManifest,
+    model_download::ModelSourcePlan,
     model_package::{SelectedModelPackage, selected_qwen_image_2512_q4_package},
 };
+
+/// Exact native-only package and location returned only after hardware and worker verification.
+#[derive(Clone, Debug)]
+pub(crate) struct VerifiedLocalImageAcquisition {
+    cache_root: PathBuf,
+    selected: Arc<SelectedModelPackage>,
+    metadata: LocalImageAvailabilityMetadata,
+}
+
+impl VerifiedLocalImageAcquisition {
+    /// Returns the fixed app-owned cache root without crossing IPC.
+    pub(crate) fn cache_root(&self) -> &Path {
+        &self.cache_root
+    }
+
+    /// Returns the exact selected manifest retained only by native orchestration.
+    pub(crate) fn manifest(&self) -> &ModelPackageManifest {
+        self.selected.manifest()
+    }
+
+    /// Returns the exact approved source plan retained only by native orchestration.
+    pub(crate) fn source_plan(&self) -> &ModelSourcePlan {
+        self.selected.source_plan()
+    }
+
+    /// Returns the path-free metadata captured by the same fresh prerequisite inspection.
+    pub(crate) fn metadata(&self) -> &LocalImageAvailabilityMetadata {
+        &self.metadata
+    }
+}
 
 /// Fixed resource directory containing the complete selected local-image worker bundle.
 pub(crate) const LOCAL_IMAGE_WORKER_DIRECTORY: &str = "local-image-worker";
@@ -126,6 +158,42 @@ impl LocalImageAvailabilityService {
         inspection
             .installation
             .ok_or(LocalImageServiceError::NotReady)
+    }
+
+    /// Re-verifies exact hardware and worker gates before permitting model cache or network mutation.
+    pub(crate) async fn inspect_for_acquisition(
+        &self,
+    ) -> Result<VerifiedLocalImageAcquisition, LocalImageServiceError> {
+        let _inspection = self.inspection.lock().await;
+        let layout = self.layout.clone();
+        let selected = self.selected.clone();
+        let inspected_selected = selected.clone();
+        let inspection = tauri::async_runtime::spawn_blocking(move || {
+            inspect_installation(&layout, &inspected_selected)
+        })
+        .await
+        .map_err(|_| LocalImageServiceError::InspectionUnavailable)??;
+        if !matches!(
+            inspection.metadata.availability,
+            LocalImageAvailability::ModelMissing | LocalImageAvailability::ModelMismatch
+        ) {
+            return Err(LocalImageServiceError::NotReady);
+        }
+        Ok(VerifiedLocalImageAcquisition {
+            cache_root: self.layout.model_cache_root.clone(),
+            selected,
+            metadata: inspection.metadata,
+        })
+    }
+
+    /// Returns the fixed native cache root for read-only acquisition-progress inspection.
+    pub(crate) fn acquisition_cache_root(&self) -> PathBuf {
+        self.layout.model_cache_root.clone()
+    }
+
+    /// Returns the exact selected package for read-only native acquisition-progress inspection.
+    pub(crate) fn selected_package(&self) -> Arc<SelectedModelPackage> {
+        self.selected.clone()
     }
 
     #[cfg(test)]

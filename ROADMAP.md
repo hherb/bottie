@@ -490,20 +490,23 @@ Implement this once for both hosted and local adapters before adding more runtim
   cooperative step cancellation, forced teardown after a bounded grace period, and no shell interpretation. The
   ordered lifecycle/correlation policy and private child-process transport own bounded stdin/stdout/stderr, clear the
   inherited environment, enforce handshake/read/write/shutdown deadlines, and kill and reap on failure;
-- [ ] keep model acquisition separate and explicit: show exact model/runtime IDs, license, expected disk and memory use,
+- [x] keep model acquisition separate and explicit: show exact model/runtime IDs, license, expected disk and memory use,
   source revision, download progress, and verified file hashes before activation. The native manifest, path-free status,
   explicit approval/progress phases, all-files size/SHA-256 activation gate, transactional app-owned cache, and
   load-boundary re-verification are complete. Strict approved-root/revision/path/validator source planning, resumable
   ranged download, source-bound partial restart, fixed byte/time ceilings, cancellation, and durable progress reporting
   are also complete. Hugging Face delivery now uses one manually validated 302/307 resolution envelope with automatic
   redirects still disabled. The exact q4 candidate now has measured acceptance and a selected package manifest;
-  native path-free availability states, exact installed-worker/cache re-verification, the app-owned service, and
-  explicit Cloud/local composer presentation are complete;
+  native path-free availability states, exact installed-worker/cache re-verification, the app-owned service, explicit
+  Cloud/local composer presentation, and the single-slot product acquisition coordinator are complete. Its closed
+  acknowledgement binds every displayed package fact, startup inspection is read-only, cancellation retains only
+  exact synced partials, and atomic promotion refreshes readiness without exposing paths, hashes, URLs, or response
+  detail;
 - [ ] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
   generation, and expose only readiness/capability metadata to Svelte. App-owned resumable staging and atomic verified
   promotion, read-only readiness re-verification, and the real-runtime network-denied proof are complete;
-  fixed-path app-service resolution, fresh execution-time verification, network-denied native execution, and path-free
-  presentation are complete, while packaged-runtime installation remains;
+  fixed-path app-service resolution, explicit model installation, fresh execution-time verification, network-denied
+  native execution, and path-free presentation are complete, while packaged-worker installation remains;
 - [ ] probe hardware and runtime support rather than inferring it from the operating system. An unavailable local route
   remains unavailable; there is no silent cloud fallback. The native macOS probe now combines OS-owned physical memory,
   compile-target architecture, the exact accepted Apple M3 Max 128 GiB profile, worker-bundle evidence, and cache

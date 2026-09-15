@@ -218,7 +218,7 @@ impl ModelSourcePlan {
     }
 
     /// Derives a fixed opaque cache binding from the exact root, revision, paths, and validators.
-    pub(super) fn resume_binding(&self) -> String {
+    pub(crate) fn resume_binding(&self) -> String {
         let mut hasher = Sha256::new();
         update_binding(
             &mut hasher,

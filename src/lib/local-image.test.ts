@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { localImageAvailabilityPresentation, type LocalImageAvailabilityMetadata } from "./local-image";
+import {
+  localImageAcquisitionApproval,
+  localImageAcquisitionPresentation,
+  localImageAvailabilityPresentation,
+  type LocalImageAcquisitionStatus,
+  type LocalImageAvailabilityMetadata,
+} from "./local-image";
 
 const READY: LocalImageAvailabilityMetadata = {
   modelId: "Qwen/Qwen-Image-2512",
@@ -54,5 +60,87 @@ describe("local image availability presentation", () => {
       label: "Local availability could not be verified",
       detail: "The Cloud action remains available when configured",
     });
+  });
+});
+
+describe("local image acquisition presentation", () => {
+  const AWAITING: LocalImageAcquisitionStatus = {
+    modelId: READY.modelId,
+    packageId: READY.packageId,
+    runtimeId: READY.runtimeId,
+    license: READY.license,
+    sourceRevision: READY.sourceRevision,
+    expectedDiskBytes: READY.expectedDiskBytes,
+    requiredMemoryBytes: READY.requiredMemoryBytes,
+    availability: "model_missing",
+    phase: "awaiting_approval",
+    failure: null,
+    downloadedFiles: 0,
+    totalFiles: 18,
+    downloadedBytes: 0,
+    verifiedFiles: 0,
+  };
+
+  it("builds an affirmative request bound to every displayed package fact", () => {
+    expect(localImageAcquisitionApproval(AWAITING)).toEqual({
+      modelId: READY.modelId,
+      packageId: READY.packageId,
+      runtimeId: READY.runtimeId,
+      license: READY.license,
+      sourceRevision: READY.sourceRevision,
+      expectedDiskBytes: READY.expectedDiskBytes,
+      requiredMemoryBytes: READY.requiredMemoryBytes,
+      approved: true,
+    });
+  });
+
+  it("presents initial approval, progress, cancellation, and resumable state with exact totals", () => {
+    expect(localImageAcquisitionPresentation(AWAITING)).toEqual({
+      action: "install",
+      active: false,
+      label: "Download and install 16.2 GiB",
+      detail: "18 exact files will be verified before activation.",
+      percent: 0,
+    });
+    expect(
+      localImageAcquisitionPresentation({
+        ...AWAITING,
+        phase: "downloading",
+        downloadedFiles: 4,
+        downloadedBytes: 4_360_587_703,
+      }),
+    ).toEqual({
+      action: "cancel",
+      active: true,
+      label: "Downloading model… 25%",
+      detail: "4 of 18 files · 4.1 of 16.2 GiB retained",
+      percent: 25,
+    });
+    expect(
+      localImageAcquisitionPresentation({
+        ...AWAITING,
+        phase: "paused",
+        failure: "cancelled",
+        downloadedFiles: 4,
+        downloadedBytes: 4_360_587_703,
+      }),
+    ).toEqual({
+      action: "resume",
+      active: false,
+      label: "Resume retained download",
+      detail: "Cancelled · 4.1 of 16.2 GiB retained",
+      percent: 25,
+    });
+  });
+
+  it("keeps native failures fixed and does not offer installation when prerequisites are unavailable", () => {
+    expect(localImageAcquisitionPresentation({ ...AWAITING, phase: "failed", failure: "source_mismatch" })).toEqual({
+      action: "retry",
+      active: false,
+      label: "Retry exact package",
+      detail: "The approved source changed or returned unexpected metadata.",
+      percent: 0,
+    });
+    expect(localImageAcquisitionPresentation({ ...AWAITING, phase: "unavailable" }).action).toBe("none");
   });
 });

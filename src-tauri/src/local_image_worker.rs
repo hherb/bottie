@@ -2,6 +2,9 @@
 
 // The protocol intentionally lands before any runtime-specific worker implementation consumes it.
 #[allow(dead_code)]
+#[path = "local_image_worker/acquisition_coordinator.rs"]
+pub(crate) mod acquisition_coordinator;
+#[allow(dead_code)]
 #[path = "local_image_worker/availability.rs"]
 pub(crate) mod availability;
 #[allow(dead_code)]

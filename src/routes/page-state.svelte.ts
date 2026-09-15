@@ -5,7 +5,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
 import { DEFAULT_APPEARANCE, type AppearancePreferences } from "$lib/appearance";
 import { buildTranscriptComposerDraft, canUseTranscriptAsText } from "$lib/microphone";
-import { getLocalImageAvailability, type LocalImageAvailabilityMetadata } from "$lib/local-image";
+import type { LocalImageAcquisitionStatus, LocalImageAvailabilityMetadata } from "$lib/local-image";
 import {
   chatTurnsForMessages,
   completionMeta,
@@ -67,6 +67,7 @@ import { FirstRunSetupState } from "./first-run-setup-state.svelte";
 import { ComposerInteractionState } from "./composer-interaction-state";
 import { CommandPaletteState } from "./command-palette-state.svelte";
 import { MicrophoneState } from "./microphone-state.svelte";
+import { LocalImageAcquisitionState } from "./local-image-acquisition-state.svelte";
 import { PythonApprovalState } from "./python-approval-state.svelte";
 import { SpeechState } from "./speech-state.svelte";
 import { ToolPreferenceState, type ToolAvailability } from "./tool-preferences";
@@ -117,6 +118,7 @@ export class PageState {
   interaction = new ComposerInteractionState();
   commandPalette = new CommandPaletteState();
   microphone = new MicrophoneState();
+  localImageAcquisition = new LocalImageAcquisitionState();
   pythonApproval = new PythonApprovalState();
   speech = new SpeechState();
 
@@ -219,7 +221,7 @@ export class PageState {
     } catch (error) {
       console.warn("Could not read provider settings", error);
     }
-    void this.refreshLocalImageAvailability();
+    void this.localImageAcquisition.initialize((status) => this.applyLocalImageAcquisitionStatus(status));
     if (!(await this.recovery.initialize())) {
       this.providerStatus = "offline";
       return;
@@ -235,21 +237,25 @@ export class PageState {
     this.messages = messages;
     this.tools.restore(this.providerSettings, this.toolAvailability);
   }
-  /** Refreshes exact path-free local-image readiness without blocking other startup work. */
-  async refreshLocalImageAvailability(): Promise<void> {
+  /** Reuses readiness captured by the acquisition coordinator's one serialized native inspection. */
+  private applyLocalImageAcquisitionStatus(status: LocalImageAcquisitionStatus): void {
     this.localImageAvailabilityFailed = false;
-    try {
-      this.localImageAvailability = await getLocalImageAvailability();
-    } catch (error) {
-      this.localImageAvailability = null;
-      this.localImageAvailabilityFailed = true;
-      console.warn("Could not verify local image availability", error);
-    }
+    this.localImageAvailability = {
+      modelId: status.modelId,
+      packageId: status.packageId,
+      runtimeId: status.runtimeId,
+      license: status.license,
+      sourceRevision: status.sourceRevision,
+      expectedDiskBytes: status.expectedDiskBytes,
+      requiredMemoryBytes: status.requiredMemoryBytes,
+      availability: status.availability,
+    };
   }
   /** Releases native event listeners when the page is unmounted. */
   dispose(): void {
     this.attachment.dispose();
     this.microphone.dispose();
+    this.localImageAcquisition.dispose();
     this.pythonApproval.dispose();
     this.speech.dispose();
   }

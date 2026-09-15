@@ -84,5 +84,9 @@ coarse path-free state. The composer now keeps Cloud as its default and enables 
 that exact ready state. Each local start and retry re-verifies the installation, launches the selected executable under
 the accepted macOS network-denied sandbox profile, retains one warm model, and maps one 512x512 output through shared
 PNG validation, durable storage, provenance, cancellation, retry, export, and deletion. There is no Cloud fallback.
-The proof bundle and model cache remain ignored local evidence rather than default application payloads; explicit
-product installation and acquisition presentation remain future work.
+When the exact worker and hardware gates pass but the model is absent or mismatched, a Rust-owned single-slot
+coordinator presents every selected package fact before one explicit install or resume action. Startup performs only
+read-only source-bound staging inspection. Approved acquisition uses the existing strict Hugging Face source plan,
+retains only exact synced partials on cancellation or interruption, verifies all 18 files, promotes atomically, and then
+refreshes readiness; paths, hashes, source URLs, and response details stay native. The proof worker remains ignored local
+evidence rather than a default application payload, so packaged-worker installation is still future work.
