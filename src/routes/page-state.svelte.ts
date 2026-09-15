@@ -399,9 +399,10 @@ export class PageState {
     await this.startGeneration(runContext);
   }
 
-  /** Persists one explicit image prompt, then starts only the disclosed cloud image route. */
+  /** Persists one explicit image prompt, then starts the disclosed selected image route. */
   async generateImage(): Promise<void> {
     if (!this.imageMode || !this.canGenerateImage) return;
+    const execution = this.imageExecution;
     const preparedPrompt = prepareImageGenerationPrompt(this.prompt);
     if (!preparedPrompt.ok) {
       this.providerError = {
@@ -413,14 +414,16 @@ export class PageState {
       return;
     }
     const submittedPrompt = preparedPrompt.prompt;
-    this.imageFeedback = "Checking the saved cloud image setup…";
-    try {
-      await validateQwenImageConfiguration(this.providerSettings.qwenImageBaseUrl);
-    } catch (error) {
-      const normalized = providerErrorFromUnknown(error);
-      this.providerError = normalized;
-      this.imageFeedback = normalized.message;
-      return;
+    if (execution === "cloud") {
+      this.imageFeedback = "Checking the saved cloud image setup…";
+      try {
+        await validateQwenImageConfiguration(this.providerSettings.qwenImageBaseUrl);
+      } catch (error) {
+        const normalized = providerErrorFromUnknown(error);
+        this.providerError = normalized;
+        this.imageFeedback = normalized.message;
+        return;
+      }
     }
     this.isPersistingMessage = true;
     this.imageFeedback = "Saving the image prompt locally…";
@@ -439,20 +442,21 @@ export class PageState {
     });
     this.prompt = "";
     this.interaction.resizeComposer();
-    await this.startImageGeneration(runContext, submittedPrompt);
+    await this.startImageGeneration(runContext, submittedPrompt, execution);
   }
 
-  /** Starts one native image run from an already-persisted prompt. */
+  /** Starts one native image run from an already-persisted prompt and snapshotted route. */
   private async startImageGeneration(
     runContext: import("$lib/storage").ProviderRunContext,
     prompt: string,
+    execution: ImageGenerationExecution,
   ): Promise<void> {
     this.isGenerating = true;
     this.activeGenerationKind = "image";
     this.cancellationRequested = false;
     this.activeRunId = null;
     this.providerError = null;
-    this.activeImageExecution = this.imageExecution;
+    this.activeImageExecution = execution;
     this.imageFeedback =
       this.activeImageExecution === "local"
         ? "Starting the disclosed local generation…"
