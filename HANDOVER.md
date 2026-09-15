@@ -4,47 +4,49 @@ Last verified: 2026-09-15
 
 ## Start here
 
-`main` includes merged PR #177 at `86b8a17`. Branch `codex/local-image-acquisition-coordinator` continues Milestones
-8.3-8.4 with explicit model installation. Read `ROADMAP.md` Milestones 8.3-8.4,
+`main` includes merged PR #178 at `2269d7f`. Branch `codex/local-image-worker-cache` completes the manual installation
+boundary for the accepted local image worker. Read `ROADMAP.md` Milestones 8.3-8.5,
 `docs/local-image-model-package.md`, and `src-tauri/src/local_image_worker/`.
 
 ## Completed slices
 
-- Local execution still requires a fresh exact hardware, worker-bundle, and promoted-model inspection. It uses one
-  network-denied warm worker, the fixed 512x512 Qwen-Image-2512 contract, shared private PNG storage/actions, exact
-  provenance and retry, cooperative cancellation, and no Cloud fallback.
-- `LocalImageAcquisitionCoordinator` now permits cache/network mutation only after the worker and hardware gates pass
-  and one affirmative request exactly echoes the disclosed model, package, runtime, Apache-2.0 license, immutable
-  revision, 16.2 GiB disk use, and 27.5 GiB measured peak memory.
-- The single native slot drives the selected strict Hugging Face source plan through resumable staging and atomic
-  promotion. Startup inspection is read-only; cancellation/interruption retains exact synced partials; corrupt or
-  drifted staging is cleaned only after another explicit action. Paths, hashes, source URLs, response details, and
-  native correlation remain outside IPC.
-- Image mode keeps Cloud as the default. When the exact worker is installed and the model is absent or mismatched, the
-  composer shows an explicit install/resume control, bounded progress, fixed failures, and cancellation. Atomic success
-  refreshes readiness and enables Local 2512 without restarting.
+- Local 2512 execution now resolves the worker only from a deterministic app-data cache identity derived from the
+  accepted runtime, executable digest/size, and canonical bundle digest/size. Signed application resources are not a
+  worker source.
+- `worker_cache.rs` requires an exact path-free runtime/size approval before mutation and verifies the user-selected
+  source before creating cache state. It copies only regular symlink-free content into same-filesystem staging, syncs
+  and re-hashes the staged executable and whole bundle, then atomically promotes it. Missing/tampered state remains
+  read-only; replacement retains the prior drifted target until an approved source and staged copy both verify.
+- The composer offers a native folder picker only for `worker_missing` or `worker_mismatch`. Paths and hashes stay in
+  Rust; IPC exposes only the 1,107,880,778-byte requirement, active state, fresh availability, and fixed outcomes.
+  Import preflights image generation and model acquisition before selection and promotion, then refreshes model
+  eligibility on success.
+- Exact model acquisition, execution-time worker/model re-verification, the network-denied warm worker, shared durable
+  PNG handling, cancellation, provenance, retry, export, and deletion remain unchanged. There is still no Cloud
+  fallback.
 
 ## Validation
 
-Prettier write/check, Svelte diagnostics (0 errors and 0 warnings), all 385 active frontend/script tests (3 skipped),
-the production build, `cargo fmt --check`, and `cargo check` pass. The identical host-local Rust library suite passes
-all 620 active tests (36 ignored). The sandboxed full Rust run could not bind 15 loopback library fixtures, but its
-updater-evidence test, all 13 private-worker integration tests, and doc tests pass. A host full-suite invocation then
-stalled when its standalone test executables did not reach their harnesses, so Rust coverage is combined rather than
-one green full invocation. The browser preview was reviewed in desktop image mode: the local availability panel remains
-legible and Cloud remains explicit; exact acquisition states are covered by SSR and state tests because browser preview
-has no native acquisition coordinator. No native app was launched because the repository launcher development-signs
-the app, and no worker or model bytes were downloaded.
+Prettier check, Svelte diagnostics (0 errors and 0 warnings), all 390 active frontend/script tests (3 skipped), the
+production build, `cargo fmt --check`, and `cargo check` pass. The complete host-local Rust run passes all 627 active
+library tests (36 ignored), the updater-evidence test, all 16 private-worker integration tests, and doc tests. The
+desktop
+browser preview was reviewed at 1280x720 in image mode: Cloud remains explicit and the unavailable local panel is
+legible; native import behavior is covered by SSR/state and Rust contract tests because browser preview has no picker.
+
+No native app was launched and no worker/model bytes were imported or downloaded. The native launcher development-signs
+the app. Final diff review found and fixed cache/source overlap, stale eligibility, and duplicate-gate coverage gaps.
+Unrelated untracked logo-kit, screenshot, and Linux public-key files remain untouched.
 
 ## Next slice
 
-Make the accepted 1.1 GB MLX-Gen worker installable without placing it in the signed application bundle. First define
-and test an app-owned transactional worker-cache/import contract tied to the accepted executable and canonical bundle
-digests, then change fixed-path readiness/execution to resolve only that promoted worker. Keep user-selected native
-paths and bundle hashes out of IPC, require explicit approval before copying bytes, and preserve the current
-network-denied execution sandbox.
+Begin Milestone 8.5 with the durable hosted-editing foundation: add a migration and Rust storage contracts that preserve
+ordered lineage from one generated assistant asset to one-to-three validated source assets, plus a provider-neutral
+editing request contract tied to exact hosted `qwen-image-2.0-2026-03-03` provenance. Cover upgrade/reopen,
+branch, export, backup, and retention ownership, plus source deletion, duplicate/order bounds, malformed identities, and
+path-free serialization.
 
-Do not invent a worker download source or archive digest, auto-download, bundle the proof worker or 16.2 GiB model,
-generalize hardware, add editing, silently fall back to Cloud, or reuse Bottie's approved Python-tool runtime. Do not
-merge, dispatch workflows, sign, release, publish, distribute, or perform Store work without separate authorization.
-Preserve unrelated untracked logo-kit, screenshot, and Linux public-key files.
+Do not call DashScope, spend provider credits, add editing UI, forward native paths or unapproved attachment bytes,
+implement local editing, claim local Qwen-Image-2.0 weights, or weaken existing generated-asset ownership. Do not merge,
+dispatch workflows, sign, release, publish, distribute, or perform Store work without separate authorization. Preserve
+unrelated untracked logo-kit, screenshot, and Linux public-key files.

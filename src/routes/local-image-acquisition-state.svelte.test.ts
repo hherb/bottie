@@ -11,6 +11,7 @@ const awaiting: LocalImageAcquisitionStatus = {
   license: "Apache-2.0",
   sourceRevision: "423f1f5bf708c6e11eb78881ef9738422cea0814",
   expectedDiskBytes: 17_442_350_812,
+  workerExpectedDiskBytes: 1_107_880_778,
   requiredMemoryBytes: 29_526_129_448,
   availability: "model_missing",
   phase: "awaiting_approval",
@@ -49,6 +50,7 @@ describe("LocalImageAcquisitionState", () => {
       license: awaiting.license,
       sourceRevision: awaiting.sourceRevision,
       expectedDiskBytes: awaiting.expectedDiskBytes,
+      workerExpectedDiskBytes: awaiting.workerExpectedDiskBytes,
       requiredMemoryBytes: awaiting.requiredMemoryBytes,
       approved: true,
     });

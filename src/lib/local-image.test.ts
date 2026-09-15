@@ -4,6 +4,8 @@ import {
   localImageAcquisitionApproval,
   localImageAcquisitionPresentation,
   localImageAvailabilityPresentation,
+  localImageWorkerImportApproval,
+  localImageWorkerImportPresentation,
   type LocalImageAcquisitionStatus,
   type LocalImageAvailabilityMetadata,
 } from "./local-image";
@@ -15,6 +17,7 @@ const READY: LocalImageAvailabilityMetadata = {
   license: "Apache-2.0",
   sourceRevision: "423f1f5bf708c6e11eb78881ef9738422cea0814",
   expectedDiskBytes: 17_442_350_812,
+  workerExpectedDiskBytes: 1_107_880_778,
   requiredMemoryBytes: 29_526_129_448,
   availability: "ready",
 };
@@ -63,6 +66,32 @@ describe("local image availability presentation", () => {
   });
 });
 
+describe("local image worker import presentation", () => {
+  it("binds approval to the displayed runtime and exact worker bytes", () => {
+    expect(localImageWorkerImportApproval({ ...READY, availability: "worker_missing" })).toEqual({
+      runtimeId: READY.runtimeId,
+      expectedDiskBytes: READY.workerExpectedDiskBytes,
+      approved: true,
+    });
+  });
+
+  it("offers native selection only for missing or mismatched worker bytes", () => {
+    expect(localImageWorkerImportPresentation({ ...READY, availability: "worker_missing" }, false)).toEqual({
+      action: "import",
+      active: false,
+      label: "Select and install 1.0 GiB worker",
+      detail: "Bottie will copy only the exact reviewed MLX-Gen bundle into its app-owned cache.",
+    });
+    expect(localImageWorkerImportPresentation({ ...READY, availability: "worker_mismatch" }, true)).toEqual({
+      action: "none",
+      active: true,
+      label: "Verifying and installing worker…",
+      detail: "The selected folder stays native and is re-verified before atomic activation.",
+    });
+    expect(localImageWorkerImportPresentation(READY, false).action).toBe("none");
+  });
+});
+
 describe("local image acquisition presentation", () => {
   const AWAITING: LocalImageAcquisitionStatus = {
     modelId: READY.modelId,
@@ -71,6 +100,7 @@ describe("local image acquisition presentation", () => {
     license: READY.license,
     sourceRevision: READY.sourceRevision,
     expectedDiskBytes: READY.expectedDiskBytes,
+    workerExpectedDiskBytes: READY.workerExpectedDiskBytes,
     requiredMemoryBytes: READY.requiredMemoryBytes,
     availability: "model_missing",
     phase: "awaiting_approval",
@@ -89,6 +119,7 @@ describe("local image acquisition presentation", () => {
       license: READY.license,
       sourceRevision: READY.sourceRevision,
       expectedDiskBytes: READY.expectedDiskBytes,
+      workerExpectedDiskBytes: READY.workerExpectedDiskBytes,
       requiredMemoryBytes: READY.requiredMemoryBytes,
       approved: true,
     });

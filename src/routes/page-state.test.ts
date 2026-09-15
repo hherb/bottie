@@ -77,6 +77,7 @@ describe("PageState image execution", () => {
         license: "Apache-2.0",
         sourceRevision: "review-fixture",
         expectedDiskBytes: 1,
+        workerExpectedDiskBytes: 1,
         requiredMemoryBytes: 1,
         availability: "ready",
       };

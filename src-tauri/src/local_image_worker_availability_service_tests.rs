@@ -5,8 +5,9 @@ use std::{fs, path::Path};
 use serde_json::json;
 
 use crate::local_image_worker::availability_service::{
-    LOCAL_IMAGE_MODEL_CACHE_DIRECTORY, LOCAL_IMAGE_WORKER_DIRECTORY, LOCAL_IMAGE_WORKER_EXECUTABLE,
-    LocalImageAvailabilityService, LocalImageServiceError, metadata_for_availability,
+    LOCAL_IMAGE_MODEL_CACHE_DIRECTORY, LOCAL_IMAGE_WORKER_CACHE_DIRECTORY,
+    LOCAL_IMAGE_WORKER_EXECUTABLE, LocalImageAvailabilityService, LocalImageServiceError,
+    metadata_for_availability, worker_import_is_eligible,
 };
 use crate::local_image_worker::{
     availability::{
@@ -16,21 +17,34 @@ use crate::local_image_worker::{
 };
 
 #[test]
+fn worker_import_is_eligible_only_when_the_worker_is_missing_or_mismatched() {
+    assert!(worker_import_is_eligible(
+        LocalImageAvailability::WorkerMissing
+    ));
+    assert!(worker_import_is_eligible(
+        LocalImageAvailability::WorkerMismatch
+    ));
+    assert!(!worker_import_is_eligible(
+        LocalImageAvailability::UnsupportedHardware
+    ));
+    assert!(!worker_import_is_eligible(
+        LocalImageAvailability::ModelMissing
+    ));
+    assert!(!worker_import_is_eligible(
+        LocalImageAvailability::ModelMismatch
+    ));
+    assert!(!worker_import_is_eligible(LocalImageAvailability::Ready));
+}
+
+#[test]
 fn service_resolves_only_the_fixed_app_owned_layout() {
     let root = temporary_directory("availability-service-layout");
-    let resources = root.join("resources");
     let app_data = root.join("app-data");
-    let service = LocalImageAvailabilityService::new(&resources, &app_data).unwrap();
+    let service = LocalImageAvailabilityService::new(&app_data).unwrap();
 
     assert_eq!(
-        service.worker_bundle_root_for_test(),
-        resources.join(LOCAL_IMAGE_WORKER_DIRECTORY)
-    );
-    assert_eq!(
-        service.worker_executable_for_test(),
-        resources
-            .join(LOCAL_IMAGE_WORKER_DIRECTORY)
-            .join(LOCAL_IMAGE_WORKER_EXECUTABLE)
+        service.worker_cache_root_for_test(),
+        app_data.join(LOCAL_IMAGE_WORKER_CACHE_DIRECTORY)
     );
     assert_eq!(
         service.model_cache_root_for_test(),
@@ -43,15 +57,11 @@ fn service_rejects_relative_or_lexically_unsafe_app_roots() {
     let root = temporary_directory("availability-service-unsafe");
 
     assert_eq!(
-        LocalImageAvailabilityService::new(Path::new("resources"), &root).unwrap_err(),
+        LocalImageAvailabilityService::new(Path::new("app-data")).unwrap_err(),
         LocalImageServiceError::UnsafeLayout
     );
     assert_eq!(
-        LocalImageAvailabilityService::new(&root, Path::new("app-data")).unwrap_err(),
-        LocalImageServiceError::UnsafeLayout
-    );
-    assert_eq!(
-        LocalImageAvailabilityService::new(&root.join("safe/../resources"), &root).unwrap_err(),
+        LocalImageAvailabilityService::new(root.join("safe/../app-data")).unwrap_err(),
         LocalImageServiceError::UnsafeLayout
     );
 }
@@ -59,8 +69,7 @@ fn service_rejects_relative_or_lexically_unsafe_app_roots() {
 #[tokio::test]
 async fn missing_installations_are_stable_across_repeated_requests() {
     let root = temporary_directory("availability-service-missing");
-    let service =
-        LocalImageAvailabilityService::new(root.join("resources"), root.join("data")).unwrap();
+    let service = LocalImageAvailabilityService::new(root.join("data")).unwrap();
 
     let first = service.inspect().await.unwrap();
     let second = service.inspect().await.unwrap();
@@ -94,6 +103,7 @@ fn metadata_serialization_is_exact_and_contains_no_paths_or_hashes() {
             "license": "Apache-2.0",
             "sourceRevision": "423f1f5bf708c6e11eb78881ef9738422cea0814",
             "expectedDiskBytes": 17_442_350_812_u64,
+            "workerExpectedDiskBytes": 1_107_880_778_u64,
             "requiredMemoryBytes": 29_526_129_448_u64,
             "availability": "worker_missing",
         })
@@ -109,10 +119,9 @@ fn unsafe_worker_symlinks_fail_closed_without_leaking_the_target() {
     use std::os::unix::fs::symlink;
 
     let root = temporary_directory("availability-service-worker-symlink");
-    let resources = root.join("resources");
-    let worker = resources.join(LOCAL_IMAGE_WORKER_DIRECTORY);
+    let worker = root.join(LOCAL_IMAGE_WORKER_CACHE_DIRECTORY);
     let outside = root.join("outside-worker");
-    fs::create_dir_all(&resources).unwrap();
+    fs::create_dir_all(&root).unwrap();
     fs::create_dir_all(&outside).unwrap();
     symlink(&outside, &worker).unwrap();
     let executable = worker.join(LOCAL_IMAGE_WORKER_EXECUTABLE);

@@ -44,3 +44,6 @@ pub(crate) mod transport;
 #[allow(dead_code)]
 #[path = "local_image_worker/worker_bundle.rs"]
 pub(crate) mod worker_bundle;
+#[allow(dead_code)]
+#[path = "local_image_worker/worker_cache.rs"]
+pub(crate) mod worker_cache;

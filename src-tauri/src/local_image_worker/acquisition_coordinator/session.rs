@@ -26,6 +26,8 @@ pub(crate) struct LocalImageAcquisitionApproval {
     pub(crate) source_revision: String,
     /// Exact package bytes presented to the user.
     pub(crate) expected_disk_bytes: u64,
+    /// Exact accepted worker-bundle bytes presented to the user.
+    pub(crate) worker_expected_disk_bytes: u64,
     /// Exact measured peak-memory requirement presented to the user.
     pub(crate) required_memory_bytes: u64,
     /// Affirmative acknowledgement set only by the explicit install or resume action.
@@ -90,6 +92,8 @@ pub(crate) struct LocalImageAcquisitionStatus {
     pub(crate) source_revision: String,
     /// Exact package bytes expected after installation.
     pub(crate) expected_disk_bytes: u64,
+    /// Exact accepted worker-bundle bytes stored separately from the model.
+    pub(crate) worker_expected_disk_bytes: u64,
     /// Measured whole-process peak-memory requirement.
     pub(crate) required_memory_bytes: u64,
     /// Coarse native readiness captured by the same serialized inspection.
@@ -344,6 +348,7 @@ fn status_for(
         license: manifest.license.clone(),
         source_revision: manifest.source_revision.clone(),
         expected_disk_bytes: manifest.expected_disk_bytes,
+        worker_expected_disk_bytes: selected.evidence().worker_bundle_byte_size,
         required_memory_bytes: selected.evidence().peak_memory_bytes,
         availability,
         phase,
@@ -378,6 +383,7 @@ fn approval_matches(
         && approval.license == metadata.license
         && approval.source_revision == metadata.source_revision
         && approval.expected_disk_bytes == metadata.expected_disk_bytes
+        && approval.worker_expected_disk_bytes == metadata.worker_expected_disk_bytes
         && approval.required_memory_bytes == metadata.required_memory_bytes
 }
 
@@ -392,6 +398,7 @@ fn metadata_matches_selected(
         && metadata.license == manifest.license
         && metadata.source_revision == manifest.source_revision
         && metadata.expected_disk_bytes == manifest.expected_disk_bytes
+        && metadata.worker_expected_disk_bytes == selected.evidence().worker_bundle_byte_size
         && metadata.required_memory_bytes == selected.evidence().peak_memory_bytes
 }
 

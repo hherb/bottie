@@ -68,6 +68,7 @@ import { ComposerInteractionState } from "./composer-interaction-state";
 import { CommandPaletteState } from "./command-palette-state.svelte";
 import { MicrophoneState } from "./microphone-state.svelte";
 import { LocalImageAcquisitionState } from "./local-image-acquisition-state.svelte";
+import { LocalImageWorkerImportState } from "./local-image-worker-import-state.svelte";
 import { PythonApprovalState } from "./python-approval-state.svelte";
 import { SpeechState } from "./speech-state.svelte";
 import { ToolPreferenceState, type ToolAvailability } from "./tool-preferences";
@@ -119,6 +120,7 @@ export class PageState {
   commandPalette = new CommandPaletteState();
   microphone = new MicrophoneState();
   localImageAcquisition = new LocalImageAcquisitionState();
+  localImageWorkerImport = new LocalImageWorkerImportState();
   pythonApproval = new PythonApprovalState();
   speech = new SpeechState();
 
@@ -247,9 +249,20 @@ export class PageState {
       license: status.license,
       sourceRevision: status.sourceRevision,
       expectedDiskBytes: status.expectedDiskBytes,
+      workerExpectedDiskBytes: status.workerExpectedDiskBytes,
       requiredMemoryBytes: status.requiredMemoryBytes,
       availability: status.availability,
     };
+  }
+  /** Opens the native picker and imports only the exact worker currently disclosed by Rust. */
+  async importLocalImageWorker(): Promise<void> {
+    const metadata = this.localImageAvailability;
+    if (!metadata || this.isGenerating) return;
+    await this.localImageWorkerImport.start(
+      metadata,
+      (availability) => (this.localImageAvailability = availability),
+      () => this.localImageAcquisition.refresh(),
+    );
   }
   /** Releases native event listeners when the page is unmounted. */
   dispose(): void {

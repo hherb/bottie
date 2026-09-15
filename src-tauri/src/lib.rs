@@ -55,6 +55,8 @@ mod local_image_worker_availability_service_tests;
 #[cfg(test)]
 mod local_image_worker_availability_tests;
 #[cfg(test)]
+mod local_image_worker_cache_tests;
+#[cfg(test)]
 mod local_image_worker_manager_tests;
 #[cfg(test)]
 mod local_image_worker_model_acquisition_tests;
@@ -131,7 +133,9 @@ use local_image_worker::acquisition_coordinator::{
 };
 use local_image_worker::availability_service::{
     LocalImageAvailabilityMetadata, LocalImageAvailabilityService, LocalImageServiceError,
+    worker_import_is_eligible,
 };
+use local_image_worker::worker_cache::{WorkerCacheError, WorkerImportApproval};
 use localmail::{
     get_localmail_connection_status, open_email, probe_localmail_connection, search_email,
     test_localmail_connection, update_localmail_connection,
@@ -161,7 +165,8 @@ use storage_commands::{
     select_conversation_branch, set_conversation_archived, set_conversation_memory_excluded,
     set_conversation_retention_period,
 };
-use tauri::{Manager, State};
+use tauri::{AppHandle, Manager, State};
+use tauri_plugin_dialog::DialogExt;
 use web_search_commands::test_web_search_connection;
 
 struct AppState {
@@ -227,6 +232,71 @@ async fn get_local_image_availability(
     state: State<'_, AppState>,
 ) -> Result<LocalImageAvailabilityMetadata, LocalImageServiceError> {
     state.local_image_availability.inspect().await
+}
+
+/// Path-free outcome from selecting and importing one exact local-image worker bundle.
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalImageWorkerImportOutcome {
+    /// Whether a native source folder was selected and promoted.
+    imported: bool,
+    /// Fresh readiness after cancellation or completed import.
+    availability: LocalImageAvailabilityMetadata,
+}
+
+#[tauri::command]
+/// Selects one native bundle folder and copies it only after exact explicit approval.
+async fn import_local_image_worker(
+    approval: WorkerImportApproval,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<LocalImageWorkerImportOutcome, WorkerCacheError> {
+    if state.image_runs.is_active().await || state.local_image_acquisition.is_active() {
+        return Err(WorkerCacheError::Busy);
+    }
+    let eligibility = state
+        .local_image_availability
+        .inspect()
+        .await
+        .map_err(|_| WorkerCacheError::Unavailable)?;
+    if !worker_import_is_eligible(eligibility.availability) {
+        return Err(WorkerCacheError::Unavailable);
+    }
+    let selected = app
+        .dialog()
+        .file()
+        .set_title("Select the exact Bottie local image worker folder")
+        .blocking_pick_folder();
+    let Some(selected) = selected else {
+        let availability = state
+            .local_image_availability
+            .inspect()
+            .await
+            .map_err(|_| WorkerCacheError::Storage)?;
+        return Ok(LocalImageWorkerImportOutcome {
+            imported: false,
+            availability,
+        });
+    };
+    let source_root = selected
+        .into_path()
+        .map_err(|_| WorkerCacheError::UnsafeLayout)?;
+    if state.image_runs.is_active().await || state.local_image_acquisition.is_active() {
+        return Err(WorkerCacheError::Busy);
+    }
+    state
+        .local_image_availability
+        .import_worker(source_root, approval)
+        .await?;
+    let availability = state
+        .local_image_availability
+        .inspect()
+        .await
+        .map_err(|_| WorkerCacheError::Storage)?;
+    Ok(LocalImageWorkerImportOutcome {
+        imported: true,
+        availability,
+    })
 }
 
 #[tauri::command]
@@ -760,11 +830,8 @@ pub fn run() {
             let embedding_cache_path = app.path().app_data_dir()?.join("embedding-models");
             let speech_model_cache_path = app.path().app_data_dir()?.join("speech-models");
             let local_image_availability = Arc::new(
-                LocalImageAvailabilityService::new(
-                    app.path().resource_dir()?,
-                    app.path().app_data_dir()?,
-                )
-                .map_err(|_| std::io::Error::other("local image availability setup failed"))?,
+                LocalImageAvailabilityService::new(app.path().app_data_dir()?)
+                    .map_err(|_| std::io::Error::other("local image availability setup failed"))?,
             );
             let local_image_acquisition = Arc::new(
                 LocalImageAcquisitionCoordinator::new(
@@ -871,6 +938,7 @@ pub fn run() {
             remember_provider_selection,
             complete_first_run_setup,
             get_local_image_availability,
+            import_local_image_worker,
             get_local_image_acquisition_status,
             start_local_image_acquisition,
             cancel_local_image_acquisition,
