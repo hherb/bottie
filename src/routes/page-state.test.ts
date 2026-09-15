@@ -6,6 +6,16 @@ import { MAX_COMPOSER_DRAFT_BYTES } from "$lib/microphone";
 
 import { PageState } from "./page-state.svelte";
 
+const imageInference = vi.hoisted(() => ({
+  startImageEditing: vi.fn(),
+  validateQwenImageConfiguration: vi.fn(),
+}));
+
+vi.mock("$lib/inference", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("$lib/inference")>()),
+  ...imageInference,
+}));
+
 const LOCAL_MODEL: ModelInfo = {
   providerId: "ollama",
   providerName: "Ollama",
@@ -61,6 +71,24 @@ describe("PageState message submission", () => {
 });
 
 describe("PageState image execution", () => {
+  it("routes unmodified Enter through the explicit image action", () => {
+    const state = new PageState();
+    state.imageMode = true;
+    const generateImage = vi.spyOn(state, "generateImage").mockResolvedValue();
+    const sendMessage = vi.spyOn(state, "sendMessage").mockResolvedValue();
+    const event = {
+      key: "Enter",
+      shiftKey: false,
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent;
+
+    state.handleComposerKeydown(event);
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(generateImage).toHaveBeenCalledOnce();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
   it("skips Cloud credential validation before persisting a ready local request", async () => {
     const tauriRuntime = globalThis as typeof globalThis & { isTauri?: boolean };
     const previousIsTauri = tauriRuntime.isTauri;
@@ -93,7 +121,207 @@ describe("PageState image execution", () => {
       else tauriRuntime.isTauri = previousIsTauri;
     }
   });
+
+  it("persists ready attachment IDs and invokes hosted editing in visible order", async () => {
+    const tauriRuntime = globalThis as typeof globalThis & { isTauri?: boolean };
+    const previousIsTauri = tauriRuntime.isTauri;
+    tauriRuntime.isTauri = true;
+    imageInference.validateQwenImageConfiguration.mockResolvedValue({});
+    imageInference.startImageEditing.mockResolvedValue({
+      runId: "edit-run",
+      message: pendingAssistantMessage("assistant-edit"),
+    });
+
+    try {
+      const state = new PageState();
+      state.imageMode = true;
+      state.imageExecution = "cloud";
+      state.imageSize = "landscape";
+      state.imageCount = 2;
+      state.prompt = "Make these images nocturnal";
+      state.attachment.items = [readyImage("source-b"), readyImage("source-a")];
+      const persist = vi.spyOn(state.history, "persistUserMessage").mockResolvedValue({
+        conversationId: "conversation",
+        requestMessageId: "request",
+      });
+
+      await state.generateImage();
+
+      expect(persist).toHaveBeenCalledWith("Make these images nocturnal", ["source-b", "source-a"]);
+      expect(imageInference.startImageEditing).toHaveBeenCalledWith(
+        {
+          conversationId: "conversation",
+          requestMessageId: "request",
+          prompt: "Make these images nocturnal",
+          width: 2_688,
+          height: 1_536,
+          count: 2,
+          sources: [
+            { sourceType: "attachment", sourceId: "source-b" },
+            { sourceType: "attachment", sourceId: "source-a" },
+          ],
+        },
+        expect.any(Function),
+      );
+      expect(state.attachment.items).toEqual([]);
+      expect(
+        state.messages.find((message) => message.storageId === "request")?.attachments?.map(({ id }) => id),
+      ).toEqual(["source-b", "source-a"]);
+    } finally {
+      imageInference.startImageEditing.mockReset();
+      imageInference.validateQwenImageConfiguration.mockReset();
+      if (previousIsTauri === undefined) Reflect.deleteProperty(tauriRuntime, "isTauri");
+      else tauriRuntime.isTauri = previousIsTauri;
+    }
+  });
+
+  it("invokes hosted editing with a selected completed ancestor without attaching it to the request", async () => {
+    const tauriRuntime = globalThis as typeof globalThis & { isTauri?: boolean };
+    const previousIsTauri = tauriRuntime.isTauri;
+    tauriRuntime.isTauri = true;
+    imageInference.validateQwenImageConfiguration.mockResolvedValue({});
+    imageInference.startImageEditing.mockResolvedValue({
+      runId: "edit-run",
+      message: pendingAssistantMessage("assistant-edit"),
+    });
+
+    try {
+      const state = new PageState();
+      state.imageMode = true;
+      state.imageExecution = "cloud";
+      state.prompt = "Use the prior composition";
+      state.attachment.items = [];
+      state.messages = [completedGeneratedMessage("generated-source")];
+      state.toggleGeneratedImageSource("generated-source");
+      const persist = vi.spyOn(state.history, "persistUserMessage").mockResolvedValue({
+        conversationId: "conversation",
+        requestMessageId: "request",
+      });
+
+      await state.generateImage();
+
+      expect(persist).toHaveBeenCalledWith("Use the prior composition", []);
+      expect(imageInference.startImageEditing).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sources: [{ sourceType: "generated_asset", sourceId: "generated-source" }],
+        }),
+        expect.any(Function),
+      );
+      expect(state.selectedGeneratedImageSources).toEqual([]);
+    } finally {
+      imageInference.startImageEditing.mockReset();
+      imageInference.validateQwenImageConfiguration.mockReset();
+      if (previousIsTauri === undefined) Reflect.deleteProperty(tauriRuntime, "isTauri");
+      else tauriRuntime.isTauri = previousIsTauri;
+    }
+  });
+
+  it("retains the complete edit draft when native source validation rejects the run", async () => {
+    const tauriRuntime = globalThis as typeof globalThis & { isTauri?: boolean };
+    const previousIsTauri = tauriRuntime.isTauri;
+    tauriRuntime.isTauri = true;
+    imageInference.validateQwenImageConfiguration.mockResolvedValue({});
+    imageInference.startImageEditing.mockRejectedValue({
+      code: "invalid_request",
+      message: "The image editing source is invalid.",
+      retryable: false,
+    });
+
+    try {
+      const state = new PageState();
+      state.imageMode = true;
+      state.imageExecution = "cloud";
+      state.prompt = "Keep this exact edit draft";
+      state.attachment.items = [readyImage("attachment-source")];
+      state.messages = [completedGeneratedMessage("generated-source")];
+      state.toggleGeneratedImageSource("generated-source");
+      vi.spyOn(state.history, "persistUserMessage").mockResolvedValue({
+        conversationId: "conversation",
+        requestMessageId: "request",
+      });
+
+      await state.generateImage();
+
+      expect(state.prompt).toBe("Keep this exact edit draft");
+      expect(state.attachment.items.map(({ id }) => id)).toEqual(["attachment-source"]);
+      expect(state.selectedGeneratedImageSourceIds).toEqual(["generated-source"]);
+      expect(state.isGenerating).toBe(false);
+    } finally {
+      imageInference.startImageEditing.mockReset();
+      imageInference.validateQwenImageConfiguration.mockReset();
+      if (previousIsTauri === undefined) Reflect.deleteProperty(tauriRuntime, "isTauri");
+      else tauriRuntime.isTauri = previousIsTauri;
+    }
+  });
 });
+
+/** Builds one ready normalized image attachment without exposing native bytes or paths. */
+function readyImage(id: string): import("$lib/presentation").Attachment {
+  return {
+    id,
+    name: `${id}.png`,
+    size: "4 KB",
+    kind: "image",
+    mimeType: "image/png",
+    previewUrl: null,
+    extraction: {
+      state: "unsupported",
+      format: null,
+      characterCount: null,
+      pageCount: null,
+      errorCode: null,
+    },
+    indexing: { state: "unsupported" },
+    normalization: { state: "ready", format: "png", width: 64, height: 64, byteSize: 4_096, errorCode: null },
+  };
+}
+
+/** Builds one pending assistant record returned by accepted native image commands. */
+function pendingAssistantMessage(id: string): import("$lib/storage").StoredMessage {
+  return {
+    id,
+    role: "assistant",
+    text: "",
+    reasoning: null,
+    state: "partial",
+    providerId: "qwen-image",
+    modelId: "qwen-image-2.0-2026-03-03",
+    providerRun: null,
+    rating: null,
+    attachments: [],
+    generatedAssets: [],
+    createdAtMs: 1,
+  };
+}
+
+/** Builds one visible completed generated image eligible for exact ancestry revalidation. */
+function completedGeneratedMessage(assetId: string): import("$lib/presentation").Message {
+  return {
+    id: 1,
+    storageId: "prior-assistant",
+    role: "assistant",
+    content: "Generated image.",
+    generatedAssets: [
+      {
+        id: assetId,
+        ordinal: 0,
+        status: "completed",
+        mediaType: "image/png",
+        width: 64,
+        height: 64,
+        byteSize: 4_096,
+        providerId: "qwen-image",
+        modelId: "qwen-image-2.0-2026-03-03",
+        execution: "cloud",
+        seed: null,
+        errorCode: null,
+        createdAtMs: 1,
+        sources: [],
+        previewUrl: "bottie-generated-asset://generated-source",
+      },
+    ],
+  };
+}
 
 describe("PageState voice barge-in", () => {
   it("requests generation cancellation before awaiting playback shutdown and capture", async () => {

@@ -141,8 +141,22 @@ export function chatTurnsForMessages(messages: Message[]): ChatTurn[] {
     }));
 }
 
-/** Describes whether one path-free attachment participates in the next model request. */
-export function attachmentDeliveryLabel(attachment: Attachment, model: ModelInfo | undefined): string {
+/** Describes one attachment route, preferring durable hosted-edit lineage over the current chat selection. */
+export function attachmentDeliveryLabel(
+  attachment: Attachment,
+  model: ModelInfo | undefined,
+  response?: Message,
+): string {
+  const imageEdit =
+    response?.role === "assistant"
+      ? response.generatedAssets?.find(
+          (asset) =>
+            asset.execution === "cloud" &&
+            asset.providerId === "qwen-image" &&
+            asset.sources.some((source) => source.sourceType === "attachment" && source.sourceId === attachment.id),
+        )
+      : undefined;
+  if (imageEdit) return `Included in Alibaba Model Studio image edit · ${imageEdit.modelId}`;
   if (attachment.kind !== "image") return "Not sent";
   if (attachment.normalization.state === "pending") return "Not sent · normalization pending";
   if (attachment.normalization.state !== "ready") return "Not sent · image unavailable for delivery";

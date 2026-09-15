@@ -3,6 +3,7 @@
 
   import { copyAssistantResponse } from "$lib/clipboard";
   import { copyGeneratedAsset } from "$lib/generated-asset-actions";
+  import { DEFAULT_IMAGE_EDITING_PRESENTATION, type ImageEditingPresentation } from "$lib/image-generation";
   import ConversationStatus from "$lib/ConversationStatus.svelte";
   import Icon from "$lib/Icon.svelte";
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
@@ -39,6 +40,7 @@
     speechStatus: SpeechStatus;
     speakingMessageId: number | null;
     microphoneCapturing: boolean;
+    imageEditing?: ImageEditingPresentation;
     onretry: () => void;
     onselectbranch: (branchId: string) => void;
     oneditmessage: (message: Message, text: string) => void;
@@ -48,6 +50,7 @@
     onopenasset?: (assetId: string) => void;
     onexportasset?: (assetId: string) => void;
     ondeleteasset?: (assetId: string) => void;
+    ontoggleimagesource?: (assetId: string) => void;
     onrateresponse: (responseId: number, rating: ResponseRating) => void;
     onremoveattachment: (messageId: string, attachmentId: string) => void;
     onspeakresponse: (messageId: number, markdown: string) => void;
@@ -71,6 +74,7 @@
     speechStatus,
     speakingMessageId,
     microphoneCapturing,
+    imageEditing = DEFAULT_IMAGE_EDITING_PRESENTATION,
     onretry,
     onselectbranch,
     oneditmessage,
@@ -80,6 +84,7 @@
     onopenasset = () => {},
     onexportasset = () => {},
     ondeleteasset = () => {},
+    ontoggleimagesource = () => {},
     onrateresponse,
     onremoveattachment,
     onspeakresponse,
@@ -92,10 +97,8 @@
   let copyFeedback = $state<{ messageId: number; succeeded: boolean } | null>(null);
   let copyFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
   let generatedAssetFeedback = $state<{ assetId: string; message: string; failed: boolean } | null>(null);
-
   /** Time that clipboard success or failure feedback remains visible. */
   const COPY_FEEDBACK_DURATION_MS = 2_400;
-
   /** Copies the assistant answer and any separate reasoning as labelled Markdown sections. */
   async function copyResponse(message: Message): Promise<void> {
     const succeeded = await copyAssistantResponse({ content: message.content, reasoning: message.reasoning });
@@ -106,7 +109,6 @@
       copyFeedbackTimer = undefined;
     }, COPY_FEEDBACK_DURATION_MS);
   }
-
   /** Copies one already-normalized generated PNG through its opaque preview URL. */
   async function copyGeneratedImage(assetId: string, previewUrl: string): Promise<void> {
     const succeeded = await copyGeneratedAsset(previewUrl);
@@ -116,11 +118,9 @@
       failed: !succeeded,
     };
   }
-
   $effect(() => {
     if (messageScroll) onscrollready(messageScroll);
   });
-
   onDestroy(() => {
     if (copyFeedbackTimer !== undefined) clearTimeout(copyFeedbackTimer);
   });
@@ -160,7 +160,7 @@
       </div>
     {/if}
 
-    {#each messages as message (message.id)}
+    {#each messages as message, messageIndex (message.id)}
       {@const webCitationUrls = new Set(webSourcesForMessage(message).map((source) => source.url))}
       {@const speechText = message.role === "assistant" ? assistantSpeechText(message.content) : ""}
       {@const speechPlayable = speechTextWithinLimit(speechText)}
@@ -230,6 +230,7 @@
                     </div>
                   {/if}
                   {#if asset.status === "completed" && asset.previewUrl}
+                    {@const imageSourceSelected = imageEditing.selectedSourceIds.includes(asset.id)}
                     <div class="generated-image-item-actions">
                       <button
                         aria-label={`Open generated image ${asset.ordinal + 1}`}
@@ -248,6 +249,21 @@
                         onclick={() => onexportasset(asset.id)}
                       >
                         <Icon name="file" size={14} />
+                      </button>
+                      <button
+                        class:selected-source={imageSourceSelected}
+                        aria-label={imageSourceSelected
+                          ? `Remove generated image ${asset.ordinal + 1} from references`
+                          : `Use generated image ${asset.ordinal + 1} as a reference`}
+                        aria-pressed={imageSourceSelected}
+                        disabled={isGenerating ||
+                          (!imageSourceSelected &&
+                            (!imageEditing.active ||
+                              imageEditing.execution !== "cloud" ||
+                              !imageEditing.canSelectSource))}
+                        onclick={() => ontoggleimagesource(asset.id)}
+                      >
+                        <Icon name="sparkles" size={14} />
                       </button>
                       <button
                         aria-label={`Delete generated image ${asset.ordinal + 1}`}
@@ -302,7 +318,7 @@
                     <small>
                       {attachment.size} · {attachment.mimeType} ·
                       {failure ? "Needs attention" : status} ·
-                      {attachmentDeliveryLabel(attachment, selectedModel)}
+                      {attachmentDeliveryLabel(attachment, selectedModel, messages[messageIndex + 1])}
                     </small>
                     {#if failure}
                       <small class="message-attachment-error"><span>{failure.title}</span>{failure.detail}</small>

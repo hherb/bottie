@@ -34,6 +34,7 @@
     imageExecution: ImageGenerationExecution;
     imageSize: "square" | "landscape" | "portrait";
     imageCount: number;
+    generatedImageSourceCount: number;
     imageFeedback: string;
     localImageAvailability: LocalImageAvailabilityMetadata | null;
     localImageAvailabilityFailed: boolean;
@@ -103,6 +104,7 @@
     imageExecution,
     imageSize,
     imageCount,
+    generatedImageSourceCount,
     imageFeedback,
     localImageAvailability,
     localImageAvailabilityFailed,
@@ -176,7 +178,11 @@
             {#if failure}
               <span class="visually-hidden">{failure.title}. {failure.detail}</span>
             {/if}
-            <button aria-label={`Remove ${attachment.name}`} onclick={() => onremove(attachment.id)}>
+            <button
+              aria-label={`Remove ${attachment.name}`}
+              disabled={!canCompose || isGenerating}
+              onclick={() => onremove(attachment.id)}
+            >
               <Icon name="x" size={13} />
             </button>
           </div>
@@ -213,9 +219,22 @@
           onchange={onfiles}
           type="file"
           multiple
+          accept={imageMode ? "image/png,image/jpeg" : undefined}
           tabindex="-1"
         />
-        <button aria-label="Attach files" disabled={imageMode || isGenerating} onclick={onadd}>
+        <button
+          aria-label={imageMode
+            ? imageExecution === "cloud"
+              ? attachments.length + generatedImageSourceCount >= 3
+                ? "Reference image limit reached"
+                : "Attach reference images"
+              : "Reference-image editing is available only with Cloud execution"
+            : "Attach files"}
+          disabled={!canCompose ||
+            (imageMode && (imageExecution !== "cloud" || attachments.length + generatedImageSourceCount >= 3)) ||
+            isGenerating}
+          onclick={onadd}
+        >
           <Icon name="paperclip" size={18} />
         </button>
         <button
@@ -273,7 +292,13 @@
         class="send-button"
         class:enabled={(prompt.trim().length > 0 && canSend) || isGenerating}
         disabled={(!prompt.trim() || !canSend) && !isGenerating}
-        aria-label={isGenerating ? "Stop generating" : imageMode ? "Generate image" : "Send message"}
+        aria-label={isGenerating
+          ? "Stop generating"
+          : imageMode
+            ? attachments.length + generatedImageSourceCount > 0
+              ? "Edit image"
+              : "Generate image"
+            : "Send message"}
         onclick={onsend}
       >
         {#if isGenerating}
@@ -286,6 +311,10 @@
     {#if imageMode}
       {@const localImage = localImageAvailabilityPresentation(localImageAvailability, localImageAvailabilityFailed)}
       {@const localImageReady = localImageAvailability?.availability === "ready"}
+      {@const readyImageSourceCount =
+        attachments.filter((attachment) => attachment.kind === "image" && attachment.normalization.state === "ready")
+          .length + generatedImageSourceCount}
+      {@const selectedImageSourceCount = attachments.length + generatedImageSourceCount}
       {@const acquisition = localImageAcquisitionStatus
         ? localImageAcquisitionPresentation(localImageAcquisitionStatus)
         : null}
@@ -329,14 +358,29 @@
             </select>
           </label>
           <span class="image-execution"><strong>Cloud</strong> · <code>qwen-image-2.0-2026-03-03</code></span>
+          {#if selectedImageSourceCount > 0}
+            <span class="image-execution">
+              Editing with {readyImageSourceCount} ready source image{readyImageSourceCount === 1
+                ? ""
+                : "s"}{readyImageSourceCount === selectedImageSourceCount
+                ? ""
+                : ` of ${selectedImageSourceCount} selected`}
+            </span>
+          {/if}
         {:else}
           <span class="image-execution"><strong>Local</strong> · 512×512 · one image</span>
         {/if}
       </div>
       {#if imageExecution === "cloud"}
         <p class="image-delivery-note">
-          Your image prompt is sent to Alibaba Model Studio and may incur provider charges. Rust downloads each
-          temporary result immediately, validates it, and stores only app-private PNG bytes.
+          {#if selectedImageSourceCount > 0}
+            Your image prompt and normalized source image bytes are sent to Alibaba Model Studio. This may incur
+            provider charges. Source paths stay in native code. Rust downloads each temporary result immediately,
+            validates it, and stores only app-private PNG bytes.
+          {:else}
+            Your image prompt is sent to Alibaba Model Studio and may incur provider charges. Rust downloads each
+            temporary result immediately, validates it, and stores only app-private PNG bytes.
+          {/if}
         </p>
       {:else}
         <p class="image-delivery-note">
