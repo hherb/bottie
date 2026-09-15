@@ -74,10 +74,12 @@ failures still discard it. The live proof resumed after interruption and crossed
 
 ## Remaining boundary
 
-The proof cache, worker build, and PNG remain ignored local evidence and are not application payloads. No Svelte UI,
-automatic download, general hardware availability, cloud fallback, signing, release, or distribution work was
-performed. The native availability contract now reads macOS physical memory, checks the compile-target architecture,
-accepts only the exact Apple M3 Max 128 GiB evidence profile, re-hashes the installed executable and complete worker
-bundle, and re-verifies promoted model bytes without mutating an absent cache. Its result is one coarse path-free state;
-no path, digest, or hardware marketing string is returned. Product integration must still resolve fixed app-owned
-worker/cache locations and expose only path-free readiness metadata before any local route becomes available.
+The proof cache, worker build, and PNG remain ignored local evidence and are not application payloads. No automatic
+download, general hardware availability, cloud fallback, signing, release, or distribution work was performed. The
+native availability contract reads macOS physical memory, checks the compile-target architecture, accepts only the
+exact Apple M3 Max 128 GiB evidence profile, re-hashes the installed executable and complete worker bundle, and
+re-verifies promoted model bytes without mutating an absent cache. The application now resolves fixed app-resource and
+app-data locations, serializes that work off the WebView task, and presents only exact package disclosure plus one
+coarse path-free state. The existing composer action remains explicitly Cloud-only. Product integration must still
+turn one verified local installation into the private worker generation route; the proof bundle and model cache remain
+ignored local evidence rather than default application payloads.

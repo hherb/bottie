@@ -3,6 +3,7 @@
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
   import MicrophoneControl from "$lib/MicrophoneControl.svelte";
   import { attachmentFailure } from "$lib/attachment";
+  import { localImageAvailabilityPresentation, type LocalImageAvailabilityMetadata } from "$lib/local-image";
   import { MAX_COMPOSER_ATTACHMENTS, type Attachment, type ProviderStatus } from "$lib/presentation";
   import type { MicrophoneInputDeviceList, MicrophoneStatus } from "$lib/microphone";
 
@@ -26,6 +27,8 @@
     imageSize: "square" | "landscape" | "portrait";
     imageCount: number;
     imageFeedback: string;
+    localImageAvailability: LocalImageAvailabilityMetadata | null;
+    localImageAvailabilityFailed: boolean;
     microphoneStatus: MicrophoneStatus;
     microphoneAvailable: boolean;
     microphoneWillInterrupt: boolean;
@@ -84,6 +87,8 @@
     imageSize,
     imageCount,
     imageFeedback,
+    localImageAvailability,
+    localImageAvailabilityFailed,
     microphoneStatus,
     microphoneAvailable,
     microphoneWillInterrupt,
@@ -254,6 +259,7 @@
       </button>
     </div>
     {#if imageMode}
+      {@const localImage = localImageAvailabilityPresentation(localImageAvailability, localImageAvailabilityFailed)}
       <div class="image-generation-options" aria-label="Image generation options">
         <label>
           <span>Size</span>
@@ -281,9 +287,24 @@
       </div>
       <p class="image-delivery-note">
         Your image prompt is sent to Alibaba Model Studio and may incur provider charges. Rust downloads each temporary
-        result immediately, validates it, and stores only app-private PNG bytes. Local image generation is not
-        installed.
+        result immediately, validates it, and stores only app-private PNG bytes. The local route is shown below, but
+        this action remains Cloud until local execution is wired.
       </p>
+      <section class="local-image-availability" aria-label="Local image availability">
+        <div class="local-image-heading">
+          <strong>Local 2512</strong>
+          <span class:ready={localImage.state === "ready"}>{localImage.label}</span>
+        </div>
+        {#if localImageAvailability}
+          <code>{localImageAvailability.modelId}</code>
+          <span>
+            <code>{localImageAvailability.packageId}</code> · MLX-Gen runtime
+            <code>{localImageAvailability.runtimeId}</code>
+          </span>
+          <span>{localImageAvailability.license} · revision <code>{localImageAvailability.sourceRevision}</code></span>
+        {/if}
+        <small>{localImage.detail}. No automatic download or cloud fallback.</small>
+      </section>
       {#if imageFeedback}<p class="image-generation-feedback" role="status">{imageFeedback}</p>{/if}
     {/if}
     <MicrophoneControl

@@ -497,16 +497,17 @@ Implement this once for both hosted and local adapters before adding more runtim
   ranged download, source-bound partial restart, fixed byte/time ceilings, cancellation, and durable progress reporting
   are also complete. Hugging Face delivery now uses one manually validated 302/307 resolution envelope with automatic
   redirects still disabled. The exact q4 candidate now has measured acceptance and a selected package manifest;
-  native path-free availability states and exact installed-worker/cache re-verification are complete, while
-  presentation remains;
+  native path-free availability states, exact installed-worker/cache re-verification, the app-owned service, and
+  Cloud-only composer presentation are complete;
 - [ ] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
   generation, and expose only readiness/capability metadata to Svelte. App-owned resumable staging and atomic verified
   promotion, read-only readiness re-verification, and the real-runtime network-denied proof are complete;
-  packaged-runtime integration and path-free presentation remain;
+  fixed-path app-service resolution and path-free presentation are complete, while packaged-runtime integration
+  remains;
 - [ ] probe hardware and runtime support rather than inferring it from the operating system. An unavailable local route
   remains unavailable; there is no silent cloud fallback. The native macOS probe now combines OS-owned physical memory,
   compile-target architecture, the exact accepted Apple M3 Max 128 GiB profile, worker-bundle evidence, and cache
-  integrity. Other hardware profiles and application-service wiring remain unavailable;
+  integrity. Application-service wiring is complete; other hardware profiles remain unavailable;
 - [ ] normalize local results through the same Rust PNG validation, durable storage, provenance, cancellation, export,
   and deletion path as hosted results;
 - [ ] keep this worker distinct from Bottie's user-approved Python tool runtime: image generation is a product

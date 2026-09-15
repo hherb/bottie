@@ -1,0 +1,33 @@
+/** Local-image package availability disclosure kept separate from the core composer layout. */
+
+.local-image-availability {
+  display: grid;
+  gap: 3px;
+  margin: 0 10px 7px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--subtle-text);
+  font-size: 8px;
+  line-height: 1.4;
+}
+.local-image-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 5px;
+}
+.local-image-heading strong {
+  color: var(--muted-strong);
+}
+.local-image-heading span.ready {
+  color: var(--cyan);
+}
+.local-image-availability > span,
+.local-image-availability > code {
+  overflow-wrap: anywhere;
+}
+.local-image-availability small {
+  color: var(--subtle-text);
+  font: inherit;
+}

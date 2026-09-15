@@ -29,6 +29,7 @@
   import "$lib/styles/tool-activity.css";
   import "$lib/styles/markdown.css";
   import "$lib/styles/composer.css";
+  import "$lib/styles/local-image.css";
   import "$lib/styles/command-palette.css";
   import "$lib/styles/context.css";
   import "$lib/styles/first-run.css";
@@ -367,6 +368,8 @@
         imageSize={state.imageSize}
         imageCount={state.imageCount}
         imageFeedback={state.imageFeedback}
+        localImageAvailability={state.localImageAvailability}
+        localImageAvailabilityFailed={state.localImageAvailabilityFailed}
         microphoneStatus={state.microphone.status}
         microphoneAvailable={state.microphone.available}
         microphoneWillInterrupt={state.isGenerating || state.speech.status.phase === "speaking"}
