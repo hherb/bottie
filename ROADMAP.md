@@ -455,7 +455,7 @@ Two model tracks are intentional and must remain visibly distinct:
   Singapore and Beijing legacy/workspace domains and exact `/api/v1/` root;
 - [x] credential-free endpoint persistence, OS-vault API-key handling, and structural setup validation that performs no
   provider request and incurs no charge;
-- [ ] add an opt-in live fixture using a throwaway Singapore key and workspace, kept ignored by default and fixed at one
+- [x] add an opt-in live fixture using a throwaway Singapore key and workspace, kept ignored by default and fixed at one
   low-risk output; never run it implicitly in ordinary tests.
 
 ### 8.2 Durable generation vertical slice
@@ -540,7 +540,7 @@ Implement this once for both hosted and local adapters before adding more runtim
   verified runtime;
 - [ ] retain DiffSynth-Studio, vLLM-Omni, and ComfyUI as benchmark/reference integrations, not embedded product
   dependencies, unless measured evidence shows the selected workers cannot meet Bottie's lifecycle contract;
-- [ ] publish a support matrix from real hardware evidence. Initial availability may legitimately be Apple silicon and
+- [x] publish a support matrix from real hardware evidence. Initial availability may legitimately be Apple silicon and
   NVIDIA only; unsupported hardware must fail clearly before model download or generation.
 
 The local 2512 track is text-to-image only. Do not silently combine it with the separate Qwen-Image-Edit-2511 weights.
@@ -558,8 +558,9 @@ Editing should first land through the unified hosted 2.0 model after generation 
   execution provenance. Generated edits now present a compact accessible source count and ordered path-free source
   kind, dimensions, media type, and byte size after initial completion and durable reopen, without rendering opaque
   IDs; ordinary text-to-image results omit the lineage panel;
-- [ ] monitor only official Qwen repositories/model registries for an exact 2.0 weight release. A paper, API alias,
-  community conversion, similarly named model, or 2512 package is not sufficient;
+- [ ] monitor only official Qwen repositories/model registries for an exact 2.0 weight release. A 2026-09-16 recheck of
+  Qwen's GitHub repository plus its Hugging Face and ModelScope inventories still found no exact 2.0 weights. A paper,
+  API alias, community conversion, similarly named model, or 2512 package is not sufficient;
 - [ ] when exact weights ship, freeze their revision, files, hashes, license, architecture metadata, and reference
   output before selecting MLX and CUDA/ROCm/Windows runtimes through the same worker conformance suite;
 - [ ] expose local 2.0 only after generation and editing both pass native-byte, cancellation, provenance, and hardware

@@ -325,6 +325,23 @@ partials;
 all 18 files are re-verified before atomic activation, and only path-free progress reaches the WebView. The 1.1 GB proof
 worker remains a user-supplied reviewed bundle rather than an application payload or automatic download.
 
+#### Local Qwen-Image-2512 support matrix
+
+Local availability is evidence-gated, not inferred from an operating-system or GPU family. Unsupported profiles fail
+before model download or generation, and Bottie never falls back to Cloud automatically.
+
+| Host profile | Local status | Accepted evidence or next gate |
+| --- | --- | --- |
+| macOS, Apple M3 Max, 128 GiB unified memory | Supported for one 512×512 text-to-image output | Exact MLX-Gen 0.18.2 worker bundle and immutable mixed q4/q8 package; 27.5 GiB measured peak memory; 110 ms measured cancellation |
+| Other Apple silicon profiles | Unavailable | A named chip and memory tier must pass the same decoded-output, memory, offline, and cancellation proof |
+| Linux or Windows with NVIDIA GPU | Unavailable | A named native CUDA target must prove pinned Diffusers execution; WSL evidence is not Windows evidence |
+| Linux with AMD GPU | Unavailable | A named ROCm target must prove decoded output, memory, and cancellation behavior |
+| Windows with AMD or Intel GPU, and lower-memory GPUs | Unavailable | A pinned Vulkan/GGUF candidate needs same-seed quality and lifecycle evidence; DirectML is not claimed |
+| Any host requesting local Qwen-Image-2.0 | Unavailable | Exact 2.0 weights have not been released in Qwen's official repositories or model registries |
+
+The supported local route is text-to-image only. Local editing is unavailable, and Qwen-Image-2512 output is never
+labelled as Qwen-Image-2.0.
+
 On macOS, the package script development-signs each newly linked executable with an available Apple Development
 identity before Cargo runs it. If more than one identity is usable, set `BOTTIE_APPLE_SIGNING_IDENTITY` to the exact
 certificate label or SHA-1 fingerprint you intend to use. This affects development signing only.
@@ -357,6 +374,20 @@ cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
+The ignored hosted Qwen-Image live fixture is deliberately absent from ordinary validation because it sends a prompt
+to Alibaba Model Studio and may incur a charge. To run its single 512×512 low-risk output explicitly, provide a
+throwaway Singapore workspace root in `BOTTIE_LIVE_QWEN_IMAGE_BASE_URL` and its throwaway key in
+`BOTTIE_LIVE_QWEN_IMAGE_API_KEY`, then run:
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml \
+  image_generation::live_tests::live_qwen_image_generation_uses_one_low_risk_output \
+  -- --ignored --exact
+```
+
+The fixture validates only the exact hosted adapter response contract. It does not download or retain the temporary
+image result.
 
 The unbundled Python runner has its own manifest so its large sandbox dependency graph does not affect ordinary
 Bottie builds. Its contract tests do not require the external runtime:
