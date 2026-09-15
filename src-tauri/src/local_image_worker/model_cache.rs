@@ -30,7 +30,9 @@ use filesystem::{
     symlink_metadata_if_exists, sync_directory, sync_parent, verify_contract_file,
 };
 #[allow(unused_imports)]
-pub(crate) use inspection::{inspect_cached_package, reopen_cached_package};
+pub(crate) use inspection::{
+    CacheResumeProgress, inspect_bound_resume, inspect_cached_package, reopen_cached_package,
+};
 use tree::{validate_cache_tree, validate_cache_tree_shape};
 pub(crate) use writer::CacheFileWriter;
 

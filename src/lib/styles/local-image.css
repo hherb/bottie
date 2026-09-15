@@ -31,3 +31,36 @@
   color: var(--subtle-text);
   font: inherit;
 }
+.local-image-acquisition {
+  display: grid;
+  gap: 5px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.local-image-acquisition p {
+  margin: 0;
+}
+.local-image-acquisition progress {
+  width: 100%;
+  height: 5px;
+  accent-color: var(--cyan);
+}
+.local-image-acquisition button {
+  justify-self: start;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--muted-strong);
+  font: inherit;
+  cursor: pointer;
+}
+.local-image-acquisition button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.local-image-acquisition-feedback {
+  color: var(--danger);
+}

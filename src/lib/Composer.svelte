@@ -3,7 +3,12 @@
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
   import MicrophoneControl from "$lib/MicrophoneControl.svelte";
   import { attachmentFailure } from "$lib/attachment";
-  import { localImageAvailabilityPresentation, type LocalImageAvailabilityMetadata } from "$lib/local-image";
+  import {
+    localImageAcquisitionPresentation,
+    localImageAvailabilityPresentation,
+    type LocalImageAcquisitionStatus,
+    type LocalImageAvailabilityMetadata,
+  } from "$lib/local-image";
   import type { ImageGenerationExecution } from "$lib/image-generation";
   import { MAX_COMPOSER_ATTACHMENTS, type Attachment, type ProviderStatus } from "$lib/presentation";
   import type { MicrophoneInputDeviceList, MicrophoneStatus } from "$lib/microphone";
@@ -31,6 +36,8 @@
     imageFeedback: string;
     localImageAvailability: LocalImageAvailabilityMetadata | null;
     localImageAvailabilityFailed: boolean;
+    localImageAcquisitionStatus: LocalImageAcquisitionStatus | null;
+    localImageAcquisitionFeedback: string;
     microphoneStatus: MicrophoneStatus;
     microphoneAvailable: boolean;
     microphoneWillInterrupt: boolean;
@@ -57,6 +64,8 @@
     onimageexecution: (execution: ImageGenerationExecution) => void;
     onimagesize: (size: "square" | "landscape" | "portrait") => void;
     onimagecount: (count: number) => void;
+    oninstalllocalimage: () => void;
+    oncancellocalimage: () => void;
     onstartmicrophone: () => void;
     onstopmicrophone: () => void;
     ondiscardmicrophone: () => void;
@@ -93,6 +102,8 @@
     imageFeedback,
     localImageAvailability,
     localImageAvailabilityFailed,
+    localImageAcquisitionStatus,
+    localImageAcquisitionFeedback,
     microphoneStatus,
     microphoneAvailable,
     microphoneWillInterrupt,
@@ -119,6 +130,8 @@
     onimageexecution,
     onimagesize,
     onimagecount,
+    oninstalllocalimage,
+    oncancellocalimage,
     onstartmicrophone,
     onstopmicrophone,
     ondiscardmicrophone,
@@ -266,6 +279,9 @@
     {#if imageMode}
       {@const localImage = localImageAvailabilityPresentation(localImageAvailability, localImageAvailabilityFailed)}
       {@const localImageReady = localImageAvailability?.availability === "ready"}
+      {@const acquisition = localImageAcquisitionStatus
+        ? localImageAcquisitionPresentation(localImageAcquisitionStatus)
+        : null}
       <div class="image-generation-options" aria-label="Image generation options">
         <label>
           <span>Execution</span>
@@ -334,6 +350,31 @@
           <span>{localImageAvailability.license} · revision <code>{localImageAvailability.sourceRevision}</code></span>
         {/if}
         <small>{localImage.detail}. No automatic download or cloud fallback.</small>
+        {#if acquisition && (acquisition.action !== "none" || acquisition.active)}
+          <div class="local-image-acquisition" aria-label="Local image model installation">
+            <p>
+              Download the disclosed immutable package from Hugging Face into Bottie’s app-owned cache. Network access
+              is used only for acquisition; generation remains offline.
+            </p>
+            {#if acquisition.active || acquisition.percent > 0}
+              <progress aria-label="Local model download progress" max="100" value={acquisition.percent}
+                >{acquisition.percent}%</progress
+              >
+            {/if}
+            <span>{acquisition.detail}</span>
+            {#if acquisition.action === "cancel"}
+              <strong>{acquisition.label}</strong>
+              <button type="button" onclick={oncancellocalimage}>Cancel download</button>
+            {:else if ["install", "resume", "retry"].includes(acquisition.action)}
+              <button type="button" disabled={isGenerating} onclick={oninstalllocalimage}>{acquisition.label}</button>
+            {:else}
+              <strong>{acquisition.label}</strong>
+            {/if}
+          </div>
+        {/if}
+        {#if localImageAcquisitionFeedback}
+          <span class="local-image-acquisition-feedback" role="status">{localImageAcquisitionFeedback}</span>
+        {/if}
       </section>
       {#if imageFeedback}<p class="image-generation-feedback" role="status">{imageFeedback}</p>{/if}
     {/if}

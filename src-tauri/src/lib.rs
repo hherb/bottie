@@ -49,6 +49,8 @@ mod web_search_commands;
 #[cfg(test)]
 mod generation_tools_tests;
 #[cfg(test)]
+mod local_image_acquisition_coordinator_tests;
+#[cfg(test)]
 mod local_image_worker_availability_service_tests;
 #[cfg(test)]
 mod local_image_worker_availability_tests;
@@ -123,6 +125,10 @@ use inference::{
     save_provider_settings,
 };
 use local_audio_preferences::LocalAudioPreferenceStore;
+use local_image_worker::acquisition_coordinator::{
+    LocalImageAcquisitionApproval, LocalImageAcquisitionCoordinator, LocalImageAcquisitionError,
+    LocalImageAcquisitionStatus,
+};
 use local_image_worker::availability_service::{
     LocalImageAvailabilityMetadata, LocalImageAvailabilityService, LocalImageServiceError,
 };
@@ -176,7 +182,8 @@ struct AppState {
     attachment_processing: AttachmentProcessor,
     semantic_indexing: SemanticIndexer,
     storage_management: tauri::async_runtime::Mutex<()>,
-    local_image_availability: LocalImageAvailabilityService,
+    local_image_availability: Arc<LocalImageAvailabilityService>,
+    local_image_acquisition: Arc<LocalImageAcquisitionCoordinator>,
     local_image_generation: LocalImageGenerator,
 }
 
@@ -220,6 +227,31 @@ async fn get_local_image_availability(
     state: State<'_, AppState>,
 ) -> Result<LocalImageAvailabilityMetadata, LocalImageServiceError> {
     state.local_image_availability.inspect().await
+}
+
+#[tauri::command]
+/// Returns fresh path-free installation eligibility and exact resumable acquisition progress.
+async fn get_local_image_acquisition_status(
+    state: State<'_, AppState>,
+) -> Result<LocalImageAcquisitionStatus, LocalImageAcquisitionError> {
+    state.local_image_acquisition.status().await
+}
+
+#[tauri::command]
+/// Starts one exact selected-package acquisition after explicit disclosure acknowledgement.
+async fn start_local_image_acquisition(
+    approval: LocalImageAcquisitionApproval,
+    state: State<'_, AppState>,
+) -> Result<LocalImageAcquisitionStatus, LocalImageAcquisitionError> {
+    state.local_image_acquisition.clone().start(approval).await
+}
+
+#[tauri::command]
+/// Cancels the active selected-package acquisition while retaining exact resumable progress.
+fn cancel_local_image_acquisition(
+    state: State<'_, AppState>,
+) -> Result<LocalImageAcquisitionStatus, LocalImageAcquisitionError> {
+    state.local_image_acquisition.cancel()
 }
 
 #[tauri::command]
@@ -727,11 +759,20 @@ pub fn run() {
             let database_path = app.path().app_data_dir()?.join("bottie.sqlite3");
             let embedding_cache_path = app.path().app_data_dir()?.join("embedding-models");
             let speech_model_cache_path = app.path().app_data_dir()?.join("speech-models");
-            let local_image_availability = LocalImageAvailabilityService::new(
-                app.path().resource_dir()?,
-                app.path().app_data_dir()?,
-            )
-            .map_err(|_| std::io::Error::other("local image availability setup failed"))?;
+            let local_image_availability = Arc::new(
+                LocalImageAvailabilityService::new(
+                    app.path().resource_dir()?,
+                    app.path().app_data_dir()?,
+                )
+                .map_err(|_| std::io::Error::other("local image availability setup failed"))?,
+            );
+            let local_image_acquisition = Arc::new(
+                LocalImageAcquisitionCoordinator::new(
+                    local_image_availability.clone(),
+                    app.handle().clone(),
+                )
+                .map_err(|_| std::io::Error::other("local image acquisition setup failed"))?,
+            );
             let python_runtime = initialize_python_runtime(app)
                 .map_err(|error| std::io::Error::other(error.message()))?;
             let startup = ConversationStore::initialize_for_app(database_path)
@@ -812,6 +853,7 @@ pub fn run() {
                 semantic_indexing,
                 storage_management: tauri::async_runtime::Mutex::new(()),
                 local_image_availability,
+                local_image_acquisition,
                 local_image_generation,
             });
             Ok(())
@@ -829,6 +871,9 @@ pub fn run() {
             remember_provider_selection,
             complete_first_run_setup,
             get_local_image_availability,
+            get_local_image_acquisition_status,
+            start_local_image_acquisition,
+            cancel_local_image_acquisition,
             get_microphone_status,
             list_microphone_input_devices,
             select_microphone_input_device,

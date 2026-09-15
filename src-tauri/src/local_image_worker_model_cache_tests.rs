@@ -12,7 +12,7 @@ use crate::local_image_worker::{
     model_acquisition::{ModelFileContract, ModelPackageManifest},
     model_cache::{
         CacheError, CachePromotionFault, CacheWriteStatus, ModelCacheTransaction,
-        reopen_cached_package,
+        inspect_bound_resume, reopen_cached_package,
     },
 };
 
@@ -119,6 +119,77 @@ fn interrupted_stream_resumes_after_restart_and_reopens_through_activation() {
         .unwrap()
         .expect("promoted package should reopen");
     assert_eq!(reopened, location);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn read_only_resume_inspection_survives_restart_without_mutating_an_absent_cache() {
+    let absent = std::env::temp_dir().join(format!(
+        "bottie-local-model-cache-absent-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let package = manifest();
+    let binding = "a".repeat(64);
+
+    assert_eq!(
+        inspect_bound_resume(&absent, &package, &binding).unwrap(),
+        None
+    );
+    assert!(!absent.exists());
+
+    let root = temp_cache("inspect-resume");
+    let transaction = ModelCacheTransaction::open_bound(&root, package.clone(), &binding).unwrap();
+    transaction
+        .write_file("weights/model.bin", 0, &mut Cursor::new(b"wei"))
+        .unwrap();
+    drop(transaction);
+
+    let progress = inspect_bound_resume(&root, &package, &binding)
+        .unwrap()
+        .expect("the exact retained transaction should be visible after reopen");
+    assert_eq!(progress.completed_files, 0);
+    assert_eq!(progress.downloaded_bytes, 3);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn read_only_resume_inspection_ignores_source_or_manifest_drift_without_cleanup() {
+    let root = temp_cache("inspect-drift");
+    let package = manifest();
+    let binding = "b".repeat(64);
+    let transaction = ModelCacheTransaction::open_bound(&root, package.clone(), &binding).unwrap();
+    transaction
+        .write_file("weights/model.bin", 0, &mut Cursor::new(b"wei"))
+        .unwrap();
+    let staging = transaction.staging_root_for_test();
+    drop(transaction);
+
+    assert_eq!(
+        inspect_bound_resume(&root, &package, &"c".repeat(64)).unwrap(),
+        None
+    );
+    assert!(
+        staging.is_dir(),
+        "read-only inspection must leave drift cleanup to an approved start"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn read_only_resume_inspection_treats_untrusted_staging_as_non_resumable_without_cleanup() {
+    let root = temp_cache("inspect-untrusted");
+    let package = manifest();
+    let binding = "d".repeat(64);
+    let transaction = ModelCacheTransaction::open_bound(&root, package.clone(), &binding).unwrap();
+    let staging = transaction.staging_root_for_test();
+    fs::write(staging.join("unexpected.bin"), b"untrusted").unwrap();
+    drop(transaction);
+
+    assert_eq!(
+        inspect_bound_resume(&root, &package, &binding).unwrap(),
+        None
+    );
+    assert!(staging.join("unexpected.bin").is_file());
     fs::remove_dir_all(root).unwrap();
 }
 

@@ -301,8 +301,11 @@ route exact 2.0 through oMLX or an older implementation nor label 2512 output as
 only the measured Apple M3 Max 128 GiB profile and re-verifies the exact worker bundle and model cache; all other local
 hardware and missing or changed bytes remain unavailable. A ready installation is re-verified again before each local
 start or retry, runs through a network-denied reusable MLX-Gen worker, and reaches the same private PNG storage and asset
-actions as Cloud without fallback. The proof worker and model remain manually installed evidence rather than application
-payloads.
+actions as Cloud without fallback. Once that exact worker is installed, the composer discloses the selected model,
+runtime, Apache-2.0 license, immutable revision, 16.2 GiB disk use, and 27.5 GiB measured peak memory before an explicit
+download action can mutate Bottie's app-owned cache. Acquisition is cancellable and resumable from exact synced partials;
+all 18 files are re-verified before atomic activation, and only path-free progress reaches the WebView. The 1.1 GB proof
+worker remains manually installed evidence rather than an application payload.
 
 On macOS, the package script development-signs each newly linked executable with an available Apple Development
 identity before Cargo runs it. If more than one identity is usable, set `BOTTIE_APPLE_SIGNING_IDENTITY` to the exact
