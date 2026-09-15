@@ -175,7 +175,8 @@ fn upgrades_existing_tool_rows_with_honest_legacy_audit_metadata() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE generated_image_requests;
+            "DROP TABLE generated_asset_sources;
+             DROP TABLE generated_image_requests;
              DROP TABLE generated_assets;
              DROP TABLE tool_approvals;
              ALTER TABLE tool_invocations DROP COLUMN execution_policy;
@@ -420,7 +421,8 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
     let connection = store.open().expect("database should open");
     connection
         .execute_batch(
-            "DROP TABLE generated_image_requests;
+            "DROP TABLE generated_asset_sources;
+             DROP TABLE generated_image_requests;
              DROP TABLE generated_assets;
              DROP TABLE tool_approvals;
              DROP TABLE conversation_retention_policies;
@@ -459,7 +461,7 @@ fn upgrades_version_six_stores_with_empty_tool_tables() {
             .status()
             .expect("status should load")
             .schema_version,
-        24
+        25
     );
     assert_eq!(table_count, 3);
 }

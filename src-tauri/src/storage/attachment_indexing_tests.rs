@@ -167,7 +167,8 @@ fn migration_maps_existing_extraction_outcomes_without_exposing_text() {
     let connection = store.open().expect("open store");
     connection
         .execute_batch(
-            "DROP TABLE generated_image_requests;
+            "DROP TABLE generated_asset_sources;
+             DROP TABLE generated_image_requests;
              DROP TABLE generated_assets;
              DROP TABLE attachment_text_indexing;",
         )

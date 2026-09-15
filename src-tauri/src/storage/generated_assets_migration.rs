@@ -50,3 +50,40 @@ CREATE TABLE generated_image_requests (
 CREATE INDEX generated_image_requests_prompt_idx
     ON generated_image_requests(request_message_id);
 "#;
+
+/// Adds exact ordered source snapshots for every assistant-owned edited output.
+pub(super) const MIGRATION_25: &str = r#"
+CREATE TABLE generated_asset_sources (
+    generated_asset_id TEXT NOT NULL REFERENCES generated_assets(id) ON DELETE CASCADE,
+    ordinal INTEGER NOT NULL CHECK (ordinal BETWEEN 0 AND 2),
+    source_type TEXT NOT NULL CHECK (source_type IN ('attachment', 'generated_asset')),
+    attachment_id TEXT REFERENCES attachments(id),
+    source_generated_asset_id TEXT REFERENCES generated_assets(id),
+    sha256 TEXT NOT NULL
+        CHECK (length(sha256) = 64 AND sha256 NOT GLOB '*[^0-9a-f]*'),
+    media_type TEXT NOT NULL CHECK (media_type IN ('image/jpeg', 'image/png')),
+    width INTEGER NOT NULL CHECK (width > 0),
+    height INTEGER NOT NULL CHECK (height > 0),
+    byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+    PRIMARY KEY (generated_asset_id, ordinal),
+    CHECK (
+        (source_type = 'attachment' AND attachment_id IS NOT NULL
+            AND source_generated_asset_id IS NULL)
+        OR (source_type = 'generated_asset' AND attachment_id IS NULL
+            AND source_generated_asset_id IS NOT NULL
+            AND source_generated_asset_id <> generated_asset_id)
+    )
+) STRICT;
+CREATE UNIQUE INDEX generated_asset_attachment_source_idx
+    ON generated_asset_sources(generated_asset_id, attachment_id)
+    WHERE source_type = 'attachment';
+CREATE UNIQUE INDEX generated_asset_generated_source_idx
+    ON generated_asset_sources(generated_asset_id, source_generated_asset_id)
+    WHERE source_type = 'generated_asset';
+CREATE UNIQUE INDEX generated_asset_source_content_idx
+    ON generated_asset_sources(generated_asset_id, sha256);
+CREATE INDEX generated_asset_sources_attachment_idx
+    ON generated_asset_sources(attachment_id) WHERE attachment_id IS NOT NULL;
+CREATE INDEX generated_asset_sources_generated_idx
+    ON generated_asset_sources(source_generated_asset_id) WHERE source_generated_asset_id IS NOT NULL;
+"#;

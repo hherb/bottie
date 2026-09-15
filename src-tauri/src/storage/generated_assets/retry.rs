@@ -4,9 +4,9 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{
     GeneratedAssetStatus, GeneratedImageProvenance, GeneratedImageRequestOptions,
-    StartedGeneratedImage, insert_generated_image_message, load_generated_message,
-    load_message_generated_assets, selected_branch_without_active_generation,
-    validate_output_count,
+    StartedGeneratedImage, insert_generated_image_message, lineage::clone_source_rows,
+    load_generated_message, load_message_generated_assets,
+    selected_branch_without_active_generation, validate_output_count,
 };
 use crate::storage::{ConversationStore, DEFAULT_PROFILE_ID, StorageError};
 
@@ -63,6 +63,7 @@ impl ConversationStore {
             &retry.provenance,
             &retry.options,
         )?;
+        clone_source_rows(&transaction, message_id, &new_message_id)?;
         let message =
             load_generated_message(&transaction, &retry.conversation_id, &new_message_id)?;
         transaction.commit()?;

@@ -88,6 +88,10 @@ impl ConversationStore {
                  SELECT 1 FROM conversation_attachments
                  WHERE conversation_attachments.attachment_id = attachments.id
              )
+             AND NOT EXISTS (
+                 SELECT 1 FROM generated_asset_sources
+                 WHERE generated_asset_sources.attachment_id = attachments.id
+             )
              AND created_at_ms <= ?1",
             params![catalog_cutoff_ms],
         )?;
@@ -177,9 +181,19 @@ fn load_live_content(connection: &rusqlite::Connection) -> Result<LiveContent, S
         "SELECT DISTINCT normalized_sha256, format
          FROM attachment_image_normalizations WHERE state = 'ready'",
     )?;
-    let derivatives = derivative_statement
+    let mut derivatives = derivative_statement
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
         .collect::<Result<HashSet<(String, String)>, _>>()?;
+    let mut lineage_derivative_statement = connection.prepare(
+        "SELECT DISTINCT sha256,
+                CASE media_type WHEN 'image/jpeg' THEN 'jpeg' ELSE 'png' END
+         FROM generated_asset_sources WHERE source_type = 'attachment'",
+    )?;
+    derivatives.extend(
+        lineage_derivative_statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<HashSet<(String, String)>, _>>()?,
+    );
     let mut generated_statement = connection
         .prepare("SELECT DISTINCT sha256 FROM generated_assets WHERE status = 'completed'")?;
     let generated_assets = generated_statement

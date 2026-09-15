@@ -191,6 +191,8 @@ pub(crate) struct StoredGeneratedAsset {
     /// Native-only content identity deliberately omitted from serialization.
     #[serde(skip_serializing)]
     pub(crate) sha256: Option<String>,
+    /// Ordered exact source snapshots for an edited image; empty for text-to-image generation.
+    pub(crate) sources: Vec<super::StoredGeneratedImageSource>,
 }
 
 /// One validated PNG staged for an atomic generated-message completion.

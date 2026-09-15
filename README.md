@@ -292,6 +292,13 @@ inputs. Portable exports include only the selected lineage's generated images, w
 durable generated PNG needed for full database recovery. Retention and garbage collection keep shared or Trash-owned
 bytes until their final durable reference is removed.
 
+Hosted editing storage retains one to three ordered source snapshots per output. A source must be either a normalized
+image attached to the exact current request or an earlier completed generated image in its selected ancestry. Rust
+revalidates the native bytes before mutation, rejects duplicate content, and carries exact source media, dimensions,
+byte counts, and hosted provenance through retry, branch selection, export, backup, restore, retention, and deletion.
+Only path-free metadata crosses the WebView boundary. A provider-neutral edit request and offline DashScope serializer
+are present, but no editing command, UI, or provider execution path is enabled yet.
+
 Qwen-Image-2.0 local execution remains intentionally unavailable until its weights and a compatible runtime are
 actually published. Local work can proceed now against the distinct open `Qwen/Qwen-Image-2512` text-to-image
 checkpoint, prioritizing MLX-Gen on Apple silicon and a pinned Diffusers worker on proven Linux/Windows GPU targets.

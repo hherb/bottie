@@ -7,11 +7,16 @@ mod local;
 mod runs;
 
 #[cfg(test)]
+mod editing_tests;
+#[cfg(test)]
 mod tests;
 
 use crate::inference::ProviderError;
 use crate::local_image_worker::execution::{
     LOCAL_GENERATION_DIMENSIONS, LOCAL_GENERATION_OUTPUT_COUNT,
+};
+use crate::storage::{
+    GeneratedAssetExecution, GeneratedImageProvenance, ValidatedGeneratedImageSource,
 };
 use url::Url;
 
@@ -37,6 +42,12 @@ pub(crate) const MAX_IMAGE_PIXELS: u64 = 2_048 * 2_048;
 const MAX_IMAGE_AXIS: u32 = 4_096;
 /// Conservative native character guard ahead of the provider's 1,000-token instruction limit.
 const MAX_IMAGE_PROMPT_CHARACTERS: usize = 1_000;
+/// Minimum number of reference images accepted by one hosted editing request.
+#[cfg_attr(not(test), allow(dead_code))]
+const MIN_IMAGE_EDIT_SOURCES: usize = 1;
+/// Maximum number of reference images accepted by exact hosted Qwen-Image-2.0.
+#[cfg_attr(not(test), allow(dead_code))]
+const MAX_IMAGE_EDIT_SOURCES: usize = 3;
 
 /// Accepts only official DashScope or Model Studio API roots for the exact adapter.
 pub(crate) fn validate_qwen_image_base_url(candidate: &str) -> Result<Url, ProviderError> {
@@ -185,6 +196,81 @@ impl ImageGenerationRequest {
     /// Returns whether the provider may enhance the supplied prompt.
     pub(crate) fn prompt_extend(&self) -> bool {
         self.prompt_extend
+    }
+}
+
+/// One provider-neutral hosted edit request containing only Rust-owned validated source bytes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct ImageEditingRequest {
+    generation: ImageGenerationRequest,
+    sources: Vec<ValidatedGeneratedImageSource>,
+    provenance: GeneratedImageProvenance,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl ImageEditingRequest {
+    /// Validates bounded output options and pins editing to exact hosted Qwen-Image-2.0 provenance.
+    pub(crate) fn new(
+        prompt: impl Into<String>,
+        width: u32,
+        height: u32,
+        count: u8,
+        sources: Vec<ValidatedGeneratedImageSource>,
+    ) -> Result<Self, ProviderError> {
+        if !(MIN_IMAGE_EDIT_SOURCES..=MAX_IMAGE_EDIT_SOURCES).contains(&sources.len()) {
+            return Err(ProviderError::invalid_request(
+                "Choose between one and three validated image editing sources.",
+            ));
+        }
+        let generation = ImageGenerationRequest::new(prompt, width, height, count)?;
+        let provenance = GeneratedImageProvenance::new(
+            QWEN_IMAGE_PROVIDER_ID,
+            DASHSCOPE_QWEN_IMAGE_MODEL_ID,
+            GeneratedAssetExecution::Cloud,
+            None,
+        )
+        .map_err(|_| {
+            ProviderError::internal(
+                "The hosted image editing provenance contract is invalid.",
+                None,
+            )
+        })?;
+        Ok(Self {
+            generation,
+            sources,
+            provenance,
+        })
+    }
+
+    /// Returns the exact durable user editing instruction.
+    pub(crate) fn prompt(&self) -> &str {
+        self.generation.prompt()
+    }
+
+    /// Returns the requested output dimensions.
+    pub(crate) fn dimensions(&self) -> (u32, u32) {
+        self.generation.dimensions()
+    }
+
+    /// Returns the bounded requested output count.
+    pub(crate) fn count(&self) -> u8 {
+        self.generation.count()
+    }
+
+    /// Returns whether exact hosted prompt enhancement is enabled.
+    pub(crate) fn prompt_extend(&self) -> bool {
+        self.generation.prompt_extend()
+    }
+
+    /// Returns exact ordered native source bytes for a provider-specific serializer.
+    pub(crate) fn sources(&self) -> &[ValidatedGeneratedImageSource] {
+        &self.sources
+    }
+
+    /// Returns exact hosted provider/model/backend provenance for durable storage.
+    pub(crate) fn provenance(&self) -> &GeneratedImageProvenance {
+        &self.provenance
     }
 }
 

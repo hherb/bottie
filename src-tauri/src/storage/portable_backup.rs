@@ -251,10 +251,14 @@ fn attachment_rows(connection: &Connection) -> Result<Vec<(String, i64)>, Storag
 fn derivative_rows(connection: &Connection) -> Result<Vec<(String, String, i64)>, StorageError> {
     let mut statement = connection
         .prepare(
-            "SELECT DISTINCT normalized_sha256, format, byte_size
-             FROM attachment_image_normalizations
-             WHERE state = 'ready'
-             ORDER BY normalized_sha256",
+            "SELECT normalized_sha256, format, byte_size
+             FROM attachment_image_normalizations WHERE state = 'ready'
+             UNION
+             SELECT sha256,
+                    CASE media_type WHEN 'image/jpeg' THEN 'jpeg' ELSE 'png' END,
+                    byte_size
+             FROM generated_asset_sources WHERE source_type = 'attachment'
+             ORDER BY 1",
         )
         .map_err(|_| StorageError::invalid_backup())?;
     statement

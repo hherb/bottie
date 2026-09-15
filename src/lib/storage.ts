@@ -127,6 +127,20 @@ export type StoredAttachment = {
   normalization: ImageNormalization;
 };
 
+/** Native-owned source category exposed without filesystem identity or source bytes. */
+export type GeneratedImageSourceType = "attachment" | "generated_asset";
+
+/** Path-free snapshot of one ordered source retained for exact image editing lineage. */
+export type StoredGeneratedImageSource = {
+  ordinal: number;
+  sourceType: GeneratedImageSourceType;
+  sourceId: string;
+  mediaType: "image/jpeg" | "image/png";
+  width: number;
+  height: number;
+  byteSize: number;
+};
+
 /** Path-free assistant-generated image metadata with exact model and execution provenance. */
 export type StoredGeneratedAsset = {
   id: string;
@@ -142,6 +156,7 @@ export type StoredGeneratedAsset = {
   seed: number | null;
   errorCode: string | null;
   createdAtMs: number;
+  sources: StoredGeneratedImageSource[];
 };
 
 /** Path-redacted result of opening or exporting one generated image. */
