@@ -26,9 +26,11 @@ import {
   providerErrorFromUnknown,
   rememberProviderSelection,
   startChat,
+  startImageEditing as invokeImageEditing,
   startImageGeneration as invokeImageGeneration,
   retryImageGeneration as invokeImageGenerationRetry,
   validateQwenImageConfiguration,
+  type ImageEditingSourceRequest,
   type ImageGenerationEvent,
   type ModelInfo,
   type ProviderId,
@@ -40,6 +42,7 @@ import {
 } from "$lib/inference";
 import {
   imageGenerationRequestOptions,
+  prepareImageEditingSources,
   prepareImageGenerationPrompt,
   type ImageGenerationExecution,
   type ImageGenerationSize,
@@ -48,6 +51,7 @@ import {
   DEFAULT_PROVIDER_SETTINGS,
   INITIAL_MESSAGES,
   nextMessageId,
+  type GeneratedAsset,
   type Message,
   type ProviderStatus,
   type RuntimeInfo,
@@ -103,6 +107,7 @@ export class PageState {
   imageSize = $state<ImageGenerationSize>("square");
   imageCount = $state(1);
   imageFeedback = $state("");
+  selectedGeneratedImageSourceIds = $state<string[]>([]);
   localImageAvailability = $state<LocalImageAvailabilityMetadata | null>(null);
   localImageAvailabilityFailed = $state(!isTauri());
   microphoneTranscriptDraftFeedback = $state("");
@@ -128,6 +133,7 @@ export class PageState {
   private cancellationRequested = false;
   private activeGenerationKind: "chat" | "image" | null = null;
   private activeImageExecution: ImageGenerationExecution = "cloud";
+  private activeImageEditing = false;
   /** Currently selected provider-qualified model, when discovery has produced one. */
   get selectedModel(): ModelInfo | undefined {
     return this.models.find((model) => modelKey(model) === this.selectedModelKey);
@@ -143,16 +149,85 @@ export class PageState {
       (this.imageMode || this.canSend || this.prompt.length > 0 || canUseTranscriptAsText(this.microphone.status))
     );
   }
-  /** Whether the explicit selected image route can start without reusing attachment editing. */
+  /** Whether the explicit selected image route and any ordered draft sources are ready. */
   get canGenerateImage(): boolean {
     return (
       isTauri() &&
       !this.isGenerating &&
       !this.isPersistingMessage &&
       !this.microphone.isActive &&
-      this.attachment.items.length === 0 &&
+      prepareImageEditingSources(this.imageExecution, this.attachment.items, this.selectedGeneratedImageSources).ok &&
       (this.imageExecution === "cloud" || this.localImageAvailability?.availability === "ready")
     );
+  }
+  /** Path-free draft guidance for text-to-image generation or ordered reference-image editing. */
+  get imageAttachmentNote(): string {
+    const prepared = prepareImageEditingSources(
+      this.imageExecution,
+      this.attachment.items,
+      this.selectedGeneratedImageSources,
+    );
+    if (!prepared.ok) return prepared.message;
+    if (prepared.sources.length === 0) return "Image generation is explicit and separate from ordinary chat send.";
+    return `${prepared.sources.length} ready reference image${prepared.sources.length === 1 ? "" : "s"} will be sent in visible order.`;
+  }
+  /** Completed current-lineage assets retained in the user's explicit selection order. */
+  get selectedGeneratedImageSources(): GeneratedAsset[] {
+    const completed = new Map<string, GeneratedAsset>();
+    for (const message of this.messages) {
+      for (const asset of message.generatedAssets ?? []) {
+        if (asset.status === "completed") completed.set(asset.id, asset);
+      }
+    }
+    return this.selectedGeneratedImageSourceIds.flatMap((id) => {
+      const asset = completed.get(id);
+      return asset ? [asset] : [];
+    });
+  }
+  /** Whether one more completed generated source can join the bounded Cloud draft. */
+  get canSelectGeneratedImageSource(): boolean {
+    return (
+      this.imageMode &&
+      this.imageExecution === "cloud" &&
+      !this.isGenerating &&
+      !this.isPersistingMessage &&
+      this.attachment.items.length + this.selectedGeneratedImageSources.length < 3
+    );
+  }
+
+  /** Adds or removes one visible completed generated image from the current Cloud edit draft. */
+  toggleGeneratedImageSource(assetId: string): void {
+    if (this.isGenerating || this.isPersistingMessage) return;
+    if (this.selectedGeneratedImageSourceIds.includes(assetId)) {
+      this.selectedGeneratedImageSourceIds = this.selectedGeneratedImageSourceIds.filter((id) => id !== assetId);
+      return;
+    }
+    if (!this.canSelectGeneratedImageSource) return;
+    const candidate = this.messages
+      .flatMap((message) => message.generatedAssets ?? [])
+      .find((asset) => asset.id === assetId && asset.status === "completed");
+    if (!candidate) return;
+    const prepared = prepareImageEditingSources(this.imageExecution, this.attachment.items, [
+      ...this.selectedGeneratedImageSources,
+      candidate,
+    ]);
+    if (!prepared.ok) {
+      this.imageFeedback = prepared.message;
+      return;
+    }
+    this.selectedGeneratedImageSourceIds = [...this.selectedGeneratedImageSourceIds, assetId];
+  }
+
+  /** Toggles the explicit image composer and drops ephemeral generated-source choices when leaving it. */
+  toggleImageMode(): void {
+    this.imageMode = !this.imageMode;
+    if (!this.imageMode) this.selectedGeneratedImageSourceIds = [];
+  }
+
+  /** Selects one explicit image backend and removes Cloud-only generated references from Local 2512. */
+  setImageExecution(execution: ImageGenerationExecution): void {
+    this.imageExecution = execution;
+    if (execution === "local") this.selectedGeneratedImageSourceIds = [];
   }
   /** Whether every current image has a ready derivative and an explicitly vision-capable route. */
   get attachmentsCanSubmit(): boolean {
@@ -422,6 +497,15 @@ export class PageState {
   async generateImage(): Promise<void> {
     if (!this.imageMode || !this.canGenerateImage) return;
     const execution = this.imageExecution;
+    const preparedSources = prepareImageEditingSources(
+      execution,
+      this.attachment.items,
+      this.selectedGeneratedImageSources,
+    );
+    if (!preparedSources.ok) {
+      this.imageFeedback = preparedSources.message;
+      return;
+    }
     const preparedPrompt = prepareImageGenerationPrompt(this.prompt);
     if (!preparedPrompt.ok) {
       this.providerError = {
@@ -433,6 +517,8 @@ export class PageState {
       return;
     }
     const submittedPrompt = preparedPrompt.prompt;
+    this.isPersistingMessage = true;
+    this.attachment.beginSubmission();
     if (execution === "cloud") {
       this.imageFeedback = "Checking the saved cloud image setup…";
       try {
@@ -441,73 +527,90 @@ export class PageState {
         const normalized = providerErrorFromUnknown(error);
         this.providerError = normalized;
         this.imageFeedback = normalized.message;
+        this.attachment.cancelSubmission();
+        this.isPersistingMessage = false;
         return;
       }
     }
-    this.isPersistingMessage = true;
     this.imageFeedback = "Saving the image prompt locally…";
     if (this.speech.status.phase === "speaking") await this.speech.stop();
-    const runContext = await this.history.persistUserMessage(submittedPrompt, []);
+    const attachmentIds = preparedSources.sources.flatMap((source) =>
+      source.sourceType === "attachment" ? [source.sourceId] : [],
+    );
+    const runContext = await this.history.persistUserMessage(submittedPrompt, attachmentIds);
     this.isPersistingMessage = false;
     if (!runContext) {
+      this.attachment.cancelSubmission();
       this.imageFeedback = "The image prompt could not be saved.";
       return;
     }
+    const completedAttachments = this.attachment.finishSubmission();
     this.messages.push({
       id: nextMessageId(),
       storageId: runContext.requestMessageId,
       role: "user",
       content: submittedPrompt,
+      attachments: completedAttachments,
     });
+    const accepted = await this.startImageGeneration(runContext, submittedPrompt, execution, preparedSources.sources);
+    if (!accepted) return;
     this.prompt = "";
+    this.attachment.clear();
+    this.selectedGeneratedImageSourceIds = [];
     this.interaction.resizeComposer();
-    await this.startImageGeneration(runContext, submittedPrompt, execution);
   }
 
-  /** Starts one native image run from an already-persisted prompt and snapshotted route. */
+  /** Starts one native image run and reports whether the native boundary accepted it. */
   private async startImageGeneration(
     runContext: import("$lib/storage").ProviderRunContext,
     prompt: string,
     execution: ImageGenerationExecution,
-  ): Promise<void> {
+    sources: ImageEditingSourceRequest[],
+  ): Promise<boolean> {
     this.isGenerating = true;
     this.activeGenerationKind = "image";
     this.cancellationRequested = false;
     this.activeRunId = null;
     this.providerError = null;
     this.activeImageExecution = execution;
-    this.imageFeedback =
-      this.activeImageExecution === "local"
+    this.activeImageEditing = sources.length > 0;
+    this.imageFeedback = this.activeImageEditing
+      ? "Starting the disclosed hosted image edit…"
+      : this.activeImageExecution === "local"
         ? "Starting the disclosed local generation…"
         : "Starting the disclosed cloud generation…";
     const run = ++this.generationRun;
     const options = imageGenerationRequestOptions(this.activeImageExecution, this.imageSize, this.imageCount);
+    let nativeAccepted = false;
     try {
-      const accepted = await invokeImageGeneration(
-        {
-          conversationId: runContext.conversationId,
-          requestMessageId: runContext.requestMessageId,
-          prompt,
-          ...options,
-          execution: this.activeImageExecution,
-        },
-        (event) => this.handleImageGenerationEvent(event, run),
-      );
+      const request = {
+        conversationId: runContext.conversationId,
+        requestMessageId: runContext.requestMessageId,
+        prompt,
+        ...options,
+      };
+      const onEvent = (event: ImageGenerationEvent) => this.handleImageGenerationEvent(event, run);
+      const accepted = this.activeImageEditing
+        ? await invokeImageEditing({ ...request, sources }, onEvent)
+        : await invokeImageGeneration({ ...request, execution: this.activeImageExecution }, onEvent);
+      nativeAccepted = true;
       if (run !== this.generationRun) {
         await cancelImageGeneration(accepted.runId);
-        return;
+        return false;
       }
       if (this.activeRunId === null) this.activeRunId = accepted.runId;
       if (!this.messages.some((message) => message.storageId === accepted.message.id)) {
         this.applyGeneratedMessage(accepted.message);
       }
       if (this.cancellationRequested) await cancelImageGeneration(accepted.runId);
+      return true;
     } catch (error) {
-      if (run !== this.generationRun) return;
+      if (run !== this.generationRun) return false;
       const normalized = providerErrorFromUnknown(error);
       this.providerError = normalized;
       this.imageFeedback = normalized.message;
       this.finishGeneration(run);
+      return nativeAccepted;
     }
   }
 
@@ -517,8 +620,9 @@ export class PageState {
     this.activeRunId = event.runId;
     if (event.type === "started") {
       this.applyGeneratedMessage(event.message);
-      this.imageFeedback =
-        this.activeImageExecution === "local"
+      this.imageFeedback = this.activeImageEditing
+        ? "Editing with the exact hosted Qwen-Image-2.0 checkpoint…"
+        : this.activeImageExecution === "local"
           ? "Generating with the exact local Qwen-Image-2512 package…"
           : "Generating with the exact hosted Qwen-Image-2.0 checkpoint…";
     } else if (event.type === "progress") {
@@ -565,7 +669,10 @@ export class PageState {
     this.activeRunId = null;
     this.providerError = null;
     this.activeImageExecution = response.generatedAssets?.[0]?.execution ?? "cloud";
-    this.imageFeedback = "Retrying the saved image request…";
+    this.activeImageEditing = Boolean(response.generatedAssets?.some((asset) => asset.sources.length > 0));
+    this.imageFeedback = this.activeImageEditing
+      ? "Retrying the saved image edit…"
+      : "Retrying the saved image request…";
     const run = ++this.generationRun;
     try {
       const accepted = await invokeImageGenerationRetry({ messageId: response.storageId }, (event) =>
@@ -856,6 +963,10 @@ export class PageState {
     if (this.isGenerating) this.stopGenerating();
     else if (this.imageMode) void this.generateImage();
     else void this.sendMessage();
+  }
+  /** Routes the composer's keyboard submission through the same explicit action as its button. */
+  handleComposerKeydown(event: KeyboardEvent): void {
+    this.interaction.handleKeydown(event, () => this.handleSendButton());
   }
   /** Clears the active thread; its first submitted prompt creates durable storage. */
   async startNewChat(): Promise<void> {

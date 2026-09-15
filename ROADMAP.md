@@ -548,10 +548,12 @@ Editing should first land through the unified hosted 2.0 model after generation 
 
 ### 8.5 Qwen-Image-2.0 editing and future local weights
 
-- [ ] add hosted 2.0 reference-image editing through the existing native attachment-byte consent boundary, supporting
+- [x] add hosted 2.0 reference-image editing through the existing native attachment-byte consent boundary, supporting
   one to three validated inputs without forwarding local paths. The provider-neutral request and exact offline wire
   serializer, native provider execution, path-free controller command, bounded download lifecycle, cancellation, and
-  exact edit retry are complete; editing UI remains;
+  exact edit retry are complete. Cloud Image mode accepts ready current-draft images and explicitly selected completed
+  generated images from the visible ancestry, preserves ordered opaque source identities, and shows source-byte and
+  charge disclosure before submission. Local editing remains unavailable without fallback;
 - [x] persist edit lineage from every source asset to the generated assistant asset, including exact hosted model and
   execution provenance;
 - [ ] monitor only official Qwen repositories/model registries for an exact 2.0 weight release. A paper, API alias,

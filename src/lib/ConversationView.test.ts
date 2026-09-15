@@ -53,6 +53,7 @@ describe("ConversationView", () => {
         },
         speakingMessageId: null,
         microphoneCapturing: false,
+        imageEditing: { active: true, execution: "cloud", selectedSourceIds: [], canSelectSource: true },
         onretry: vi.fn(),
         onselectbranch: vi.fn(),
         oneditmessage: vi.fn(),
@@ -75,7 +76,77 @@ describe("ConversationView", () => {
     expect(html).toContain('aria-label="Copy generated image 1"');
     expect(html).toContain('aria-label="Export generated image 1"');
     expect(html).toContain('aria-label="Delete generated image 1"');
+    expect(html).toContain('aria-label="Use generated image 1 as a reference"');
+    expect(html).toContain('aria-pressed="false"');
     expect(html).not.toContain('aria-label="Regenerate response"');
+  });
+
+  it("marks an already selected generated reference as removable", () => {
+    const html = render(ConversationView, {
+      props: {
+        messages: [
+          {
+            id: 1,
+            role: "assistant",
+            content: "Generated image.",
+            generatedAssets: [
+              {
+                id: "asset-1",
+                ordinal: 0,
+                status: "completed",
+                mediaType: "image/png",
+                width: 64,
+                height: 64,
+                byteSize: 4_096,
+                providerId: "qwen-image",
+                modelId: "qwen-image-2.0-2026-03-03",
+                execution: "cloud",
+                seed: null,
+                errorCode: null,
+                createdAtMs: 1,
+                sources: [],
+                previewUrl: "bottie-generated-asset://asset-1",
+              },
+            ],
+          },
+        ],
+        providerStatus: "available",
+        providerError: null,
+        selectedModel: undefined,
+        activeStage: -1,
+        inferenceStages: [],
+        isGenerating: false,
+        canGenerate: true,
+        branches: [],
+        currentBranchId: null,
+        speechAvailable: false,
+        speechVoices: [],
+        speechStatus: { phase: "idle", selectedVoiceId: null, errorCode: null, latency: { playbackAcceptedMs: null } },
+        speakingMessageId: null,
+        microphoneCapturing: false,
+        imageEditing: {
+          active: true,
+          execution: "cloud",
+          selectedSourceIds: ["asset-1"],
+          canSelectSource: false,
+        },
+        onretry: vi.fn(),
+        onselectbranch: vi.fn(),
+        oneditmessage: vi.fn(),
+        onregenerate: vi.fn(),
+        onretryresponse: vi.fn(),
+        ontoggleimagesource: vi.fn(),
+        onrateresponse: vi.fn(),
+        onremoveattachment: vi.fn(),
+        onspeakresponse: vi.fn(),
+        onstopspeech: vi.fn(),
+        onscrollready: vi.fn(),
+      },
+    }).body;
+
+    expect(html).toContain('aria-label="Remove generated image 1 from references"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).not.toMatch(/aria-label="Remove generated image 1 from references"[^>]*disabled/);
   });
 
   it("offers exact retry only for a durable terminal generated-image request", () => {

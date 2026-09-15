@@ -296,11 +296,13 @@ Hosted editing storage retains one to three ordered source snapshots per output.
 image attached to the exact current request or an earlier completed generated image in its selected ancestry. Rust
 revalidates the native bytes before mutation, rejects duplicate content, and carries exact source media, dimensions,
 byte counts, and hosted provenance through retry, branch selection, export, backup, restore, retention, and deletion.
-Only path-free metadata crosses the WebView boundary. The native DashScope adapter now executes that exact request
-through the existing authenticated endpoint, strict response decoder, bounded temporary-result downloader, shared
-cancellation lifecycle, and durable completion path. A closed Tauri command accepts only ordered opaque source IDs,
-and failed or cancelled edits reopen and revalidate their exact native bytes before retry. No editing UI is enabled
-yet, and local editing remains unavailable without fallback.
+Only path-free metadata crosses the WebView boundary. In Cloud Image mode, one to three ready normalized draft images
+can be selected as ordered references, and earlier completed generated images in the visible lineage can be added in
+explicit selection order. The composer discloses that the prompt and source bytes go to Alibaba Model Studio and may
+incur charges before it calls the closed Tauri command with only opaque IDs. Rust then executes the exact request
+through the authenticated endpoint, strict response decoder, bounded temporary-result downloader, shared cancellation
+lifecycle, and durable completion path. Failed or cancelled edits reopen and revalidate their exact native bytes before
+retry. Local editing remains unavailable without fallback.
 
 Qwen-Image-2.0 local execution remains intentionally unavailable until its weights and a compatible runtime are
 actually published. Local work can proceed now against the distinct open `Qwen/Qwen-Image-2512` text-to-image

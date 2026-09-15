@@ -4,42 +4,37 @@ Last verified: 2026-09-15
 
 ## Start here
 
-`main` includes merged PR #180 at `5e2fc86`. Branch `codex/qwen-image-editing-execution` completes the Rust-only hosted
-Qwen-Image-2.0 editing execution and command slices. Read `ROADMAP.md` Milestone 8.5,
-`src-tauri/src/image_generation/controller/editing.rs`, and `src/routes/page-state.svelte.ts`.
+`main` includes merged PR #181 at `8cc3c27`. Branch `codex/qwen-image-editing-ui` completes the hosted editing UI and
+generated-ancestry selection slices. Read `ROADMAP.md` Milestone 8.5, `src/lib/image-generation.ts`,
+`src/lib/ConversationView.svelte`, and `src/routes/page-state.svelte.ts`.
 
-## Completed slices
+## Current state
 
-- `ImageEditingProvider` and `DashScopeQwenImageProvider::edit` send the existing ordered native source bytes as exact
-  Base64 data URIs followed by the edit instruction. They reuse the fixed endpoint and authentication, strict terminal
-  response decoder, 256 KiB response ceiling, redirect-free bounded PNG downloader, and abortable hosted lifecycle.
-- `start_image_editing` is a closed path-free Tauri command. It accepts only ordered opaque attachment or generated
-  asset IDs, revalidates the selected request lineage and exact native bytes before insertion, stores source snapshots
-  under every pending output, and emits the existing bounded image-run events.
-- Failed and cancelled edits reopen and hash their identical per-output native source snapshot before exact retry.
-  Text-to-image retry remains unchanged, while any source-bearing local retry fails closed without cloud fallback.
+- Cloud Image mode accepts one to three ready normalized current-draft images, persists their exact attachment IDs on
+  the user request, and calls `startImageEditing` with ordered opaque IDs. No sources still uses text-to-image.
+- Completed generated images in the visible selected lineage can be added or removed as references. Draft attachments
+  precede generated sources; generated sources retain explicit selection order; the aggregate limit is three.
+- The composer exposes reference-image picking, accessible selected/disabled states, exact hosted model identity, and
+  prompt plus source-byte delivery/charge disclosure. Local 2512 editing stays disabled without fallback.
+- Rust still owns source resolution, bytes, paths, hashes, provider traffic, exact ancestry revalidation, durable
+  lineage, cancellation, download validation, and retry. Only path-free metadata and opaque IDs cross IPC.
 
-## Validation
+## Validation and limits
 
-Prettier, Svelte diagnostics (0 errors and 0 warnings), all 390 active frontend/script tests (3 skipped), the production
-build, `cargo fmt --check`, and `cargo check` pass. The complete host-local Rust run passes all 646 active library tests
-(36 ignored), the updater-evidence test, all 16 private-worker integration tests, and doc tests. This includes all 7
-editing request/execution cases, both closed-command cases, both exact retry routes, and the storage reopen regression.
-Loopback Rust tests require host-local execution because the sandbox denies listener binding.
-
-No native app was launched and no live provider request was made. No credentials, credits, model bytes, or source
-assets left the device. The command is registered and has a typed frontend wrapper, but no UI calls it. Unrelated
-untracked logo-kit, screenshot, and Linux public-key files remain untouched.
+Prettier, Svelte diagnostics (0 errors and 0 warnings), all 399 active frontend/script tests (3 skipped), the production
+build, `cargo fmt --check`, and `cargo check` pass. The identical host-local Rust run passes all 646 active library tests
+(36 ignored), updater evidence, all 16 private-worker integration tests, and doc tests. A browser-preview desktop review
+confirmed the Cloud controls, disclosure, disabled over-limit state, and layout. No native app or live provider request
+was run; no credentials, credits, model bytes, or source assets left the device. Unrelated untracked logo-kit,
+screenshot, and Linux public-key files remain untouched.
 
 ## Next slice
 
-Add the first hosted editing UI using only one to three ready normalized images attached to the current draft. In Cloud
-Image mode, allow image picking, require every selected source to be ready and within the native count policy, persist
-the exact attachment IDs on the user request, show that the prompt and source image bytes go to Alibaba Model Studio
-and may incur charges, then invoke `startImageEditing` with the attachment IDs in visible order. Keep ordinary
-text-to-image available when no sources are selected, and keep Local 2512 source selection disabled.
+Present durable edit lineage on each generated result using its existing ordered path-free `sources` metadata. Show a
+compact accessible source count plus source type, dimensions, media type, and byte size without rendering opaque IDs or
+adding native file access. Cover pure presentation and reopened-message rendering, including mixed attachment/generated
+sources and ordinary text-to-image outputs with no lineage panel.
 
-Cover pure eligibility/order policy, composer accessibility/disclosure, and page-state persistence/invocation tests.
-Do not yet add selection of earlier generated ancestry, a live DashScope call, local editing, source-byte/path IPC, or
-silent Cloud fallback. Do not merge, dispatch workflows, sign, release, publish, distribute, or perform Store work
-without separate authorization.
+Do not add live DashScope calls, local editing, source-byte/path IPC, exact-2.0 weight assumptions, automatic fallback,
+or new provider/storage contracts. Do not merge, dispatch workflows, sign, release, publish, distribute, or perform
+Store work without separate authorization.
