@@ -92,6 +92,18 @@ impl ConversationStore {
         let byte_size = u64::try_from(record.4).map_err(|_| StorageError::internal())?;
         let blob_path = self.generated_asset_blob_path(&record.3)?;
         verify_content_file(&blob_path, byte_size, &record.3)?;
+        let is_edit_source: bool = transaction.query_row(
+            "SELECT EXISTS (
+                 SELECT 1 FROM generated_asset_sources WHERE source_generated_asset_id = ?1
+             )",
+            [asset_id],
+            |row| row.get(0),
+        )?;
+        if is_edit_source {
+            return Err(StorageError::invalid(
+                "Remove edited images that depend on this source before deleting it.",
+            ));
+        }
         transaction.execute("DELETE FROM generated_assets WHERE id = ?1", [asset_id])?;
         let remaining: u8 = transaction.query_row(
             "SELECT COUNT(*) FROM generated_assets WHERE message_id = ?1",

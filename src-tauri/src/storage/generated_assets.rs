@@ -1,7 +1,9 @@
 //! Assistant-owned generated-image metadata and content-addressed PNG storage.
 
+mod lineage;
 mod recovery;
 mod retry;
+mod selection;
 mod types;
 
 use std::{
@@ -13,12 +15,17 @@ use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use sha2::{Digest, Sha256};
 
 use super::{
-    ConversationStore, DEFAULT_PROFILE_ID, MessageState, StorageError, StoredMessage,
+    ConversationStore, MessageState, StorageError, StoredMessage,
     attachment_preview::AttachmentPreview, load_conversation_from_connection, memory_chunks,
     now_ms,
 };
 
+pub(crate) use lineage::{
+    GeneratedImageSourceFormat, GeneratedImageSourceReference, GeneratedImageSourceType,
+    StartedGeneratedImageEdit, StoredGeneratedImageSource, ValidatedGeneratedImageSource,
+};
 pub(crate) use retry::GeneratedImageRetry;
+pub(super) use selection::{selected_branch_without_active_generation, selected_image_prompt};
 pub(crate) use types::{
     GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageProvenance,
     GeneratedImageRequestOptions, PreparedGeneratedImage, StartedGeneratedImage,
@@ -72,22 +79,12 @@ impl ConversationStore {
         let transaction =
             connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let branch_id = selected_branch_without_active_generation(&transaction, conversation_id)?;
-        let prompt = transaction
-            .query_row(
-                "SELECT message_blocks.text_content FROM messages
-                 JOIN message_blocks ON message_blocks.message_id = messages.id
-                    AND message_blocks.ordinal = 0 AND message_blocks.block_type = 'text'
-                 WHERE messages.id = ?1 AND messages.conversation_id = ?2
-                   AND messages.branch_id = ?3 AND messages.role = 'user' AND messages.state = 'final'
-                   AND NOT EXISTS (
-                       SELECT 1 FROM messages AS later
-                       WHERE later.branch_id = messages.branch_id AND later.sequence > messages.sequence
-                   )",
-                params![request_message_id, conversation_id, branch_id],
-                |row| row.get(0),
-            )
-            .optional()?
-            .ok_or_else(|| StorageError::invalid("That image prompt is no longer the selected request."))?;
+        let prompt = selected_image_prompt(
+            &transaction,
+            conversation_id,
+            request_message_id,
+            &branch_id,
+        )?;
         if prompt != expected_prompt {
             return Err(StorageError::invalid(
                 "The image prompt did not match the durable selected request.",
@@ -383,6 +380,7 @@ pub(super) fn load_message_generated_assets(
     })?;
     rows.map(|row| {
         let row = row?;
+        let sources = lineage::load_generated_asset_sources(connection, &row.0)?;
         Ok(StoredGeneratedAsset {
             id: row.0,
             ordinal: row.1,
@@ -402,41 +400,10 @@ pub(super) fn load_message_generated_assets(
             error_code: row.11,
             created_at_ms: row.12,
             sha256: row.13,
+            sources,
         })
     })
     .collect()
-}
-
-/// Selects an active conversation branch with no text or image generation already pending.
-pub(super) fn selected_branch_without_active_generation(
-    transaction: &Transaction<'_>,
-    conversation_id: &str,
-) -> Result<String, StorageError> {
-    let branch_id = transaction
-        .query_row(
-            "SELECT current_branch_id FROM conversations
-             WHERE id = ?1 AND profile_id = ?2 AND deleted_at_ms IS NULL",
-            params![conversation_id, DEFAULT_PROFILE_ID],
-            |row| row.get(0),
-        )
-        .optional()?
-        .ok_or_else(|| StorageError::not_found("That conversation no longer exists."))?;
-    let active: bool = transaction.query_row(
-        "SELECT EXISTS (
-             SELECT 1 FROM provider_runs WHERE conversation_id = ?1 AND state = 'running'
-             UNION ALL
-             SELECT 1 FROM generated_assets JOIN messages ON messages.id = generated_assets.message_id
-             WHERE messages.conversation_id = ?1 AND generated_assets.status = 'pending'
-         )",
-        [conversation_id],
-        |row| row.get(0),
-    )?;
-    if active {
-        return Err(StorageError::invalid(
-            "Wait for the active response to finish before generating an image.",
-        ));
-    }
-    Ok(branch_id)
 }
 
 /// Requires one selected-lineage assistant image message whose outputs are all pending.

@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use futures_util::StreamExt;
 use reqwest::{
     Client, Response, StatusCode,
@@ -13,9 +14,9 @@ use url::Url;
 use crate::inference::{ProviderError, ProviderErrorCode};
 
 use super::{
-    DASHSCOPE_QWEN_IMAGE_MODEL_ID, GeneratedImageReference, ImageGenerationCapabilities,
-    ImageGenerationProvider, ImageGenerationRequest, MAX_IMAGE_OUTPUTS, MAX_IMAGE_PIXELS,
-    QWEN_IMAGE_PROVIDER_ID, validate_qwen_image_base_url,
+    DASHSCOPE_QWEN_IMAGE_MODEL_ID, GeneratedImageReference, ImageEditingRequest,
+    ImageGenerationCapabilities, ImageGenerationProvider, ImageGenerationRequest,
+    MAX_IMAGE_OUTPUTS, MAX_IMAGE_PIXELS, QWEN_IMAGE_PROVIDER_ID, validate_qwen_image_base_url,
 };
 
 const GENERATION_PATH: &str = "services/aigc/multimodal-generation/generation";
@@ -97,6 +98,20 @@ impl DashScopeQwenImageProvider {
         })
     }
 
+    /// Serializes exact native edit-source bytes for offline fixture assertions without sending them.
+    #[cfg(test)]
+    pub(super) fn fixture_edit_request_json(
+        &self,
+        request: &ImageEditingRequest,
+    ) -> Result<serde_json::Value, ProviderError> {
+        serde_json::to_value(DashScopeImageEditRequest::from(request)).map_err(|_| {
+            ProviderError::internal(
+                "The Qwen Image editing request could not be serialized.",
+                None,
+            )
+        })
+    }
+
     /// Decodes a provider fixture without retaining provider correlation identifiers.
     #[cfg(test)]
     pub(super) fn fixture_decode_response(
@@ -165,6 +180,41 @@ struct DashScopeText<'a> {
 }
 
 #[derive(Serialize)]
+#[cfg_attr(not(test), allow(dead_code))]
+/// Exact hosted image-editing payload serialized only behind the native boundary.
+struct DashScopeImageEditRequest<'a> {
+    model: &'static str,
+    input: DashScopeEditInput<'a>,
+    parameters: DashScopeParameters,
+}
+
+#[derive(Serialize)]
+#[cfg_attr(not(test), allow(dead_code))]
+/// Single-message input envelope required by the hosted editing endpoint.
+struct DashScopeEditInput<'a> {
+    messages: [DashScopeEditMessage<'a>; 1],
+}
+
+#[derive(Serialize)]
+#[cfg_attr(not(test), allow(dead_code))]
+/// Fixed user-role editing message containing ordered images followed by text.
+struct DashScopeEditMessage<'a> {
+    role: &'static str,
+    content: Vec<DashScopeEditContent<'a>>,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+#[cfg_attr(not(test), allow(dead_code))]
+/// One closed image or text content object in an editing message.
+enum DashScopeEditContent<'a> {
+    /// Base64 data URI built from one exact native source.
+    Image { image: String },
+    /// Exact bounded durable edit instruction.
+    Text { text: &'a str },
+}
+
+#[derive(Serialize)]
 struct DashScopeParameters {
     size: String,
     n: u8,
@@ -183,6 +233,42 @@ impl<'a> From<&'a ImageGenerationRequest> for DashScopeImageRequest<'a> {
                     content: [DashScopeText {
                         text: request.prompt(),
                     }],
+                }],
+            },
+            parameters: DashScopeParameters {
+                size: format!("{width}*{height}"),
+                n: request.count(),
+                prompt_extend: request.prompt_extend(),
+                watermark: false,
+            },
+        }
+    }
+}
+
+impl<'a> From<&'a ImageEditingRequest> for DashScopeImageEditRequest<'a> {
+    /// Encodes ordered native bytes as closed data URIs followed by one exact edit instruction.
+    fn from(request: &'a ImageEditingRequest) -> Self {
+        let mut content = request
+            .sources()
+            .iter()
+            .map(|source| DashScopeEditContent::Image {
+                image: format!(
+                    "data:{};base64,{}",
+                    source.format().media_type(),
+                    STANDARD.encode(source.bytes())
+                ),
+            })
+            .collect::<Vec<_>>();
+        content.push(DashScopeEditContent::Text {
+            text: request.prompt(),
+        });
+        let (width, height) = request.dimensions();
+        Self {
+            model: DASHSCOPE_QWEN_IMAGE_MODEL_ID,
+            input: DashScopeEditInput {
+                messages: [DashScopeEditMessage {
+                    role: "user",
+                    content,
                 }],
             },
             parameters: DashScopeParameters {

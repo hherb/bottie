@@ -20,10 +20,10 @@ const EXPORT_FILENAME_PREFIX: &str = "bottie-";
 const MARKDOWN_FILENAME_EXTENSION: &str = ".md";
 const JSON_FILENAME_EXTENSION: &str = ".json";
 const JSON_EXPORT_FORMAT: &str = "bottie-conversation";
-const JSON_EXPORT_VERSION: u8 = 6;
+const JSON_EXPORT_VERSION: u8 = 7;
 const BATCH_JSON_EXPORT_FILE_NAME: &str = "bottie-conversations.json";
 const BATCH_JSON_EXPORT_FORMAT: &str = "bottie-conversation-batch";
-const BATCH_JSON_EXPORT_VERSION: u8 = 6;
+const BATCH_JSON_EXPORT_VERSION: u8 = 7;
 
 impl ConversationStore {
     /// Prepares the current visible lineage without changing the profile's open-conversation selection.

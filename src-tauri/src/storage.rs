@@ -33,6 +33,8 @@ mod generated_asset_actions;
 #[cfg(test)]
 mod generated_asset_actions_tests;
 #[cfg(test)]
+mod generated_asset_lineage_tests;
+#[cfg(test)]
 mod generated_asset_recovery_tests;
 mod generated_assets;
 mod generated_assets_migration;
@@ -84,9 +86,12 @@ pub(crate) use extraction::StoredAttachmentExtraction;
 pub(crate) use extraction::{AttachmentExtractionFormat, AttachmentExtractionState};
 pub(crate) use generated_assets::{
     GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageProvenance,
-    GeneratedImageRequestOptions, GeneratedImageRetry, PreparedGeneratedImage,
-    StartedGeneratedImage, StoredGeneratedAsset, normalize_generated_png,
+    GeneratedImageRequestOptions, GeneratedImageRetry, GeneratedImageSourceFormat,
+    GeneratedImageSourceType, PreparedGeneratedImage, StartedGeneratedImage, StoredGeneratedAsset,
+    StoredGeneratedImageSource, ValidatedGeneratedImageSource, normalize_generated_png,
 };
+#[allow(unused_imports)]
+pub(crate) use generated_assets::{GeneratedImageSourceReference, StartedGeneratedImageEdit};
 pub(crate) use image_normalization::StoredImageNormalization;
 pub(crate) use memory_file_tool::{
     MAX_SEARCH_ATTACHED_FILE_RESULTS, SEARCH_ATTACHED_FILES_TOOL_NAME, SearchAttachedFilesArguments,
@@ -118,7 +123,7 @@ pub(crate) use types::{
     StoredMessage, StoredProviderRun, StoredReasoningEffort, StoredRole, StoredUsage,
 };
 
-const CURRENT_SCHEMA_VERSION: i64 = 24;
+const CURRENT_SCHEMA_VERSION: i64 = 25;
 const DEFAULT_PROFILE_ID: &str = "local";
 const DEFAULT_PROFILE_NAME: &str = "Local profile";
 const DEFAULT_BRANCH_NAME: &str = "Main";

@@ -105,7 +105,8 @@ fn migration_backfills_final_messages_and_ready_documents_without_reasoning() {
         .expect("chunk schema should be removable in the fixture");
     connection
         .execute_batch(
-            "DROP TABLE generated_image_requests;
+            "DROP TABLE generated_asset_sources;
+             DROP TABLE generated_image_requests;
              DROP TABLE generated_assets;
              DROP TABLE conversation_retention_policies;
              DROP TABLE conversation_memory_preferences;",
@@ -153,7 +154,7 @@ fn migration_backfills_final_messages_and_ready_documents_without_reasoning() {
             .status()
             .expect("status should load")
             .schema_version,
-        24
+        25
     );
     assert!(message_chunks.len() > 1);
     assert!(attachment_chunks.len() > 1);

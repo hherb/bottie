@@ -29,6 +29,10 @@ const SOURCE_IDENTITIES: &[(&str, &str)] = &[
     ("generated_assets", "hex(CAST(id AS BLOB))"),
     ("generated_image_requests", "hex(CAST(message_id AS BLOB))"),
     (
+        "generated_asset_sources",
+        "hex(CAST(generated_asset_id AS BLOB)) || ':' || ordinal",
+    ),
+    (
         "message_attachments",
         "hex(CAST(message_id AS BLOB)) || ':' || hex(CAST(attachment_id AS BLOB))",
     ),

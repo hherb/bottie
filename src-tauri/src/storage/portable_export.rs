@@ -7,12 +7,14 @@ use sha2::{Digest, Sha256};
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
 use super::{
-    ConversationStore, GeneratedAssetExecution, GeneratedAssetStatus, StorageError,
-    StoredAttachment, StoredConversation, StoredGeneratedAsset,
+    ConversationStore, GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageSourceFormat,
+    GeneratedImageSourceType, StorageError, StoredAttachment, StoredConversation,
+    StoredGeneratedAsset, StoredGeneratedImageSource,
 };
 
 const ATTACHMENT_ARCHIVE_DIRECTORY: &str = "attachments";
 const GENERATED_ASSET_ARCHIVE_DIRECTORY: &str = "generated-images";
+const EDIT_SOURCE_ARCHIVE_DIRECTORY: &str = "image-edit-sources";
 const ZIP_FILENAME_EXTENSION: &str = "zip";
 
 /// Native-only file payload prepared before Bottie opens a save dialog.
@@ -149,6 +151,30 @@ pub(super) struct PortableGeneratedAssetReference {
     pub(super) sha256: Option<String>,
     /// Safe relative ZIP member, present only for a completed output.
     pub(super) file: Option<String>,
+    /// Ordered exact edit-source snapshots without native database identities.
+    pub(super) sources: Vec<PortableGeneratedImageSourceReference>,
+}
+
+/// Portable exact-byte reference for one ordered generated-image editing source.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct PortableGeneratedImageSourceReference {
+    /// Stable zero-based order supplied to the hosted model.
+    pub(super) ordinal: u8,
+    /// Whether the source originated as an attachment or generated image.
+    pub(super) source_type: GeneratedImageSourceType,
+    /// Exact normalized source MIME type.
+    pub(super) media_type: String,
+    /// Exact decoded source width.
+    pub(super) width: u32,
+    /// Exact decoded source height.
+    pub(super) height: u32,
+    /// Exact encoded source byte count.
+    pub(super) byte_size: u64,
+    /// Portable exact-byte content identity.
+    pub(super) sha256: String,
+    /// Safe relative ZIP member containing the exact provider source bytes.
+    pub(super) file: String,
 }
 
 impl ConversationStore {
@@ -182,6 +208,26 @@ impl ConversationStore {
             .flat_map(|conversation| conversation.messages.iter())
             .flat_map(|message| message.generated_assets.iter())
         {
+            for source in &asset.sources {
+                let archive_path = generated_edit_source_archive_path(source);
+                let source_path = match source.source_type {
+                    GeneratedImageSourceType::Attachment => self.normalized_image_path(
+                        &source.sha256,
+                        generated_source_format(source)?.normalized(),
+                    )?,
+                    GeneratedImageSourceType::GeneratedAsset => {
+                        self.generated_asset_blob_path(&source.sha256)?
+                    }
+                };
+                attachments
+                    .entry(archive_path.clone())
+                    .or_insert(PortableAttachmentFile {
+                        archive_path,
+                        source_path,
+                        byte_size: source.byte_size,
+                        sha256: source.sha256.clone(),
+                    });
+            }
             let (sha256, byte_size) = match (asset.status, asset.sha256.as_ref(), asset.byte_size) {
                 (GeneratedAssetStatus::Completed, Some(sha256), Some(byte_size))
                     if is_sha256(sha256) =>
@@ -242,6 +288,27 @@ pub(super) fn portable_generated_asset_reference(
         created_at_ms: asset.created_at_ms,
         sha256: sha256.map(str::to_owned),
         file: sha256.map(generated_asset_archive_path),
+        sources: asset
+            .sources
+            .iter()
+            .map(portable_generated_image_source_reference)
+            .collect(),
+    }
+}
+
+/// Builds one exact portable source snapshot without its opaque native identifier.
+fn portable_generated_image_source_reference(
+    source: &StoredGeneratedImageSource,
+) -> PortableGeneratedImageSourceReference {
+    PortableGeneratedImageSourceReference {
+        ordinal: source.ordinal,
+        source_type: source.source_type,
+        media_type: source.media_type.clone(),
+        width: source.width,
+        height: source.height,
+        byte_size: source.byte_size,
+        sha256: source.sha256.clone(),
+        file: generated_edit_source_archive_path(source),
     }
 }
 
@@ -281,6 +348,20 @@ pub(super) fn write_generated_asset_markdown_section(
                 "- Generated image {} — {}",
                 u16::from(reference.ordinal) + 1,
                 generated_asset_status_label(reference.status),
+            )
+            .expect("writing to a string cannot fail");
+        }
+        for source in &reference.sources {
+            writeln!(
+                markdown,
+                "  - [Edit source {}](<{}>) — `{}`, {}×{}, {} bytes, SHA-256 `{}`",
+                u16::from(source.ordinal) + 1,
+                source.file,
+                source.media_type,
+                source.width,
+                source.height,
+                source.byte_size,
+                source.sha256,
             )
             .expect("writing to a string cannot fail");
         }
@@ -342,6 +423,35 @@ fn attachment_archive_path(attachment: &StoredAttachment) -> String {
 /// Produces a collision-resistant generated PNG member from its verified content identity.
 fn generated_asset_archive_path(sha256: &str) -> String {
     format!("{GENERATED_ASSET_ARCHIVE_DIRECTORY}/{sha256}.png")
+}
+
+/// Produces a collision-resistant portable member for exact normalized editing bytes.
+fn generated_edit_source_archive_path(source: &StoredGeneratedImageSource) -> String {
+    match source.source_type {
+        GeneratedImageSourceType::GeneratedAsset => generated_asset_archive_path(&source.sha256),
+        GeneratedImageSourceType::Attachment => {
+            let extension = if source.media_type == "image/jpeg" {
+                "jpeg"
+            } else {
+                "png"
+            };
+            format!(
+                "{EDIT_SOURCE_ARCHIVE_DIRECTORY}/{}.{}",
+                source.sha256, extension
+            )
+        }
+    }
+}
+
+/// Validates the closed source MIME contract before resolving a native derivative path.
+fn generated_source_format(
+    source: &StoredGeneratedImageSource,
+) -> Result<GeneratedImageSourceFormat, StorageError> {
+    match source.media_type.as_str() {
+        "image/jpeg" => Ok(GeneratedImageSourceFormat::Jpeg),
+        "image/png" => Ok(GeneratedImageSourceFormat::Png),
+        _ => Err(StorageError::export()),
+    }
 }
 
 /// Returns a stable human-readable generated output state.

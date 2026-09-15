@@ -549,8 +549,9 @@ Editing should first land through the unified hosted 2.0 model after generation 
 ### 8.5 Qwen-Image-2.0 editing and future local weights
 
 - [ ] add hosted 2.0 reference-image editing through the existing native attachment-byte consent boundary, supporting
-  one to three validated inputs without forwarding local paths;
-- [ ] persist edit lineage from every source asset to the generated assistant asset, including exact hosted model and
+  one to three validated inputs without forwarding local paths. The provider-neutral request and exact offline wire
+  serializer are complete; native provider execution, its controller command, and editing UI remain;
+- [x] persist edit lineage from every source asset to the generated assistant asset, including exact hosted model and
   execution provenance;
 - [ ] monitor only official Qwen repositories/model registries for an exact 2.0 weight release. A paper, API alias,
   community conversion, similarly named model, or 2512 package is not sufficient;

@@ -27,7 +27,7 @@ fn staged_upgrade_promotes_wal_content_and_keeps_source_recovery_point() {
 
     assert_eq!(
         store.status().expect("status should load").schema_version,
-        24
+        25
     );
     assert_eq!(conversations[0].id, "wal-conversation");
     assert_eq!(recovery_points.len(), 1);
@@ -178,7 +178,7 @@ fn restart_finishes_a_promoted_target_left_before_cleanup() {
         MigrationFault::AfterLivePromotion,
     )
     .expect_err("post-promotion fault should emulate process interruption");
-    assert_eq!(database_version(&path), 24);
+    assert_eq!(database_version(&path), 25);
     assert!(migration_marker_path(&path).exists());
 
     let reopened = ConversationStore::initialize(path.clone())
@@ -189,7 +189,7 @@ fn restart_finishes_a_promoted_target_left_before_cleanup() {
             .status()
             .expect("status should load")
             .schema_version,
-        24
+        25
     );
     assert!(conversation_exists(&path, "promoted-target"));
     assert!(!migration_marker_path(&path).exists());
