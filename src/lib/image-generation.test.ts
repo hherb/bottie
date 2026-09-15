@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  imageEditingLineageLabel,
+  imageEditingSourcePresentation,
   imageGenerationRequestOptions,
   prepareImageEditingSources,
   prepareImageGenerationPrompt,
@@ -36,6 +38,33 @@ function attachment(id: string, state: Attachment["normalization"]["state"] = "r
 }
 
 describe("image generation presentation", () => {
+  it("formats path-free ordered edit lineage without source identity", () => {
+    expect(imageEditingLineageLabel(1)).toBe("Edited from 1 source");
+    expect(imageEditingLineageLabel(2)).toBe("Edited from 2 sources");
+    expect(
+      imageEditingSourcePresentation({
+        ordinal: 0,
+        sourceType: "attachment",
+        sourceId: "opaque-source-id",
+        mediaType: "image/jpeg",
+        width: 1_536,
+        height: 2_688,
+        byteSize: 4_096,
+      }),
+    ).toEqual({ kind: "Attachment", details: "1536×2688 · image/jpeg · 4 KB" });
+    expect(
+      imageEditingSourcePresentation({
+        ordinal: 1,
+        sourceType: "generated_asset",
+        sourceId: "another-opaque-source-id",
+        mediaType: "image/png",
+        width: 2_048,
+        height: 2_048,
+        byteSize: 1_572_864,
+      }),
+    ).toEqual({ kind: "Generated image", details: "2048×2048 · image/png · 1.5 MB" });
+  });
+
   it("maps every Cloud aspect choice to exact bounded provider options", () => {
     expect(imageGenerationRequestOptions("cloud", "square", 2)).toEqual({
       width: 2_048,

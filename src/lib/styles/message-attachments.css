@@ -147,6 +147,39 @@
   white-space: nowrap;
 }
 
+.generated-image-lineage {
+  margin-top: 3px;
+  border-top: 1px solid var(--line);
+  padding-top: 5px;
+}
+
+.generated-image-lineage summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--muted-strong);
+  font-weight: 600;
+}
+
+.generated-image-lineage ol {
+  display: grid;
+  gap: 4px;
+  margin: 5px 0 0;
+  padding-left: 18px;
+}
+
+.generated-image-lineage li {
+  padding-left: 1px;
+}
+
+.generated-image-lineage li strong,
+.generated-image-lineage li span {
+  display: block;
+}
+
+.generated-image-lineage li strong {
+  white-space: normal;
+}
+
 .generated-image-item-actions {
   display: flex;
   gap: 4px;

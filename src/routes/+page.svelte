@@ -42,6 +42,7 @@
 
   import { PageState } from "./page-state.svelte";
   import { applyPerformancePreview } from "./performance-preview";
+  import { applyImagePreview } from "./image-preview";
   import { applyPythonApprovalPreview } from "./python-preview";
   import { applyVoicePreview } from "./voice-preview";
   import {
@@ -59,6 +60,7 @@
   onMount(() => {
     if (import.meta.env.DEV) {
       applyPerformancePreview(state, window.location.search);
+      applyImagePreview(state, window.location.search);
       applyPythonApprovalPreview(state, window.location.search);
       applyVoicePreview(state, window.location.search);
     }
