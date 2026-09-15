@@ -66,6 +66,10 @@ async fn missing_installations_are_stable_across_repeated_requests() {
     let second = service.inspect().await.unwrap();
 
     assert_eq!(first, second);
+    assert_eq!(
+        service.inspect_for_execution().await.unwrap_err(),
+        LocalImageServiceError::NotReady
+    );
     assert!(
         !root.exists(),
         "read-only requests must not create app-owned roots"

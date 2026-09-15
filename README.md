@@ -278,10 +278,12 @@ data follows the selected route.
 Settings can retain a Model Studio key in the operating-system credential vault and validate a credential-free
 DashScope or Model Studio workspace root for the exact `qwen-image-2.0-2026-03-03` checkpoint. Validation performs no
 provider request, generates no image, and incurs no model charge. The composer has a separate Image mode with an
-explicit cloud-delivery and cost disclosure, aspect ratio, and output count. A generation is cancellable and never
-follows from an ordinary chat send. Rust immediately downloads the provider's temporary PNG results under fixed
-redirect, time, byte, decode, pixel, and dimension limits, then retains content-addressed app-private bytes with exact
-provider, model, and execution provenance. Only opaque asset identities and bounded previews cross into the WebView.
+explicit Cloud/local selector. Cloud shows its delivery/cost disclosure, aspect ratio, and output count; Local is
+enabled only after native verification and is fixed to the proved one-image 512x512 profile. A generation is
+cancellable and never follows from an ordinary chat send. Rust immediately downloads the provider's temporary PNG
+results under fixed redirect, time, byte, decode, pixel, and dimension limits, then retains content-addressed
+app-private bytes with exact provider, model, and execution provenance. Only opaque asset identities and bounded
+previews cross into the WebView.
 Completed images can be opened in the native default viewer, copied from the bounded normalized preview, exported
 through a Rust-owned Save dialog, or deleted after native confirmation. Failed and cancelled image responses can be
 retried only from their exact durable selected-branch prompt, dimensions, output count, and provider provenance.
@@ -297,7 +299,10 @@ Every local adapter will share the same provider-neutral contract and durable na
 route exact 2.0 through oMLX or an older implementation nor label 2512 output as Qwen-Image-2.0. See Milestone 8 in
 `ROADMAP.md` for the phased implementation and hardware acceptance plan. The first native availability contract accepts
 only the measured Apple M3 Max 128 GiB profile and re-verifies the exact worker bundle and model cache; all other local
-hardware and missing or changed bytes remain unavailable.
+hardware and missing or changed bytes remain unavailable. A ready installation is re-verified again before each local
+start or retry, runs through a network-denied reusable MLX-Gen worker, and reaches the same private PNG storage and asset
+actions as Cloud without fallback. The proof worker and model remain manually installed evidence rather than application
+payloads.
 
 On macOS, the package script development-signs each newly linked executable with an available Apple Development
 identity before Cargo runs it. If more than one identity is usable, set `BOTTIE_APPLE_SIGNING_IDENTITY` to the exact

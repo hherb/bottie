@@ -365,6 +365,7 @@
         emailBoundaryNote={state.emailBoundaryNote}
         emailUnavailableReason={state.emailUnavailableReason}
         imageMode={state.imageMode}
+        imageExecution={state.imageExecution}
         imageSize={state.imageSize}
         imageCount={state.imageCount}
         imageFeedback={state.imageFeedback}
@@ -393,6 +394,7 @@
         ontoggleweb={() => void state.toggleTool("web")}
         ontoggleemail={() => void state.toggleTool("email")}
         ontoggleimage={() => (state.imageMode = !state.imageMode)}
+        onimageexecution={(execution) => (state.imageExecution = execution)}
         onimagesize={(size) => (state.imageSize = size)}
         onimagecount={(count) => (state.imageCount = count)}
         onstartmicrophone={() => void state.startMicrophoneCapture()}

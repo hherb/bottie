@@ -12,6 +12,7 @@ use super::{
         LocalImageAvailability, ModelCacheReadiness, WorkerInstallationReadiness,
         evaluate_local_image_availability, inspect_model_cache, inspect_worker_installation,
     },
+    execution::VerifiedLocalImageInstallation,
     hardware::probe_local_image_hardware,
     model_package::{SelectedModelPackage, selected_qwen_image_2512_q4_package},
 };
@@ -33,6 +34,8 @@ pub(crate) enum LocalImageServiceError {
     InvalidPackage,
     /// Native hardware facts or a blocking inspection task could not be completed.
     InspectionUnavailable,
+    /// The exact hardware, worker, and model package did not all pass fresh verification.
+    NotReady,
 }
 
 /// Closed path-free metadata returned by the read-only local-image availability command.
@@ -106,6 +109,23 @@ impl LocalImageAvailabilityService {
         tauri::async_runtime::spawn_blocking(move || inspect_installation(&layout, &selected))
             .await
             .map_err(|_| LocalImageServiceError::InspectionUnavailable)?
+            .map(|inspection| inspection.metadata)
+    }
+
+    /// Re-verifies every readiness gate and returns native locations only to Rust execution.
+    pub(crate) async fn inspect_for_execution(
+        &self,
+    ) -> Result<VerifiedLocalImageInstallation, LocalImageServiceError> {
+        let _inspection = self.inspection.lock().await;
+        let layout = self.layout.clone();
+        let selected = self.selected.clone();
+        let inspection =
+            tauri::async_runtime::spawn_blocking(move || inspect_installation(&layout, &selected))
+                .await
+                .map_err(|_| LocalImageServiceError::InspectionUnavailable)??;
+        inspection
+            .installation
+            .ok_or(LocalImageServiceError::NotReady)
     }
 
     #[cfg(test)]
@@ -127,10 +147,15 @@ impl LocalImageAvailabilityService {
     }
 }
 
+struct InspectedInstallation {
+    metadata: LocalImageAvailabilityMetadata,
+    installation: Option<VerifiedLocalImageInstallation>,
+}
+
 fn inspect_installation(
     layout: &LocalImageInstallationLayout,
     selected: &SelectedModelPackage,
-) -> Result<LocalImageAvailabilityMetadata, LocalImageServiceError> {
+) -> Result<InspectedInstallation, LocalImageServiceError> {
     let hardware =
         probe_local_image_hardware().map_err(|_| LocalImageServiceError::InspectionUnavailable)?;
     let mut availability = evaluate_local_image_availability(
@@ -160,7 +185,17 @@ fn inspect_installation(
             );
         }
     }
-    Ok(metadata_for_availability(selected, availability))
+    let installation = matches!(availability, LocalImageAvailability::Ready).then(|| {
+        VerifiedLocalImageInstallation::verified(
+            layout.worker_executable.clone(),
+            layout.model_cache_root.clone(),
+            selected.manifest().clone(),
+        )
+    });
+    Ok(InspectedInstallation {
+        metadata: metadata_for_availability(selected, availability),
+        installation,
+    })
 }
 
 /// Builds the closed path-free response from trusted selected-package data and one coarse state.

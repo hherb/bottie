@@ -1,6 +1,6 @@
 //! Exact durable request reconstruction for failed and cancelled image retries.
 
-use rusqlite::{OptionalExtension, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{
     GeneratedAssetStatus, GeneratedImageProvenance, GeneratedImageRequestOptions,
@@ -11,17 +11,33 @@ use super::{
 use crate::storage::{ConversationStore, DEFAULT_PROFILE_ID, StorageError};
 
 /// Native-only request reconstructed from one exact terminal image message.
-struct RetryGeneratedImageRequest {
-    conversation_id: String,
-    branch_id: String,
-    request_message_id: String,
-    prompt: String,
-    output_count: u8,
-    provenance: GeneratedImageProvenance,
-    options: GeneratedImageRequestOptions,
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct GeneratedImageRetry {
+    /// Conversation owning the terminal request.
+    pub(super) conversation_id: String,
+    /// Selected branch that must still own the terminal request.
+    pub(super) branch_id: String,
+    /// Durable user message whose text is the exact generation prompt.
+    pub(super) request_message_id: String,
+    /// Exact durable user prompt retained behind the native boundary.
+    pub(crate) prompt: String,
+    /// Exact output count retained by the terminal request.
+    pub(crate) output_count: u8,
+    /// Exact model, backend, and seed retained by every terminal output.
+    pub(crate) provenance: GeneratedImageProvenance,
+    /// Exact dimensions and prompt-extension policy retained by the request.
+    pub(crate) options: GeneratedImageRequestOptions,
 }
 
 impl ConversationStore {
+    /// Reconstructs one selected terminal request without appending a new pending message.
+    pub(crate) fn inspect_generated_image_retry(
+        &self,
+        message_id: &str,
+    ) -> Result<GeneratedImageRetry, StorageError> {
+        load_retry_request(&self.open()?, message_id)
+    }
+
     /// Starts a fresh run from one selected failed or cancelled durable image request.
     pub(crate) fn retry_generated_image_message(
         &self,
@@ -62,11 +78,11 @@ impl ConversationStore {
 
 /// Loads one selected terminal request while rejecting incomplete or mixed provenance.
 fn load_retry_request(
-    transaction: &Transaction<'_>,
+    connection: &Connection,
     message_id: &str,
-) -> Result<RetryGeneratedImageRequest, StorageError> {
-    let row = load_retry_row(transaction, message_id)?;
-    let assets = load_message_generated_assets(transaction, message_id)?;
+) -> Result<GeneratedImageRetry, StorageError> {
+    let row = load_retry_row(connection, message_id)?;
+    let assets = load_message_generated_assets(connection, message_id)?;
     let first = assets
         .first()
         .ok_or_else(|| StorageError::invalid("That image response cannot be retried."))?;
@@ -85,7 +101,7 @@ fn load_retry_request(
     }
     let output_count = u8::try_from(assets.len()).map_err(|_| StorageError::internal())?;
     validate_output_count(output_count)?;
-    Ok(RetryGeneratedImageRequest {
+    Ok(GeneratedImageRetry {
         conversation_id: row.0,
         branch_id: row.1,
         request_message_id: row.2,
@@ -103,10 +119,10 @@ fn load_retry_request(
 
 /// Loads the selected terminal message and its exact durable prompt/options row.
 fn load_retry_row(
-    transaction: &Transaction<'_>,
+    connection: &Connection,
     message_id: &str,
 ) -> Result<(String, String, String, String, u32, u32, bool), StorageError> {
-    transaction
+    connection
         .query_row(
             "SELECT messages.conversation_id, messages.branch_id,
                     generated_image_requests.request_message_id, message_blocks.text_content,

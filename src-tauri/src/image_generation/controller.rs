@@ -1,10 +1,16 @@
 //! One-active-run image generation, cancellation, progress, and durable terminal orchestration.
 
-use std::sync::Arc;
-
-use futures_util::future::{AbortHandle, Abortable};
+use futures_util::future::Abortable;
 use serde::{Deserialize, Serialize};
 use tauri::{State, ipc::Channel};
+
+#[path = "controller/local_run.rs"]
+mod local_run;
+#[path = "controller/retry.rs"]
+mod retry;
+
+use local_run::spawn_local_image_run;
+pub(crate) use retry::retry_image_generation;
 
 use crate::{
     AppState,
@@ -18,20 +24,8 @@ use crate::{
 
 use super::{
     DASHSCOPE_QWEN_IMAGE_MODEL_ID, DashScopeQwenImageProvider, GeneratedImageDownloader,
-    ImageGenerationProvider, ImageGenerationRequest, QWEN_IMAGE_PROVIDER_ID,
+    ImageGenerationProvider, ImageGenerationRequest, ImageGenerationRuns, QWEN_IMAGE_PROVIDER_ID,
 };
-
-/// Process-wide one-active-image-run registry.
-#[derive(Clone, Default)]
-pub(crate) struct ImageGenerationRuns {
-    active: Arc<tauri::async_runtime::Mutex<Option<ActiveImageRun>>>,
-}
-
-/// Cancellation handle for the one accepted image generation.
-struct ActiveImageRun {
-    run_id: String,
-    abort_handle: AbortHandle,
-}
 
 /// Explicit path-free image generation request accepted from the composer.
 #[derive(Clone, Debug, Deserialize)]
@@ -49,7 +43,7 @@ pub(crate) struct StartImageGenerationRequest {
     pub(crate) height: u32,
     /// Exact requested output count.
     pub(crate) count: u8,
-    /// Explicit execution backend; this slice accepts cloud only.
+    /// Explicit execution backend selected before any provider or worker operation.
     pub(crate) execution: GeneratedAssetExecution,
 }
 
@@ -75,7 +69,7 @@ pub(crate) struct ImageGenerationRun {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ImageGenerationStage {
-    /// Waiting for the hosted model to return temporary image references.
+    /// Waiting for the selected Cloud or local model to produce output.
     Generating,
     /// Downloading and validating native-only temporary results.
     Downloading,
@@ -130,69 +124,33 @@ pub(crate) enum ImageGenerationEvent {
     },
 }
 
-impl ImageGenerationRuns {
-    /// Reserves the one image-generation slot for an opaque Bottie run identity.
-    async fn reserve(&self, run_id: String, abort_handle: AbortHandle) -> bool {
-        let mut active = self.active.lock().await;
-        if active.is_some() {
-            return false;
-        }
-        *active = Some(ActiveImageRun {
-            run_id,
-            abort_handle,
-        });
-        true
-    }
-
-    /// Clears the slot only when it still belongs to the completing run.
-    async fn finish(&self, run_id: &str) {
-        let mut active = self.active.lock().await;
-        if active.as_ref().is_some_and(|run| run.run_id == run_id) {
-            *active = None;
-        }
-    }
-
-    /// Cancels the exact active run without accepting provider-owned identifiers.
-    async fn cancel(&self, run_id: &str) -> bool {
-        let active = self.active.lock().await;
-        let Some(run) = active.as_ref() else {
-            return false;
-        };
-        if run.run_id != run_id {
-            return false;
-        }
-        run.abort_handle.abort();
-        true
-    }
-
-    /// Cancels the active image run before another mutually exclusive interaction begins.
-    pub(crate) async fn cancel_active(&self) -> bool {
-        let active = self.active.lock().await;
-        let Some(run) = active.as_ref() else {
-            return false;
-        };
-        run.abort_handle.abort();
-        true
-    }
-}
-
 #[tauri::command]
-/// Starts one explicit hosted image generation from saved native configuration.
+/// Starts one explicit cloud or freshly verified local image generation.
 pub(crate) async fn start_image_generation(
     state: State<'_, AppState>,
     request: StartImageGenerationRequest,
     on_event: Channel<ImageGenerationEvent>,
 ) -> Result<ImageGenerationRun, ProviderError> {
-    if request.execution != GeneratedAssetExecution::Cloud {
-        return Err(ProviderError::invalid_request(
-            "The selected local image-generation route is not installed.",
-        ));
-    }
     if state.microphone.is_capturing() {
         return Err(ProviderError::invalid_request(
             "Stop or discard local voice capture before generating an image.",
         ));
     }
+    match request.execution {
+        GeneratedAssetExecution::Cloud => {
+            start_cloud_image_generation(&state, request, on_event).await
+        }
+        GeneratedAssetExecution::Local => {
+            start_local_image_generation(&state, request, on_event).await
+        }
+    }
+}
+
+async fn start_cloud_image_generation(
+    state: &AppState,
+    request: StartImageGenerationRequest,
+    on_event: Channel<ImageGenerationEvent>,
+) -> Result<ImageGenerationRun, ProviderError> {
     let generation_request =
         ImageGenerationRequest::new(request.prompt, request.width, request.height, request.count)?;
     let options = GeneratedImageRequestOptions::new(
@@ -220,12 +178,11 @@ pub(crate) async fn start_image_generation(
     )
     .map_err(storage_error)?;
     let run_id = uuid::Uuid::new_v4().to_string();
-    let (abort_handle, abort_registration) = AbortHandle::new_pair();
-    if !state.image_runs.reserve(run_id.clone(), abort_handle).await {
+    let Some(abort_registration) = state.image_runs.reserve_abortable(run_id.clone()).await else {
         return Err(ProviderError::invalid_request(
             "Wait for the active image generation to finish.",
         ));
-    }
+    };
     let started: StartedGeneratedImage = match state.conversations.start_generated_image_message(
         &request.conversation_id,
         &request.request_message_id,
@@ -255,84 +212,79 @@ pub(crate) async fn start_image_generation(
     ))
 }
 
-#[tauri::command]
-/// Retries one selected terminal image response from only its durable native request.
-pub(crate) async fn retry_image_generation(
-    state: State<'_, AppState>,
-    request: RetryImageGenerationRequest,
+async fn start_local_image_generation(
+    state: &AppState,
+    request: StartImageGenerationRequest,
     on_event: Channel<ImageGenerationEvent>,
 ) -> Result<ImageGenerationRun, ProviderError> {
-    if state.microphone.is_capturing() {
-        return Err(ProviderError::invalid_request(
-            "Stop or discard local voice capture before generating an image.",
-        ));
-    }
-    let settings = state.providers.read().await.settings();
-    let api_key = state
-        .credentials
-        .get(QWEN_IMAGE_PROVIDER_ID)?
-        .ok_or_else(|| {
-            ProviderError::invalid_request(
-                "Save a Model Studio API key before generating a cloud image.",
-            )
+    let generation_request = ImageGenerationRequest::new_local(
+        request.prompt,
+        request.width,
+        request.height,
+        request.count,
+    )?;
+    let installation = state
+        .local_image_availability
+        .inspect_for_execution()
+        .await
+        .map_err(|_| {
+            ProviderError::unavailable("The selected local image runtime is not ready.", None)
         })?;
-    let provider = DashScopeQwenImageProvider::new(&settings.qwen_image_base_url, api_key)?;
-    let downloader = GeneratedImageDownloader::new()?;
+    let seed = local_generation_seed();
+    let provenance = GeneratedImageProvenance::new(
+        QWEN_IMAGE_PROVIDER_ID,
+        installation.model_id(),
+        GeneratedAssetExecution::Local,
+        Some(seed),
+    )
+    .map_err(storage_error)?;
+    let options = GeneratedImageRequestOptions::new(
+        request.width,
+        request.height,
+        generation_request.prompt_extend(),
+    )
+    .map_err(storage_error)?;
     let run_id = uuid::Uuid::new_v4().to_string();
-    let (abort_handle, abort_registration) = AbortHandle::new_pair();
-    if !state.image_runs.reserve(run_id.clone(), abort_handle).await {
+    let Some(cancellation) = state.image_runs.reserve_cooperative(run_id.clone()).await else {
         return Err(ProviderError::invalid_request(
             "Wait for the active image generation to finish.",
         ));
-    }
-    let started = match state
-        .conversations
-        .retry_generated_image_message(&request.message_id)
-    {
+    };
+    let started = match state.conversations.start_generated_image_message(
+        &request.conversation_id,
+        &request.request_message_id,
+        generation_request.prompt(),
+        request.count,
+        &provenance,
+        &options,
+    ) {
         Ok(started) => started,
         Err(error) => {
             state.image_runs.finish(&run_id).await;
             return Err(storage_error(error));
         }
     };
-    let output_count = started.output_count;
-    let generation_request = ImageGenerationRequest::new(
-        started.prompt,
-        started.options.width,
-        started.options.height,
-        output_count,
-    );
-    let valid_provenance = started.provenance.provider_id == QWEN_IMAGE_PROVIDER_ID
-        && started.provenance.model_id == DASHSCOPE_QWEN_IMAGE_MODEL_ID
-        && started.provenance.execution == GeneratedAssetExecution::Cloud
-        && started.options.prompt_extend;
-    let generation_request = match (valid_provenance, generation_request) {
-        (true, Ok(request)) => request,
-        _ => {
-            let _ = state.conversations.fail_generated_image_message(
-                &started.message.id,
-                GeneratedAssetStatus::Failed,
-                Some("invalid_retry_request"),
-            );
-            state.image_runs.finish(&run_id).await;
-            return Err(ProviderError::invalid_request(
-                "That image response cannot be retried.",
-            ));
-        }
-    };
-    Ok(spawn_image_run(
+    Ok(spawn_local_image_run(
         state.image_runs.clone(),
+        state.local_image_generation.clone(),
         state.conversations.clone(),
         state.diagnostics.clone(),
         run_id,
-        abort_registration,
+        cancellation,
         started.message,
-        output_count,
+        request.count,
         generation_request,
-        provider,
-        downloader,
+        installation,
+        u64::try_from(seed).expect("local seed is non-negative"),
         on_event,
     ))
+}
+
+fn local_generation_seed() -> i64 {
+    let bytes: [u8; 8] = uuid::Uuid::new_v4().as_bytes()[..8]
+        .try_into()
+        .expect("UUID prefix has eight bytes");
+    i64::from_be_bytes(bytes) & i64::MAX
 }
 
 /// Spawns one already-reserved provider run and returns its path-free accepted state.
@@ -465,37 +417,5 @@ fn storage_error(error: StorageError) -> ProviderError {
     match error.code {
         "invalid_request" | "not_found" => ProviderError::invalid_request(error.message),
         _ => ProviderError::internal(error.message, None),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use futures_util::future::AbortHandle;
-
-    use super::ImageGenerationRuns;
-
-    #[test]
-    fn admits_only_one_active_run_and_cancels_only_the_exact_identity() {
-        tauri::async_runtime::block_on(async {
-            let runs = ImageGenerationRuns::default();
-            let (first, _) = AbortHandle::new_pair();
-            let (second, _) = AbortHandle::new_pair();
-
-            assert!(runs.reserve("first".into(), first).await);
-            assert!(!runs.reserve("second".into(), second).await);
-            assert!(!runs.cancel("wrong").await);
-            assert!(runs.cancel("first").await);
-            assert!(runs.cancel("first").await);
-            let (blocked_after_cancel, _) = AbortHandle::new_pair();
-            assert!(!runs.reserve("blocked".into(), blocked_after_cancel).await);
-            runs.finish("first").await;
-
-            let (third, _) = AbortHandle::new_pair();
-            assert!(runs.reserve("third".into(), third).await);
-            assert!(runs.cancel_active().await);
-            assert!(runs.cancel_active().await);
-            runs.finish("third").await;
-            assert!(!runs.cancel_active().await);
-        });
     }
 }

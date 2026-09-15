@@ -8,6 +8,9 @@ pub(crate) mod availability;
 #[path = "local_image_worker/availability_service.rs"]
 pub(crate) mod availability_service;
 #[allow(dead_code)]
+#[path = "local_image_worker/execution.rs"]
+pub(crate) mod execution;
+#[allow(dead_code)]
 #[path = "local_image_worker/hardware.rs"]
 pub(crate) mod hardware;
 #[allow(dead_code)]

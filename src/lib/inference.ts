@@ -144,7 +144,7 @@ export type ImageGenerationSetupStatus = {
   message: string;
 };
 
-/** Explicit hosted image-generation request sent only by the image composer action. */
+/** Explicit Cloud or local image-generation request sent only by the image composer action. */
 export type StartImageGenerationRequest = {
   conversationId: string;
   requestMessageId: string;
@@ -152,7 +152,7 @@ export type StartImageGenerationRequest = {
   width: number;
   height: number;
   count: number;
-  execution: "cloud";
+  execution: "cloud" | "local";
 };
 
 /** One opaque terminal image response selected for exact native retry. */

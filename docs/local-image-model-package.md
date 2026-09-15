@@ -80,6 +80,9 @@ native availability contract reads macOS physical memory, checks the compile-tar
 exact Apple M3 Max 128 GiB evidence profile, re-hashes the installed executable and complete worker bundle, and
 re-verifies promoted model bytes without mutating an absent cache. The application now resolves fixed app-resource and
 app-data locations, serializes that work off the WebView task, and presents only exact package disclosure plus one
-coarse path-free state. The existing composer action remains explicitly Cloud-only. Product integration must still
-turn one verified local installation into the private worker generation route; the proof bundle and model cache remain
-ignored local evidence rather than default application payloads.
+coarse path-free state. The composer now keeps Cloud as its default and enables an explicit Local 2512 choice only for
+that exact ready state. Each local start and retry re-verifies the installation, launches the selected executable under
+the accepted macOS network-denied sandbox profile, retains one warm model, and maps one 512x512 output through shared
+PNG validation, durable storage, provenance, cancellation, retry, export, and deletion. There is no Cloud fallback.
+The proof bundle and model cache remain ignored local evidence rather than default application payloads; explicit
+product installation and acquisition presentation remain future work.

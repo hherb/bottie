@@ -56,7 +56,7 @@ impl GeneratedAssetStatus {
 pub(crate) enum GeneratedAssetExecution {
     /// A separately disclosed remote provider produced the temporary result.
     Cloud,
-    /// A future native-owned local worker produced the result without cloud fallback.
+    /// A native-owned local worker produced the result without cloud fallback.
     Local,
 }
 

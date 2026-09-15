@@ -235,6 +235,11 @@ impl WorkerTransport {
         self.manager.readiness()
     }
 
+    /// Returns the private worker's negotiated runtime identity to native orchestration only.
+    pub(crate) fn runtime_id(&self) -> Option<&str> {
+        self.manager.runtime_id()
+    }
+
     /// Returns the native process identity only to the explicitly enabled runtime-proof tool.
     #[cfg(feature = "local-image-runtime-proof")]
     pub(crate) fn process_id(&self) -> Option<u32> {

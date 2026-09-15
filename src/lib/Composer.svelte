@@ -4,6 +4,7 @@
   import MicrophoneControl from "$lib/MicrophoneControl.svelte";
   import { attachmentFailure } from "$lib/attachment";
   import { localImageAvailabilityPresentation, type LocalImageAvailabilityMetadata } from "$lib/local-image";
+  import type { ImageGenerationExecution } from "$lib/image-generation";
   import { MAX_COMPOSER_ATTACHMENTS, type Attachment, type ProviderStatus } from "$lib/presentation";
   import type { MicrophoneInputDeviceList, MicrophoneStatus } from "$lib/microphone";
 
@@ -24,6 +25,7 @@
     emailBoundaryNote: string;
     emailUnavailableReason: string;
     imageMode: boolean;
+    imageExecution: ImageGenerationExecution;
     imageSize: "square" | "landscape" | "portrait";
     imageCount: number;
     imageFeedback: string;
@@ -52,6 +54,7 @@
     ontoggleweb: () => void;
     ontoggleemail: () => void;
     ontoggleimage: () => void;
+    onimageexecution: (execution: ImageGenerationExecution) => void;
     onimagesize: (size: "square" | "landscape" | "portrait") => void;
     onimagecount: (count: number) => void;
     onstartmicrophone: () => void;
@@ -84,6 +87,7 @@
     emailBoundaryNote,
     emailUnavailableReason,
     imageMode,
+    imageExecution,
     imageSize,
     imageCount,
     imageFeedback,
@@ -112,6 +116,7 @@
     ontoggleweb,
     ontoggleemail,
     ontoggleimage,
+    onimageexecution,
     onimagesize,
     onimagecount,
     onstartmicrophone,
@@ -260,36 +265,61 @@
     </div>
     {#if imageMode}
       {@const localImage = localImageAvailabilityPresentation(localImageAvailability, localImageAvailabilityFailed)}
+      {@const localImageReady = localImageAvailability?.availability === "ready"}
       <div class="image-generation-options" aria-label="Image generation options">
         <label>
-          <span>Size</span>
+          <span>Execution</span>
           <select
-            value={imageSize}
+            aria-label="Execution"
+            value={imageExecution}
             disabled={isGenerating}
-            onchange={(event) => onimagesize(event.currentTarget.value as typeof imageSize)}
+            onchange={(event) => onimageexecution(event.currentTarget.value as ImageGenerationExecution)}
           >
-            <option value="square">Square · 2048×2048</option>
-            <option value="landscape">Landscape · 2688×1536</option>
-            <option value="portrait">Portrait · 1536×2688</option>
+            <option value="cloud">Cloud</option>
+            <option value="local" disabled={!localImageReady}
+              >Local 2512{localImageReady ? "" : " · unavailable"}</option
+            >
           </select>
         </label>
-        <label>
-          <span>Images</span>
-          <select
-            value={imageCount}
-            disabled={isGenerating}
-            onchange={(event) => onimagecount(Number(event.currentTarget.value))}
-          >
-            {#each [1, 2, 3, 4, 5, 6] as count}<option value={count}>{count}</option>{/each}
-          </select>
-        </label>
-        <span class="image-execution"><strong>Cloud</strong> · <code>qwen-image-2.0-2026-03-03</code></span>
+        {#if imageExecution === "cloud"}
+          <label>
+            <span>Size</span>
+            <select
+              value={imageSize}
+              disabled={isGenerating}
+              onchange={(event) => onimagesize(event.currentTarget.value as typeof imageSize)}
+            >
+              <option value="square">Square · 2048×2048</option>
+              <option value="landscape">Landscape · 2688×1536</option>
+              <option value="portrait">Portrait · 1536×2688</option>
+            </select>
+          </label>
+          <label>
+            <span>Images</span>
+            <select
+              value={imageCount}
+              disabled={isGenerating}
+              onchange={(event) => onimagecount(Number(event.currentTarget.value))}
+            >
+              {#each [1, 2, 3, 4, 5, 6] as count}<option value={count}>{count}</option>{/each}
+            </select>
+          </label>
+          <span class="image-execution"><strong>Cloud</strong> · <code>qwen-image-2.0-2026-03-03</code></span>
+        {:else}
+          <span class="image-execution"><strong>Local</strong> · 512×512 · one image</span>
+        {/if}
       </div>
-      <p class="image-delivery-note">
-        Your image prompt is sent to Alibaba Model Studio and may incur provider charges. Rust downloads each temporary
-        result immediately, validates it, and stores only app-private PNG bytes. The local route is shown below, but
-        this action remains Cloud until local execution is wired.
-      </p>
+      {#if imageExecution === "cloud"}
+        <p class="image-delivery-note">
+          Your image prompt is sent to Alibaba Model Studio and may incur provider charges. Rust downloads each
+          temporary result immediately, validates it, and stores only app-private PNG bytes.
+        </p>
+      {:else}
+        <p class="image-delivery-note">
+          Your prompt and generated bytes stay on this device. Rust uses the verified local worker and exact
+          <code>Qwen/Qwen-Image-2512</code> package, then validates and stores the PNG privately.
+        </p>
+      {/if}
       <section class="local-image-availability" aria-label="Local image availability">
         <div class="local-image-heading">
           <strong>Local 2512</strong>

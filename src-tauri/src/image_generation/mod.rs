@@ -3,18 +3,25 @@
 mod controller;
 mod dashscope;
 mod download;
+mod local;
+mod runs;
 
 #[cfg(test)]
 mod tests;
 
 use crate::inference::ProviderError;
+use crate::local_image_worker::execution::{
+    LOCAL_GENERATION_DIMENSIONS, LOCAL_GENERATION_OUTPUT_COUNT,
+};
 use url::Url;
 
 pub(crate) use controller::{
-    ImageGenerationRuns, cancel_image_generation, retry_image_generation, start_image_generation,
+    cancel_image_generation, retry_image_generation, start_image_generation,
 };
 pub(crate) use dashscope::DashScopeQwenImageProvider;
 pub(crate) use download::GeneratedImageDownloader;
+pub(crate) use local::LocalImageGenerator;
+pub(crate) use runs::ImageGenerationRuns;
 
 /// Stable Bottie provider identity for the hosted Qwen Image route.
 pub(crate) const QWEN_IMAGE_PROVIDER_ID: &str = "qwen-image";
@@ -90,6 +97,32 @@ impl ImageGenerationRequest {
         height: u32,
         count: u8,
     ) -> Result<Self, ProviderError> {
+        Self::new_with_prompt_extension(prompt, width, height, count, true)
+    }
+
+    /// Validates a local request without allowing provider-side prompt enhancement.
+    pub(crate) fn new_local(
+        prompt: impl Into<String>,
+        width: u32,
+        height: u32,
+        count: u8,
+    ) -> Result<Self, ProviderError> {
+        if (width, height) != LOCAL_GENERATION_DIMENSIONS || count != LOCAL_GENERATION_OUTPUT_COUNT
+        {
+            return Err(ProviderError::invalid_request(
+                "The verified local image route currently supports one 512x512 image.",
+            ));
+        }
+        Self::new_with_prompt_extension(prompt, width, height, count, false)
+    }
+
+    fn new_with_prompt_extension(
+        prompt: impl Into<String>,
+        width: u32,
+        height: u32,
+        count: u8,
+        prompt_extend: bool,
+    ) -> Result<Self, ProviderError> {
         let prompt = prompt.into().replace("\r\n", "\n");
         let prompt = prompt.trim().to_owned();
         if prompt.is_empty() {
@@ -130,7 +163,7 @@ impl ImageGenerationRequest {
             width,
             height,
             count,
-            prompt_extend: true,
+            prompt_extend,
         })
     }
 

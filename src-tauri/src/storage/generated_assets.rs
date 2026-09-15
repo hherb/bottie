@@ -18,6 +18,7 @@ use super::{
     now_ms,
 };
 
+pub(crate) use retry::GeneratedImageRetry;
 pub(crate) use types::{
     GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageProvenance,
     GeneratedImageRequestOptions, PreparedGeneratedImage, StartedGeneratedImage,

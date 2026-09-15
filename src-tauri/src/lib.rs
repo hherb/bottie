@@ -113,7 +113,7 @@ use credentials::{
 use diagnostics::{DiagnosticEntry, Diagnostics, export_diagnostics, record_diagnostic, sanitized};
 use generation::start_chat;
 use image_generation::{
-    DashScopeQwenImageProvider, ImageGenerationProvider, ImageGenerationRuns,
+    DashScopeQwenImageProvider, ImageGenerationProvider, ImageGenerationRuns, LocalImageGenerator,
     QWEN_IMAGE_PROVIDER_ID, cancel_image_generation, retry_image_generation,
     start_image_generation, validate_qwen_image_base_url,
 };
@@ -177,6 +177,7 @@ struct AppState {
     semantic_indexing: SemanticIndexer,
     storage_management: tauri::async_runtime::Mutex<()>,
     local_image_availability: LocalImageAvailabilityService,
+    local_image_generation: LocalImageGenerator,
 }
 
 /// Starts the non-blocking startup rotation and records only path-redacted session diagnostics.
@@ -737,6 +738,9 @@ pub fn run() {
                 .map_err(|error| std::io::Error::other(error.message))?;
             let diagnostics = Diagnostics::default();
             let conversations = startup.store;
+            let local_image_generation =
+                LocalImageGenerator::new(conversations.generated_asset_temporary_directory())
+                    .map_err(|_| std::io::Error::other("local image execution setup failed"))?;
             if !startup.recovery_required {
                 attachment_garbage_collector::collect_at_startup(
                     &conversations,
@@ -808,6 +812,7 @@ pub fn run() {
                 semantic_indexing,
                 storage_management: tauri::async_runtime::Mutex::new(()),
                 local_image_availability,
+                local_image_generation,
             });
             Ok(())
         })
