@@ -1,7 +1,9 @@
 # Contributing to bottie
 
 Keep changes as small, complete vertical slices that preserve the Rust/WebView security boundary described in
-`HANDOVER.md`. Read `HANDOVER.md` and `ROADMAP.md` before starting product work.
+`HANDOVER.md`. New contributors should begin with the
+[`Bottie programmer's manual`](docs/manual/developers/index.md), then read `HANDOVER.md` and `ROADMAP.md` before
+starting product work.
 
 ## Coding rules
 
