@@ -11,8 +11,9 @@ use url::Url;
 use super::{
     DASHSCOPE_QWEN_IMAGE_MODEL_ID, DashScopeQwenImageProvider, GeneratedImageDownloader,
     GeneratedImageReference, ImageGenerationProvider, ImageGenerationRequest,
-    validate_qwen_image_base_url,
+    local::normalize_local_outputs, validate_qwen_image_base_url,
 };
+use crate::local_image_worker::execution::LocalGeneratedOutput;
 use crate::storage::ConversationStore;
 
 #[test]
@@ -72,6 +73,18 @@ fn validates_and_normalizes_one_provider_neutral_generation_request() {
     assert_eq!(request.dimensions(), (2_048, 2_048));
     assert_eq!(request.count(), 2);
     assert!(request.prompt_extend());
+}
+
+#[test]
+fn local_generation_accepts_only_the_measured_shape_without_prompt_extension() {
+    let request = ImageGenerationRequest::new_local("Draw Bottie", 512, 512, 1)
+        .expect("the measured local profile should be valid");
+
+    assert_eq!(request.dimensions(), (512, 512));
+    assert_eq!(request.count(), 1);
+    assert!(!request.prompt_extend());
+    assert!(ImageGenerationRequest::new_local("Draw Bottie", 2_048, 2_048, 1).is_err());
+    assert!(ImageGenerationRequest::new_local("Draw Bottie", 512, 512, 2).is_err());
 }
 
 #[test]
@@ -284,6 +297,28 @@ fn removes_every_temporary_file_when_a_later_output_fails() {
             .count(),
         0
     );
+}
+
+#[test]
+fn local_worker_pngs_use_the_shared_native_normalization_boundary() {
+    let database_path = test_database_path();
+    let store = ConversationStore::initialize(database_path).expect("store should initialize");
+    let worker_directory = store
+        .generated_asset_temporary_directory()
+        .join("fixture-worker");
+    std::fs::create_dir_all(&worker_directory).unwrap();
+    let worker_path = worker_directory.join("output.png");
+    DynamicImage::ImageRgba8(RgbaImage::from_pixel(64, 64, Rgba([20, 40, 60, 255])))
+        .save_with_format(&worker_path, ImageFormat::Png)
+        .unwrap();
+    let output = LocalGeneratedOutput::for_test(worker_path.clone(), 64, 64, 42);
+
+    let prepared = normalize_local_outputs(vec![output], &store)
+        .expect("the worker PNG should pass shared normalization");
+
+    assert_eq!(prepared.len(), 1);
+    assert_eq!((prepared[0].width, prepared[0].height), (64, 64));
+    assert!(!worker_path.exists());
 }
 
 /// Creates one deterministic PNG response body.

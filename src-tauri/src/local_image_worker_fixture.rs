@@ -2,6 +2,7 @@
 
 use std::{
     io::{Read, Write},
+    path::PathBuf,
     process, thread,
     time::Duration,
 };
@@ -20,6 +21,7 @@ const STDERR_FLOOD_BYTES: usize = 80 * 1_024;
 
 fn main() {
     let mode = std::env::args().nth(1).unwrap_or_else(|| "normal".into());
+    let output_directory = std::env::args_os().nth(2).map(PathBuf::from);
     if mode == "early-exit" {
         process::exit(17);
     }
@@ -36,9 +38,9 @@ fn main() {
         "hung-handshake" => thread::sleep(FIXTURE_SLEEP),
         "malformed" => write_malformed(&mut output),
         "stderr-flood" => flood_stderr(),
-        "wrong-order" => write_message(&mut output, &capabilities_message()),
-        "fragmented" => write_fragmented_handshake(&mut output),
-        _ => write_handshake(&mut output),
+        "wrong-order" => write_message(&mut output, &capabilities_message(&mode)),
+        "fragmented" => write_fragmented_handshake(&mode, &mut output),
+        _ => write_handshake(&mode, &mut output),
     }
     if matches!(
         mode.as_str(),
@@ -46,10 +48,15 @@ fn main() {
     ) {
         return;
     }
-    run_commands(&mode, &mut input, &mut output);
+    run_commands(&mode, output_directory.as_deref(), &mut input, &mut output);
 }
 
-fn run_commands(mode: &str, input: &mut impl Read, output: &mut impl Write) {
+fn run_commands(
+    mode: &str,
+    output_directory: Option<&std::path::Path>,
+    input: &mut impl Read,
+    output: &mut impl Write,
+) {
     loop {
         match read_host_message(input) {
             HostMessage::Load { request_id, .. } => write_message(
@@ -82,6 +89,9 @@ fn run_commands(mode: &str, input: &mut impl Read, output: &mut impl Write) {
                     },
                 );
                 if mode != "cooperative-cancel" && mode != "ignore-cancel" {
+                    if mode != "missing-output" {
+                        write_png(output_directory, width, height);
+                    }
                     write_message(
                         output,
                         &WorkerMessage::Result {
@@ -134,14 +144,14 @@ fn read_host_message(input: &mut impl Read) -> HostMessage {
     decode_host_payload(&payload).unwrap_or_else(|_| process::exit(23))
 }
 
-fn write_handshake(output: &mut impl Write) {
+fn write_handshake(mode: &str, output: &mut impl Write) {
     write_message(output, &hello_message());
-    write_message(output, &capabilities_message());
+    write_message(output, &capabilities_message(mode));
 }
 
-fn write_fragmented_handshake(output: &mut impl Write) {
+fn write_fragmented_handshake(mode: &str, output: &mut impl Write) {
     let mut frames = encode_worker_frame(&hello_message()).unwrap();
-    frames.extend(encode_worker_frame(&capabilities_message()).unwrap());
+    frames.extend(encode_worker_frame(&capabilities_message(mode)).unwrap());
     for chunk in frames.chunks(3) {
         output.write_all(chunk).unwrap();
         output.flush().unwrap();
@@ -155,17 +165,32 @@ fn hello_message() -> WorkerMessage {
     }
 }
 
-fn capabilities_message() -> WorkerMessage {
+fn capabilities_message(mode: &str) -> WorkerMessage {
     WorkerMessage::Capabilities {
         protocol_version: CURRENT_PROTOCOL_VERSION,
         capabilities: WorkerCapabilities {
-            runtime_id: "fixture-runtime".into(),
+            runtime_id: if mode == "wrong-runtime" {
+                "unexpected-runtime@fedcba9876543210"
+            } else {
+                "fixture-runtime@0123456789abcdef"
+            }
+            .into(),
             generation: true,
             supports_seed: true,
             max_outputs: 1,
             max_pixels: 4_194_304,
         },
     }
+}
+
+fn write_png(output_directory: Option<&std::path::Path>, width: u32, height: u32) {
+    let Some(output_directory) = output_directory else {
+        return;
+    };
+    let path = output_directory.join("fixture-output.png");
+    image::RgbaImage::from_pixel(width, height, image::Rgba([20, 40, 60, 255]))
+        .save_with_format(path, image::ImageFormat::Png)
+        .unwrap();
 }
 
 fn write_message(output: &mut impl Write, message: &WorkerMessage) {

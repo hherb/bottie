@@ -39,8 +39,9 @@ import {
   type Usage,
 } from "$lib/inference";
 import {
-  imageGenerationDimensions,
+  imageGenerationRequestOptions,
   prepareImageGenerationPrompt,
+  type ImageGenerationExecution,
   type ImageGenerationSize,
 } from "$lib/image-generation";
 import {
@@ -96,6 +97,7 @@ export class PageState {
   currentUsage = $state<Usage | null>(null);
   reasoningEffort = $state<ReasoningEffort>("off");
   imageMode = $state(false);
+  imageExecution = $state<ImageGenerationExecution>("cloud");
   imageSize = $state<ImageGenerationSize>("square");
   imageCount = $state(1);
   imageFeedback = $state("");
@@ -121,6 +123,7 @@ export class PageState {
   private generationRun = 0;
   private cancellationRequested = false;
   private activeGenerationKind: "chat" | "image" | null = null;
+  private activeImageExecution: ImageGenerationExecution = "cloud";
   /** Currently selected provider-qualified model, when discovery has produced one. */
   get selectedModel(): ModelInfo | undefined {
     return this.models.find((model) => modelKey(model) === this.selectedModelKey);
@@ -136,14 +139,15 @@ export class PageState {
       (this.imageMode || this.canSend || this.prompt.length > 0 || canUseTranscriptAsText(this.microphone.status))
     );
   }
-  /** Whether the explicit cloud-image action can start without reusing attachment editing. */
+  /** Whether the explicit selected image route can start without reusing attachment editing. */
   get canGenerateImage(): boolean {
     return (
       isTauri() &&
       !this.isGenerating &&
       !this.isPersistingMessage &&
       !this.microphone.isActive &&
-      this.attachment.items.length === 0
+      this.attachment.items.length === 0 &&
+      (this.imageExecution === "cloud" || this.localImageAvailability?.availability === "ready")
     );
   }
   /** Whether every current image has a ready derivative and an explicitly vision-capable route. */
@@ -395,9 +399,10 @@ export class PageState {
     await this.startGeneration(runContext);
   }
 
-  /** Persists one explicit image prompt, then starts only the disclosed cloud image route. */
+  /** Persists one explicit image prompt, then starts the disclosed selected image route. */
   async generateImage(): Promise<void> {
     if (!this.imageMode || !this.canGenerateImage) return;
+    const execution = this.imageExecution;
     const preparedPrompt = prepareImageGenerationPrompt(this.prompt);
     if (!preparedPrompt.ok) {
       this.providerError = {
@@ -409,14 +414,16 @@ export class PageState {
       return;
     }
     const submittedPrompt = preparedPrompt.prompt;
-    this.imageFeedback = "Checking the saved cloud image setup…";
-    try {
-      await validateQwenImageConfiguration(this.providerSettings.qwenImageBaseUrl);
-    } catch (error) {
-      const normalized = providerErrorFromUnknown(error);
-      this.providerError = normalized;
-      this.imageFeedback = normalized.message;
-      return;
+    if (execution === "cloud") {
+      this.imageFeedback = "Checking the saved cloud image setup…";
+      try {
+        await validateQwenImageConfiguration(this.providerSettings.qwenImageBaseUrl);
+      } catch (error) {
+        const normalized = providerErrorFromUnknown(error);
+        this.providerError = normalized;
+        this.imageFeedback = normalized.message;
+        return;
+      }
     }
     this.isPersistingMessage = true;
     this.imageFeedback = "Saving the image prompt locally…";
@@ -435,31 +442,35 @@ export class PageState {
     });
     this.prompt = "";
     this.interaction.resizeComposer();
-    await this.startImageGeneration(runContext, submittedPrompt);
+    await this.startImageGeneration(runContext, submittedPrompt, execution);
   }
 
-  /** Starts one native image run from an already-persisted prompt. */
+  /** Starts one native image run from an already-persisted prompt and snapshotted route. */
   private async startImageGeneration(
     runContext: import("$lib/storage").ProviderRunContext,
     prompt: string,
+    execution: ImageGenerationExecution,
   ): Promise<void> {
     this.isGenerating = true;
     this.activeGenerationKind = "image";
     this.cancellationRequested = false;
     this.activeRunId = null;
     this.providerError = null;
-    this.imageFeedback = "Starting the disclosed cloud generation…";
+    this.activeImageExecution = execution;
+    this.imageFeedback =
+      this.activeImageExecution === "local"
+        ? "Starting the disclosed local generation…"
+        : "Starting the disclosed cloud generation…";
     const run = ++this.generationRun;
-    const dimensions = imageGenerationDimensions(this.imageSize);
+    const options = imageGenerationRequestOptions(this.activeImageExecution, this.imageSize, this.imageCount);
     try {
       const accepted = await invokeImageGeneration(
         {
           conversationId: runContext.conversationId,
           requestMessageId: runContext.requestMessageId,
           prompt,
-          ...dimensions,
-          count: this.imageCount,
-          execution: "cloud",
+          ...options,
+          execution: this.activeImageExecution,
         },
         (event) => this.handleImageGenerationEvent(event, run),
       );
@@ -487,12 +498,20 @@ export class PageState {
     this.activeRunId = event.runId;
     if (event.type === "started") {
       this.applyGeneratedMessage(event.message);
-      this.imageFeedback = "Generating with the exact hosted Qwen-Image-2.0 checkpoint…";
-    } else if (event.type === "progress") {
       this.imageFeedback =
-        event.stage === "generating"
-          ? `Generating ${event.total} cloud image${event.total === 1 ? "" : "s"}…`
-          : `Downloading and validating ${event.total} temporary result${event.total === 1 ? "" : "s"}…`;
+        this.activeImageExecution === "local"
+          ? "Generating with the exact local Qwen-Image-2512 package…"
+          : "Generating with the exact hosted Qwen-Image-2.0 checkpoint…";
+    } else if (event.type === "progress") {
+      const outputLabel = `${event.total} image${event.total === 1 ? "" : "s"}`;
+      if (event.stage === "generating") {
+        this.imageFeedback = `Generating ${event.total} ${this.activeImageExecution} image${event.total === 1 ? "" : "s"}…`;
+      } else {
+        this.imageFeedback =
+          this.activeImageExecution === "local"
+            ? `Validating ${outputLabel} from the private worker…`
+            : `Downloading and validating ${outputLabel}…`;
+      }
     } else if (event.type === "completed") {
       this.applyGeneratedMessage(event.message);
       this.imageFeedback = "Generated PNG bytes are stored privately on this device.";
@@ -526,6 +545,7 @@ export class PageState {
     this.cancellationRequested = false;
     this.activeRunId = null;
     this.providerError = null;
+    this.activeImageExecution = response.generatedAssets?.[0]?.execution ?? "cloud";
     this.imageFeedback = "Retrying the saved image request…";
     const run = ++this.generationRun;
     try {

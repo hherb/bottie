@@ -60,6 +60,40 @@ describe("PageState message submission", () => {
   });
 });
 
+describe("PageState image execution", () => {
+  it("skips Cloud credential validation before persisting a ready local request", async () => {
+    const tauriRuntime = globalThis as typeof globalThis & { isTauri?: boolean };
+    const previousIsTauri = tauriRuntime.isTauri;
+    tauriRuntime.isTauri = true;
+
+    try {
+      const state = new PageState();
+      state.imageMode = true;
+      state.imageExecution = "local";
+      state.localImageAvailability = {
+        modelId: "Qwen/Qwen-Image-2512",
+        packageId: "qwen-image-2512",
+        runtimeId: "local-image-worker",
+        license: "Apache-2.0",
+        sourceRevision: "review-fixture",
+        expectedDiskBytes: 1,
+        requiredMemoryBytes: 1,
+        availability: "ready",
+      };
+      state.prompt = "Draw Bottie locally";
+      const persist = vi.spyOn(state.history, "persistUserMessage").mockResolvedValue(null);
+
+      await state.generateImage();
+
+      expect(persist).toHaveBeenCalledWith("Draw Bottie locally", []);
+      expect(state.imageFeedback).toBe("The image prompt could not be saved.");
+    } finally {
+      if (previousIsTauri === undefined) Reflect.deleteProperty(tauriRuntime, "isTauri");
+      else tauriRuntime.isTauri = previousIsTauri;
+    }
+  });
+});
+
 describe("PageState voice barge-in", () => {
   it("requests generation cancellation before awaiting playback shutdown and capture", async () => {
     const state = new PageState();

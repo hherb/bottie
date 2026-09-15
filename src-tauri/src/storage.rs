@@ -84,8 +84,8 @@ pub(crate) use extraction::StoredAttachmentExtraction;
 pub(crate) use extraction::{AttachmentExtractionFormat, AttachmentExtractionState};
 pub(crate) use generated_assets::{
     GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageProvenance,
-    GeneratedImageRequestOptions, PreparedGeneratedImage, StartedGeneratedImage,
-    StoredGeneratedAsset, normalize_generated_png,
+    GeneratedImageRequestOptions, GeneratedImageRetry, PreparedGeneratedImage,
+    StartedGeneratedImage, StoredGeneratedAsset, normalize_generated_png,
 };
 pub(crate) use image_normalization::StoredImageNormalization;
 pub(crate) use memory_file_tool::{

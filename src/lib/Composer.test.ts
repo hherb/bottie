@@ -27,6 +27,7 @@ function renderedComposer(
   imageMode = false,
   localImageAvailability: LocalImageAvailabilityMetadata | null = null,
   localImageAvailabilityFailed = false,
+  imageExecution: "cloud" | "local" = "cloud",
 ): string {
   return render(Composer, {
     props: {
@@ -46,6 +47,7 @@ function renderedComposer(
       emailBoundaryNote,
       emailUnavailableReason,
       imageMode,
+      imageExecution,
       imageSize: "square",
       imageCount: 1,
       imageFeedback: "",
@@ -72,6 +74,7 @@ function renderedComposer(
       ontoggleweb: vi.fn(),
       ontoggleemail: vi.fn(),
       ontoggleimage: vi.fn(),
+      onimageexecution: vi.fn(),
       onimagesize: vi.fn(),
       onimagecount: vi.fn(),
       onstartmicrophone: vi.fn(),
@@ -117,7 +120,7 @@ describe("Composer", () => {
     expect(html).toMatch(/aria-label="Attach files"[^>]*disabled/);
   });
 
-  it("shows exact local package readiness without making the Cloud-only action a local selector", () => {
+  it("shows the local route but disables selection until native readiness is exact", () => {
     const local: LocalImageAvailabilityMetadata = {
       modelId: "Qwen/Qwen-Image-2512",
       packageId: "AbstractFramework/qwen-image-2512-4bit",
@@ -152,9 +155,48 @@ describe("Composer", () => {
     expect(html).toContain("MLX-Gen");
     expect(html).toContain("Local worker is not installed");
     expect(html).toContain("16.2 GiB model");
-    expect(html).toContain("this action remains Cloud");
-    expect(html).not.toContain("Qwen-Image-2.0 local");
-    expect(html).not.toContain('type="radio"');
+    expect(html).toContain('aria-label="Execution"');
+    expect(html).toMatch(/<option value="local" disabled/);
+    expect(html).toContain("Local 2512 · unavailable");
+    expect(html).toContain("No automatic download or cloud fallback");
+  });
+
+  it("exposes an explicit ready local route with fixed output options and private disclosure", () => {
+    const local: LocalImageAvailabilityMetadata = {
+      modelId: "Qwen/Qwen-Image-2512",
+      packageId: "AbstractFramework/qwen-image-2512-4bit",
+      runtimeId: "mlx-gen@fca64a283737c68b67a7bfd88d93f7aa9101a95c",
+      license: "Apache-2.0",
+      sourceRevision: "423f1f5bf708c6e11eb78881ef9738422cea0814",
+      expectedDiskBytes: 17_442_350_812,
+      requiredMemoryBytes: 29_526_129_448,
+      availability: "ready",
+    };
+    const html = renderedComposer(
+      true,
+      true,
+      [],
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      "Email unavailable.",
+      "Email unavailable.",
+      false,
+      false,
+      true,
+      local,
+      false,
+      "local",
+    );
+
+    expect(html).toMatch(/<option value="local" selected(?:="")?>Local 2512<\/option>/);
+    expect(html).toContain("512×512 · one image");
+    expect(html).toContain("stay on this device");
+    expect(html).toContain("Qwen/Qwen-Image-2512");
+    expect(html).not.toContain("may incur provider charges");
   });
   it("keeps text input enabled when an attachment blocks only submission", () => {
     const html = renderedComposer(true, false);

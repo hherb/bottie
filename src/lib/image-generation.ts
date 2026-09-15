@@ -1,4 +1,7 @@
-/** Pure presentation contracts for explicit hosted image generation. */
+/** Pure presentation contracts for explicit Cloud and local image generation. */
+
+/** User-selected execution boundary for a newly submitted image request. */
+export type ImageGenerationExecution = "cloud" | "local";
 
 /** Fixed Qwen-Image-2.0 size choices exposed by the composer. */
 export type ImageGenerationSize = "square" | "landscape" | "portrait";
@@ -26,14 +29,19 @@ export function prepareImageGenerationPrompt(prompt: string): PreparedImageGener
   return { ok: true, prompt: normalized };
 }
 
-/** Resolves one visible size choice to the exact provider request dimensions. */
-export function imageGenerationDimensions(size: ImageGenerationSize): { width: number; height: number } {
+/** Resolves one route and visible Cloud choice to the exact native request options. */
+export function imageGenerationRequestOptions(
+  execution: ImageGenerationExecution,
+  size: ImageGenerationSize,
+  count: number,
+): { width: number; height: number; count: number } {
+  if (execution === "local") return { width: 512, height: 512, count: 1 };
   switch (size) {
     case "landscape":
-      return { width: 2_688, height: 1_536 };
+      return { width: 2_688, height: 1_536, count };
     case "portrait":
-      return { width: 1_536, height: 2_688 };
+      return { width: 1_536, height: 2_688, count };
     default:
-      return { width: 2_048, height: 2_048 };
+      return { width: 2_048, height: 2_048, count };
   }
 }

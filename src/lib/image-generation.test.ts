@@ -1,12 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { imageGenerationDimensions, prepareImageGenerationPrompt } from "./image-generation";
+import { imageGenerationRequestOptions, prepareImageGenerationPrompt } from "./image-generation";
 
 describe("image generation presentation", () => {
-  it("maps every visible aspect choice to the exact bounded provider dimensions", () => {
-    expect(imageGenerationDimensions("square")).toEqual({ width: 2_048, height: 2_048 });
-    expect(imageGenerationDimensions("landscape")).toEqual({ width: 2_688, height: 1_536 });
-    expect(imageGenerationDimensions("portrait")).toEqual({ width: 1_536, height: 2_688 });
+  it("maps every Cloud aspect choice to exact bounded provider options", () => {
+    expect(imageGenerationRequestOptions("cloud", "square", 2)).toEqual({
+      width: 2_048,
+      height: 2_048,
+      count: 2,
+    });
+    expect(imageGenerationRequestOptions("cloud", "landscape", 3)).toEqual({
+      width: 2_688,
+      height: 1_536,
+      count: 3,
+    });
+    expect(imageGenerationRequestOptions("cloud", "portrait", 4)).toEqual({
+      width: 1_536,
+      height: 2_688,
+      count: 4,
+    });
+  });
+
+  it("forces the selected local route to its one proved output shape", () => {
+    expect(imageGenerationRequestOptions("local", "landscape", 6)).toEqual({
+      width: 512,
+      height: 512,
+      count: 1,
+    });
   });
 
   it("normalizes the same bounded prompt shape before native persistence", () => {

@@ -136,6 +136,13 @@ impl WorkerManager {
         }
     }
 
+    /// Returns the negotiated runtime identity without exposing capabilities across IPC.
+    pub(crate) fn runtime_id(&self) -> Option<&str> {
+        self.capabilities
+            .as_ref()
+            .map(|capabilities| capabilities.runtime_id.as_str())
+    }
+
     /// Starts exact-version negotiation for one newly spawned private worker.
     pub(crate) fn begin_handshake(
         &mut self,

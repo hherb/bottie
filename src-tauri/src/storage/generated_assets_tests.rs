@@ -372,6 +372,23 @@ fn retries_failed_and_cancelled_images_from_the_exact_durable_request() {
             )
             .expect("terminal image state should persist");
 
+        let inspected = store
+            .inspect_generated_image_retry(&pending.id)
+            .expect("terminal image generation should be inspectable without mutation");
+        assert_eq!(inspected.prompt, "A generated landscape");
+        assert_eq!(inspected.options, options);
+        assert_eq!(inspected.provenance, provenance);
+        assert_eq!(inspected.output_count, 2);
+        assert_eq!(
+            store
+                .load_conversation(&conversation.id)
+                .unwrap()
+                .messages
+                .len(),
+            2,
+            "inspection must not append a pending retry"
+        );
+
         let retry = store
             .retry_generated_image_message(&pending.id)
             .expect("terminal image generation should retry");
