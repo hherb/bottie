@@ -1,6 +1,6 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 
-import type { ProviderRunContext, StoredMessage } from "./storage";
+import type { GeneratedImageSourceType, ProviderRunContext, StoredMessage } from "./storage";
 
 /** Provider-qualified model metadata returned by native discovery. */
 export type ModelInfo = {
@@ -153,6 +153,23 @@ export type StartImageGenerationRequest = {
   height: number;
   count: number;
   execution: "cloud" | "local";
+};
+
+/** One ordered opaque source selected for native hosted image editing. */
+export type ImageEditingSourceRequest = {
+  sourceType: GeneratedImageSourceType;
+  sourceId: string;
+};
+
+/** Explicit hosted image-editing request whose source bytes remain native-only. */
+export type StartImageEditingRequest = {
+  conversationId: string;
+  requestMessageId: string;
+  prompt: string;
+  width: number;
+  height: number;
+  count: number;
+  sources: ImageEditingSourceRequest[];
 };
 
 /** One opaque terminal image response selected for exact native retry. */
@@ -321,6 +338,17 @@ export async function startImageGeneration(
   const channel = new Channel<ImageGenerationEvent>();
   channel.onmessage = onEvent;
   return invoke<ImageGenerationRun>("start_image_generation", { request, onEvent: channel });
+}
+
+/** Starts one hosted image edit after native lineage and source-byte revalidation. */
+export async function startImageEditing(
+  request: StartImageEditingRequest,
+  onEvent: (event: ImageGenerationEvent) => void,
+): Promise<ImageGenerationRun> {
+  if (!isTauri()) throw unavailableInBrowser();
+  const channel = new Channel<ImageGenerationEvent>();
+  channel.onmessage = onEvent;
+  return invoke<ImageGenerationRun>("start_image_editing", { request, onEvent: channel });
 }
 
 /** Retries one failed or cancelled image request without accepting prompt or option overrides. */

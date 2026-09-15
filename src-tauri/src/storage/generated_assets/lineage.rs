@@ -2,6 +2,7 @@
 
 #![cfg_attr(not(test), allow(dead_code))]
 
+mod retry;
 mod validation;
 
 use std::fs;
@@ -31,6 +32,13 @@ const MAX_TOTAL_EDIT_SOURCE_BYTES: u64 = 3 * MAX_EDIT_SOURCE_BYTES;
 const HOSTED_EDIT_PROVIDER_ID: &str = "qwen-image";
 const HOSTED_EDIT_MODEL_ID: &str = "qwen-image-2.0-2026-03-03";
 
+/// Preflights path-free source count, identities, and duplicates before privileged lookup.
+pub(crate) fn validate_generated_image_source_references(
+    references: &[GeneratedImageSourceReference],
+) -> Result<(), StorageError> {
+    validate_source_references(references)
+}
+
 /// Native opaque identity selected as one ordered image-editing source.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) enum GeneratedImageSourceReference {
@@ -58,7 +66,7 @@ impl GeneratedImageSourceReference {
 }
 
 /// Stable category of one generated-image edit source.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, serde::Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum GeneratedImageSourceType {
     /// A normalized user-retained attachment.

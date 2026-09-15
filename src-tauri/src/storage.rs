@@ -89,6 +89,7 @@ pub(crate) use generated_assets::{
     GeneratedImageRequestOptions, GeneratedImageRetry, GeneratedImageSourceFormat,
     GeneratedImageSourceType, PreparedGeneratedImage, StartedGeneratedImage, StoredGeneratedAsset,
     StoredGeneratedImageSource, ValidatedGeneratedImageSource, normalize_generated_png,
+    validate_generated_image_source_references,
 };
 #[allow(unused_imports)]
 pub(crate) use generated_assets::{GeneratedImageSourceReference, StartedGeneratedImageEdit};

@@ -4,8 +4,8 @@ use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{
     GeneratedAssetStatus, GeneratedImageProvenance, GeneratedImageRequestOptions,
-    StartedGeneratedImage, insert_generated_image_message, lineage::clone_source_rows,
-    load_generated_message, load_message_generated_assets,
+    StartedGeneratedImage, ValidatedGeneratedImageSource, insert_generated_image_message,
+    lineage::clone_source_rows, load_generated_message, load_message_generated_assets,
     selected_branch_without_active_generation, validate_output_count,
 };
 use crate::storage::{ConversationStore, DEFAULT_PROFILE_ID, StorageError};
@@ -27,6 +27,30 @@ pub(crate) struct GeneratedImageRetry {
     pub(crate) provenance: GeneratedImageProvenance,
     /// Exact dimensions and prompt-extension policy retained by the request.
     pub(crate) options: GeneratedImageRequestOptions,
+    /// Exact ordered native edit bytes, empty only for text-to-image generation.
+    pub(crate) sources: Vec<ValidatedGeneratedImageSource>,
+}
+
+#[cfg(test)]
+impl GeneratedImageRetry {
+    /// Builds an isolated retry contract without opening durable storage.
+    pub(crate) fn for_test(
+        prompt: impl Into<String>,
+        provenance: GeneratedImageProvenance,
+        options: GeneratedImageRequestOptions,
+        sources: Vec<ValidatedGeneratedImageSource>,
+    ) -> Self {
+        Self {
+            conversation_id: "conversation-test".into(),
+            branch_id: "branch-test".into(),
+            request_message_id: "request-test".into(),
+            prompt: prompt.into(),
+            output_count: 1,
+            provenance,
+            options,
+            sources,
+        }
+    }
 }
 
 impl ConversationStore {
@@ -35,7 +59,10 @@ impl ConversationStore {
         &self,
         message_id: &str,
     ) -> Result<GeneratedImageRetry, StorageError> {
-        load_retry_request(&self.open()?, message_id)
+        let connection = self.open()?;
+        let mut retry = load_retry_request(&connection, message_id)?;
+        retry.sources = self.load_generated_image_retry_sources(&connection, message_id)?;
+        Ok(retry)
     }
 
     /// Starts a fresh run from one selected failed or cancelled durable image request.
@@ -115,6 +142,7 @@ fn load_retry_request(
             first.seed,
         )?,
         options: GeneratedImageRequestOptions::new(row.4, row.5, row.6)?,
+        sources: Vec::new(),
     })
 }
 
