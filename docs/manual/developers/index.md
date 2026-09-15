@@ -45,7 +45,7 @@ Also read the narrower authoritative references when relevant:
 | ASP.NET controller action | A registered `#[tauri::command]` |
 | DTO with JSON attributes | TypeScript interface plus Serde Rust struct |
 | `Task<T>` | TypeScript `Promise<T>`; Rust `async fn` returning `Result<T, E>` |
-| nullable reference | TypeScript `T | null`; Rust `Option<T>` |
+| nullable reference | TypeScript `T \| null`; Rust `Option<T>` |
 | exception | rejected promise; Rust `Result<T, E>` |
 | `lock` / `SemaphoreSlim` | Rust `Mutex`, `RwLock`, and async mutexes |
 | EF migration | Ordered SQL constants applied by Rust |
