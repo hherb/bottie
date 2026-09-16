@@ -4,50 +4,52 @@ Last verified: 2026-09-16
 
 ## Start here
 
-`main` includes merged PR #187 at `1d79d6b`. Branch `codex/qwen-image-linux-nvidia-proof` completes the next Milestone
-8.4 slice: a pinned Diffusers `QwenImagePipeline` feasibility proof through Bottie's private worker protocol on a named
-NVIDIA DGX Spark. Read `ROADMAP.md` Milestone 8.4, `docs/local-image-linux-nvidia-proof.md`, and
-`local-image-worker/diffusers_worker.py`.
+`main` includes merged PR #188 at `a79ff2d`. Branch `codex/local-image-backend-catalog` completes the next Milestone
+8.4 preparation: native local-image package selection now carries an explicit backend, runtime, target, evidence, and
+product-executable contract while keeping Linux NVIDIA unavailable. Read `ROADMAP.md` Milestone 8.4,
+`src-tauri/src/local_image_worker/package_catalog.rs`, `docs/local-image-model-package.md`, and
+`docs/local-image-linux-nvidia-proof.md`.
 
 ## Current state
 
-- The exact `Qwen/Qwen-Image-2512` revision `25468b98e3276ca6700de15c6628e51b7de54a26` was anonymously downloaded and
-  locally verified as 30 files and 57,704,595,735 bytes. The complete per-file SHA-256 manifest is checked in; its own
-  digest is `db98eb84cca7a34853526a3d2cf7ef2ec63cf5ffc2adcdf82f3ea92b3c93c656`.
-- A proof-only ARM64 container pins NGC PyTorch 25.11 by digest, Diffusers 0.40.0, and every added Python distribution.
-  Its exact derived image ID is `sha256:cded2049f9dbff513406052a191af2588476056d795468c4aacb7814aca5666c`.
-- The shared Python worker now accepts an explicit backend identity without weakening MLX validation. The Diffusers
-  adapter loads only local bfloat16 weights onto CUDA and uses the same closed
-  hello/load/generate/progress/cancel/result protocol. Network attempts have a fixed path-free diagnostic.
-- The final read-only, non-root, capability-free, network-denied DGX run passed exact model loading, two same-seed
-  512×512 generations, decoded-PNG validation, deterministic byte and pixel hashes, denoising-boundary cancellation in
-  100 ms, and bounded clean shutdown. Manual review found a coherent, prompt-matching PNG without visible corruption.
-- Linux NVIDIA remains unavailable in the product. The existing Apple M3 Max profile is still the only accepted local
-  availability route. The proof container is neither an application payload nor approved redistribution evidence.
+- The closed native catalog has two exact candidates. Apple binds MLX-Gen worker
+  `mlx-gen-0.18.2-proof-1`, runtime `mlx-gen@fca64a283737c68b67a7bfd88d93f7aa9101a95c`, the immutable mixed-q4/q8
+  model revision, macOS ARM64, and the accepted Apple M3 Max 128 GiB profile. Linux binds the proved Diffusers worker
+  and runtime, full model revision, Linux ARM64, DGX Spark GB10 evidence profile, and evidence document.
+- Only Apple has an accepted product profile and importable executable basename. Linux has neither, so catalog
+  selection fails closed before worker import, readiness, acquisition, or execution.
+- `SelectedModelPackage` retains the selected runtime and verifies that its model, revision, and runtime identities
+  equal the existing Apple manifest. The availability service derives the executable basename from that selection
+  instead of a global MLX literal.
+- The pure availability policy compares native OS, architecture, and hardware evidence against the selected runtime's
+  target and accepted profile. Apple readiness precedence, manifest, acknowledgement, acquisition, path-free IPC,
+  worker-cache layout, and execution behavior remain unchanged.
+- No Linux hardware probe, distributable worker, import/download, application execution, availability, UI/IPC field,
+  or support claim was added.
 
 ## Validation and limits
 
-The focused Python suite passes all 14 tests. Prettier, Svelte diagnostics, all 407 active frontend/script tests (3
-skipped), the production build, `cargo fmt --check`, and `cargo check` pass. The host-local Rust run passes all 646
-active library tests (37 ignored), updater evidence, all 16 private-worker integration tests, and doc tests.
+Prettier, Svelte diagnostics, all 407 active frontend/script tests (3 skipped), the production build,
+`cargo fmt --check`, and `cargo check` pass. The host-local Rust run passes all 648 active library tests (37 ignored),
+the updater evidence test, all 6 execution-adapter tests, all 10 private-worker transport tests, and doc tests. The
+focused local-image run passes all 81 tests. Its first sandboxed attempt had 12 expected loopback-bind denials; the
+identical host-local command passed. No browser or native-app review was required because this slice changes no
+presentation or executable runtime behavior.
 
-The proof measured a 368.430 s model load, 13.663 s cold generation, 14.397 s warm generation, 17,583,603,712-byte
-worker RSS high-water, and a conservative 63,296,946,176-byte host-availability drop. DGX Spark uses coherent unified
-memory and exposes no separate aggregate VRAM total; its per-process counter was unavailable during sampling. CPU
-offload was disabled. An unrelated resident inference process was not stopped. Exact model/runtime files and generated
-proof outputs remain only in the dedicated DGX proof workspace; no credential or provider request was used.
-
-Unrelated untracked logo-kit, screenshot, and Linux public-key files remain untouched.
+The Linux Diffusers entry is proof metadata only. It does not establish redistributable Python/NVIDIA runtime bytes,
+an accepted executable or bundle digest, product hardware support, or native containment. The existing Apple M3 Max
+profile remains the only accepted local route. Unrelated untracked logo-kit, screenshot, and Linux public-key files
+remain untouched.
 
 ## Next slice
 
-Refactor the native selected local-image package contract so backend/runtime selection is explicit and can represent
-both the existing accepted Apple MLX package and this exact unavailable-by-default Linux Diffusers candidate. Start with
-pure Rust catalog/selection types and tests: preserve every Apple manifest, acknowledgement, acquisition, availability,
-and execution behavior byte-for-byte; bind the Linux candidate to the exact runtime/model identities and evidence
-document; and fail closed when no accepted platform profile selects it.
+Prepare one proof-only distributable Linux worker-bundle candidate from the exact pinned Diffusers/NGC environment.
+Define and test a deterministic regular-file inventory plus executable/bundle size and SHA-256 evidence, bind it to the
+existing worker/runtime/model revisions and complete third-party license metadata, and document the distribution-review
+boundary. Keep its catalog product profile and executable absent until exact produced bytes and their licensing are
+independently reviewed.
 
-Do not add the Linux candidate to native availability yet. Do not add a hardware probe, Docker dependency, worker
-import/download, automatic model download, runtime execution, UI/IPC field, or support claim in that slice. Do not add
-WSL-as-Windows evidence, cloud fallback, local editing, guessed 2.0 weights, source-byte/path IPC, signing, release,
-Store, or distribution work.
+Do not add a Linux hardware probe, worker import/download, native availability, runtime execution, UI/IPC field, or
+support claim in that slice. Do not add Docker as an application dependency, infer redistributability from the proof,
+accept mutable tags, enable cloud fallback, add local editing, guess Qwen Image 2.0 weights, expose source bytes or
+paths, or resume signing, release, Store, or updater-publication work.

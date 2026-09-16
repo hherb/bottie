@@ -67,6 +67,8 @@ mod local_image_worker_model_download_tests;
 #[cfg(test)]
 mod local_image_worker_model_package_tests;
 #[cfg(test)]
+mod local_image_worker_package_catalog_tests;
+#[cfg(test)]
 mod local_image_worker_tests;
 #[cfg(test)]
 mod localmail_tool_tests;

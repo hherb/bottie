@@ -96,7 +96,9 @@ absolute model directory, an empty writable output directory, and an absolute me
 network, filesystem, capability, user, deadline, deterministic-output, decoded-PNG, memory-sampling, cancellation, and
 shutdown checks itself.
 
-Do not convert this evidence directly into a support claim. The next product slice must first separate the current
-Apple-specific selected-package contract from backend selection and represent this exact Linux proof as a closed,
-unavailable-by-default runtime candidate. It must not add a Linux hardware probe, Docker dependency, worker download,
-runtime execution, UI/IPC change, or automatic model download.
+Do not convert this evidence directly into a support claim. The native package catalog now represents this exact
+Diffusers worker, runtime, model revision, Linux ARM64 target, DGX Spark evidence profile, and this evidence document as
+a closed candidate. It deliberately has no accepted product profile or importable executable, so selection fails
+closed before worker import, readiness, or execution. A later slice must review a distributable worker package and
+license boundary before considering Linux hardware probing or product availability; it must not infer either from this
+Docker proof.

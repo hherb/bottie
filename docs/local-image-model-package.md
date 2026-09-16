@@ -56,6 +56,12 @@ Acceptance also requires:
 These fields remain a fail-closed native contract. The selected evidence is frozen in code so later runtime integration
 can re-hash the installed worker bundle before use.
 
+The native `package_catalog.rs` contract now makes backend selection explicit. The accepted Apple entry binds MLX-Gen,
+its private-protocol worker version, model revision, target operating system and architecture, evidence profile,
+evidence document, and exact importable executable basename. `SelectedModelPackage` retains that runtime selection and
+the availability service resolves the worker executable from it. The companion Linux Diffusers entry is represented
+only as proof evidence and has neither an accepted product profile nor an importable executable.
+
 ## Hugging Face delivery
 
 Immutable Hugging Face `resolve` URLs currently return one `302` or `307` before file bytes. The downloader therefore

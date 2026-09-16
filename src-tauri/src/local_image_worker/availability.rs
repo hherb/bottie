@@ -11,6 +11,9 @@ use super::{
     model_package::{
         PackageAcceptanceEvidence, QWEN_IMAGE_2512_HARDWARE_PROFILE, SelectedModelPackage,
     },
+    package_catalog::{
+        LocalImagePlatformProfile, LocalImageTargetArchitecture, LocalImageTargetOperatingSystem,
+    },
     worker_bundle::hash_worker_bundle,
 };
 
@@ -59,6 +62,13 @@ impl HardwareEvidenceProfile {
     pub(crate) const fn physical_memory_bytes(self) -> u64 {
         match self {
             Self::AppleM3Max128Gb => 128 * GIB,
+        }
+    }
+
+    /// Returns the catalog profile backed by this accepted native hardware evidence.
+    pub(crate) const fn platform_profile(self) -> LocalImagePlatformProfile {
+        match self {
+            Self::AppleM3Max128Gb => LocalImagePlatformProfile::AppleM3Max128Gb,
         }
     }
 }
@@ -129,19 +139,26 @@ pub(crate) fn evaluate_local_image_availability(
     worker: WorkerInstallationReadiness,
     model: ModelCacheReadiness,
 ) -> LocalImageAvailability {
-    if hardware.operating_system != HostOperatingSystem::MacOs {
+    let runtime = selected.runtime();
+    if !operating_system_matches(hardware.operating_system, runtime.target_operating_system()) {
         return LocalImageAvailability::UnsupportedPlatform;
     }
-    if hardware.architecture != HostArchitecture::Aarch64 {
+    if !architecture_matches(hardware.architecture, runtime.target_architecture()) {
         return LocalImageAvailability::UnsupportedArchitecture;
     }
     if hardware.physical_memory_bytes < selected.evidence().peak_memory_bytes {
         return LocalImageAvailability::InsufficientMemory;
     }
-    if hardware.evidence_profile.is_none_or(|profile| {
-        profile.id() != selected.evidence().hardware_profile
-            || profile.physical_memory_bytes() != hardware.physical_memory_bytes
-    }) {
+    let Some(accepted_profile) = runtime.accepted_profile() else {
+        return LocalImageAvailability::UnsupportedHardware;
+    };
+    if runtime.evidence_profile() != accepted_profile
+        || hardware.evidence_profile.is_none_or(|profile| {
+            profile.platform_profile() != accepted_profile
+                || profile.id() != selected.evidence().hardware_profile
+                || profile.physical_memory_bytes() != hardware.physical_memory_bytes
+        })
+    {
         return LocalImageAvailability::UnsupportedHardware;
     }
     match worker {
@@ -154,6 +171,32 @@ pub(crate) fn evaluate_local_image_availability(
         ModelCacheReadiness::Mismatch => LocalImageAvailability::ModelMismatch,
         ModelCacheReadiness::Verified => LocalImageAvailability::Ready,
     }
+}
+
+fn operating_system_matches(
+    host: HostOperatingSystem,
+    target: LocalImageTargetOperatingSystem,
+) -> bool {
+    matches!(
+        (host, target),
+        (
+            HostOperatingSystem::MacOs,
+            LocalImageTargetOperatingSystem::MacOs
+        ) | (
+            HostOperatingSystem::Linux,
+            LocalImageTargetOperatingSystem::Linux
+        )
+    )
+}
+
+fn architecture_matches(host: HostArchitecture, target: LocalImageTargetArchitecture) -> bool {
+    matches!(
+        (host, target),
+        (
+            HostArchitecture::Aarch64,
+            LocalImageTargetArchitecture::Aarch64
+        )
+    )
 }
 
 /// Re-hashes an installed worker executable and its closed bundle against accepted evidence.
