@@ -55,6 +55,8 @@ mod local_image_worker_availability_service_tests;
 #[cfg(test)]
 mod local_image_worker_availability_tests;
 #[cfg(test)]
+mod local_image_worker_bundle_tests;
+#[cfg(test)]
 mod local_image_worker_cache_tests;
 #[cfg(test)]
 mod local_image_worker_manager_tests;

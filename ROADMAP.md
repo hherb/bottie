@@ -533,9 +533,12 @@ Implement this once for both hosted and local adapters before adding more runtim
   cold/warm PNGs, denied network access, cancelled at a denoising boundary in 100 ms, and recorded conservative unified
   host-memory measurements. CPU offload was disabled; DGX Spark exposes no separate aggregate VRAM counter. This proves
   feasibility only. The native catalog now binds this candidate's backend, runtime, model, proof target, and evidence
-  document while leaving its accepted profile and importable executable absent. Linux remains unavailable until Bottie
-  has a reviewed distributable worker package, native hardware gating, and app-owned execution. See
-  `docs/local-image-linux-nvidia-proof.md`;
+  document while leaving its accepted profile and importable executable absent. A proof-only inspector now binds the
+  exact NGC/Diffusers inputs, emits a deterministic native-compatible regular-file/executable/bundle inventory, and
+  requires complete file ownership plus included third-party licence bytes; every record remains explicitly unreviewed.
+  Linux remains unavailable until Bottie has exact produced and independently reviewed bundle bytes, native hardware
+  gating, and app-owned execution. See `docs/local-image-linux-nvidia-proof.md` and
+  `docs/local-image-linux-worker-bundle.md`;
 - [ ] **Windows NVIDIA:** use the same pinned Diffusers worker and protocol after a native Windows CUDA/package proof;
   do not treat WSL-only success as Windows product evidence;
 - [ ] **Linux AMD:** add a ROCm Diffusers route only after a named-GPU proof demonstrates correct decoded output and

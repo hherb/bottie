@@ -61,6 +61,9 @@ its private-protocol worker version, model revision, target operating system and
 evidence document, and exact importable executable basename. `SelectedModelPackage` retains that runtime selection and
 the availability service resolves the worker executable from it. The companion Linux Diffusers entry is represented
 only as proof evidence and has neither an accepted product profile nor an importable executable.
+The catalog records the existing native bundle hasher as Apple's accepted import-evidence contract. Linux instead
+points to the proof-only deterministic candidate inspector documented in `local-image-linux-worker-bundle.md`; that
+stage cannot make Linux selectable.
 
 ## Hugging Face delivery
 

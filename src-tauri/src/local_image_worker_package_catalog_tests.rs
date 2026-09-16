@@ -3,9 +3,9 @@
 use crate::local_image_worker::{
     model_package::selected_qwen_image_2512_q4_package,
     package_catalog::{
-        LocalImageBackend, LocalImagePlatformProfile, LocalImageTargetArchitecture,
-        LocalImageTargetOperatingSystem, RuntimeSelectionError, local_image_package_catalog,
-        select_runtime_for_profile,
+        LocalImageBackend, LocalImageBundleEvidenceStage, LocalImagePlatformProfile,
+        LocalImageTargetArchitecture, LocalImageTargetOperatingSystem, RuntimeSelectionError,
+        local_image_package_catalog, select_runtime_for_profile,
     },
 };
 
@@ -52,6 +52,14 @@ fn catalog_binds_the_apple_and_linux_candidates_to_exact_runtime_evidence() {
         apple.product_executable_name(),
         Some("bottie-local-image-mlx-worker")
     );
+    assert_eq!(
+        apple.bundle_evidence_stage(),
+        LocalImageBundleEvidenceStage::AcceptedForProductImport
+    );
+    assert_eq!(
+        apple.bundle_evidence_contract(),
+        "src-tauri/src/local_image_worker/worker_bundle.rs"
+    );
 
     let linux = catalog
         .iter()
@@ -82,6 +90,14 @@ fn catalog_binds_the_apple_and_linux_candidates_to_exact_runtime_evidence() {
         "docs/local-image-linux-nvidia-proof.md"
     );
     assert_eq!(linux.product_executable_name(), None);
+    assert_eq!(
+        linux.bundle_evidence_stage(),
+        LocalImageBundleEvidenceStage::CandidatePreparationOnly
+    );
+    assert_eq!(
+        linux.bundle_evidence_contract(),
+        "local-image-worker/diffusers_bundle_candidate.py"
+    );
 }
 
 #[test]

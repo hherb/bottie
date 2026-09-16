@@ -4,7 +4,9 @@ Last reviewed: 2026-09-16
 
 This document freezes the first native Linux NVIDIA execution evidence for Bottie's private image-worker protocol. It
 is a feasibility proof, not a Linux product-availability claim. Bottie still has no accepted redistributable Linux
-worker bundle, Linux hardware probe, app-owned runtime import, or Linux availability profile.
+worker bundle, Linux hardware probe, app-owned runtime import, or Linux availability profile. The separate
+[`local-image-linux-worker-bundle.md`](local-image-linux-worker-bundle.md) contract can prepare deterministic review
+material for exact produced bytes, but no such candidate has been accepted.
 
 ## Exact target
 
@@ -99,6 +101,7 @@ shutdown checks itself.
 Do not convert this evidence directly into a support claim. The native package catalog now represents this exact
 Diffusers worker, runtime, model revision, Linux ARM64 target, DGX Spark evidence profile, and this evidence document as
 a closed candidate. It deliberately has no accepted product profile or importable executable, so selection fails
-closed before worker import, readiness, or execution. A later slice must review a distributable worker package and
-license boundary before considering Linux hardware probing or product availability; it must not infer either from this
-Docker proof.
+closed before worker import, readiness, or execution. The catalog also marks its deterministic bundle inspector as
+candidate preparation only. A later slice must produce and independently review the exact executable, complete bundle
+inventory, third-party licence evidence, and distribution boundary before considering Linux hardware probing or
+product availability; it must not infer either from this Docker proof or from a structurally valid candidate record.
