@@ -57,6 +57,48 @@ derive the exact Python and native dependency closure of the worker, then requir
 reviewed expressions for every included component. It must not discard a component merely to hide a blocker. No bundle
 candidate was assembled from this review.
 
+## Runtime closure gate
+
+`local-image-worker/prove_diffusers_worker.py` can opt into a proof-only audit trace without changing the worker
+protocol. The trace records imported Python module files and dynamically loaded libraries, then snapshots the worker
+process maps after deterministic cold and warm generation. It writes the trace context only after generation,
+cancellation, and clean shutdown pass. The proof container remains read-only, non-root, capability-free, and offline;
+model weights, generated output, temporary files, pseudo-filesystems, and the tracing helper are excluded from closure
+bytes.
+
+`local-image-worker/diffusers_runtime_closure_host.py` resolves the requested derived image through the host Docker
+daemon and runs the classifier by exact image ID read-only, non-root, capability-free, with networking disabled. It
+requests NVIDIA runtime injection so the classifier can measure the proof-time host-driver files named by the
+process-map evidence. Those files are accepted only when their declared ELF SONAME is on the closed driver boundary.
+The classifier measures all other observed regular files, maps them to Python or Debian ownership, recursively closes
+active `Requires-Dist` dependencies without optional extras, and resolves each ELF `NEEDED` name. The output retains
+byte hashes, sizes, owners, and component identities but no filesystem paths.
+
+Run the gate on the same Docker host as the traced proof:
+
+```sh
+python3 local-image-worker/diffusers_runtime_closure_host.py \
+  sha256:cded2049f9dbff513406052a191af2588476056d795468c4aacb7814aca5666c \
+  /absolute/path/outside-the-repository/runtime-trace \
+  /absolute/path/outside-the-repository/linux-runtime-closure-review.json
+```
+
+The named DGX Spark trace binds Python audit bytes at
+`6543aa3fb8b87cf678c511358fab42d5f397c61c4a5b3b431ed5fabed5af1b87` and process-map bytes at
+`f6bd927a91e67af3ba896c9144f93fd04e8cfef8c45a4ea97c72c2e0053d7c40`. Two independent GPU-injected collections
+were byte-identical. The host-bound record is 27,889 bytes with SHA-256
+`fdb7bcf079976d2d456bf7c70b5a174609313d9eb9678d395a6c5ae3d3347820`.
+[`local-image-linux-runtime-closure-review.json`](local-image-linux-runtime-closure-review.json) retains the bounded,
+path-free summary.
+
+The closure contains 340 files totalling 6,133,717,252 bytes, including 295 ELF files and 78 package components: 51
+Python distributions and 27 Debian packages. It observes `libcuda.so.1`, `libnvidia-ml.so.1`, and
+`libnvidia-ptxjitcompiler.so.1` on the explicit host-driver boundary. It remains deliberately ineligible for assembly:
+three ELF SONAMEs are ambiguous, fourteen file hashes are unowned, two components lack authoritative licence bytes,
+eleven declare no usable licence, and all 78 expressions still need review. The gate therefore exits with status 3,
+with `closureComplete`, `licenseReviewed`, `assemblyEligible`, and `distributionReviewed` all false. It does not copy,
+assemble, import, or execute a product bundle.
+
 ## Closed bundle measurement
 
 The inspector accepts one already-produced bundle directory, an executable path relative to that directory, a
