@@ -222,7 +222,9 @@ def collect_runtime_closure(trace_root: Path, license_review_manifest: object | 
     try:
         python_owners = python_file_owners()
         native_owners = native_file_owners(environment["nativeComponents"])
-        unmanaged_components, unmanaged_owners = verified_native_components()
+        unmanaged_components, unmanaged_owners = verified_native_components(
+            license_source_components=components
+        )
     except (RuntimeOwnershipError, RuntimeNativeEvidenceError) as error:
         raise ClosureEvidenceError(str(error)) from error
     if components.keys() & unmanaged_components.keys():

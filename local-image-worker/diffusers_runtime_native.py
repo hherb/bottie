@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import re
 import stat
+import tarfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,10 +19,38 @@ NVPL_BLAS_MARKER = Path("/usr/local/include/nvpl_blas_version.h")
 NVPL_LAPACK_MARKER = Path("/usr/local/include/nvpl_lapack_version.h")
 NEEDED_PATTERN = re.compile(r"\(NEEDED\).*\[([^\]]+)\]")
 SONAME_PATTERN = re.compile(r"\(SONAME\).*\[([^\]]+)\]")
+MAX_MARKER_BYTES = 1024 * 1024
+MAX_LICENSE_ARCHIVE_BYTES = 64 * 1024 * 1024
+MAX_LICENSE_SOURCE_BYTES = 1024 * 1024
 
 
 class RuntimeNativeEvidenceError(RuntimeError):
     """Stable failure raised when unmanaged native provenance is absent or changed."""
+
+
+@dataclass(frozen=True)
+class NativePackageLicenseSourceSpec:
+    """Bind one native identity to exact package-owned licence evidence."""
+
+    component_identity: str
+    source_relative_name: str
+    evidence_relative_name: str
+    byte_size: int
+    sha256: str
+
+
+@dataclass(frozen=True)
+class NativeArchiveLicenseSourceSpec:
+    """Bind one native identity to an exact licence member in an in-image source archive."""
+
+    archive: Path
+    archive_relative_name: str
+    archive_byte_size: int
+    archive_sha256: str
+    member_name: str
+    evidence_relative_name: str
+    byte_size: int
+    sha256: str
 
 
 @dataclass(frozen=True)
@@ -34,6 +64,7 @@ class NativeComponentSpec:
     marker_sha256: str
     required_marker_fragments: tuple[str, ...]
     owned_files: tuple[Path, ...]
+    license_source: NativePackageLicenseSourceSpec | NativeArchiveLicenseSourceSpec | None = None
 
 
 NATIVE_COMPONENT_SPECS = (
@@ -51,6 +82,16 @@ NATIVE_COMPONENT_SPECS = (
             Path("/opt/hpcx/ompi/lib/libmpi.so.40.30.8"),
             Path("/opt/hpcx/ompi/lib/libopen-pal.so.40.30.4"),
             Path("/opt/hpcx/ompi/lib/libopen-rte.so.40.30.4"),
+        ),
+        license_source=NativeArchiveLicenseSourceSpec(
+            archive=Path("/opt/hpcx/sources/openmpi-gitclone.tar.gz"),
+            archive_relative_name="hpcx/sources/openmpi-gitclone.tar.gz",
+            archive_byte_size=18_805_044,
+            archive_sha256="0949034b4c0ce24410dbd2c5f5e2d4f98485b9855a1ccb71d885b51050617e52",
+            member_name="openmpi-gitclone/LICENSE",
+            evidence_relative_name="hpcx/sources/openmpi-gitclone/LICENSE",
+            byte_size=5_487,
+            sha256="2db71de9577ebfe15c186605844c470dcecd3717f4ef0118c9440d801c0f58f8",
         ),
     ),
     NativeComponentSpec(
@@ -82,6 +123,16 @@ NATIVE_COMPONENT_SPECS = (
             Path("/opt/hpcx/ucx/lib/libuct.so.0.0.0"),
             Path("/opt/hpcx/ucx/lib/ucx/libucs_fuse.so.0.0.0"),
         ),
+        license_source=NativeArchiveLicenseSourceSpec(
+            archive=Path("/opt/hpcx/sources/ucx-1.20.0.tar.gz"),
+            archive_relative_name="hpcx/sources/ucx-1.20.0.tar.gz",
+            archive_byte_size=3_555_017,
+            archive_sha256="077bb702e0a8cc03c2f27fce1c84e6bac7482699088c83f56bdada460e1e54d2",
+            member_name="ucx-1.20.0/LICENSE",
+            evidence_relative_name="hpcx/sources/ucx-1.20.0/LICENSE",
+            byte_size=2_291,
+            sha256="ebb5c7fa3d2e20fbee5431a975c7196779647490324dc2346cc561f0f044048d",
+        ),
     ),
     NativeComponentSpec(
         name="nvidia-cusparselt",
@@ -96,6 +147,13 @@ NATIVE_COMPONENT_SPECS = (
         ),
         owned_files=(
             Path("/usr/local/cuda-13.0/targets/sbsa-linux/lib/libcusparseLt.so.0.8.1.1"),
+        ),
+        license_source=NativePackageLicenseSourceSpec(
+            component_identity="deb:libcusparselt0-cuda-13@0.8.1.1-1",
+            source_relative_name="copyright",
+            evidence_relative_name="deb/libcusparselt0-cuda-13/copyright",
+            byte_size=17_948,
+            sha256="e8d158885a681b95ec7a6fc06dd8d4a52989f374cb1380c8a4c8fb27fd3d5d5e",
         ),
     ),
     NativeComponentSpec(
@@ -135,8 +193,9 @@ NATIVE_COMPONENT_SPECS = (
 
 def verified_native_components(
     specs: tuple[NativeComponentSpec, ...] = NATIVE_COMPONENT_SPECS,
+    license_source_components: dict[str, dict] | None = None,
 ) -> tuple[dict[str, dict], dict[Path, set[str]]]:
-    """Return exact component evidence and file owners after verifying every marker."""
+    """Return exact component evidence and file owners after verifying markers and licence sources."""
     components = {}
     owners = {}
     for spec in specs:
@@ -155,17 +214,24 @@ def verified_native_components(
         identity = f"native:{spec.name}@{spec.version}"
         if identity in components:
             raise RuntimeNativeEvidenceError("native component identity is duplicated")
+        license_files, license_source = _verified_license_source(
+            spec.license_source,
+            license_source_components,
+        )
+        provenance = {
+            "kind": "image-version-marker",
+            "byteSize": len(marker_bytes),
+            "sha256": marker_sha256,
+        }
+        if license_source is not None:
+            provenance["licenseSource"] = license_source
         components[identity] = {
             "ecosystem": "native",
             "name": spec.name,
             "version": spec.version,
             "licenseExpression": "undeclared",
-            "licenseFiles": [],
-            "provenance": {
-                "kind": "image-version-marker",
-                "byteSize": len(marker_bytes),
-                "sha256": marker_sha256,
-            },
+            "licenseFiles": license_files,
+            "provenance": provenance,
         }
         for path in spec.owned_files:
             try:
@@ -176,6 +242,87 @@ def verified_native_components(
                 raise RuntimeNativeEvidenceError("native owned file is invalid or ambiguous")
             owners[resolved] = {identity}
     return components, owners
+
+
+def _verified_license_source(
+    spec: NativePackageLicenseSourceSpec | NativeArchiveLicenseSourceSpec | None,
+    source_components: dict[str, dict] | None,
+) -> tuple[list[dict], dict | None]:
+    """Return one exact source measurement without inheriting a licence expression."""
+    if spec is None:
+        return [], None
+    if isinstance(spec, NativeArchiveLicenseSourceSpec):
+        return _verified_archive_license_source(spec)
+    source = (source_components or {}).get(spec.component_identity)
+    expected = {
+        "relativeName": spec.source_relative_name,
+        "byteSize": spec.byte_size,
+        "sha256": spec.sha256,
+    }
+    if (
+        not isinstance(source, dict)
+        or not isinstance(source.get("licenseFiles"), list)
+        or expected not in source["licenseFiles"]
+    ):
+        raise RuntimeNativeEvidenceError("native licence source evidence has drifted")
+    evidence = {
+        "relativeName": spec.evidence_relative_name,
+        "byteSize": spec.byte_size,
+        "sha256": spec.sha256,
+    }
+    provenance = {
+        "kind": "environment-package-license",
+        "componentIdentity": spec.component_identity,
+        **expected,
+    }
+    return [evidence], provenance
+
+
+def _verified_archive_license_source(
+    spec: NativeArchiveLicenseSourceSpec,
+) -> tuple[list[dict], dict]:
+    """Read one exact regular licence member without extracting archive paths."""
+    archive_bytes = _stable_file_bytes(
+        spec.archive,
+        MAX_LICENSE_ARCHIVE_BYTES,
+        "native licence source archive",
+    )
+    if (
+        len(archive_bytes) != spec.archive_byte_size
+        or hashlib.sha256(archive_bytes).hexdigest() != spec.archive_sha256
+    ):
+        raise RuntimeNativeEvidenceError("native licence source archive has drifted")
+    try:
+        with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:*") as archive:
+            matches = [member for member in archive.getmembers() if member.name == spec.member_name]
+            if len(matches) != 1 or not matches[0].isfile() or matches[0].size > MAX_LICENSE_SOURCE_BYTES:
+                raise RuntimeNativeEvidenceError("native licence source archive member is invalid")
+            source = archive.extractfile(matches[0])
+            if source is None:
+                raise RuntimeNativeEvidenceError("native licence source archive member is invalid")
+            contents = source.read(MAX_LICENSE_SOURCE_BYTES + 1)
+    except (OSError, tarfile.TarError) as error:
+        raise RuntimeNativeEvidenceError("native licence source archive is invalid") from error
+    if (
+        len(contents) != spec.byte_size
+        or hashlib.sha256(contents).hexdigest() != spec.sha256
+    ):
+        raise RuntimeNativeEvidenceError("native licence source archive member has drifted")
+    evidence = {
+        "relativeName": spec.evidence_relative_name,
+        "byteSize": spec.byte_size,
+        "sha256": spec.sha256,
+    }
+    provenance = {
+        "kind": "image-source-archive-license",
+        "archiveName": spec.archive_relative_name,
+        "archiveByteSize": spec.archive_byte_size,
+        "archiveSha256": spec.archive_sha256,
+        "memberName": spec.member_name,
+        "byteSize": spec.byte_size,
+        "sha256": spec.sha256,
+    }
+    return [evidence], provenance
 
 
 def ambiguous_elf_dependency_blockers(
@@ -235,14 +382,21 @@ def validated_soname(value: object) -> str:
 
 def _stable_marker_bytes(path: Path) -> bytes:
     """Read one regular version marker while detecting replacement or mutation."""
+    return _stable_file_bytes(path, MAX_MARKER_BYTES, "native version marker")
+
+
+def _stable_file_bytes(path: Path, maximum_bytes: int, label: str) -> bytes:
+    """Read one bounded regular file while detecting replacement or mutation."""
     try:
         before = path.stat()
+        if not stat.S_ISREG(before.st_mode) or before.st_size > maximum_bytes:
+            raise RuntimeNativeEvidenceError(f"{label} is invalid")
         contents = path.read_bytes()
         after = path.stat()
     except OSError as error:
-        raise RuntimeNativeEvidenceError("native version marker is unavailable") from error
+        raise RuntimeNativeEvidenceError(f"{label} is unavailable") from error
     stable = (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
     observed = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
-    if stable != observed or not stat.S_ISREG(before.st_mode):
-        raise RuntimeNativeEvidenceError("native version marker is unstable")
+    if stable != observed or len(contents) > maximum_bytes:
+        raise RuntimeNativeEvidenceError(f"{label} is unstable")
     return contents

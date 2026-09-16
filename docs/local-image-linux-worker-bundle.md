@@ -1,6 +1,6 @@
 # Linux NVIDIA worker-bundle candidate evidence
 
-Last reviewed: 2026-09-16
+Last reviewed: 2026-09-17
 
 This document defines how to prepare review material for one Linux ARM64 Diffusers worker bundle. It does not accept
 any produced bytes for Bottie, approve NVIDIA or other third-party redistribution, or make Linux image generation
@@ -88,8 +88,9 @@ python3 local-image-worker/diffusers_runtime_closure_host.py \
 The named DGX Spark trace binds Python audit bytes at
 `6543aa3fb8b87cf678c511358fab42d5f397c61c4a5b3b431ed5fabed5af1b87` and process-map bytes at
 `f6bd927a91e67af3ba896c9144f93fd04e8cfef8c45a4ea97c72c2e0053d7c40`. Two independent GPU-injected collections
-were byte-identical. The host-bound record is 30,671 bytes with SHA-256
-`8a3d8cdf7c4d35f70740bc9391c3747a39b94a3898dab21f3d339f4fc55e6024`.
+were byte-identical. After binding three exact in-image licence sources, two fresh collections were also byte-identical.
+The current host-bound record is 31,685 bytes with SHA-256
+`fc8ed1d465640bd1c5c13dda5c6b5850207d0baa638f070e31c19203c924f7c9`.
 [`local-image-linux-runtime-closure-review.json`](local-image-linux-runtime-closure-review.json) retains the bounded,
 path-free summary.
 
@@ -99,11 +100,11 @@ distributions, 27 Debian packages, and six marker-backed native components. It o
 unowned file hashes now have exact component identities, and the three unrequested extension-module basename
 collisions no longer masquerade as linker conflicts. `closureComplete` is true.
 
-The record remains deliberately ineligible for assembly: eight components lack authoritative licence bytes, seventeen
-declare no usable licence, and all 84 expressions still need independent review. A bounded read-only search of the
-exact image found package-owned NVIDIA SDK licence bytes for the cuSPARSELt Debian package, but no matching in-image
-licence files for the HPC-X Open MPI/UCC/UCX or NVPL BLAS/LAPACK components. That discovery is not a licence review or
-redistribution approval. The gate exits with status 3, with `licenseReviewed`, `assemblyEligible`, and
+The record remains deliberately ineligible for assembly: five components lack authoritative licence bytes, seventeen
+declare no usable licence, and all 84 expressions still need independent review. The exact image binds cuSPARSELt to
+the measured `libcusparselt0-cuda-13@0.8.1.1-1` Debian copyright record. It also binds Open MPI and UCX to exact licence
+members in the source archives shipped inside the same HPC-X installation. These measurements are not a licence review
+or redistribution approval. The gate exits with status 3, with `licenseReviewed`, `assemblyEligible`, and
 `distributionReviewed` false. It does not copy, assemble, import, or execute a product bundle.
 
 The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
@@ -157,10 +158,11 @@ checked before the contents are discarded from the path-free closure output:
 }
 ```
 
-On 2026-09-16, a fresh offline read-only inspection reconfirmed that the installed `sentencepiece` and `tokenizers`
-wheels contain no licence/notice document. A bounded exact-image search also found no matching HPC-X Open MPI/UCC/UCX
-or NVPL BLAS/LAPACK document; the only HPC-X match was an unrelated SHARP licence. No review manifest was therefore
-created, no expression was inferred, and all 109 blockers remain.
+On 2026-09-17, a fresh offline read-only inspection reconfirmed that the installed `sentencepiece` and `tokenizers`
+wheels contain no licence/notice document. The exact HPC-X installation includes Open MPI and UCX source archives with
+measured top-level licence members, but no UCC source archive or matching licence document. No matching NVPL BLAS or
+LAPACK document was found. No review manifest was created, no expression was inferred, and 106 blockers remain: five
+missing byte records, seventeen undeclared licences, and 84 unreviewed expressions.
 
 ## Closed bundle measurement
 
