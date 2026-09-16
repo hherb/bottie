@@ -209,6 +209,46 @@ class DiffusersRuntimeClosureTests(unittest.TestCase):
         self.assertFalse(review["assemblyEligible"])
         self.assertFalse(review["distributionReviewed"])
 
+    def test_reviewed_component_uses_exact_manifest_bytes_and_clears_licence_blockers(self) -> None:
+        """Validated source and review bytes replace missing or undeclared package metadata."""
+        review = build_closure_review(
+            [
+                {
+                    "sha256": "b" * 64,
+                    "byteSize": 10,
+                    "owner": "python:example@1",
+                    "elf": False,
+                }
+            ],
+            {
+                "python:example@1": {
+                    "licenseExpression": "undeclared",
+                    "licenseFiles": [],
+                }
+            },
+            set(),
+            set(),
+            set(),
+            license_review_components={
+                "python:example@1": {
+                    "identity": "python:example@1",
+                    "reviewedLicenseExpression": "MIT",
+                    "licenseFiles": [
+                        {"relativeName": "example/LICENSE", "byteSize": 12, "sha256": SHA256}
+                    ],
+                    "reviewEvidence": {"byteSize": 42, "sha256": "b" * 64},
+                }
+            },
+        )
+
+        component = review["closure"]["components"][0]
+        self.assertEqual(component["reviewedLicenseExpression"], "MIT")
+        self.assertEqual(component["licenseFileCount"], 1)
+        self.assertEqual(component["reviewEvidence"]["sha256"], "b" * 64)
+        self.assertEqual(review["blockers"], [])
+        self.assertTrue(review["licenseReviewed"])
+        self.assertTrue(review["assemblyEligible"])
+
     def test_review_rejects_components_absent_from_the_complete_environment(self) -> None:
         """A claimed package owner must exist in the separately collected environment record."""
         files = [
@@ -289,6 +329,28 @@ class DiffusersRuntimeClosureTests(unittest.TestCase):
         self.assertEqual(command[command.index("--security-opt") + 1], "no-new-privileges")
         expected_user = f"{runtime_closure_host.os.getuid()}:{runtime_closure_host.os.getgid()}"
         self.assertEqual(command[command.index("--user") + 1], expected_user)
+
+    def test_host_collector_mounts_an_explicit_review_read_only(self) -> None:
+        """The optional review enters the exact image as a read-only file, never caller environment text."""
+        completed = SimpleNamespace(returncode=0, stdout='{"closure": {}}', stderr="")
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(runtime_closure_host, "_inspect_derived_image", return_value="sha256:id"),
+            patch.object(runtime_closure_host.subprocess, "run", return_value=completed) as run,
+        ):
+            review = Path(directory) / "review.json"
+            review.write_text("{}", encoding="utf-8")
+            runtime_closure_host.collect_verified_runtime_closure(
+                "proof-image",
+                Path(directory),
+                review,
+            )
+
+        command = run.call_args.args[0]
+        review_mount = next(value for value in command if "bottie-license-review.json" in value)
+        self.assertIn(str(review.resolve()), review_mount)
+        self.assertIn("readonly", review_mount)
+        self.assertEqual(command[command.index("--license-review") + 1], "/opt/bottie-license-review.json")
 
 
 if __name__ == "__main__":

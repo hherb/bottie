@@ -106,6 +106,62 @@ licence files for the HPC-X Open MPI/UCC/UCX or NVPL BLAS/LAPACK components. Tha
 redistribution approval. The gate exits with status 3, with `licenseReviewed`, `assemblyEligible`, and
 `distributionReviewed` false. It does not copy, assemble, import, or execute a product bundle.
 
+The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
+image, both exact proof-trace digests, and the complete sorted set of closure components. Every component must provide a
+non-placeholder reviewed expression, at least one licence or notice file, and a separate review record. Both the source
+files and review record are embedded as Base64 bytes with independently checked byte counts and SHA-256 hashes. The
+collector emits only their path-free measurements; malformed Base64, byte drift, missing/extra identities, duplicate or
+unsorted records, absolute/traversing names, partial coverage, and image or trace drift fail closed.
+
+Run the review only after authoritative source bytes and an independent record exist for all 84 exact components:
+
+```sh
+python3 local-image-worker/diffusers_runtime_closure_host.py \
+  sha256:cded2049f9dbff513406052a191af2588476056d795468c4aacb7814aca5666c \
+  /absolute/path/outside-the-repository/runtime-trace \
+  /absolute/path/outside-the-repository/linux-runtime-closure-review.json \
+  --license-review /absolute/path/outside-the-repository/linux-runtime-license-review.json
+```
+
+The closed schema is version 1. `components` must be complete and sorted by UTF-8 identity; `licenseFiles` must be
+non-empty and sorted by portable relative name. `contentsBase64` carries the exact bytes whose adjacent measurement is
+checked before the contents are discarded from the path-free closure output:
+
+```json
+{
+  "schemaVersion": 1,
+  "derivedImageDigest": "sha256:<64 lowercase hex characters>",
+  "trace": {
+    "pythonTraceSha256": "<64 lowercase hex characters>",
+    "processMapsSha256": "<64 lowercase hex characters>"
+  },
+  "components": [
+    {
+      "identity": "python:exact-name@exact-version",
+      "reviewedLicenseExpression": "reviewed SPDX expression or LicenseRef",
+      "licenseFiles": [
+        {
+          "relativeName": "component/LICENSE",
+          "byteSize": 123,
+          "sha256": "<64 lowercase hex characters>",
+          "contentsBase64": "<Base64 of the exact 123 bytes>"
+        }
+      ],
+      "reviewEvidence": {
+        "byteSize": 456,
+        "sha256": "<64 lowercase hex characters>",
+        "contentsBase64": "<Base64 of the exact 456-byte independent review record>"
+      }
+    }
+  ]
+}
+```
+
+On 2026-09-16, a fresh offline read-only inspection reconfirmed that the installed `sentencepiece` and `tokenizers`
+wheels contain no licence/notice document. A bounded exact-image search also found no matching HPC-X Open MPI/UCC/UCX
+or NVPL BLAS/LAPACK document; the only HPC-X match was an unrelated SHARP licence. No review manifest was therefore
+created, no expression was inferred, and all 109 blockers remain.
+
 ## Closed bundle measurement
 
 The inspector accepts one already-produced bundle directory, an executable path relative to that directory, a
