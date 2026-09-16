@@ -12,10 +12,12 @@ pub(crate) const APPLE_MLX_WORKER_EXECUTABLE: &str = "bottie-local-image-mlx-wor
 const APPLE_MLX_WORKER_VERSION: &str = "mlx-gen-0.18.2-proof-1";
 const APPLE_MLX_RUNTIME_ID: &str = "mlx-gen@fca64a283737c68b67a7bfd88d93f7aa9101a95c";
 const APPLE_EVIDENCE_DOCUMENT: &str = "docs/local-image-model-package.md";
+const APPLE_BUNDLE_EVIDENCE_CONTRACT: &str = "src-tauri/src/local_image_worker/worker_bundle.rs";
 const LINUX_DIFFUSERS_WORKER_VERSION: &str = "diffusers-0.40.0-ngc-25.11-proof-1";
 const LINUX_DIFFUSERS_RUNTIME_ID: &str = "diffusers@0.40.0+ngc-25.11-arm64";
 const LINUX_DIFFUSERS_MODEL_REVISION: &str = "25468b98e3276ca6700de15c6628e51b7de54a26";
 const LINUX_EVIDENCE_DOCUMENT: &str = "docs/local-image-linux-nvidia-proof.md";
+const LINUX_BUNDLE_EVIDENCE_CONTRACT: &str = "local-image-worker/diffusers_bundle_candidate.py";
 
 /// Runtime family responsible for loading and generating with one local image package.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,6 +53,15 @@ pub(crate) enum LocalImageTargetArchitecture {
     Aarch64,
 }
 
+/// Review stage reached by one runtime candidate's exact worker-bundle evidence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LocalImageBundleEvidenceStage {
+    /// Exact bytes are accepted for the existing explicit app-owned import path.
+    AcceptedForProductImport,
+    /// A deterministic candidate record can be prepared, but no produced bytes are accepted.
+    CandidatePreparationOnly,
+}
+
 /// One immutable backend, worker, model, and evidence-document binding.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct LocalImageRuntimeCandidate {
@@ -64,6 +75,8 @@ pub(crate) struct LocalImageRuntimeCandidate {
     target_operating_system: LocalImageTargetOperatingSystem,
     target_architecture: LocalImageTargetArchitecture,
     evidence_document: &'static str,
+    bundle_evidence_stage: LocalImageBundleEvidenceStage,
+    bundle_evidence_contract: &'static str,
     product_executable_name: Option<&'static str>,
 }
 
@@ -118,6 +131,16 @@ impl LocalImageRuntimeCandidate {
         self.evidence_document
     }
 
+    /// Returns the review stage reached by this candidate's exact bundle bytes.
+    pub(crate) const fn bundle_evidence_stage(self) -> LocalImageBundleEvidenceStage {
+        self.bundle_evidence_stage
+    }
+
+    /// Returns the repository-relative contract used to produce or re-verify bundle evidence.
+    pub(crate) const fn bundle_evidence_contract(self) -> &'static str {
+        self.bundle_evidence_contract
+    }
+
     /// Returns the importable product executable basename, absent for proof-only runtimes.
     pub(crate) const fn product_executable_name(self) -> Option<&'static str> {
         self.product_executable_name
@@ -143,6 +166,8 @@ const LOCAL_IMAGE_PACKAGE_CATALOG: [LocalImageRuntimeCandidate; 2] = [
         target_operating_system: LocalImageTargetOperatingSystem::MacOs,
         target_architecture: LocalImageTargetArchitecture::Aarch64,
         evidence_document: APPLE_EVIDENCE_DOCUMENT,
+        bundle_evidence_stage: LocalImageBundleEvidenceStage::AcceptedForProductImport,
+        bundle_evidence_contract: APPLE_BUNDLE_EVIDENCE_CONTRACT,
         product_executable_name: Some(APPLE_MLX_WORKER_EXECUTABLE),
     },
     LocalImageRuntimeCandidate {
@@ -156,6 +181,8 @@ const LOCAL_IMAGE_PACKAGE_CATALOG: [LocalImageRuntimeCandidate; 2] = [
         target_operating_system: LocalImageTargetOperatingSystem::Linux,
         target_architecture: LocalImageTargetArchitecture::Aarch64,
         evidence_document: LINUX_EVIDENCE_DOCUMENT,
+        bundle_evidence_stage: LocalImageBundleEvidenceStage::CandidatePreparationOnly,
+        bundle_evidence_contract: LINUX_BUNDLE_EVIDENCE_CONTRACT,
         product_executable_name: None,
     },
 ];
