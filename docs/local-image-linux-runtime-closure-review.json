@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "baseImageDigest": "sha256:417cbf33f87b5378849df37983552cd1f8bc8b62fe1ceabe004de816a55dff21",
+  "derivedImageDigest": "sha256:cded2049f9dbff513406052a191af2588476056d795468c4aacb7814aca5666c",
+  "workerVersion": "diffusers-0.40.0-ngc-25.11-proof-1",
+  "runtimeId": "diffusers@0.40.0+ngc-25.11-arm64",
+  "modelId": "Qwen/Qwen-Image-2512",
+  "modelRevision": "25468b98e3276ca6700de15c6628e51b7de54a26",
+  "target": {
+    "operatingSystem": "linux",
+    "architecture": "aarch64"
+  },
+  "pythonVersion": "3.12.3",
+  "trace": {
+    "pythonTraceSha256": "6543aa3fb8b87cf678c511358fab42d5f397c61c4a5b3b431ed5fabed5af1b87",
+    "processMapsSha256": "f6bd927a91e67af3ba896c9144f93fd04e8cfef8c45a4ea97c72c2e0053d7c40"
+  },
+  "completeEnvironment": {
+    "pythonComponentCount": 248,
+    "nativeComponentCount": 434
+  },
+  "closure": {
+    "fileCount": 340,
+    "byteSize": 6133717252,
+    "elfFileCount": 295,
+    "componentCount": 78,
+    "pythonComponentCount": 51,
+    "nativeComponentCount": 27
+  },
+  "generatedRecord": {
+    "byteSize": 27889,
+    "sha256": "fdb7bcf079976d2d456bf7c70b5a174609313d9eb9678d395a6c5ae3d3347820"
+  },
+  "hostDriverBoundary": {
+    "allowedSonames": [
+      "libcuda.so.1",
+      "libnvidia-allocator.so.1",
+      "libnvidia-gpucomp.so.1",
+      "libnvidia-ml.so.1",
+      "libnvidia-nvvm.so.4",
+      "libnvidia-ptxjitcompiler.so.1"
+    ],
+    "observedSonames": [
+      "libcuda.so.1",
+      "libnvidia-ml.so.1",
+      "libnvidia-ptxjitcompiler.so.1"
+    ]
+  },
+  "blockers": {
+    "totalCount": 108,
+    "counts": {
+      "ambiguousElfSoname": 3,
+      "missingLicenseBytes": 2,
+      "undeclaredLicense": 11,
+      "unownedFile": 14,
+      "unreviewedLicenseExpression": 78
+    },
+    "ambiguousElfSonames": [
+      "_C.cpython-312-aarch64-linux-gnu.so",
+      "_cyutility.cpython-312-aarch64-linux-gnu.so",
+      "lib.cpython-312-aarch64-linux-gnu.so"
+    ]
+  },
+  "closureComplete": false,
+  "licenseReviewed": false,
+  "assemblyEligible": false,
+  "distributionReviewed": false
+}

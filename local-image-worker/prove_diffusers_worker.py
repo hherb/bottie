@@ -24,6 +24,7 @@ from PIL import Image
 from diffusers_worker import DIFFUSERS_WORKER_IDENTITY, MODEL_ID, MODEL_REVISION
 
 FRAME_LIMIT = 1024 * 1024
+TRACE_FILE_LIMIT = 16 * 1024 * 1024
 PROOF_PROMPT = "A violet glass robot tending a tiny greenhouse, detailed botanical illustration"
 PROOF_DIMENSIONS = (512, 512)
 COMPLETE_SEED = 42
@@ -33,6 +34,14 @@ MEMORY_SAMPLE_SECONDS = 0.1
 HANDSHAKE_TIMEOUT_SECONDS = 30
 EVENT_TIMEOUT_SECONDS = 30 * 60
 CONTAINER_MEMORY_PATTERN = re.compile(r"^(\d+),\s*(\d+)\s*MiB$")
+TRACE_WRAPPER = (
+    "import sys; "
+    "sys.path.insert(0, '/trace-source'); "
+    "import diffusers_runtime_trace; "
+    "sys.path.pop(0); "
+    "import runpy; "
+    "runpy.run_path('/opt/bottie/diffusers_worker.py', run_name='__main__')"
+)
 
 
 class MemorySampler:
@@ -224,8 +233,50 @@ def container_process_id(name: str) -> int:
     return process_id
 
 
-def run_proof(image: str, model: Path, output: Path) -> dict:
+def capture_process_maps(name: str, destination: Path) -> None:
+    """Persist one bounded native-library snapshot while the proved worker is live."""
+    result = subprocess.run(
+        ["docker", "exec", name, "cat", "/proc/1/maps"],
+        check=False,
+        capture_output=True,
+    )
+    if result.returncode != 0 or not result.stdout or len(result.stdout) > TRACE_FILE_LIMIT:
+        raise RuntimeError("worker process maps could not be captured")
+    descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "wb") as stream:
+        stream.write(result.stdout)
+
+
+def write_trace_context(image: str, trace_output: Path) -> None:
+    """Bind exact proof identities and trace digests after clean worker shutdown."""
+    python_trace = trace_output / "python-paths.jsonl"
+    process_maps = trace_output / "process-maps.txt"
+    context = {
+        "imageId": image,
+        "workerVersion": DIFFUSERS_WORKER_IDENTITY.worker_version,
+        "runtimeId": DIFFUSERS_WORKER_IDENTITY.runtime_id,
+        "modelId": MODEL_ID,
+        "modelRevision": MODEL_REVISION,
+        "pythonTraceSha256": hashlib.sha256(python_trace.read_bytes()).hexdigest(),
+        "processMapsSha256": hashlib.sha256(process_maps.read_bytes()).hexdigest(),
+    }
+    destination = trace_output / "context.json"
+    descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+        json.dump(context, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+
+
+def run_proof(
+    image: str,
+    model: Path,
+    output: Path,
+    trace_source: Path | None = None,
+    trace_output: Path | None = None,
+) -> dict:
     """Exercise load, cold/warm determinism, and active-step cancellation."""
+    if (trace_source is None) != (trace_output is None):
+        raise ValueError("runtime trace source and output must be supplied together")
     prove_network_denial(image)
     name = f"bottie-image-proof-{uuid.uuid4()}"
     command = [
@@ -234,8 +285,26 @@ def run_proof(image: str, model: Path, output: Path) -> dict:
         "--user", f"{os.getuid()}:{os.getgid()}", "--tmpfs", "/tmp:rw,noexec,nosuid,size=1g",
         "-e", "HOME=/tmp", "-e", "CUDA_CACHE_PATH=/tmp/cuda-cache",
         "-e", "PYTHONDONTWRITEBYTECODE=1",
-        "-v", f"{model}:/model:ro", "-v", f"{output}:/output:rw", image, "/output",
+        "-v", f"{model}:/model:ro", "-v", f"{output}:/output:rw",
     ]
+    if trace_source is not None and trace_output is not None:
+        command.extend(
+            [
+                "-e",
+                "BOTTIE_RUNTIME_TRACE_FILE=/runtime-trace/python-paths.jsonl",
+                "-v",
+                f"{trace_source}:/trace-source:ro",
+                "-v",
+                f"{trace_output}:/runtime-trace:rw",
+                "--entrypoint",
+                "python",
+            ]
+        )
+    command.append(image)
+    if trace_source is not None:
+        command.extend(["-c", TRACE_WRAPPER, "/output"])
+    else:
+        command.append("/output")
     host_available_start = host_available_bytes()
     stderr_file = tempfile.TemporaryFile()
     try:
@@ -284,6 +353,8 @@ def run_proof(image: str, model: Path, output: Path) -> dict:
             shutil.move(generated, output / f"{label}.png")
         if hashes[0] != hashes[1]:
             raise RuntimeError("same-seed cold and warm pixels differ")
+        if trace_output is not None:
+            capture_process_maps(name, trace_output / "process-maps.txt")
 
         write_frame(process.stdin, generation_command("proof-cancel", CANCEL_SEED))
         cancelled, cancellation_started = wait_for_result(process, "proof-cancel", cancel_after_step=2)
@@ -300,6 +371,8 @@ def run_proof(image: str, model: Path, output: Path) -> dict:
         stderr = stderr_file.read(FRAME_LIMIT + 1)
         if len(stderr) > FRAME_LIMIT:
             raise RuntimeError("worker stderr exceeded the proof bound")
+        if trace_output is not None:
+            write_trace_context(image, trace_output)
         return {
             "imageId": image,
             "modelId": MODEL_ID,
@@ -349,13 +422,30 @@ def main() -> None:
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--measurements", type=Path, required=True)
+    parser.add_argument("--runtime-trace-source", type=Path)
+    parser.add_argument("--runtime-trace-output", type=Path)
     arguments = parser.parse_args()
-    for path in (arguments.model, arguments.output, arguments.measurements.parent):
+    optional_paths = [
+        path
+        for path in (arguments.runtime_trace_source, arguments.runtime_trace_output)
+        if path is not None
+    ]
+    for path in (arguments.model, arguments.output, arguments.measurements.parent, *optional_paths):
         if not path.is_absolute() or not path.exists():
             raise SystemExit("proof paths must be existing absolute paths")
     if any(arguments.output.iterdir()):
         raise SystemExit("proof output directory must be empty")
-    measurements = run_proof(arguments.image, arguments.model, arguments.output)
+    if (arguments.runtime_trace_source is None) != (arguments.runtime_trace_output is None):
+        raise SystemExit("both runtime trace paths are required together")
+    if arguments.runtime_trace_output is not None and any(arguments.runtime_trace_output.iterdir()):
+        raise SystemExit("runtime trace output directory must be empty")
+    measurements = run_proof(
+        arguments.image,
+        arguments.model,
+        arguments.output,
+        trace_source=arguments.runtime_trace_source,
+        trace_output=arguments.runtime_trace_output,
+    )
     temporary = arguments.measurements.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(measurements, indent=2) + "\n")
     os.replace(temporary, arguments.measurements)

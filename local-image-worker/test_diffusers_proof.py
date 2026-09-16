@@ -70,6 +70,36 @@ class DiffusersProofTests(unittest.TestCase):
         self.assertIn(f"{output}:/output:rw", command)
         self.assertEqual(popen.call_args.kwargs["bufsize"], 0)
 
+    def test_explicit_runtime_trace_is_read_only_and_does_not_replace_proof_isolation(self) -> None:
+        """Tracing adds only bounded source/output mounts and an injected Python recorder."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            model, output = root / "model", root / "output"
+            trace_source, trace_output = root / "source", root / "trace"
+            for directory in (model, output, trace_source, trace_output):
+                directory.mkdir()
+            with mock.patch("prove_diffusers_worker.prove_network_denial"), mock.patch(
+                "prove_diffusers_worker.host_available_bytes", return_value=1
+            ), mock.patch(
+                "prove_diffusers_worker.subprocess.Popen", side_effect=RuntimeError("captured")
+            ) as popen:
+                with self.assertRaisesRegex(RuntimeError, "captured"):
+                    run_proof(
+                        "proof-image",
+                        model,
+                        output,
+                        trace_source=trace_source,
+                        trace_output=trace_output,
+                    )
+
+        command = popen.call_args.args[0]
+        self.assertIn(f"{trace_source}:/trace-source:ro", command)
+        self.assertIn(f"{trace_output}:/runtime-trace:rw", command)
+        self.assertEqual(command[command.index("--entrypoint") + 1], "python")
+        self.assertIn("BOTTIE_RUNTIME_TRACE_FILE=/runtime-trace/python-paths.jsonl", command)
+        self.assertTrue(any("import diffusers_runtime_trace" in argument for argument in command))
+        self.assertEqual(command[command.index("--network") + 1], "none")
+
     def test_missing_nvidia_process_counter_is_not_reported_as_zero_use(self) -> None:
         """An unsupported or absent UMA counter remains explicitly unavailable."""
         completed = mock.Mock(stdout="914, 1024 MiB\n")
