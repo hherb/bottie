@@ -14,6 +14,11 @@ from pathlib import Path, PurePosixPath
 
 from diffusers_bundle_candidate import verify_proof_inputs
 from diffusers_license_review import LicenseReviewError, validate_license_review
+from diffusers_runtime_license_sources import (
+    ExternalLicenseSourceError,
+    apply_external_license_sources,
+    verified_external_license_sources,
+)
 from diffusers_bundle_environment import (
     DERIVED_IMAGE_DIGEST,
     TARGET_ARCHITECTURE,
@@ -208,7 +213,11 @@ def build_closure_review(
     }
 
 
-def collect_runtime_closure(trace_root: Path, license_review_manifest: object | None = None) -> dict:
+def collect_runtime_closure(
+    trace_root: Path,
+    license_review_manifest: object | None = None,
+    license_source_root: Path | None = None,
+) -> dict:
     """Classify one traced proof against the exact installed environment and ELF graph."""
     _verify_environment_contents()
     verify_proof_inputs()
@@ -230,6 +239,12 @@ def collect_runtime_closure(trace_root: Path, license_review_manifest: object | 
     if components.keys() & unmanaged_components.keys():
         raise ClosureEvidenceError("native component identity conflicts with the complete environment")
     components.update(unmanaged_components)
+    if license_source_root is not None:
+        try:
+            external_sources = verified_external_license_sources(license_source_root)
+            components = apply_external_license_sources(components, external_sources)
+        except ExternalLicenseSourceError as error:
+            raise ClosureEvidenceError(str(error)) from error
     for path, owners in unmanaged_owners.items():
         native_owners[path].update(owners)
     files = []

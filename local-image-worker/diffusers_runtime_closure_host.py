@@ -17,12 +17,14 @@ from diffusers_runtime_closure import ClosureEvidenceError, _read_bounded_text, 
 CONTAINER_SOURCE_ROOT = "/opt/bottie-runtime-closure"
 CONTAINER_TRACE_ROOT = "/opt/bottie-runtime-trace"
 CONTAINER_LICENSE_REVIEW = "/opt/bottie-license-review.json"
+CONTAINER_LICENSE_SOURCES = "/opt/bottie-license-sources"
 
 
 def collect_verified_runtime_closure(
     image_reference: str,
     trace_root: Path,
     license_review: Path | None = None,
+    license_sources: Path | None = None,
 ) -> dict:
     """Run the unbound classifier in the exact image selected by the host Docker daemon."""
     image_id = _inspect_derived_image(image_reference)
@@ -34,6 +36,15 @@ def collect_verified_runtime_closure(
         review_arguments = [
             "--mount",
             f"type=bind,src={license_review},dst={CONTAINER_LICENSE_REVIEW},readonly",
+        ]
+    source_arguments = []
+    if license_sources is not None:
+        license_sources = license_sources.resolve(strict=True)
+        if not license_sources.is_dir():
+            raise ClosureEvidenceError("external licence source root is invalid")
+        source_arguments = [
+            "--mount",
+            f"type=bind,src={license_sources},dst={CONTAINER_LICENSE_SOURCES},readonly",
         ]
     command = [
         "docker",
@@ -59,6 +70,7 @@ def collect_verified_runtime_closure(
         "--mount",
         f"type=bind,src={trace_root},dst={CONTAINER_TRACE_ROOT},readonly",
         *review_arguments,
+        *source_arguments,
         "-w",
         CONTAINER_SOURCE_ROOT,
         image_id,
@@ -68,6 +80,8 @@ def collect_verified_runtime_closure(
     ]
     if license_review is not None:
         command.extend(["--license-review", CONTAINER_LICENSE_REVIEW])
+    if license_sources is not None:
+        command.extend(["--license-sources", CONTAINER_LICENSE_SOURCES])
     try:
         completed = subprocess.run(command, capture_output=True, text=True, check=False)
     except OSError as error:
@@ -106,6 +120,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("output", nargs="?", type=Path)
     parser.add_argument("--collect-unbound", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--license-review", type=Path)
+    parser.add_argument("--license-sources", type=Path)
     return parser.parse_args()
 
 
@@ -126,7 +141,11 @@ def main() -> None:
                 raise ClosureEvidenceError("licence review manifest is malformed") from error
         print(
             json.dumps(
-                collect_runtime_closure(arguments.collect_unbound, license_review),
+                collect_runtime_closure(
+                    arguments.collect_unbound,
+                    license_review,
+                    arguments.license_sources,
+                ),
                 sort_keys=True,
             )
         )
@@ -137,6 +156,7 @@ def main() -> None:
         arguments.image_reference,
         arguments.trace_root,
         arguments.license_review,
+        arguments.license_sources,
     )
     _write_review(review, arguments.output)
     if not review["assemblyEligible"]:
