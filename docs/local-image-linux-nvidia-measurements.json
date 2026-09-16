@@ -1,0 +1,18 @@
+{
+  "imageId": "sha256:cded2049f9dbff513406052a191af2588476056d795468c4aacb7814aca5666c",
+  "modelId": "Qwen/Qwen-Image-2512",
+  "modelRevision": "25468b98e3276ca6700de15c6628e51b7de54a26",
+  "runtimeId": "diffusers@0.40.0+ngc-25.11-arm64",
+  "loadSeconds": 368.43,
+  "coldGenerationSeconds": 13.663,
+  "warmGenerationSeconds": 14.397,
+  "generatedRgbSha256": "fe4afa9c3ba700c15f57650e4090d885075809c17f69bf2559226f8f7224947d",
+  "deterministicSameSeed": true,
+  "cancellationLatencyMs": 100,
+  "processRssPeakBytes": 17583603712,
+  "nvidiaProcessUnifiedMemoryPeakBytes": null,
+  "hostAvailableStartBytes": 104280002560,
+  "hostAvailableMinimumBytes": 40983056384,
+  "networkNamespaceDeniedExternalConnection": true,
+  "visualReviewed": false
+}
