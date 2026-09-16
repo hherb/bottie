@@ -536,8 +536,11 @@ Implement this once for both hosted and local adapters before adding more runtim
   document while leaving its accepted profile and importable executable absent. A proof-only inspector now binds the
   exact NGC/Diffusers inputs, emits a deterministic native-compatible regular-file/executable/bundle inventory, and
   requires complete file ownership plus included third-party licence bytes; every record remains explicitly unreviewed.
-  Linux remains unavailable until Bottie has exact produced and independently reviewed bundle bytes, native hardware
-  gating, and app-owned execution. See `docs/local-image-linux-nvidia-proof.md` and
+  A separate DGX gate now inventories all 248 Python and 434 Debian package-manager components with deterministic,
+  path-free licence evidence and refuses assembly on 76 exact missing-byte or undeclared-licence blockers. Linux remains
+  unavailable until Bottie derives and reviews the worker's minimal runtime closure, produces exact independently
+  reviewed bundle bytes, and adds native hardware gating plus app-owned execution. See
+  `docs/local-image-linux-nvidia-proof.md` and
   `docs/local-image-linux-worker-bundle.md`;
 - [ ] **Windows NVIDIA:** use the same pinned Diffusers worker and protocol after a native Windows CUDA/package proof;
   do not treat WSL-only success as Windows product evidence;
