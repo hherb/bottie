@@ -13,6 +13,7 @@ from collections import defaultdict
 from pathlib import Path, PurePosixPath
 
 from diffusers_bundle_candidate import verify_proof_inputs
+from diffusers_license_review import LicenseReviewError, validate_license_review
 from diffusers_bundle_environment import (
     DERIVED_IMAGE_DIGEST,
     TARGET_ARCHITECTURE,
@@ -117,12 +118,12 @@ def build_closure_review(
     host_driver_sonames: set[str] | frozenset[str],
     observed_host_driver_sonames: set[str],
     missing_elf_dependencies: set[str],
-    reviewed_license_expressions: dict[str, str] | None = None,
     required_component_ids: set[str] | None = None,
     dependency_blockers: set[str] | None = None,
+    license_review_components: dict[str, dict] | None = None,
 ) -> dict:
     """Build a deterministic review and keep assembly closed until every check passes."""
-    reviewed_license_expressions = reviewed_license_expressions or {}
+    license_review_components = license_review_components or {}
     _validate_file_records(files)
     used_component_ids = sorted(
         ({
@@ -141,10 +142,12 @@ def build_closure_review(
     for identity in used_component_ids:
         environment = environment_components[identity]
         owned_files = [file for file in files if file["owner"] == identity]
-        reviewed_expression = reviewed_license_expressions.get(identity)
-        if not environment.get("licenseFiles"):
+        component_review = license_review_components.get(identity)
+        reviewed_expression = component_review["reviewedLicenseExpression"] if component_review else None
+        license_files = component_review["licenseFiles"] if component_review else environment.get("licenseFiles", [])
+        if not license_files:
             blockers.append(f"{identity}:missing-license-bytes")
-        if environment.get("licenseExpression") == "undeclared":
+        if environment.get("licenseExpression") == "undeclared" and reviewed_expression is None:
             blockers.append(f"{identity}:undeclared-license")
         if reviewed_expression is None:
             blockers.append(f"{identity}:unreviewed-license-expression")
@@ -152,10 +155,12 @@ def build_closure_review(
             "identity": identity,
             "fileCount": len(owned_files),
             "byteSize": sum(file["byteSize"] for file in owned_files),
-            "licenseFileCount": len(environment.get("licenseFiles", [])),
+            "licenseFileCount": len(license_files),
             "declaredLicenseExpression": environment.get("licenseExpression"),
             "reviewedLicenseExpression": reviewed_expression,
         }
+        if component_review is not None:
+            component["reviewEvidence"] = component_review["reviewEvidence"]
         if environment.get("provenance") is not None:
             component["provenance"] = environment["provenance"]
         components.append(component)
@@ -203,7 +208,7 @@ def build_closure_review(
     }
 
 
-def collect_runtime_closure(trace_root: Path) -> dict:
+def collect_runtime_closure(trace_root: Path, license_review_manifest: object | None = None) -> dict:
     """Classify one traced proof against the exact installed environment and ELF graph."""
     _verify_environment_contents()
     verify_proof_inputs()
@@ -290,6 +295,26 @@ def collect_runtime_closure(trace_root: Path) -> dict:
         )
     except RuntimeOwnershipError as error:
         raise ClosureEvidenceError(str(error)) from error
+    license_review_components = None
+    if license_review_manifest is not None:
+        used_component_ids = {
+            file["owner"]
+            for file in files
+            if isinstance(file["owner"], str)
+            and not file["owner"].startswith(("first-party:", "host-driver:"))
+        }.union(required_components)
+        try:
+            license_review_components = validate_license_review(
+                license_review_manifest,
+                used_component_ids,
+                DERIVED_IMAGE_DIGEST,
+                {
+                    "pythonTraceSha256": context["pythonTraceSha256"],
+                    "processMapsSha256": context["processMapsSha256"],
+                },
+            )
+        except LicenseReviewError as error:
+            raise ClosureEvidenceError(str(error)) from error
     review = build_closure_review(
         files,
         components,
@@ -298,6 +323,7 @@ def collect_runtime_closure(trace_root: Path) -> dict:
         missing_elf_dependencies,
         required_component_ids=required_components,
         dependency_blockers=dependency_blockers.union(ambiguous_elf_dependencies),
+        license_review_components=license_review_components,
     )
     return {
         "schemaVersion": SCHEMA_VERSION,
