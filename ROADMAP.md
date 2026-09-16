@@ -541,10 +541,11 @@ Implement this once for both hosted and local adapters before adding more runtim
   unavailable. A traced closure gate now measures 340 required files across 84 components, recursively closes Python
   requirements and ELF dependencies, records an explicit NVIDIA host-driver boundary, and assigns all observed bytes
   an exact Python, Debian, or marker-backed native identity. Two independent records prove the closure is complete. It
-  still refuses assembly on 109 licence-only blockers: eight missing byte records, seventeen undeclared licences, and
+  still refuses assembly on 106 licence-only blockers: five missing byte records, seventeen undeclared licences, and
   84 unreviewed expressions. An exact-image/exact-trace review-manifest gate now preserves measured source and review
-  bytes while rejecting partial component coverage and drift, but no review manifest exists because the exact image
-  still lacks seven authoritative component documents after the known cuSPARSELt package record. Bottie must resolve
+  bytes while rejecting partial component coverage and drift. The closure now binds exact in-image source evidence for
+  cuSPARSELt, Open MPI, and UCX, but no review manifest exists because UCC, NVPL BLAS/LAPACK, SentencePiece, and
+  tokenizers still lack authoritative component documents in the exact image. Bottie must resolve
   those exact blockers, produce independently reviewed bundle bytes, and add native hardware gating plus app-owned
   execution.
   See

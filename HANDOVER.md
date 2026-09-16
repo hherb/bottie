@@ -1,54 +1,56 @@
 # Bottie handover
 
-Last verified: 2026-09-16
+Last verified: 2026-09-17
 
 ## Start here
 
-`main` includes merged PR #193 at `4e10108`. Branch `codex/linux-image-worker-license-evidence` adds the fail-closed
-licence-review manifest gate for the exact Linux ARM64 Diffusers runtime closure. Read `ROADMAP.md` Milestone 8.4,
-`docs/local-image-linux-worker-bundle.md`, `local-image-worker/diffusers_license_review.py`, and
-`local-image-worker/diffusers_runtime_closure.py`.
+Start from the draft PR for `codex/linux-image-worker-license-sources`. Read `ROADMAP.md` Milestone 8.4,
+`docs/local-image-linux-worker-bundle.md`, `docs/local-image-linux-runtime-closure-review.json`, and
+`local-image-worker/diffusers_runtime_native.py`.
 
 ## Current state
 
-- The configured `dgx` SSH target is reachable. The retained image still resolves exactly to
-  `sha256:cded2049f9dbff513406052a191af2588476056d795468c4aacb7814aca5666c` on Linux ARM64.
-- The closure host command accepts an optional review manifest mounted read-only into that exact offline image. The
-  closed schema binds the image digest, both proof-trace digests, and all 84 sorted component identities.
-- Each component must embed at least one exact licence/notice file and a separate independent-review record. Strict
-  Base64 decoding, byte counts, SHA-256, portable names, complete coverage, and canonical ordering fail closed. Source
-  and review bytes stay in the external manifest; only path-free measurements enter closure output.
-- Only a structurally valid complete manifest may replace missing/undeclared package metadata and clear the three
-  licence blocker classes. No unchecked expression-only override remains.
-- No manifest was created and all 109 blockers remain: eight missing byte records, seventeen undeclared licences, and
-  84 unreviewed expressions. `licenseReviewed`, `assemblyEligible`, and `distributionReviewed` remain false.
-- No bundle was assembled, accepted, imported, or executed. Linux remains `CandidatePreparationOnly`; no app, IPC/UI,
-  hardware probe, signing, release, Store, or updater behavior changed.
+- The retained DGX image is still exactly
+  `sha256:cded2049f9dbff513406052a191af2588476056d795468c4aacb7814aca5666c` on Linux ARM64, with the same
+  Python and process-map trace digests.
+- Marker-backed native components may now bind exact licence bytes from either a measured package-manager component or
+  one regular member of a bounded exact in-image source archive. Source-package licence expressions are never inherited.
+- cuSPARSELt binds the exact 17,948-byte `libcusparselt0-cuda-13@0.8.1.1-1` copyright record. Open MPI and UCX bind
+  top-level licence members from their exact HPC-X source archives. Archive/member drift, duplicate members, missing
+  package evidence, and oversized sources fail closed.
+- Two fresh offline collections are byte-identical: 31,685 bytes, SHA-256
+  `fc8ed1d465640bd1c5c13dda5c6b5850207d0baa638f070e31c19203c924f7c9`. The collector exits 3 with 106 blockers:
+  five missing licence-byte records, seventeen undeclared licences, and 84 unreviewed expressions.
+- `closureComplete` remains true. `licenseReviewed`, `assemblyEligible`, and `distributionReviewed` remain false. No
+  review manifest or bundle was created, and no license expression, redistribution approval, or product availability
+  was inferred.
 
-## Validation and limits
+## Validation
 
-The new manifest/closure suite passes 17 tests. All 48 local worker tests that do not require Pillow pass; the separate
-proof test is unavailable in the local Python 3.13 environment because Pillow is not installed. Prettier, Svelte
-diagnostics, all 407 active frontend/script tests (3 skipped), and the production build pass. Cargo formatting/checking
-pass; the identical host-local Rust suite passes after the expected sandbox loopback denials (649 library tests passed,
-37 ignored, followed by the remaining integration and doc tests).
-
-A fresh offline read-only exact-image inspection found no licence document in the installed `sentencepiece` or
-`tokenizers` wheels and no matching HPC-X Open MPI/UCC/UCX or NVPL BLAS/LAPACK document; the only HPC-X match was an
-unrelated SHARP licence. The already-known 17,948-byte cuSPARSELt Debian record remains the sole newly located source.
-The new source files were not transferred to the DGX, so exact-image execution of this branch remains for the next
-session.
-Unrelated untracked logo-kit, screenshot, and Linux public-key files remain untouched.
+The focused source-binding and closure suite passes 21 tests; all 50 local worker tests that do not require Pillow pass.
+The identical collector ran twice on the exact DGX image and trace with byte-identical output and expected status 3.
+Prettier, Svelte diagnostics, all 407 active frontend/script tests (3 skipped), and the production build pass. Cargo
+formatting/checking pass; the final host-local Rust suite passes 649 library tests (37 ignored) plus all integration and
+doc tests after the expected sandbox loopback denials. Unrelated untracked logo-kit, screenshot, and Linux public-key
+files remain untouched.
 
 ## Next slice
 
-On the same exact image and trace, obtain authoritative bytes for the seven still-unlocated component documents and
-bind the known cuSPARSELt record to its exact native identity. Do not download substitutes or accept new terms. Build a
-complete sorted 84-component manifest only after an independent review normalizes every expression and records its
-source bytes and review bytes. Run the reviewed collector twice on the DGX; require byte-identical path-free output,
-`licenseReviewed: true`, and zero licence blockers before considering assembly. Keep `distributionReviewed: false`.
+Resolve only these five exact missing-byte identities:
 
-If any authoritative byte or reviewed expression remains unavailable, stop with the exact blocker summary. Do not add
-an accepted Linux profile, executable, bundle assembly, hardware probe, worker import/download, application execution,
-UI/IPC field, Docker product dependency, cloud fallback, local editing, guessed Qwen Image 2.0 weights, signing,
-release, Store, or updater publication.
+- `native:hpcx-ucc@1.5.0+ec95a0a96fc7220e1627157439c508cafc82274e`;
+- `native:nvidia-nvpl-blas@0.2.0`;
+- `native:nvidia-nvpl-lapack@0.2.2`;
+- `python:sentencepiece@0.2.2`; and
+- `python:tokenizers@0.23.2`.
+
+The exact image contains no UCC source archive or matching UCC/NVPL document, and both installed Python wheels omit
+licence files. Obtain only authoritative bytes bound to these exact versions or revisions; do not substitute nearby
+packages, infer an expression from a project name, accept new terms, or weaken complete-manifest coverage. After all 84
+components have independently reviewed source and review bytes, run the complete manifest twice and require
+byte-identical path-free output, `licenseReviewed: true`, zero licence blockers, and `distributionReviewed: false`.
+
+If any exact source or independent review remains unavailable, stop with the blocker summary. Do not add an accepted
+Linux profile, executable, bundle assembly, hardware probe, worker import/download, app execution, UI/IPC field, Docker
+product dependency, cloud fallback, local editing, guessed Qwen Image 2.0 weights, signing, release, Store, or updater
+publication.

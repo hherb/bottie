@@ -30,8 +30,8 @@
     "unmanagedNativeComponentCount": 6
   },
   "generatedRecord": {
-    "byteSize": 30671,
-    "sha256": "8a3d8cdf7c4d35f70740bc9391c3747a39b94a3898dab21f3d339f4fc55e6024"
+    "byteSize": 31685,
+    "sha256": "fc8ed1d465640bd1c5c13dda5c6b5850207d0baa638f070e31c19203c924f7c9"
   },
   "hostDriverBoundary": {
     "allowedSonames": [
@@ -42,17 +42,22 @@
       "libnvidia-nvvm.so.4",
       "libnvidia-ptxjitcompiler.so.1"
     ],
-    "observedSonames": [
-      "libcuda.so.1",
-      "libnvidia-ml.so.1",
-      "libnvidia-ptxjitcompiler.so.1"
-    ]
+    "observedSonames": ["libcuda.so.1", "libnvidia-ml.so.1", "libnvidia-ptxjitcompiler.so.1"]
   },
   "unmanagedNativeComponents": [
     {
       "identity": "native:hpcx-open-mpi@92f9fca4eb832bb874928d25485be6e007c62e31",
       "markerByteSize": 530,
-      "markerSha256": "12f67f55bcfd8989111d49611cdb76ade93683ea7fbd5d2bacc9f0fb289143e2"
+      "markerSha256": "12f67f55bcfd8989111d49611cdb76ade93683ea7fbd5d2bacc9f0fb289143e2",
+      "licenseSource": {
+        "kind": "image-source-archive-license",
+        "archiveName": "hpcx/sources/openmpi-gitclone.tar.gz",
+        "archiveByteSize": 18805044,
+        "archiveSha256": "0949034b4c0ce24410dbd2c5f5e2d4f98485b9855a1ccb71d885b51050617e52",
+        "memberName": "openmpi-gitclone/LICENSE",
+        "byteSize": 5487,
+        "sha256": "2db71de9577ebfe15c186605844c470dcecd3717f4ef0118c9440d801c0f58f8"
+      }
     },
     {
       "identity": "native:hpcx-ucc@1.5.0+ec95a0a96fc7220e1627157439c508cafc82274e",
@@ -62,12 +67,28 @@
     {
       "identity": "native:hpcx-ucx@1.20.0+777ac8418278502c5639be25377d3f626bfe7dc7",
       "markerByteSize": 530,
-      "markerSha256": "12f67f55bcfd8989111d49611cdb76ade93683ea7fbd5d2bacc9f0fb289143e2"
+      "markerSha256": "12f67f55bcfd8989111d49611cdb76ade93683ea7fbd5d2bacc9f0fb289143e2",
+      "licenseSource": {
+        "kind": "image-source-archive-license",
+        "archiveName": "hpcx/sources/ucx-1.20.0.tar.gz",
+        "archiveByteSize": 3555017,
+        "archiveSha256": "077bb702e0a8cc03c2f27fce1c84e6bac7482699088c83f56bdada460e1e54d2",
+        "memberName": "ucx-1.20.0/LICENSE",
+        "byteSize": 2291,
+        "sha256": "ebb5c7fa3d2e20fbee5431a975c7196779647490324dc2346cc561f0f044048d"
+      }
     },
     {
       "identity": "native:nvidia-cusparselt@0.8.1",
       "markerByteSize": 18157,
-      "markerSha256": "0df84b580688771d78be62bceebc408867a161c641fe0bca8a5075ba043b63b3"
+      "markerSha256": "0df84b580688771d78be62bceebc408867a161c641fe0bca8a5075ba043b63b3",
+      "licenseSource": {
+        "kind": "environment-package-license",
+        "componentIdentity": "deb:libcusparselt0-cuda-13@0.8.1.1-1",
+        "relativeName": "copyright",
+        "byteSize": 17948,
+        "sha256": "e8d158885a681b95ec7a6fc06dd8d4a52989f374cb1380c8a4c8fb27fd3d5d5e"
+      }
     },
     {
       "identity": "native:nvidia-nvpl-blas@0.2.0",
@@ -81,19 +102,16 @@
     }
   ],
   "blockers": {
-    "totalCount": 109,
+    "totalCount": 106,
     "counts": {
       "ambiguousElfSoname": 0,
-      "missingLicenseBytes": 8,
+      "missingLicenseBytes": 5,
       "undeclaredLicense": 17,
       "unownedFile": 0,
       "unreviewedLicenseExpression": 84
     },
     "missingLicenseBytes": [
-      "native:hpcx-open-mpi@92f9fca4eb832bb874928d25485be6e007c62e31",
       "native:hpcx-ucc@1.5.0+ec95a0a96fc7220e1627157439c508cafc82274e",
-      "native:hpcx-ucx@1.20.0+777ac8418278502c5639be25377d3f626bfe7dc7",
-      "native:nvidia-cusparselt@0.8.1",
       "native:nvidia-nvpl-blas@0.2.0",
       "native:nvidia-nvpl-lapack@0.2.2",
       "python:sentencepiece@0.2.2",
