@@ -70,9 +70,11 @@ bytes.
 daemon and runs the classifier by exact image ID read-only, non-root, capability-free, with networking disabled. It
 requests NVIDIA runtime injection so the classifier can measure the proof-time host-driver files named by the
 process-map evidence. Those files are accepted only when their declared ELF SONAME is on the closed driver boundary.
-The classifier measures all other observed regular files, maps them to Python or Debian ownership, recursively closes
-active `Requires-Dist` dependencies without optional extras, and resolves each ELF `NEEDED` name. The output retains
-byte hashes, sizes, owners, and component identities but no filesystem paths.
+The classifier measures all other observed regular files, maps them to Python, Debian, or exact marker-backed native
+ownership, recursively closes active `Requires-Dist` dependencies without optional extras, and resolves each ELF
+`NEEDED` name. Duplicate extension-module basenames block only when an actual `NEEDED` edge requests the ambiguous
+name. The output retains byte hashes, sizes, owners, component identities, and path-free marker provenance but no
+filesystem paths.
 
 Run the gate on the same Docker host as the traced proof:
 
@@ -86,18 +88,23 @@ python3 local-image-worker/diffusers_runtime_closure_host.py \
 The named DGX Spark trace binds Python audit bytes at
 `6543aa3fb8b87cf678c511358fab42d5f397c61c4a5b3b431ed5fabed5af1b87` and process-map bytes at
 `f6bd927a91e67af3ba896c9144f93fd04e8cfef8c45a4ea97c72c2e0053d7c40`. Two independent GPU-injected collections
-were byte-identical. The host-bound record is 27,889 bytes with SHA-256
-`fdb7bcf079976d2d456bf7c70b5a174609313d9eb9678d395a6c5ae3d3347820`.
+were byte-identical. The host-bound record is 30,671 bytes with SHA-256
+`8a3d8cdf7c4d35f70740bc9391c3747a39b94a3898dab21f3d339f4fc55e6024`.
 [`local-image-linux-runtime-closure-review.json`](local-image-linux-runtime-closure-review.json) retains the bounded,
 path-free summary.
 
-The closure contains 340 files totalling 6,133,717,252 bytes, including 295 ELF files and 78 package components: 51
-Python distributions and 27 Debian packages. It observes `libcuda.so.1`, `libnvidia-ml.so.1`, and
-`libnvidia-ptxjitcompiler.so.1` on the explicit host-driver boundary. It remains deliberately ineligible for assembly:
-three ELF SONAMEs are ambiguous, fourteen file hashes are unowned, two components lack authoritative licence bytes,
-eleven declare no usable licence, and all 78 expressions still need review. The gate therefore exits with status 3,
-with `closureComplete`, `licenseReviewed`, `assemblyEligible`, and `distributionReviewed` all false. It does not copy,
-assemble, import, or execute a product bundle.
+The closure contains 340 files totalling 6,133,717,252 bytes, including 295 ELF files and 84 components: 51 Python
+distributions, 27 Debian packages, and six marker-backed native components. It observes `libcuda.so.1`,
+`libnvidia-ml.so.1`, and `libnvidia-ptxjitcompiler.so.1` on the explicit host-driver boundary. All fourteen previously
+unowned file hashes now have exact component identities, and the three unrequested extension-module basename
+collisions no longer masquerade as linker conflicts. `closureComplete` is true.
+
+The record remains deliberately ineligible for assembly: eight components lack authoritative licence bytes, seventeen
+declare no usable licence, and all 84 expressions still need independent review. A bounded read-only search of the
+exact image found package-owned NVIDIA SDK licence bytes for the cuSPARSELt Debian package, but no matching in-image
+licence files for the HPC-X Open MPI/UCC/UCX or NVPL BLAS/LAPACK components. That discovery is not a licence review or
+redistribution approval. The gate exits with status 3, with `licenseReviewed`, `assemblyEligible`, and
+`distributionReviewed` false. It does not copy, assemble, import, or execute a product bundle.
 
 ## Closed bundle measurement
 

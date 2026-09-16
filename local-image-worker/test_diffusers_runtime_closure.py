@@ -90,6 +90,20 @@ class DiffusersRuntimeClosureTests(unittest.TestCase):
             ({"libtorch.so"}, "libexample.so.1"),
         )
 
+    def test_read_elf_dependencies_translates_native_evidence_errors(self) -> None:
+        """The closure boundary exposes one stable error type for malformed ELF evidence."""
+        completed = SimpleNamespace(
+            returncode=0,
+            stdout=(
+                b"(SONAME) Library soname: [libfirst.so.1]\n"
+                b"(SONAME) Library soname: [libsecond.so.1]\n"
+            ),
+        )
+
+        with patch.object(runtime_closure.subprocess, "run", return_value=completed):
+            with self.assertRaisesRegex(ClosureEvidenceError, "multiple SONAME"):
+                runtime_closure._read_elf_dependencies(Path("/runtime.so"))
+
     def test_host_driver_boundary_uses_declared_soname_not_versioned_filename(self) -> None:
         """An injected versioned driver file is classified only through its allowlisted SONAME."""
         self.assertEqual(
@@ -241,6 +255,7 @@ class DiffusersRuntimeClosureTests(unittest.TestCase):
             patch.object(runtime_closure, "_collect_environment_measurement", return_value=environment),
             patch.object(runtime_closure, "python_file_owners", return_value={}),
             patch.object(runtime_closure, "native_file_owners", return_value={}),
+            patch.object(runtime_closure, "verified_native_components", return_value=({}, {})),
             patch.object(runtime_closure, "file_owner", return_value="deb:image-driver@1"),
             patch.object(runtime_closure, "_measure_observed_file", return_value=measured),
             patch.object(

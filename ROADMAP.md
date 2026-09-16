@@ -538,10 +538,12 @@ Implement this once for both hosted and local adapters before adding more runtim
   requires complete file ownership plus included third-party licence bytes; every record remains explicitly unreviewed.
   A separate DGX gate now inventories all 248 Python and 434 Debian package-manager components with deterministic,
   path-free licence evidence and refuses assembly on 76 exact missing-byte or undeclared-licence blockers. Linux remains
-  unavailable. A traced closure gate now measures 340 required files across 78 package components, recursively closes
-  Python requirements and ELF dependencies, and records an explicit NVIDIA host-driver boundary. It refuses assembly
-  on 108 path-free ownership, ELF-identity, licence-byte, and licence-expression blockers. Bottie must resolve those
-  exact blockers, produce independently reviewed bundle bytes, and add native hardware gating plus app-owned execution.
+  unavailable. A traced closure gate now measures 340 required files across 84 components, recursively closes Python
+  requirements and ELF dependencies, records an explicit NVIDIA host-driver boundary, and assigns all observed bytes
+  an exact Python, Debian, or marker-backed native identity. Two independent records prove the closure is complete. It
+  still refuses assembly on 109 licence-only blockers: eight missing byte records, seventeen undeclared licences, and
+  84 unreviewed expressions. Bottie must resolve those exact blockers, produce independently reviewed bundle bytes, and
+  add native hardware gating plus app-owned execution.
   See
   `docs/local-image-linux-nvidia-proof.md` and
   `docs/local-image-linux-worker-bundle.md`;

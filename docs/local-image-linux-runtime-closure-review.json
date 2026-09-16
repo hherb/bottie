@@ -17,19 +17,21 @@
   },
   "completeEnvironment": {
     "pythonComponentCount": 248,
-    "nativeComponentCount": 434
+    "nativeComponentCount": 434,
+    "unmanagedNativeComponentCount": 6
   },
   "closure": {
     "fileCount": 340,
     "byteSize": 6133717252,
     "elfFileCount": 295,
-    "componentCount": 78,
+    "componentCount": 84,
     "pythonComponentCount": 51,
-    "nativeComponentCount": 27
+    "debianComponentCount": 27,
+    "unmanagedNativeComponentCount": 6
   },
   "generatedRecord": {
-    "byteSize": 27889,
-    "sha256": "fdb7bcf079976d2d456bf7c70b5a174609313d9eb9678d395a6c5ae3d3347820"
+    "byteSize": 30671,
+    "sha256": "8a3d8cdf7c4d35f70740bc9391c3747a39b94a3898dab21f3d339f4fc55e6024"
   },
   "hostDriverBoundary": {
     "allowedSonames": [
@@ -46,22 +48,59 @@
       "libnvidia-ptxjitcompiler.so.1"
     ]
   },
-  "blockers": {
-    "totalCount": 108,
-    "counts": {
-      "ambiguousElfSoname": 3,
-      "missingLicenseBytes": 2,
-      "undeclaredLicense": 11,
-      "unownedFile": 14,
-      "unreviewedLicenseExpression": 78
+  "unmanagedNativeComponents": [
+    {
+      "identity": "native:hpcx-open-mpi@92f9fca4eb832bb874928d25485be6e007c62e31",
+      "markerByteSize": 530,
+      "markerSha256": "12f67f55bcfd8989111d49611cdb76ade93683ea7fbd5d2bacc9f0fb289143e2"
     },
-    "ambiguousElfSonames": [
-      "_C.cpython-312-aarch64-linux-gnu.so",
-      "_cyutility.cpython-312-aarch64-linux-gnu.so",
-      "lib.cpython-312-aarch64-linux-gnu.so"
+    {
+      "identity": "native:hpcx-ucc@1.5.0+ec95a0a96fc7220e1627157439c508cafc82274e",
+      "markerByteSize": 530,
+      "markerSha256": "12f67f55bcfd8989111d49611cdb76ade93683ea7fbd5d2bacc9f0fb289143e2"
+    },
+    {
+      "identity": "native:hpcx-ucx@1.20.0+777ac8418278502c5639be25377d3f626bfe7dc7",
+      "markerByteSize": 530,
+      "markerSha256": "12f67f55bcfd8989111d49611cdb76ade93683ea7fbd5d2bacc9f0fb289143e2"
+    },
+    {
+      "identity": "native:nvidia-cusparselt@0.8.1",
+      "markerByteSize": 18157,
+      "markerSha256": "0df84b580688771d78be62bceebc408867a161c641fe0bca8a5075ba043b63b3"
+    },
+    {
+      "identity": "native:nvidia-nvpl-blas@0.2.0",
+      "markerByteSize": 167,
+      "markerSha256": "1ced82338f50c7ba19fae815634789122cb3d9b4f69d5a0fdc39e1ab5ef3434f"
+    },
+    {
+      "identity": "native:nvidia-nvpl-lapack@0.2.2",
+      "markerByteSize": 177,
+      "markerSha256": "6b474db285b0292797c5058f5b5cbf18b25c74bc38817821e7dad337ac080d9e"
+    }
+  ],
+  "blockers": {
+    "totalCount": 109,
+    "counts": {
+      "ambiguousElfSoname": 0,
+      "missingLicenseBytes": 8,
+      "undeclaredLicense": 17,
+      "unownedFile": 0,
+      "unreviewedLicenseExpression": 84
+    },
+    "missingLicenseBytes": [
+      "native:hpcx-open-mpi@92f9fca4eb832bb874928d25485be6e007c62e31",
+      "native:hpcx-ucc@1.5.0+ec95a0a96fc7220e1627157439c508cafc82274e",
+      "native:hpcx-ucx@1.20.0+777ac8418278502c5639be25377d3f626bfe7dc7",
+      "native:nvidia-cusparselt@0.8.1",
+      "native:nvidia-nvpl-blas@0.2.0",
+      "native:nvidia-nvpl-lapack@0.2.2",
+      "python:sentencepiece@0.2.2",
+      "python:tokenizers@0.23.2"
     ]
   },
-  "closureComplete": false,
+  "closureComplete": true,
   "licenseReviewed": false,
   "assemblyEligible": false,
   "distributionReviewed": false

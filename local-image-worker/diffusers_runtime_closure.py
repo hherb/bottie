@@ -21,6 +21,14 @@ from diffusers_bundle_environment import (
     _verify_environment_contents,
 )
 from diffusers_worker import DIFFUSERS_WORKER_IDENTITY
+from diffusers_runtime_native import (
+    RuntimeNativeEvidenceError,
+    ambiguous_elf_dependency_blockers,
+    host_driver_soname,
+    parse_elf_dependencies,
+    validated_soname,
+    verified_native_components,
+)
 from diffusers_runtime_ownership import (
     RuntimeOwnershipError,
     component_identity,
@@ -62,8 +70,6 @@ HOST_DRIVER_SONAMES = frozenset(
 TRACE_KINDS = frozenset({"dlopen", "module", "open"})
 CLOSURE_TRACE_KINDS = frozenset({"dlopen", "module"})
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
-NEEDED_PATTERN = re.compile(r"\(NEEDED\).*\[([^\]]+)\]")
-SONAME_PATTERN = re.compile(r"\(SONAME\).*\[([^\]]+)\]")
 
 
 class ClosureEvidenceError(RuntimeError):
@@ -105,35 +111,6 @@ def parse_process_maps(contents: str) -> list[Path]:
     return sorted(paths, key=lambda path: os.fsencode(path))
 
 
-def parse_elf_dependencies(output: str) -> tuple[set[str], str | None]:
-    """Extract exact NEEDED names and an optional SONAME from readelf output."""
-    needed = set()
-    soname = None
-    for line in output.splitlines():
-        needed_match = NEEDED_PATTERN.search(line)
-        if needed_match:
-            needed.add(_soname(needed_match.group(1)))
-        soname_match = SONAME_PATTERN.search(line)
-        if soname_match:
-            candidate = _soname(soname_match.group(1))
-            if soname is not None and soname != candidate:
-                raise ClosureEvidenceError("ELF file declares multiple SONAME values")
-            soname = candidate
-    return needed, soname
-
-
-def host_driver_soname(
-    file_name: str,
-    declared_soname: str | None,
-    allowed_sonames: set[str] | frozenset[str],
-) -> str | None:
-    """Return the exact allowlisted NVIDIA interface named by a mapped ELF file."""
-    for candidate in (declared_soname, file_name):
-        if candidate in allowed_sonames:
-            return candidate
-    return None
-
-
 def build_closure_review(
     files: list[dict],
     environment_components: dict[str, dict],
@@ -171,25 +148,26 @@ def build_closure_review(
             blockers.append(f"{identity}:undeclared-license")
         if reviewed_expression is None:
             blockers.append(f"{identity}:unreviewed-license-expression")
-        components.append(
-            {
-                "identity": identity,
-                "fileCount": len(owned_files),
-                "byteSize": sum(file["byteSize"] for file in owned_files),
-                "licenseFileCount": len(environment.get("licenseFiles", [])),
-                "declaredLicenseExpression": environment.get("licenseExpression"),
-                "reviewedLicenseExpression": reviewed_expression,
-            }
-        )
+        component = {
+            "identity": identity,
+            "fileCount": len(owned_files),
+            "byteSize": sum(file["byteSize"] for file in owned_files),
+            "licenseFileCount": len(environment.get("licenseFiles", [])),
+            "declaredLicenseExpression": environment.get("licenseExpression"),
+            "reviewedLicenseExpression": reviewed_expression,
+        }
+        if environment.get("provenance") is not None:
+            component["provenance"] = environment["provenance"]
+        components.append(component)
     for file in files:
         if file["owner"] is None:
             blockers.append(f'unowned-file:{file["sha256"]}')
     for soname in missing_elf_dependencies:
-        blockers.append(f"elf-dependency:{_soname(soname)}:unresolved")
+        blockers.append(f"elf-dependency:{validated_soname(soname)}:unresolved")
     blockers.extend(dependency_blockers or set())
     unexpected_host_drivers = observed_host_driver_sonames.difference(host_driver_sonames)
     for soname in unexpected_host_drivers:
-        blockers.append(f"host-driver:{_soname(soname)}:outside-boundary")
+        blockers.append(f"host-driver:{validated_soname(soname)}:outside-boundary")
     blockers = sorted(set(blockers), key=str.encode)
     closure_blockers = [
         blocker
@@ -239,8 +217,14 @@ def collect_runtime_closure(trace_root: Path) -> dict:
     try:
         python_owners = python_file_owners()
         native_owners = native_file_owners(environment["nativeComponents"])
-    except RuntimeOwnershipError as error:
+        unmanaged_components, unmanaged_owners = verified_native_components()
+    except (RuntimeOwnershipError, RuntimeNativeEvidenceError) as error:
         raise ClosureEvidenceError(str(error)) from error
+    if components.keys() & unmanaged_components.keys():
+        raise ClosureEvidenceError("native component identity conflicts with the complete environment")
+    components.update(unmanaged_components)
+    for path, owners in unmanaged_owners.items():
+        native_owners[path].update(owners)
     files = []
     measured_paths: dict[Path, tuple[int, str | None]] = {}
     elf_sonames: dict[str, set[str]] = defaultdict(set)
@@ -294,11 +278,7 @@ def collect_runtime_closure(trace_root: Path) -> dict:
         for needed in elf_needed
         if needed not in elf_sonames and needed not in HOST_DRIVER_SONAMES
     }
-    ambiguous_elf_dependencies = {
-        f"elf-soname:{name}:ambiguous"
-        for name, digests in elf_sonames.items()
-        if len(digests) > 1
-    }
+    ambiguous_elf_dependencies = ambiguous_elf_dependency_blockers(elf_needed, elf_sonames)
     imported_python_components = {
         file["owner"]
         for file in files
@@ -331,6 +311,7 @@ def collect_runtime_closure(trace_root: Path) -> dict:
         "environment": {
             "pythonComponentCount": len(environment["pythonComponents"]),
             "nativeComponentCount": len(environment["nativeComponents"]),
+            "unmanagedNativeComponentCount": len(unmanaged_components),
         },
         **review,
     }
@@ -346,20 +327,6 @@ def _absolute_trace_path(value: object) -> Path:
     if not path.is_absolute() or path.as_posix() != value or any(part == ".." for part in path.parts):
         raise ClosureEvidenceError("runtime trace path is invalid")
     return Path(path.as_posix())
-
-
-def _soname(value: object) -> str:
-    """Validate one bounded filename-only ELF dependency identity."""
-    if (
-        not isinstance(value, str)
-        or not value
-        or len(value.encode()) > 256
-        or "/" in value
-        or "\\" in value
-        or any(ord(character) < 32 for character in value)
-    ):
-        raise ClosureEvidenceError("ELF dependency name is invalid")
-    return value
 
 
 def _validate_file_records(files: list[dict]) -> None:
@@ -489,7 +456,10 @@ def _read_elf_dependencies(path: Path) -> tuple[set[str], str | None]:
         output = completed.stdout.decode("utf-8")
     except UnicodeError as error:
         raise ClosureEvidenceError("ELF dynamic section is not UTF-8") from error
-    return parse_elf_dependencies(output)
+    try:
+        return parse_elf_dependencies(output)
+    except RuntimeNativeEvidenceError as error:
+        raise ClosureEvidenceError(str(error)) from error
 
 
 def _is_excluded_runtime_path(path: Path) -> bool:
