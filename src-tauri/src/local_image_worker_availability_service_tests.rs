@@ -6,14 +6,15 @@ use serde_json::json;
 
 use crate::local_image_worker::availability_service::{
     LOCAL_IMAGE_MODEL_CACHE_DIRECTORY, LOCAL_IMAGE_WORKER_CACHE_DIRECTORY,
-    LOCAL_IMAGE_WORKER_EXECUTABLE, LocalImageAvailabilityService, LocalImageServiceError,
-    metadata_for_availability, worker_import_is_eligible,
+    LocalImageAvailabilityService, LocalImageServiceError, metadata_for_availability,
+    worker_import_is_eligible,
 };
 use crate::local_image_worker::{
     availability::{
         LocalImageAvailability, WorkerInstallationReadiness, inspect_worker_installation,
     },
     model_package::selected_qwen_image_2512_q4_package,
+    package_catalog::APPLE_MLX_WORKER_EXECUTABLE,
 };
 
 #[test]
@@ -124,7 +125,7 @@ fn unsafe_worker_symlinks_fail_closed_without_leaking_the_target() {
     fs::create_dir_all(&root).unwrap();
     fs::create_dir_all(&outside).unwrap();
     symlink(&outside, &worker).unwrap();
-    let executable = worker.join(LOCAL_IMAGE_WORKER_EXECUTABLE);
+    let executable = worker.join(APPLE_MLX_WORKER_EXECUTABLE);
     assert_eq!(
         inspect_worker_installation(
             &worker,

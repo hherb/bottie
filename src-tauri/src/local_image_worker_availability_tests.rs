@@ -34,6 +34,10 @@ fn hardware_profile_requires_the_exact_accepted_chip_and_memory_tier() {
     );
     assert_eq!(evidence_profile_for("Apple M3 Max", 64 * GIB), None);
     assert_eq!(evidence_profile_for("Apple M4 Max", 128 * GIB), None);
+    assert_eq!(
+        HardwareEvidenceProfile::AppleM3Max128Gb.platform_profile(),
+        crate::local_image_worker::package_catalog::LocalImagePlatformProfile::AppleM3Max128Gb
+    );
 }
 
 #[test]

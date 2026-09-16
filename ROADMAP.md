@@ -532,8 +532,10 @@ Implement this once for both hosted and local adapters before adding more runtim
   named DGX Spark GB10 target. The exact ARM64 runtime and full public model revision produced byte- and pixel-identical
   cold/warm PNGs, denied network access, cancelled at a denoising boundary in 100 ms, and recorded conservative unified
   host-memory measurements. CPU offload was disabled; DGX Spark exposes no separate aggregate VRAM counter. This proves
-  feasibility only: Linux remains unavailable until Bottie has a reviewed distributable worker package, backend-aware
-  package selection, native hardware gating, and app-owned execution. See `docs/local-image-linux-nvidia-proof.md`;
+  feasibility only. The native catalog now binds this candidate's backend, runtime, model, proof target, and evidence
+  document while leaving its accepted profile and importable executable absent. Linux remains unavailable until Bottie
+  has a reviewed distributable worker package, native hardware gating, and app-owned execution. See
+  `docs/local-image-linux-nvidia-proof.md`;
 - [ ] **Windows NVIDIA:** use the same pinned Diffusers worker and protocol after a native Windows CUDA/package proof;
   do not treat WSL-only success as Windows product evidence;
 - [ ] **Linux AMD:** add a ROCm Diffusers route only after a named-GPU proof demonstrates correct decoded output and

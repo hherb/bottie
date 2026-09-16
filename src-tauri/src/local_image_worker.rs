@@ -31,6 +31,9 @@ pub(crate) mod model_download;
 #[allow(dead_code)]
 #[path = "local_image_worker/model_package.rs"]
 pub(crate) mod model_package;
+#[allow(dead_code)]
+#[path = "local_image_worker/package_catalog.rs"]
+pub(crate) mod package_catalog;
 #[allow(dead_code, unused_imports)]
 #[path = "local_image_worker/protocol.rs"]
 pub(crate) mod protocol;

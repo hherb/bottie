@@ -52,8 +52,6 @@ impl VerifiedLocalImageAcquisition {
     }
 }
 
-/// Exact executable name inside the selected local-image worker bundle.
-pub(crate) const LOCAL_IMAGE_WORKER_EXECUTABLE: &str = "bottie-local-image-mlx-worker";
 /// Fixed application-data directory owning promoted private worker bundles.
 pub(crate) const LOCAL_IMAGE_WORKER_CACHE_DIRECTORY: &str = "local-image-workers";
 /// Fixed application-data directory owning transactional local-image model caches.
@@ -102,6 +100,7 @@ pub(crate) struct LocalImageAvailabilityMetadata {
 struct LocalImageInstallationLayout {
     worker_cache_root: PathBuf,
     model_cache_root: PathBuf,
+    worker_executable_name: &'static str,
 }
 
 /// Serializes expensive read-only readiness checks and moves them off the WebView task.
@@ -118,12 +117,17 @@ impl LocalImageAvailabilityService {
         app_data_directory: impl AsRef<Path>,
     ) -> Result<Self, LocalImageServiceError> {
         let app_data = safe_absolute_root(app_data_directory.as_ref())?;
+        let selected = selected_qwen_image_2512_q4_package()
+            .map_err(|_| LocalImageServiceError::InvalidPackage)?;
+        let worker_executable_name = selected
+            .runtime()
+            .product_executable_name()
+            .ok_or(LocalImageServiceError::InvalidPackage)?;
         let layout = LocalImageInstallationLayout {
             worker_cache_root: app_data.join(LOCAL_IMAGE_WORKER_CACHE_DIRECTORY),
             model_cache_root: app_data.join(LOCAL_IMAGE_MODEL_CACHE_DIRECTORY),
+            worker_executable_name,
         };
-        let selected = selected_qwen_image_2512_q4_package()
-            .map_err(|_| LocalImageServiceError::InvalidPackage)?;
         Ok(Self {
             layout,
             selected: Arc::new(selected),
@@ -205,7 +209,7 @@ impl LocalImageAvailabilityService {
             import_worker_bundle(
                 &cache_root,
                 &source_root,
-                LOCAL_IMAGE_WORKER_EXECUTABLE,
+                layout.worker_executable_name,
                 &selected.manifest().runtime_id,
                 selected.evidence(),
                 &approval,
@@ -268,7 +272,7 @@ fn inspect_installation(
     if matches!(availability, LocalImageAvailability::WorkerMissing) {
         let resolution = resolve_promoted_worker(
             &layout.worker_cache_root,
-            LOCAL_IMAGE_WORKER_EXECUTABLE,
+            layout.worker_executable_name,
             &selected.manifest().runtime_id,
             selected.evidence(),
         );

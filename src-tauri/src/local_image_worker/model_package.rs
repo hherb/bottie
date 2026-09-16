@@ -3,19 +3,22 @@
 use super::{
     model_acquisition::{ModelFileContract, ModelPackageManifest},
     model_download::{ModelFileSource, ModelSourcePlan},
+    package_catalog::{
+        APPLE_MLX_MODEL_REVISION, LocalImagePlatformProfile, LocalImageRuntimeCandidate,
+        QWEN_IMAGE_2512_MODEL_ID, select_runtime_for_profile,
+    },
 };
 
 /// Immutable Hugging Face revision for the reviewed mixed q4/q8 MLX-Gen package.
-pub(crate) const QWEN_IMAGE_2512_PACKAGE_REVISION: &str =
-    "423f1f5bf708c6e11eb78881ef9738422cea0814";
+pub(crate) const QWEN_IMAGE_2512_PACKAGE_REVISION: &str = APPLE_MLX_MODEL_REVISION;
 /// Immutable MLX-Gen commit behind the package's declared minimum generated runtime.
-pub(crate) const MLX_GEN_RUNTIME_REVISION: &str = "fca64a283737c68b67a7bfd88d93f7aa9101a95c";
+pub(crate) use super::package_catalog::MLX_GEN_RUNTIME_REVISION;
 /// Reproducible generation profile required before this package can be selected.
 pub(crate) const QWEN_IMAGE_2512_GENERATION_PROFILE: &str = "qwen-image-2512-512x512-15-step-v1";
 /// Exact Apple-silicon target measured by the initial package acceptance run.
 pub(crate) const QWEN_IMAGE_2512_HARDWARE_PROFILE: &str = "apple-m3-max-128gb";
 
-const MODEL_ID: &str = "Qwen/Qwen-Image-2512";
+const MODEL_ID: &str = QWEN_IMAGE_2512_MODEL_ID;
 const PACKAGE_ID: &str = "AbstractFramework/qwen-image-2512-4bit";
 const LICENSE: &str = "Apache-2.0";
 const EXPECTED_DISK_BYTES: u64 = 17_442_350_812;
@@ -260,6 +263,8 @@ impl ModelPackageCandidate {
         self,
         evidence: PackageAcceptanceEvidence,
     ) -> Result<SelectedModelPackage, PackageEvidenceError> {
+        let runtime = select_runtime_for_profile(LocalImagePlatformProfile::AppleM3Max128Gb)
+            .map_err(|_| PackageEvidenceError::InvalidEvidence)?;
         if evidence.package_revision != QWEN_IMAGE_2512_PACKAGE_REVISION
             || evidence.runtime_revision != MLX_GEN_RUNTIME_REVISION
             || evidence.hardware_profile != QWEN_IMAGE_2512_HARDWARE_PROFILE
@@ -288,7 +293,14 @@ impl ModelPackageCandidate {
             sources,
         )
         .map_err(|_| PackageEvidenceError::InvalidEvidence)?;
+        if runtime.model_id() != manifest.model_id
+            || runtime.model_revision() != manifest.source_revision
+            || runtime.runtime_id() != manifest.runtime_id
+        {
+            return Err(PackageEvidenceError::InvalidEvidence);
+        }
         Ok(SelectedModelPackage {
+            runtime,
             manifest,
             source_plan,
             evidence,
@@ -324,12 +336,18 @@ pub(crate) fn selected_qwen_image_2512_q4_package()
 /// Exact manifest and source plan produced only after native runtime evidence acceptance.
 #[derive(Clone, Debug)]
 pub(crate) struct SelectedModelPackage {
+    runtime: LocalImageRuntimeCandidate,
     manifest: ModelPackageManifest,
     source_plan: ModelSourcePlan,
     evidence: PackageAcceptanceEvidence,
 }
 
 impl SelectedModelPackage {
+    /// Returns the exact backend and worker identity selected for this package.
+    pub(crate) fn runtime(&self) -> LocalImageRuntimeCandidate {
+        self.runtime
+    }
+
     /// Returns the accepted immutable manifest.
     pub(crate) fn manifest(&self) -> &ModelPackageManifest {
         &self.manifest
