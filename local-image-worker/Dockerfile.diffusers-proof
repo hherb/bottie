@@ -1,0 +1,14 @@
+FROM nvcr.io/nvidia/pytorch@sha256:417cbf33f87b5378849df37983552cd1f8bc8b62fe1ceabe004de816a55dff21
+
+COPY requirements-diffusers-proof.txt /opt/bottie/requirements-diffusers-proof.txt
+RUN python -m pip install --no-cache-dir --no-deps \
+    -r /opt/bottie/requirements-diffusers-proof.txt
+
+COPY mlx_worker.py diffusers_worker.py /opt/bottie/
+WORKDIR /opt/bottie
+
+ENV HF_HUB_OFFLINE=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    TRANSFORMERS_OFFLINE=1
+
+ENTRYPOINT ["python", "/opt/bottie/diffusers_worker.py"]

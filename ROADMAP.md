@@ -528,8 +528,12 @@ Implement this once for both hosted and local adapters before adding more runtim
   native availability gate fails closed for every other hardware profile and for missing or mismatched worker/cache
   bytes. A freshly verified installation can now run one 512x512 text-to-image request through the reusable private
   worker, shared durable PNG pipeline, exact local provenance and seed, cooperative cancellation, and exact retry;
-- [ ] **Linux NVIDIA:** prove pinned PyTorch + Diffusers `QwenImagePipeline` first, including CUDA capability, VRAM,
-  CPU-offload, deterministic seed, cancellation latency, and cold/warm generation measurements;
+- [x] **Linux NVIDIA:** the pinned PyTorch + Diffusers `QwenImagePipeline` proof passes Bottie's private protocol on a
+  named DGX Spark GB10 target. The exact ARM64 runtime and full public model revision produced byte- and pixel-identical
+  cold/warm PNGs, denied network access, cancelled at a denoising boundary in 100 ms, and recorded conservative unified
+  host-memory measurements. CPU offload was disabled; DGX Spark exposes no separate aggregate VRAM counter. This proves
+  feasibility only: Linux remains unavailable until Bottie has a reviewed distributable worker package, backend-aware
+  package selection, native hardware gating, and app-owned execution. See `docs/local-image-linux-nvidia-proof.md`;
 - [ ] **Windows NVIDIA:** use the same pinned Diffusers worker and protocol after a native Windows CUDA/package proof;
   do not treat WSL-only success as Windows product evidence;
 - [ ] **Linux AMD:** add a ROCm Diffusers route only after a named-GPU proof demonstrates correct decoded output and

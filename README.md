@@ -312,7 +312,10 @@ Every local adapter will share the same provider-neutral contract and durable na
 route exact 2.0 through oMLX or an older implementation nor label 2512 output as Qwen-Image-2.0. See Milestone 8 in
 `ROADMAP.md` for the phased implementation and hardware acceptance plan. The first native availability contract accepts
 only the measured Apple M3 Max 128 GiB profile and re-verifies the exact app-owned worker bundle and model cache; all
-other local hardware and missing or changed bytes remain unavailable. A ready installation is re-verified again before
+other local hardware and missing or changed bytes remain unavailable. A pinned
+[Diffusers proof](docs/local-image-linux-nvidia-proof.md) now passes on an NVIDIA DGX Spark GB10, but it remains
+feasibility evidence rather than a Linux availability profile because there is no
+reviewed distributable Linux worker package or app-owned Linux runtime. A ready Apple installation is re-verified before
 each local start or retry, runs through a network-denied reusable MLX-Gen worker, and reaches the same private PNG
 storage and asset actions as Cloud without fallback. The composer can import that exact worker from a user-selected
 native folder into a
@@ -334,7 +337,8 @@ before model download or generation, and Bottie never falls back to Cloud automa
 | --- | --- | --- |
 | macOS, Apple M3 Max, 128 GiB unified memory | Supported for one 512×512 text-to-image output | Exact MLX-Gen 0.18.2 worker bundle and immutable mixed q4/q8 package; 27.5 GiB measured peak memory; 110 ms measured cancellation |
 | Other Apple silicon profiles | Unavailable | A named chip and memory tier must pass the same decoded-output, memory, offline, and cancellation proof |
-| Linux or Windows with NVIDIA GPU | Unavailable | A named native CUDA target must prove pinned Diffusers execution; WSL evidence is not Windows evidence |
+| Linux, NVIDIA DGX Spark GB10 with 128 GB unified memory | Unavailable | The exact pinned Diffusers proof passes decoded output, determinism, offline execution, memory sampling, and 100 ms cancellation; product-native packaging, selection, probing, and app-owned execution remain gated |
+| Other Linux or Windows profiles with NVIDIA GPU | Unavailable | Each native target must pass exact runtime evidence; DGX Spark does not prove Windows, WSL, discrete-VRAM, or another Linux profile |
 | Linux with AMD GPU | Unavailable | A named ROCm target must prove decoded output, memory, and cancellation behavior |
 | Windows with AMD or Intel GPU, and lower-memory GPUs | Unavailable | A pinned Vulkan/GGUF candidate needs same-seed quality and lifecycle evidence; DirectML is not claimed |
 | Any host requesting local Qwen-Image-2.0 | Unavailable | Exact 2.0 weights have not been released in Qwen's official repositories or model registries |

@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import BinaryIO, Callable, Protocol
+from typing import BinaryIO, Callable, NamedTuple, Protocol
 
 PROTOCOL_VERSION = 1
 WORKER_VERSION = "mlx-gen-0.18.2-proof-1"
@@ -30,6 +30,22 @@ OFFLINE_ENVIRONMENT = {
     "HF_HUB_DISABLE_TELEMETRY": "1",
     "TRANSFORMERS_OFFLINE": "1",
 }
+
+
+class WorkerIdentity(NamedTuple):
+    """Exact backend identity negotiated and validated by one worker process."""
+
+    worker_version: str
+    runtime_id: str
+    model_id: str
+    model_revision: str
+
+
+MLX_WORKER_IDENTITY = WorkerIdentity(WORKER_VERSION, RUNTIME_ID, MODEL_ID, MODEL_REVISION)
+
+
+class NetworkDeniedError(PermissionError):
+    """Stable internal marker for an attempted audited network operation."""
 
 
 class Backend(Protocol):
@@ -148,6 +164,7 @@ class Worker:
         output_stream: BinaryIO,
         output_directory: Path,
         backend_factory: Callable[[], Backend] = MlxBackend,
+        identity: WorkerIdentity = MLX_WORKER_IDENTITY,
     ) -> None:
         """Bind private pipes, one trusted output directory, and one backend factory."""
         self._input = input_stream
@@ -155,6 +172,7 @@ class Worker:
         self._output_lock = threading.Lock()
         self._output_directory = validate_output_directory(output_directory)
         self._backend = backend_factory()
+        self._identity = identity
         self._model_loaded = False
         self._commands: queue.Queue[dict | None] = queue.Queue()
         self._cancellation = CancellationController()
@@ -163,13 +181,19 @@ class Worker:
         """Negotiate the protocol and serve commands until clean shutdown or EOF."""
         hello = read_frame(self._input)
         require_hello(hello)
-        self._write({"type": "hello", "protocolVersion": PROTOCOL_VERSION, "workerVersion": WORKER_VERSION})
+        self._write(
+            {
+                "type": "hello",
+                "protocolVersion": PROTOCOL_VERSION,
+                "workerVersion": self._identity.worker_version,
+            }
+        )
         self._write(
             {
                 "type": "capabilities",
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {
-                    "runtimeId": RUNTIME_ID,
+                    "runtimeId": self._identity.runtime_id,
                     "generation": True,
                     "supportsSeed": True,
                     "maxOutputs": 1,
@@ -211,7 +235,7 @@ class Worker:
 
     def _load(self, command: dict) -> None:
         """Load one exact verified package and retain it for later generation."""
-        request_id, model_directory = require_load(command)
+        request_id, model_directory = require_load(command, self._identity)
         self._cancellation.begin(request_id)
         self._progress(request_id, "loading", 0, 1)
         try:
@@ -234,7 +258,9 @@ class Worker:
 
     def _generate(self, command: dict) -> None:
         """Generate one fixed-profile PNG or return one correlated terminal failure."""
-        request_id, prompt, width, height, seed = require_generate(command, self._model_loaded)
+        request_id, prompt, width, height, seed = require_generate(
+            command, self._model_loaded, self._identity
+        )
         output_path = self._output_directory / OUTPUT_NAME
         output_path.unlink(missing_ok=True)
         self._cancellation.begin(request_id)
@@ -343,7 +369,7 @@ def require_hello(command: dict) -> None:
     require_text(command["clientVersion"], 256)
 
 
-def require_load(command: dict) -> tuple[str, Path]:
+def require_load(command: dict, identity: WorkerIdentity = MLX_WORKER_IDENTITY) -> tuple[str, Path]:
     """Validate one exact model load command and return its native values."""
     require_keys(command, {"type", "protocolVersion", "requestId", "model"})
     require_protocol(command, "load")
@@ -352,7 +378,7 @@ def require_load(command: dict) -> tuple[str, Path]:
     if not isinstance(model, dict):
         raise ValueError("invalid model")
     require_keys(model, {"modelId", "modelRevision", "modelDirectory"})
-    if model["modelId"] != MODEL_ID or model["modelRevision"] != MODEL_REVISION:
+    if model["modelId"] != identity.model_id or model["modelRevision"] != identity.model_revision:
         raise ValueError("unexpected model")
     model_directory = Path(model["modelDirectory"])
     resolved = model_directory.resolve(strict=True)
@@ -361,14 +387,18 @@ def require_load(command: dict) -> tuple[str, Path]:
     return request_id, resolved
 
 
-def require_generate(command: dict, model_loaded: bool) -> tuple[str, str, int, int, int]:
+def require_generate(
+    command: dict,
+    model_loaded: bool,
+    identity: WorkerIdentity = MLX_WORKER_IDENTITY,
+) -> tuple[str, str, int, int, int]:
     """Validate the fixed single-output 512-square generation profile."""
     require_keys(
         command,
         {"type", "protocolVersion", "requestId", "modelId", "prompt", "width", "height", "count", "seed"},
     )
     require_protocol(command, "generate")
-    if not model_loaded or command["modelId"] != MODEL_ID:
+    if not model_loaded or command["modelId"] != identity.model_id:
         raise ValueError("model not loaded")
     request_id = require_request_id(command["requestId"])
     prompt = require_text(command["prompt"], MAX_PROMPT_BYTES)
@@ -427,7 +457,9 @@ def validate_output_directory(path: Path) -> Path:
 
 def report_backend_failure(operation: str, error: BaseException) -> None:
     """Emit one bounded path-free diagnostic category without exception text."""
-    if isinstance(error, ModuleNotFoundError):
+    if isinstance(error, NetworkDeniedError):
+        category = "network-attempt-denied"
+    elif isinstance(error, ModuleNotFoundError):
         category = "dependency-missing"
     elif isinstance(error, ImportError):
         category = "dependency-invalid"
@@ -451,7 +483,7 @@ def install_network_denial() -> None:
     def deny_network(event: str, _arguments) -> None:
         """Reject every audited socket connection, bind, and resolution attempt."""
         if event in NETWORK_AUDIT_EVENTS:
-            raise PermissionError("worker networking is disabled")
+            raise NetworkDeniedError("worker networking is disabled")
 
     sys.addaudithook(deny_network)
 

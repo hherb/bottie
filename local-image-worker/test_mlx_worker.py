@@ -5,21 +5,24 @@ from __future__ import annotations
 import io
 import tempfile
 import unittest
-from unittest import mock
 from pathlib import Path
+from unittest import mock
 
 from mlx_worker import (
+    CANCELLATION_POLL_WINDOW_SECONDS,
     MAX_PROMPT_BYTES,
     MODEL_ID,
     MODEL_REVISION,
-    CANCELLATION_POLL_WINDOW_SECONDS,
+    NetworkDeniedError,
     CancellationController,
     ProgressCallback,
     Worker,
+    WorkerIdentity,
     read_frame,
     report_backend_failure,
     require_generate,
     require_hello,
+    require_load,
     write_frame,
 )
 
@@ -73,6 +76,30 @@ class WorkerPolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             require_generate(command, True)
 
+    def test_generation_identity_is_explicit_per_worker_backend(self) -> None:
+        """A second runtime cannot inherit the MLX model revision accidentally."""
+        identity = WorkerIdentity(
+            worker_version="diffusers-proof",
+            runtime_id="diffusers@proof",
+            model_id=MODEL_ID,
+            model_revision="linux-proof-revision",
+        )
+        command = {
+            "type": "load",
+            "protocolVersion": 1,
+            "requestId": "load-proof",
+            "model": {
+                "modelId": MODEL_ID,
+                "modelRevision": "linux-proof-revision",
+                "modelDirectory": "/missing",
+            },
+        }
+        with self.assertRaises(FileNotFoundError):
+            require_load(command, identity)
+        command["model"]["modelRevision"] = MODEL_REVISION
+        with self.assertRaises(ValueError):
+            require_load(command, identity)
+
     def test_cancellation_matches_only_the_active_request(self) -> None:
         """Unknown and duplicate cancellation cannot interrupt unrelated work."""
         controller = CancellationController()
@@ -109,6 +136,9 @@ class WorkerPolicyTests(unittest.TestCase):
         with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
             report_backend_failure("load", ModuleNotFoundError("/private/model/secret.py"))
         self.assertEqual(stderr.getvalue(), "bottie-worker-load-dependency-missing\n")
+        with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            report_backend_failure("generate", NetworkDeniedError("https://private.example"))
+        self.assertEqual(stderr.getvalue(), "bottie-worker-generate-network-attempt-denied\n")
 
     def test_private_loop_loads_generates_and_shuts_down_in_order(self) -> None:
         """The real loop emits correlated handshake, progress, and terminal frames."""
