@@ -11,8 +11,9 @@ environment review required before assembling a Linux ARM64 Diffusers worker can
 
 ## Current state
 
-- The environment gate runs only on Linux ARM64 with Python 3.12.3. It requires the exact NGC base-image digest,
-  verifies every direct Python pin and checked-in proof input, and binds the existing worker/runtime/model identities.
+- The environment gate resolves the requested image through the host Docker daemon, requires the exact immutable
+  derived-image ID and Linux ARM64 metadata, then launches the unbound collector by that verified ID with networking
+  disabled. The collector requires Python 3.12.3, every direct Python pin, and every checked-in proof input.
 - It inventories every installed Python distribution and Debian package, measuring package-declared licence/notice
   bytes plus the NVIDIA container-terms bytes. Its deterministic JSON binds the exact base and derived image digests
   and retains no absolute filesystem paths.
@@ -27,7 +28,7 @@ environment review required before assembling a Linux ARM64 Diffusers worker can
 
 ## Validation and limits
 
-Prettier, Svelte diagnostics, all 407 active frontend/script tests (3 skipped), and the production build pass. All 28
+Prettier, Svelte diagnostics, all 407 active frontend/script tests (3 skipped), and the production build pass. All 32
 Python worker tests pass inside the exact DGX image. Cargo formatting/checking pass; the host-local Rust run passes 649
 active library tests (37 ignored), updater evidence, all 6 execution-adapter tests, all 10 private-worker transport
 tests, and doc tests. The first sandboxed Rust run had the expected 19 loopback-bind denials; the identical host-local

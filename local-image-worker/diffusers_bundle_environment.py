@@ -41,8 +41,16 @@ NON_DOCUMENT_SUFFIXES = {
     ".yaml",
     ".yml",
 }
-REJECTED_LICENSE_EXPRESSIONS = {"N/A", "NONE", "TBD", "UNLICENSED", "UNKNOWN"}
+REJECTED_LICENSE_EXPRESSIONS = {
+    "N/A",
+    "NOASSERTION",
+    "NONE",
+    "TBD",
+    "UNLICENSED",
+    "UNKNOWN",
+}
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+CONTAINER_SOURCE_ROOT = "/opt/bottie-environment-review"
 PINNED_PYTHON_DISTRIBUTIONS = {
     "accelerate": "1.15.0",
     "annotated-doc": "0.0.5",
@@ -97,7 +105,7 @@ def environment_review(
     container_terms_sha256: str | None,
     container_terms_byte_size: int | None,
 ) -> dict:
-    """Build the canonical review record and refuse assembly on incomplete licence bytes."""
+    """Build an unbound review measurement and refuse assembly on incomplete licence bytes."""
     python_components = _sorted_unique_components(python_components, "python")
     native_components = _sorted_unique_components(native_components, "deb")
     blockers = []
@@ -119,9 +127,6 @@ def environment_review(
         "runtimeId": DIFFUSERS_WORKER_IDENTITY.runtime_id,
         "modelId": DIFFUSERS_WORKER_IDENTITY.model_id,
         "modelRevision": DIFFUSERS_WORKER_IDENTITY.model_revision,
-        "baseImage": BASE_IMAGE,
-        "baseImageDigest": BASE_IMAGE_DIGEST,
-        "derivedImageDigest": DERIVED_IMAGE_DIGEST,
         "target": {"operatingSystem": "linux", "architecture": TARGET_ARCHITECTURE},
         "pythonVersion": TARGET_PYTHON_VERSION,
         "pythonComponents": python_components,
@@ -150,9 +155,16 @@ def portable_license_name(declared_name: str, index: int) -> str:
     return f"external/{index:04d}-{basename}"
 
 
-def collect_environment_review() -> dict:
-    """Measure installed Python, Debian, and NVIDIA licence evidence on the named target."""
-    _verify_environment()
+def collect_environment_review(image_reference: str) -> dict:
+    """Inspect and collect from the exact derived image selected by the host Docker daemon."""
+    image_id = _inspect_derived_image(image_reference)
+    measurement = _collect_from_verified_image(image_id)
+    return _bind_verified_image(measurement, image_id)
+
+
+def _collect_environment_measurement() -> dict:
+    """Measure package and licence evidence inside an externally selected image."""
+    _verify_environment_contents()
     python_components = [_python_component(distribution) for distribution in metadata.distributions()]
     native_components = [_native_component(*fields) for fields in _installed_debian_packages()]
     terms = _hash_optional_file(NVIDIA_TERMS_FILE)
@@ -164,16 +176,12 @@ def collect_environment_review() -> dict:
     )
 
 
-def _verify_environment() -> None:
-    """Fail unless collection runs inside the exact retained Linux ARM64 proof image."""
+def _verify_environment_contents() -> None:
+    """Fail unless the externally selected image exposes the exact expected runtime contents."""
     if platform.system() != "Linux" or platform.machine() != TARGET_ARCHITECTURE:
         raise EnvironmentEvidenceError("proof environment target is not exact")
     if platform.python_version() != TARGET_PYTHON_VERSION:
         raise EnvironmentEvidenceError("proof environment Python version is not exact")
-    if os.environ.get("BOTTIE_BASE_IMAGE_DIGEST") != BASE_IMAGE_DIGEST:
-        raise EnvironmentEvidenceError("proof environment base-image digest is not bound")
-    if os.environ.get("BOTTIE_DERIVED_IMAGE_DIGEST") != DERIVED_IMAGE_DIGEST:
-        raise EnvironmentEvidenceError("proof environment derived-image digest is not bound")
     for name, expected_version in PINNED_PYTHON_DISTRIBUTIONS.items():
         try:
             installed_version = metadata.version(name)
@@ -182,6 +190,90 @@ def _verify_environment() -> None:
         if installed_version != expected_version:
             raise EnvironmentEvidenceError("pinned Python distribution has drifted")
     verify_proof_inputs()
+
+
+def _inspect_derived_image(image_reference: str) -> str:
+    """Resolve one Docker reference and require the exact retained image identity on the host."""
+    if (
+        not image_reference
+        or image_reference != image_reference.strip()
+        or image_reference.startswith("-")
+        or len(image_reference.encode()) > MAX_FIELD_BYTES
+        or any(ord(character) < 32 for character in image_reference)
+    ):
+        raise EnvironmentEvidenceError("derived-image reference is invalid")
+    try:
+        completed = subprocess.run(
+            ["docker", "image", "inspect", image_reference],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        raise EnvironmentEvidenceError("derived-image inspection is unavailable") from error
+    if completed.returncode != 0:
+        raise EnvironmentEvidenceError("derived-image inspection failed")
+    try:
+        inspected = json.loads(completed.stdout)
+    except (json.JSONDecodeError, TypeError) as error:
+        raise EnvironmentEvidenceError("derived-image inspection is malformed") from error
+    if not isinstance(inspected, list) or len(inspected) != 1 or not isinstance(inspected[0], dict):
+        raise EnvironmentEvidenceError("derived-image inspection is ambiguous")
+    image = inspected[0]
+    if image.get("Id") != DERIVED_IMAGE_DIGEST:
+        raise EnvironmentEvidenceError("derived-image identity has drifted")
+    if image.get("Os") != "linux" or image.get("Architecture") != "arm64":
+        raise EnvironmentEvidenceError("derived-image target has drifted")
+    return DERIVED_IMAGE_DIGEST
+
+
+def _collect_from_verified_image(image_id: str) -> dict:
+    """Run the unbound collector in the exact image ID already resolved by the host."""
+    if image_id != DERIVED_IMAGE_DIGEST:
+        raise EnvironmentEvidenceError("derived-image identity is not verified")
+    source_root = Path(__file__).resolve().parent
+    command = [
+        "docker",
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--entrypoint",
+        "python",
+        "--mount",
+        f"type=bind,src={source_root},dst={CONTAINER_SOURCE_ROOT},readonly",
+        image_id,
+        f"{CONTAINER_SOURCE_ROOT}/diffusers_bundle_environment.py",
+        "--collect-unbound",
+    ]
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    except OSError as error:
+        raise EnvironmentEvidenceError("verified-image collection is unavailable") from error
+    if completed.returncode != 0:
+        raise EnvironmentEvidenceError("verified-image collection failed")
+    try:
+        measurement = json.loads(completed.stdout)
+    except (json.JSONDecodeError, TypeError) as error:
+        raise EnvironmentEvidenceError("verified-image collection is malformed") from error
+    if not isinstance(measurement, dict):
+        raise EnvironmentEvidenceError("verified-image collection is malformed")
+    return measurement
+
+
+def _bind_verified_image(measurement: dict, image_id: str) -> dict:
+    """Add immutable image identity only after host inspection and exact-ID execution."""
+    if image_id != DERIVED_IMAGE_DIGEST:
+        raise EnvironmentEvidenceError("derived-image identity is not verified")
+    forbidden = {"baseImage", "baseImageDigest", "derivedImageDigest"}
+    if forbidden.intersection(measurement):
+        raise EnvironmentEvidenceError("unbound environment measurement contains image identity")
+    return {
+        **measurement,
+        "baseImage": BASE_IMAGE,
+        "baseImageDigest": BASE_IMAGE_DIGEST,
+        "derivedImageDigest": image_id,
+    }
 
 
 def _python_component(distribution: metadata.Distribution) -> dict:
@@ -361,16 +453,25 @@ def _write_review(review: dict, output: Path) -> None:
 
 
 def parse_arguments() -> argparse.Namespace:
-    """Parse the explicit review-record destination."""
+    """Parse the host orchestration request or private unbound collection mode."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
+    parser.add_argument("image_reference", nargs="?")
+    parser.add_argument("output", nargs="?", type=Path)
+    parser.add_argument("--collect-unbound", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
 def main() -> None:
     """Collect and persist one exact environment review record."""
     arguments = parse_arguments()
-    review = collect_environment_review()
+    if arguments.collect_unbound:
+        if arguments.image_reference is not None or arguments.output is not None:
+            raise EnvironmentEvidenceError("unbound collection does not accept host arguments")
+        print(json.dumps(_collect_environment_measurement(), sort_keys=True))
+        return
+    if arguments.image_reference is None or arguments.output is None:
+        raise EnvironmentEvidenceError("derived-image reference and output are required")
+    review = collect_environment_review(arguments.image_reference)
     _write_review(review, arguments.output)
     if not review["assemblyEligible"]:
         raise SystemExit(3)

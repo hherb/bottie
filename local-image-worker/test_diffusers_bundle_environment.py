@@ -6,9 +6,15 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from diffusers_bundle_environment import (
+    DERIVED_IMAGE_DIGEST,
+    EnvironmentEvidenceError,
+    _bind_verified_image,
+    _collect_from_verified_image,
     _hash_optional_file,
+    _inspect_derived_image,
     _looks_like_license_file,
     environment_review,
     normalize_component,
@@ -69,14 +75,59 @@ class DiffusersBundleEnvironmentTests(unittest.TestCase):
 
     def test_review_rejects_placeholder_license_declarations(self) -> None:
         """Literal placeholder metadata is normalized to an undeclared blocker."""
-        component = normalize_component(
-            "python", "example", "1", None, "UNKNOWN", [("LICENSE", 12, SHA256)]
+        for declaration in ["UNKNOWN", "NOASSERTION"]:
+            with self.subTest(declaration=declaration):
+                component = normalize_component(
+                    "python", "example", "1", None, declaration, [("LICENSE", 12, SHA256)]
+                )
+
+                review = environment_review([component], [], SHA256, 99)
+
+                self.assertEqual(component["licenseExpression"], "undeclared")
+                self.assertEqual(review["blockers"], ["python:example@1:undeclared-license"])
+
+    @patch("diffusers_bundle_environment.subprocess.run")
+    def test_inspects_the_actual_derived_image_identity(self, run) -> None:
+        """The host Docker daemon, not caller-controlled environment text, binds the image."""
+        run.return_value.returncode = 0
+        run.return_value.stdout = json.dumps(
+            [{"Id": DERIVED_IMAGE_DIGEST, "Os": "linux", "Architecture": "arm64"}]
+        )
+        run.return_value.stderr = ""
+
+        self.assertEqual(_inspect_derived_image("bottie-proof:review"), DERIVED_IMAGE_DIGEST)
+        run.assert_called_once_with(
+            ["docker", "image", "inspect", "bottie-proof:review"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
-        review = environment_review([component], [], SHA256, 99)
+    @patch("diffusers_bundle_environment.subprocess.run")
+    def test_rejects_a_different_inspected_image(self, run) -> None:
+        """A tag resolving to rebuilt image bytes cannot be presented as the retained proof image."""
+        run.return_value.returncode = 0
+        run.return_value.stdout = json.dumps(
+            [{"Id": f"sha256:{'b' * 64}", "Os": "linux", "Architecture": "arm64"}]
+        )
+        run.return_value.stderr = ""
 
-        self.assertEqual(component["licenseExpression"], "undeclared")
-        self.assertEqual(review["blockers"], ["python:example@1:undeclared-license"])
+        with self.assertRaisesRegex(EnvironmentEvidenceError, "derived-image identity has drifted"):
+            _inspect_derived_image("bottie-proof:review")
+
+    @patch("diffusers_bundle_environment.subprocess.run")
+    def test_collects_by_verified_image_id_with_network_disabled(self, run) -> None:
+        """Collection uses the inspected immutable ID rather than resolving the caller's tag again."""
+        run.return_value.returncode = 0
+        run.return_value.stdout = '{"blockers": []}'
+        run.return_value.stderr = ""
+
+        self.assertEqual(_collect_from_verified_image(DERIVED_IMAGE_DIGEST), {"blockers": []})
+
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("--network") + 1], "none")
+        self.assertIn(DERIVED_IMAGE_DIGEST, command)
+        self.assertIn("--collect-unbound", command)
 
     def test_review_is_deterministic_and_requires_container_terms(self) -> None:
         """Component order is canonical and missing NVIDIA terms block assembly."""
@@ -91,6 +142,17 @@ class DiffusersBundleEnvironmentTests(unittest.TestCase):
 
         self.assertEqual([item["name"] for item in review["pythonComponents"]], ["alpha", "zeta"])
         self.assertEqual(review["blockers"], ["container-terms:missing-license-bytes"])
+
+    def test_only_host_verified_binding_adds_image_identity(self) -> None:
+        """The in-container measurement cannot present itself as image-bound evidence."""
+        measurement = environment_review([], [], SHA256, 99)
+
+        self.assertNotIn("baseImageDigest", measurement)
+        self.assertNotIn("derivedImageDigest", measurement)
+
+        review = _bind_verified_image(measurement, DERIVED_IMAGE_DIGEST)
+
+        self.assertEqual(review["derivedImageDigest"], DERIVED_IMAGE_DIGEST)
 
     def test_canonicalizes_installation_relative_license_names(self) -> None:
         """Wheel traversal records become stable labels without losing the file identity."""
