@@ -544,9 +544,12 @@ Implement this once for both hosted and local adapters before adding more runtim
   still refuses assembly on 106 licence-only blockers: five missing byte records, seventeen undeclared licences, and
   84 unreviewed expressions. An exact-image/exact-trace review-manifest gate now preserves measured source and review
   bytes while rejecting partial component coverage and drift. The closure now binds exact in-image source evidence for
-  cuSPARSELt, Open MPI, and UCX, but no review manifest exists because UCC, NVPL BLAS/LAPACK, SentencePiece, and
-  tokenizers still lack authoritative component documents in the exact image. Bottie must resolve
-  those exact blockers, produce independently reviewed bundle bytes, and add native hardware gating plus app-owned
+  cuSPARSELt, Open MPI, and UCX. A separate offline read-only source gate now recognizes exact authoritative PyPI
+  archives for SentencePiece and tokenizers plus exact NVIDIA NVPL BLAS/LAPACK archives; the NVPL evidence additionally
+  requires both installed runtime files to match archive members byte-for-byte. It never infers expressions and has not
+  changed the checked-in DGX closure record. The exact HPC-X UCC revision still lacks authoritative source bytes, so no
+  review manifest exists and Linux remains unavailable. Bottie must resolve that exact blocker, rerun the closure on
+  the retained image, produce independently reviewed bundle bytes, and add native hardware gating plus app-owned
   execution.
   See
   `docs/local-image-linux-nvidia-proof.md` and

@@ -107,6 +107,38 @@ members in the source archives shipped inside the same HPC-X installation. These
 or redistribution approval. The gate exits with status 3, with `licenseReviewed`, `assemblyEligible`, and
 `distributionReviewed` false. It does not copy, assemble, import, or execute a product bundle.
 
+The host gate also accepts an optional `--license-sources` directory. The directory is mounted read-only into the exact
+image while Docker networking remains disabled. Only four fixed filenames are recognized, and every archive must match
+its exact authoritative byte count and SHA-256 before one exact regular licence member is measured. The NVIDIA sources
+add a second binding: both installed NVPL runtime files must be byte-identical to their corresponding regular archive
+members. This prevents the archive's build suffix from being associated with the marker-only component by version-name
+inference.
+
+| Closure identity                  | Authoritative archive                                  | Archive SHA-256                                                    | Licence member evidence                                                          |
+| --------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `native:nvidia-nvpl-blas@0.2.0`   | NVIDIA `nvpl_blas-linux-sbsa-0.2.0.1-archive.tar.xz`   | `ba29f6a9d3831b6ae5c9265b4d124c13b9b9e0faea025359b02b41ad230975c2` | 19,072 bytes; `d81174652f0c448a5736afc5d50663606863bfd6ee8c8416fbd9a628c6f8802f` |
+| `native:nvidia-nvpl-lapack@0.2.2` | NVIDIA `nvpl_lapack-linux-sbsa-0.2.2.1-archive.tar.xz` | `cdfbf69517a044e99e3e6231c8b2f4e845fd0de57775ccad6b4b0b4fe7e91e84` | 19,072 bytes; `d81174652f0c448a5736afc5d50663606863bfd6ee8c8416fbd9a628c6f8802f` |
+| `python:sentencepiece@0.2.2`      | PyPI `sentencepiece-0.2.2.tar.gz`                      | `3d2b5e824b5622038dc7b490897efe05ebbbb9e7350fc142f3ecc8789ef9bdf6` | 11,358 bytes; `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` |
+| `python:tokenizers@0.23.2`        | PyPI `tokenizers-0.23.2.tar.gz`                        | `7f0f085686b9de0d0079e6f874ae053600db64c5d13049e0bbc0119926d25aac` | 11,357 bytes; `c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4` |
+
+Place only already-obtained exact artifacts in an absolute directory outside the repository, then run the same retained
+image and trace with that directory:
+
+```sh
+python3 local-image-worker/diffusers_runtime_closure_host.py \
+  sha256:cded2049f9dbff513406052a191af2588476056d795468c4aacb7814aca5666c \
+  /absolute/path/outside-the-repository/runtime-trace \
+  /absolute/path/outside-the-repository/linux-runtime-closure-review.json \
+  --license-sources /absolute/path/outside-the-repository/license-sources
+```
+
+The source gate does not download artifacts, retain their contents, infer a licence expression, or mark a licence as
+reviewed. Supplying only a recognized subset remains partial; supplying a directory with no recognized archive fails
+closed. The exact UCC revision
+`native:hpcx-ucc@1.5.0+ec95a0a96fc7220e1627157439c508cafc82274e` deliberately has no catalog entry because
+neither the retained image nor the authoritative upstream commit endpoint supplied source bytes for that exact
+revision. A nearby UCC 1.5.0 release must not substitute for it.
+
 The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
 image, both exact proof-trace digests, and the complete sorted set of closure components. Every component must provide a
 non-placeholder reviewed expression, at least one licence or notice file, and a separate review record. Both the source
@@ -161,8 +193,11 @@ checked before the contents are discarded from the path-free closure output:
 On 2026-09-17, a fresh offline read-only inspection reconfirmed that the installed `sentencepiece` and `tokenizers`
 wheels contain no licence/notice document. The exact HPC-X installation includes Open MPI and UCX source archives with
 measured top-level licence members, but no UCC source archive or matching licence document. No matching NVPL BLAS or
-LAPACK document was found. No review manifest was created, no expression was inferred, and 106 blockers remain: five
-missing byte records, seventeen undeclared licences, and 84 unreviewed expressions.
+LAPACK document was found inside the image. Separately obtained PyPI and NVIDIA source artifacts passed the new
+path-free archive/member validation locally. The NVPL runtime-member verifier was exercised against files extracted
+from those official archives, but the retained DGX image was unavailable on this host, so its installed runtime match
+was not confirmed and the checked-in closure summary was not regenerated. It still records 106 blockers. No review
+manifest was created, no expression was inferred, and no product eligibility changed.
 
 ## Closed bundle measurement
 

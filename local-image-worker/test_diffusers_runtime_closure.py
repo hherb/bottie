@@ -352,6 +352,105 @@ class DiffusersRuntimeClosureTests(unittest.TestCase):
         self.assertIn("readonly", review_mount)
         self.assertEqual(command[command.index("--license-review") + 1], "/opt/bottie-license-review.json")
 
+    def test_host_collector_mounts_external_license_sources_read_only(self) -> None:
+        """Authoritative archives enter the verified image through one explicit offline directory."""
+        completed = SimpleNamespace(returncode=0, stdout='{"closure": {}}', stderr="")
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(runtime_closure_host, "_inspect_derived_image", return_value="sha256:id"),
+            patch.object(runtime_closure_host.subprocess, "run", return_value=completed) as run,
+        ):
+            root = Path(directory)
+            trace = root / "trace"
+            sources = root / "sources"
+            trace.mkdir()
+            sources.mkdir()
+            runtime_closure_host.collect_verified_runtime_closure(
+                "proof-image",
+                trace,
+                license_sources=sources,
+            )
+
+        command = run.call_args.args[0]
+        source_mount = next(value for value in command if "bottie-license-sources" in value)
+        self.assertIn(str(sources.resolve()), source_mount)
+        self.assertIn("readonly", source_mount)
+        self.assertEqual(
+            command[command.index("--license-sources") + 1],
+            "/opt/bottie-license-sources",
+        )
+
+    def test_external_sources_clear_only_missing_byte_blockers(self) -> None:
+        """Source archives add measured bytes while undeclared and unreviewed gates remain closed."""
+        observed_path = Path("/runtime/example.py")
+        environment = {
+            "pythonComponents": [
+                {
+                    "ecosystem": "python",
+                    "name": "example",
+                    "version": "1",
+                    "licenseExpression": "undeclared",
+                    "licenseFiles": [],
+                }
+            ],
+            "nativeComponents": [],
+        }
+        context = {
+            "imageId": "ignored-by-this-test",
+            "workerVersion": "worker",
+            "runtimeId": "runtime",
+            "modelId": "model",
+            "modelRevision": "revision",
+            "pythonTraceSha256": SHA256,
+            "processMapsSha256": SHA256,
+        }
+        sources = {
+            "python:example@1": {
+                "licenseFiles": [
+                    {"relativeName": "upstream/example/LICENSE", "byteSize": 5, "sha256": SHA256}
+                ],
+                "provenance": {"kind": "authoritative-source-archive"},
+            }
+        }
+
+        with (
+            patch.object(runtime_closure, "FIRST_PARTY_FILES", set()),
+            patch.object(runtime_closure, "_verify_environment_contents"),
+            patch.object(runtime_closure, "verify_proof_inputs"),
+            patch.object(runtime_closure, "_load_trace_context", return_value=context),
+            patch.object(runtime_closure, "_read_bounded_text", return_value=""),
+            patch.object(runtime_closure, "parse_trace_paths", return_value=[observed_path]),
+            patch.object(runtime_closure, "parse_process_maps", return_value=[]),
+            patch.object(runtime_closure, "_collect_environment_measurement", return_value=environment),
+            patch.object(runtime_closure, "python_file_owners", return_value={}),
+            patch.object(runtime_closure, "native_file_owners", return_value={}),
+            patch.object(runtime_closure, "verified_native_components", return_value=({}, {})),
+            patch.object(runtime_closure, "file_owner", return_value="python:example@1"),
+            patch.object(
+                runtime_closure,
+                "_measure_observed_file",
+                return_value={
+                    "resolvedPath": observed_path,
+                    "sha256": SHA256,
+                    "byteSize": 10,
+                    "elf": False,
+                },
+            ),
+            patch.object(runtime_closure, "installed_python_requirements", return_value=(set(), set())),
+            patch.object(runtime_closure, "verified_external_license_sources", return_value=sources),
+        ):
+            review = runtime_closure.collect_runtime_closure(
+                Path("/trace"),
+                license_source_root=Path("/sources"),
+            )
+
+        self.assertNotIn("python:example@1:missing-license-bytes", review["blockers"])
+        self.assertIn("python:example@1:undeclared-license", review["blockers"])
+        self.assertIn("python:example@1:unreviewed-license-expression", review["blockers"])
+        self.assertEqual(review["closure"]["components"][0]["licenseFileCount"], 1)
+        self.assertFalse(review["licenseReviewed"])
+        self.assertFalse(review["assemblyEligible"])
+
 
 if __name__ == "__main__":
     unittest.main()
