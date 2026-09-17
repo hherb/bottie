@@ -315,7 +315,9 @@ only the measured Apple M3 Max 128 GiB profile and re-verifies the exact app-own
 other local hardware and missing or changed bytes remain unavailable. A pinned
 [Diffusers proof](docs/local-image-linux-nvidia-proof.md) now passes on an NVIDIA DGX Spark GB10, but it remains
 feasibility evidence rather than a Linux availability profile because there is no
-reviewed distributable Linux worker package or app-owned Linux runtime. A ready Apple installation is re-verified before
+reviewed distributable Linux worker package or app-owned Linux runtime. Its 63-wheel/112-Debian inputs are now frozen
+in an independently verified canonical lock, but two network-disabled rebuilds and the new closure/review still remain.
+A ready Apple installation is re-verified before
 each local start or retry, runs through a network-denied reusable MLX-Gen worker, and reaches the same private PNG
 storage and asset actions as Cloud without fallback. The composer can import that exact worker from a user-selected
 native folder into a

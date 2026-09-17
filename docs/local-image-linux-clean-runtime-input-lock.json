@@ -1,0 +1,1352 @@
+{
+  "baseImageDigest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "debianArtifacts": [
+    {
+      "architecture": "arm64",
+      "byteSize": 1335690,
+      "filename": "apt_2.8.3_arm64.deb",
+      "name": "apt",
+      "sha256": "564786b3f42d88e2007c7a72616f3223ead68adbe0d4c39529599cb6cfb82ad7",
+      "version": "2.8.3"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 73410,
+      "filename": "base-files_13ubuntu10.4_arm64.deb",
+      "name": "base-files",
+      "sha256": "1b22f149ae67c1995615be284899e7b6bb1eed32884944905ab8414f44bbcf0a",
+      "version": "13ubuntu10.4"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 51144,
+      "filename": "base-passwd_3.6.3build1_arm64.deb",
+      "name": "base-passwd",
+      "sha256": "d9bbc2cfb535ee6f177df8ef685be8932a24c3ec46269183dc78319770e78caf",
+      "version": "3.6.3build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 780262,
+      "filename": "bash_5.2.21-2ubuntu4_arm64.deb",
+      "name": "bash",
+      "sha256": "1cb8aa182b8124a5304b5d5cf24300e295c9f6ff22a2565fcecae686c0492f09",
+      "version": "5.2.21-2ubuntu4"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 98552,
+      "filename": "bsdutils_2.39.3-9ubuntu6.5_arm64.deb",
+      "name": "bsdutils",
+      "sha256": "0d523614807385e18df89f2cbb00e6eb361a8144d861d5f37acdbc0317ad4247",
+      "version": "1:2.39.3-9ubuntu6.5"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 139430,
+      "filename": "ca-certificates_20260601~24.04.1_all.deb",
+      "name": "ca-certificates",
+      "sha256": "6bac2a01979e210d9eac1d4d56747ec709ea60654744d66705dc3c36e7629e50",
+      "version": "20260601~24.04.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 1362312,
+      "filename": "coreutils_9.4-3ubuntu6.2_arm64.deb",
+      "name": "coreutils",
+      "sha256": "68f2a7cc1e164d669df3f8b5c1903947e1a74844d24843cf770bc63691753f16",
+      "version": "9.4-3ubuntu6.2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 90376,
+      "filename": "dash_0.5.12-6ubuntu5_arm64.deb",
+      "name": "dash",
+      "sha256": "ff6f0bbd178f02160f3b1de49650b2d9686aace1ac7bf14f85201f8502f1df20",
+      "version": "0.5.12-6ubuntu5"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 124096,
+      "filename": "debconf_1.5.86ubuntu1_all.deb",
+      "name": "debconf",
+      "sha256": "bb390da466a7461bfc87aa3e6b7cd145dae84af3e26bf437f2c0c218ba226294",
+      "version": "1.5.86ubuntu1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 90236,
+      "filename": "debianutils_5.17build1_arm64.deb",
+      "name": "debianutils",
+      "sha256": "7419da04f9c467986b2176e799f3683b9403c643966084d0f6054f2a5b8919e9",
+      "version": "5.17build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 174546,
+      "filename": "diffutils_3.10-1build1_arm64.deb",
+      "name": "diffutils",
+      "sha256": "701c359987d41f5ed649e1c93850af242ead4b861ea5f3da5ed097dfd5916270",
+      "version": "1:3.10-1build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 1264616,
+      "filename": "dpkg_1.22.6ubuntu6.6_arm64.deb",
+      "name": "dpkg",
+      "sha256": "c34117a1f62fe8a2026cfba7bde0ec3fedd5d39abad7515bdd45fffcec764288",
+      "version": "1.22.6ubuntu6.6"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 594152,
+      "filename": "e2fsprogs_1.47.0-2.4~exp1ubuntu4.1_arm64.deb",
+      "name": "e2fsprogs",
+      "sha256": "95f305751689654f41813818f9d4f029880072657d2ee7a1a27b7d19e02a53e6",
+      "version": "1.47.0-2.4~exp1ubuntu4.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 300282,
+      "filename": "findutils_4.9.0-5build1_arm64.deb",
+      "name": "findutils",
+      "sha256": "260f15b1da771ce33c9179970aab3fbc0104620628d1826b8b9de19ea4483fe4",
+      "version": "4.9.0-5build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 50984,
+      "filename": "gcc-14-base_14.2.0-4ubuntu2~24.04.1_arm64.deb",
+      "name": "gcc-14-base",
+      "sha256": "bddbe21061fdc73a23e7de79ece91693bf61aa22d634d1c69c5048385c114968",
+      "version": "14.2.0-4ubuntu2~24.04.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 150956,
+      "filename": "gpgv_2.4.4-2ubuntu17.4_arm64.deb",
+      "name": "gpgv",
+      "sha256": "686122f92562dd824740544ecb845adf805a5b8b8c1c810d54b7ae83294fb25e",
+      "version": "2.4.4-2ubuntu17.4"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 158728,
+      "filename": "grep_3.11-4build1_arm64.deb",
+      "name": "grep",
+      "sha256": "275938cc6b1e4ab16f803bcc62961ee88312298d9d36b5b1e7a3590d795e3921",
+      "version": "3.11-4build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 97340,
+      "filename": "gzip_1.12-1ubuntu3.1_arm64.deb",
+      "name": "gzip",
+      "sha256": "45bbc860c90276c9d0ce80479e6806e2ed78b467a8513cfbc8e3e4c80b055990",
+      "version": "1.12-1ubuntu3.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 10990,
+      "filename": "hostname_3.23+nmu2ubuntu2_arm64.deb",
+      "name": "hostname",
+      "sha256": "a93ebcd0000a9653fd386a5e7bb3f0bd008babc4311454bfe88f531a53b8ea20",
+      "version": "3.23+nmu2ubuntu2"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 39402,
+      "filename": "init-system-helpers_1.66ubuntu1_all.deb",
+      "name": "init-system-helpers",
+      "sha256": "8eb801f9ce084dab9bf4cbc3ec0ee5ac75516a4cc1f25e3f92298c632e75b700",
+      "version": "1.66ubuntu1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 17050,
+      "filename": "libacl1_2.3.2-1build1.1_arm64.deb",
+      "name": "libacl1",
+      "sha256": "ebc53ded654fcf4449df250cb563ff05f10d851e904e638f698dc7e921ffa47b",
+      "version": "2.3.2-1build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 936590,
+      "filename": "libapt-pkg6.0t64_2.8.3_arm64.deb",
+      "name": "libapt-pkg6.0t64",
+      "sha256": "595f828459f4b1ae98a5f2bb29346141d92a8f0e7f4c621aec664f42f0fbf38e",
+      "version": "2.8.3"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 36750,
+      "filename": "libassuan0_2.5.6-1build1_arm64.deb",
+      "name": "libassuan0",
+      "sha256": "7d6c7b49d63422d3cb813406d0b5f698439b4619d6491ef6a73c09bbf30ba625",
+      "version": "2.5.6-1build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 11026,
+      "filename": "libattr1_2.5.2-1build1.1_arm64.deb",
+      "name": "libattr1",
+      "sha256": "d441ec6f5df6ffa76d37fe5c7eecbd42ae1876121baf3e511de57afe79538f1d",
+      "version": "1:2.5.2-1build1.1"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 5824,
+      "filename": "libaudit-common_3.1.2-2.1build1.1_all.deb",
+      "name": "libaudit-common",
+      "sha256": "c8ab5bed96f9781daab7c36fcbe4b12c3f3247a37256c0e341dc827db1e9a010",
+      "version": "1:3.1.2-2.1build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 47524,
+      "filename": "libaudit1_3.1.2-2.1build1.1_arm64.deb",
+      "name": "libaudit1",
+      "sha256": "6cca04d5483a634ff2ed78a31897bad1941226b8b6fc13030d8bb1d688ef2583",
+      "version": "1:3.1.2-2.1build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 123386,
+      "filename": "libblkid1_2.39.3-9ubuntu6.5_arm64.deb",
+      "name": "libblkid1",
+      "sha256": "23415b36b03986f5babdae894254b125420da66e59b6fefe12d7766dea21085d",
+      "version": "2.39.3-9ubuntu6.5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 35764,
+      "filename": "libbz2-1.0_1.0.8-5.1build0.1_arm64.deb",
+      "name": "libbz2-1.0",
+      "sha256": "889ffccfe565e1011f215581a81a2770a04b021313157e75066a3613b1569041",
+      "version": "1.0.8-5.1build0.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 590852,
+      "filename": "libc-bin_2.39-0ubuntu8.7_arm64.deb",
+      "name": "libc-bin",
+      "sha256": "87165daf79cd0d924e642a535c23476a7d7d955dac041d4af9785e1f680aaee8",
+      "version": "2.39-0ubuntu8.7"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 2776586,
+      "filename": "libc6_2.39-0ubuntu8.7_arm64.deb",
+      "name": "libc6",
+      "sha256": "7d25b6ffc4df6deefd1a48efff5792d6a6bd89ac064a2a8b88e796d3d533e095",
+      "version": "2.39-0ubuntu8.7"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 14850,
+      "filename": "libcap-ng0_0.8.4-2build2_arm64.deb",
+      "name": "libcap-ng0",
+      "sha256": "ffaaedcfab1d1cc48997f09e88b6664f2cc7cba1c7e15bf1078084f512697d4d",
+      "version": "0.8.4-2build2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 30676,
+      "filename": "libcap2_2.66-5ubuntu2.4_arm64.deb",
+      "name": "libcap2",
+      "sha256": "3c4459762b9ee61c773209bc45db1ca7cf34e1254cc047260d309a8db11b3490",
+      "version": "1:2.66-5ubuntu2.4"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 22554,
+      "filename": "libcom-err2_1.47.0-2.4~exp1ubuntu4.1_arm64.deb",
+      "name": "libcom-err2",
+      "sha256": "7bc569801d708551dd1eb8bf41feaadbc6191344e65d17f26ecf73a6f5b701dd",
+      "version": "1.47.0-2.4~exp1ubuntu4.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 85888,
+      "filename": "libcrypt1_4.4.36-4build1_arm64.deb",
+      "name": "libcrypt1",
+      "sha256": "5cd73ba112507dabd8e43b528ca9f530719a370e014b8e3e797770e6e940cccf",
+      "version": "1:4.4.36-4build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 732284,
+      "filename": "libdb5.3t64_5.3.28+dfsg2-7_arm64.deb",
+      "name": "libdb5.3t64",
+      "sha256": "b04d246b871e2e745538fa71ce2d1a127dfd65e7b1438bc6b8e2bb86538f519e",
+      "version": "5.3.28+dfsg2-7"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 11280,
+      "filename": "libdebconfclient0_0.271ubuntu3_arm64.deb",
+      "name": "libdebconfclient0",
+      "sha256": "643c8461a9a1ff3a14bccfabe68ec6dac03645d393cc39f3c06c9bba423d7d60",
+      "version": "0.271ubuntu3"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 77506,
+      "filename": "libexpat1_2.6.1-2ubuntu0.4_arm64.deb",
+      "name": "libexpat1",
+      "sha256": "284f48567ba2abe026e12ae351f5f4c3a489ce723f725eacfa51bf715aa94609",
+      "version": "2.6.1-2ubuntu0.4"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 224882,
+      "filename": "libext2fs2t64_1.47.0-2.4~exp1ubuntu4.1_arm64.deb",
+      "name": "libext2fs2t64",
+      "sha256": "f32a0f3298b60aa158c3bae59ba5ebef9de600901bb1918d3ee133ba58cd4648",
+      "version": "1.47.0-2.4~exp1ubuntu4.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 22716,
+      "filename": "libffi8_3.4.6-1build1_arm64.deb",
+      "name": "libffi8",
+      "sha256": "a4d4607144bc599328a913d7312761fd8f4a650d67c7d5058f1f3667d771d37c",
+      "version": "3.4.6-1build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 61884,
+      "filename": "libgcc-s1_14.2.0-4ubuntu2~24.04.1_arm64.deb",
+      "name": "libgcc-s1",
+      "sha256": "5b191f79ad985a9a653dbba45214619f729f9178a9bdf92f7c68db06c50d070b",
+      "version": "14.2.0-4ubuntu2~24.04.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 471602,
+      "filename": "libgcrypt20_1.10.3-2ubuntu0.1_arm64.deb",
+      "name": "libgcrypt20",
+      "sha256": "81ca7c907a2d35f00a9bf0514e1b484821a125f8cd1c8503f1a808d143e4c87f",
+      "version": "1.10.3-2ubuntu0.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 243166,
+      "filename": "libgmp10_6.3.0+dfsg-2ubuntu6.1_arm64.deb",
+      "name": "libgmp10",
+      "sha256": "5a783429ec1a29fb74a9a59c1699579dd9742bd35722280b9ce10e1f3916b003",
+      "version": "2:6.3.0+dfsg-2ubuntu6.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 941922,
+      "filename": "libgnutls30t64_3.8.3-1.1ubuntu3.6_arm64.deb",
+      "name": "libgnutls30t64",
+      "sha256": "18482c85067bcc8e2b3802d7c3bb87bd54acf4da228e760054e88ef1e125d80a",
+      "version": "3.8.3-1.1ubuntu3.6"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 70050,
+      "filename": "libgpg-error0_1.47-3build2.1_arm64.deb",
+      "name": "libgpg-error0",
+      "sha256": "cb14ae76d098421ee58c0b6796ce836a9fd386fa4824894a029089062b485b09",
+      "version": "1.47-3build2.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 198784,
+      "filename": "libhogweed6t64_3.9.1-2.2build1.1_arm64.deb",
+      "name": "libhogweed6t64",
+      "sha256": "1c252dfe2c1e458c47c6e674285c043e7940555581574a96c49defae26126883",
+      "version": "3.9.1-2.2build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 67242,
+      "filename": "libidn2-0_2.3.7-2build1.1_arm64.deb",
+      "name": "libidn2-0",
+      "sha256": "5d21e1ff26d44b762efc8f94df2e1e1944c1d288a29059b3cf5e76e3bfdf2968",
+      "version": "2.3.7-2build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 64172,
+      "filename": "liblz4-1_1.9.4-1build1.1_arm64.deb",
+      "name": "liblz4-1",
+      "sha256": "65ab8cfe4aeb8205ef4f980500d2c8cb397cb49901ef12efad59f4ed7685cbe0",
+      "version": "1.9.4-1build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 125976,
+      "filename": "liblzma5_5.6.1+really5.4.5-1ubuntu0.3_arm64.deb",
+      "name": "liblzma5",
+      "sha256": "2f58fd7de725efd0dbebe9d4442049fdacd7c2e8242f4288a13a688d50507245",
+      "version": "5.6.1+really5.4.5-1ubuntu0.3"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 24616,
+      "filename": "libmd0_1.1.0-2build1.1_arm64.deb",
+      "name": "libmd0",
+      "sha256": "c28583825f7191cdc8b6b71c6150e2cbfc29616d6570680e5284fabc19765ea5",
+      "version": "1.1.0-2build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 132882,
+      "filename": "libmount1_2.39.3-9ubuntu6.5_arm64.deb",
+      "name": "libmount1",
+      "sha256": "13f0e4cd6c28071a5350d605d00a49c20c1b2f3d17cd3c0c277ab93cc12e5507",
+      "version": "2.39.3-9ubuntu6.5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 145424,
+      "filename": "libncursesw6_6.4+20240113-1ubuntu2_arm64.deb",
+      "name": "libncursesw6",
+      "sha256": "b301f776112fadae74852adb953e9b3f8ce5f896a4b927a916b402e51d8b08a9",
+      "version": "6.4+20240113-1ubuntu2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 192300,
+      "filename": "libnettle8t64_3.9.1-2.2build1.1_arm64.deb",
+      "name": "libnettle8t64",
+      "sha256": "c2943b87811fe1f35b7e67869810226652caf43a31bd32c8d3ce1b331700b008",
+      "version": "3.9.1-2.2build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 8144,
+      "filename": "libnpth0t64_1.6-3.1build1_arm64.deb",
+      "name": "libnpth0t64",
+      "sha256": "a3d40edb1295a8c7a6074a1f4a4fa23f52a8f682014da965cd7d7a020729428d",
+      "version": "1.6-3.1build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 275892,
+      "filename": "libp11-kit0_0.25.3-4ubuntu2.1_arm64.deb",
+      "name": "libp11-kit0",
+      "sha256": "0c609690ae1d4c4deccd6fbd50601d6ffc55e1f6f2a53b1b9469203db848674d",
+      "version": "0.25.3-4ubuntu2.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 285192,
+      "filename": "libpam-modules_1.5.3-5ubuntu5.5_arm64.deb",
+      "name": "libpam-modules",
+      "sha256": "d7bdcf2d1370d82b090df1dc524589d6a25323c8711b5f31243c2dc953ae4f46",
+      "version": "1.5.3-5ubuntu5.5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 50434,
+      "filename": "libpam-modules-bin_1.5.3-5ubuntu5.5_arm64.deb",
+      "name": "libpam-modules-bin",
+      "sha256": "d8cf22a326c08715f3deab7ee90f7dc2ea4f22a87fec2c203ccc67d4593b737f",
+      "version": "1.5.3-5ubuntu5.5"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 40754,
+      "filename": "libpam-runtime_1.5.3-5ubuntu5.5_all.deb",
+      "name": "libpam-runtime",
+      "sha256": "f637c92621811f238f185f9072f9a03090e783e91eaa4817ef148822ffc952d0",
+      "version": "1.5.3-5ubuntu5.5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 68106,
+      "filename": "libpam0g_1.5.3-5ubuntu5.5_arm64.deb",
+      "name": "libpam0g",
+      "sha256": "a4188c21596b09a3312d67dd21eaf046e1303a0fc4e8987476b68127f0063697",
+      "version": "1.5.3-5ubuntu5.5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 211856,
+      "filename": "libpcre2-8-0_10.42-4ubuntu2.1_arm64.deb",
+      "name": "libpcre2-8-0",
+      "sha256": "7581764969752953aa1f991ce143bea594d2c5d0c36c2cc98c3c614c172aba93",
+      "version": "10.42-4ubuntu2.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 58678,
+      "filename": "libproc2-0_4.0.4-4ubuntu3.2_arm64.deb",
+      "name": "libproc2-0",
+      "sha256": "9574c01dc15fdbdef7a2b9bb51e5f9fc53c787efefb65944b90026f0eb885727",
+      "version": "2:4.0.4-4ubuntu3.2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 10088,
+      "filename": "libpython3-stdlib_3.12.3-0ubuntu2.1_arm64.deb",
+      "name": "libpython3-stdlib",
+      "sha256": "b6bd0a5e6fa11f2bae6da48707abe6b8245412cbf34e376cb3b9af0968b7122a",
+      "version": "3.12.3-0ubuntu2.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 835130,
+      "filename": "libpython3.12-minimal_3.12.3-1ubuntu0.17_arm64.deb",
+      "name": "libpython3.12-minimal",
+      "sha256": "11790e3fc5deb4867c7fb762aa5f4f710093501f62b60ef16dd427ea2495bcc6",
+      "version": "3.12.3-1ubuntu0.17"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 2038562,
+      "filename": "libpython3.12-stdlib_3.12.3-1ubuntu0.17_arm64.deb",
+      "name": "libpython3.12-stdlib",
+      "sha256": "b9462bf2f55bfffaf304a597c7964354e0d49ab20eed028f55f7183f2210581e",
+      "version": "3.12.3-1ubuntu0.17"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 153046,
+      "filename": "libreadline8t64_8.2-4build1_arm64.deb",
+      "name": "libreadline8t64",
+      "sha256": "7f46b2f3ca588cd2f05d2cfb6844017309760b4201105cdfda4b339f9e6c69da",
+      "version": "8.2-4build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 51170,
+      "filename": "libseccomp2_2.5.5-1ubuntu3.1_arm64.deb",
+      "name": "libseccomp2",
+      "sha256": "2feac77a129e336960734586ccdb16eefb040adfe7b662369549e41b82ba0a1b",
+      "version": "2.5.5-1ubuntu3.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 79946,
+      "filename": "libselinux1_3.5-2ubuntu2.1_arm64.deb",
+      "name": "libselinux1",
+      "sha256": "56630c4f009754e76808bf755072e634f8785a4dfbc8b1445213149e682f1502",
+      "version": "3.5-2ubuntu2.1"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 10144,
+      "filename": "libsemanage-common_3.5-1build5_all.deb",
+      "name": "libsemanage-common",
+      "sha256": "e10cd93f0b6941566de04b860b723df57ca3fe4a9255a73b2be0d1dc7df2850e",
+      "version": "3.5-1build5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 90806,
+      "filename": "libsemanage2_3.5-1build5_arm64.deb",
+      "name": "libsemanage2",
+      "sha256": "d353aa63f68f7ef84e43d6d032535a6f3a2aaeb48d5dfb22fa8ab480dc52922d",
+      "version": "3.5-1build5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 290818,
+      "filename": "libsepol2_3.5-2build1_arm64.deb",
+      "name": "libsepol2",
+      "sha256": "43339b502a91d0900b2e96ba9c30a3cc0175797a916d4d91dae26870f6d4655a",
+      "version": "3.5-2build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 65238,
+      "filename": "libsmartcols1_2.39.3-9ubuntu6.5_arm64.deb",
+      "name": "libsmartcols1",
+      "sha256": "f99cddae09c2e37b5c16dcc5ab47a67196d5be1d5cce875578728f8e9bbd6d3d",
+      "version": "2.39.3-9ubuntu6.5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 690864,
+      "filename": "libsqlite3-0_3.45.1-1ubuntu2.8_arm64.deb",
+      "name": "libsqlite3-0",
+      "sha256": "85925089ef6820a5b6ed80bb490d187465e49687c388333895680fda54e3ee06",
+      "version": "3.45.1-1ubuntu2.8"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 16470,
+      "filename": "libss2_1.47.0-2.4~exp1ubuntu4.1_arm64.deb",
+      "name": "libss2",
+      "sha256": "277b4ca7dfdde038f4ae8f98d2d54b152e4444b8d1ed814c8b9caa1a02a21ae2",
+      "version": "1.47.0-2.4~exp1ubuntu4.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 1836826,
+      "filename": "libssl3t64_3.0.13-0ubuntu3.15_arm64.deb",
+      "name": "libssl3t64",
+      "sha256": "bf0b51fb18187c4e1b03900e1049dc219047080ff511aa3bf691dbe24e14d24a",
+      "version": "3.0.13-0ubuntu3.15"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 750976,
+      "filename": "libstdc++6_14.2.0-4ubuntu2~24.04.1_arm64.deb",
+      "name": "libstdc++6",
+      "sha256": "f84a05ac45a6884109b6527e911081a38263b89e042fc94a338cf975f61a330c",
+      "version": "14.2.0-4ubuntu2~24.04.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 427088,
+      "filename": "libsystemd0_255.4-1ubuntu8.16_arm64.deb",
+      "name": "libsystemd0",
+      "sha256": "4a4705570bbfcc279dc7a82419b412e3594f53697903ad8c72c4bcee1b4c2033",
+      "version": "255.4-1ubuntu8.16"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 43746,
+      "filename": "libtasn1-6_4.19.0-3ubuntu0.24.04.2_arm64.deb",
+      "name": "libtasn1-6",
+      "sha256": "6ba0aeb2649f462519fbff8080fc10585c7f368f2162622e526e77e95c98dc96",
+      "version": "4.19.0-3ubuntu0.24.04.2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 104360,
+      "filename": "libtinfo6_6.4+20240113-1ubuntu2_arm64.deb",
+      "name": "libtinfo6",
+      "sha256": "e8d06277be81d0f6e7d49ce796a477a9fc88e755bf3048e0afe44fc14a310b72",
+      "version": "6.4+20240113-1ubuntu2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 175646,
+      "filename": "libudev1_255.4-1ubuntu8.16_arm64.deb",
+      "name": "libudev1",
+      "sha256": "c1dde76354c2b4553e7342801a2ccad4fd9b3af1c41d040f0df93eeee277567b",
+      "version": "255.4-1ubuntu8.16"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 529552,
+      "filename": "libunistring5_1.1-2build1.1_arm64.deb",
+      "name": "libunistring5",
+      "sha256": "faa0cea6bf19c57cace839f7184c070f2f0f4efc41258b39625b0ed988f68100",
+      "version": "1.1-2build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 36224,
+      "filename": "libuuid1_2.39.3-9ubuntu6.5_arm64.deb",
+      "name": "libuuid1",
+      "sha256": "4456b14c7573a8f3fd3b068d08edd7459d16968bfcc0cb39e154ac8afe431c7b",
+      "version": "2.39.3-9ubuntu6.5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 21684,
+      "filename": "libxxhash0_0.8.2-2build1_arm64.deb",
+      "name": "libxxhash0",
+      "sha256": "a69cf89fe33b386e63c26f6992be1e20bfa2ea2dd30c3619af8b1174612c4525",
+      "version": "0.8.2-2build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 271278,
+      "filename": "libzstd1_1.5.5+dfsg2-2build1.1_arm64.deb",
+      "name": "libzstd1",
+      "sha256": "ea7d6e9fde577ea14dbf07fdfb74d6287eb09c6cba4a9d63abdcb87b0ec54bcc",
+      "version": "1.5.5+dfsg2-2build1.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 200432,
+      "filename": "login_4.13+dfsg1-4ubuntu3.2_arm64.deb",
+      "name": "login",
+      "sha256": "952c8adeadb03dd8a837b17de6b47c22b96a468d6ca3b44231ef821270fed978",
+      "version": "1:4.13+dfsg1-4ubuntu3.2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 22344,
+      "filename": "logsave_1.47.0-2.4~exp1ubuntu4.1_arm64.deb",
+      "name": "logsave",
+      "sha256": "c1ab7c7109dbeef8c40005549b5bad8ea771158d7107411f535115d9d3383bb2",
+      "version": "1.47.0-2.4~exp1ubuntu4.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 123594,
+      "filename": "mawk_1.3.4.20240123-1build1_arm64.deb",
+      "name": "mawk",
+      "sha256": "a6fa75e49de6327ccdbf664e905cde229df77116a966c310e81c778eba756dca",
+      "version": "1.3.4.20240123-1build1"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 27474,
+      "filename": "media-types_10.1.0_all.deb",
+      "name": "media-types",
+      "sha256": "31bfb7eec55ab6d34a50ba995150e1498d4cb897714085d8025e330d3b529747",
+      "version": "10.1.0"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 116074,
+      "filename": "mount_2.39.3-9ubuntu6.5_arm64.deb",
+      "name": "mount",
+      "sha256": "e713e8d2bcb6ea1a08a36456754698d0932d0d02d38135becb1c25f80307abfa",
+      "version": "2.39.3-9ubuntu6.5"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 25516,
+      "filename": "ncurses-base_6.4+20240113-1ubuntu2_all.deb",
+      "name": "ncurses-base",
+      "sha256": "56dbac135d58e580c2c9e33d5fd7c215b48091a54e1d9fa3d41f538f4acbac5f",
+      "version": "6.4+20240113-1ubuntu2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 186298,
+      "filename": "ncurses-bin_6.4+20240113-1ubuntu2_arm64.deb",
+      "name": "ncurses-bin",
+      "sha256": "5d387968de93e372705e550e1f2ef4a85c1e662212dc43b7e8dda81f7d256b50",
+      "version": "6.4+20240113-1ubuntu2"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 13112,
+      "filename": "netbase_6.4_all.deb",
+      "name": "netbase",
+      "sha256": "8cdbc9c3dca01e660759bf9d840f72e45ac72faf5d19ca1faecacaf6a60c1a87",
+      "version": "6.4"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 984680,
+      "filename": "openssl_3.0.13-0ubuntu3.15_arm64.deb",
+      "name": "openssl",
+      "sha256": "818b4ab7092eb3365358ce41896ad08206b30cdb67445d7ec0503262893a0d95",
+      "version": "3.0.13-0ubuntu3.15"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 838406,
+      "filename": "passwd_4.13+dfsg1-4ubuntu3.2_arm64.deb",
+      "name": "passwd",
+      "sha256": "c9a84e67f4f84e7c6a24787e81e124fb76c829eec35c3ec46f609e1937073816",
+      "version": "1:4.13+dfsg1-4ubuntu3.2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 1793138,
+      "filename": "perl-base_5.38.2-3.2ubuntu0.2_arm64.deb",
+      "name": "perl-base",
+      "sha256": "5e05fa03ccf8d6a8459cddae0ef877dab34dcb49524be9754eee3566f133da08",
+      "version": "5.38.2-3.2ubuntu0.2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 707358,
+      "filename": "procps_4.0.4-4ubuntu3.2_arm64.deb",
+      "name": "procps",
+      "sha256": "5be4919deeb7ee57b6058a8f5175d19f63560e35dca0a0d8d8abc67b39550dd9",
+      "version": "2:4.0.4-4ubuntu3.2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 23004,
+      "filename": "python3_3.12.3-0ubuntu2.1_arm64.deb",
+      "name": "python3",
+      "sha256": "ea792b91e0fc9e249b96b960d14e04a8b7107029988546e8dd3511b74a693a6c",
+      "version": "3.12.3-0ubuntu2.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 27444,
+      "filename": "python3-minimal_3.12.3-0ubuntu2.1_arm64.deb",
+      "name": "python3-minimal",
+      "sha256": "883f362e7ea23d3de5483c0b5c31774f75897cc46d34840371b5fe7a0cc3a83c",
+      "version": "3.12.3-0ubuntu2.1"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 1706638,
+      "filename": "python3-pip-whl_24.0+dfsg-1ubuntu1.3_all.deb",
+      "name": "python3-pip-whl",
+      "sha256": "4b7c50db8f261b208c1d9cde8db148c1f682cc516957b986ada5088cfcee1359",
+      "version": "24.0+dfsg-1ubuntu1.3"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 716284,
+      "filename": "python3-setuptools-whl_68.1.2-2ubuntu1.2_all.deb",
+      "name": "python3-setuptools-whl",
+      "sha256": "edfa94cc1f6a33af99cfaf6ebfe35dbcd9c4bdd8555b90c0d8e78479faf5c8f0",
+      "version": "68.1.2-2ubuntu1.2"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 1032,
+      "filename": "python3-venv_3.12.3-0ubuntu2.1_arm64.deb",
+      "name": "python3-venv",
+      "sha256": "bc65fb7e4dc802383e21852f00fe1d69745faa5a17b7fbb5dd3b97c0ba738965",
+      "version": "3.12.3-0ubuntu2.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 650732,
+      "filename": "python3.12_3.12.3-1ubuntu0.17_arm64.deb",
+      "name": "python3.12",
+      "sha256": "4dcc676815989c3d32ef43f8b98d37ecfd60cff8a47022152120246f21903cf0",
+      "version": "3.12.3-1ubuntu0.17"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 2253306,
+      "filename": "python3.12-minimal_3.12.3-1ubuntu0.17_arm64.deb",
+      "name": "python3.12-minimal",
+      "sha256": "be39fa8380f1e65fc02701cdbc8652acd924d8576b4ba1bd772141040a22b15f",
+      "version": "3.12.3-1ubuntu0.17"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 5684,
+      "filename": "python3.12-venv_3.12.3-1ubuntu0.17_arm64.deb",
+      "name": "python3.12-venv",
+      "sha256": "269710a10fb900dbb175b99b0fbd7ef52895415aa3a2c17f6c95758425323c67",
+      "version": "3.12.3-1ubuntu0.17"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 56484,
+      "filename": "readline-common_8.2-4build1_all.deb",
+      "name": "readline-common",
+      "sha256": "879bfd7f8a9bc4c0f7cdc777cdd8bc6de5f8c4a2ac80c060322a1b22f13504bb",
+      "version": "8.2-4build1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 191430,
+      "filename": "sed_4.9-2ubuntu0.24.04.1_arm64.deb",
+      "name": "sed",
+      "sha256": "b1c2453ed3616c1f0ab948db0aacceb213205182e108df6bec1278378ade39a9",
+      "version": "4.9-2ubuntu0.24.04.1"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 22462,
+      "filename": "sensible-utils_0.0.22_all.deb",
+      "name": "sensible-utils",
+      "sha256": "410c29ff82c6916d14e235b511287e67a45cb78d509b19aab48608acdc941254",
+      "version": "0.0.22"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 33828,
+      "filename": "sysvinit-utils_3.08-6ubuntu3_arm64.deb",
+      "name": "sysvinit-utils",
+      "sha256": "7a29cd884b9cf3e787745e7453c170728e794266bf2af9391488068246dc4666",
+      "version": "3.08-6ubuntu3"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 247906,
+      "filename": "tar_1.35+dfsg-3build1_arm64.deb",
+      "name": "tar",
+      "sha256": "2df76253d79fd27b8e10b4b1426e2a229c1f374406a80607878eb66bdc1edcf6",
+      "version": "1.35+dfsg-3build1"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 279816,
+      "filename": "tzdata_2026c-0ubuntu0.24.04.1_all.deb",
+      "name": "tzdata",
+      "sha256": "ef12c9ef81905b5ac558504b2f8c20da9be5f28861020b3fb5e8b15fb3fae2f6",
+      "version": "2026c-0ubuntu0.24.04.1"
+    },
+    {
+      "architecture": "all",
+      "byteSize": 11124,
+      "filename": "ubuntu-keyring_2023.11.28.1_all.deb",
+      "name": "ubuntu-keyring",
+      "sha256": "36de43b15853ccae0028e9a767613770c704833f82586f28eb262f0311adb8a8",
+      "version": "2023.11.28.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 3904,
+      "filename": "unminimize_0.2.1_arm64.deb",
+      "name": "unminimize",
+      "sha256": "b41b9eb0c41df6a512e6b40c214f8c6a9975a0ca1e4b6b0c416f3ab121061c6b",
+      "version": "0.2.1"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 1115662,
+      "filename": "util-linux_2.39.3-9ubuntu6.5_arm64.deb",
+      "name": "util-linux",
+      "sha256": "29a4a50acb1ddcedd6f988c451dda5cf26ace5892e4530ca067753c8e7f9e17a",
+      "version": "2.39.3-9ubuntu6.5"
+    },
+    {
+      "architecture": "arm64",
+      "byteSize": 61736,
+      "filename": "zlib1g_1.3.dfsg-3.1ubuntu2.1_arm64.deb",
+      "name": "zlib1g",
+      "sha256": "cbe3d39ec32d3cc27c021ae4af11e7c67bdf9d700d573207e0941d4038056278",
+      "version": "1:1.3.dfsg-3.1ubuntu2.1"
+    }
+  ],
+  "lockSha256": "2628e5ec74886a91b6b1b68890666d2340c7a99c9f20b51b9b9dc483946c9831",
+  "pythonArtifacts": [
+    {
+      "byteSize": 394295,
+      "filename": "accelerate-1.15.0-py3-none-any.whl",
+      "name": "accelerate",
+      "sha256": "97eacca0b73e45cb867dbf8c5d5d4dc32219544300e0c8992c7334dc2ef33cec",
+      "version": "1.15.0"
+    },
+    {
+      "byteSize": 5302,
+      "filename": "annotated_doc-0.0.5-py3-none-any.whl",
+      "name": "annotated-doc",
+      "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+      "version": "0.0.5"
+    },
+    {
+      "byteSize": 132079,
+      "filename": "anyio-4.15.1-py3-none-any.whl",
+      "name": "anyio",
+      "sha256": "6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101",
+      "version": "4.15.1"
+    },
+    {
+      "byteSize": 136983,
+      "filename": "certifi-2026.7.22-py3-none-any.whl",
+      "name": "certifi",
+      "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+      "version": "2026.7.22"
+    },
+    {
+      "byteSize": 238530,
+      "filename": "charset_normalizer-3.5.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "charset-normalizer",
+      "sha256": "4582c27e8c889d64811987b5967fbd3ae0c823fe1fd933b543d55ac20bb475fa",
+      "version": "3.5.1"
+    },
+    {
+      "byteSize": 125251,
+      "filename": "click-8.5.0-py3-none-any.whl",
+      "name": "click",
+      "sha256": "255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360",
+      "version": "8.5.0"
+    },
+    {
+      "byteSize": 11709086,
+      "filename": "cuda_bindings-13.0.3-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "cuda-bindings",
+      "sha256": "b899e5a513c11eaa18648f9bf5265d8de2a93f76ef66a6bfca0a2887303965cd",
+      "version": "13.0.3"
+    },
+    {
+      "byteSize": 62552,
+      "filename": "cuda_pathfinder-1.8.1-py3-none-any.whl",
+      "name": "cuda-pathfinder",
+      "sha256": "ae0137ff9e56ea97499bcbf54f5f2778ec25f3266715ac86da192a795af982a8",
+      "version": "1.8.1"
+    },
+    {
+      "byteSize": 5911654,
+      "filename": "diffusers-0.40.0-py3-none-any.whl",
+      "name": "diffusers",
+      "sha256": "5b5da7c3ddb62152fa4afc577f02e050af688c797375c34fb2d01006da3f3541",
+      "version": "0.40.0"
+    },
+    {
+      "byteSize": 106036,
+      "filename": "filelock-4.0.0-py3-none-any.whl",
+      "name": "filelock",
+      "sha256": "a850aa9ec2acba8db9ca2e9fcf8a327fbc2f85e432725715b37bd76b7dd1f798",
+      "version": "4.0.0"
+    },
+    {
+      "byteSize": 206583,
+      "filename": "fsspec-2026.7.0-py3-none-any.whl",
+      "name": "fsspec",
+      "sha256": "b57ddbafedfaef7018c1ecab32aa200a9d7ca26b77965f64e48b70061249d279",
+      "version": "2026.7.0"
+    },
+    {
+      "byteSize": 37515,
+      "filename": "h11-0.16.0-py3-none-any.whl",
+      "name": "h11",
+      "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+      "version": "0.16.0"
+    },
+    {
+      "byteSize": 4262538,
+      "filename": "hf_xet-1.6.0-cp38-abi3-manylinux_2_28_aarch64.whl",
+      "name": "hf-xet",
+      "sha256": "0e6e21fa3cdfcdcd76748564bf593870a5e013f47d97cf10aed63aa222cff5b7",
+      "version": "1.6.0"
+    },
+    {
+      "byteSize": 78784,
+      "filename": "httpcore-1.0.9-py3-none-any.whl",
+      "name": "httpcore",
+      "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+      "version": "1.0.9"
+    },
+    {
+      "byteSize": 73517,
+      "filename": "httpx-0.28.1-py3-none-any.whl",
+      "name": "httpx",
+      "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+      "version": "0.28.1"
+    },
+    {
+      "byteSize": 798313,
+      "filename": "huggingface_hub-1.31.0-py3-none-any.whl",
+      "name": "huggingface-hub",
+      "sha256": "9dbb6a503cbe2494ea666695207e7262d410659e09134059deb83e5480864667",
+      "version": "1.31.0"
+    },
+    {
+      "byteSize": 68550,
+      "filename": "idna-3.19-py3-none-any.whl",
+      "name": "idna",
+      "sha256": "815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4",
+      "version": "3.19"
+    },
+    {
+      "byteSize": 27920,
+      "filename": "importlib_metadata-9.0.1-py3-none-any.whl",
+      "name": "importlib-metadata",
+      "sha256": "bba5600596a7e21f3eef53281cf28d6a5195634d2f2b78ff9501a3272c6eaab0",
+      "version": "9.0.1"
+    },
+    {
+      "byteSize": 134899,
+      "filename": "jinja2-3.1.6-py3-none-any.whl",
+      "name": "jinja2",
+      "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67",
+      "version": "3.1.6"
+    },
+    {
+      "byteSize": 91687,
+      "filename": "markdown_it_py-4.2.0-py3-none-any.whl",
+      "name": "markdown-it-py",
+      "sha256": "9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a",
+      "version": "4.2.0"
+    },
+    {
+      "byteSize": 24332,
+      "filename": "markupsafe-3.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "markupsafe",
+      "sha256": "3a7e8ae81ae39e62a41ec302f972ba6ae23a5c5396c8e60113e9066ef893da0d",
+      "version": "3.0.3"
+    },
+    {
+      "byteSize": 9979,
+      "filename": "mdurl-0.1.2-py3-none-any.whl",
+      "name": "mdurl",
+      "sha256": "84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8",
+      "version": "0.1.2"
+    },
+    {
+      "byteSize": 536198,
+      "filename": "mpmath-1.3.0-py3-none-any.whl",
+      "name": "mpmath",
+      "sha256": "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c",
+      "version": "1.3.0"
+    },
+    {
+      "byteSize": 2068504,
+      "filename": "networkx-3.6.1-py3-none-any.whl",
+      "name": "networkx",
+      "sha256": "d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762",
+      "version": "3.6.1"
+    },
+    {
+      "byteSize": 15687872,
+      "filename": "numpy-2.5.3-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "numpy",
+      "sha256": "76c2c1e6bfa5c84adc6434dfbf013aa92096a7985221762c8f11fedfd20fff58",
+      "version": "2.5.3"
+    },
+    {
+      "byteSize": 542851226,
+      "filename": "nvidia_cublas-13.1.0.3-py3-none-manylinux_2_27_aarch64.whl",
+      "name": "nvidia-cublas",
+      "sha256": "c86fc7f7ae36d7528288c5d88098edcb7b02c633d262e7ddbb86b0ad91be5df2",
+      "version": "13.1.0.3"
+    },
+    {
+      "byteSize": 10310827,
+      "filename": "nvidia_cuda_cupti-13.0.85-py3-none-manylinux_2_25_aarch64.whl",
+      "name": "nvidia-cuda-cupti",
+      "sha256": "796bd679890ee55fb14a94629b698b6db54bcfd833d391d5e94017dd9d7d3151",
+      "version": "13.0.85"
+    },
+    {
+      "byteSize": 43015449,
+      "filename": "nvidia_cuda_nvrtc-13.0.88-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "name": "nvidia-cuda-nvrtc",
+      "sha256": "d27f20a0ca67a4bb34268a5e951033496c5b74870b868bacd046b1b8e0c3267b",
+      "version": "13.0.88"
+    },
+    {
+      "byteSize": 2261060,
+      "filename": "nvidia_cuda_runtime-13.0.96-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "name": "nvidia-cuda-runtime",
+      "sha256": "ef9bcbe90493a2b9d810e43d249adb3d02e98dd30200d86607d8d02687c43f55",
+      "version": "13.0.96"
+    },
+    {
+      "byteSize": 415636241,
+      "filename": "nvidia_cudnn_cu13-9.15.1.9-py3-none-manylinux_2_27_aarch64.whl",
+      "name": "nvidia-cudnn-cu13",
+      "sha256": "44cd2ec83c3ef62a7357614bd02ce7f3dac35ffcbb04ad20999e730741f0ba17",
+      "version": "9.15.1.9"
+    },
+    {
+      "byteSize": 214053554,
+      "filename": "nvidia_cufft-12.0.0.61-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "name": "nvidia-cufft",
+      "sha256": "2708c852ef8cd89d1d2068bdbece0aa188813a0c934db3779b9b1faa8442e5f5",
+      "version": "12.0.0.61"
+    },
+    {
+      "byteSize": 1136992,
+      "filename": "nvidia_cufile-1.15.1.6-py3-none-manylinux_2_27_aarch64.whl",
+      "name": "nvidia-cufile",
+      "sha256": "bdc0deedc61f548bddf7733bdc216456c2fdb101d020e1ab4b88d232d5e2f6d1",
+      "version": "1.15.1.6"
+    },
+    {
+      "byteSize": 61962106,
+      "filename": "nvidia_curand-10.4.0.35-py3-none-manylinux_2_27_aarch64.whl",
+      "name": "nvidia-curand",
+      "sha256": "133df5a7509c3e292aaa2b477afd0194f06ce4ea24d714d616ff36439cee349a",
+      "version": "10.4.0.35"
+    },
+    {
+      "byteSize": 223467760,
+      "filename": "nvidia_cusolver-12.0.4.66-py3-none-manylinux_2_27_aarch64.whl",
+      "name": "nvidia-cusolver",
+      "sha256": "02c2457eaa9e39de20f880f4bd8820e6a1cfb9f9a34f820eb12a155aa5bc92d2",
+      "version": "12.0.4.66"
+    },
+    {
+      "byteSize": 162155568,
+      "filename": "nvidia_cusparse-12.6.3.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "name": "nvidia-cusparse",
+      "sha256": "80bcc4662f23f1054ee334a15c72b8940402975e0eab63178fc7e670aa59472c",
+      "version": "12.6.3.3"
+    },
+    {
+      "byteSize": 220791277,
+      "filename": "nvidia_cusparselt_cu13-0.8.0-py3-none-manylinux2014_aarch64.whl",
+      "name": "nvidia-cusparselt-cu13",
+      "sha256": "400c6ed1cf6780fc6efedd64ec9f1345871767e6a1a0a552a1ea0578117ea77c",
+      "version": "0.8.0"
+    },
+    {
+      "byteSize": 196561677,
+      "filename": "nvidia_nccl_cu13-2.28.9-py3-none-manylinux_2_18_aarch64.whl",
+      "name": "nvidia-nccl-cu13",
+      "sha256": "01c873ba1626b54caa12272ed228dc5b2781545e0ae8ba3f432a8ef1c6d78643",
+      "version": "2.28.9"
+    },
+    {
+      "byteSize": 38768748,
+      "filename": "nvidia_nvjitlink-13.0.88-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "name": "nvidia-nvjitlink",
+      "sha256": "e931536ccc7d467a98ba1d8b89ff7fa7f1fa3b13f2b0069118cd7f47bff07d0c",
+      "version": "13.0.88"
+    },
+    {
+      "byteSize": 60215947,
+      "filename": "nvidia_nvshmem_cu13-3.4.5-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "name": "nvidia-nvshmem-cu13",
+      "sha256": "6dc2a197f38e5d0376ad52cd1a2a3617d3cdc150fd5966f4aee9bcebb1d68fe9",
+      "version": "3.4.5"
+    },
+    {
+      "byteSize": 148878,
+      "filename": "nvidia_nvtx-13.0.85-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "name": "nvidia-nvtx",
+      "sha256": "cb7780edb6b14107373c835bf8b72e7a178bac7367e23da7acb108f973f157a6",
+      "version": "13.0.85"
+    },
+    {
+      "byteSize": 129956,
+      "filename": "packaging-26.3-py3-none-any.whl",
+      "name": "packaging",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "version": "26.3"
+    },
+    {
+      "byteSize": 6266838,
+      "filename": "pillow-12.3.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "pillow",
+      "sha256": "d9c7f76c0673154f044e9d78c8655fb4213f6ca31a836df48b40fe5d187717b9",
+      "version": "12.3.0"
+    },
+    {
+      "byteSize": 2110226,
+      "filename": "pip-24.0-py3-none-any.whl",
+      "name": "pip",
+      "sha256": "ba0d021a166865d2265246961bec0152ff124de910c5cc39f1156ce3fa7c69dc",
+      "version": "24.0"
+    },
+    {
+      "byteSize": 156997,
+      "filename": "psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "psutil",
+      "sha256": "b0726cecd84f9474419d67252add4ac0cd9811b04d61123054b9fb6f57df6e9e",
+      "version": "7.2.2"
+    },
+    {
+      "byteSize": 1250147,
+      "filename": "pygments-2.21.0-py3-none-any.whl",
+      "name": "pygments",
+      "sha256": "2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9",
+      "version": "2.21.0"
+    },
+    {
+      "byteSize": 775116,
+      "filename": "pyyaml-6.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "pyyaml",
+      "sha256": "9149cad251584d5fb4981be1ecde53a1ca46c891a79788c0df828d2f166bda28",
+      "version": "6.0.3"
+    },
+    {
+      "byteSize": 800055,
+      "filename": "regex-2026.9.10-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "regex",
+      "sha256": "4c66d54042a14a503907d81861b8a5235e6d1f03d4fbc1d8767f652eaf957ac1",
+      "version": "2026.9.10"
+    },
+    {
+      "byteSize": 73075,
+      "filename": "requests-2.34.2-py3-none-any.whl",
+      "name": "requests",
+      "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+      "version": "2.34.2"
+    },
+    {
+      "byteSize": 310654,
+      "filename": "rich-15.0.0-py3-none-any.whl",
+      "name": "rich",
+      "sha256": "33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb",
+      "version": "15.0.0"
+    },
+    {
+      "byteSize": 502844,
+      "filename": "safetensors-0.8.0-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+      "name": "safetensors",
+      "sha256": "7a46e5ff292c356d6991e60942ba7f79817682d3a2cef0702136448cb9c4d235",
+      "version": "0.8.0"
+    },
+    {
+      "byteSize": 1325200,
+      "filename": "sentencepiece-0.2.2-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "sentencepiece",
+      "sha256": "cbce24284f51f71d10a42b7b9c964dcb9048b28f1c8e5db40bcbcb6f428cba6a",
+      "version": "0.2.2"
+    },
+    {
+      "byteSize": 818216,
+      "filename": "setuptools-84.0.0-py3-none-any.whl",
+      "name": "setuptools",
+      "sha256": "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670",
+      "version": "84.0.0"
+    },
+    {
+      "byteSize": 9755,
+      "filename": "shellingham-1.5.4-py2.py3-none-any.whl",
+      "name": "shellingham",
+      "sha256": "7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686",
+      "version": "1.5.4"
+    },
+    {
+      "byteSize": 6299353,
+      "filename": "sympy-1.14.0-py3-none-any.whl",
+      "name": "sympy",
+      "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
+      "version": "1.14.0"
+    },
+    {
+      "byteSize": 3516830,
+      "filename": "tokenizers-0.23.2-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+      "name": "tokenizers",
+      "sha256": "a37039b5dfc4af84eb3ef0a92f4307e28936c8f9adccba2629d36f652e9bf7a2",
+      "version": "0.23.2"
+    },
+    {
+      "byteSize": 529404606,
+      "filename": "torch-2.10.0+cu130-cp312-cp312-manylinux_2_28_aarch64.whl",
+      "name": "torch",
+      "sha256": "4fc8f67637f4c92b989a07d80ffe755e79a3510ca02ebf23ce66396fb277c88d",
+      "version": "2.10.0+cu130"
+    },
+    {
+      "byteSize": 80199,
+      "filename": "tqdm-4.70.1-py3-none-any.whl",
+      "name": "tqdm",
+      "sha256": "c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73",
+      "version": "4.70.1"
+    },
+    {
+      "byteSize": 12295140,
+      "filename": "transformers-5.17.0-py3-none-any.whl",
+      "name": "transformers",
+      "sha256": "78ec1ce21579b38dfb83950a0658cd119f87212a2fcfdff478096ce9d6c03801",
+      "version": "5.17.0"
+    },
+    {
+      "byteSize": 176128243,
+      "filename": "triton-3.6.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "name": "triton",
+      "sha256": "374f52c11a711fd062b4bfbb201fd9ac0a5febd28a96fb41b4a0f51dde3157f4",
+      "version": "3.6.0"
+    },
+    {
+      "byteSize": 123130,
+      "filename": "typer-0.27.2-py3-none-any.whl",
+      "name": "typer",
+      "sha256": "b3a5fc4342d5fc8fda8fc3010b1cf117e9249aab7fae800c2eff62fd3842d97d",
+      "version": "0.27.2"
+    },
+    {
+      "byteSize": 45571,
+      "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+      "name": "typing-extensions",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "version": "4.16.0"
+    },
+    {
+      "byteSize": 135717,
+      "filename": "urllib3-2.8.0-py3-none-any.whl",
+      "name": "urllib3",
+      "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3",
+      "version": "2.8.0"
+    },
+    {
+      "byteSize": 10238,
+      "filename": "zipp-4.1.0-py3-none-any.whl",
+      "name": "zipp",
+      "sha256": "25ad4e16390cd314347dd8f1de67a2ac538ae658ed4ab9db16029c07c188e97f",
+      "version": "4.1.0"
+    }
+  ],
+  "pythonVersion": "3.12.3",
+  "schemaVersion": 1,
+  "sourceImageDigest": "sha256:5039ad07130ce8d29f12325a54e02bf95e90112e114d745e5883434180e3bdad",
+  "target": {
+    "architecture": "arm64",
+    "operatingSystem": "linux"
+  }
+}

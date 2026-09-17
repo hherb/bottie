@@ -556,13 +556,13 @@ Implement this once for both hosted and local adapters before adding more runtim
   installation was masked and absent from live process maps. That image still contains masked UCC bytes. No review
   manifest exists and Linux remains unavailable. Bottie must either resolve the exact retained-image artifact or prove
   a clean runtime without the UCC runtime. The first clean Ubuntu-based image now passes the full proof with identical
-  output and zero `libucc` mappings, but its 63 Python and 112 Debian inputs are version-observed rather than
-  byte-frozen, repeatedly traced, or licence-reviewed. A new offline lock gate now collects installed identities from
-  that exact image ID and requires a complete 63-wheel/112-Debian symlink-free artifact set with matching embedded
-  metadata, embedded compatibility tags, sizes, hashes, ARM64 target, and canonical lock digest. A wheel whose
-  embedded expanded tags differ from its filename is rejected, preventing a renamed foreign-platform archive from
-  satisfying the ARM64 gate. No complete artifact set or lock has been produced yet. Bottie must obtain those
-  authoritative bytes, rebuild twice from only the lock, rerun the closure, produce
+  output and zero `libucc` mappings. Its complete 63-wheel/112-Debian input set is now byte-frozen in a canonical lock:
+  175 authoritative archives totaling 3,016,341,507 bytes, with separate official-source provenance and independent
+  verification. The gate binds the exact image inventory, top-level wheel metadata and compatibility tags, Debian
+  control identities, sizes, hashes, ARM64 target, and lock digest. Renamed foreign wheels still fail closed; one
+  upstream NVIDIA SBSA spelling mismatch is accepted only for the exact official cuSPARSELt filename, size, and PyPI
+  digest. No offline rebuild, repeated trace, or licence review exists yet. Bottie must rebuild twice from only the
+  frozen inputs, rerun the closure, produce
   independently reviewed bundle bytes, and add native hardware gating plus app-owned execution.
   See
   `docs/local-image-linux-nvidia-proof.md` and

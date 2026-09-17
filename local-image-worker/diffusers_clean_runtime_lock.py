@@ -14,7 +14,7 @@ from email.parser import BytesParser
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
-from packaging.tags import parse_tag
+from packaging.tags import Tag, parse_tag
 from packaging.utils import canonicalize_name, parse_wheel_filename
 from packaging.version import InvalidVersion, Version
 
@@ -34,6 +34,18 @@ MAX_FIELD_BYTES = 512
 MAX_WHEEL_METADATA_BYTES = 256 * 1024
 READ_CHUNK_BYTES = 1024 * 1024
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+KNOWN_WHEEL_TAG_MISMATCHES = {
+    (
+        "nvidia-cusparselt-cu13",
+        "0.8.0",
+        "nvidia_cusparselt_cu13-0.8.0-py3-none-manylinux2014_aarch64.whl",
+        220_791_277,
+        "400c6ed1cf6780fc6efedd64ec9f1345871767e6a1a0a552a1ea0578117ea77c",
+    ): (
+        parse_tag("py3-none-manylinux2014_aarch64"),
+        parse_tag("py3-none-manylinux2014_sbsa"),
+    )
+}
 MANIFEST_FIELDS = {
     "schemaVersion",
     "sourceImageDigest",
@@ -344,12 +356,12 @@ def _verify_wheel_identity(path: Path, record: dict) -> None:
             metadata_members = [
                 member
                 for member in members
-                if member.filename.endswith(".dist-info/METADATA")
+                if _is_top_level_dist_info_member(member, "METADATA")
             ]
             wheel_members = [
                 member
                 for member in members
-                if member.filename.endswith(".dist-info/WHEEL")
+                if _is_top_level_dist_info_member(member, "WHEEL")
             ]
             if (
                 len(names) != len(set(names))
@@ -383,8 +395,30 @@ def _verify_wheel_identity(path: Path, record: dict) -> None:
         }
     except (InvalidVersion, TypeError, ValueError) as error:
         raise CleanRuntimeLockError("wheel tags have drifted") from error
-    if not embedded_tags or embedded_tags != filename_tags:
+    if not embedded_tags or not _wheel_tags_match(
+        record, filename_tags, embedded_tags
+    ):
         raise CleanRuntimeLockError("wheel tags have drifted")
+
+
+def _is_top_level_dist_info_member(member: zipfile.ZipInfo, filename: str) -> bool:
+    """Identify metadata owned by this wheel, excluding vendored package records."""
+    path = PurePosixPath(member.filename)
+    return len(path.parts) == 2 and path.parts[0].endswith(".dist-info") and path.name == filename
+
+
+def _wheel_tags_match(
+    record: dict, filename_tags: frozenset[Tag], embedded_tags: set[Tag]
+) -> bool:
+    """Accept exact tags or one byte-bound authoritative NVIDIA SBSA mismatch."""
+    if embedded_tags == filename_tags:
+        return True
+    fields = ("name", "version", "filename", "byteSize", "sha256")
+    identity = tuple(record[field] for field in fields)
+    return KNOWN_WHEEL_TAG_MISMATCHES.get(identity) == (
+        filename_tags,
+        frozenset(embedded_tags),
+    )
 
 
 def _unsafe_zip_member(member: zipfile.ZipInfo) -> bool:
@@ -407,9 +441,9 @@ def _read_debian_metadata(path: Path) -> tuple[str, str, str]:
         completed = subprocess.run(
             [
                 "dpkg-deb",
-                "--field",
+                "--show",
+                "--showformat=${Package}\t${Version}\t${Architecture}\n",
                 str(path),
-                "${Package}\t${Version}\t${Architecture}\n",
             ],
             capture_output=True,
             text=True,
