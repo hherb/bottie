@@ -1,0 +1,21 @@
+[package]
+name = "audio-cpp-ffi-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Spike only. This crate is deliberately outside the `src-tauri` workspace and is
+# not built by Bottie's release, packaging, or test pipelines.
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Linked purely to prove that audio.cpp's statically linked ggml and whisper-rs's
+# own statically linked ggml can coexist in one process, which is what embedding
+# audio.cpp in the Tauri binary would require. Kept at Bottie's pinned version.
+whisper-rs = "=0.16.0"
+
+[[bin]]
+name = "ffi-probe"
+path = "src/main.rs"

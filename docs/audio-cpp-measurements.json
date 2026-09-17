@@ -1,0 +1,83 @@
+{
+  "upstreamRepository": "https://github.com/0xShug0/audio.cpp",
+  "upstreamCommit": "c0b26a505468152ec1d0fc06ac252c824408fc07",
+  "upstreamRelease": "v0.8.0",
+  "upstreamLicence": "Apache-2.0",
+  "host": {
+    "os": "Ubuntu 24.04",
+    "kernel": "6.18.44-fc-v33",
+    "cpu": "Intel Xeon @ 2.10GHz",
+    "logicalCores": 4,
+    "compiler": "GCC 13.3.0",
+    "cmake": "3.28.3",
+    "compilerCacheAvailable": false
+  },
+  "build": {
+    "modelSet": "custom",
+    "requestedModels": [
+      "supertonic",
+      "nemotron_asr"
+    ],
+    "backend": "cpu",
+    "nativeCpuKernels": false,
+    "staticEspeak": false,
+    "objectFiles": 246,
+    "cleanWallSeconds": [
+      82,
+      88,
+      80
+    ],
+    "buildTreeBytes": 94918654
+  },
+  "library": {
+    "path": "bin/libaudiocpp.so.0.1.0",
+    "bytes": 5663520,
+    "soversion": 0,
+    "abiVersion": "0.2.0",
+    "exportedAudiocppSymbols": 74,
+    "exportedOtherSymbols": 0,
+    "exportedGgmlSymbols": 0,
+    "espeakStrings": 0,
+    "neededSharedLibraries": [
+      "libgomp.so.1",
+      "libstdc++.so.6",
+      "libm.so.6",
+      "libgcc_s.so.1",
+      "libc.so.6",
+      "ld-linux-x86-64.so.2"
+    ]
+  },
+  "runtime": {
+    "linkedFamilies": [
+      "marblenet_vad",
+      "nemotron_asr",
+      "silero_vad",
+      "supertonic"
+    ],
+    "unrequestedBundledFamilies": [
+      "marblenet_vad",
+      "silero_vad"
+    ],
+    "boundFromRust": true,
+    "coexistsWithWhisperRs": true,
+    "dynamicallyResolvedGgmlSymbols": 0,
+    "staticGgmlSymbolsInProbeBinary": 288,
+    "staticWhisperSymbolsInProbeBinary": 2
+  },
+  "notMeasured": {
+    "reason": "huggingface.co is denied by this environment's egress policy, so no model weights could be fetched",
+    "items": [
+      "textToSpeechRealtimeFactor",
+      "speechRecognitionRealtimeFactor",
+      "modelDownloadBytes",
+      "audioQuality",
+      "streamingChunkPolicy",
+      "peakResidentMemory",
+      "macOsArm64Build",
+      "windowsX64Build",
+      "metalBackend",
+      "cudaBackend",
+      "fullModelSetBuildCost"
+    ]
+  }
+}
