@@ -16,15 +16,23 @@ import tempfile
 import threading
 import time
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
 from PIL import Image
 
+from diffusers_pytorch_worker import PYTORCH_WORKER_IDENTITY
+from diffusers_ucc_ablation import (
+    UCC_CONTAINER_PATH,
+    assert_no_ucc_process_maps,
+    assert_ucc_installation_masked,
+    capture_process_maps,
+)
 from diffusers_worker import DIFFUSERS_WORKER_IDENTITY, MODEL_ID, MODEL_REVISION
+from mlx_worker import WorkerIdentity
 
 FRAME_LIMIT = 1024 * 1024
-TRACE_FILE_LIMIT = 16 * 1024 * 1024
 PROOF_PROMPT = "A violet glass robot tending a tiny greenhouse, detailed botanical illustration"
 PROOF_DIMENSIONS = (512, 512)
 COMPLETE_SEED = 42
@@ -40,8 +48,27 @@ TRACE_WRAPPER = (
     "import diffusers_runtime_trace; "
     "sys.path.pop(0); "
     "import runpy; "
-    "runpy.run_path('/opt/bottie/diffusers_worker.py', run_name='__main__')"
+    "worker = sys.argv.pop(1); "
+    "runpy.run_path(worker, run_name='__main__')"
 )
+
+
+@dataclass(frozen=True)
+class RuntimeProfile:
+    """Bind one proof selection to its exact worker identity and in-image script."""
+
+    identity: WorkerIdentity
+    worker_script: str
+
+
+RUNTIME_PROFILES = {
+    "ngc-25.11": RuntimeProfile(DIFFUSERS_WORKER_IDENTITY, "/opt/bottie/diffusers_worker.py"),
+    "pytorch-2.10-cu130": RuntimeProfile(
+        PYTORCH_WORKER_IDENTITY,
+        "/opt/bottie/diffusers_pytorch_worker.py",
+    ),
+}
+DEFAULT_RUNTIME_PROFILE = RUNTIME_PROFILES["ngc-25.11"]
 
 
 class MemorySampler:
@@ -233,28 +260,14 @@ def container_process_id(name: str) -> int:
     return process_id
 
 
-def capture_process_maps(name: str, destination: Path) -> None:
-    """Persist one bounded native-library snapshot while the proved worker is live."""
-    result = subprocess.run(
-        ["docker", "exec", name, "cat", "/proc/1/maps"],
-        check=False,
-        capture_output=True,
-    )
-    if result.returncode != 0 or not result.stdout or len(result.stdout) > TRACE_FILE_LIMIT:
-        raise RuntimeError("worker process maps could not be captured")
-    descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "wb") as stream:
-        stream.write(result.stdout)
-
-
-def write_trace_context(image: str, trace_output: Path) -> None:
+def write_trace_context(image: str, trace_output: Path, identity: WorkerIdentity) -> None:
     """Bind exact proof identities and trace digests after clean worker shutdown."""
     python_trace = trace_output / "python-paths.jsonl"
     process_maps = trace_output / "process-maps.txt"
     context = {
         "imageId": image,
-        "workerVersion": DIFFUSERS_WORKER_IDENTITY.worker_version,
-        "runtimeId": DIFFUSERS_WORKER_IDENTITY.runtime_id,
+        "workerVersion": identity.worker_version,
+        "runtimeId": identity.runtime_id,
         "modelId": MODEL_ID,
         "modelRevision": MODEL_REVISION,
         "pythonTraceSha256": hashlib.sha256(python_trace.read_bytes()).hexdigest(),
@@ -273,12 +286,17 @@ def run_proof(
     output: Path,
     trace_source: Path | None = None,
     trace_output: Path | None = None,
+    ablate_ucc: bool = False,
+    profile: RuntimeProfile = DEFAULT_RUNTIME_PROFILE,
 ) -> dict:
     """Exercise load, cold/warm determinism, and active-step cancellation."""
     if (trace_source is None) != (trace_output is None):
         raise ValueError("runtime trace source and output must be supplied together")
+    if profile.identity == PYTORCH_WORKER_IDENTITY and not ablate_ucc:
+        raise ValueError("the PyTorch wheel profile requires UCC ablation")
     prove_network_denial(image)
     name = f"bottie-image-proof-{uuid.uuid4()}"
+    ucc_mask = tempfile.TemporaryDirectory(prefix="bottie-ucc-mask-") if ablate_ucc else None
     command = [
         "docker", "run", "-i", "--name", name, "--network", "none", "--read-only", "--cap-drop", "ALL",
         "--security-opt", "no-new-privileges", "--gpus", "all", "--shm-size", "1g",
@@ -287,6 +305,8 @@ def run_proof(
         "-e", "PYTHONDONTWRITEBYTECODE=1",
         "-v", f"{model}:/model:ro", "-v", f"{output}:/output:rw",
     ]
+    if ucc_mask is not None:
+        command.extend(["-v", f"{ucc_mask.name}:{UCC_CONTAINER_PATH}:ro"])
     if trace_source is not None and trace_output is not None:
         command.extend(
             [
@@ -302,7 +322,7 @@ def run_proof(
         )
     command.append(image)
     if trace_source is not None:
-        command.extend(["-c", TRACE_WRAPPER, "/output"])
+        command.extend(["-c", TRACE_WRAPPER, profile.worker_script, "/output"])
     else:
         command.append("/output")
     host_available_start = host_available_bytes()
@@ -317,16 +337,21 @@ def run_proof(
         )
     except BaseException:
         stderr_file.close()
+        if ucc_mask is not None:
+            ucc_mask.cleanup()
         raise
     sampler = None
     try:
         write_frame(process.stdin, {"type": "hello", "protocolVersion": 1, "clientVersion": "bottie-proof"})
         hello = read_frame_with_timeout(process.stdout, HANDSHAKE_TIMEOUT_SECONDS)
         capabilities = read_frame_with_timeout(process.stdout, HANDSHAKE_TIMEOUT_SECONDS)
-        if hello.get("workerVersion") != DIFFUSERS_WORKER_IDENTITY.worker_version:
+        if hello.get("workerVersion") != profile.identity.worker_version:
             raise RuntimeError("worker version mismatch")
-        if capabilities.get("capabilities", {}).get("runtimeId") != DIFFUSERS_WORKER_IDENTITY.runtime_id:
+        if capabilities.get("capabilities", {}).get("runtimeId") != profile.identity.runtime_id:
             raise RuntimeError("worker runtime mismatch")
+        if ablate_ucc:
+            assert_ucc_installation_masked(name)
+            capture_process_maps(name, reject_ucc=True)
         sampler = MemorySampler(container_process_id(name))
         sampler.start()
 
@@ -353,8 +378,9 @@ def run_proof(
             shutil.move(generated, output / f"{label}.png")
         if hashes[0] != hashes[1]:
             raise RuntimeError("same-seed cold and warm pixels differ")
-        if trace_output is not None:
-            capture_process_maps(name, trace_output / "process-maps.txt")
+        if trace_output is not None or ablate_ucc:
+            destination = trace_output / "process-maps.txt" if trace_output is not None else None
+            capture_process_maps(name, destination, reject_ucc=ablate_ucc)
 
         write_frame(process.stdin, generation_command("proof-cancel", CANCEL_SEED))
         cancelled, cancellation_started = wait_for_result(process, "proof-cancel", cancel_after_step=2)
@@ -372,12 +398,12 @@ def run_proof(
         if len(stderr) > FRAME_LIMIT:
             raise RuntimeError("worker stderr exceeded the proof bound")
         if trace_output is not None:
-            write_trace_context(image, trace_output)
+            write_trace_context(image, trace_output, profile.identity)
         return {
             "imageId": image,
             "modelId": MODEL_ID,
             "modelRevision": MODEL_REVISION,
-            "runtimeId": DIFFUSERS_WORKER_IDENTITY.runtime_id,
+            "runtimeId": profile.identity.runtime_id,
             "loadSeconds": round(load_seconds, 3),
             "coldGenerationSeconds": round(durations[0], 3),
             "warmGenerationSeconds": round(durations[1], 3),
@@ -389,6 +415,11 @@ def run_proof(
             "hostAvailableStartBytes": host_available_start,
             "hostAvailableMinimumBytes": sampler.host_available_min,
             "networkNamespaceDeniedExternalConnection": True,
+            **(
+                {"uccInstallationMasked": True, "uccMappedRuntimeFileCount": 0}
+                if ablate_ucc
+                else {}
+            ),
             "visualReviewed": False,
         }
     except BaseException as error:
@@ -413,6 +444,8 @@ def run_proof(
             process.wait()
         subprocess.run(["docker", "rm", "-f", name], check=False, stdout=subprocess.DEVNULL)
         stderr_file.close()
+        if ucc_mask is not None:
+            ucc_mask.cleanup()
 
 
 def main() -> None:
@@ -424,6 +457,8 @@ def main() -> None:
     parser.add_argument("--measurements", type=Path, required=True)
     parser.add_argument("--runtime-trace-source", type=Path)
     parser.add_argument("--runtime-trace-output", type=Path)
+    parser.add_argument("--runtime-profile", choices=RUNTIME_PROFILES, default="ngc-25.11")
+    parser.add_argument("--ablate-ucc", action="store_true")
     arguments = parser.parse_args()
     optional_paths = [
         path
@@ -445,6 +480,8 @@ def main() -> None:
         arguments.output,
         trace_source=arguments.runtime_trace_source,
         trace_output=arguments.runtime_trace_output,
+        ablate_ucc=arguments.ablate_ucc,
+        profile=RUNTIME_PROFILES[arguments.runtime_profile],
     )
     temporary = arguments.measurements.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(measurements, indent=2) + "\n")

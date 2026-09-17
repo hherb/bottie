@@ -169,6 +169,20 @@ capability-free container. This target-matching archive is therefore not authori
 binary and cannot add the fifth fixed source. A later artifact must contain both component-owned UCC licence bytes and
 a regular `libucc.so.1.0.0` member byte-identical to the retained image. Absence or drift remains a hard blocker.
 
+### UCC-exclusion alternative
+
+The alternative to resolving those exact bytes is to prove and package a different runtime whose complete closure does
+not contain UCC. Masking the retained NGC installation alone is insufficient: its PyTorch build directly requires
+`libucc.so.1`, while masking all HPC-X also removes its required MPI library. A conventional ARM64 PyTorch 2.10.0 CUDA
+13.0 wheel completed the private worker proof with the UCC installation masked and no `libucc` process mapping, but
+that provisional derived image still contains the original UCC bytes and cannot become a bundle candidate.
+
+The proof code now assigns this experiment a distinct worker/runtime identity and makes UCC ablation mandatory for
+that profile. The gate verifies the empty read-only mask only after the container handshake and rejects UCC mappings
+both before model load and after generation. The next candidate must instead start from a clean exact base, contain no
+UCC installation, repeat the full deterministic protocol proof, and generate a fresh traced closure and licence review.
+Until those exact produced bytes exist, the original 84-component record and all product gates remain unchanged.
+
 The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
 image, both exact proof-trace digests, and the complete sorted set of closure components. Every component must provide a
 non-placeholder reviewed expression, at least one licence or notice file, and a separate review record. Both the source

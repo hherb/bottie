@@ -551,9 +551,13 @@ Implement this once for both hosted and local adapters before adding more runtim
   UCC revision; NVIDIA's public v2.24 UCC notices name only `rdma-core`. The EULA-authorized target-matching 2.24.1
   ARM64 archive matches its published digest but contains no UCC licence/source member, and its regular UCC library
   differs from the retained image by eight bytes and SHA-256. The exact image UCC binary therefore still lacks
-  authoritative licence bytes, so no review manifest exists and Linux remains unavailable. Bottie must resolve that
-  exact blocker from an artifact byte-identical to the retained image, rerun the closure, produce independently
-  reviewed bundle bytes, and add native hardware gating plus app-owned execution.
+  authoritative licence bytes. A provisional replacement with the checksum-pinned conventional ARM64 PyTorch 2.10.0
+  CUDA 13.0 wheel completed the full offline worker proof while the UCC installation was masked and absent from live
+  process maps. The proof harness now gives that route a distinct runtime identity and fail-closed UCC-ablation gate,
+  but the experimental image still contains masked UCC bytes and its result predates the corrected identity. No review
+  manifest exists and Linux remains unavailable. Bottie must either resolve the exact retained-image artifact or prove
+  a clean runtime built without UCC, then rerun the closure, produce independently reviewed bundle bytes, and add native
+  hardware gating plus app-owned execution.
   See
   `docs/local-image-linux-nvidia-proof.md` and
   `docs/local-image-linux-worker-bundle.md`;

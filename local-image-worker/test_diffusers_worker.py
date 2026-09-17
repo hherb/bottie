@@ -9,7 +9,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from diffusers_worker import DiffusersBackend, main
+from diffusers_pytorch_worker import PYTORCH_WORKER_IDENTITY
+from diffusers_worker import DIFFUSERS_WORKER_IDENTITY, DiffusersBackend, main
 
 
 class FakeImage:
@@ -102,6 +103,36 @@ class DiffusersBackendTests(unittest.TestCase):
                 main()
         worker.return_value.run.assert_called_once_with()
         exit_process.assert_called_once_with(0)
+
+    def test_pytorch_wheel_profile_has_a_distinct_exact_identity(self) -> None:
+        """The UCC-free wheel experiment cannot inherit the NGC runtime identity."""
+        self.assertNotEqual(
+            PYTORCH_WORKER_IDENTITY.worker_version,
+            DIFFUSERS_WORKER_IDENTITY.worker_version,
+        )
+        self.assertEqual(
+            PYTORCH_WORKER_IDENTITY.runtime_id,
+            "diffusers@0.40.0+pytorch-2.10.0-cu130-ubuntu24.04-arm64",
+        )
+
+    def test_pytorch_wheel_proof_recipe_pins_bytes_and_uses_its_own_entrypoint(self) -> None:
+        """The replacement-wheel recipe cannot drift or report the original NGC identity."""
+        dockerfile = (
+            Path(__file__).resolve().parent / "Dockerfile.diffusers-pytorch-proof"
+        ).read_text()
+
+        self.assertIn(
+            "nvcr.io/nvidia/pytorch@sha256:417cbf33f87b5378849df37983552cd1f8bc8b62fe1ceabe004de816a55dff21",
+            dockerfile,
+        )
+        self.assertIn(
+            "--checksum=sha256:4fc8f67637f4c92b989a07d80ffe755e79a3510ca02ebf23ce66396fb277c88d",
+            dockerfile,
+        )
+        self.assertIn(
+            'ENTRYPOINT ["python", "/opt/bottie/diffusers_pytorch_worker.py"]',
+            dockerfile,
+        )
 
 
 if __name__ == "__main__":
