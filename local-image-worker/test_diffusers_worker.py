@@ -130,6 +130,10 @@ class DiffusersBackendTests(unittest.TestCase):
             dockerfile,
         )
         self.assertIn(
+            "/tmp/torch-2.10.0+cu130-cp312-cp312-manylinux_2_28_aarch64.whl",
+            dockerfile,
+        )
+        self.assertIn(
             'ENTRYPOINT ["python", "/opt/bottie/diffusers_pytorch_worker.py"]',
             dockerfile,
         )

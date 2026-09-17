@@ -115,6 +115,27 @@ record from it is checked in. The wheel also reports CUDA architectures through 
 capability 12.1, despite the exercised BF16 path completing successfully. A fresh run must use the distinct profile,
 then a clean image built without UCC must produce a complete runtime closure before this route can affect packaging.
 
+### Clean runtime result
+
+A subsequent isolated build started from Ubuntu 24.04 ARM64 at
+`sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90`, installed Python 3.12 in a
+virtual environment, and resolved the verified PyTorch wheel plus the pinned direct Diffusers requirements. The exact
+image is `sha256:5039ad07130ce8d29f12325a54e02bf95e90112e114d745e5883434180e3bdad`, 5,780,237,265 bytes,
+ARM64/Linux. It contains no HPC-X installation or `libucc` runtime library. PyTorch includes UCC-related C++ headers,
+so this is a UCC-runtime exclusion claim, not an assertion that no filename or source text mentions UCC.
+
+The clean image passed the complete offline proof with the corrected runtime identity. Load took 350.350 seconds; cold
+and warm generation took 13.855 and 12.292 seconds; cancellation completed in 111 ms. Cold and warm encoded PNGs were
+identical at SHA-256 `cb3e252f7df6748daf191bb25cb6fc41168c8c5a1f541c7b559ffc2df720eb3d`, and their decoded RGB
+matched the replacement control. The already reviewed byte-identical image is coherent and prompt-matching. The live
+process maps contained no `libucc`, network denial passed, and the worker shut down cleanly.
+
+The resolved environment contains 63 Python distributions and 112 Debian packages. Their versions were captured from
+the exact image, but their source-wheel/deb byte hashes and licences are not yet frozen or reviewed. The build used
+mutable Ubuntu and Python indexes after the immutable base, so the recipe is not checked in as reproducible evidence.
+[`local-image-linux-ucc-free-measurements.json`](local-image-linux-ucc-free-measurements.json) preserves the unmodified
+path-free harness result. Linux remains unavailable until exact inputs, repeated traces, closure, and review exist.
+
 ## Reproduction boundary
 
 `Dockerfile.diffusers-proof` is intentionally a proof recipe. Building it needs network access to obtain the exact

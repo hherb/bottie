@@ -183,6 +183,14 @@ both before model load and after generation. The next candidate must instead sta
 UCC installation, repeat the full deterministic protocol proof, and generate a fresh traced closure and licence review.
 Until those exact produced bytes exist, the original 84-component record and all product gates remain unchanged.
 
+The first clean Ubuntu-based image now exists at
+`sha256:5039ad07130ce8d29f12325a54e02bf95e90112e114d745e5883434180e3bdad`. It is 5,780,237,265 bytes and
+passed the full offline protocol proof with zero `libucc` mappings and output byte-identical to the reviewed replacement
+control. It has no HPC-X installation or UCC runtime library, although PyTorch's distribution includes UCC-related C++
+headers. Its 63 Python and 112 Debian package versions were observed, not yet bound to immutable source artifacts.
+Because package indexes were mutable and no repeated trace or licence closure exists, this image is feasibility evidence
+only and does not replace the retained closure record.
+
 The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
 image, both exact proof-trace digests, and the complete sorted set of closure components. Every component must provide a
 non-placeholder reviewed expression, at least one licence or notice file, and a separate review record. Both the source
