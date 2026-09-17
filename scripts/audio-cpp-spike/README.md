@@ -31,8 +31,11 @@ AUDIOCPP_LIB_DIR=/path/to/audio.cpp/build-spike/bin cargo run --release
 That covers questions 1 to 3 and prints JSON.
 
 Question 4 needs a Supertonic 3 package, which is not redistributable through
-this repository. Install one (`audio-cpp/audio.cpp-gguf` on Hugging Face,
-package `supertonic_3_orig`) and point the probe at it:
+this repository. `supertonic_3_orig` is a package id in upstream's
+`model_specs/supertonic.json`, not a path — it resolves to the single file
+`Supertonic-3-GGUF/supertonic-3-orig.gguf` (454,072,836 bytes) in the Hugging
+Face repository `audio-cpp/audio.cpp-gguf`. Fetch it into a directory and point
+the probe at the directory:
 
 ```sh
 AUDIOCPP_LIB_DIR=/path/to/audio.cpp/build-spike/bin \
@@ -54,3 +57,29 @@ Without `AUDIOCPP_SPIKE_MODEL` the probe says so on stderr and reports
 | `AUDIOCPP_SPIKE_TEXT` | a fixed paragraph | Text to synthesize |
 | `AUDIOCPP_SPIKE_OUT` | `spike-tts.wav` | Where to write the audio |
 | `AUDIOCPP_SPIKE_MODELS` | `supertonic,nemotron_asr` | Families to link (build script) |
+| `AUDIOCPP_SPIKE_OPENMP` | `OFF` on macOS, `ON` elsewhere | `ENGINE_ENABLE_OPENMP` (build script) |
+
+The probe only covers text-to-speech. Speech-recognition figures in the
+evaluation came from upstream's own `audiocpp_cli` built from the same tree
+(`cmake --build <build dir> --target audiocpp_cli`), run with `--task asr
+--family nemotron_asr --metrics`.
+
+## Platform notes
+
+`ENGINE_ENABLE_OPENMP` defaults ON upstream and is a `find_package(OpenMP
+REQUIRED)`, which aborts configure on macOS because Apple clang ships no OpenMP
+runtime. The build script defaults it OFF on Darwin, matching upstream's own
+`scripts/build_metal.sh`. Homebrew's `libomp` also satisfies it:
+
+```sh
+AUDIOCPP_SPIKE_OPENMP=ON OpenMP_ROOT="$(brew --prefix libomp)" \
+    scripts/audio-cpp-spike/build-libaudiocpp.sh /path/to/audio.cpp
+```
+
+That builds, but the result links `libomp.dylib` by absolute Homebrew path and
+so is not shippable to an end user's Mac.
+
+The script pins no compute backend, so CMake enables whatever the host offers;
+on macOS that silently adds Metal and Accelerate. The build summary prints the
+enabled backends so two hosts are not compared as though they built the same
+thing.

@@ -1,83 +1,337 @@
 {
   "upstreamRepository": "https://github.com/0xShug0/audio.cpp",
   "upstreamCommit": "c0b26a505468152ec1d0fc06ac252c824408fc07",
-  "upstreamRelease": "v0.8.0",
+  "upstreamCommitTag": "last-docker-build",
+  "upstreamCommitTagNote": "A moving tag. The nearest release tag, v0.8.0, is 4af14322 and is an ancestor of this commit, so this build is main past v0.8.0 rather than v0.8.0 itself.",
   "upstreamLicence": "Apache-2.0",
-  "host": {
-    "os": "Ubuntu 24.04",
-    "kernel": "6.18.44-fc-v33",
-    "cpu": "Intel Xeon @ 2.10GHz",
-    "logicalCores": 4,
-    "compiler": "GCC 13.3.0",
-    "cmake": "3.28.3",
-    "compilerCacheAvailable": false
-  },
-  "build": {
-    "modelSet": "custom",
-    "requestedModels": [
-      "supertonic",
-      "nemotron_asr"
-    ],
-    "backend": "cpu",
-    "nativeCpuKernels": false,
-    "staticEspeak": false,
-    "objectFiles": 246,
-    "cleanWallSeconds": [
-      82,
-      88,
-      80
-    ],
-    "buildTreeBytes": 94918654
-  },
-  "library": {
-    "path": "bin/libaudiocpp.so.0.1.0",
-    "bytes": 5663520,
-    "soversion": 0,
-    "abiVersion": "0.2.0",
-    "exportedAudiocppSymbols": 74,
-    "exportedOtherSymbols": 0,
-    "exportedGgmlSymbols": 0,
-    "espeakStrings": 0,
-    "neededSharedLibraries": [
-      "libgomp.so.1",
-      "libstdc++.so.6",
-      "libm.so.6",
-      "libgcc_s.so.1",
-      "libc.so.6",
-      "ld-linux-x86-64.so.2"
-    ]
-  },
-  "runtime": {
-    "linkedFamilies": [
-      "marblenet_vad",
-      "nemotron_asr",
-      "silero_vad",
-      "supertonic"
-    ],
-    "unrequestedBundledFamilies": [
-      "marblenet_vad",
-      "silero_vad"
-    ],
-    "boundFromRust": true,
-    "coexistsWithWhisperRs": true,
-    "dynamicallyResolvedGgmlSymbols": 0,
-    "staticGgmlSymbolsInProbeBinary": 288,
-    "staticWhisperSymbolsInProbeBinary": 2
+  "hosts": [
+    {
+      "id": "linux-x64",
+      "measured": "2026-09-17",
+      "host": {
+        "os": "Ubuntu 24.04",
+        "kernel": "6.18.44-fc-v33",
+        "arch": "x86_64",
+        "cpu": "Intel Xeon @ 2.10GHz",
+        "logicalCores": 4,
+        "compiler": "GCC 13.3.0",
+        "cmake": "3.28.3",
+        "compilerCacheAvailable": false
+      },
+      "build": {
+        "modelSet": "custom",
+        "requestedModels": [
+          "supertonic",
+          "nemotron_asr"
+        ],
+        "backendsEnabled": [
+          "CPU"
+        ],
+        "openmp": true,
+        "nativeCpuKernels": false,
+        "staticEspeak": false,
+        "objectFiles": 246,
+        "cleanWallSeconds": [
+          82,
+          88,
+          80
+        ],
+        "buildTreeBytes": 94918654
+      },
+      "library": {
+        "path": "bin/libaudiocpp.so.0.1.0",
+        "bytes": 5663520,
+        "soversion": 0,
+        "abiVersion": "0.2.0",
+        "exportedAudiocppSymbols": 74,
+        "exportedOtherSymbols": 0,
+        "exportedGgmlSymbols": 0,
+        "espeakStrings": 0,
+        "neededSharedLibraries": [
+          "libgomp.so.1",
+          "libstdc++.so.6",
+          "libm.so.6",
+          "libgcc_s.so.1",
+          "libc.so.6",
+          "ld-linux-x86-64.so.2"
+        ]
+      },
+      "runtime": {
+        "linkedFamilies": [
+          "marblenet_vad",
+          "nemotron_asr",
+          "silero_vad",
+          "supertonic"
+        ],
+        "unrequestedBundledFamilies": [
+          "marblenet_vad",
+          "silero_vad"
+        ],
+        "boundFromRust": true,
+        "coexistsWithWhisperRs": true,
+        "dynamicallyResolvedGgmlSymbols": 0,
+        "staticGgmlSymbolsInProbeBinary": 288,
+        "staticWhisperSymbolsInProbeBinary": 2
+      },
+      "inference": null,
+      "inferenceSkippedReason": "huggingface.co is denied by this environment's egress policy, so no model weights could be fetched"
+    },
+    {
+      "id": "macos-arm64",
+      "measured": "2026-09-17",
+      "host": {
+        "os": "macOS 27.0 (build 26A428)",
+        "arch": "arm64",
+        "cpu": "Apple M3 Max",
+        "logicalCores": 16,
+        "memoryBytes": 137438953472,
+        "compiler": "AppleClang 21.0.0",
+        "cmake": "3.31.1",
+        "compilerCacheAvailable": false
+      },
+      "build": {
+        "modelSet": "custom",
+        "requestedModels": [
+          "supertonic",
+          "nemotron_asr"
+        ],
+        "backendsEnabled": [
+          "CPU",
+          "BLAS",
+          "METAL"
+        ],
+        "backendsNote": "The spike pins no compute backend, so CMake enabled Accelerate and Metal from the host. This build is not backend-equivalent to the Linux one.",
+        "openmp": false,
+        "openmpNote": "ENGINE_ENABLE_OPENMP defaults ON and is find_package(OpenMP REQUIRED). Apple clang ships no OpenMP runtime, so the original script aborted configure on macOS before compiling anything. build-libaudiocpp.sh now defaults it OFF on Darwin, matching upstream's own scripts/build_metal.sh.",
+        "nativeCpuKernels": false,
+        "staticEspeak": false,
+        "objectFiles": 256,
+        "cleanWallSeconds": [
+          23,
+          23,
+          23
+        ],
+        "buildTreeBytes": 116715520,
+        "fourFamilyVariant": {
+          "requestedModels": [
+            "supertonic",
+            "nemotron_asr",
+            "kroko_asr",
+            "sense_asr"
+          ],
+          "cleanWallSeconds": 22,
+          "libraryBytes": 5616480,
+          "exportedAudiocppSymbols": 74,
+          "note": "Linking two extra ASR families cost 433,888 bytes of library and no measurable build time."
+        }
+      },
+      "library": {
+        "path": "bin/libaudiocpp.0.1.0.dylib",
+        "bytes": 5182592,
+        "architecture": "arm64",
+        "soversion": 0,
+        "abiVersion": "0.2.0",
+        "exportedAudiocppSymbols": 74,
+        "exportedOtherSymbols": 0,
+        "exportedGgmlSymbols": 0,
+        "espeakStrings": 0,
+        "phonemizeStrings": 0,
+        "neededSharedLibraries": [
+          "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate",
+          "/System/Library/Frameworks/Metal.framework/Versions/A/Metal",
+          "/System/Library/Frameworks/MetalKit.framework/Versions/A/MetalKit",
+          "/System/Library/Frameworks/Foundation.framework/Versions/C/Foundation",
+          "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+          "/usr/lib/libc++.1.dylib",
+          "/usr/lib/libobjc.A.dylib",
+          "/usr/lib/libSystem.B.dylib"
+        ],
+        "thirdPartySharedLibraries": 0
+      },
+      "openmpVariant": {
+        "configuredWith": "-DENGINE_ENABLE_OPENMP=ON -DGGML_OPENMP=ON -DOpenMP_ROOT=$(brew --prefix libomp)",
+        "builds": true,
+        "buildWallSeconds": 20,
+        "bytes": 5186720,
+        "exportedAudiocppSymbols": 74,
+        "packagingBlocker": "Links /opt/homebrew/opt/libomp/lib/libomp.dylib by absolute Homebrew path, which is not present on an end user's Mac. Shipping it would require vendoring libomp and rewriting the install name."
+      },
+      "runtime": {
+        "linkedFamilies": [
+          "marblenet_vad",
+          "nemotron_asr",
+          "silero_vad",
+          "supertonic"
+        ],
+        "unrequestedBundledFamilies": [
+          "marblenet_vad",
+          "silero_vad"
+        ],
+        "boundFromRust": true,
+        "coexistsWithWhisperRs": true,
+        "coexistedUnderInference": true,
+        "dynamicallyResolvedGgmlSymbols": 0,
+        "dynamicallyResolvedAudiocppSymbols": 20,
+        "staticGgmlSymbolsInProbeBinary": 562,
+        "staticWhisperSymbolsInProbeBinary": 9,
+        "whisperRsSystemInfo": "WHISPER : COREML = 0 | OPENVINO = 0 | CPU : NEON = 1 | ARM_FMA = 1 | FP16_VA = 1 | MATMUL_INT8 = 1 | DOTPROD = 1 | ACCELERATE = 1 | REPACK = 1 |"
+      },
+      "inference": {
+        "textToSpeech": {
+          "family": "supertonic",
+          "package": "supertonic_3_orig",
+          "voiceId": "M1",
+          "characters": 224,
+          "sampleRateHz": 44100,
+          "channels": 1,
+          "audioSeconds": 14.696,
+          "cpu": {
+            "threads": 4,
+            "loadSeconds": 12.790403,
+            "synthesisSeconds": 3.255987,
+            "realtimeFactor": 4.513569
+          },
+          "metal": {
+            "threads": 4,
+            "loadSeconds": 4.756957,
+            "synthesisSeconds": 1.154183,
+            "realtimeFactor": 12.730151
+          },
+          "loadCostNote": "8.4 s of the first run's 12.8 s load was ggml_metal_library_init compiling the embedded Metal shader library. It runs even when the requested backend is cpu, and the OS caches it across runs.",
+          "audioQuality": {
+            "peakDbfs": -6.4,
+            "rmsDbfs": -25.8,
+            "nearSilentSampleFraction": 0.279,
+            "measuredVerdict": "Plausible speech envelope: not clipped, not silence.",
+            "listenedVerdict": "Superb. Judged by ear on the M1 voice; this is the result the evaluation was waiting on."
+          },
+          "streamingPolicy": {
+            "inputKind": 0,
+            "outputKind": 1,
+            "preferredChunkSamples": 0,
+            "note": "Text-to-speech consumes no audio, so there is no input chunk size to report."
+          }
+        },
+        "speechRecognition": {
+          "family": "nemotron_asr",
+          "package": "nemotron_asr_q8_0",
+          "inputAudioSeconds": 14.696,
+          "offlineCpu": {
+            "threads": 4,
+            "wallMs": 685.371,
+            "rtf": 0.0466362,
+            "xRealtime": 21.4426
+          },
+          "offlineMetal": {
+            "threads": 4,
+            "wallMs": 625.177,
+            "rtf": 0.0425402,
+            "xRealtime": 23.5071,
+            "supersededBy": "comparison.families[nemotron_asr].metalXRealtime",
+            "supersededNote": "This 23.5x was measured on 44.1 kHz input, so it included internal resampling, and with a cold Metal shader cache. On 16 kHz input with a warm cache the median is 72.1x."
+          },
+          "streamingPolicy": {
+            "inputKind": 1,
+            "outputKind": 0,
+            "preferredChunkSamples": 16000,
+            "preferredChunkSecondsAt16kHz": 1.0,
+            "preferredChunkSecondsFieldReturned": 0.0,
+            "abiWart": "audiocpp_stream_policy fills out_preferred_chunk_samples but leaves out_preferred_chunk_seconds at 0.0, so a caller reading only the seconds field gets no cadence at all.",
+            "bottieComparison": "Bottie recognizes on a fixed 1,500 ms interval (TRANSCRIPTION_INTERVAL_MS); nemotron_asr asks for 1,000 ms."
+          },
+          "transcriptionAccuracy": {
+            "referenceText": "Bottie keeps local inference and storage as first-class, while cloud providers remain an explicit choice. This sentence exists so that the measured realtime factor reflects sustained synthesis rather than one-off setup cost.",
+            "transcript": "Body keeps local inference and storage as first class, while cloud providers remain an explicit choice.  This sentence exists so that the measured real time factor reflects sustained synthesis rather than one off setup cost.",
+            "errors": "One proper-noun substitution (Bottie to Body). Remaining differences are hyphenation only: first-class, realtime, one-off.",
+            "streamingMatchesOffline": true,
+            "caveat": "The input was this spike's own Supertonic output, i.e. clean synthetic studio speech, not microphone audio. Treat this as an upper bound, not a field result."
+          },
+          "comparison": {
+            "inputAudio": "the spike's own Supertonic output resampled to 16 kHz mono, 14.696 s",
+            "threads": 4,
+            "runsPerCell": 3,
+            "statistic": "median x_realtime reported by audiocpp_cli --metrics",
+            "families": [
+              {
+                "family": "nemotron_asr",
+                "package": "nemotron_asr_q8_0",
+                "status": "supported",
+                "weightBytes": 930620256,
+                "cpuXRealtime": 21.3,
+                "metalXRealtime": 72.1,
+                "peakResidentBytes": 2244000000,
+                "languages": 40,
+                "transcriptNote": "punctuates sentences; writes 'real time', 'one off'"
+              },
+              {
+                "family": "sense_asr",
+                "package": "sensevoice_small_q8",
+                "status": "community",
+                "weightBytes": 254211200,
+                "cpuXRealtime": 39.7,
+                "metalXRealtime": 42.6,
+                "peakResidentBytes": 556154880,
+                "languages": 22,
+                "languagesNote": "22 plus an 'auto' detect token and a 'nospeech' token; includes zh, ja, ko, ar, hi, vi, th",
+                "transcriptNote": "correct word forms but emits almost no punctuation: no commas, no sentence breaks",
+                "runtimeDependency": "segments with Silero VAD, loading assets/framework/models/silero_vad/silero_vad_16k.safetensors (1,239,748 bytes) from a path relative to the working directory",
+                "inputConstraint": "requires exactly 16 kHz; errors on 44.1 kHz where nemotron_asr and kroko_asr resample internally"
+              },
+              {
+                "family": "kroko_asr",
+                "package": "kroko_asr_community_q8_0",
+                "status": "community",
+                "weightBytes": 167756928,
+                "cpuXRealtime": 33.4,
+                "metalXRealtime": 19.7,
+                "peakResidentBytes": 441000000,
+                "languages": 1,
+                "languagesNote": "the spec advertises 10 languages, but the only GGUF package shipped is kroko-en-community-64-l-q8_0.gguf, which is English only",
+                "transcriptNote": "best word forms of the three (real-time, one-off); dropped the final period"
+              }
+            ],
+            "findings": [
+              "Metal helps the large model greatly (nemotron 21.3x to 72.1x) and hurts the small ones (kroko 33.4x to 19.7x), because GPU dispatch overhead dominates below a certain model size.",
+              "Peak resident set tracks weight size at roughly 2.4x, so the memory question is decided at model choice rather than at runtime.",
+              "All three families made the same single error on the reference text, the proper noun 'Bottie' heard as 'Body'; they otherwise differ only in punctuation and hyphenation.",
+              "Of the 21 ASR families upstream ships, none is both multilingual and near Whisper tiny Q5's 32 MB."
+            ]
+          }
+        },
+        "peakResidentBytes": {
+          "asrCpuProcess": 2238103552,
+          "ttsCpuProcess": 1057062912,
+          "note": "Measured separately with /usr/bin/time -l on audiocpp_cli. A process holding both models would be materially larger."
+        }
+      }
+    }
+  ],
+  "modelDownloadBytes": {
+    "source": "huggingface.co/audio-cpp/audio.cpp-gguf",
+    "note": "Package ids come from model_specs/*.json and each resolves to a single GGUF file, which suits the one-file-one-SHA-256 pinning discipline in runtime-assets.json.",
+    "supertonic_3_orig": 454072836,
+    "supertonic_3_q8_0": 454072836,
+    "supertonic_3_f16": 312784196,
+    "nemotron_asr_q8_0": 930620256,
+    "nemotron_asr_f16": 1277710880,
+    "bothDefaults": 1384693092,
+    "comparisonWhisperTinyQ5": 32152673,
+    "kroko_asr_community_q8_0": 167756928,
+    "sensevoice_small_q8": 254211200,
+    "sensevoice_small_q8_source": "huggingface.co/FunAudioLLM/SenseVoiceSmall-GGUF-audiocpp at revision 5c3fcfe748a8714216bc135476d5863084fddb72 (not the audio-cpp repo)"
   },
   "notMeasured": {
-    "reason": "huggingface.co is denied by this environment's egress policy, so no model weights could be fetched",
     "items": [
-      "textToSpeechRealtimeFactor",
-      "speechRecognitionRealtimeFactor",
-      "modelDownloadBytes",
-      "audioQuality",
-      "streamingChunkPolicy",
-      "peakResidentMemory",
-      "macOsArm64Build",
       "windowsX64Build",
-      "metalBackend",
+      "macOsX64Build",
       "cudaBackend",
-      "fullModelSetBuildCost"
+      "vulkanBackend",
+      "hipBackend",
+      "fullModelSetBuildCost",
+      "microphoneAudioAccuracy",
+      "longFormStability",
+      "multilingualQuality",
+      "concurrentInferenceUnderLoadWithWhisperRs"
     ]
   }
 }
