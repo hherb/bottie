@@ -547,10 +547,12 @@ Implement this once for both hosted and local adapters before adding more runtim
   cuSPARSELt, Open MPI, and UCX. A separate offline read-only source gate now recognizes exact authoritative PyPI
   archives for SentencePiece and tokenizers plus exact NVIDIA NVPL BLAS/LAPACK archives; the NVPL evidence additionally
   requires both installed runtime files to match archive members byte-for-byte. It never infers expressions and has not
-  changed the checked-in DGX closure record. The exact HPC-X UCC revision still lacks authoritative source bytes, so no
-  review manifest exists and Linux remains unavailable. Bottie must resolve that exact blocker, rerun the closure on
-  the retained image, produce independently reviewed bundle bytes, and add native hardware gating plus app-owned
-  execution.
+  changed the checked-in DGX closure record. A second exact-source pass found no public OpenUCX object for the pinned
+  UCC revision; NVIDIA's public v2.24 UCC notices name only `rdma-core`, while the target-matching 2.24.1 ARM64 archive
+  is available only through an EULA route that Bottie did not accept. The exact HPC-X UCC revision therefore still
+  lacks authoritative source bytes, so no review manifest exists and Linux remains unavailable. Bottie must resolve
+  that exact blocker from an independently obtained archive, rerun the closure on the retained image, produce
+  independently reviewed bundle bytes, and add native hardware gating plus app-owned execution.
   See
   `docs/local-image-linux-nvidia-proof.md` and
   `docs/local-image-linux-worker-bundle.md`;
