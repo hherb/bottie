@@ -4,7 +4,7 @@ Last verified: 2026-09-17
 
 ## Start here
 
-Start from the draft PR for `codex/linux-image-worker-ucc-source-blocker`. Read `ROADMAP.md` Milestone 8.4,
+Start from the draft PR for `codex/linux-image-worker-ucc-archive-mismatch`. Read `ROADMAP.md` Milestone 8.4,
 `docs/local-image-linux-worker-bundle.md`, `local-image-worker/diffusers_runtime_license_sources.py`, and
 `local-image-worker/diffusers_runtime_native.py`.
 
@@ -22,22 +22,23 @@ Start from the draft PR for `codex/linux-image-worker-ucc-source-blocker`. Read 
 - NVIDIA's public `HPCX:ucc_hpcx_v2.24` component and notice PDFs contain only `rdma-core`; they do not identify UCC,
   the `ec95a0a...` revision, or the installed library. The exact v2.24.1 PDF names are unavailable. These documents
   cannot replace component-owned exact licence bytes.
-- NVIDIA's official downloader identifies
-  `hpcx-v2.24.1-gcc-doca_ofed-ubuntu24.04-cuda13-aarch64.tbz` with reported size `346M` and SHA-256
-  `0bc5c26a4f0ca98fd6292aac9d51cc2a4ee3277d38d4011b64eafd133be633b4`, but routes acquisition through an
-  EULA. It was not downloaded because accepting new terms was not authorized.
-- The configured DGX has no existing UCC/HPC-X archive in the user or temporary paths. A network-disabled read-only
-  inspection reconfirmed that the retained image has `/opt/hpcx/ucc/lib/libucc.so.1.0.0` but no UCC licence or source
-  document. The image history exposes only the installed `/opt/hpcx` copy, not an authoritative archive.
+- With explicit user authorization for NVIDIA's HPC-X EULA, the exact target archive was downloaded outside the
+  repository. Its 362,195,002 bytes match the published SHA-256
+  `0bc5c26a4f0ca98fd6292aac9d51cc2a4ee3277d38d4011b64eafd133be633b4`.
+- The archive does not contain UCC licence, notice, or source bytes. Its only literal `LICENSE` members belong to
+  SHARP. Its regular `ucc/lib/libucc.so.1.0.0` member is 1,119,992 bytes with SHA-256
+  `f697c9fd8e1a8d59fd83522eadc4a78f974cc88311f47b128d0ccb410325068e`.
+- The retained image's `/opt/hpcx/ucc/lib/libucc.so.1.0.0` is instead 1,119,984 bytes with SHA-256
+  `c797c8a60453cdd6b2df48fd2f207ad1f83acd59febdf613a9a190ed9afd080e`. The target-matching archive therefore
+  cannot establish provenance or component-owned licence bytes for the exact image binary.
 - `licenseReviewed`, `assemblyEligible`, and `distributionReviewed` remain false. No source spec, closure record,
   review manifest, bundle, accepted Linux profile, or executable was added or changed.
 
 ## Validation
 
-The official OpenUCX commit endpoint rejected the full revision and GitHub's public full-hash search returned zero
-matches. The three public NVIDIA v2.24 PDFs were measured locally and inspected as text; the two UCC-specific files are
-17,354 and 24,114 bytes and name only `rdma-core`. The DGX archive search and retained-image inspection were read-only;
-the container was launched with networking disabled, a read-only root, no capabilities, and no-new-privileges. No
+The exact archive passed byte-count and SHA-256 verification before inspection. Its full member inventory contains the
+regular release UCC library but no UCC licence, notice, or source file. A network-disabled, read-only, capability-free
+container measured the retained image library on the named DGX and proved the eight-byte size and SHA-256 mismatch. No
 product source changed. All 63 local worker Python tests pass. Prettier, Svelte diagnostics, all 407 active
 frontend/script tests (3 skipped), and the production build pass. Cargo formatting/checking pass; the host-local Rust
 suite passes 649 library tests (37 ignored) plus all integration and doc tests after the expected sandbox loopback
@@ -45,19 +46,18 @@ denials. Unrelated untracked logo-kit, screenshot, and Linux public-key files re
 
 ## Next slice
 
-Resolve only `native:hpcx-ucc@1.5.0+ec95a0a96fc7220e1627157439c508cafc82274e` after an exact archive is supplied
-outside the repository by someone who has independently handled any required terms:
+Resolve only `native:hpcx-ucc@1.5.0+ec95a0a96fc7220e1627157439c508cafc82274e` after an authoritative artifact is
+supplied outside the repository:
 
-1. require the exact authoritative archive identity and reject nearby tags, releases, generic notices, or
-   project-level licence assertions;
-2. measure one component-owned licence member and require `/opt/hpcx/ucc/lib/libucc.so.1.0.0` to match its exact
-   regular archive member before adding a fixed source spec and regression tests;
+1. require one component-owned UCC licence member and a regular library member byte-identical to the retained image's
+   1,119,984-byte `libucc.so.1.0.0`; reject the verified target archive, nearby tags, generic notices, or project-level
+   licence assertions as substitutes;
+2. add a fixed source spec and regression tests only after both exact members are available;
 3. on the named DGX Spark, rerun the same retained image and trace twice with all five source archives, require
    byte-identical path-free output and zero `missing-license-bytes` blockers, and keep all expression/review gates
    closed.
 
-If the exact archive does not contain both required members, stop with that blocker. Do not accept terms on the user's
-behalf, add a downloader, infer a licence expression, create a review manifest, weaken complete coverage, or add a
-Linux profile, executable, bundle assembly, hardware probe, worker import/download, app execution, UI/IPC field,
-Docker product dependency, cloud fallback, local editing, guessed Qwen Image 2.0 weights, signing, release, Store, or
-updater publication.
+Until both exact members exist, stop with this blocker. Do not add a downloader, infer a licence expression, create a
+review manifest, weaken complete coverage, or add a Linux profile, executable, bundle assembly, hardware probe, worker
+import/download, app execution, UI/IPC field, Docker product dependency, cloud fallback, local editing, guessed Qwen
+Image 2.0 weights, signing, release, Store, or updater publication.

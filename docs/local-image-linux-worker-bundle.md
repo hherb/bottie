@@ -153,12 +153,21 @@ The official HPC-X downloader does identify one target-matching binary archive:
 | ----------------------------------------------------------- | ------------: | ------------------------------------------------------------------ |
 | `hpcx-v2.24.1-gcc-doca_ofed-ubuntu24.04-cuda13-aarch64.tbz` |        `346M` | `0bc5c26a4f0ca98fd6292aac9d51cc2a4ee3277d38d4011b64eafd133be633b4` |
 
-Its acquisition route requires an EULA, so Bottie did not download it or accept terms on the user's behalf. A
-read-only search of the configured DGX found no already-obtained copy. A network-disabled, read-only inspection of the
-retained image reconfirmed the exact `libucc.so.1.0.0` but found no UCC source or licence document. Therefore a later
-operator must first supply the exact archive outside the repository after independently handling any required terms.
-The gate may add a fifth fixed source only if that archive contains both a component-owned licence member and a regular
-member byte-identical to `/opt/hpcx/ucc/lib/libucc.so.1.0.0`. Absence or drift remains a hard blocker.
+After the user explicitly authorized NVIDIA's HPC-X EULA, Bottie downloaded this exact archive outside the repository.
+Its 362,195,002 bytes match the published SHA-256. The archive contains no UCC licence, notice, or source member; its
+only literal `LICENSE` members are two SHARP copies, and its top-level README lists sources for SHMEM, Open MPI, and
+UCX but not UCC. It does contain the expected regular UCC library, but that file does not match the retained proof
+image:
+
+| Evidence location                       |   Byte size | SHA-256                                                            |
+| --------------------------------------- | ----------: | ------------------------------------------------------------------ |
+| Exact archive `ucc/lib/libucc.so.1.0.0` | `1,119,992` | `f697c9fd8e1a8d59fd83522eadc4a78f974cc88311f47b128d0ccb410325068e` |
+| Retained image `/opt/hpcx/ucc/lib/...`  | `1,119,984` | `c797c8a60453cdd6b2df48fd2f207ad1f83acd59febdf613a9a190ed9afd080e` |
+
+The retained-image measurement was collected on the named DGX through a network-disabled, read-only,
+capability-free container. This target-matching archive is therefore not authoritative evidence for the exact image
+binary and cannot add the fifth fixed source. A later artifact must contain both component-owned UCC licence bytes and
+a regular `libucc.so.1.0.0` member byte-identical to the retained image. Absence or drift remains a hard blocker.
 
 The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
 image, both exact proof-trace digests, and the complete sorted set of closure components. Every component must provide a
