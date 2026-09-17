@@ -1,56 +1,54 @@
 # Bottie handover
 
-Last verified: 2026-09-17
+Last verified: 2026-09-18
 
 ## Start here
 
-Start from the draft PR for `codex/linux-clean-runtime-offline-rebuild-gate` after it merges. Read `ROADMAP.md`
-Milestone 8.4 and the clean-runtime sections of `docs/local-image-linux-worker-bundle.md` and
-`docs/local-image-linux-nvidia-proof.md`.
+Start from the draft PR for `codex/linux-clean-runtime-rebuild-evidence` after it merges. Read `ROADMAP.md` Milestone
+8.4 and the clean-runtime sections of `docs/local-image-linux-nvidia-proof.md` and
+`docs/local-image-linux-worker-bundle.md`.
 
 ## Current state
 
-- The exact clean Ubuntu/ARM64 proof image remains
-  `sha256:5039ad07130ce8d29f12325a54e02bf95e90112e114d745e5883434180e3bdad`, 5,780,237,265 bytes. It passed
-  the earlier full offline private-protocol proof with zero `libucc` mappings and byte-identical reviewed output.
-- Its 63 Python and 112 Debian identities are frozen to 175 authoritative archives totaling 3,016,341,507 bytes. The
-  canonical input-lock SHA-256 is `2628e5ec74886a91b6b1b68890666d2340c7a99c9f20b51b9b9dc483946c9831`.
-- `docs/local-image-linux-clean-runtime-rebuild-plan.json` now binds the exact Ubuntu base, input lock, and byte sizes
-  and hashes of the three reviewed worker files. The host gate re-verifies all inputs, then performs two independently
-  named Linux/ARM64 BuildKit builds with networking, pulls, and cache disabled.
-- Each result must have exactly the lock's installed inventory. Comparison binds canonical regular-file paths,
-  permission modes, numeric ownership, sizes, and SHA-256 values while ignoring modification times and excluding only
-  Docker's three runtime-owned hosts files. The evidence is path-free and bound to the plan and input-lock digests.
-- The gate has not run. No source was transferred to the DGX, no image was rebuilt, and no proof, trace, closure,
-  licence review, bundle, app wiring, product availability, signing, release, Store, updater, provider, or legal action
-  occurred. `licenseReviewed`, `assemblyEligible`, and `distributionReviewed` remain false.
+- Two independently named, network-disabled, no-cache, no-pull Linux/ARM64 rebuilds from the frozen 175-archive input
+  tree agree. Their 63 Python and 112 Debian identities are exact; 27,035 normalized regular files totaling
+  5,024,684,703 bytes share SHA-256 `e48d83b963158b94163c8c8d8c7a0d128d8ee77355ed22bb83725e8383089055`.
+- `docs/local-image-linux-clean-runtime-rebuild-evidence.json` is the 993-byte path-free record with SHA-256
+  `817148f314b709b2d9c82c6a4acbd8632db1b5b16f12412c2b3528d6dbac56e7`.
+- The gate now handles Ubuntu pre-dependencies with three bounded exact `dpkg` passes, stages inspection scripts
+  read-only but traversable by UID/GID 65534, and removes only generated Python bytecode and linker caches before the
+  strict comparison. It did not add package egress, dependency resolution, or filesystem exclusions.
+- The first rebuilt image passed two independent full private-protocol proofs using the exact venv interpreter with no
+  UCC mask. Both found no UCC installation or mapping, denied network access, reproduced the previously reviewed PNG
+  and RGB hashes, cancelled in 101 ms, and shut down cleanly. `docs/local-image-linux-clean-runtime-proof.json` retains
+  the path-free measurements and four fresh trace digests.
+- No rebuilt-image closure, licence review, bundle, accepted Linux profile, app wiring, product availability, signing,
+  release, Store, updater, provider, or legal action exists. All product/distribution gates remain false.
 
 ## Validation
 
-- All 99 local image-worker Python tests pass, including 13 focused rebuild-plan, offline-command, path traversal,
-  hard-link, inventory, source-drift, target, and normalized-filesystem tests.
-- Prettier, Svelte diagnostics, all 407 active frontend/script tests (3 skipped), and the production build pass. The
-  default Vitest glob also found the unrelated ignored `.claude/worktrees/audio-cpp-asr-tts-spike-d9e3e8` checkout;
-  the clean rerun explicitly excluded `.claude/**`.
+- Focused rebuild/proof suites pass: 28 tests covering exact offline construction, deterministic cleanup,
+  unprivileged inspection, clean-profile interpreter selection, real UCC absence, and mapping rejection.
+- All 103 local image-worker Python tests pass, as do byte-compilation and Black checks for every changed Python file.
+- Prettier, Svelte diagnostics, all 407 active frontend/script tests (3 skipped), and the production build pass.
 - Cargo formatting and locked checking pass. The locked Rust suite passes outside the sandbox after expected
   loopback-bind denials: 649 library tests (37 ignored), 1 updater-evidence test, 6 local-image adapter tests, 10
-  worker-transport tests, and doc tests. One unrelated XPC cancellation fixture timed out once, passed alone, and
-  passed in the complete rerun.
-- Python byte-compilation and Black formatting checks pass. `git diff --check` passes.
+  worker-transport tests, and doc tests.
+- JSON parsing and `git diff --check` pass. Memory sampling is isolated so each changed Python implementation remains
+  below 500 lines.
 
 ## Next slice
 
-Execute and assess the two frozen-input rebuilds on the named DGX:
+Add a distinct clean-runtime closure profile and run it against both fresh traces:
 
-1. obtain explicit user authorization before transferring the minimal reviewed plan, input-lock, worker, inventory,
-   lock-verifier, and rebuild scripts to the DGX; use the existing unlocked SSH authentication without requesting or
-   recording its passphrase, and do not enable package egress;
-2. confirm the exact base image and retained 175-archive tree are present, then run the documented host command with
-   two fresh distinct build names and an evidence path outside both repository and input tree;
-3. retain the path-free evidence only if both rebuilt inventories equal the lock and the normalized regular-file
-   measurements agree exactly. If they agree, the following slice is to rerun the private-protocol proof and generate
-   two fresh traces and a new closure bound to the rebuilt bytes.
+1. TDD a closure host/profile that accepts only rebuilt image
+   `sha256:740816cb8f348aa26e3d32f73b15b86b7f5a7228cff7b24d6910ee7aa0ee12a4`, the PyTorch worker/runtime identity,
+   Ubuntu base digest, and either of the exact retained trace contexts;
+2. preserve the existing NGC closure unchanged, keep collection read-only/non-root/offline, and require both new
+   closures to agree before retaining one path-free summary;
+3. report every missing-byte, undeclared-expression, ownership, Python-dependency, ELF, and host-driver blocker. Do not
+   infer licence expressions or reuse the original NGC component set.
 
-Do not infer licence expressions, create or accept a licence-review manifest, update the original NGC closure, accept
-a Linux profile, add an executable/hardware probe/app execution/UI, publish a bundle, or perform signing, release,
-Store, updater, provider, or legal-terms activity.
+The user authorized transfer of only the additional reviewed proof/closure modules needed for this DGX evidence chain.
+Do not create or accept a licence-review manifest, assemble or publish bytes, add hardware probing/app execution/UI, or
+perform signing, release, Store, updater, provider, or legal-terms activity.

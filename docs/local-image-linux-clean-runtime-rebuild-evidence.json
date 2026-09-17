@@ -1,0 +1,27 @@
+{
+  "baseImageDigest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "builds": [
+    {
+      "buildName": "bottie-clean-rebuild-205-g",
+      "imageId": "sha256:740816cb8f348aa26e3d32f73b15b86b7f5a7228cff7b24d6910ee7aa0ee12a4"
+    },
+    {
+      "buildName": "bottie-clean-rebuild-205-h",
+      "imageId": "sha256:9674340df3fb973f0477927a71dca28fecfa09350cf50944acd72cb267a90b66"
+    }
+  ],
+  "debianPackageCount": 112,
+  "inputArtifactByteSize": 3016341507,
+  "inputLockSha256": "2628e5ec74886a91b6b1b68890666d2340c7a99c9f20b51b9b9dc483946c9831",
+  "normalizedFilesystemSha256": "e48d83b963158b94163c8c8d8c7a0d128d8ee77355ed22bb83725e8383089055",
+  "pythonDistributionCount": 63,
+  "rebuildPlanSha256": "e5b1be5347f5ecec6fe260a496154e7f756281612973ac08cfe475e2dcec04d9",
+  "rebuildsAgree": true,
+  "regularFileBytes": 5024684703,
+  "regularFileCount": 27035,
+  "schemaVersion": 1,
+  "target": {
+    "architecture": "arm64",
+    "operatingSystem": "linux"
+  }
+}

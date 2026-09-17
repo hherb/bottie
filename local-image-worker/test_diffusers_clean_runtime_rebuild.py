@@ -132,7 +132,19 @@ class DiffusersCleanRuntimeRebuildTests(unittest.TestCase):
         self.assertIn(f"FROM ubuntu@{CLEAN_BASE_IMAGE_DIGEST}", dockerfile)
         self.assertIn("COPY --from=frozen-inputs /debian/ /tmp/debian/", dockerfile)
         self.assertIn("COPY --from=frozen-inputs /python/ /tmp/python/", dockerfile)
+        self.assertEqual(dockerfile.count("dpkg -i /tmp/debian/*.deb"), 3)
+        self.assertIn(
+            "dpkg -i /tmp/debian/*.deb || dpkg -i /tmp/debian/*.deb || "
+            "dpkg -i /tmp/debian/*.deb",
+            dockerfile,
+        )
         self.assertIn("--no-index --no-deps", dockerfile)
+        self.assertIn(
+            "find /opt/bottie/venv -type d -name __pycache__ -prune "
+            "-exec rm -rf '{}' +",
+            dockerfile,
+        )
+        self.assertIn("rm -f /var/cache/ldconfig/aux-cache", dockerfile)
         self.assertIn("/var/log/dpkg.log", dockerfile)
         self.assertNotIn("# syntax=", dockerfile)
         self.assertNotIn("apt-get", dockerfile)
