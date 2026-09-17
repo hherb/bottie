@@ -136,6 +136,18 @@ mutable Ubuntu and Python indexes after the immutable base, so the recipe is not
 [`local-image-linux-ucc-free-measurements.json`](local-image-linux-ucc-free-measurements.json) preserves the unmodified
 path-free harness result. Linux remains unavailable until exact inputs, repeated traces, closure, and review exist.
 
+The repository now has a proof-only offline input-lock gate for the next clean build. It resolves the source image
+reference through the Docker daemon, requires the exact clean image ID and Linux/ARM64 target, and collects its complete
+installed Python and Debian identities by that immutable ID with networking disabled. Lock generation then requires
+exactly 63 wheels and 112 Debian archives in separate symlink-free directories. It rejects Python source archives,
+non-ARM platform wheels, foreign Debian architectures, missing or extra files, embedded wheel-identity drift, Debian
+control-metadata drift, and byte/hash drift. The generated manifest retains only portable filenames, identities, exact
+sizes, SHA-256 hashes, and a canonical lock digest.
+
+This gate does not download packages, prove index immutability, rebuild an image, infer licence expressions, or make the
+clean image distributable. No complete lock has been produced yet because the exact wheel and Debian archives have not
+been assembled and compared with the retained clean image.
+
 ## Reproduction boundary
 
 `Dockerfile.diffusers-proof` is intentionally a proof recipe. Building it needs network access to obtain the exact

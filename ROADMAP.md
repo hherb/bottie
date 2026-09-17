@@ -557,7 +557,10 @@ Implement this once for both hosted and local adapters before adding more runtim
   manifest exists and Linux remains unavailable. Bottie must either resolve the exact retained-image artifact or prove
   a clean runtime without the UCC runtime. The first clean Ubuntu-based image now passes the full proof with identical
   output and zero `libucc` mappings, but its 63 Python and 112 Debian inputs are version-observed rather than
-  byte-frozen, repeatedly traced, or licence-reviewed. Bottie must freeze those exact inputs, rerun the closure, produce
+  byte-frozen, repeatedly traced, or licence-reviewed. A new offline lock gate now collects installed identities from
+  that exact image ID and requires a complete 63-wheel/112-Debian symlink-free artifact set with matching embedded
+  metadata, sizes, hashes, ARM64 target, and canonical lock digest. No complete artifact set or lock has been produced
+  yet. Bottie must obtain those authoritative bytes, rebuild twice from only the lock, rerun the closure, produce
   independently reviewed bundle bytes, and add native hardware gating plus app-owned execution.
   See
   `docs/local-image-linux-nvidia-proof.md` and
