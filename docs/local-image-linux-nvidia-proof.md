@@ -141,7 +141,9 @@ reference through the Docker daemon, requires the exact clean image ID and Linux
 installed Python and Debian identities by that immutable ID with networking disabled. Lock generation then requires
 exactly 63 wheels and 112 Debian archives in separate symlink-free directories. It rejects Python source archives,
 non-ARM platform wheels, foreign Debian architectures, missing or extra files, embedded wheel-identity drift, Debian
-control-metadata drift, and byte/hash drift. The generated manifest retains only portable filenames, identities, exact
+control-metadata drift, and byte/hash drift. Every wheel must have one bounded `WHEEL` metadata member beside
+`METADATA`, and its expanded compatibility tags must exactly equal the filename tags, so a renamed foreign-platform
+archive cannot satisfy the ARM64 gate. The generated manifest retains only portable filenames, identities, exact
 sizes, SHA-256 hashes, and a canonical lock digest.
 
 This gate does not download packages, prove index immutability, rebuild an image, infer licence expressions, or make the

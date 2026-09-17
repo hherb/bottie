@@ -17,11 +17,19 @@ from diffusers_clean_runtime_lock import (
 )
 
 
-def _write_wheel(path: Path, name: str, version: str) -> tuple[int, str]:
+def _write_wheel(
+    path: Path,
+    name: str,
+    version: str,
+    wheel_tags: tuple[str, ...] = ("py3-none-any",),
+) -> tuple[int, str]:
     """Create one minimal wheel-shaped archive and return its exact measurement."""
     metadata = f"Metadata-Version: 2.4\nName: {name}\nVersion: {version}\n\n"
+    tag_fields = "".join(f"Tag: {tag}\n" for tag in wheel_tags)
+    wheel = f"Wheel-Version: 1.0\nGenerator: bottie-test\n{tag_fields}\n"
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(f"{name}-{version}.dist-info/METADATA", metadata)
+        archive.writestr(f"{name}-{version}.dist-info/WHEEL", wheel)
     contents = path.read_bytes()
     return len(contents), hashlib.sha256(contents).hexdigest()
 
@@ -257,6 +265,73 @@ class DiffusersCleanRuntimeLockTests(unittest.TestCase):
                     1,
                     debian_metadata.__getitem__,
                 )
+
+    def test_rejects_wheel_with_embedded_tags_that_drift_from_filename(self) -> None:
+        """Renaming a foreign wheel cannot substitute an ARM64-compatible archive."""
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest, debian_metadata = _locked_manifest(root)
+            old_filename = manifest["pythonArtifacts"][0]["filename"]
+            filename = (
+                "example_pkg-1.2.3-cp312-cp312-manylinux_2_39_aarch64.whl"
+            )
+            path = root / "python" / filename
+            (root / "python" / old_filename).unlink()
+            wheel_size, wheel_sha256 = _write_wheel(
+                path,
+                "example_pkg",
+                "1.2.3",
+                ("cp312-cp312-manylinux_2_39_x86_64",),
+            )
+            manifest["pythonArtifacts"][0].update(
+                filename=filename,
+                byteSize=wheel_size,
+                sha256=wheel_sha256,
+            )
+            _refresh_lock_digest(manifest)
+
+            with self.assertRaisesRegex(
+                CleanRuntimeLockError, "wheel tags have drifted"
+            ):
+                _validate_clean_runtime_lock(
+                    manifest,
+                    root,
+                    1,
+                    1,
+                    debian_metadata.__getitem__,
+                )
+
+    def test_accepts_expanded_tags_for_a_compressed_wheel_filename(self) -> None:
+        """Expanded embedded tags remain equivalent to one compressed filename tag set."""
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest, debian_metadata = _locked_manifest(root)
+            old_filename = manifest["pythonArtifacts"][0]["filename"]
+            filename = "example_pkg-1.2.3-py2.py3-none-any.whl"
+            path = root / "python" / filename
+            (root / "python" / old_filename).unlink()
+            wheel_size, wheel_sha256 = _write_wheel(
+                path,
+                "example_pkg",
+                "1.2.3",
+                ("py2-none-any", "py3-none-any"),
+            )
+            manifest["pythonArtifacts"][0].update(
+                filename=filename,
+                byteSize=wheel_size,
+                sha256=wheel_sha256,
+            )
+            _refresh_lock_digest(manifest)
+
+            evidence = _validate_clean_runtime_lock(
+                manifest,
+                root,
+                1,
+                1,
+                debian_metadata.__getitem__,
+            )
+
+        self.assertTrue(evidence["verified"])
 
 
 if __name__ == "__main__":
