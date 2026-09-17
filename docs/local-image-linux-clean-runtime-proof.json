@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "imageId": "sha256:740816cb8f348aa26e3d32f73b15b86b7f5a7228cff7b24d6910ee7aa0ee12a4",
+  "modelId": "Qwen/Qwen-Image-2512",
+  "modelRevision": "25468b98e3276ca6700de15c6628e51b7de54a26",
+  "runtimeId": "diffusers@0.40.0+pytorch-2.10.0-cu130-ubuntu24.04-arm64",
+  "workerVersion": "diffusers-0.40.0-pytorch-2.10.0-cu130-proof-1",
+  "encodedPngSha256": "cb3e252f7df6748daf191bb25cb6fc41168c8c5a1f541c7b559ffc2df720eb3d",
+  "generatedRgbSha256": "a3ec2972f88027b969e087a39d4d1b738438b61150ccd4d9dec2842ca1a9ad70",
+  "matchesPreviouslyReviewedControl": true,
+  "runs": [
+    {
+      "run": "a",
+      "measurementSha256": "4eeed6d779ec4d24cd5d747ab82de2270592a3f1623a30c5906e6b89581d3a5b",
+      "traceContextSha256": "41c9859cafd3e9290febf6844e81a0bd995daf02292815149422eb1f7ffef757",
+      "pythonTraceSha256": "8bf41c3b647076d10386d174d29e165b61b4589e352cc3a7c7e893d87afb85f0",
+      "processMapsSha256": "b35361b356c19312d61ecf6a6106c38c11dc238c78a1c7818138e5ecef17b0c3",
+      "loadSeconds": 346.376,
+      "coldGenerationSeconds": 14.904,
+      "warmGenerationSeconds": 12.251,
+      "cancellationLatencyMs": 101,
+      "processRssPeakBytes": 17403289600,
+      "nvidiaProcessUnifiedMemoryPeakBytes": null,
+      "hostAvailableStartBytes": 102095585280,
+      "hostAvailableMinimumBytes": 41357283328,
+      "networkNamespaceDeniedExternalConnection": true,
+      "uccInstallationAbsent": true,
+      "uccMappedRuntimeFileCount": 0,
+      "deterministicSameSeed": true,
+      "visualReviewed": false
+    },
+    {
+      "run": "b",
+      "measurementSha256": "b582116c5e6857996c8df2a4e74c94cc1ec81c4c3b3beb29ef87893dd6c649ce",
+      "traceContextSha256": "b0335f85ed46e7e81eba1d20de4c24e0228755e69dfa8848bea7207ab946404d",
+      "pythonTraceSha256": "48e2ee1618bd890bd850ecda5dbe19adf31ebed62feebe55c5136713524269fb",
+      "processMapsSha256": "34344006ccd597b0aec28aa71d71d8133e78733eccb0763049f9cfd3b412ea4a",
+      "loadSeconds": 358.06,
+      "coldGenerationSeconds": 14.411,
+      "warmGenerationSeconds": 12.354,
+      "cancellationLatencyMs": 101,
+      "processRssPeakBytes": 16904957952,
+      "nvidiaProcessUnifiedMemoryPeakBytes": null,
+      "hostAvailableStartBytes": 104698535936,
+      "hostAvailableMinimumBytes": 30155202560,
+      "networkNamespaceDeniedExternalConnection": true,
+      "uccInstallationAbsent": true,
+      "uccMappedRuntimeFileCount": 0,
+      "deterministicSameSeed": true,
+      "visualReviewed": false
+    }
+  ]
+}

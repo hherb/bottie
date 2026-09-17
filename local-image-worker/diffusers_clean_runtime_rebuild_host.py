@@ -60,7 +60,10 @@ def _stage_inspection(source_root: Path, inspection: Path) -> None:
             source = source_root / filename
             if source.is_symlink() or not source.is_file():
                 raise CleanRuntimeRebuildError("inspection source is invalid")
-            shutil.copyfile(source, inspection / filename)
+            destination = inspection / filename
+            shutil.copyfile(source, destination)
+            destination.chmod(0o444)
+        inspection.chmod(0o555)
     except OSError as error:
         raise CleanRuntimeRebuildError("inspection source cannot be staged") from error
 

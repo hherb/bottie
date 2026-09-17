@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import stat
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,6 +18,7 @@ from diffusers_clean_runtime_rebuild_host import (
     _expected_inventory,
     _inspect_image,
     _stage_context,
+    _stage_inspection,
     _validate_rebuilt_inventory,
     run_rebuilds,
 )
@@ -45,6 +47,32 @@ class DiffusersCleanRuntimeRebuildHostTests(unittest.TestCase):
             self.assertIn(
                 f"ubuntu@{CLEAN_BASE_IMAGE_DIGEST}",
                 (context / "Dockerfile").read_text(),
+            )
+
+    def test_stages_read_only_inspection_for_the_unprivileged_collector(self) -> None:
+        """The non-root inventory container can traverse but not modify staged scripts."""
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            inspection = root / "inspection"
+            source.mkdir()
+            inspection_sources = (
+                "diffusers_clean_runtime_inventory.py",
+                "diffusers_clean_runtime_lock.py",
+                "diffusers_clean_runtime_lock_host.py",
+            )
+            for filename in inspection_sources:
+                (source / filename).write_text(filename, encoding="utf-8")
+
+            _stage_inspection(source, inspection)
+
+            self.assertEqual(stat.S_IMODE(inspection.stat().st_mode), 0o555)
+            self.assertEqual(
+                {
+                    path.name: stat.S_IMODE(path.stat().st_mode)
+                    for path in inspection.iterdir()
+                },
+                {filename: 0o444 for filename in inspection_sources},
             )
 
     def test_collects_inventory_from_immutable_image_without_network(self) -> None:

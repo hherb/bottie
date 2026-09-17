@@ -35,6 +35,19 @@ def assert_ucc_installation_masked(name: str) -> None:
         raise RuntimeError("UCC installation ablation is not active")
 
 
+def assert_ucc_installation_absent(name: str, python_executable: str) -> None:
+    """Require the clean container to have no HPC-X UCC installation to mask."""
+    code = f"import os; raise SystemExit(os.path.exists({UCC_CONTAINER_PATH!r}))"
+    result = subprocess.run(
+        ["docker", "exec", name, python_executable, "-c", code],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("UCC installation is present in the clean runtime")
+
+
 def capture_process_maps(
     name: str,
     destination: Path | None = None,
@@ -46,7 +59,11 @@ def capture_process_maps(
         check=False,
         capture_output=True,
     )
-    if result.returncode != 0 or not result.stdout or len(result.stdout) > TRACE_FILE_LIMIT:
+    if (
+        result.returncode != 0
+        or not result.stdout
+        or len(result.stdout) > TRACE_FILE_LIMIT
+    ):
         raise RuntimeError("worker process maps could not be captured")
     if reject_ucc:
         assert_no_ucc_process_maps(result.stdout)

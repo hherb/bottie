@@ -111,7 +111,7 @@ ENV DEBIAN_FRONTEND=noninteractive \\
     TRANSFORMERS_OFFLINE=1
 
 COPY --from=frozen-inputs /debian/ /tmp/debian/
-RUN dpkg -i /tmp/debian/*.deb \\
+RUN (dpkg -i /tmp/debian/*.deb || dpkg -i /tmp/debian/*.deb || dpkg -i /tmp/debian/*.deb) \\
     && rm -rf /tmp/debian /var/lib/apt/lists/* \\
         /var/log/alternatives.log /var/log/apt/* /var/log/dpkg.log \\
     && python3 -m venv /opt/bottie/venv
@@ -119,6 +119,8 @@ RUN dpkg -i /tmp/debian/*.deb \\
 COPY --from=frozen-inputs /python/ /tmp/python/
 RUN /opt/bottie/venv/bin/python -m pip install \\
     --no-index --no-deps --no-compile /tmp/python/*.whl \\
+    && find /opt/bottie/venv -type d -name __pycache__ -prune -exec rm -rf '{{}}' + \\
+    && rm -f /var/cache/ldconfig/aux-cache \\
     && rm -rf /tmp/python /root/.cache
 
 COPY diffusers_pytorch_worker.py diffusers_worker.py mlx_worker.py /opt/bottie/

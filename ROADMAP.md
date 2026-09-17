@@ -563,9 +563,10 @@ Implement this once for both hosted and local adapters before adding more runtim
   upstream NVIDIA SBSA spelling mismatch is accepted only for the exact official cuSPARSELt filename, size, and PyPI
   digest. A closed rebuild plan and host gate now bind the exact base, input lock, and three worker-source files; they
   require two independently named BuildKit runs with networking, pulls, and cache disabled, exact installed-inventory
-  agreement, and a normalized regular-file path/mode/ownership/size/hash comparison. The gate has not run because no
-  additional source transfer was authorized. No offline rebuild, repeated trace, or licence review exists yet. Bottie
-  must execute both frozen-input rebuilds, rerun the closure, produce
+  agreement, and a normalized regular-file path/mode/ownership/size/hash comparison. Two fresh offline rebuilds now
+  agree across exact package inventories and 27,035 normalized files; two independent full proofs against rebuilt
+  bytes reproduce the reviewed output, deny network access, and retain fresh trace digests with no UCC mapping. No
+  rebuilt-image closure or licence review exists yet. Bottie must rerun the closure, produce
   independently reviewed bundle bytes, and add native hardware gating plus app-owned execution.
   See
   `docs/local-image-linux-nvidia-proof.md` and

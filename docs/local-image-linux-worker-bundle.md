@@ -238,13 +238,12 @@ checked-in records are:
 - [`local-image-linux-clean-runtime-input-provenance.json`](local-image-linux-clean-runtime-input-provenance.json), the
   separate path-free source record for all artifacts.
 
-This is input recovery, not rebuild evidence. The next evidence run must build twice with networking disabled from only
-the pinned base, retained reviewed source, and frozen inputs, then compare installed inventories and normalized image
-filesystems before repeating the proof and closure.
+The frozen inputs have now produced two agreeing network-disabled rebuilds; the retained record is
+[`local-image-linux-clean-runtime-rebuild-evidence.json`](local-image-linux-clean-runtime-rebuild-evidence.json).
 
 ### Clean-runtime offline rebuild gate
 
-The proof-only rebuild gate is now checked in, but it has not been run. Its closed plan is
+The proof-only rebuild gate is checked in and has completed successfully. Its closed plan is
 [`local-image-linux-clean-runtime-rebuild-plan.json`](local-image-linux-clean-runtime-rebuild-plan.json). The plan binds
 the exact Ubuntu ARM64 base digest, frozen input-lock digest, and byte size plus SHA-256 for only
 `diffusers_pytorch_worker.py`, `diffusers_worker.py`, and `mlx_worker.py`. The generated BuildKit context contains only
@@ -279,8 +278,11 @@ their target's exact metadata and content. Only Docker's runtime-owned `etc/host
 fails closed. Evidence retains only the two build names and immutable image IDs, counts, total regular-file bytes,
 normalized digest, plan digest, input-lock digest, and verified input byte total.
 
-This gate does not prove a rebuild merely by existing. No repository source was transferred and no DGX build, proof,
-trace, closure, licence review, bundle assembly, app wiring, or product availability change occurred in this slice.
+The accepted run records 27,035 agreeing regular files totaling 5,024,684,703 bytes and exact 63-Python/112-Debian
+inventories. Two fresh full proofs against the first rebuilt image also passed with separate trace digests, identical
+previously reviewed output, network denial, and no UCC installation or mapping. The path-free proof summary is
+[`local-image-linux-clean-runtime-proof.json`](local-image-linux-clean-runtime-proof.json). No rebuilt-image closure,
+licence review, bundle assembly, app wiring, or product availability change has occurred.
 
 The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
 image, both exact proof-trace digests, and the complete sorted set of closure components. Every component must provide a

@@ -139,16 +139,21 @@ and [`local-image-linux-clean-runtime-input-provenance.json`](local-image-linux-
 retains the official PyPI, PyTorch, and timestamped Canonical snapshot sources separately. The lock SHA-256 is
 `2628e5ec74886a91b6b1b68890666d2340c7a99c9f20b51b9b9dc483946c9831`.
 
-The original image still came from mutable indexes, and the frozen inputs have not rebuilt it. The checked-in lock
-therefore proves input recovery, not reproducibility. The unmodified proof result remains in
-[`local-image-linux-ucc-free-measurements.json`](local-image-linux-ucc-free-measurements.json). Linux remains
-unavailable until two offline rebuilds agree, the proof and closure are repeated, and licence review is complete.
+Two independently named offline rebuilds now agree across 27,035 normalized regular files totaling 5,024,684,703
+bytes, with exact installed inventories of 63 Python distributions and 112 Debian packages. The retained path-free
+record is [`local-image-linux-clean-runtime-rebuild-evidence.json`](local-image-linux-clean-runtime-rebuild-evidence.json).
+The gate needed three bounded `dpkg` passes for Ubuntu pre-dependencies, unprivileged-readable inspection staging, and
+removal of generated Python and linker caches; it did not add network access, dependency resolution, or comparison
+exclusions.
 
 A closed proof-only rebuild plan and host gate now define those two offline builds. They bind the exact base, input
 lock, and three worker files; build twice with BuildKit networking, pulls, and cache disabled; require both installed
 inventories to equal the lock; and compare normalized regular-file paths, modes, numeric ownership, sizes, and hashes.
-The gate has not run. Transferring the additional reviewed source to the DGX still requires explicit authorization, so
-there is no offline rebuild or reproducibility result yet.
+The first rebuilt image also passed two fresh full private-protocol proofs. Both runs denied network access, found no
+UCC installation or mapping, produced identical cold/warm output matching the previously reviewed control, cancelled
+in 101 ms, and shut down cleanly. Their separate trace digests and path-free measurements are retained in
+[`local-image-linux-clean-runtime-proof.json`](local-image-linux-clean-runtime-proof.json). A rebuilt-image closure and
+licence review do not yet exist, so Linux remains unavailable.
 
 The repository now has a proof-only offline input-lock gate for the next clean build. It resolves the source image
 reference through the Docker daemon, requires the exact clean image ID and Linux/ARM64 target, and collects its complete
