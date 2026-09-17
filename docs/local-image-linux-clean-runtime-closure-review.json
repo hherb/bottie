@@ -1,0 +1,627 @@
+{
+  "assemblyEligible": false,
+  "baseImage": "ubuntu:24.04",
+  "baseImageDigest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "blockers": [
+    "deb:libbz2-1.0@1.0.8-5.1build0.1:unreviewed-license-expression",
+    "deb:libc-bin@2.39-0ubuntu8.7:unreviewed-license-expression",
+    "deb:libc6@2.39-0ubuntu8.7:unreviewed-license-expression",
+    "deb:libexpat1@2.6.1-2ubuntu0.4:unreviewed-license-expression",
+    "deb:libffi8@3.4.6-1build1:unreviewed-license-expression",
+    "deb:libgcc-s1@14.2.0-4ubuntu2~24.04.1:unreviewed-license-expression",
+    "deb:liblzma5@5.6.1+really5.4.5-1ubuntu0.3:unreviewed-license-expression",
+    "deb:libpython3.12-minimal@3.12.3-1ubuntu0.17:unreviewed-license-expression",
+    "deb:libpython3.12-stdlib@3.12.3-1ubuntu0.17:unreviewed-license-expression",
+    "deb:libsqlite3-0@3.45.1-1ubuntu2.8:unreviewed-license-expression",
+    "deb:libssl3t64@3.0.13-0ubuntu3.15:unreviewed-license-expression",
+    "deb:libstdc++6@14.2.0-4ubuntu2~24.04.1:unreviewed-license-expression",
+    "deb:python3.12-minimal@3.12.3-1ubuntu0.17:unreviewed-license-expression",
+    "deb:zlib1g@1:1.3.dfsg-3.1ubuntu2.1:unreviewed-license-expression",
+    "python:anyio@4.15.1:unreviewed-license-expression",
+    "python:certifi@2026.7.22:unreviewed-license-expression",
+    "python:charset-normalizer@3.5.1:unreviewed-license-expression",
+    "python:click@8.5.0:unreviewed-license-expression",
+    "python:cuda-bindings@13.0.3:unreviewed-license-expression",
+    "python:cuda-pathfinder@1.8.1:unreviewed-license-expression",
+    "python:filelock@4.0.0:unreviewed-license-expression",
+    "python:fsspec@2026.7.0:unreviewed-license-expression",
+    "python:h11@0.16.0:unreviewed-license-expression",
+    "python:hf-xet@1.6.0:unreviewed-license-expression",
+    "python:httpcore@1.0.9:unreviewed-license-expression",
+    "python:httpx@0.28.1:unreviewed-license-expression",
+    "python:huggingface-hub@1.31.0:unreviewed-license-expression",
+    "python:idna@3.19:unreviewed-license-expression",
+    "python:jinja2@3.1.6:undeclared-license",
+    "python:jinja2@3.1.6:unreviewed-license-expression",
+    "python:markupsafe@3.0.3:unreviewed-license-expression",
+    "python:mpmath@1.3.0:unreviewed-license-expression",
+    "python:networkx@3.6.1:unreviewed-license-expression",
+    "python:numpy@2.5.3:unreviewed-license-expression",
+    "python:nvidia-cublas@13.1.0.3:unreviewed-license-expression",
+    "python:nvidia-cuda-cupti@13.0.85:unreviewed-license-expression",
+    "python:nvidia-cuda-nvrtc@13.0.88:unreviewed-license-expression",
+    "python:nvidia-cuda-runtime@13.0.96:unreviewed-license-expression",
+    "python:nvidia-cudnn-cu13@9.15.1.9:unreviewed-license-expression",
+    "python:nvidia-cufft@12.0.0.61:unreviewed-license-expression",
+    "python:nvidia-cufile@1.15.1.6:unreviewed-license-expression",
+    "python:nvidia-curand@10.4.0.35:unreviewed-license-expression",
+    "python:nvidia-cusolver@12.0.4.66:unreviewed-license-expression",
+    "python:nvidia-cusparse@12.6.3.3:unreviewed-license-expression",
+    "python:nvidia-cusparselt-cu13@0.8.0:unreviewed-license-expression",
+    "python:nvidia-nccl-cu13@2.28.9:unreviewed-license-expression",
+    "python:nvidia-nvjitlink@13.0.88:unreviewed-license-expression",
+    "python:nvidia-nvshmem-cu13@3.4.5:unreviewed-license-expression",
+    "python:nvidia-nvtx@13.0.85:unreviewed-license-expression",
+    "python:packaging@26.3:unreviewed-license-expression",
+    "python:pillow@12.3.0:unreviewed-license-expression",
+    "python:psutil@7.2.2:unreviewed-license-expression",
+    "python:pyyaml@6.0.3:unreviewed-license-expression",
+    "python:regex@2026.9.10:unreviewed-license-expression",
+    "python:safetensors@0.8.0:undeclared-license",
+    "python:safetensors@0.8.0:unreviewed-license-expression",
+    "python:sentencepiece@0.2.2:missing-license-bytes",
+    "python:sentencepiece@0.2.2:unreviewed-license-expression",
+    "python:setuptools@84.0.0:unreviewed-license-expression",
+    "python:sympy@1.14.0:unreviewed-license-expression",
+    "python:tokenizers@0.23.2:missing-license-bytes",
+    "python:tokenizers@0.23.2:undeclared-license",
+    "python:tokenizers@0.23.2:unreviewed-license-expression",
+    "python:torch@2.10.0+cu130:unreviewed-license-expression",
+    "python:tqdm@4.70.1:unreviewed-license-expression",
+    "python:triton@3.6.0:undeclared-license",
+    "python:triton@3.6.0:unreviewed-license-expression",
+    "python:typing-extensions@4.16.0:unreviewed-license-expression"
+  ],
+  "closure": {
+    "byteSize": 4039257278,
+    "componentCount": 62,
+    "components": [
+      {
+        "byteSize": 70504,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:libbz2-1.0@1.0.8-5.1build0.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 360460,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:libc-bin@2.39-0ubuntu8.7",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 2748108,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 7,
+        "identity": "deb:libc6@2.39-0ubuntu8.7",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 198712,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:libexpat1@2.6.1-2ubuntu0.4",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 67944,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:libffi8@3.4.6-1build1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 133696,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:libgcc-s1@14.2.0-4ubuntu2~24.04.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 198584,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:liblzma5@5.6.1+really5.4.5-1ubuntu0.3",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 1111905,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 38,
+        "identity": "deb:libpython3.12-minimal@3.12.3-1ubuntu0.17",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 2796911,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 27,
+        "identity": "deb:libpython3.12-stdlib@3.12.3-1ubuntu0.17",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 1526192,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:libsqlite3-0@3.45.1-1ubuntu2.8",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 5400656,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 2,
+        "identity": "deb:libssl3t64@3.0.13-0ubuntu3.15",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 2633224,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:libstdc++6@14.2.0-4ubuntu2~24.04.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 7845048,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:python3.12-minimal@3.12.3-1ubuntu0.17",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 133272,
+        "declaredLicenseExpression": "Debian-copyright",
+        "fileCount": 1,
+        "identity": "deb:zlib1g@1:1.3.dfsg-3.1ubuntu2.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "MIT",
+        "fileCount": 0,
+        "identity": "python:anyio@4.15.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "MPL-2.0",
+        "fileCount": 0,
+        "identity": "python:certifi@2026.7.22",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 674120,
+        "declaredLicenseExpression": "MIT",
+        "fileCount": 2,
+        "identity": "python:charset-normalizer@3.5.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "BSD-3-Clause",
+        "fileCount": 0,
+        "identity": "python:click@8.5.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-SOFTWARE-LICENSE",
+        "fileCount": 0,
+        "identity": "python:cuda-bindings@13.0.3",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "Apache-2.0",
+        "fileCount": 0,
+        "identity": "python:cuda-pathfinder@1.8.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "MIT",
+        "fileCount": 0,
+        "identity": "python:filelock@4.0.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "BSD-3-Clause",
+        "fileCount": 0,
+        "identity": "python:fsspec@2026.7.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "MIT",
+        "fileCount": 0,
+        "identity": "python:h11@0.16.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "Apache-2.0",
+        "fileCount": 0,
+        "identity": "python:hf-xet@1.6.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "BSD-3-Clause",
+        "fileCount": 0,
+        "identity": "python:httpcore@1.0.9",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "BSD-3-Clause",
+        "fileCount": 0,
+        "identity": "python:httpx@0.28.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "Apache-2.0",
+        "fileCount": 0,
+        "identity": "python:huggingface-hub@1.31.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "BSD-3-Clause",
+        "fileCount": 0,
+        "identity": "python:idna@3.19",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "undeclared",
+        "fileCount": 0,
+        "identity": "python:jinja2@3.1.6",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 230792,
+        "declaredLicenseExpression": "BSD-3-Clause",
+        "fileCount": 1,
+        "identity": "python:markupsafe@3.0.3",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "BSD",
+        "fileCount": 0,
+        "identity": "python:mpmath@1.3.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "BSD-3-Clause",
+        "fileCount": 0,
+        "identity": "python:networkx@3.6.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 39560036,
+        "declaredLicenseExpression": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+        "fileCount": 14,
+        "identity": "python:numpy@2.5.3",
+        "licenseFileCount": 20,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 691847976,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 2,
+        "identity": "python:nvidia-cublas@13.1.0.3",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 3850656,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-cuda-cupti@13.0.85",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 103886400,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 2,
+        "identity": "python:nvidia-cuda-nvrtc@13.0.88",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 707752,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-cuda-runtime@13.0.96",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 344948968,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 5,
+        "identity": "python:nvidia-cudnn-cu13@9.15.1.9",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 283285752,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-cufft@12.0.0.61",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 3006936,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-cufile@1.15.1.6",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 147889368,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-curand@10.4.0.35",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 153574032,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-cusolver@12.0.4.66",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 174842648,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-cusparse@12.6.3.3",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 273881681,
+        "declaredLicenseExpression": "NVIDIA Proprietary Software",
+        "fileCount": 1,
+        "identity": "python:nvidia-cusparselt-cu13@0.8.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 219355704,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-nccl-cu13@2.28.9",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 89258944,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-nvjitlink@13.0.88",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 40950048,
+        "declaredLicenseExpression": "LicenseRef-NVIDIA-Proprietary",
+        "fileCount": 1,
+        "identity": "python:nvidia-nvshmem-cu13@3.4.5",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "Apache 2.0",
+        "fileCount": 0,
+        "identity": "python:nvidia-nvtx@13.0.85",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "Apache-2.0 OR BSD-2-Clause",
+        "fileCount": 0,
+        "identity": "python:packaging@26.3",
+        "licenseFileCount": 3,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 9217592,
+        "declaredLicenseExpression": "MIT-CMU",
+        "fileCount": 9,
+        "identity": "python:pillow@12.3.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 321912,
+        "declaredLicenseExpression": "BSD-3-Clause",
+        "fileCount": 1,
+        "identity": "python:psutil@7.2.2",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 2700272,
+        "declaredLicenseExpression": "MIT",
+        "fileCount": 1,
+        "identity": "python:pyyaml@6.0.3",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 2688344,
+        "declaredLicenseExpression": "Apache-2.0 AND CNRI-Python",
+        "fileCount": 1,
+        "identity": "python:regex@2026.9.10",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 1203048,
+        "declaredLicenseExpression": "undeclared",
+        "fileCount": 1,
+        "identity": "python:safetensors@0.8.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 1776784,
+        "declaredLicenseExpression": "Apache-2.0",
+        "fileCount": 1,
+        "identity": "python:sentencepiece@0.2.2",
+        "licenseFileCount": 0,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 6800,
+        "declaredLicenseExpression": "MIT",
+        "fileCount": 1,
+        "identity": "python:setuptools@84.0.0",
+        "licenseFileCount": 17,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "BSD",
+        "fileCount": 0,
+        "identity": "python:sympy@1.14.0",
+        "licenseFileCount": 3,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 11079248,
+        "declaredLicenseExpression": "undeclared",
+        "fileCount": 1,
+        "identity": "python:tokenizers@0.23.2",
+        "licenseFileCount": 0,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 851528817,
+        "declaredLicenseExpression": "BSD-3-Clause",
+        "fileCount": 17,
+        "identity": "python:torch@2.10.0+cu130",
+        "licenseFileCount": 2,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "MPL-2.0 AND MIT",
+        "fileCount": 0,
+        "identity": "python:tqdm@4.70.1",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 423337016,
+        "declaredLicenseExpression": "undeclared",
+        "fileCount": 1,
+        "identity": "python:triton@3.6.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      },
+      {
+        "byteSize": 0,
+        "declaredLicenseExpression": "PSF-2.0",
+        "fileCount": 0,
+        "identity": "python:typing-extensions@4.16.0",
+        "licenseFileCount": 1,
+        "reviewedLicenseExpression": null
+      }
+    ],
+    "elfFileCount": 114,
+    "fileCount": 161
+  },
+  "closureComplete": true,
+  "closuresAgree": true,
+  "derivedImageDigest": "sha256:740816cb8f348aa26e3d32f73b15b86b7f5a7228cff7b24d6910ee7aa0ee12a4",
+  "distributionReviewed": false,
+  "environment": {
+    "nativeComponentCount": 112,
+    "pythonComponentCount": 63,
+    "unmanagedNativeComponentCount": 0
+  },
+  "hostDriverBoundary": {
+    "allowedSonames": [
+      "libcuda.so.1",
+      "libnvidia-allocator.so.1",
+      "libnvidia-gpucomp.so.1",
+      "libnvidia-ml.so.1",
+      "libnvidia-nvvm.so.4",
+      "libnvidia-ptxjitcompiler.so.1"
+    ],
+    "observedSonames": [
+      "libcuda.so.1",
+      "libnvidia-ml.so.1",
+      "libnvidia-ptxjitcompiler.so.1"
+    ]
+  },
+  "licenseReviewed": false,
+  "modelId": "Qwen/Qwen-Image-2512",
+  "modelRevision": "25468b98e3276ca6700de15c6628e51b7de54a26",
+  "pythonVersion": "3.12.3",
+  "runtimeFilesSha256": "f0f3e2dabe8777609f479ef81b3542e966f312a528183afda3f07368d43424d4",
+  "runtimeId": "diffusers@0.40.0+pytorch-2.10.0-cu130-ubuntu24.04-arm64",
+  "schemaVersion": 1,
+  "target": {
+    "architecture": "aarch64",
+    "operatingSystem": "linux"
+  },
+  "traces": [
+    {
+      "processMapsSha256": "b35361b356c19312d61ecf6a6106c38c11dc238c78a1c7818138e5ecef17b0c3",
+      "pythonTraceSha256": "8bf41c3b647076d10386d174d29e165b61b4589e352cc3a7c7e893d87afb85f0",
+      "traceContextSha256": "41c9859cafd3e9290febf6844e81a0bd995daf02292815149422eb1f7ffef757"
+    },
+    {
+      "processMapsSha256": "34344006ccd597b0aec28aa71d71d8133e78733eccb0763049f9cfd3b412ea4a",
+      "pythonTraceSha256": "48e2ee1618bd890bd850ecda5dbe19adf31ebed62feebe55c5136713524269fb",
+      "traceContextSha256": "b0335f85ed46e7e81eba1d20de4c24e0228755e69dfa8848bea7207ab946404d"
+    }
+  ],
+  "workerVersion": "diffusers-0.40.0-pytorch-2.10.0-cu130-proof-1"
+}
