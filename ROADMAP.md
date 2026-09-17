@@ -566,8 +566,14 @@ Implement this once for both hosted and local adapters before adding more runtim
   agreement, and a normalized regular-file path/mode/ownership/size/hash comparison. Two fresh offline rebuilds now
   agree across exact package inventories and 27,035 normalized files; two independent full proofs against rebuilt
   bytes reproduce the reviewed output, deny network access, and retain fresh trace digests with no UCC mapping. No
-  rebuilt-image closure or licence review exists yet. Bottie must rerun the closure, produce
-  independently reviewed bundle bytes, and add native hardware gating plus app-owned execution.
+  external `readelf` package was added: a bounded in-process AArch64 ELF reader now closes the rebuilt runtime without
+  changing its frozen inputs. Two independent read-only, non-root, offline collections from the retained traces agree
+  on 161 files totalling 4,039,257,278 bytes, including 114 ELF files and 62 exact components. The rebuilt closure is
+  complete, but 68 licence-only blockers remain: two missing licence-byte records, four undeclared expressions, and
+  all 62 expressions unreviewed. No licence-review manifest, bundle, accepted Linux profile, app wiring, or product
+  availability exists. Bottie must bind authoritative source bytes for SentencePiece and tokenizers, independently
+  review every exact expression, produce reviewed bundle bytes, and add native hardware gating plus app-owned
+  execution.
   See
   `docs/local-image-linux-nvidia-proof.md` and
   `docs/local-image-linux-worker-bundle.md`;

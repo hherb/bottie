@@ -100,7 +100,9 @@ class DiffusersRuntimeClosureTests(unittest.TestCase):
             ),
         )
 
-        with patch.object(runtime_closure.subprocess, "run", return_value=completed):
+        with patch(
+            "diffusers_runtime_trace_evidence.subprocess.run", return_value=completed
+        ):
             with self.assertRaisesRegex(ClosureEvidenceError, "multiple SONAME"):
                 runtime_closure._read_elf_dependencies(Path("/runtime.so"))
 

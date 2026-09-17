@@ -4,51 +4,55 @@ Last verified: 2026-09-18
 
 ## Start here
 
-Start from the draft PR for `codex/linux-clean-runtime-rebuild-evidence` after it merges. Read `ROADMAP.md` Milestone
+Start from the draft PR for `codex/linux-clean-runtime-closure-profile` after it merges. Read `ROADMAP.md` Milestone
 8.4 and the clean-runtime sections of `docs/local-image-linux-nvidia-proof.md` and
 `docs/local-image-linux-worker-bundle.md`.
 
 ## Current state
 
-- Two independently named, network-disabled, no-cache, no-pull Linux/ARM64 rebuilds from the frozen 175-archive input
-  tree agree. Their 63 Python and 112 Debian identities are exact; 27,035 normalized regular files totaling
-  5,024,684,703 bytes share SHA-256 `e48d83b963158b94163c8c8d8c7a0d128d8ee77355ed22bb83725e8383089055`.
-- `docs/local-image-linux-clean-runtime-rebuild-evidence.json` is the 993-byte path-free record with SHA-256
-  `817148f314b709b2d9c82c6a4acbd8632db1b5b16f12412c2b3528d6dbac56e7`.
-- The gate now handles Ubuntu pre-dependencies with three bounded exact `dpkg` passes, stages inspection scripts
-  read-only but traversable by UID/GID 65534, and removes only generated Python bytecode and linker caches before the
-  strict comparison. It did not add package egress, dependency resolution, or filesystem exclusions.
-- The first rebuilt image passed two independent full private-protocol proofs using the exact venv interpreter with no
-  UCC mask. Both found no UCC installation or mapping, denied network access, reproduced the previously reviewed PNG
-  and RGB hashes, cancelled in 101 ms, and shut down cleanly. `docs/local-image-linux-clean-runtime-proof.json` retains
-  the path-free measurements and four fresh trace digests.
-- No rebuilt-image closure, licence review, bundle, accepted Linux profile, app wiring, product availability, signing,
-  release, Store, updater, provider, or legal action exists. All product/distribution gates remain false.
+- Two exact offline Linux/ARM64 rebuilds still agree across 63 Python identities, 112 Debian identities, and 27,035
+  normalized regular files. The accepted rebuilt image is
+  `sha256:740816cb8f348aa26e3d32f73b15b86b7f5a7228cff7b24d6910ee7aa0ee12a4`.
+- A distinct clean-runtime closure profile binds that image, Ubuntu base digest, the conventional PyTorch worker/runtime
+  identity, the frozen input lock, and either retained trace context. It rejects caller-defined profiles,
+  licence-review manifests, external licence sources, image drift, lock drift, trace drift, and source drift.
+- Collection is read-only, non-root, capability-free, and offline. A bounded in-process little-endian AArch64 ELF
+  reader closes `NEEDED` and `SONAME` edges without adding `readelf` or changing the frozen runtime.
+- The two independent collections agree on 161 files totalling 4,039,257,278 bytes, including 114 ELF files and 62
+  components. `runtimeFilesSha256` is `f0f3e2dabe8777609f479ef81b3542e966f312a528183afda3f07368d43424d4`.
+- `docs/local-image-linux-clean-runtime-closure-review.json` is the 21,919-byte path-free record with SHA-256
+  `f90d57ef58c18a779c9d87301c757d64106f61079bb1edacfcd59b09248c261e`. `closureComplete` is true.
+- Exactly 68 licence-only blockers remain: SentencePiece and tokenizers lack licence bytes; Jinja2, safetensors,
+  tokenizers, and Triton have undeclared expressions; all 62 component expressions are unreviewed. `licenseReviewed`,
+  `assemblyEligible`, and `distributionReviewed` remain false.
+- No licence-review manifest, bundle assembly, accepted Linux profile, hardware gate, app execution/UI, signing,
+  release, Store, updater, provider, or legal action exists.
 
 ## Validation
 
-- Focused rebuild/proof suites pass: 28 tests covering exact offline construction, deterministic cleanup,
-  unprivileged inspection, clean-profile interpreter selection, real UCC absence, and mapping rejection.
-- All 103 local image-worker Python tests pass, as do byte-compilation and Black checks for every changed Python file.
-- Prettier, Svelte diagnostics, all 407 active frontend/script tests (3 skipped), and the production build pass.
+- All 114 local image-worker Python tests pass, including exact profile/lock/trace rejection, canonical package
+  identities, in-process AArch64 ELF parsing, legacy NGC behavior, and two-closure agreement.
+- Python byte-compilation and Black checks pass; every changed implementation is below 500 lines.
+- Prettier, Svelte diagnostics, all 407 active frontend/script tests (3 skipped), and the production build pass. The
+  default Vitest glob also found the unrelated `.claude` worktree; the clean rerun explicitly excluded `.claude/**`.
 - Cargo formatting and locked checking pass. The locked Rust suite passes outside the sandbox after expected
   loopback-bind denials: 649 library tests (37 ignored), 1 updater-evidence test, 6 local-image adapter tests, 10
   worker-transport tests, and doc tests.
-- JSON parsing and `git diff --check` pass. Memory sampling is isolated so each changed Python implementation remains
-  below 500 lines.
+- Both final DGX collections agree and reproduce the checked-in closure record SHA-256. JSON parsing and
+  `git diff --check` pass.
 
 ## Next slice
 
-Add a distinct clean-runtime closure profile and run it against both fresh traces:
+Bind authoritative licence bytes for the two exact missing-byte components without reviewing expressions yet:
 
-1. TDD a closure host/profile that accepts only rebuilt image
-   `sha256:740816cb8f348aa26e3d32f73b15b86b7f5a7228cff7b24d6910ee7aa0ee12a4`, the PyTorch worker/runtime identity,
-   Ubuntu base digest, and either of the exact retained trace contexts;
-2. preserve the existing NGC closure unchanged, keep collection read-only/non-root/offline, and require both new
-   closures to agree before retaining one path-free summary;
-3. report every missing-byte, undeclared-expression, ownership, Python-dependency, ELF, and host-driver blocker. Do not
-   infer licence expressions or reuse the original NGC component set.
+1. TDD a clean-profile-only source gate for the exact SentencePiece 0.2.2 and tokenizers 0.23.2 authoritative source
+   archives already identified by the earlier NGC evidence; require exact archive digest, member name, bytes, and
+   component identity, and do not reuse the original NGC component set wholesale;
+2. run both retained clean-runtime traces again and require them to agree on one updated path-free closure with only
+   undeclared-expression and unreviewed-expression blockers remaining;
+3. do not create or accept a licence-review manifest, infer an expression, assemble bytes, or change product gates.
 
 The user authorized transfer of only the additional reviewed proof/closure modules needed for this DGX evidence chain.
-Do not create or accept a licence-review manifest, assemble or publish bytes, add hardware probing/app execution/UI, or
-perform signing, release, Store, updater, provider, or legal-terms activity.
+Obtain explicit approval for any new repository-source payload not already named and approved. Do not add packages or
+network access to the frozen image, add hardware probing/app execution/UI, or perform signing, release, Store, updater,
+provider, or legal-terms activity.
