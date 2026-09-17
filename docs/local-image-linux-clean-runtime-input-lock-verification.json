@@ -1,0 +1,12 @@
+{
+  "baseImageDigest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "debianArtifactCount": 112,
+  "lockSha256": "2628e5ec74886a91b6b1b68890666d2340c7a99c9f20b51b9b9dc483946c9831",
+  "pythonArtifactCount": 63,
+  "pythonVersion": "3.12.3",
+  "schemaVersion": 1,
+  "sourceImageDigest": "sha256:5039ad07130ce8d29f12325a54e02bf95e90112e114d745e5883434180e3bdad",
+  "target": { "architecture": "arm64", "operatingSystem": "linux" },
+  "totalArtifactByteSize": 3016341507,
+  "verified": true
+}

@@ -130,25 +130,37 @@ identical at SHA-256 `cb3e252f7df6748daf191bb25cb6fc41168c8c5a1f541c7b559ffc2df7
 matched the replacement control. The already reviewed byte-identical image is coherent and prompt-matching. The live
 process maps contained no `libucc`, network denial passed, and the worker shut down cleanly.
 
-The resolved environment contains 63 Python distributions and 112 Debian packages. Their versions were captured from
-the exact image, but their source-wheel/deb byte hashes and licences are not yet frozen or reviewed. The build used
-mutable Ubuntu and Python indexes after the immutable base, so the recipe is not checked in as reproducible evidence.
-[`local-image-linux-ucc-free-measurements.json`](local-image-linux-ucc-free-measurements.json) preserves the unmodified
-path-free harness result. Linux remains unavailable until exact inputs, repeated traces, closure, and review exist.
+The resolved environment contains 63 Python distributions and 112 Debian packages. A later authorized collection
+bound all 175 installed identities to exact authoritative archives totaling 3,016,341,507 bytes. The canonical lock is
+[`local-image-linux-clean-runtime-input-lock.json`](local-image-linux-clean-runtime-input-lock.json), its independently
+recomputed result is
+[`local-image-linux-clean-runtime-input-lock-verification.json`](local-image-linux-clean-runtime-input-lock-verification.json),
+and [`local-image-linux-clean-runtime-input-provenance.json`](local-image-linux-clean-runtime-input-provenance.json)
+retains the official PyPI, PyTorch, and timestamped Canonical snapshot sources separately. The lock SHA-256 is
+`2628e5ec74886a91b6b1b68890666d2340c7a99c9f20b51b9b9dc483946c9831`.
+
+The original image still came from mutable indexes, and the frozen inputs have not rebuilt it. The checked-in lock
+therefore proves input recovery, not reproducibility. The unmodified proof result remains in
+[`local-image-linux-ucc-free-measurements.json`](local-image-linux-ucc-free-measurements.json). Linux remains
+unavailable until two offline rebuilds agree, the proof and closure are repeated, and licence review is complete.
 
 The repository now has a proof-only offline input-lock gate for the next clean build. It resolves the source image
 reference through the Docker daemon, requires the exact clean image ID and Linux/ARM64 target, and collects its complete
 installed Python and Debian identities by that immutable ID with networking disabled. Lock generation then requires
 exactly 63 wheels and 112 Debian archives in separate symlink-free directories. It rejects Python source archives,
 non-ARM platform wheels, foreign Debian architectures, missing or extra files, embedded wheel-identity drift, Debian
-control-metadata drift, and byte/hash drift. Every wheel must have one bounded `WHEEL` metadata member beside
-`METADATA`, and its expanded compatibility tags must exactly equal the filename tags, so a renamed foreign-platform
-archive cannot satisfy the ARM64 gate. The generated manifest retains only portable filenames, identities, exact
-sizes, SHA-256 hashes, and a canonical lock digest.
+control-metadata drift, and byte/hash drift. Every wheel must have one top-level bounded `WHEEL` metadata member beside
+its top-level `METADATA`; vendored package metadata is ignored. Expanded compatibility tags must equal the filename
+tags, so a renamed foreign-platform archive cannot satisfy the ARM64 gate. The only exception is bound to the exact
+official `nvidia-cusparselt-cu13==0.8.0` ARM64 filename, byte size, and PyPI SHA-256 because that sole upstream wheel
+embeds NVIDIA's `manylinux2014_sbsa` spelling. Any byte, filename, identity, or tag change still fails closed. The
+generated manifest retains only portable filenames, identities, exact sizes, SHA-256 hashes, and a canonical lock
+digest.
 
-This gate does not download packages, prove index immutability, rebuild an image, infer licence expressions, or make the
-clean image distributable. No complete lock has been produced yet because the exact wheel and Debian archives have not
-been assembled and compared with the retained clean image.
+This gate does not download packages, rebuild an image, infer licence expressions, or make the clean image
+distributable. The complete lock was generated against the retained image and then rerun through the independent
+verifier. The next evidence step is two network-disabled builds from only the pinned base, retained source, and these
+frozen archives, followed by installed-inventory and normalized-filesystem comparison.
 
 ## Reproduction boundary
 

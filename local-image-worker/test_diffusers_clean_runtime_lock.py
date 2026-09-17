@@ -8,12 +8,29 @@ import unittest
 import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from packaging.tags import parse_tag
 
 from diffusers_clean_runtime_lock import (
     CLEAN_BASE_IMAGE_DIGEST,
     CLEAN_PROOF_IMAGE_DIGEST,
     CleanRuntimeLockError,
+    _read_debian_metadata,
     _validate_clean_runtime_lock,
+    _validate_debian_records,
+    _validate_lock_digest,
+    _validate_manifest_header,
+    _validate_python_records,
+    _wheel_tags_match,
+)
+
+
+CHECKED_IN_LOCK = (
+    Path(__file__).resolve().parents[1]
+    / "docs"
+    / "local-image-linux-clean-runtime-input-lock.json"
 )
 
 
@@ -96,6 +113,44 @@ def _locked_manifest(root: Path) -> tuple[dict, dict[Path, tuple[str, str, str]]
 
 class DiffusersCleanRuntimeLockTests(unittest.TestCase):
     """Protect immutable, complete, path-free clean-runtime inputs."""
+
+    @patch("diffusers_clean_runtime_lock.subprocess.run")
+    def test_reads_debian_identity_with_dpkg_show_format(self, run) -> None:
+        """Real Debian inspection uses the dpkg mode that expands format fields."""
+        run.return_value = SimpleNamespace(
+            returncode=0, stdout="example\t1.2-3\tarm64\n", stderr=""
+        )
+        path = Path("/tmp/example.deb")
+
+        identity = _read_debian_metadata(path)
+
+        self.assertEqual(identity, ("example", "1.2-3", "arm64"))
+        self.assertEqual(
+            run.call_args.args[0],
+            [
+                "dpkg-deb",
+                "--show",
+                "--showformat=${Package}\t${Version}\t${Architecture}\n",
+                str(path),
+            ],
+        )
+
+    def test_checked_in_lock_remains_closed_and_path_free(self) -> None:
+        """The retained manifest keeps its exact identities, counts, order, and digest."""
+        manifest = json.loads(CHECKED_IN_LOCK.read_text(encoding="utf-8"))
+
+        _validate_manifest_header(manifest)
+        python_artifacts = _validate_python_records(
+            manifest["pythonArtifacts"], expected_count=63
+        )
+        debian_artifacts = _validate_debian_records(
+            manifest["debianArtifacts"], expected_count=112
+        )
+        _validate_lock_digest(manifest)
+
+        self.assertEqual(len(python_artifacts), 63)
+        self.assertEqual(len(debian_artifacts), 112)
+        self.assertNotIn("/home/", json.dumps(manifest))
 
     def test_verifies_exact_wheel_and_debian_bytes(self) -> None:
         """The verifier binds both artifact ecosystems and emits only path-free evidence."""
@@ -301,6 +356,27 @@ class DiffusersCleanRuntimeLockTests(unittest.TestCase):
                     debian_metadata.__getitem__,
                 )
 
+    def test_accepts_only_byte_bound_nvidia_sbsa_tag_mismatch(self) -> None:
+        """The sole upstream SBSA mismatch is bound to its official immutable wheel."""
+        record = {
+            "name": "nvidia-cusparselt-cu13",
+            "version": "0.8.0",
+            "filename": (
+                "nvidia_cusparselt_cu13-0.8.0-py3-none-"
+                "manylinux2014_aarch64.whl"
+            ),
+            "byteSize": 220_791_277,
+            "sha256": (
+                "400c6ed1cf6780fc6efedd64ec9f1345871767e6a1a0a552a1ea0578117ea77c"
+            ),
+        }
+        filename_tags = parse_tag("py3-none-manylinux2014_aarch64")
+        embedded_tags = set(parse_tag("py3-none-manylinux2014_sbsa"))
+
+        self.assertTrue(_wheel_tags_match(record, filename_tags, embedded_tags))
+        record["sha256"] = "f" * 64
+        self.assertFalse(_wheel_tags_match(record, filename_tags, embedded_tags))
+
     def test_accepts_expanded_tags_for_a_compressed_wheel_filename(self) -> None:
         """Expanded embedded tags remain equivalent to one compressed filename tag set."""
         with TemporaryDirectory() as temporary:
@@ -320,6 +396,38 @@ class DiffusersCleanRuntimeLockTests(unittest.TestCase):
                 filename=filename,
                 byteSize=wheel_size,
                 sha256=wheel_sha256,
+            )
+            _refresh_lock_digest(manifest)
+
+            evidence = _validate_clean_runtime_lock(
+                manifest,
+                root,
+                1,
+                1,
+                debian_metadata.__getitem__,
+            )
+
+        self.assertTrue(evidence["verified"])
+
+    def test_ignores_vendored_dist_info_below_the_wheel_root(self) -> None:
+        """Vendored package metadata cannot replace or duplicate the wheel's own metadata."""
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest, debian_metadata = _locked_manifest(root)
+            record = manifest["pythonArtifacts"][0]
+            path = root / "python" / record["filename"]
+            with zipfile.ZipFile(path, "a") as archive:
+                archive.writestr(
+                    "example_pkg/_vendor/vendored-1.0.dist-info/METADATA",
+                    "Metadata-Version: 2.4\nName: vendored\nVersion: 1.0\n\n",
+                )
+                archive.writestr(
+                    "example_pkg/_vendor/vendored-1.0.dist-info/WHEEL",
+                    "Wheel-Version: 1.0\nTag: py3-none-any\n",
+                )
+            contents = path.read_bytes()
+            record.update(
+                byteSize=len(contents), sha256=hashlib.sha256(contents).hexdigest()
             )
             _refresh_lock_digest(manifest)
 
