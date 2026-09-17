@@ -123,6 +123,20 @@
           "libraryBytes": 5616480,
           "exportedAudiocppSymbols": 74,
           "note": "Linking two extra ASR families cost 433,888 bytes of library and no measurable build time."
+        },
+        "qwenVariant": {
+          "requestedModels": [
+            "supertonic",
+            "qwen3_asr"
+          ],
+          "linkedFamilies": [
+            "supertonic",
+            "qwen3_asr",
+            "qwen3_forced_aligner"
+          ],
+          "cleanWallSeconds": 20,
+          "libraryBytes": 5638160,
+          "note": "qwen3_forced_aligner is linked automatically although it was not requested."
         }
       },
       "library": {
@@ -250,7 +264,7 @@
             "inputAudio": "the spike's own Supertonic output resampled to 16 kHz mono, 14.696 s",
             "threads": 4,
             "runsPerCell": 3,
-            "statistic": "median x_realtime reported by audiocpp_cli --metrics",
+            "statistic": "median x_realtime over 3 warm runs reported by audiocpp_cli --metrics",
             "families": [
               {
                 "family": "nemotron_asr",
@@ -262,6 +276,26 @@
                 "peakResidentBytes": 2244000000,
                 "languages": 40,
                 "transcriptNote": "punctuates sentences; writes 'real time', 'one off'"
+              },
+              {
+                "family": "qwen3_asr",
+                "package": "qwen3_asr_0_6b_q8_0",
+                "status": "supported",
+                "weightBytes": 1151272416,
+                "cpuXRealtime": 10.9,
+                "metalXRealtime": 40.8,
+                "peakResidentBytes": 2417377280,
+                "languages": 31,
+                "declaredCapabilities": [
+                  "word_timestamps",
+                  "vad_chunking",
+                  "partial_results"
+                ],
+                "transcriptNote": "character-identical to nemotron_asr, including the same 'Bottie'->'Body' error and the same unhyphenated 'real time' / 'one off'",
+                "verdict": "A negative result. Loses to nemotron_asr on every measured axis at once: 24% more weights, 8% more resident memory, half the CPU throughput, a little over half the Metal throughput, and no accuracy advantage.",
+                "configurableChunkCadence": "--request-option audio_chunk_seconds=N, unlike nemotron_asr's fixed 1,000 ms; the one clean answer to the cadence mismatch",
+                "extraLinkedFamily": "requesting qwen3_asr also links qwen3_forced_aligner, which --words-out needs as a separate model download",
+                "recommendedPackageNotMeasured": "upstream recommends qwen3_asr_1_7b_q8_0 at 2,473,000,000 bytes, roughly 5.9 GB resident by the 2.4x ratio; not downloaded"
               },
               {
                 "family": "sense_asr",
@@ -294,7 +328,9 @@
               "Metal helps the large model greatly (nemotron 21.3x to 72.1x) and hurts the small ones (kroko 33.4x to 19.7x), because GPU dispatch overhead dominates below a certain model size.",
               "Peak resident set tracks weight size at roughly 2.4x, so the memory question is decided at model choice rather than at runtime.",
               "All three families made the same single error on the reference text, the proper noun 'Bottie' heard as 'Body'; they otherwise differ only in punctuation and hyphenation.",
-              "Of the 21 ASR families upstream ships, none is both multilingual and near Whisper tiny Q5's 32 MB."
+              "Of the 21 ASR families upstream ships, none is both multilingual and near Whisper tiny Q5's 32 MB.",
+              "A cold Metal shader cache costs the first run of any family roughly half its throughput, so every Metal figure here is a warm median.",
+              "All four families made the same single error on the reference text, so this clean-audio test cannot rank them; only real microphone audio can."
             ]
           }
         },
@@ -318,7 +354,9 @@
     "comparisonWhisperTinyQ5": 32152673,
     "kroko_asr_community_q8_0": 167756928,
     "sensevoice_small_q8": 254211200,
-    "sensevoice_small_q8_source": "huggingface.co/FunAudioLLM/SenseVoiceSmall-GGUF-audiocpp at revision 5c3fcfe748a8714216bc135476d5863084fddb72 (not the audio-cpp repo)"
+    "sensevoice_small_q8_source": "huggingface.co/FunAudioLLM/SenseVoiceSmall-GGUF-audiocpp at revision 5c3fcfe748a8714216bc135476d5863084fddb72 (not the audio-cpp repo)",
+    "qwen3_asr_0_6b_q8_0": 1151272416,
+    "qwen3_asr_1_7b_q8_0": 2473000000
   },
   "notMeasured": {
     "items": [

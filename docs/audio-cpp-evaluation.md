@@ -141,28 +141,48 @@ Any integration pays this once per process, not per utterance, and would want to
 
 ## Measured: speech recognition is far faster than it needs to be
 
-Three families were measured against the same 14.7 seconds of 16 kHz mono audio, 4 threads, median of three runs.
-All three are far faster than realtime, so speed is not the axis that decides this — size is.
+Four families were measured against the same 14.7 seconds of 16 kHz mono audio, 4 threads, median of three warm runs.
+All four are far faster than realtime, so speed is not the axis that decides this — size is.
 
 | Family | Weights | CPU | Metal | Peak RSS | Languages | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | `nemotron_asr` | 930.6 MB | 21.3× | **72.1×** | 2,244 MB | 40 | supported |
+| `qwen3_asr` 0.6B | 1,151.3 MB | 10.9× | 40.8× | 2,417 MB | 31 | supported |
 | `sense_asr` (SenseVoice-Small) | 254.2 MB | 39.7× | 42.6× | 556 MB | 22 + auto-detect | community |
 | `kroko_asr` | 167.8 MB | **33.4×** | 19.7× | **441 MB** | English only as shipped | community |
 | *Whisper tiny Q5, for reference* | *32.2 MB* | — | — | — | *multilingual* | *shipping today* |
 
-Two things in that table are worth stating plainly. Metal helps the large model a great deal and **hurts the small
+Two things in that table are worth stating plainly. Metal helps the large models a great deal and **hurts the small
 ones** — Kroko is nearly twice as fast on CPU as on Metal, because GPU dispatch overhead dominates when the model is
 this small. And peak resident set tracks weight size at roughly 2.4×, so the memory question is decided at model
-choice, not at runtime.
+choice, not at runtime. Note also that a cold Metal shader cache costs the first run of any family roughly half its
+throughput; every Metal figure here is a warm median.
 
 The transcripts were near-identical. Every family made the same single error — the proper noun `Bottie` heard as
 `Body` — and otherwise differed only in formatting:
 
 - `nemotron_asr` punctuates sentences but writes `real time`, `one off`;
+- `qwen3_asr` produced a transcript character-identical to `nemotron_asr`, including the same error and the same
+  unhyphenated word forms;
 - `kroko_asr` punctuates and hyphenates correctly (`real-time`, `one-off`), but dropped the final period;
 - `sense_asr` gets the word forms right but **emits almost no punctuation** — no commas, no sentence breaks — which
   matters for dictated text that a human then reads.
+
+### Qwen3-ASR is the wrong direction
+
+It is worth recording as a negative result, because Qwen3-ASR is `supported`, covers 31 languages, and carries the
+richest declared capability set of any ASR family here (`word_timestamps`, `vad_chunking`, `partial_results`, against
+`nemotron_asr`'s empty set). On paper it is the obvious upgrade.
+
+Measured, its smallest package loses to Nemotron on every axis at once: 24 % more weights, **8 % more resident
+memory**, half the CPU throughput, a little over half the Metal throughput, and a transcript with no measurable
+accuracy advantage. The package upstream actually recommends is the 1.7B at 2,473 MB, which would be roughly 5.9 GB
+resident by the 2.4× ratio and was not downloaded.
+
+Two things about it would still matter if recognition were ever revisited. Its streaming chunk cadence is
+**configurable** (`--request-option audio_chunk_seconds=5`) rather than fixed, which is the one clean answer to the
+1,000 ms versus 1,500 ms mismatch below. And requesting `qwen3_asr` silently also links `qwen3_forced_aligner`, which
+is what `--words-out` needs — an extra model download, not merely an extra linked family.
 
 **This is an upper bound, not a field result**: the input was this spike's own Supertonic output, which is clean
 synthetic studio speech. Microphone audio with room noise is the case that matters and is still unmeasured.
@@ -219,7 +239,8 @@ almost perfectly.
 The smaller families narrow that gap without closing it. SenseVoice-Small is 254 MB and 556 MB resident for 22
 languages; Kroko is 168 MB and 441 MB resident but English-only as packaged. Both are `community` status and both are
 still five to eight times Whisper tiny's download. Of the 21 ASR families upstream ships, none is both multilingual
-and comparable to 32 MB.
+and comparable to 32 MB. Going the other way does not help either: `qwen3_asr` 0.6B costs more memory than Nemotron
+and transcribes no better.
 
 **Text-to-speech needs a playback path Bottie does not have.** `audiocpp_result_audio` returns borrowed interleaved
 `f32` plus a sample rate — 44.1 kHz mono in practice. Replacing the `tts` crate means Bottie owns playback — `cpal` is
@@ -271,16 +292,21 @@ weakest thing Bottie ships. 454 MB, 4.5× realtime on CPU, 1.06 GB resident. The
 buy a capability Bottie cannot get any other way.
 
 **Speech recognition is not, yet.** It is technically excellent — 21× realtime on CPU for Nemotron, 40× for
-SenseVoice-Small, near-perfect transcripts from all three families tried — but those transcripts were of synthetic
-studio speech, which is the easy case, and the thing they would replace already works. The price is a model 5 to 29
-times larger, 441 MB to 2.24 GB resident, a rewritten download contract, and a cadence change, for an accuracy gain
+SenseVoice-Small, near-identical transcripts from all four families tried — but those transcripts were of synthetic
+studio speech, which is the easy case, and the thing they would replace already works. The price is a model 5 to 36
+times larger, 441 MB to 2.42 GB resident, a rewritten download contract, and a cadence change, for an accuracy gain
 over Whisper tiny that has still not been measured on real microphone audio.
 
-Surveying the smaller families did change the shape of that trade. If recognition is ever revisited,
-**SenseVoice-Small is the candidate to beat, not Nemotron**: 3.7× less memory, twice as fast on CPU, 22 languages plus
-auto-detect, at the cost of `community` status, a Silero VAD asset dependency, a strict 16 kHz input requirement, and
-missing punctuation. The deciding measurement is still the same one and it is not a code problem: run the candidates
-against real microphone audio in the languages Bottie's users actually speak, and compare against Whisper tiny.
+Surveying the family list did change the shape of that trade, in both directions. Upward it is a dead end:
+`qwen3_asr`, the obvious candidate on paper, costs more memory than Nemotron for no better transcript. Downward there
+is real room — if recognition is ever revisited, **SenseVoice-Small is the candidate to beat, not Nemotron**: 3.7×
+less memory, twice as fast on CPU, 22 languages plus auto-detect, at the cost of `community` status, a Silero VAD
+asset dependency, a strict 16 kHz input requirement, and missing punctuation.
+
+That all four families made the *same single error* is itself the most useful signal in this section. On easy audio
+they are indistinguishable, so this test cannot rank them and no amount of re-running it will. The deciding
+measurement is not a code problem: run the candidates against real microphone audio in the languages Bottie's users
+actually speak, and compare against Whisper tiny.
 
 So the two halves need not move together. Adopting Supertonic 3 for text-to-speech while leaving `whisper-rs` in place
 is a coherent position, and the coexistence result is precisely what makes it available: both `ggml` copies proved
