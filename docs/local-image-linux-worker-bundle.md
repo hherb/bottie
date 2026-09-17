@@ -242,6 +242,46 @@ This is input recovery, not rebuild evidence. The next evidence run must build t
 the pinned base, retained reviewed source, and frozen inputs, then compare installed inventories and normalized image
 filesystems before repeating the proof and closure.
 
+### Clean-runtime offline rebuild gate
+
+The proof-only rebuild gate is now checked in, but it has not been run. Its closed plan is
+[`local-image-linux-clean-runtime-rebuild-plan.json`](local-image-linux-clean-runtime-rebuild-plan.json). The plan binds
+the exact Ubuntu ARM64 base digest, frozen input-lock digest, and byte size plus SHA-256 for only
+`diffusers_pytorch_worker.py`, `diffusers_worker.py`, and `mlx_worker.py`. The generated BuildKit context contains only
+those three reviewed worker files and the fixed Dockerfile. The recipe uses no Dockerfile frontend tag, URL, package
+index, dependency resolution, or mutable image tag.
+
+After explicit authorization to transfer the additional reviewed source to the named DGX, run from the Docker host
+with the retained 175-archive tree and already-present base image:
+
+```sh
+python3 local-image-worker/diffusers_clean_runtime_rebuild_host.py \
+  /absolute/repository/docs/local-image-linux-clean-runtime-rebuild-plan.json \
+  /absolute/repository/docs/local-image-linux-clean-runtime-input-lock.json \
+  /absolute/path/outside-the-repository/clean-runtime-inputs \
+  /absolute/repository/local-image-worker \
+  bottie-clean-rebuild-a \
+  bottie-clean-rebuild-b \
+  /absolute/path/outside-the-repository/clean-runtime-rebuild-evidence.json
+```
+
+Before the first build, between builds, and after the second build, the host re-verifies all 175 archive bytes and
+identities. It also re-verifies all three worker-source hashes after copying the closed build context. Each independently
+named `docker buildx build` uses `--network none`, `--no-cache`, `--pull=false`, the exact Linux/ARM64 platform, the
+verified local archive tree as a named context, and the immutable Ubuntu digest. The rebuilt image must contain exactly
+the lock's 63 Python and 112 Debian installed identities.
+
+The comparison exports each stopped image without starting it. Its normalized regular-file measurement binds each
+canonical path, permission mode, numeric owner and group, byte size, and SHA-256 in UTF-8 path order. Modification
+times, directories, and symbolic links are outside this deliberately regular-file-only measurement; hard links inherit
+their target's exact metadata and content. Only Docker's runtime-owned `etc/hostname`, `etc/hosts`, and
+`etc/resolv.conf` regular files are excluded. Any other byte, metadata, path, inventory, target, source, or input drift
+fails closed. Evidence retains only the two build names and immutable image IDs, counts, total regular-file bytes,
+normalized digest, plan digest, input-lock digest, and verified input byte total.
+
+This gate does not prove a rebuild merely by existing. No repository source was transferred and no DGX build, proof,
+trace, closure, licence review, bundle assembly, app wiring, or product availability change occurred in this slice.
+
 The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
 image, both exact proof-trace digests, and the complete sorted set of closure components. Every component must provide a
 non-placeholder reviewed expression, at least one licence or notice file, and a separate review record. Both the source

@@ -1,0 +1,26 @@
+{
+  "baseImageDigest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "inputLockSha256": "2628e5ec74886a91b6b1b68890666d2340c7a99c9f20b51b9b9dc483946c9831",
+  "schemaVersion": 1,
+  "target": {
+    "architecture": "arm64",
+    "operatingSystem": "linux"
+  },
+  "workerSources": [
+    {
+      "byteSize": 974,
+      "filename": "diffusers_pytorch_worker.py",
+      "sha256": "18a4a9a63292358197cd7f58ed4f3515e0317c54ceb78b5db08099ea1e9a8811"
+    },
+    {
+      "byteSize": 2894,
+      "filename": "diffusers_worker.py",
+      "sha256": "772ed436de27afc01c043202a7815097e9d2249bd1368b2efa53e1d28d54a67c"
+    },
+    {
+      "byteSize": 18820,
+      "filename": "mlx_worker.py",
+      "sha256": "44a1e382713c53a7a30ab05e059156cbed0f83097bf383c02ebd744fc6cb878b"
+    }
+  ]
+}

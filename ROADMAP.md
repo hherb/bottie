@@ -561,8 +561,11 @@ Implement this once for both hosted and local adapters before adding more runtim
   verification. The gate binds the exact image inventory, top-level wheel metadata and compatibility tags, Debian
   control identities, sizes, hashes, ARM64 target, and lock digest. Renamed foreign wheels still fail closed; one
   upstream NVIDIA SBSA spelling mismatch is accepted only for the exact official cuSPARSELt filename, size, and PyPI
-  digest. No offline rebuild, repeated trace, or licence review exists yet. Bottie must rebuild twice from only the
-  frozen inputs, rerun the closure, produce
+  digest. A closed rebuild plan and host gate now bind the exact base, input lock, and three worker-source files; they
+  require two independently named BuildKit runs with networking, pulls, and cache disabled, exact installed-inventory
+  agreement, and a normalized regular-file path/mode/ownership/size/hash comparison. The gate has not run because no
+  additional source transfer was authorized. No offline rebuild, repeated trace, or licence review exists yet. Bottie
+  must execute both frozen-input rebuilds, rerun the closure, produce
   independently reviewed bundle bytes, and add native hardware gating plus app-owned execution.
   See
   `docs/local-image-linux-nvidia-proof.md` and

@@ -144,6 +144,12 @@ therefore proves input recovery, not reproducibility. The unmodified proof resul
 [`local-image-linux-ucc-free-measurements.json`](local-image-linux-ucc-free-measurements.json). Linux remains
 unavailable until two offline rebuilds agree, the proof and closure are repeated, and licence review is complete.
 
+A closed proof-only rebuild plan and host gate now define those two offline builds. They bind the exact base, input
+lock, and three worker files; build twice with BuildKit networking, pulls, and cache disabled; require both installed
+inventories to equal the lock; and compare normalized regular-file paths, modes, numeric ownership, sizes, and hashes.
+The gate has not run. Transferring the additional reviewed source to the DGX still requires explicit authorization, so
+there is no offline rebuild or reproducibility result yet.
+
 The repository now has a proof-only offline input-lock gate for the next clean build. It resolves the source image
 reference through the Docker daemon, requires the exact clean image ID and Linux/ARM64 target, and collects its complete
 installed Python and Debian identities by that immutable ID with networking disabled. Lock generation then requires
