@@ -139,6 +139,27 @@ closed. The exact UCC revision
 neither the retained image nor the authoritative upstream commit endpoint supplied source bytes for that exact
 revision. A nearby UCC 1.5.0 release must not substitute for it.
 
+### Exact UCC source blocker
+
+A second source-resolution pass on 2026-09-17 found no public object for the full `ec95a0a...` revision in the official
+OpenUCX repository or GitHub's public full-hash commit search. NVIDIA's public `HPCX:ucc_hpcx_v2.24` embedded-component
+and unified-notice PDFs are also insufficient: both identify only `rdma-core`, not UCC, the exact revision, or the
+installed library. Generic HPC-X notices and the upstream project's current licence cannot establish component-owned
+licence bytes for this exact binary.
+
+The official HPC-X downloader does identify one target-matching binary archive:
+
+| Exact archive                                               | Reported size | SHA-256                                                            |
+| ----------------------------------------------------------- | ------------: | ------------------------------------------------------------------ |
+| `hpcx-v2.24.1-gcc-doca_ofed-ubuntu24.04-cuda13-aarch64.tbz` |        `346M` | `0bc5c26a4f0ca98fd6292aac9d51cc2a4ee3277d38d4011b64eafd133be633b4` |
+
+Its acquisition route requires an EULA, so Bottie did not download it or accept terms on the user's behalf. A
+read-only search of the configured DGX found no already-obtained copy. A network-disabled, read-only inspection of the
+retained image reconfirmed the exact `libucc.so.1.0.0` but found no UCC source or licence document. Therefore a later
+operator must first supply the exact archive outside the repository after independently handling any required terms.
+The gate may add a fifth fixed source only if that archive contains both a component-owned licence member and a regular
+member byte-identical to `/opt/hpcx/ucc/lib/libucc.so.1.0.0`. Absence or drift remains a hard blocker.
+
 The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
 image, both exact proof-trace digests, and the complete sorted set of closure components. Every component must provide a
 non-placeholder reviewed expression, at least one licence or notice file, and a separate review record. Both the source
