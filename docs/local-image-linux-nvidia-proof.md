@@ -1,6 +1,6 @@
 # Linux NVIDIA Qwen Image proof
 
-Last reviewed: 2026-09-16
+Last reviewed: 2026-09-17
 
 This document freezes the first native Linux NVIDIA execution evidence for Bottie's private image-worker protocol. It
 is a feasibility proof, not a Linux product-availability claim. Bottie still has no accepted redistributable Linux
@@ -90,6 +90,52 @@ audit hook also fails network attempts with the fixed path-free diagnostic `netw
 machine-readable harness result is checked in as `docs/local-image-linux-nvidia-measurements.json`; its
 `visualReviewed` field remains false because the manual review happened after the harness wrote the record.
 
+## Provisional UCC-removal experiment
+
+The retained NGC PyTorch build links `libucc.so.1` directly: masking `/opt/hpcx/ucc` makes a bare `import torch` fail.
+Masking all of `/opt/hpcx` additionally removes `libmpi.so.40`. Removing UCC from this exact runtime is therefore not a
+viable packaging shortcut.
+
+A bounded alternative replaced only NGC's PyTorch build with the conventional ARM64 CUDA 13.0 PyTorch 2.10.0 wheel
+from the [official wheel index](https://download.pytorch.org/whl/cu130/torch/). The 529,404,606-byte wheel has SHA-256
+`4fc8f67637f4c92b989a07d80ffe755e79a3510ca02ebf23ce66396fb277c88d`. The derived experimental image was
+`sha256:2f559d21bb696d6d56ddc0943569571d1905f4a7287d9d3e6c9905a07b0e676b`, 21,250,037,999 bytes in the local
+Docker store.
+
+With `/opt/hpcx/ucc` replaced by an empty read-only mount, that image completed model load, byte-deterministic cold and
+warm generation, active-step cancellation, network denial, and clean shutdown. A live process-map snapshot contained
+no UCC path or `libucc` library. Cold and warm decoded RGB matched at
+`a3ec2972f88027b969e087a39d4d1b738438b61150ccd4d9dec2842ca1a9ad70`; manual review found the same coherent scene
+as the retained baseline. Load took 354.353 seconds, cold generation 14.661 seconds, warm generation 12.323 seconds,
+and cancellation 100 ms.
+
+This result is deliberately provisional. The experimental image still contains the NGC UCC installation behind the
+mask, and its run predates the separate `diffusers-0.40.0-pytorch-2.10.0-cu130-proof-1` worker identity. No measurement
+record from it is checked in. The wheel also reports CUDA architectures through 12.0 while the named GB10 is compute
+capability 12.1, despite the exercised BF16 path completing successfully. A fresh run must use the distinct profile,
+then a clean image built without UCC must produce a complete runtime closure before this route can affect packaging.
+
+### Clean runtime result
+
+A subsequent isolated build started from Ubuntu 24.04 ARM64 at
+`sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90`, installed Python 3.12 in a
+virtual environment, and resolved the verified PyTorch wheel plus the pinned direct Diffusers requirements. The exact
+image is `sha256:5039ad07130ce8d29f12325a54e02bf95e90112e114d745e5883434180e3bdad`, 5,780,237,265 bytes,
+ARM64/Linux. It contains no HPC-X installation or `libucc` runtime library. PyTorch includes UCC-related C++ headers,
+so this is a UCC-runtime exclusion claim, not an assertion that no filename or source text mentions UCC.
+
+The clean image passed the complete offline proof with the corrected runtime identity. Load took 350.350 seconds; cold
+and warm generation took 13.855 and 12.292 seconds; cancellation completed in 111 ms. Cold and warm encoded PNGs were
+identical at SHA-256 `cb3e252f7df6748daf191bb25cb6fc41168c8c5a1f541c7b559ffc2df720eb3d`, and their decoded RGB
+matched the replacement control. The already reviewed byte-identical image is coherent and prompt-matching. The live
+process maps contained no `libucc`, network denial passed, and the worker shut down cleanly.
+
+The resolved environment contains 63 Python distributions and 112 Debian packages. Their versions were captured from
+the exact image, but their source-wheel/deb byte hashes and licences are not yet frozen or reviewed. The build used
+mutable Ubuntu and Python indexes after the immutable base, so the recipe is not checked in as reproducible evidence.
+[`local-image-linux-ucc-free-measurements.json`](local-image-linux-ucc-free-measurements.json) preserves the unmodified
+path-free harness result. Linux remains unavailable until exact inputs, repeated traces, closure, and review exist.
+
 ## Reproduction boundary
 
 `Dockerfile.diffusers-proof` is intentionally a proof recipe. Building it needs network access to obtain the exact
@@ -97,6 +143,12 @@ pinned Python distributions; runtime proof execution does not. `prove_diffusers_
 absolute model directory, an empty writable output directory, and an absolute measurement destination. It applies the
 network, filesystem, capability, user, deadline, deterministic-output, decoded-PNG, memory-sampling, cancellation, and
 shutdown checks itself.
+
+`Dockerfile.diffusers-pytorch-proof` pins the same NGC base and checksum-pins the conventional wheel solely to
+reproduce the removal experiment. Its separate entrypoint reports the alternative runtime identity. The proof harness
+accepts that identity only with `--runtime-profile pytorch-2.10-cu130 --ablate-ucc`; ablation mounts an empty directory
+over the complete UCC installation and rejects any live mapping containing the original path or `libucc` elsewhere.
+The recipe is not a clean or redistributable worker image because the masked UCC bytes remain in an underlying layer.
 
 Do not convert this evidence directly into a support claim. The native package catalog now represents this exact
 Diffusers worker, runtime, model revision, Linux ARM64 target, DGX Spark evidence profile, and this evidence document as

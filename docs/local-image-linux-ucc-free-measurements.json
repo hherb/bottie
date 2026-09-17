@@ -1,0 +1,20 @@
+{
+  "imageId": "sha256:5039ad07130ce8d29f12325a54e02bf95e90112e114d745e5883434180e3bdad",
+  "modelId": "Qwen/Qwen-Image-2512",
+  "modelRevision": "25468b98e3276ca6700de15c6628e51b7de54a26",
+  "runtimeId": "diffusers@0.40.0+pytorch-2.10.0-cu130-ubuntu24.04-arm64",
+  "loadSeconds": 350.35,
+  "coldGenerationSeconds": 13.855,
+  "warmGenerationSeconds": 12.292,
+  "generatedRgbSha256": "a3ec2972f88027b969e087a39d4d1b738438b61150ccd4d9dec2842ca1a9ad70",
+  "deterministicSameSeed": true,
+  "cancellationLatencyMs": 111,
+  "processRssPeakBytes": 16820707328,
+  "nvidiaProcessUnifiedMemoryPeakBytes": null,
+  "hostAvailableStartBytes": 104105177088,
+  "hostAvailableMinimumBytes": 29436854272,
+  "networkNamespaceDeniedExternalConnection": true,
+  "uccInstallationMasked": true,
+  "uccMappedRuntimeFileCount": 0,
+  "visualReviewed": false
+}

@@ -13,8 +13,11 @@ from PIL import Image
 
 from prove_diffusers_worker import (
     COMPLETE_SEED,
+    DIFFUSERS_WORKER_IDENTITY,
     MODEL_ID,
     PROOF_DIMENSIONS,
+    RUNTIME_PROFILES,
+    assert_no_ucc_process_maps,
     decoded_rgb_sha256,
     generation_command,
     nvidia_process_bytes,
@@ -99,6 +102,127 @@ class DiffusersProofTests(unittest.TestCase):
         self.assertIn("BOTTIE_RUNTIME_TRACE_FILE=/runtime-trace/python-paths.jsonl", command)
         self.assertTrue(any("import diffusers_runtime_trace" in argument for argument in command))
         self.assertEqual(command[command.index("--network") + 1], "none")
+
+    def test_ucc_ablation_masks_the_complete_installation_read_only(self) -> None:
+        """The opt-in proof hides all UCC bytes without weakening container isolation."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            model, output = root / "model", root / "output"
+            model.mkdir()
+            output.mkdir()
+            with mock.patch("prove_diffusers_worker.prove_network_denial"), mock.patch(
+                "prove_diffusers_worker.host_available_bytes", return_value=1
+            ), mock.patch(
+                "prove_diffusers_worker.subprocess.Popen", side_effect=RuntimeError("captured")
+            ) as popen:
+                with self.assertRaisesRegex(RuntimeError, "captured"):
+                    run_proof("proof-image", model, output, ablate_ucc=True)
+
+        command = popen.call_args.args[0]
+        ucc_mounts = [argument for argument in command if argument.endswith(":/opt/hpcx/ucc:ro")]
+        self.assertEqual(len(ucc_mounts), 1)
+        self.assertEqual(command[command.index("--network") + 1], "none")
+        self.assertIn("--read-only", command)
+        self.assertEqual(command[command.index("--cap-drop") + 1], "ALL")
+
+    def test_runtime_profiles_bind_the_expected_worker_script_and_identity(self) -> None:
+        """Each selectable proof profile names one immutable in-image entrypoint."""
+        ngc = RUNTIME_PROFILES["ngc-25.11"]
+        pytorch = RUNTIME_PROFILES["pytorch-2.10-cu130"]
+
+        self.assertEqual(ngc.identity, DIFFUSERS_WORKER_IDENTITY)
+        self.assertEqual(ngc.worker_script, "/opt/bottie/diffusers_worker.py")
+        self.assertEqual(
+            pytorch.identity.runtime_id,
+            "diffusers@0.40.0+pytorch-2.10.0-cu130-ubuntu24.04-arm64",
+        )
+        self.assertEqual(pytorch.worker_script, "/opt/bottie/diffusers_pytorch_worker.py")
+
+    def test_pytorch_wheel_profile_requires_the_ucc_ablation_gate(self) -> None:
+        """The alternative profile cannot produce evidence without proving UCC absence."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            model, output = root / "model", root / "output"
+            model.mkdir()
+            output.mkdir()
+            with self.assertRaisesRegex(ValueError, "requires UCC ablation"):
+                run_proof(
+                    "proof-image",
+                    model,
+                    output,
+                    profile=RUNTIME_PROFILES["pytorch-2.10-cu130"],
+                )
+
+    def test_ucc_ablation_rejects_a_surviving_runtime_mapping(self) -> None:
+        """A masked installation is insufficient if a UCC file remains mapped."""
+        assert_no_ucc_process_maps(b"7f00-7f10 r-xp 0000 00:00 0 /usr/lib/libcuda.so.1\n")
+        with self.assertRaisesRegex(RuntimeError, "UCC runtime remained mapped"):
+            assert_no_ucc_process_maps(
+                b"7f00-7f10 r-xp 0000 00:00 0 /opt/hpcx/ucc/lib/libucc.so.1.0.0\n"
+            )
+        with self.assertRaisesRegex(RuntimeError, "UCC runtime remained mapped"):
+            assert_no_ucc_process_maps(
+                b"7f00-7f10 r-xp 0000 00:00 0 /usr/lib/aarch64-linux-gnu/libucc.so.1\n"
+            )
+
+    def test_ucc_mask_is_checked_after_the_worker_handshake(self) -> None:
+        """Docker must finish registering the live container before an exec-based mask check."""
+        events = []
+        process = mock.Mock(stdin=io.BytesIO(), stdout=io.BytesIO())
+        process.poll.return_value = 0
+
+        def read_event(*_arguments):
+            events.append("read")
+            if len(events) == 1:
+                return {"workerVersion": DIFFUSERS_WORKER_IDENTITY.worker_version}
+            return {"capabilities": {"runtimeId": DIFFUSERS_WORKER_IDENTITY.runtime_id}}
+
+        def check_mask(*_arguments):
+            events.append("mask")
+            raise RuntimeError("mask checked")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            model, output = root / "model", root / "output"
+            model.mkdir()
+            output.mkdir()
+            with mock.patch("prove_diffusers_worker.prove_network_denial"), mock.patch(
+                "prove_diffusers_worker.host_available_bytes", return_value=1
+            ), mock.patch("prove_diffusers_worker.subprocess.Popen", return_value=process), mock.patch(
+                "prove_diffusers_worker.read_frame_with_timeout", side_effect=read_event
+            ), mock.patch(
+                "prove_diffusers_worker.assert_ucc_installation_masked", side_effect=check_mask
+            ), mock.patch("prove_diffusers_worker.subprocess.run"):
+                with self.assertRaisesRegex(RuntimeError, "mask checked"):
+                    run_proof("proof-image", model, output, ablate_ucc=True)
+
+        self.assertEqual(events, ["read", "read", "mask"])
+
+    def test_ucc_maps_are_checked_before_model_load(self) -> None:
+        """The ablation proof observes live mappings before importing the model stack."""
+        process = mock.Mock(stdin=io.BytesIO(), stdout=io.BytesIO())
+        process.poll.return_value = 0
+        frames = [
+            {"workerVersion": DIFFUSERS_WORKER_IDENTITY.worker_version},
+            {"capabilities": {"runtimeId": DIFFUSERS_WORKER_IDENTITY.runtime_id}},
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            model, output = root / "model", root / "output"
+            model.mkdir()
+            output.mkdir()
+            with mock.patch("prove_diffusers_worker.prove_network_denial"), mock.patch(
+                "prove_diffusers_worker.host_available_bytes", return_value=1
+            ), mock.patch("prove_diffusers_worker.subprocess.Popen", return_value=process), mock.patch(
+                "prove_diffusers_worker.read_frame_with_timeout", side_effect=frames
+            ), mock.patch("prove_diffusers_worker.assert_ucc_installation_masked"), mock.patch(
+                "prove_diffusers_worker.capture_process_maps", side_effect=RuntimeError("maps checked")
+            ) as capture, mock.patch("prove_diffusers_worker.subprocess.run"):
+                with self.assertRaisesRegex(RuntimeError, "maps checked"):
+                    run_proof("proof-image", model, output, ablate_ucc=True)
+
+        capture.assert_called_once()
+        self.assertEqual(capture.call_args.kwargs, {"reject_ucc": True})
 
     def test_missing_nvidia_process_counter_is_not_reported_as_zero_use(self) -> None:
         """An unsupported or absent UMA counter remains explicitly unavailable."""
