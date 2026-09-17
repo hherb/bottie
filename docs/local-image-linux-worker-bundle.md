@@ -191,6 +191,43 @@ headers. Its 63 Python and 112 Debian package versions were observed, not yet bo
 Because package indexes were mutable and no repeated trace or licence closure exists, this image is feasibility evidence
 only and does not replace the retained closure record.
 
+### Clean-runtime input lock
+
+`diffusers_clean_runtime_lock_host.py` turns an already assembled offline artifact set into the next path-free evidence
+record. The artifact root must be absolute and contain only these directories:
+
+```text
+python/  # exactly 63 .whl files
+debian/  # exactly 112 .deb files
+```
+
+From the Docker host, name the retained clean image and keep the generated record outside the artifact tree:
+
+```sh
+python3 local-image-worker/diffusers_clean_runtime_lock_host.py \
+  sha256:5039ad07130ce8d29f12325a54e02bf95e90112e114d745e5883434180e3bdad \
+  /absolute/path/outside-the-repository/clean-runtime-inputs \
+  /absolute/path/outside-the-repository/clean-runtime-input-lock.json
+```
+
+The host first inspects the reference, runs inventory collection by the exact image ID with `--network none`, read-only
+root storage, no capabilities, and `no-new-privileges`, then compares the installed identities with every offline
+artifact. Wheel filenames and embedded metadata must agree; platform-specific wheels must be ARM64. `dpkg-deb` must
+report the exact installed package, version, and `arm64` or `all` architecture. The generator re-runs the independent
+verifier before writing the canonical manifest atomically. A later offline check can use:
+
+```sh
+python3 local-image-worker/diffusers_clean_runtime_lock.py \
+  /absolute/path/outside-the-repository/clean-runtime-input-lock.json \
+  /absolute/path/outside-the-repository/clean-runtime-inputs
+```
+
+Neither command downloads, installs, extracts, or licenses an artifact. The exact 175 archives have not yet been
+assembled, so no lock or reproducible rebuild evidence is checked in. The next evidence run must obtain those exact
+bytes from authoritative package sources, preserve their source provenance outside this path-free lock, rebuild twice
+from only the frozen inputs, and compare both installed inventories and normalized image filesystems before repeating
+the proof and closure.
+
 The closure gate now accepts an optional `--license-review` manifest. The manifest is bound to the immutable derived
 image, both exact proof-trace digests, and the complete sorted set of closure components. Every component must provide a
 non-placeholder reviewed expression, at least one licence or notice file, and a separate review record. Both the source
