@@ -212,9 +212,11 @@ python3 local-image-worker/diffusers_clean_runtime_lock_host.py \
 
 The host first inspects the reference, runs inventory collection by the exact image ID with `--network none`, read-only
 root storage, no capabilities, and `no-new-privileges`, then compares the installed identities with every offline
-artifact. Wheel filenames and embedded metadata must agree; platform-specific wheels must be ARM64. `dpkg-deb` must
-report the exact installed package, version, and `arm64` or `all` architecture. The generator re-runs the independent
-verifier before writing the canonical manifest atomically. A later offline check can use:
+artifact. Wheel filenames and embedded metadata must agree; platform-specific wheels must be ARM64. Each wheel must
+also contain one bounded `WHEEL` member beside `METADATA`, and its expanded compatibility tags must exactly equal the
+filename tags, so a renamed foreign-platform archive fails closed. `dpkg-deb` must report the exact installed package,
+version, and `arm64` or `all` architecture. The generator re-runs the independent verifier before writing the canonical
+manifest atomically. A later offline check can use:
 
 ```sh
 python3 local-image-worker/diffusers_clean_runtime_lock.py \

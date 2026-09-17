@@ -14,6 +14,7 @@ from email.parser import BytesParser
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
+from packaging.tags import parse_tag
 from packaging.utils import canonicalize_name, parse_wheel_filename
 from packaging.version import InvalidVersion, Version
 
@@ -333,7 +334,7 @@ def _verify_artifact_bytes(path: Path, record: dict) -> int:
 
 
 def _verify_wheel_identity(path: Path, record: dict) -> None:
-    """Require the exact wheel archive metadata to agree with its lock identity."""
+    """Require the exact wheel archive metadata and tags to agree with its lock identity."""
     try:
         with zipfile.ZipFile(path) as archive:
             members = archive.infolist()
@@ -345,13 +346,23 @@ def _verify_wheel_identity(path: Path, record: dict) -> None:
                 for member in members
                 if member.filename.endswith(".dist-info/METADATA")
             ]
+            wheel_members = [
+                member
+                for member in members
+                if member.filename.endswith(".dist-info/WHEEL")
+            ]
             if (
                 len(names) != len(set(names))
                 or len(metadata_members) != 1
+                or len(wheel_members) != 1
+                or PurePosixPath(metadata_members[0].filename).parent
+                != PurePosixPath(wheel_members[0].filename).parent
                 or metadata_members[0].file_size > MAX_WHEEL_METADATA_BYTES
+                or wheel_members[0].file_size > MAX_WHEEL_METADATA_BYTES
             ):
                 raise CleanRuntimeLockError("wheel metadata is not exact")
             parsed = BytesParser().parsebytes(archive.read(metadata_members[0]))
+            wheel_metadata = BytesParser().parsebytes(archive.read(wheel_members[0]))
     except (OSError, zipfile.BadZipFile, KeyError) as error:
         raise CleanRuntimeLockError("wheel archive cannot be inspected") from error
     try:
@@ -363,6 +374,17 @@ def _verify_wheel_identity(path: Path, record: dict) -> None:
         record["version"]
     ):
         raise CleanRuntimeLockError("wheel identity has drifted")
+    try:
+        filename_tags = parse_wheel_filename(record["filename"])[3]
+        embedded_tags = {
+            tag
+            for value in wheel_metadata.get_all("Tag", [])
+            for tag in parse_tag(value)
+        }
+    except (InvalidVersion, TypeError, ValueError) as error:
+        raise CleanRuntimeLockError("wheel tags have drifted") from error
+    if not embedded_tags or embedded_tags != filename_tags:
+        raise CleanRuntimeLockError("wheel tags have drifted")
 
 
 def _unsafe_zip_member(member: zipfile.ZipInfo) -> bool:
