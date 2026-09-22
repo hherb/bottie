@@ -16,6 +16,7 @@ from diffusers_runtime_license_sources import (
     ExternalLicenseSourceSpec,
     RuntimeArchiveMemberSpec,
     apply_external_license_sources,
+    license_source_specs_for_components,
     verified_external_license_sources,
 )
 
@@ -71,12 +72,36 @@ class DiffusersRuntimeLicenseSourceTests(unittest.TestCase):
             },
         )
         self.assertTrue(
-            all(spec.source_url.startswith("https://") for spec in EXTERNAL_LICENSE_SOURCE_SPECS)
+            all(
+                spec.source_url.startswith("https://")
+                for spec in EXTERNAL_LICENSE_SOURCE_SPECS
+            )
         )
         self.assertNotIn(
             "native:hpcx-ucc@1.5.0+ec95a0a96fc7220e1627157439c508cafc82274e",
             {spec.component_identity for spec in EXTERNAL_LICENSE_SOURCE_SPECS},
         )
+
+    def test_selects_only_the_fixed_profile_source_identities(self) -> None:
+        """A profile allowlist resolves exact catalog entries or fails closed."""
+        selected = license_source_specs_for_components(
+            frozenset(
+                {
+                    "python:sentencepiece@0.2.2",
+                    "python:tokenizers@0.23.2",
+                }
+            )
+        )
+
+        self.assertEqual(
+            tuple(spec.component_identity for spec in selected),
+            (
+                "python:sentencepiece@0.2.2",
+                "python:tokenizers@0.23.2",
+            ),
+        )
+        with self.assertRaisesRegex(ExternalLicenseSourceError, "allowlist"):
+            license_source_specs_for_components(frozenset({"python:unknown@1"}))
 
     def test_binds_exact_archive_member_and_matching_runtime_bytes(self) -> None:
         """A fixed archive contributes only its measured licence after runtime matching."""
@@ -93,7 +118,9 @@ class DiffusersRuntimeLicenseSourceTests(unittest.TestCase):
                 ],
             )
 
-            sources = verified_external_license_sources(root, (_source_spec(root, archive_bytes),))
+            sources = verified_external_license_sources(
+                root, (_source_spec(root, archive_bytes),)
+            )
 
             source = sources["native:example@1.2.3"]
             self.assertEqual(
@@ -106,12 +133,16 @@ class DiffusersRuntimeLicenseSourceTests(unittest.TestCase):
                     }
                 ],
             )
-            self.assertEqual(source["provenance"]["kind"], "authoritative-source-archive")
+            self.assertEqual(
+                source["provenance"]["kind"], "authoritative-source-archive"
+            )
             self.assertEqual(source["provenance"]["runtimeMemberCount"], 1)
             self.assertNotIn(str(root), str(source))
             self.assertNotIn("licenseExpression", source)
 
-    def test_skips_absent_known_archives_but_rejects_all_unrecognized_inputs(self) -> None:
+    def test_skips_absent_known_archives_but_rejects_all_unrecognized_inputs(
+        self,
+    ) -> None:
         """Partial evidence stays partial, while a supplied empty source root fails closed."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -145,8 +176,38 @@ class DiffusersRuntimeLicenseSourceTests(unittest.TestCase):
                 ),
             ):
                 with self.subTest(invalid=invalid):
-                    with self.assertRaisesRegex(ExternalLicenseSourceError, "specification"):
+                    with self.assertRaisesRegex(
+                        ExternalLicenseSourceError, "specification"
+                    ):
                         verified_external_license_sources(root, (invalid,))
+
+    def test_requires_every_profile_archive_when_requested(self) -> None:
+        """A closed profile cannot emit partially enriched evidence."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runtime = root / "libexample.so.1.2.3"
+            runtime.write_bytes(RUNTIME_BYTES)
+            archive = root / "example-1.2.3.tar.gz"
+            archive_bytes = _write_archive(
+                archive,
+                [
+                    ("example-1.2.3/LICENSE", LICENSE_BYTES),
+                    ("example-1.2.3/lib/libexample.so.1.2.3", RUNTIME_BYTES),
+                ],
+            )
+            present = _source_spec(root, archive_bytes)
+            missing = replace(
+                present,
+                component_identity="python:missing@1",
+                archive_name="missing-1.tar.gz",
+            )
+
+            with self.assertRaisesRegex(ExternalLicenseSourceError, "incomplete"):
+                verified_external_license_sources(
+                    root,
+                    (present, missing),
+                    require_all=True,
+                )
 
     def test_rejects_archive_member_or_runtime_drift(self) -> None:
         """Changed archives, licence members, and installed runtime bytes fail closed."""
@@ -198,7 +259,9 @@ class DiffusersRuntimeLicenseSourceTests(unittest.TestCase):
             with self.assertRaisesRegex(ExternalLicenseSourceError, "archive"):
                 verified_external_license_sources(root, (spec,))
 
-    def test_applies_sources_without_inheriting_or_replacing_an_expression(self) -> None:
+    def test_applies_sources_without_inheriting_or_replacing_an_expression(
+        self,
+    ) -> None:
         """External bytes enrich only an exact source-less component record."""
         components = {
             "python:example@1": {
@@ -221,8 +284,13 @@ class DiffusersRuntimeLicenseSourceTests(unittest.TestCase):
 
         enriched = apply_external_license_sources(components, sources)
 
-        self.assertEqual(enriched["python:example@1"]["licenseExpression"], "undeclared")
-        self.assertEqual(enriched["python:example@1"]["licenseFiles"], sources["python:example@1"]["licenseFiles"])
+        self.assertEqual(
+            enriched["python:example@1"]["licenseExpression"], "undeclared"
+        )
+        self.assertEqual(
+            enriched["python:example@1"]["licenseFiles"],
+            sources["python:example@1"]["licenseFiles"],
+        )
         self.assertEqual(
             enriched["python:example@1"]["provenance"]["licenseSource"],
             sources["python:example@1"]["provenance"],

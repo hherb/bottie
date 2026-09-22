@@ -183,15 +183,21 @@ def read_elf_dependencies(path: Path) -> tuple[set[str], str | None]:
         raise ClosureEvidenceError(str(error)) from error
 
 
-def verified_external_license_sources(root: Path) -> dict:
-    """Load the optional NGC source helper only when that legacy route requests it."""
+def verified_external_license_sources(
+    root: Path,
+    component_identities: frozenset[str],
+    require_all: bool,
+) -> dict:
+    """Load exact source specs selected by one closed runtime profile."""
     from diffusers_runtime_license_sources import (
         ExternalLicenseSourceError,
+        license_source_specs_for_components,
         verified_external_license_sources as verify_sources,
     )
 
     try:
-        return verify_sources(root)
+        specs = license_source_specs_for_components(component_identities)
+        return verify_sources(root, specs, require_all=require_all)
     except ExternalLicenseSourceError as error:
         raise ClosureEvidenceError(str(error)) from error
 

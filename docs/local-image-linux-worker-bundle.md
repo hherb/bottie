@@ -289,8 +289,9 @@ previously reviewed output, network denial, and no UCC installation or mapping. 
 The profile accepts only rebuilt image
 `sha256:740816cb8f348aa26e3d32f73b15b86b7f5a7228cff7b24d6910ee7aa0ee12a4`, Ubuntu base digest
 `sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90`, the conventional PyTorch
-worker/runtime identity, the exact frozen input lock, and either retained proof context. It rejects licence-review and
-external-source inputs. Collection remains read-only, non-root, capability-free, and network-disabled. The frozen
+worker/runtime identity, the exact frozen input lock, and either retained proof context. It rejects licence-review
+inputs and accepts only a complete pair of exact SentencePiece 0.2.2 and tokenizers 0.23.2 source archives. Collection
+remains read-only, non-root, capability-free, and network-disabled. The frozen
 image has no `readelf` executable, so the profile uses a bounded in-process little-endian AArch64 ELF dynamic-table
 reader rather than changing the runtime or adding a package.
 
@@ -302,16 +303,19 @@ python3 local-image-worker/diffusers_clean_runtime_closure_host.py \
   /absolute/path/outside-the-repository/trace-a \
   /absolute/path/outside-the-repository/trace-b \
   /absolute/repository/docs/local-image-linux-clean-runtime-input-lock.json \
+  /absolute/path/outside-the-repository/license-sources \
   /absolute/path/outside-the-repository/clean-runtime-closure-review.json
 ```
 
-The two collections agree exactly. The retained 21,919-byte path-free record is
+The source directory must contain both exact PyPI source archives named above. The profile selects only those two
+component identities from the shared fixed catalog and rejects partial input rather than inheriting the original NGC
+native-component source set. The two collections agree exactly. The retained 23,223-byte path-free record is
 [`local-image-linux-clean-runtime-closure-review.json`](local-image-linux-clean-runtime-closure-review.json), with
-SHA-256 `f90d57ef58c18a779c9d87301c757d64106f61079bb1edacfcd59b09248c261e`. It closes 161 files totalling
+SHA-256 `ebbca8034178339e6ba6007ad244ace868157a67f715dcd0628926444bd806fb`. It closes 161 files totalling
 4,039,257,278 bytes, including 114 ELF files and 62 components, and observes only `libcuda.so.1`,
 `libnvidia-ml.so.1`, and `libnvidia-ptxjitcompiler.so.1` on the existing host-driver boundary. `closureComplete` is
-true. The record still has 68 licence-only blockers: SentencePiece and tokenizers lack licence bytes; Jinja2,
-safetensors, tokenizers, and Triton have undeclared expressions; and all 62 expressions remain unreviewed.
+true. The record has no missing licence-byte blocker. It retains 66 licence-only blockers: Jinja2, safetensors,
+tokenizers, and Triton have undeclared expressions, and all 62 expressions remain unreviewed.
 `licenseReviewed`, `assemblyEligible`, and `distributionReviewed` remain false. No review manifest, bundle assembly,
 app wiring, or product availability change has occurred.
 

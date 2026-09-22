@@ -141,9 +141,31 @@ EXTERNAL_LICENSE_SOURCE_SPECS = (
 )
 
 
+def license_source_specs_for_components(
+    component_identities: frozenset[str],
+) -> tuple[ExternalLicenseSourceSpec, ...]:
+    """Resolve one closed profile allowlist to its exact source catalog entries."""
+    selected = tuple(
+        spec
+        for spec in EXTERNAL_LICENSE_SOURCE_SPECS
+        if spec.component_identity in component_identities
+    )
+    if (
+        not component_identities
+        or len(selected) != len(component_identities)
+        or {spec.component_identity for spec in selected} != component_identities
+    ):
+        raise ExternalLicenseSourceError(
+            "external licence source profile allowlist is invalid"
+        )
+    return selected
+
+
 def verified_external_license_sources(
     source_root: Path,
     specs: tuple[ExternalLicenseSourceSpec, ...] = EXTERNAL_LICENSE_SOURCE_SPECS,
+    *,
+    require_all: bool = False,
 ) -> dict[str, dict]:
     """Return path-free evidence for every present recognized authoritative archive."""
     if source_root.is_symlink():
@@ -151,7 +173,9 @@ def verified_external_license_sources(
     try:
         root = source_root.resolve(strict=True)
     except OSError as error:
-        raise ExternalLicenseSourceError("external licence source root is unavailable") from error
+        raise ExternalLicenseSourceError(
+            "external licence source root is unavailable"
+        ) from error
     if not root.is_dir():
         raise ExternalLicenseSourceError("external licence source root is invalid")
     sources = {}
@@ -159,30 +183,48 @@ def verified_external_license_sources(
         _validate_spec(spec)
         archive = root / spec.archive_name
         if archive.is_symlink():
-            raise ExternalLicenseSourceError("external licence source archive is invalid")
+            raise ExternalLicenseSourceError(
+                "external licence source archive is invalid"
+            )
         if not archive.exists():
             continue
         if spec.component_identity in sources:
-            raise ExternalLicenseSourceError("external licence source component is duplicated")
+            raise ExternalLicenseSourceError(
+                "external licence source component is duplicated"
+            )
         sources[spec.component_identity] = _verified_source(archive, spec)
+    if require_all and len(sources) != len(specs):
+        raise ExternalLicenseSourceError(
+            "external licence source profile evidence is incomplete"
+        )
     if not sources:
-        raise ExternalLicenseSourceError("external licence source root has no recognized archives")
+        raise ExternalLicenseSourceError(
+            "external licence source root has no recognized archives"
+        )
     return sources
 
 
-def apply_external_license_sources(components: dict[str, dict], sources: dict[str, dict]) -> dict[str, dict]:
+def apply_external_license_sources(
+    components: dict[str, dict], sources: dict[str, dict]
+) -> dict[str, dict]:
     """Copy component records and add only exact source bytes, never licence expressions."""
     enriched = copy.deepcopy(components)
     for identity, source in sources.items():
         component = enriched.get(identity)
         if component is None:
-            raise ExternalLicenseSourceError("external licence source component is absent")
+            raise ExternalLicenseSourceError(
+                "external licence source component is absent"
+            )
         if component.get("licenseFiles"):
-            raise ExternalLicenseSourceError("external licence source component already has licence bytes")
+            raise ExternalLicenseSourceError(
+                "external licence source component already has licence bytes"
+            )
         component["licenseFiles"] = copy.deepcopy(source["licenseFiles"])
         provenance = component.setdefault("provenance", {})
         if "licenseSource" in provenance:
-            raise ExternalLicenseSourceError("external licence source provenance conflicts")
+            raise ExternalLicenseSourceError(
+                "external licence source provenance conflicts"
+            )
         provenance["licenseSource"] = copy.deepcopy(source["provenance"])
     return enriched
 
@@ -197,7 +239,9 @@ def _verified_source(archive: Path, spec: ExternalLicenseSourceSpec) -> dict:
         raise ExternalLicenseSourceError("external licence source archive has drifted")
     try:
         with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:*") as bundle:
-            licence_bytes = _unique_regular_member(bundle, spec.member_name, MAX_LICENSE_BYTES)
+            licence_bytes = _unique_regular_member(
+                bundle, spec.member_name, MAX_LICENSE_BYTES
+            )
             for runtime in spec.runtime_members:
                 member_bytes = _unique_regular_member(
                     bundle,
@@ -209,14 +253,18 @@ def _verified_source(archive: Path, spec: ExternalLicenseSourceSpec) -> dict:
                     MAX_RUNTIME_MEMBER_BYTES,
                     "runtime member",
                 )
-                if len(member_bytes) != len(installed_bytes) or hashlib.sha256(
-                    member_bytes
-                ).digest() != hashlib.sha256(installed_bytes).digest():
+                if (
+                    len(member_bytes) != len(installed_bytes)
+                    or hashlib.sha256(member_bytes).digest()
+                    != hashlib.sha256(installed_bytes).digest()
+                ):
                     raise ExternalLicenseSourceError(
                         "external licence source runtime member has drifted"
                     )
     except (OSError, tarfile.TarError) as error:
-        raise ExternalLicenseSourceError("external licence source archive is invalid") from error
+        raise ExternalLicenseSourceError(
+            "external licence source archive is invalid"
+        ) from error
     if (
         len(licence_bytes) != spec.byte_size
         or hashlib.sha256(licence_bytes).hexdigest() != spec.sha256
@@ -247,14 +295,25 @@ def _verified_source(archive: Path, spec: ExternalLicenseSourceSpec) -> dict:
 def _unique_regular_member(bundle: tarfile.TarFile, name: str, maximum: int) -> bytes:
     """Read one bounded exact regular member and reject duplicate archive names."""
     matches = [member for member in bundle.getmembers() if member.name == name]
-    if len(matches) != 1 or not matches[0].isreg() or matches[0].size <= 0 or matches[0].size > maximum:
-        raise ExternalLicenseSourceError("external licence source archive member is invalid")
+    if (
+        len(matches) != 1
+        or not matches[0].isreg()
+        or matches[0].size <= 0
+        or matches[0].size > maximum
+    ):
+        raise ExternalLicenseSourceError(
+            "external licence source archive member is invalid"
+        )
     stream = bundle.extractfile(matches[0])
     if stream is None:
-        raise ExternalLicenseSourceError("external licence source archive member is invalid")
+        raise ExternalLicenseSourceError(
+            "external licence source archive member is invalid"
+        )
     contents = stream.read(maximum + 1)
     if len(contents) != matches[0].size:
-        raise ExternalLicenseSourceError("external licence source archive member has drifted")
+        raise ExternalLicenseSourceError(
+            "external licence source archive member has drifted"
+        )
     return contents
 
 
@@ -263,18 +322,28 @@ def _stable_regular_bytes(path: Path, maximum: int, label: str) -> bytes:
     try:
         descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         before = os.fstat(descriptor)
-        if not stat.S_ISREG(before.st_mode) or before.st_size <= 0 or before.st_size > maximum:
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_size <= 0
+            or before.st_size > maximum
+        ):
             os.close(descriptor)
-            raise ExternalLicenseSourceError(f"external licence source {label} is invalid")
+            raise ExternalLicenseSourceError(
+                f"external licence source {label} is invalid"
+            )
         with os.fdopen(descriptor, "rb") as stream:
             contents = stream.read(maximum + 1)
             after = os.fstat(stream.fileno())
     except OSError as error:
-        raise ExternalLicenseSourceError(f"external licence source {label} is unavailable") from error
+        raise ExternalLicenseSourceError(
+            f"external licence source {label} is unavailable"
+        ) from error
     stable = (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
     observed = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
     if stable != observed or len(contents) != before.st_size:
-        raise ExternalLicenseSourceError(f"external licence source {label} changed while read")
+        raise ExternalLicenseSourceError(
+            f"external licence source {label} changed while read"
+        )
     return contents
 
 
@@ -301,7 +370,9 @@ def _validate_spec(spec: ExternalLicenseSourceSpec) -> None:
             for runtime in spec.runtime_members
         )
     ):
-        raise ExternalLicenseSourceError("external licence source specification is invalid")
+        raise ExternalLicenseSourceError(
+            "external licence source specification is invalid"
+        )
 
 
 def _is_portable_member_name(value: str) -> bool:

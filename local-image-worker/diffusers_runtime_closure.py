@@ -251,12 +251,16 @@ def collect_runtime_closure(
         profile = runtime_closure_profile(profile_name)
     except ClosureProfileError as error:
         raise ClosureEvidenceError(str(error)) from error
-    if not profile.allow_license_evidence and (
-        license_review_manifest is not None or license_source_root is not None
-    ):
+    if license_review_manifest is not None and not profile.allow_license_review:
         raise ClosureEvidenceError(
-            "runtime closure profile does not accept licence evidence"
+            "runtime closure profile does not accept licence review"
         )
+    if license_source_root is not None and not profile.license_source_components:
+        raise ClosureEvidenceError(
+            "runtime closure profile does not accept licence sources"
+        )
+    if profile.require_all_license_sources and license_source_root is None:
+        raise ClosureEvidenceError("runtime closure profile requires licence sources")
     if profile.requires_clean_runtime_lock:
         if clean_runtime_lock is None:
             raise ClosureEvidenceError("clean-runtime lock is required")
@@ -310,7 +314,11 @@ def collect_runtime_closure(
         )
     components.update(unmanaged_components)
     if license_source_root is not None:
-        external_sources = verified_external_license_sources(license_source_root)
+        external_sources = verified_external_license_sources(
+            license_source_root,
+            profile.license_source_components,
+            profile.require_all_license_sources,
+        )
         components = apply_external_license_sources(components, external_sources)
     for path, owners in unmanaged_owners.items():
         native_owners[path].update(owners)

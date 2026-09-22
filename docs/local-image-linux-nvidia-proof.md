@@ -155,10 +155,13 @@ in 101 ms, and shut down cleanly. Their separate trace digests and path-free mea
 [`local-image-linux-clean-runtime-proof.json`](local-image-linux-clean-runtime-proof.json). A distinct closure profile
 now binds only the exact rebuilt image, Ubuntu base digest, conventional PyTorch worker/runtime identity, frozen input
 lock, and either retained trace context. Two independent read-only, non-root, network-disabled collections agree on
-the same 161 files, 4,039,257,278 bytes, 114 ELF files, and 62 components. The retained path-free summary is
+the same 161 files, 4,039,257,278 bytes, 114 ELF files, and 62 components. A clean-profile-only source gate requires
+both exact authoritative SentencePiece 0.2.2 and tokenizers 0.23.2 archives and binds their exact licence members
+without inferring expressions. The retained path-free summary is
 [`local-image-linux-clean-runtime-closure-review.json`](local-image-linux-clean-runtime-closure-review.json), with
-SHA-256 `f90d57ef58c18a779c9d87301c757d64106f61079bb1edacfcd59b09248c261e`. Closure is complete, but
-68 licence-only blockers keep review, assembly, distribution, and Linux availability false.
+SHA-256 `ebbca8034178339e6ba6007ad244ace868157a67f715dcd0628926444bd806fb`. Closure is complete and no
+missing licence-byte blocker remains, but four undeclared and 62 unreviewed expression blockers keep review, assembly,
+distribution, and Linux availability false.
 
 The repository now has a proof-only offline input-lock gate for the next clean build. It resolves the source image
 reference through the Docker daemon, requires the exact clean image ID and Linux/ARM64 target, and collects its complete
