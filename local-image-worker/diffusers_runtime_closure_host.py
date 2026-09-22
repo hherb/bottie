@@ -44,16 +44,20 @@ def collect_verified_runtime_closure(
         profile = runtime_closure_profile(profile_name)
     except ClosureProfileError as error:
         raise ClosureEvidenceError(str(error)) from error
-    if not profile.allow_license_evidence and (
-        license_review is not None or license_sources is not None
-    ):
+    if license_review is not None and not profile.allow_license_review:
         raise ClosureEvidenceError(
-            "runtime closure profile does not accept licence evidence"
+            "runtime closure profile does not accept licence review"
+        )
+    if license_sources is not None and not profile.license_source_components:
+        raise ClosureEvidenceError(
+            "runtime closure profile does not accept licence sources"
         )
     if profile.requires_clean_runtime_lock and os.getuid() == 0:
         raise ClosureEvidenceError(
             "runtime closure collection requires a non-root host user"
         )
+    if profile.require_all_license_sources and license_sources is None:
+        raise ClosureEvidenceError("runtime closure profile requires licence sources")
     if profile.requires_clean_runtime_lock:
         if clean_runtime_lock is None:
             raise ClosureEvidenceError("clean-runtime lock is required")

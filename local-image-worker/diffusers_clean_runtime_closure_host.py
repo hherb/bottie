@@ -59,10 +59,12 @@ def collect_agreed_clean_runtime_closure(
     first_trace_root: Path,
     second_trace_root: Path,
     clean_runtime_lock: Path,
+    license_sources: Path,
 ) -> dict:
-    """Collect both retained contexts independently through the exact clean profile."""
+    """Collect both retained contexts with the same exact clean-profile source bytes."""
     first_trace_root = first_trace_root.resolve(strict=True)
     second_trace_root = second_trace_root.resolve(strict=True)
+    license_sources = license_sources.resolve(strict=True)
     if first_trace_root == second_trace_root:
         raise CleanRuntimeClosureError(
             "clean-runtime closure traces are not independent"
@@ -71,6 +73,7 @@ def collect_agreed_clean_runtime_closure(
         collect_verified_runtime_closure(
             image_reference,
             trace_root,
+            license_sources=license_sources,
             profile_name=CLEAN_RUNTIME_PROFILE_NAME,
             clean_runtime_lock=clean_runtime_lock,
         )
@@ -80,12 +83,13 @@ def collect_agreed_clean_runtime_closure(
 
 
 def parse_arguments() -> argparse.Namespace:
-    """Parse the exact rebuilt-image, two-trace, lock, and output inputs."""
+    """Parse the rebuilt image, traces, lock, source root, and output inputs."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("image_reference")
     parser.add_argument("first_trace_root", type=Path)
     parser.add_argument("second_trace_root", type=Path)
     parser.add_argument("clean_runtime_lock", type=Path)
+    parser.add_argument("license_sources", type=Path)
     parser.add_argument("output", type=Path)
     return parser.parse_args()
 
@@ -98,6 +102,7 @@ def main() -> None:
         arguments.first_trace_root,
         arguments.second_trace_root,
         arguments.clean_runtime_lock,
+        arguments.license_sources,
     )
     _write_review(review, arguments.output)
     if not review["assemblyEligible"]:

@@ -18,6 +18,20 @@ from mlx_worker import WorkerIdentity
 
 NGC_RUNTIME_PROFILE_NAME = "ngc-25.11"
 CLEAN_RUNTIME_PROFILE_NAME = "pytorch-2.10-cu130-clean-rebuild"
+NGC_LICENSE_SOURCE_COMPONENTS = frozenset(
+    {
+        "native:nvidia-nvpl-blas@0.2.0",
+        "native:nvidia-nvpl-lapack@0.2.2",
+        "python:sentencepiece@0.2.2",
+        "python:tokenizers@0.23.2",
+    }
+)
+CLEAN_LICENSE_SOURCE_COMPONENTS = frozenset(
+    {
+        "python:sentencepiece@0.2.2",
+        "python:tokenizers@0.23.2",
+    }
+)
 CLEAN_REBUILT_IMAGE_DIGEST = (
     "sha256:740816cb8f348aa26e3d32f73b15b86b7f5a7228cff7b24d6910ee7aa0ee12a4"
 )
@@ -52,7 +66,9 @@ class RuntimeClosureProfile:
     first_party_files: frozenset[Path]
     accepted_trace_context_sha256s: frozenset[str]
     use_ngc_native_components: bool
-    allow_license_evidence: bool
+    allow_license_review: bool
+    license_source_components: frozenset[str]
+    require_all_license_sources: bool
     requires_clean_runtime_lock: bool
 
 
@@ -69,7 +85,9 @@ RUNTIME_CLOSURE_PROFILES = {
         first_party_files=frozenset({Path("/opt/bottie/diffusers_worker.py")}),
         accepted_trace_context_sha256s=frozenset(),
         use_ngc_native_components=True,
-        allow_license_evidence=True,
+        allow_license_review=True,
+        license_source_components=NGC_LICENSE_SOURCE_COMPONENTS,
+        require_all_license_sources=False,
         requires_clean_runtime_lock=False,
     ),
     CLEAN_RUNTIME_PROFILE_NAME: RuntimeClosureProfile(
@@ -90,7 +108,9 @@ RUNTIME_CLOSURE_PROFILES = {
         ),
         accepted_trace_context_sha256s=CLEAN_TRACE_CONTEXT_SHA256S,
         use_ngc_native_components=False,
-        allow_license_evidence=False,
+        allow_license_review=False,
+        license_source_components=CLEAN_LICENSE_SOURCE_COMPONENTS,
+        require_all_license_sources=True,
         requires_clean_runtime_lock=True,
     ),
 }

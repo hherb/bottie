@@ -122,7 +122,17 @@ class DiffusersCleanRuntimeClosureTests(unittest.TestCase):
         self.assertEqual(profile.identity.runtime_id, clean_closure.CLEAN_RUNTIME_ID)
         self.assertEqual(len(profile.accepted_trace_context_sha256s), 2)
         self.assertFalse(profile.use_ngc_native_components)
-        self.assertFalse(profile.allow_license_evidence)
+        self.assertFalse(profile.allow_license_review)
+        self.assertEqual(
+            profile.license_source_components,
+            frozenset(
+                {
+                    "python:sentencepiece@0.2.2",
+                    "python:tokenizers@0.23.2",
+                }
+            ),
+        )
+        self.assertTrue(profile.require_all_license_sources)
 
         with self.assertRaises(ClosureProfileError):
             runtime_closure_profile("caller-selected-profile")
@@ -372,11 +382,14 @@ class DiffusersCleanRuntimeClosureTests(unittest.TestCase):
             root = Path(directory)
             trace = root / "trace"
             trace.mkdir()
+            sources = root / "sources"
+            sources.mkdir()
             lock = root / "lock.json"
             lock.write_text("{}", encoding="utf-8")
             closure_host.collect_verified_runtime_closure(
                 clean_closure_host.CLEAN_REBUILT_IMAGE_DIGEST,
                 trace,
+                license_sources=sources,
                 profile_name=CLEAN_RUNTIME_PROFILE_NAME,
                 clean_runtime_lock=lock,
             )
@@ -396,27 +409,6 @@ class DiffusersCleanRuntimeClosureTests(unittest.TestCase):
         self.assertEqual(
             command[command.index("--profile") + 1], CLEAN_RUNTIME_PROFILE_NAME
         )
-
-    def test_clean_profile_rejects_license_inputs(self) -> None:
-        """This evidence slice cannot accept source or review bytes through optional arguments."""
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            trace = root / "trace"
-            trace.mkdir()
-            lock = root / "lock.json"
-            lock.write_text("{}", encoding="utf-8")
-            review = root / "review.json"
-            review.write_text("{}", encoding="utf-8")
-            with self.assertRaisesRegex(
-                closure_host.ClosureEvidenceError, "licence evidence"
-            ):
-                closure_host.collect_verified_runtime_closure(
-                    clean_closure_host.CLEAN_REBUILT_IMAGE_DIGEST,
-                    trace,
-                    license_review=review,
-                    profile_name=CLEAN_RUNTIME_PROFILE_NAME,
-                    clean_runtime_lock=lock,
-                )
 
     def test_two_trace_gate_retains_one_summary_only_when_closures_agree(self) -> None:
         """Trace-specific digests may differ while every classified byte and blocker must match."""
