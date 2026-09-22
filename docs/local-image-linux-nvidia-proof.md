@@ -152,8 +152,13 @@ inventories to equal the lock; and compare normalized regular-file paths, modes,
 The first rebuilt image also passed two fresh full private-protocol proofs. Both runs denied network access, found no
 UCC installation or mapping, produced identical cold/warm output matching the previously reviewed control, cancelled
 in 101 ms, and shut down cleanly. Their separate trace digests and path-free measurements are retained in
-[`local-image-linux-clean-runtime-proof.json`](local-image-linux-clean-runtime-proof.json). A rebuilt-image closure and
-licence review do not yet exist, so Linux remains unavailable.
+[`local-image-linux-clean-runtime-proof.json`](local-image-linux-clean-runtime-proof.json). A distinct closure profile
+now binds only the exact rebuilt image, Ubuntu base digest, conventional PyTorch worker/runtime identity, frozen input
+lock, and either retained trace context. Two independent read-only, non-root, network-disabled collections agree on
+the same 161 files, 4,039,257,278 bytes, 114 ELF files, and 62 components. The retained path-free summary is
+[`local-image-linux-clean-runtime-closure-review.json`](local-image-linux-clean-runtime-closure-review.json), with
+SHA-256 `f90d57ef58c18a779c9d87301c757d64106f61079bb1edacfcd59b09248c261e`. Closure is complete, but
+68 licence-only blockers keep review, assembly, distribution, and Linux availability false.
 
 The repository now has a proof-only offline input-lock gate for the next clean build. It resolves the source image
 reference through the Docker daemon, requires the exact clean image ID and Linux/ARM64 target, and collects its complete
