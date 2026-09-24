@@ -291,9 +291,12 @@ in `dependency-inventory.json`. No application runtime download occurs.
 For interactive development, `npm run tauri:python` is the only convenience entry point that selects these ignored
 resources. Linux and Windows reuse their existing development overlays. macOS supplies the complete nested XPC client
 as a debug resource because `tauri dev` runs an adjacent executable rather than a packaged `Contents/MacOS` binary;
-the native resolver accepts that exact marked debug layout while continuing to require `Contents/Helpers` in packaged
-apps. A fixed process-scoped flag is set only for that command, so copied debug resources left by Tauri cannot enable a
-later ordinary run. The ordinary `npm run tauri dev` path and every base package remain Python-free.
+before launch the command development-signs and verifies the staged runner, XPC service, and client app inside-out with
+the sole active Apple Development identity. When more than one usable identity exists, the caller must select one with
+`BOTTIE_APPLE_SIGNING_IDENTITY`. The native resolver accepts that exact marked debug layout while continuing to require
+`Contents/Helpers` in packaged apps. A fixed process-scoped flag is set only for that command, so copied debug resources
+left by Tauri cannot enable a later ordinary run. The ordinary `npm run tauri dev` path and every base package remain
+Python-free.
 
 On the current Apple-silicon macOS host, the locally built official runtime is 40,864,108 bytes with tree digest
 `293a02f7cc9bf01945c53a0fa68429cd7d7570b94da5bdde8502c857a2c97b2b`; the optimized unsigned helper is 14,273,328
@@ -619,10 +622,11 @@ than leaving orchestration waiting on an invisible decision.
 The Tool activity surface recognizes only the exact bounded argument shape and shows the proposed purpose followed by
 the complete inert source. It explicitly states that Bottie has not run the code and suppresses the redundant raw
 approval-error envelope. A separate modal shows the native pending proposal, traps keyboard focus, and offers one
-Approve once or Deny action. Approved and denied acknowledgements both remain explicit that no code ran. Malformed or
-future-shaped records retain the generic inert JSON disclosure instead. The development-only
-`?python=approval-review` browser fixture makes the pending, approved, and denied presentation reproducible without
-native inference or execution.
+Approve once or Deny action. After native code records either decision, the production modal closes immediately so it
+cannot obscure the resumed provider turn; durable Tool activity presents the eventual decision and result. Malformed
+or future-shaped records retain the generic inert JSON disclosure instead. The development-only
+`?python=approval-review` browser fixture retains explicit pending, approved, and denied acknowledgements so every
+presentation remains reproducible without native inference or execution.
 
 After the waiter consumes an approval, the new provider-neutral execution boundary applies the existing policy grant
 to the unchanged complete call and validates the arguments again. Only then does it translate `source` to the helper's

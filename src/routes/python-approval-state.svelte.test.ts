@@ -10,7 +10,7 @@ const pending = {
 };
 
 describe("PythonApprovalState", () => {
-  it("loads native pending state and sends only its opaque token plus one decision", async () => {
+  it("loads native pending state, records one decision, and immediately closes the review", async () => {
     const get = vi.fn().mockResolvedValue(pending);
     const decide = vi.fn().mockResolvedValue({ ...pending, phase: "approved" });
     const listen = vi.fn().mockResolvedValue(vi.fn());
@@ -22,8 +22,17 @@ describe("PythonApprovalState", () => {
     expect(get).toHaveBeenCalledOnce();
     expect(listen).toHaveBeenCalledOnce();
     expect(decide).toHaveBeenCalledWith("opaque-native-token", "approve");
-    expect(state.approval?.phase).toBe("approved");
+    expect(state.approval).toBeNull();
     expect(state.error).toBe("");
+  });
+
+  it("keeps terminal feedback only in the inert browser preview", async () => {
+    const state = new PythonApprovalState();
+    state.preview(pending);
+
+    await state.decide("approve");
+
+    expect(state.approval?.phase).toBe("approved");
   });
 
   it("keeps the pending review visible with fixed feedback when a decision fails", async () => {
