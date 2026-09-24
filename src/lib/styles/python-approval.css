@@ -8,6 +8,12 @@
   place-items: center;
 }
 .python-approval-dialog {
+  --python-approval-button-background: #34343f;
+  --python-approval-button-border: #878394;
+  --python-approval-button-text: #fffdf9;
+  --python-approval-primary-background: #f0b9b0;
+  --python-approval-primary-border: #f7d2cc;
+  --python-approval-primary-text: #281415;
   width: min(620px, 100%);
   max-height: min(720px, calc(100vh - 48px));
   padding: 20px;
@@ -75,22 +81,28 @@
 }
 .python-approval-actions button {
   min-width: 78px;
+  min-height: 40px;
   padding: 8px 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--python-approval-button-border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--muted-text);
+  background: var(--python-approval-button-background);
+  color: var(--python-approval-button-text);
   cursor: pointer;
   font: inherit;
+  font-size: 12px;
+  font-weight: 650;
 }
 .python-approval-actions button.primary {
-  border-color: rgba(212, 154, 145, 0.42);
-  background: rgba(212, 154, 145, 0.12);
-  color: #d7aaa3;
+  border-color: var(--python-approval-primary-border);
+  background: var(--python-approval-primary-background);
+  color: var(--python-approval-primary-text);
+}
+.python-approval-actions button:not(:disabled):hover {
+  filter: brightness(1.08);
 }
 .python-approval-actions button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.72;
 }
 @media (max-width: 560px) {
   .python-approval-backdrop {

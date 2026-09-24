@@ -266,9 +266,12 @@ staged under `package/python-development`, start the explicit contained-Python d
 npm run tauri:python
 ```
 
-That command adds only the current platform's development resources. `run_python` is then advertised only when the
-selected model also reports native tool support, and every proposed execution still requires exact one-use approval.
-Its process-scoped activation also prevents resources left in the debug target from enabling later ordinary dev runs.
+That command adds only the current platform's development resources. On macOS it also development-signs and verifies
+the staged runner, XPC service, and client app inside-out with the sole active Apple Development identity; set
+`BOTTIE_APPLE_SIGNING_IDENTITY` when more than one such identity is available. `run_python` is then advertised only
+when the selected model also reports native tool support, and every proposed execution still requires exact one-use
+approval. Its process-scoped activation also prevents resources left in the debug target from enabling later ordinary
+dev runs.
 
 On first use, Bottie asks you to confirm a working provider and model after explaining which data stays local and which
 data follows the selected route.

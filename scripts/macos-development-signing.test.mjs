@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   cargoRunnerValue,
+  pythonDevelopmentSigningPlan,
   pythonDevelopmentArguments,
   pythonDevelopmentEnvironment,
   resolveTauriCliPath,
@@ -98,5 +99,23 @@ describe("macOS development signing", () => {
       BOTTIE_PYTHON_DEVELOPMENT: "1",
     });
     expect(() => pythonDevelopmentEnvironment({ BOTTIE_PYTHON_DEVELOPMENT: "unexpected" })).toThrow(/already set/);
+  });
+
+  it("signs staged Python code inside-out with the selected development identity", () => {
+    const identity = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const plan = pythonDevelopmentSigningPlan("/repo", identity);
+
+    expect(plan.map((entry) => entry.kind)).toEqual(["runner", "service", "client"]);
+    expect(plan[0].path).toBe(
+      "/repo/package/python-development/BottiePythonXPCClient.app/Contents/XPCServices/" +
+        "com.bottie.python-runner.xpc/Contents/Helpers/bottie-python-runner",
+    );
+    expect(plan[0].arguments).toContain("/repo/macos-python-xpc/Runner.entitlements");
+    expect(plan[1].arguments).toContain("/repo/macos-python-xpc/Service.entitlements");
+    expect(plan[2].path).toBe("/repo/package/python-development/BottiePythonXPCClient.app");
+    for (const entry of plan) {
+      expect(entry.arguments).toContain(identity);
+      expect(entry.arguments.at(-1)).toBe(entry.path);
+    }
   });
 });

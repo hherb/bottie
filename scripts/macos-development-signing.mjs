@@ -2,13 +2,19 @@
 
 /** Signs freshly linked macOS development executables before Cargo runs them. */
 
+import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { dirname, join } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const APPLE_DEVELOPMENT_PREFIX = "Apple Development:";
 const DEVELOPMENT_IDENTIFIER = "com.bottie.app.dev";
 const PYTHON_DEVELOPMENT_ENVIRONMENT = "BOTTIE_PYTHON_DEVELOPMENT";
+const PYTHON_CLIENT_APPLICATION = "BottiePythonXPCClient.app";
+const PYTHON_SERVICE_BUNDLE = "com.bottie.python-runner.xpc";
+const PYTHON_RUNNER_EXECUTABLE = "bottie-python-runner";
+const PYTHON_EVIDENCE_FILENAME = "python-runtime-evidence.json";
 const MACOS_PYTHON_DEVELOPMENT_CONFIG = JSON.stringify({
   bundle: {
     resources: {
@@ -23,6 +29,7 @@ const PYTHON_DEVELOPMENT_CONFIGS = {
   win32: "src-tauri/tauri.python-development.windows.conf.json",
 };
 const SIGNATURE_PAGE_SIZE = "4096";
+const SIGNING_OPTIONS = ["--options", "runtime", "--timestamp=none"];
 const RUNNER_ENVIRONMENTS = ["CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER", "CARGO_TARGET_X86_64_APPLE_DARWIN_RUNNER"];
 
 /** Parses usable code-signing identities without returning certificate labels to callers. */
@@ -88,6 +95,64 @@ export function pythonDevelopmentEnvironment(environment) {
   return { ...environment, [PYTHON_DEVELOPMENT_ENVIRONMENT]: "1" };
 }
 
+/** Returns the exact inside-out signing plan for staged macOS Python development code. */
+export function pythonDevelopmentSigningPlan(repositoryRoot, identity) {
+  const application = join(repositoryRoot, "package", "python-development", PYTHON_CLIENT_APPLICATION);
+  const service = join(application, "Contents", "XPCServices", PYTHON_SERVICE_BUNDLE);
+  const runner = join(service, "Contents", "Helpers", PYTHON_RUNNER_EXECUTABLE);
+  const entitlementRoot = join(repositoryRoot, "macos-python-xpc");
+  const prefix = ["--force", "--sign", identity, ...SIGNING_OPTIONS];
+  return [
+    {
+      kind: "runner",
+      path: runner,
+      arguments: [...prefix, "--entitlements", join(entitlementRoot, "Runner.entitlements"), runner],
+    },
+    {
+      kind: "service",
+      path: service,
+      arguments: [...prefix, "--entitlements", join(entitlementRoot, "Service.entitlements"), service],
+    },
+    { kind: "client", path: application, arguments: [...prefix, application] },
+  ];
+}
+
+/** Resolves the sole explicitly usable Apple Development identity from the active keychains. */
+function developmentIdentity() {
+  const identities = spawnSync("security", ["find-identity", "-v", "-p", "codesigning"], {
+    encoding: "utf8",
+  });
+  if (identities.status !== 0) throw new Error("Bottie could not inspect the active code-signing identities.");
+  return selectAppleDevelopmentIdentity(identities.stdout, process.env.BOTTIE_APPLE_SIGNING_IDENTITY);
+}
+
+/** Updates the nested evidence after signing changes the exact runner bytes. */
+function refreshPythonRunnerEvidence(plan) {
+  const runner = plan.find((entry) => entry.kind === "runner");
+  const service = plan.find((entry) => entry.kind === "service");
+  if (!runner || !service) throw new Error("Bottie's Python development signing plan is incomplete.");
+  const evidencePath = join(service.path, "Contents", "Resources", PYTHON_EVIDENCE_FILENAME);
+  const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
+  const bytes = readFileSync(runner.path);
+  evidence.runnerBytes = bytes.length;
+  evidence.runnerSha256 = createHash("sha256").update(bytes).digest("hex");
+  writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+}
+
+/** Signs and verifies staged Python development resources without publishing or notarizing them. */
+function signPythonDevelopmentResources(repositoryRoot, identity) {
+  const plan = pythonDevelopmentSigningPlan(repositoryRoot, identity);
+  for (const entry of plan) {
+    const signing = spawnSync("codesign", entry.arguments, { stdio: "inherit" });
+    if (signing.status !== 0) throw new Error("Bottie could not development-sign the staged Python runtime.");
+    if (entry.kind === "runner") refreshPythonRunnerEvidence(plan);
+  }
+  for (const entry of plan) {
+    const verification = spawnSync("codesign", ["--verify", "--strict", entry.path], { stdio: "inherit" });
+    if (verification.status !== 0) throw new Error("The development-signed Python runtime failed verification.");
+  }
+}
+
 /** Runs one child process and mirrors its terminal lifecycle. */
 function runChild(command, arguments_, options = {}) {
   return new Promise((resolve, reject) => {
@@ -122,6 +187,10 @@ function runChild(command, arguments_, options = {}) {
 async function runTauri(arguments_, pythonDevelopment = false) {
   const tauriArguments = pythonDevelopment ? pythonDevelopmentArguments(process.platform, arguments_) : arguments_;
   const environment = pythonDevelopment ? pythonDevelopmentEnvironment(process.env) : { ...process.env };
+  if (pythonDevelopment && process.platform === "darwin") {
+    const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+    signPythonDevelopmentResources(repositoryRoot, developmentIdentity());
+  }
   if (shouldConfigureDevelopmentSigning(process.platform, tauriArguments)) {
     const runner = cargoRunnerValue(process.execPath, fileURLToPath(import.meta.url));
     for (const name of RUNNER_ENVIRONMENTS) {
@@ -139,11 +208,7 @@ async function runTauri(arguments_, pythonDevelopment = false) {
 async function signAndRun(arguments_) {
   const [executable, ...executableArguments] = arguments_;
   if (!executable) throw new Error("Cargo did not supply an executable to the Bottie development runner.");
-  const identities = spawnSync("security", ["find-identity", "-v", "-p", "codesigning"], {
-    encoding: "utf8",
-  });
-  if (identities.status !== 0) throw new Error("Bottie could not inspect the active code-signing identities.");
-  const identity = selectAppleDevelopmentIdentity(identities.stdout, process.env.BOTTIE_APPLE_SIGNING_IDENTITY);
+  const identity = developmentIdentity();
   const signing = spawnSync(
     "codesign",
     [

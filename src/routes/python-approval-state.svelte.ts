@@ -73,9 +73,12 @@ export class PythonApprovalState {
     this.busy = true;
     this.error = "";
     try {
-      this.approval = this.previewOnly
-        ? { ...approval, phase: decision === "approve" ? "approved" : "denied" }
-        : await this.gateway.decide(approval.requestId, decision);
+      if (this.previewOnly) {
+        this.approval = { ...approval, phase: decision === "approve" ? "approved" : "denied" };
+      } else {
+        await this.gateway.decide(approval.requestId, decision);
+        this.approval = null;
+      }
     } catch {
       this.error = "Bottie could not record that decision. Review the request and try again.";
     } finally {
