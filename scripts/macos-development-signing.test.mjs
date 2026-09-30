@@ -56,7 +56,7 @@ describe("macOS development signing", () => {
     );
   });
 
-  it("selects the explicit platform Python development resources only for dev", () => {
+  it("selects explicit platform Python resources for development and packaged builds", () => {
     expect(pythonDevelopmentArguments("linux", ["dev"])).toEqual([
       "dev",
       "--config",
@@ -79,7 +79,13 @@ describe("macOS development signing", () => {
         },
       },
     });
-    expect(() => pythonDevelopmentArguments("darwin", ["build"])).toThrow(/development/);
+    expect(pythonDevelopmentArguments("darwin", ["build", "--bundles", "dmg"])).toEqual([
+      "build",
+      "--bundles",
+      "dmg",
+      "--config",
+      "src-tauri/tauri.python-development.macos.conf.json",
+    ]);
     expect(() => pythonDevelopmentArguments("freebsd", ["dev"])).toThrow(/platform/);
     expect(pythonDevelopmentArguments("linux", ["dev", "--", "application-argument"])).toEqual([
       "dev",

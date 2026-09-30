@@ -7,7 +7,8 @@ import { describe, it } from "vitest";
 import {
   APPLICATION_ICON_SOURCE,
   DESKTOP_ICON_PNG_SIZES,
-  FAVICON_SOURCE,
+  FAVICON_OUTPUTS,
+  WEBSITE_LOGO_OUTPUT,
   canonicalizeIcns,
   inspectPng,
   tauriIconArguments,
@@ -18,8 +19,9 @@ const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
 describe("application icon assets", () => {
   it("uses the approved source and a locked desktop-only generation boundary", () => {
-    assert.equal(APPLICATION_ICON_SOURCE, "assets/bottie-logo-kit/bottie-icon-512.png");
-    assert.equal(FAVICON_SOURCE, "assets/bottie-logo-kit/favicon-64.png");
+    assert.equal(APPLICATION_ICON_SOURCE, "assets/logo_v2/bottie_icon_512.png");
+    assert.deepEqual(FAVICON_OUTPUTS, ["static/favicon.png", "website/public/favicon.png"]);
+    assert.equal(WEBSITE_LOGO_OUTPUT, "website/public/bottie-logo.png");
     assert.deepEqual(tauriIconArguments("/tmp/bottie-icons"), [
       "icon",
       APPLICATION_ICON_SOURCE,
@@ -48,13 +50,13 @@ describe("application icon assets", () => {
     });
   });
 
-  it("reads square 8-bit RGBA PNG metadata without an image decoder", async () => {
+  it("reads the square 8-bit RGB master PNG metadata without an image decoder", async () => {
     const source = await readFile(join(REPOSITORY_ROOT, APPLICATION_ICON_SOURCE));
 
     assert.deepEqual(inspectPng(source), {
       bitDepth: 8,
-      colorType: 6,
-      hasAlpha: true,
+      colorType: 2,
+      hasAlpha: false,
       height: 512,
       width: 512,
     });
@@ -85,10 +87,11 @@ describe("application icon assets", () => {
     const verification = await verifyCheckedInApplicationIcons(REPOSITORY_ROOT);
 
     assert.deepEqual(verification, {
-      favicon: { height: 64, width: 64 },
+      favicons: { count: 2, height: 64, width: 64 },
       icns: true,
       ico: true,
       pngCount: 15,
+      websiteLogo: { height: 256, width: 256 },
     });
   });
 });

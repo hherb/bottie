@@ -440,11 +440,15 @@ bundle with:
 npm run icons:check
 npm run dependencies:check
 npm run package:macos
+npm run package:macos:dmg
 npm run package:macos:sign-development
 npm run package:macos:inspect
 ```
 
-The build is app-only, non-interactive, skips distribution signing, and passes `--locked` to Cargo. The optional
+The standard build is app-only. The DMG command creates an unsigned local installer with the contained Python runtime
+and `run_python` capability under `src-tauri/target/release/bundle/dmg/`; use `npm run package:macos:dmg:no-python`
+only for an explicitly Python-free installer. Both are non-interactive, skip distribution signing, and pass `--locked`
+to Cargo. The optional
 development-signing step uses the same identity-selection policy as `npm run tauri dev`, adds no timestamp or
 notarization, and prints no certificate identity. Inspection requires the generated Bottie ICNS at its application
 bundle path and reports only bundle-relative paths and hashes, public plist metadata, architecture, signing class, and

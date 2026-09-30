@@ -20,17 +20,17 @@
     "limitation": "Rust entries are the union of the locked Bottie application and development Python runner graphs for macOS arm64/x64, Windows x64, and Linux x64. Each Cargo.lock remains a conservative superset for other architectures."
   },
   "inputs": {
-    "package.json": "7cfe5f6dc255db8af96e4d0336ac60da42eea373793a63d46abd76d482d8d118",
+    "package.json": "1800b36b7efcdf4889adccff9e4febe2983ba9aad33a88011e2b9720249dd7ec",
     "package-lock.json": "9a70a3961ecb96ad63e5ae42356ec67bd9a2b4eb59852b7fb74ffd295417ed8d",
-    "src-tauri/Cargo.toml": "ba20bce8724b688201c0babaacbf9fcd093e005d73d4cd806b8907012618b896",
+    "src-tauri/Cargo.toml": "a65728e2ea9fb58003221c53c4bdda0512c983fdde659a360218f67e163ddbc4",
     "src-tauri/Cargo.lock": "ba90084a7ee5771b643c6d0e0498d0d01bf83d50527017a3ca3c8a87364ad462",
     "src-tauri/tauri.conf.json": "f8e1ac4a5304f5c25517eb825da447c100586ebeca2958ff674b8cb1768ab44d",
     "src-tauri/tauri.updater.conf.json": "c1d7d16c801bc2b87747d5b0a71f8fae927122e4897453eea23e51e98b191e33",
     "src-tauri/src/semantic_indexer.rs": "37cc38d5ac94f3556fde8a18a6a6b0e5b69fccc6ed32128e23c1d8688ed339ec",
     "src-tauri/src/updater.rs": "d5eaae60314be6be41c7da88544d90d4a537bc23f6ed8c8d0a9c0c76aa5bddd5",
     "src-tauri/src/updater_evidence.rs": "9c740591d18175d221b67579022b16a820f068ae3cdadd6030c9be318790a7cc",
-    "scripts/dependency-inventory.mjs": "bbe6aad420379e9046a0a184394487b28b3be7726dffb3164cc539bc928a3e02",
-    "scripts/application-icons.mjs": "1307b7f746a9ef9f6920739934fd8a4aea6886f3d735e58dc0c5c016fb8ee275",
+    "scripts/dependency-inventory.mjs": "0ee0720b0ca4b6fbc704897520fba5a7b5e7b42a063069d336223be7ad86c880",
+    "scripts/application-icons.mjs": "b497acde5aba5e6775be7532f169587adb710f999d426e38bffb2927351c53b9",
     "scripts/release-candidate.mjs": "acb1fc5146fdd45b50c6b138cf3647ef3b3857c15d7cf3edfb4863b6946c55fe",
     "scripts/release-candidate-distributions.mjs": "d9e808379206bff952ebc4f059c4568a16619b77e2c4505620d3ef420043e6ad",
     "scripts/release-candidate-runtime.mjs": "bab0720610eeb980a85a151d10078b919ca7c261fec1f1f111108ba6a60b21aa",
@@ -39,7 +39,7 @@
     "scripts/update-publication.mjs": "26db45b0d5a91727ab67f3b8912c8dc6e62993280b82d15afe1de2a53c400f73",
     "scripts/updater-artifact.mjs": "3be54067f1a65ae95b5da27f692461785b6e155c34fe68f4581589e8474abd18",
     "scripts/third-party-notices.mjs": "7175724b4d5ec4191f9df8679de5b365f4127b435585125c35c3f9320a0cdd51",
-    "scripts/macos-package.mjs": "c1b4951e676662cc548f1925507ca693cdcf2a3976f33346411dee857f3c1781",
+    "scripts/macos-package.mjs": "a00357ff84933bd7ee1c99fea465cd2e644394d1bcb8647e4de816fb698334cf",
     "scripts/macos-distribution.mjs": "4f514fb670310d7394f244255e0dd4feffe4089217897d33392ff0bcbf9611ee",
     "scripts/windows-package.mjs": "0f614dac9be5b0c443426e5cd48d9988701467fc19fec1d0e5156ae4e439aea0",
     "scripts/windows-signature.mjs": "1247e1a276635865bd6eb8a16d8e2e4f90df03e83a8a31d03ee0d5f6387f7d96",
@@ -113,17 +113,17 @@
     "windows-python-appcontainer/ProfileStorage.hpp": "3cc523394ed3492dd64645d8641e19ad987e53f8657db7aae723a3383d8462c5",
     "windows-python-appcontainer/Proof.cpp": "09b250bd7376c213aeee83765ddcec85692db2f58d804479e9e00b98a3e5f5e8",
     "windows-python-appcontainer/RestrictedToken.hpp": "c73dd4f8606b5ba4e50d62919c23d3e6694df6bed4f72db5bd54460c59fe1f94",
-    "assets/bottie-logo-kit/README.md": "69e80eb92e33b48d41438f7eddd4274411dbaeb0f35daed18acfc2e61b649262",
-    "assets/bottie-logo-kit/bottie-icon-512.png": "91e8f85833b157f9a2530ad97925ed9c45484b3bd6f45c596879ab0648238a1e",
-    "assets/bottie-logo-kit/bottie-mark-color.svg": "b13001902fd696ea021da2a112e824a95fe2007c2a51c52a8b83edee2abe57d6",
-    "assets/bottie-logo-kit/favicon-64.png": "767a2c4f8d4610411f9ba48fc9479d01ea40b7bd80e9b7daf002094914ab8fb8",
-    "src-tauri/icons/32x32.png": "4ed9793922b570dd1180d39bc29df6a84f6432c48d0389cc8df7e222d4eeddd7",
-    "src-tauri/icons/64x64.png": "4c0fa2249921fac5d0524a80d6eafc42339b768adce08b7013de62f65cff44cd",
-    "src-tauri/icons/128x128.png": "0b7619f59224bbdc71c082f736a8575d83dbfc784c505aef8cae8e02078c8646",
-    "src-tauri/icons/128x128@2x.png": "8b889e5d614096b2dd1aa1dec5104331422a748b673abd0789137d946bb3231a",
-    "src-tauri/icons/icon.icns": "ade7ecb16cc578d9d0af8f405fe9f14ee988a637a092670b79efc86e001727c1",
-    "src-tauri/icons/icon.ico": "48f29ff6a83bc682fd040c9b0923c616aa9d0f6e38c55256f854d912360cafe3",
-    "static/favicon.png": "767a2c4f8d4610411f9ba48fc9479d01ea40b7bd80e9b7daf002094914ab8fb8"
+    "assets/logo_v2/README.md": "507e5fd5648a80aabbe6c5d19678c0245408ccacc0c1af2ad2afbe83f319f171",
+    "assets/logo_v2/bottie_icon_512.png": "c714c05c68ad3514860a41939c442ce085b152fedbd2f54fc8660c8fd1eb187b",
+    "src-tauri/icons/32x32.png": "01e65b97f319847919bdd11a469ad47700841a596bbaec39b9e404c56e6b09f7",
+    "src-tauri/icons/64x64.png": "8c5a357e8a4cae6cadd9739c0e39803d758cfa669bf21ceeac6007b179f679f4",
+    "src-tauri/icons/128x128.png": "f3b1c79ba67c46c358e707961d543d9aff9dbaa3bc6e4fc3ef4cb1961bcf098d",
+    "src-tauri/icons/128x128@2x.png": "b192074d7df91ff3e5f1fe50dc965159d5e11cfa2f7cb1d177450a6eb17f6751",
+    "src-tauri/icons/icon.icns": "29cd5385f7ba60e04e6227da8d27e7544f5ad17eec60248930217b05ad5431db",
+    "src-tauri/icons/icon.ico": "363cf4dfcef05e43c75d634adf988c381b37668b029a83d1751f7350fd063e89",
+    "static/favicon.png": "8c5a357e8a4cae6cadd9739c0e39803d758cfa669bf21ceeac6007b179f679f4",
+    "website/public/favicon.png": "8c5a357e8a4cae6cadd9739c0e39803d758cfa669bf21ceeac6007b179f679f4",
+    "website/public/bottie-logo.png": "b192074d7df91ff3e5f1fe50dc965159d5e11cfa2f7cb1d177450a6eb17f6751"
   },
   "securityRelevantFeatures": [
     {
@@ -189,21 +189,21 @@
       "licence": "MIT",
       "classification": "compatible",
       "delivery": "Bundled in platform applications or the compiled frontend.",
-      "source": "assets/bottie-logo-kit/README.md",
+      "source": "assets/logo_v2/README.md",
       "generationSources": {
-        "assets/bottie-logo-kit/README.md": "69e80eb92e33b48d41438f7eddd4274411dbaeb0f35daed18acfc2e61b649262",
-        "assets/bottie-logo-kit/bottie-icon-512.png": "91e8f85833b157f9a2530ad97925ed9c45484b3bd6f45c596879ab0648238a1e",
-        "assets/bottie-logo-kit/bottie-mark-color.svg": "b13001902fd696ea021da2a112e824a95fe2007c2a51c52a8b83edee2abe57d6",
-        "assets/bottie-logo-kit/favicon-64.png": "767a2c4f8d4610411f9ba48fc9479d01ea40b7bd80e9b7daf002094914ab8fb8"
+        "assets/logo_v2/README.md": "507e5fd5648a80aabbe6c5d19678c0245408ccacc0c1af2ad2afbe83f319f171",
+        "assets/logo_v2/bottie_icon_512.png": "c714c05c68ad3514860a41939c442ce085b152fedbd2f54fc8660c8fd1eb187b"
       },
       "files": {
-        "src-tauri/icons/32x32.png": "4ed9793922b570dd1180d39bc29df6a84f6432c48d0389cc8df7e222d4eeddd7",
-        "src-tauri/icons/64x64.png": "4c0fa2249921fac5d0524a80d6eafc42339b768adce08b7013de62f65cff44cd",
-        "src-tauri/icons/128x128.png": "0b7619f59224bbdc71c082f736a8575d83dbfc784c505aef8cae8e02078c8646",
-        "src-tauri/icons/128x128@2x.png": "8b889e5d614096b2dd1aa1dec5104331422a748b673abd0789137d946bb3231a",
-        "src-tauri/icons/icon.icns": "ade7ecb16cc578d9d0af8f405fe9f14ee988a637a092670b79efc86e001727c1",
-        "src-tauri/icons/icon.ico": "48f29ff6a83bc682fd040c9b0923c616aa9d0f6e38c55256f854d912360cafe3",
-        "static/favicon.png": "767a2c4f8d4610411f9ba48fc9479d01ea40b7bd80e9b7daf002094914ab8fb8"
+        "src-tauri/icons/32x32.png": "01e65b97f319847919bdd11a469ad47700841a596bbaec39b9e404c56e6b09f7",
+        "src-tauri/icons/64x64.png": "8c5a357e8a4cae6cadd9739c0e39803d758cfa669bf21ceeac6007b179f679f4",
+        "src-tauri/icons/128x128.png": "f3b1c79ba67c46c358e707961d543d9aff9dbaa3bc6e4fc3ef4cb1961bcf098d",
+        "src-tauri/icons/128x128@2x.png": "b192074d7df91ff3e5f1fe50dc965159d5e11cfa2f7cb1d177450a6eb17f6751",
+        "src-tauri/icons/icon.icns": "29cd5385f7ba60e04e6227da8d27e7544f5ad17eec60248930217b05ad5431db",
+        "src-tauri/icons/icon.ico": "363cf4dfcef05e43c75d634adf988c381b37668b029a83d1751f7350fd063e89",
+        "static/favicon.png": "8c5a357e8a4cae6cadd9739c0e39803d758cfa669bf21ceeac6007b179f679f4",
+        "website/public/favicon.png": "8c5a357e8a4cae6cadd9739c0e39803d758cfa669bf21ceeac6007b179f679f4",
+        "website/public/bottie-logo.png": "b192074d7df91ff3e5f1fe50dc965159d5e11cfa2f7cb1d177450a6eb17f6751"
       }
     },
     {

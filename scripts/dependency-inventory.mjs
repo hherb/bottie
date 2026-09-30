@@ -33,13 +33,10 @@ const APPLICATION_ASSETS = [
   "src-tauri/icons/icon.icns",
   "src-tauri/icons/icon.ico",
   "static/favicon.png",
+  "website/public/favicon.png",
+  "website/public/bottie-logo.png",
 ];
-const APPLICATION_ASSET_SOURCES = [
-  "assets/bottie-logo-kit/README.md",
-  "assets/bottie-logo-kit/bottie-icon-512.png",
-  "assets/bottie-logo-kit/bottie-mark-color.svg",
-  "assets/bottie-logo-kit/favicon-64.png",
-];
+const APPLICATION_ASSET_SOURCES = ["assets/logo_v2/README.md", "assets/logo_v2/bottie_icon_512.png"];
 const SPDX_LICENCE_SOURCES = [
   "third-party/spdx-3.28.0/exceptions/LLVM-exception.txt",
   "third-party/spdx-3.28.0/licenses/Apache-2.0.txt",
@@ -380,7 +377,7 @@ function reviewedAssets(repositoryRoot) {
       licence: "MIT",
       classification: "compatible",
       delivery: "Bundled in platform applications or the compiled frontend.",
-      source: "assets/bottie-logo-kit/README.md",
+      source: "assets/logo_v2/README.md",
       generationSources: Object.fromEntries(
         APPLICATION_ASSET_SOURCES.map((path) => [path, sha256(join(repositoryRoot, path))]),
       ),

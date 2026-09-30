@@ -34,6 +34,8 @@
     "icons:generate": "node scripts/application-icons.mjs --generate",
     "icons:check": "node scripts/application-icons.mjs --check",
     "package:macos": "node scripts/macos-package.mjs --build",
+    "package:macos:dmg": "node scripts/macos-package.mjs --build-python-dmg",
+    "package:macos:dmg:no-python": "node scripts/macos-package.mjs --build-dmg",
     "package:macos:sign-development": "node scripts/macos-package.mjs --development-sign",
     "package:macos:inspect": "node scripts/macos-package.mjs --inspect",
     "package:macos:smoke": "node scripts/macos-package.mjs --smoke",

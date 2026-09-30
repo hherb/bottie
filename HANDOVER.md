@@ -42,7 +42,15 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
 - Both final DGX collections agree and reproduce the checked-in closure record SHA-256. JSON parsing and
   `git diff --check` pass.
 
-## Next slice
+## Recent maintenance
+
+Branding maintenance completed on 2026-09-30: `assets/logo_v2/bottie_icon_512.png` is the approved app/general logo
+master; the locked icon pipeline now derives both product favicons and the website header/footer logo from it.
+`npm run package:macos:dmg` builds the
+local unsigned macOS installer with contained Python by default; the explicit `:no-python` variant opts out. The
+inspected arm64 DMG is neither distribution-signed nor notarized.
+
+## Next product slice
 
 Complete independent expression review for the exact clean closure without assembling a bundle:
 

@@ -142,8 +142,9 @@ Authoritative source: [whisper.cpp model repository](https://huggingface.co/gger
 
 ### Application artwork and platform frameworks
 
-The Tauri icon set and browser favicon are repository-owned MIT-licensed bytes. Their editable sources, generation
-inputs, packaged outputs, exact hashes, and redistribution statement are recorded in the inventory. macOS WebKit,
+The Tauri icon set plus WebView favicon, website favicon, and website logo are repository-owned MIT-licensed bytes.
+Their approved master, generated outputs, exact hashes, and redistribution statement are recorded in the inventory.
+macOS WebKit,
 Security, LocalAuthentication, and other frameworks are supplied by the operating system and are not copied into
 Bottie's current app bundle.
 

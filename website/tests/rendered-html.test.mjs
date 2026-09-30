@@ -26,6 +26,8 @@ test("server-renders the complete Bottie landing page", async () => {
   const html = await response.text();
   assert.match(html, /<title>Bottie — Your context\. Your models\. Your rules\.<\/title>/i);
   assert.match(html, /Local-first AI, thoughtfully connected/);
+  assert.match(html, /src="\/bottie-logo\.png"[^>]*alt=""/);
+  assert.equal((html.match(/src="\/bottie-logo\.png"/g) ?? []).length, 2);
   assert.match(html, /href="#in-action">See Bottie in action/);
   assert.doesNotMatch(html, /href="#capabilities">Explore Bottie/);
   assert.match(html, /Bottie in action/);
@@ -54,5 +56,6 @@ test("emits production social metadata and assets", async () => {
   await Promise.all([
     access(new URL("public/og.png", projectRoot)),
     access(new URL("public/favicon.png", projectRoot)),
+    access(new URL("public/bottie-logo.png", projectRoot)),
   ]);
 });

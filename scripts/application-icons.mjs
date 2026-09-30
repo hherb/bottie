@@ -11,15 +11,15 @@ import { fileURLToPath } from "node:url";
 const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const TAURI_CLI = "node_modules/@tauri-apps/cli/tauri.js";
 const ICON_OUTPUT_DIRECTORY = "src-tauri/icons";
-const FAVICON_OUTPUT = "static/favicon.png";
+/** Browser-facing copies generated from the same approved application master. */
+export const FAVICON_OUTPUTS = Object.freeze(["static/favicon.png", "website/public/favicon.png"]);
+/** Public-site logo generated from the same approved application master. */
+export const WEBSITE_LOGO_OUTPUT = "website/public/bottie-logo.png";
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const PNG_IHDR_MINIMUM_BYTES = 29;
 
 /** Approved project-owned source image used by the locked Tauri icon generator. */
-export const APPLICATION_ICON_SOURCE = "assets/bottie-logo-kit/bottie-icon-512.png";
-
-/** Approved small-size source copied exactly to the compiled WebView favicon path. */
-export const FAVICON_SOURCE = "assets/bottie-logo-kit/favicon-64.png";
+export const APPLICATION_ICON_SOURCE = "assets/logo_v2/bottie_icon_512.png";
 
 /** Required generated desktop PNG names and their exact square pixel dimensions. */
 export const DESKTOP_ICON_PNG_SIZES = Object.freeze({
@@ -121,19 +121,27 @@ export async function verifyCheckedInApplicationIcons(repositoryRoot = REPOSITOR
   verifyIcns(await readFile(join(iconDirectory, "icon.icns")));
   verifyIco(await readFile(join(iconDirectory, "icon.ico")));
 
-  const favicon = await readFile(join(repositoryRoot, FAVICON_OUTPUT));
-  const faviconSource = await readFile(join(repositoryRoot, FAVICON_SOURCE));
-  if (!favicon.equals(faviconSource)) throw new Error("The WebView favicon differs from its approved source.");
-  const faviconMetadata = inspectPng(favicon);
-  if (faviconMetadata.width !== 64 || faviconMetadata.height !== 64 || !faviconMetadata.hasAlpha) {
-    throw new Error("The WebView favicon must be a 64x64 PNG with alpha.");
+  const generatedFavicon = await readFile(join(iconDirectory, "64x64.png"));
+  for (const faviconOutput of FAVICON_OUTPUTS) {
+    const favicon = await readFile(join(repositoryRoot, faviconOutput));
+    if (!favicon.equals(generatedFavicon)) {
+      throw new Error(`${faviconOutput} differs from the approved generated 64x64 icon.`);
+    }
   }
+  const faviconMetadata = inspectPng(generatedFavicon);
+  const websiteLogo = await readFile(join(repositoryRoot, WEBSITE_LOGO_OUTPUT));
+  const generatedWebsiteLogo = await readFile(join(iconDirectory, "128x128@2x.png"));
+  if (!websiteLogo.equals(generatedWebsiteLogo)) {
+    throw new Error(`${WEBSITE_LOGO_OUTPUT} differs from the approved generated 256x256 icon.`);
+  }
+  const websiteLogoMetadata = inspectPng(websiteLogo);
 
   return {
-    favicon: { height: faviconMetadata.height, width: faviconMetadata.width },
+    favicons: { count: FAVICON_OUTPUTS.length, height: faviconMetadata.height, width: faviconMetadata.width },
     icns: true,
     ico: true,
     pngCount: Object.keys(DESKTOP_ICON_PNG_SIZES).length,
+    websiteLogo: { height: websiteLogoMetadata.height, width: websiteLogoMetadata.width },
   };
 }
 
@@ -155,7 +163,10 @@ async function installGeneratedIcons(generatedDirectory) {
   await Promise.all(
     DESKTOP_ICON_FILES.map((name) => copyFile(join(generatedDirectory, name), join(iconDirectory, name))),
   );
-  await copyFile(join(REPOSITORY_ROOT, FAVICON_SOURCE), join(REPOSITORY_ROOT, FAVICON_OUTPUT));
+  await Promise.all(
+    FAVICON_OUTPUTS.map((output) => copyFile(join(generatedDirectory, "64x64.png"), join(REPOSITORY_ROOT, output))),
+  );
+  await copyFile(join(generatedDirectory, "128x128@2x.png"), join(REPOSITORY_ROOT, WEBSITE_LOGO_OUTPUT));
 }
 
 /** Proves checked-in desktop outputs exactly match a fresh locked generation. */

@@ -351,14 +351,9 @@ footer {
   color: #dcd8df;
   font-size: 16px;
 }
-.footer-brand .brand-mark {
+.footer-brand .brand-logo {
   width: 29px;
   height: 29px;
-  border-radius: 9px;
-}
-.footer-brand .brand-core {
-  width: 12px;
-  height: 12px;
 }
 footer > p {
   margin: 0;

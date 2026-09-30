@@ -28,6 +28,11 @@ const PYTHON_DEVELOPMENT_CONFIGS = {
   linux: "src-tauri/tauri.python-development.linux.conf.json",
   win32: "src-tauri/tauri.python-development.windows.conf.json",
 };
+const PYTHON_PACKAGED_CONFIGS = {
+  darwin: "src-tauri/tauri.python-development.macos.conf.json",
+  linux: "src-tauri/tauri.python-development.linux.conf.json",
+  win32: "src-tauri/tauri.python-development.windows.conf.json",
+};
 const SIGNATURE_PAGE_SIZE = "4096";
 const SIGNING_OPTIONS = ["--options", "runtime", "--timestamp=none"];
 const RUNNER_ENVIRONMENTS = ["CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER", "CARGO_TARGET_X86_64_APPLE_DARWIN_RUNNER"];
@@ -76,10 +81,11 @@ export function resolveTauriCliPath(packageEntryPath) {
 
 /** Adds the opt-in Python resources to one development-only Tauri invocation. */
 export function pythonDevelopmentArguments(platform, arguments_) {
-  if (arguments_[0] !== "dev") {
-    throw new Error("Bottie's Python resource command is development-only.");
+  const command = arguments_[0];
+  if (command !== "dev" && command !== "build") {
+    throw new Error("Bottie's Python resource command requires a development or packaged build.");
   }
-  const config = PYTHON_DEVELOPMENT_CONFIGS[platform];
+  const config = command === "dev" ? PYTHON_DEVELOPMENT_CONFIGS[platform] : PYTHON_PACKAGED_CONFIGS[platform];
   if (!config) throw new Error("Bottie's contained Python runtime is unavailable on this platform.");
   const separator = arguments_.indexOf("--");
   const insertion = separator < 0 ? arguments_.length : separator;

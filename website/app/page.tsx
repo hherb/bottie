@@ -9,9 +9,7 @@ export default function Home() {
     <main>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Bottie home">
-          <span className="brand-mark" aria-hidden="true">
-            <span className="brand-core" />
-          </span>
+          <img className="brand-logo" src="/bottie-logo.png" width="256" height="256" alt="" />
           <span>bottie</span>
           <span className="preview-label">preview</span>
         </a>
@@ -425,9 +423,7 @@ export default function Home() {
 
       <footer>
         <a className="brand footer-brand" href="#top">
-          <span className="brand-mark">
-            <span className="brand-core" />
-          </span>
+          <img className="brand-logo" src="/bottie-logo.png" width="256" height="256" alt="" />
           <span>bottie</span>
         </a>
         <p>Local-first. Open by design. Built with care.</p>

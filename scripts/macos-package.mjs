@@ -37,6 +37,16 @@ export function macosBuildArguments() {
   return ["build", "--bundles", "app", "--no-sign", "--ci", "--", "--locked"];
 }
 
+/** Returns the locked, unsigned Tauri arguments used to create a local macOS installer image. */
+export function macosDmgBuildArguments() {
+  return ["build", "--bundles", "dmg", "--no-sign", "--ci", "--", "--locked"];
+}
+
+/** Returns the locked DMG arguments augmented by the Python-aware Tauri wrapper. */
+export function macosPythonDmgBuildArguments() {
+  return ["build", "--bundles", "dmg", "--no-sign", "--ci", "--", "--locked"];
+}
+
 /** Returns the protected distribution build that alone creates Tauri v2 updater artifacts. */
 export function macosUpdaterBuildArguments() {
   return [
@@ -388,9 +398,10 @@ async function smokeMacosBundle(bundlePath) {
 }
 
 /** Builds the unsigned bundle through the existing Tauri wrapper. */
-function buildMacosBundle(repositoryRoot, arguments_ = macosBuildArguments()) {
+function buildMacosBundle(repositoryRoot, arguments_ = macosBuildArguments(), python = false) {
   const script = join(repositoryRoot, "scripts", "macos-development-signing.mjs");
-  const result = spawnSync(process.execPath, [script, "--tauri", ...arguments_], {
+  const wrapperMode = python ? "--tauri-python" : "--tauri";
+  const result = spawnSync(process.execPath, [script, wrapperMode, ...arguments_], {
     cwd: repositoryRoot,
     stdio: "inherit",
   });
@@ -406,6 +417,12 @@ async function main() {
   if (mode === "--build") {
     buildMacosBundle(repositoryRoot);
     console.log(JSON.stringify(await inspectMacosBundle(bundlePath), null, 2));
+  } else if (mode === "--build-dmg") {
+    buildMacosBundle(repositoryRoot, macosDmgBuildArguments());
+    console.log("[bottie] Python-free unsigned DMG built under src-tauri/target/release/bundle/dmg/.");
+  } else if (mode === "--build-python-dmg") {
+    buildMacosBundle(repositoryRoot, macosPythonDmgBuildArguments(), true);
+    console.log("[bottie] Python-enabled unsigned DMG built under src-tauri/target/release/bundle/dmg/.");
   } else if (mode === "--development-sign") {
     developmentSignMacosBundle(bundlePath);
     console.log(JSON.stringify(await inspectMacosBundle(bundlePath), null, 2));
@@ -428,9 +445,7 @@ async function main() {
       ),
     );
   } else {
-    throw new Error(
-      "Use --build, --development-sign, --inspect, or --smoke with an optional repository-relative .app path.",
-    );
+    throw new Error("Use --build, --build-dmg, --build-python-dmg, --development-sign, --inspect, or --smoke.");
   }
 }
 

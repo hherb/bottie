@@ -10,6 +10,8 @@ import {
   developmentSigningArguments,
   inspectBundleFiles,
   macosBuildArguments,
+  macosDmgBuildArguments,
+  macosPythonDmgBuildArguments,
   macosSmokeBuildArguments,
   offlineProviderSettings,
   sqliteImmutableUri,
@@ -43,6 +45,22 @@ async function createBundleFixture() {
 describe("macOS package evidence", () => {
   it("keeps the build locked, app-only, unsigned, and non-interactive", () => {
     expect(macosBuildArguments()).toEqual(["build", "--bundles", "app", "--no-sign", "--ci", "--", "--locked"]);
+  });
+
+  it("builds a locked unsigned DMG without changing the app-only validation path", () => {
+    expect(macosDmgBuildArguments()).toEqual(["build", "--bundles", "dmg", "--no-sign", "--ci", "--", "--locked"]);
+  });
+
+  it("builds the default DMG with the contained Python package overlay", () => {
+    expect(macosPythonDmgBuildArguments()).toEqual([
+      "build",
+      "--bundles",
+      "dmg",
+      "--no-sign",
+      "--ci",
+      "--",
+      "--locked",
+    ]);
   });
 
   it("builds smoke code under a distinct application identity without changing dependency resolution", () => {

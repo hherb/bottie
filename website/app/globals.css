@@ -63,14 +63,11 @@ button {
   font-weight: 720;
   letter-spacing: -0.04em;
 }
-.brand-mark {
-  display: grid;
-  place-items: center;
+.brand-logo {
   width: 34px;
   height: 34px;
-  border: 1px solid rgba(155, 140, 255, 0.28);
-  border-radius: 11px;
-  background: linear-gradient(145deg, rgba(155, 140, 255, 0.18), rgba(98, 223, 207, 0.06));
+  border-radius: 28%;
+  object-fit: cover;
 }
 .brand-core,
 .mini-core {
