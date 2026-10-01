@@ -8,6 +8,7 @@ use crate::{
     diagnostics::{record_diagnostic, sanitized},
     generation_context::{
         captured_audio_error, normalize_provider_request, request_with_attachment_context,
+        request_with_generation_limits,
     },
     generation_localmail_tools::{configured_localmail_tools, email_tools_enabled},
     generation_tools::stream_native_tools,
@@ -40,8 +41,11 @@ pub(crate) async fn start_chat(
             "Stop or discard local voice capture before sending a message.",
         ));
     }
-    let request = normalize_provider_request(request);
     let providers = state.providers.read().await.clone();
+    let request = request_with_generation_limits(
+        normalize_provider_request(request),
+        providers.settings().generation_limits,
+    );
     let run_id = uuid::Uuid::new_v4().to_string();
     let attachment_context = state
         .conversations

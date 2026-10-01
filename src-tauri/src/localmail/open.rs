@@ -17,7 +17,7 @@ use crate::{
 };
 
 use super::{
-    CertificateMode, build_client, endpoint, load_config, normalize_bearer_token,
+    CertificateMode, build_client, endpoint, load_config, normalize_api_key,
     search::{
         MAX_EMAIL_ADDRESS_CHARS, MAX_EMAIL_SENDER_NAME_CHARS, MAX_EMAIL_SUBJECT_CHARS,
         SearchEmailAddress, is_valid_message_id,
@@ -132,7 +132,7 @@ pub(crate) async fn open_email_native(
     let token = credentials
         .get(LOCALMAIL_CREDENTIAL_ID)?
         .ok_or_else(missing_credential_error)
-        .and_then(|value| normalize_bearer_token(&value))?;
+        .and_then(|value| normalize_api_key(&value))?;
     let (client, _) = build_client(CertificateMode::Pinned(config.certificate_sha256))?;
     let endpoint = endpoint(
         &config.origin,
@@ -145,7 +145,7 @@ pub(crate) async fn open_email_native(
 #[cfg(test)]
 pub(super) async fn open_email_fixture(
     origin: &str,
-    bearer_token: &str,
+    api_key: &str,
     request: OpenEmailRequest,
 ) -> Result<OpenEmailResponse, ProviderError> {
     let request = validate_open_email_request(request)?;
@@ -157,17 +157,17 @@ pub(super) async fn open_email_fixture(
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|_| internal_open_error())?;
-    execute_open_request(&client, endpoint, bearer_token, &request.message_id).await
+    execute_open_request(&client, endpoint, api_key, &request.message_id).await
 }
 
 /// Builds and sends one redirect-free fixed-route request before bounded response decoding.
 async fn execute_open_request(
     client: &Client,
     endpoint: Url,
-    bearer_token: &str,
+    api_key: &str,
     message_id: &str,
 ) -> Result<OpenEmailResponse, ProviderError> {
-    let request = build_open_http_request(client, endpoint, bearer_token)?;
+    let request = build_open_http_request(client, endpoint, api_key)?;
     let response = client
         .execute(request)
         .await
@@ -180,14 +180,14 @@ async fn execute_open_request(
 pub(super) fn build_open_http_request(
     client: &Client,
     mut endpoint: Url,
-    bearer_token: &str,
+    api_key: &str,
 ) -> Result<Request, ProviderError> {
     endpoint
         .query_pairs_mut()
         .append_pair("headers", "compact")
         .append_pair("external_images", "false");
-    let mut authorization = HeaderValue::from_str(&format!("Bearer {bearer_token}"))
-        .map_err(|_| internal_open_error())?;
+    let mut authorization =
+        HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(|_| internal_open_error())?;
     authorization.set_sensitive(true);
     client
         .request(Method::GET, endpoint)
@@ -202,7 +202,7 @@ pub(super) async fn read_bounded_open_body(response: Response) -> Result<Vec<u8>
     match response.status() {
         StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
             return Err(ProviderError::invalid_request(
-                "Localmail rejected the configured bearer token.",
+                "Localmail rejected the configured API key.",
             ));
         }
         StatusCode::NOT_FOUND => {
@@ -411,9 +411,9 @@ fn missing_connection_error() -> ProviderError {
     )
 }
 
-/// Returns the fixed failure for a missing or unavailable Localmail bearer token.
+/// Returns the fixed failure for a missing or unavailable Localmail API key.
 fn missing_credential_error() -> ProviderError {
-    ProviderError::invalid_request("Add and unlock a Localmail bearer token before opening email.")
+    ProviderError::invalid_request("Add and unlock a Localmail API key before opening email.")
 }
 
 /// Returns the fixed path-free request-layer failure.

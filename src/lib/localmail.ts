@@ -1,4 +1,4 @@
-/** Native Localmail connection and bearer-authentication contracts. */
+/** Native Localmail connection and API-key authentication contracts. */
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 /** Secret-free saved Localmail connection and vault availability. */
@@ -33,22 +33,22 @@ export type LocalmailConnectionTest = {
   message: string;
 };
 
-/** Explains whether a successful authentication probe used a saved or still-draft token. */
+/** Explains whether a successful authentication probe used a saved or still-draft API key. */
 export function localmailConnectionTestMessage(
   result: LocalmailConnectionTest,
-  testedDraftToken: boolean,
+  testedDraftKey: boolean,
   savedCredentialConfigured: boolean,
 ): string {
   const outcome = result.authenticatedAs
     ? `${result.message} Signed in as ${result.authenticatedAs}. ${result.elapsedMs} ms.`
     : `${result.message} ${result.elapsedMs} ms.`;
-  if (testedDraftToken) {
+  if (testedDraftKey) {
     if (savedCredentialConfigured) {
-      return `${outcome} Save this connection before Email uses the tested replacement token.`;
+      return `${outcome} Save this connection before Email uses the tested replacement API key.`;
     }
-    return `${outcome} Save this connection before enabling Email; the tested token is not in the credential vault yet.`;
+    return `${outcome} Save this connection before enabling Email; the tested API key is not in the credential vault yet.`;
   }
-  if (result.authenticatedAs) return `${outcome} The saved vault token is ready for Email.`;
+  if (result.authenticatedAs) return `${outcome} The saved vault API key is ready for Email.`;
   return outcome;
 }
 
@@ -64,27 +64,27 @@ export async function probeLocalmailConnection(origin: string): Promise<Localmai
   return invoke<LocalmailProbeResult>("probe_localmail_connection", { draft: { origin } });
 }
 
-/** Persists confirmed trust and optionally replaces or removes the vault token. */
+/** Persists confirmed trust and optionally replaces or removes the vault API key. */
 export async function updateLocalmailConnection(
   origin: string,
   certificateSha256: string,
-  bearerToken: string | null,
-  removeToken: boolean,
+  apiKey: string | null,
+  removeApiKey: boolean,
 ): Promise<LocalmailConnectionStatus> {
   if (!isTauri()) throw new Error("Localmail setup requires the native Bottie application.");
   return invoke<LocalmailConnectionStatus>("update_localmail_connection", {
-    update: { origin, certificateSha256, bearerToken, removeToken },
+    update: { origin, certificateSha256, apiKey, removeApiKey },
   });
 }
 
-/** Tests only server identity and bearer authentication; no email endpoint is called. */
+/** Tests only server identity and API key authentication; no email endpoint is called. */
 export async function testLocalmailConnection(
   origin: string,
   certificateSha256: string,
-  bearerToken: string | null,
+  apiKey: string | null,
 ): Promise<LocalmailConnectionTest> {
   if (!isTauri()) throw new Error("Localmail setup requires the native Bottie application.");
   return invoke<LocalmailConnectionTest>("test_localmail_connection", {
-    draft: { origin, certificateSha256, bearerToken },
+    draft: { origin, certificateSha256, apiKey },
   });
 }

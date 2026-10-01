@@ -396,7 +396,11 @@ fn localmail_error(error: ProviderError) -> MemoryToolExecution {
             MemoryToolExecutionErrorCode::Unavailable,
             "The native Localmail connector is unavailable.",
         ),
-        ProviderErrorCode::MalformedResponse | ProviderErrorCode::Internal => execution_error(
+        ProviderErrorCode::MalformedResponse => execution_error(
+            MemoryToolExecutionErrorCode::ExecutionFailed,
+            "Localmail returned a response Bottie could not decode.",
+        ),
+        ProviderErrorCode::Internal => execution_error(
             MemoryToolExecutionErrorCode::ExecutionFailed,
             "Bottie could not execute the native Localmail tool.",
         ),

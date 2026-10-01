@@ -347,6 +347,7 @@ async fn streams_an_approved_python_result_with_exact_call_identity_across_two_r
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: Some(0.0),
             max_output_tokens: Some(128),
             reasoning_effort: ReasoningEffort::Off,

@@ -85,7 +85,7 @@ Status: complete
 - [x] native adapters instead of forcing both APIs through one request shape;
 - [x] generic OpenAI-compatible and Anthropic-compatible endpoint profiles;
 - [x] API keys stored in the operating system credential vault, with one Touch ID unlock at macOS app start and
-  process-memory caching for the session;
+      process-memory caching for the session;
 - [x] explicit local/cloud routing indicator before sending;
 - [x] usage and cost metadata where providers return it.
 
@@ -165,7 +165,7 @@ Status: complete
 ### Search foundation
 
 - [x] native SQLite FTS5 whole-source index and bounded BM25 lexical search with built-in-profile enforcement plus
-  source, conversation, and date filters;
+      source, conversation, and date filters;
 - [x] versioned deterministic Unicode-safe chunk catalog for final message answers and ready extracted documents;
 - [x] statically linked `sqlite-vec` semantic index;
 - [x] Rust-owned FastEmbed runtime using Q4 EmbeddingGemma 300M as the single built-in embedding model;
@@ -173,7 +173,7 @@ Status: complete
 - [x] embedding model, dimensions, chunking version, input contract, and index-generation metadata;
 - [x] resumable bounded background indexing;
 - [x] bounded current-generation semantic KNN retrieval with EmbeddingGemma query prompting and lifecycle-safe
-  profile, source, conversation, association, and date filters;
+      profile, source, conversation, association, and date filters;
 - [x] explicit derived-only reindex control with durable path-free progress and restore-safe worker coordination;
 - [x] bounded source-level reciprocal-rank fusion of lexical and vector results under one shared filter contract;
 
@@ -192,7 +192,7 @@ Status: complete
 - [x] reversible per-conversation exclude-from-memory control enforced across native indexes and memory tools;
 - [x] explicit per-conversation forget from Trash with documented source, derived-data, attachment, and backup policy;
 - [x] opt-in 30-day, 90-day, or one-year Trash retention with manual retention as the default and healthy-startup
-  enforcement through the explicit-forget data policy (explicit derived-only reindex is complete).
+      enforcement through the explicit-forget data policy (explicit derived-only reindex is complete).
 
 Do not silently inject arbitrary long-term memories into every prompt. Recent conversation context may be automatic; long-term recall should be explicit and inspectable.
 
@@ -207,14 +207,15 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] provider-independent multi-call execution state machine;
 - [x] strict JSON-schema argument validation for the native memory tool set;
 - [x] recursion, call-count, aggregate-output, and overall-deadline limits;
+- [x] restart-safe Generation limits in Settings, defaulting to 12 rounds, 24 calls, and 8,192 output tokens;
 - [x] provider-neutral cancellation signal with checks before and after every native call;
 - [x] Ollama native definition/call/result mapping and generation-loop wiring;
 - [x] OpenAI Chat Completions definition/call/result mapping and generation-loop wiring;
 - [x] Anthropic Messages definition/call/result mapping and generation-loop wiring;
 - [x] Rust-owned zero-argument UTC `current_time` tool with closed schema, safe policy, durable audit, and mappings for
-  every explicitly tool-capable route;
+      every explicitly tool-capable route;
 - [x] bounded oMLX endpoint-capability discovery plus native clock, Memory, and Web tool-loop mapping without provider
-  MCP or arbitrary server-tool execution;
+      MCP or arbitrary server-tool execution;
 - [x] current Anthropic Models API structured-capability decoding with legacy compatible-response preservation;
 - [x] active-generation cancellation propagation through mapped providers and native tool work;
 - [x] safe versus approval-required tool policy;
@@ -225,13 +226,14 @@ Outcome: bottie can use host-managed tools consistently across providers.
 
 - [x] pluggable native search-provider interface with bounded fixed-endpoint Brave Search and Exa Search adapters;
 - [x] independent native search-engine credentials, fixed-route connection tests, and a saved active-engine choice;
+- [x] draft-key tests bypass locked legacy credentials, and Settings saves Localmail key edits with Save and reconnect;
 - [x] provider-independent `web_search` contract and native dispatcher with freshness and domain filters;
 - [x] explicit Ollama definition/call/result mapping and generation-loop integration for `web_search`;
 - [x] explicit OpenAI Chat Completions definition/call/result mapping and generation-loop integration for
-  `web_search`;
+      `web_search`;
 - [x] explicit Anthropic Messages definition/call/result mapping and generation-loop integration for `web_search`;
 - [x] provider-independent `web_fetch` contract and native public-network client/dispatcher with explicit redirects,
-  DNS/address pinning, size limits, UTF-8 content-type checks, and one shared timeout;
+      DNS/address pinning, size limits, UTF-8 content-type checks, and one shared timeout;
 - [x] explicit Ollama generation-loop mapping for `web_fetch`;
 - [x] explicit OpenAI-compatible generation-loop mapping for `web_fetch`;
 - [x] explicit Anthropic-compatible generation-loop mapping for `web_fetch`;
@@ -240,7 +242,7 @@ Outcome: bottie can use host-managed tools consistently across providers.
 - [x] citations connected to claims and retained with the conversation;
 - [x] prompt-injection labeling for explicitly untrusted fetched-page content in source cards and durable tool audit;
 - [x] user-configurable HTTPS, allowlisted-domain, and blocklisted-domain policy applied to Web search results,
-  fetches, and every redirect without weakening the fixed public-address baseline.
+      fetches, and every redirect without weakening the fixed public-address baseline.
 
 MCP interoperability can follow after bottie's own tool contract and policy model are stable.
 
@@ -258,75 +260,75 @@ with a credential-free aggregate protected-platform comparison contract, while s
 - [x] fixed wall-time, linear-memory, table, stdout, and stderr ceilings with path-free result classifications;
 - [x] opt-in runtime denial tests using one checksum-pinned development runtime;
 - [x] transient, separately signed macOS App-Sandboxed XPC proof with private-pipe execution, cancellation,
-  kill-on-client-exit, exact nested entitlements/signatures, and direct host-fixture denial;
+      kill-on-client-exit, exact nested entitlements/signatures, and direct host-fixture denial;
 - [x] transient Windows zero-capability AppContainer proof with a restricted token, private pipes, one-process
-  memory/CPU Job Object limits, cancellation, kill-on-controller-close, and direct host-fixture denial;
+      memory/CPU Job Object limits, cancellation, kill-on-controller-close, and direct host-fixture denial;
 - [x] built-in Linux Landlock/seccomp/rlimits containment with private pipes, cancellation, parent-close cleanup, and
-  host-fixture denial, without requiring Bubblewrap or Flatpak;
+      host-fixture denial, without requiring Bubblewrap or Flatpak;
 - [x] reproducible official-source CPython/WASI build provenance plus exact unsigned development bundling, licence,
-  dependency inventory, and cross-platform package inspection;
+      dependency inventory, and cross-platform package inspection;
 - [x] credential-free installed Linux development-DEB identity, Landlock/seccomp denial, private-pipe execution,
-  cancellation, and parent-exit cleanup smoke;
+      cancellation, and parent-exit cleanup smoke;
 - [x] credential-free installed Windows development-MSI controller/helper/runtime identity, AppContainer token and
-  host-fixture denial, private-pipe execution, cancellation, and controller-exit cleanup smoke;
+      host-fixture denial, private-pipe execution, cancellation, and controller-exit cleanup smoke;
 - [x] credential-free packaged macOS development-app client/service/helper/runtime identity, App Sandbox denial,
-  private-pipe execution, cancellation, and client-exit cleanup smoke;
+      private-pipe execution, cancellation, and client-exit cleanup smoke;
 - [x] credential-free release-candidate binding of the exact macOS, Windows, and Linux development package/containment
-  evidence to one shared source revision and CPython/WASI runtime core while retaining exact platform layouts;
+      evidence to one shared source revision and CPython/WASI runtime core while retaining exact platform layouts;
 - [x] credential-free protected-package comparison against the accepted development runtime identity, requiring a
-  separate exact-inspection-bound platform-native shipping containment record;
+      separate exact-inspection-bound platform-native shipping containment record;
 - [x] credential-free opt-in macOS protected-package staging and exact unsigned app inspection against the accepted
-  runtime identity, without changing the default or protected distribution configuration;
+      runtime identity, without changing the default or protected distribution configuration;
 - [x] credential-free macOS shipping-containment producer for an already signed protected app, with exact reinspection,
-  independent signature verification, App Sandbox denial, private-pipe execution, cancellation, and client-exit cleanup;
+      independent signature verification, App Sandbox denial, private-pipe execution, cancellation, and client-exit cleanup;
 - [x] opt-in protected macOS distribution composition that accepts only same-revision successful provenance, recreates
-  the inspected app before credentials, signs nested code inside out, notarizes/staples/Gatekeeper-verifies the outer
-  app, and runs final shipping containment plus protected-package comparison without changing the default path;
+      the inspected app before credentials, signs nested code inside out, notarizes/staples/Gatekeeper-verifies the outer
+      app, and runs final shipping containment plus protected-package comparison without changing the default path;
 - [x] credential-free Linux protected-DEB public-signature verification, candidate-bound extraction inspection, exact
-  fixed-layout installed helper/runtime equality, and Landlock/seccomp/rlimit plus process-lifecycle containment;
+      fixed-layout installed helper/runtime equality, and Landlock/seccomp/rlimit plus process-lifecycle containment;
 - [x] optional same-revision protected Linux Python workflow composition through exact pre-credential inspection,
-  existing signing, installed-package containment, and final candidate comparison without changing the default path;
+      existing signing, installed-package containment, and final candidate comparison without changing the default path;
 - [x] credential-free Windows protected-MSI and extracted-executable verification, candidate-bound extraction,
-  fixed-layout installed controller/helper/runtime equality, and AppContainer/process-lifecycle containment;
+      fixed-layout installed controller/helper/runtime equality, and AppContainer/process-lifecycle containment;
 - [x] optional same-revision protected Windows Python workflow composition through exact pre-credential inspection,
-  existing Authenticode/updater signing, installed-package containment, and final candidate comparison;
+      existing Authenticode/updater signing, installed-package containment, and final candidate comparison;
 - [x] credential-free per-platform envelopes and aggregate binding of the exact Linux, macOS, and Windows
-  protected-package comparisons to one source revision, accepted release candidate, shared runtime core, canonical
-  inspection/containment identities, and the normalized outer distribution produced by each protected run;
+      protected-package comparisons to one source revision, accepted release candidate, shared runtime core, canonical
+      inspection/containment identities, and the normalized outer distribution produced by each protected run;
 - [x] manual read-only aggregation workflow that accepts only three explicit same-revision successful distribution
-  runs, downloads dedicated path-free comparison/distribution envelopes, and uploads only the bounded aggregate record;
+      runs, downloads dedicated path-free comparison/distribution envelopes, and uploads only the bounded aggregate record;
 - [x] credential-free protected-Python release-eligibility binding of one closed ready ordinary candidate to the exact
-  same-revision aggregate while requiring its three normalized outer distributions to match the protected-run
-  envelopes and retaining canonical input digests and signed native identities;
+      same-revision aggregate while requiring its three normalized outer distributions to match the protected-run
+      envelopes and retaining canonical input digests and signed native identities;
 - [x] approval-required native Python tool contract and user-visible inert source/purpose review without helper launch
-  or provider advertisement;
+      or provider advertisement;
 - [x] process-local one-use approve/deny decisions bound to the unchanged complete call, with an opaque-token modal and
-  no provider identity exposed to the WebView;
+      no provider identity exposed to the WebView;
 - [x] provider-neutral approval wait/resume for one exact call, with denial, shared cancellation, and aborted-waiter
-  cleanup as terminal non-execution paths;
+      cleanup as terminal non-execution paths;
 - [x] bounded generation-time approval event publication with startup-race-safe WebView subscription and cancellation
-  removal;
+      removal;
 - [x] provider-neutral exact-grant execution orchestration, bounded private-pipe helper protocol, and Linux's built-in
-  Landlock/seccomp/rlimit launch path without provider mapping;
+      Landlock/seccomp/rlimit launch path without provider mapping;
 - [x] macOS XPC product transport behind the provider-neutral runner interface, with bounded private pipes, shared
-  cancellation, connection-invalidation cleanup, and fixed opt-in development-bundle resolution;
+      cancellation, connection-invalidation cleanup, and fixed opt-in development-bundle resolution;
 - [x] Windows AppContainer product transport behind the provider-neutral runner interface, with a process-scoped
-  profile, bounded private pipes, shared cancellation, controller-close Job Object cleanup, and fixed opt-in
-  development-bundle resolution plus owned profile provisioning/cleanup;
+      profile, bounded private pipes, shared cancellation, controller-close Job Object cleanup, and fixed opt-in
+      development-bundle resolution plus owned profile provisioning/cleanup;
 - [x] fail-closed Tauri injection of marked platform resources while default and protected package configs remain
-  unchanged;
+      unchanged;
 - [x] append-only durable Python invocation, approve/deny decision, and bounded terminal-outcome audit through a
-  provider-neutral orchestration seam, with approval committed before helper launch;
+      provider-neutral orchestration seam, with approval committed before helper launch;
 - [x] explicit tool-capable oMLX mapping through approval, contained execution, bounded provider reuse, and durable
-  audit;
+      audit;
 - [x] explicit tool-capable Ollama mapping through the same approval, containment, audit, cancellation, bounded-result,
-  and ordered provider-correlation boundaries;
+      and ordered provider-correlation boundaries;
 - [x] explicit tool-capable OpenAI-compatible mapping through the same approval, containment, audit, cancellation,
-  bounded-result, and exact Chat Completions call-identity boundaries;
+      bounded-result, and exact Chat Completions call-identity boundaries;
 - [x] explicit tool-capable Anthropic-compatible mapping through the same approval, containment, audit, cancellation,
-  bounded-result, preserved thinking-block, and exact Messages `tool_use`/`tool_result` identity boundaries;
+      bounded-result, preserved thinking-block, and exact Messages `tool_use`/`tool_result` identity boundaries;
 - [x] selected-lineage answer presentation that labels approved source, bounded stdout/stderr, stable errors, helper
-  outcome/duration, and contained-runtime execution provenance from the durable path-free audit.
+      outcome/duration, and contained-runtime execution provenance from the durable path-free audit.
 
 See `docs/python-sandbox.md` for the verified boundary, platform options, and exclusions.
 
@@ -338,32 +340,34 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] automatic backup rotation, corruption recovery, and staged migration promotion rollback;
 - [x] crash-safe partial messages and interrupted indexing recovery;
 - [x] structured local diagnostics with redaction and opt-in export;
-- [x] first-party Localmail HTTPS origin, explicit certificate trust, bounded connection testing, and vault-held bearer
-  authentication foundation;
+- [x] first-party Localmail HTTPS origin, explicit certificate trust, bounded connection testing, and vault-held
+      administrator-issued API key authentication foundation;
 - [x] first-party Localmail `search_email` contract with closed filters, explicit current `sort`/`sort_order` mapping,
-  newest-first date order by default, one pinned authenticated search call, bounded inert path-free summaries, and no
-  email-body or attachment-content exposure;
+      newest-first date order by default, one pinned authenticated search call, bounded inert path-free summaries, and no
+      email-body or attachment-content exposure;
 - [x] first-party Localmail `open_email` contract over exact search-result identities with one pinned authenticated
-  detail call, external images disabled, bounded inert header/body text, and no HTML or attachment-byte exposure;
+      detail call, external images disabled, bounded inert header/body text, and no HTML or attachment-byte exposure;
 - [x] first-party Localmail extracted attachment-text reading through exact message-local attachment numbers, with
-  hashes resolved only in Rust, one fixed pinned `/text` request, bounded untrusted text, and no raw-byte fallback;
+      hashes resolved only in Rust, one fixed pinned `/text` request, bounded untrusted text, and no raw-byte fallback;
+- [x] Localmail attachment reader accepts the current paged text contract, bounds the requested window, and marks
+      unread text as truncated while retaining compatibility with older text-only responses;
 - [x] provider-independent closed Localmail tool definitions, strict raw conversion into the existing connector
-  requests, safe read-only policy entries, and bounded redacted dispatch;
+      requests, safe read-only policy entries, and bounded redacted dispatch;
 - [x] remembered Memory, Web, and Email preferences that restore only when current provider/model capability and
-  connector-readiness gates permit them;
+      connector-readiness gates permit them;
 - [x] explicitly tool-capable Ollama Email enablement with configured native trust and credential gating, bounded
-  multi-round execution, durable audit, and explicit loopback/Localmail disclosure;
+      multi-round execution, durable audit, and explicit loopback/Localmail disclosure;
 - [x] explicit OpenAI-compatible Email mapping with exact Chat Completions call/result correlation, the same configured
-  native trust and loop bounds, and cloud-provider/Localmail delivery disclosure;
+      native trust and loop bounds, and cloud-provider/Localmail delivery disclosure;
 - [x] explicit Anthropic-compatible Email mapping with exact Messages `tool_use`/`tool_result` block correlation,
-  preserved thinking state, the same configured native trust and loop bounds, and cloud-provider/Localmail delivery
-  disclosure;
+      preserved thinking state, the same configured native trust and loop bounds, and cloud-provider/Localmail delivery
+      disclosure;
 - [x] explicit oMLX Email mapping through its discovered Chat Completions tool route, with exact call/result
-  correlation, the same configured native trust and loop bounds, and loopback-provider/Localmail delivery disclosure;
+      correlation, the same configured native trust and loop bounds, and loopback-provider/Localmail delivery disclosure;
 - [x] CSP and Tauri capability review;
 - [x] secret-vault and filesystem-boundary tests;
 - [x] dependency and licence review with locked macOS/Windows/Linux Rust plus npm graphs, generated distributable
-  notices, pinned native/model runtime assets, and explicit release gates;
+      notices, pinned native/model runtime assets, and explicit release gates;
 - [x] keyboard shortcuts and command palette;
 - [x] themes and density options;
 - [x] refined empty/offline/error states;
@@ -374,25 +378,25 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 - [x] current Linux 0.9.0 packaging, inspection, and isolated smoke evidence;
 - [x] custom bottie application icon with deterministic WebView and platform package assets;
 - [x] credential-free macOS Developer ID signing, hardened-runtime, notarization, stapling, and Gatekeeper contract,
-  plus current 0.9.0 host evidence;
+      plus current 0.9.0 host evidence;
 - [x] protected manual Windows Authenticode contract for an independently signed, timestamped, and verified MSI plus
-  installed executable, with identity-free package and isolated-smoke evidence; retained only as an unconfigured
-  direct-download alternative;
+      installed executable, with identity-free package and isolated-smoke evidence; retained only as an unconfigured
+      direct-download alternative;
 - [x] credential-free, identity-parameterized Microsoft Store x64 MSIX packaging, inspection, and manual Windows App
-  Certification Kit workflow contract;
+      Certification Kit workflow contract;
 - [x] Individual Microsoft Store developer registration and Bottie product-name/identity reservation;
 - [x] current Windows Store MSIX runner build, independent inspection, and Windows App Certification Kit pass;
 - [x] exact reviewed Microsoft Store package submitted for certification;
 - [ ] Microsoft Store certification and publication (deferred after rejection until further release-owner notice);
 - [x] protected manual Linux embedded-OpenPGP signing contract with a published public certificate and independent
-  canonical-payload, policy, and keyring verification;
+      canonical-payload, policy, and keyring verification;
 - [x] current credentialed Linux distribution-signature evidence;
 - [x] versioned 0.9.0 beta release notes plus a deterministic path-free release-candidate gate manifest;
 - [x] credential-free signed-update manifest and path-free publication-evidence contract;
 - [x] recoverably backed-up production updater trust key plus Rust-owned, user-controlled update checks and installs;
 - [x] native final-byte minisign verification plus current protected Linux x64 updater-artifact evidence;
 - [x] protected current-main three-platform GitHub updater-publication workflow with exact intent, legal, artifact,
-  draft, digest, latest-full-release, and path-free evidence gates;
+      draft, digest, latest-full-release, and path-free evidence gates;
 - [ ] current protected macOS and Windows updater-artifact evidence (platform credentials remain unconfigured);
 - [ ] signed updater release publication outside the Store.
 
@@ -403,26 +407,26 @@ Outcome: users can hold interruptible, private voice conversations without requi
 Status: complete; evidence-gated acoustic feedback processing remains deferred.
 
 - [x] Rust-owned default-input capture behind an explicit Record voice action, with operating-system permission,
-  bounded session-only PCM retention, path-free status, Stop/Discard controls, and no provider delivery;
+      bounded session-only PCM retention, path-free status, Stop/Discard controls, and no provider delivery;
 - [x] bounded native voice activity detection with path-free speech/silence timing and calm live/captured state;
 - [x] local streaming speech-to-text with a pinned multilingual Whisper tiny Q5 model, bounded partial/final transcript
-  ranges, visible timing, app-owned cache verification, and session-only audio/text state;
+      ranges, visible timing, app-owned cache verification, and session-only audio/text state;
 - [x] session-only transcript correction and visible numbered turn boundaries;
 - [x] bounded local text-to-speech with explicit assistant-response playback, a Settings-owned durable system-voice
-  choice, opaque native identities, unavailable-choice fallback, and no generated-audio retention;
+      choice, opaque native identities, unavailable-choice fallback, and no generated-audio retention;
 - [x] explicit barge-in that stops Bottie's local playback, cancels active provider/tool work through the existing
-  durable cancellation boundary, and serializes new generation registration against native capture;
+      durable cancellation boundary, and serializes new generation registration against native capture;
 - [x] provider-neutral native-only audio content blocks plus separate off-by-default provider delivery and app-private
-  WAV retention choices;
+      WAV retention choices;
 - [x] bounded session-only native latency status for input readiness, first/final local transcript availability, and
-  local speech-engine acceptance, labelled by observable endpoints rather than acoustic claims;
+      local speech-engine acceptance, labelled by observable endpoints rather than acoustic claims;
 - [x] explicit durable input-device selection with bounded display labels, process-local public tokens, Rust-owned
-  stable opaque preference keys, startup fallback to System default when unavailable, exact-device resolution at Record,
-  and fail-closed playback/capture separation;
+      stable opaque preference keys, startup fallback to System default when unavailable, exact-device resolution at Record,
+      and fail-closed playback/capture separation;
 - [x] explicit transcript-to-text fallback that copies only current visible final turns into a bounded editable unsent
-  draft, preserves existing text, keeps capture state intact, and provides keyboard, focus, and screen-reader feedback;
+      draft, preserves existing text, keeps capture state intact, and provides keyboard, focus, and screen-reader feedback;
 - [x] deterministic same-input repeated capture after a stopped worker's final unwind, with active capture overlap
-  still rejected and native macOS regression acceptance;
+      still rejected and native macOS regression acceptance;
 - [ ] acoustic echo cancellation or general system-feedback processing, if later evidence justifies native DSP;
 
 Voice should reuse the same provider, content-block, event, persistence, and cancellation models established in
@@ -449,147 +453,147 @@ Two model tracks are intentional and must remain visibly distinct:
 
 - [x] provider-neutral bounded image-generation contract with model, execution, generation, and editing capabilities;
 - [x] exact synchronous DashScope adapter pinned to `qwen-image-2.0-2026-03-03`, with fixed request shape, bounded
-  dimensions and output count, terminal-choice validation, strict HTTPS result references, response-size limits, and
-  redacted errors;
+      dimensions and output count, terminal-choice validation, strict HTTPS result references, response-size limits, and
+      redacted errors;
 - [x] Singapore-preferred default at `https://dashscope-intl.aliyuncs.com/api/v1/`, while accepting only the documented
-  Singapore and Beijing legacy/workspace domains and exact `/api/v1/` root;
+      Singapore and Beijing legacy/workspace domains and exact `/api/v1/` root;
 - [x] credential-free endpoint persistence, OS-vault API-key handling, and structural setup validation that performs no
-  provider request and incurs no charge;
+      provider request and incurs no charge;
 - [x] add an opt-in live fixture using a throwaway Singapore key and workspace, kept ignored by default and fixed at one
-  low-risk output; never run it implicitly in ordinary tests.
+      low-risk output; never run it implicitly in ordinary tests.
 
 ### 8.2 Durable generation vertical slice
 
 Implement this once for both hosted and local adapters before adding more runtimes.
 
 1. [x] Add a `generated_assets` migration owned by assistant messages, with content hash, media type, dimensions, byte
-   count, created time, provider ID, exact model ID, execution backend, seed when supported, and terminal status.
+       count, created time, provider ID, exact model ID, execution backend, seed when supported, and terminal status.
 2. [x] Add a Rust-owned generation controller with one active run identity, shared cancellation, bounded progress
-   events, terminal cleanup, and no provider or worker correlation identifier crossing IPC.
+       events, terminal cleanup, and no provider or worker correlation identifier crossing IPC.
 3. [x] Add an explicit composer action for prompt, aspect ratio, count, execution choice, and provider delivery/cost
-   disclosure. Cloud and exact Local 2512 execution are explicit, while unavailable local state remains disabled. Cloud
-   generation must never follow from an ordinary chat send or failed local route.
+       disclosure. Cloud and exact Local 2512 execution are explicit, while unavailable local state remains disabled. Cloud
+       generation must never follow from an ordinary chat send or failed local route.
 4. [x] For hosted 2.0, immediately download temporary URLs inside Rust, with redirects disabled, fixed byte/time limits,
-   content sniffing, PNG decode, actual dimension/pixel checks, and content-addressed app-private storage. Discard URLs
-   and partial bytes before returning path-free metadata.
+       content sniffing, PNG decode, actual dimension/pixel checks, and content-addressed app-private storage. Discard URLs
+       and partial bytes before returning path-free metadata.
 5. [x] Present pending, completed, failed, and cancelled assistant image messages with bounded previews. Completed
-   outputs have opaque-ID native open/export, bounded-preview clipboard copy, and confirmed reference-aware deletion.
-   Failed and cancelled messages retry only from their selected-branch durable user prompt, accepted dimensions/options,
-   output rows, and exact provenance; no native path, content hash, temporary URL, or provider correlation ID crosses IPC.
+       outputs have opaque-ID native open/export, bounded-preview clipboard copy, and confirmed reference-aware deletion.
+       Failed and cancelled messages retry only from their selected-branch durable user prompt, accepted dimensions/options,
+       output rows, and exact provenance; no native path, content hash, temporary URL, or provider correlation ID crosses IPC.
 6. [x] Extend portable export, backup, restore, retention, branching, and garbage collection so generated bytes follow
-   the same ownership and recovery guarantees as other conversation assets.
+       the same ownership and recovery guarantees as other conversation assets.
 7. [x] Test malformed provider output, expired URLs, decompression bombs, count/dimension mismatches, cancellation at
-   every boundary, restart recovery, branch ownership, deletion, path-free IPC, and secret-redacted diagnostics.
+       every boundary, restart recovery, branch ownership, deletion, path-free IPC, and secret-redacted diagnostics.
 
 ### 8.3 Local worker and model lifecycle
 
 - [x] Define a versioned private worker protocol shared by every local backend: `hello/capabilities`, `load`,
-  `generate`, `progress`, `cancel`, `result`, and `shutdown`, with closed schemas and bounded frames over private pipes
-  rather than a public localhost API;
+      `generate`, `progress`, `cancel`, `result`, and `shutdown`, with closed schemas and bounded frames over private pipes
+      rather than a public localhost API;
 - [x] add a long-lived Rust-owned worker manager so large weights load once, with one generation at a time initially,
-  cooperative step cancellation, forced teardown after a bounded grace period, and no shell interpretation. The
-  ordered lifecycle/correlation policy and private child-process transport own bounded stdin/stdout/stderr, clear the
-  inherited environment, enforce handshake/read/write/shutdown deadlines, and kill and reap on failure;
+      cooperative step cancellation, forced teardown after a bounded grace period, and no shell interpretation. The
+      ordered lifecycle/correlation policy and private child-process transport own bounded stdin/stdout/stderr, clear the
+      inherited environment, enforce handshake/read/write/shutdown deadlines, and kill and reap on failure;
 - [x] keep model acquisition separate and explicit: show exact model/runtime IDs, license, expected disk and memory use,
-  source revision, download progress, and verified file hashes before activation. The native manifest, path-free status,
-  explicit approval/progress phases, all-files size/SHA-256 activation gate, transactional app-owned cache, and
-  load-boundary re-verification are complete. Strict approved-root/revision/path/validator source planning, resumable
-  ranged download, source-bound partial restart, fixed byte/time ceilings, cancellation, and durable progress reporting
-  are also complete. Hugging Face delivery now uses one manually validated 302/307 resolution envelope with automatic
-  redirects still disabled. The exact q4 candidate now has measured acceptance and a selected package manifest;
-  native path-free availability states, exact installed-worker/cache re-verification, the app-owned service, explicit
-  Cloud/local composer presentation, and the single-slot product acquisition coordinator are complete. Its closed
-  acknowledgement binds every displayed package fact, startup inspection is read-only, cancellation retains only
-  exact synced partials, and atomic promotion refreshes readiness without exposing paths, hashes, URLs, or response
-  detail;
+      source revision, download progress, and verified file hashes before activation. The native manifest, path-free status,
+      explicit approval/progress phases, all-files size/SHA-256 activation gate, transactional app-owned cache, and
+      load-boundary re-verification are complete. Strict approved-root/revision/path/validator source planning, resumable
+      ranged download, source-bound partial restart, fixed byte/time ceilings, cancellation, and durable progress reporting
+      are also complete. Hugging Face delivery now uses one manually validated 302/307 resolution envelope with automatic
+      redirects still disabled. The exact q4 candidate now has measured acceptance and a selected package manifest;
+      native path-free availability states, exact installed-worker/cache re-verification, the app-owned service, explicit
+      Cloud/local composer presentation, and the single-slot product acquisition coordinator are complete. Its closed
+      acknowledgement binds every displayed package fact, startup inspection is read-only, cancellation retains only
+      exact synced partials, and atomic promotion refreshes readiness without exposing paths, hashes, URLs, or response
+      detail;
 - [x] store models in an app-owned cache, generate offline after installation, prohibit worker network access during
-  generation, and expose only readiness/capability metadata to Svelte. App-owned resumable staging and atomic verified
-  promotion, read-only readiness re-verification, and the real-runtime network-denied proof are complete;
-  app-cache-only service resolution, explicit model and worker installation, fresh execution-time verification,
-  network-denied native execution, and path-free presentation are complete. The worker is imported transactionally from
-  a user-selected native folder because no automatic worker source or accepted archive digest exists;
+      generation, and expose only readiness/capability metadata to Svelte. App-owned resumable staging and atomic verified
+      promotion, read-only readiness re-verification, and the real-runtime network-denied proof are complete;
+      app-cache-only service resolution, explicit model and worker installation, fresh execution-time verification,
+      network-denied native execution, and path-free presentation are complete. The worker is imported transactionally from
+      a user-selected native folder because no automatic worker source or accepted archive digest exists;
 - [ ] probe hardware and runtime support rather than inferring it from the operating system. An unavailable local route
-  remains unavailable; there is no silent cloud fallback. The native macOS probe now combines OS-owned physical memory,
-  compile-target architecture, the exact accepted Apple M3 Max 128 GiB profile, worker-bundle evidence, and cache
-  integrity. Application-service wiring is complete; other hardware profiles remain unavailable;
+      remains unavailable; there is no silent cloud fallback. The native macOS probe now combines OS-owned physical memory,
+      compile-target architecture, the exact accepted Apple M3 Max 128 GiB profile, worker-bundle evidence, and cache
+      integrity. Application-service wiring is complete; other hardware profiles remain unavailable;
 - [x] normalize local results through the same Rust PNG validation, durable storage, provenance, cancellation, export,
-  deletion, and exact-retry path as hosted results;
+      deletion, and exact-retry path as hosted results;
 - [x] keep this worker distinct from Bottie's user-approved Python tool runtime: image generation is a product
-  subsystem, not arbitrary Python execution and not a reason to broaden tool grants.
+      subsystem, not arbitrary Python execution and not a reason to broaden tool grants.
 
 ### 8.4 Qwen-Image-2512 local execution now
 
 - [x] **macOS Apple silicon:** prove a pinned [MLX-Gen](https://github.com/lpalbou/mlx-gen) worker with
-  `Qwen/Qwen-Image-2512`, then choose one supported MLX-Gen package tier from measured hardware evidence. Current
-  published packages are roughly 16.2 GiB for mixed 4-bit and 27.5 GiB for 8-bit; do not auto-download either. The
-  mixed q4/q8 `AbstractFramework/qwen-image-2512-4bit` candidate is pinned to an immutable 18-file revision and exact
-  MLX-Gen 0.18.2 commit. Its exact worker bundle, decoded output, 29,526,129,448-byte lifetime peak footprint, visual
-  quality, network denial, and 110 ms denoising-boundary cancellation are accepted on the named target hardware. The
-  native availability gate fails closed for every other hardware profile and for missing or mismatched worker/cache
-  bytes. A freshly verified installation can now run one 512x512 text-to-image request through the reusable private
-  worker, shared durable PNG pipeline, exact local provenance and seed, cooperative cancellation, and exact retry;
+      `Qwen/Qwen-Image-2512`, then choose one supported MLX-Gen package tier from measured hardware evidence. Current
+      published packages are roughly 16.2 GiB for mixed 4-bit and 27.5 GiB for 8-bit; do not auto-download either. The
+      mixed q4/q8 `AbstractFramework/qwen-image-2512-4bit` candidate is pinned to an immutable 18-file revision and exact
+      MLX-Gen 0.18.2 commit. Its exact worker bundle, decoded output, 29,526,129,448-byte lifetime peak footprint, visual
+      quality, network denial, and 110 ms denoising-boundary cancellation are accepted on the named target hardware. The
+      native availability gate fails closed for every other hardware profile and for missing or mismatched worker/cache
+      bytes. A freshly verified installation can now run one 512x512 text-to-image request through the reusable private
+      worker, shared durable PNG pipeline, exact local provenance and seed, cooperative cancellation, and exact retry;
 - [x] **Linux NVIDIA:** the pinned PyTorch + Diffusers `QwenImagePipeline` proof passes Bottie's private protocol on a
-  named DGX Spark GB10 target. The exact ARM64 runtime and full public model revision produced byte- and pixel-identical
-  cold/warm PNGs, denied network access, cancelled at a denoising boundary in 100 ms, and recorded conservative unified
-  host-memory measurements. CPU offload was disabled; DGX Spark exposes no separate aggregate VRAM counter. This proves
-  feasibility only. The native catalog now binds this candidate's backend, runtime, model, proof target, and evidence
-  document while leaving its accepted profile and importable executable absent. A proof-only inspector now binds the
-  exact NGC/Diffusers inputs, emits a deterministic native-compatible regular-file/executable/bundle inventory, and
-  requires complete file ownership plus included third-party licence bytes; every record remains explicitly unreviewed.
-  A separate DGX gate now inventories all 248 Python and 434 Debian package-manager components with deterministic,
-  path-free licence evidence and refuses assembly on 76 exact missing-byte or undeclared-licence blockers. Linux remains
-  unavailable. A traced closure gate now measures 340 required files across 84 components, recursively closes Python
-  requirements and ELF dependencies, records an explicit NVIDIA host-driver boundary, and assigns all observed bytes
-  an exact Python, Debian, or marker-backed native identity. Two independent records prove the closure is complete. It
-  still refuses assembly on 106 licence-only blockers: five missing byte records, seventeen undeclared licences, and
-  84 unreviewed expressions. An exact-image/exact-trace review-manifest gate now preserves measured source and review
-  bytes while rejecting partial component coverage and drift. The closure now binds exact in-image source evidence for
-  cuSPARSELt, Open MPI, and UCX. A separate offline read-only source gate now recognizes exact authoritative PyPI
-  archives for SentencePiece and tokenizers plus exact NVIDIA NVPL BLAS/LAPACK archives; the NVPL evidence additionally
-  requires both installed runtime files to match archive members byte-for-byte. It never infers expressions and has not
-  changed the checked-in DGX closure record. A second exact-source pass found no public OpenUCX object for the pinned
-  UCC revision; NVIDIA's public v2.24 UCC notices name only `rdma-core`. The EULA-authorized target-matching 2.24.1
-  ARM64 archive matches its published digest but contains no UCC licence/source member, and its regular UCC library
-  differs from the retained image by eight bytes and SHA-256. The exact image UCC binary therefore still lacks
-  authoritative licence bytes. A corrected replacement control with the checksum-pinned conventional ARM64 PyTorch
-  2.10.0 CUDA 13.0 wheel completed the full offline worker proof under its distinct runtime identity while the UCC
-  installation was masked and absent from live process maps. That image still contains masked UCC bytes. No review
-  manifest exists and Linux remains unavailable. Bottie must either resolve the exact retained-image artifact or prove
-  a clean runtime without the UCC runtime. The first clean Ubuntu-based image now passes the full proof with identical
-  output and zero `libucc` mappings. Its complete 63-wheel/112-Debian input set is now byte-frozen in a canonical lock:
-  175 authoritative archives totaling 3,016,341,507 bytes, with separate official-source provenance and independent
-  verification. The gate binds the exact image inventory, top-level wheel metadata and compatibility tags, Debian
-  control identities, sizes, hashes, ARM64 target, and lock digest. Renamed foreign wheels still fail closed; one
-  upstream NVIDIA SBSA spelling mismatch is accepted only for the exact official cuSPARSELt filename, size, and PyPI
-  digest. A closed rebuild plan and host gate now bind the exact base, input lock, and three worker-source files; they
-  require two independently named BuildKit runs with networking, pulls, and cache disabled, exact installed-inventory
-  agreement, and a normalized regular-file path/mode/ownership/size/hash comparison. Two fresh offline rebuilds now
-  agree across exact package inventories and 27,035 normalized files; two independent full proofs against rebuilt
-  bytes reproduce the reviewed output, deny network access, and retain fresh trace digests with no UCC mapping. No
-  external `readelf` package was added: a bounded in-process AArch64 ELF reader now closes the rebuilt runtime without
-  changing its frozen inputs. Two independent read-only, non-root, offline collections from the retained traces agree
-  on 161 files totalling 4,039,257,278 bytes, including 114 ELF files and 62 exact components. The rebuilt closure is
-  complete. A clean-profile-only source gate now requires exact authoritative SentencePiece 0.2.2 and tokenizers
-  0.23.2 archives, including both archive and licence-member measurements, and both independent collections reproduce
-  one updated path-free record. No missing licence-byte blocker remains; four expressions are undeclared and all 62
-  expressions remain unreviewed, leaving 66 licence-only blockers. No licence-review manifest, bundle, accepted Linux
-  profile, app wiring, or product availability exists. Bottie must independently review every exact expression,
-  produce reviewed bundle bytes, and add native hardware gating plus app-owned execution.
-  See
-  `docs/local-image-linux-nvidia-proof.md` and
-  `docs/local-image-linux-worker-bundle.md`;
+      named DGX Spark GB10 target. The exact ARM64 runtime and full public model revision produced byte- and pixel-identical
+      cold/warm PNGs, denied network access, cancelled at a denoising boundary in 100 ms, and recorded conservative unified
+      host-memory measurements. CPU offload was disabled; DGX Spark exposes no separate aggregate VRAM counter. This proves
+      feasibility only. The native catalog now binds this candidate's backend, runtime, model, proof target, and evidence
+      document while leaving its accepted profile and importable executable absent. A proof-only inspector now binds the
+      exact NGC/Diffusers inputs, emits a deterministic native-compatible regular-file/executable/bundle inventory, and
+      requires complete file ownership plus included third-party licence bytes; every record remains explicitly unreviewed.
+      A separate DGX gate now inventories all 248 Python and 434 Debian package-manager components with deterministic,
+      path-free licence evidence and refuses assembly on 76 exact missing-byte or undeclared-licence blockers. Linux remains
+      unavailable. A traced closure gate now measures 340 required files across 84 components, recursively closes Python
+      requirements and ELF dependencies, records an explicit NVIDIA host-driver boundary, and assigns all observed bytes
+      an exact Python, Debian, or marker-backed native identity. Two independent records prove the closure is complete. It
+      still refuses assembly on 106 licence-only blockers: five missing byte records, seventeen undeclared licences, and
+      84 unreviewed expressions. An exact-image/exact-trace review-manifest gate now preserves measured source and review
+      bytes while rejecting partial component coverage and drift. The closure now binds exact in-image source evidence for
+      cuSPARSELt, Open MPI, and UCX. A separate offline read-only source gate now recognizes exact authoritative PyPI
+      archives for SentencePiece and tokenizers plus exact NVIDIA NVPL BLAS/LAPACK archives; the NVPL evidence additionally
+      requires both installed runtime files to match archive members byte-for-byte. It never infers expressions and has not
+      changed the checked-in DGX closure record. A second exact-source pass found no public OpenUCX object for the pinned
+      UCC revision; NVIDIA's public v2.24 UCC notices name only `rdma-core`. The EULA-authorized target-matching 2.24.1
+      ARM64 archive matches its published digest but contains no UCC licence/source member, and its regular UCC library
+      differs from the retained image by eight bytes and SHA-256. The exact image UCC binary therefore still lacks
+      authoritative licence bytes. A corrected replacement control with the checksum-pinned conventional ARM64 PyTorch
+      2.10.0 CUDA 13.0 wheel completed the full offline worker proof under its distinct runtime identity while the UCC
+      installation was masked and absent from live process maps. That image still contains masked UCC bytes. No review
+      manifest exists and Linux remains unavailable. Bottie must either resolve the exact retained-image artifact or prove
+      a clean runtime without the UCC runtime. The first clean Ubuntu-based image now passes the full proof with identical
+      output and zero `libucc` mappings. Its complete 63-wheel/112-Debian input set is now byte-frozen in a canonical lock:
+      175 authoritative archives totaling 3,016,341,507 bytes, with separate official-source provenance and independent
+      verification. The gate binds the exact image inventory, top-level wheel metadata and compatibility tags, Debian
+      control identities, sizes, hashes, ARM64 target, and lock digest. Renamed foreign wheels still fail closed; one
+      upstream NVIDIA SBSA spelling mismatch is accepted only for the exact official cuSPARSELt filename, size, and PyPI
+      digest. A closed rebuild plan and host gate now bind the exact base, input lock, and three worker-source files; they
+      require two independently named BuildKit runs with networking, pulls, and cache disabled, exact installed-inventory
+      agreement, and a normalized regular-file path/mode/ownership/size/hash comparison. Two fresh offline rebuilds now
+      agree across exact package inventories and 27,035 normalized files; two independent full proofs against rebuilt
+      bytes reproduce the reviewed output, deny network access, and retain fresh trace digests with no UCC mapping. No
+      external `readelf` package was added: a bounded in-process AArch64 ELF reader now closes the rebuilt runtime without
+      changing its frozen inputs. Two independent read-only, non-root, offline collections from the retained traces agree
+      on 161 files totalling 4,039,257,278 bytes, including 114 ELF files and 62 exact components. The rebuilt closure is
+      complete. A clean-profile-only source gate now requires exact authoritative SentencePiece 0.2.2 and tokenizers
+      0.23.2 archives, including both archive and licence-member measurements, and both independent collections reproduce
+      one updated path-free record. No missing licence-byte blocker remains; four expressions are undeclared and all 62
+      expressions remain unreviewed, leaving 66 licence-only blockers. No licence-review manifest, bundle, accepted Linux
+      profile, app wiring, or product availability exists. Bottie must independently review every exact expression,
+      produce reviewed bundle bytes, and add native hardware gating plus app-owned execution.
+      See
+      `docs/local-image-linux-nvidia-proof.md` and
+      `docs/local-image-linux-worker-bundle.md`;
 - [ ] **Windows NVIDIA:** use the same pinned Diffusers worker and protocol after a native Windows CUDA/package proof;
-  do not treat WSL-only success as Windows product evidence;
+      do not treat WSL-only success as Windows product evidence;
 - [ ] **Linux AMD:** add a ROCm Diffusers route only after a named-GPU proof demonstrates correct decoded output and
-  acceptable memory/cancellation behavior;
+      acceptable memory/cancellation behavior;
 - [ ] **Windows AMD/Intel and lower-memory GPUs:** evaluate a pinned
-  [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) Vulkan/GGUF worker as a later fallback. Require
-  same-seed output review across supported quantizations before enabling it; do not claim DirectML support without a
-  verified runtime;
+      [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) Vulkan/GGUF worker as a later fallback. Require
+      same-seed output review across supported quantizations before enabling it; do not claim DirectML support without a
+      verified runtime;
 - [ ] retain DiffSynth-Studio, vLLM-Omni, and ComfyUI as benchmark/reference integrations, not embedded product
-  dependencies, unless measured evidence shows the selected workers cannot meet Bottie's lifecycle contract;
+      dependencies, unless measured evidence shows the selected workers cannot meet Bottie's lifecycle contract;
 - [x] publish a support matrix from real hardware evidence. Initial availability may legitimately be Apple silicon and
-  NVIDIA only; unsupported hardware must fail clearly before model download or generation.
+      NVIDIA only; unsupported hardware must fail clearly before model download or generation.
 
 The local 2512 track is text-to-image only. Do not silently combine it with the separate Qwen-Image-Edit-2511 weights.
 Editing should first land through the unified hosted 2.0 model after generation persistence is stable.
@@ -597,22 +601,22 @@ Editing should first land through the unified hosted 2.0 model after generation 
 ### 8.5 Qwen-Image-2.0 editing and future local weights
 
 - [x] add hosted 2.0 reference-image editing through the existing native attachment-byte consent boundary, supporting
-  one to three validated inputs without forwarding local paths. The provider-neutral request and exact offline wire
-  serializer, native provider execution, path-free controller command, bounded download lifecycle, cancellation, and
-  exact edit retry are complete. Cloud Image mode accepts ready current-draft images and explicitly selected completed
-  generated images from the visible ancestry, preserves ordered opaque source identities, and shows source-byte and
-  charge disclosure before submission. Local editing remains unavailable without fallback;
+      one to three validated inputs without forwarding local paths. The provider-neutral request and exact offline wire
+      serializer, native provider execution, path-free controller command, bounded download lifecycle, cancellation, and
+      exact edit retry are complete. Cloud Image mode accepts ready current-draft images and explicitly selected completed
+      generated images from the visible ancestry, preserves ordered opaque source identities, and shows source-byte and
+      charge disclosure before submission. Local editing remains unavailable without fallback;
 - [x] persist edit lineage from every source asset to the generated assistant asset, including exact hosted model and
-  execution provenance. Generated edits now present a compact accessible source count and ordered path-free source
-  kind, dimensions, media type, and byte size after initial completion and durable reopen, without rendering opaque
-  IDs; ordinary text-to-image results omit the lineage panel;
+      execution provenance. Generated edits now present a compact accessible source count and ordered path-free source
+      kind, dimensions, media type, and byte size after initial completion and durable reopen, without rendering opaque
+      IDs; ordinary text-to-image results omit the lineage panel;
 - [ ] monitor only official Qwen repositories/model registries for an exact 2.0 weight release. A 2026-09-16 recheck of
-  Qwen's GitHub repository plus its Hugging Face and ModelScope inventories still found no exact 2.0 weights. A paper,
-  API alias, community conversion, similarly named model, or 2512 package is not sufficient;
+      Qwen's GitHub repository plus its Hugging Face and ModelScope inventories still found no exact 2.0 weights. A paper,
+      API alias, community conversion, similarly named model, or 2512 package is not sufficient;
 - [ ] when exact weights ship, freeze their revision, files, hashes, license, architecture metadata, and reference
-  output before selecting MLX and CUDA/ROCm/Windows runtimes through the same worker conformance suite;
+      output before selecting MLX and CUDA/ROCm/Windows runtimes through the same worker conformance suite;
 - [ ] expose local 2.0 only after generation and editing both pass native-byte, cancellation, provenance, and hardware
-  acceptance. Keep hosted and local execution explicit even when their model identity matches.
+      acceptance. Keep hosted and local execution explicit even when their model identity matches.
 
 ## Cross-cutting definition of done
 

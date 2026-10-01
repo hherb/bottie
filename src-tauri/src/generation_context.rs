@@ -2,12 +2,22 @@
 
 use crate::{
     inference::{
-        AudioMediaType, ChatRequest, ChatRole, ChatTurn, ContentBlock, ImageMediaType,
-        ProviderError,
+        AudioMediaType, ChatRequest, ChatRole, ChatTurn, ContentBlock, GenerationLimits,
+        ImageMediaType, ProviderError,
     },
     microphone::{CapturedAudio, CapturedAudioError, CapturedAudioFormat},
     storage::{ProviderAttachmentContext, ProviderImageFormat, StoredRole},
 };
+
+/// Applies saved native limits before provider-run provenance or any provider request is created.
+pub(crate) fn request_with_generation_limits(
+    mut request: ChatRequest,
+    limits: GenerationLimits,
+) -> ChatRequest {
+    request.settings.max_output_tokens = Some(limits.max_output_tokens);
+    request.settings.generation_limits = limits;
+    request
+}
 
 /// Removes provider-neutral sampling defaults that Anthropic may reject before provenance is recorded.
 pub(crate) fn normalize_provider_request(mut request: ChatRequest) -> ChatRequest {

@@ -9,6 +9,7 @@
   import UpdateControl from "$lib/UpdateControl.svelte";
   import LocalmailSettingsControl from "$lib/LocalmailSettingsControl.svelte";
   import LocalSpeechSettings from "$lib/LocalSpeechSettings.svelte";
+  import GenerationSettingsControl from "$lib/GenerationSettingsControl.svelte";
   import ConversationRetentionControl from "$lib/ConversationRetentionControl.svelte";
   import WebNetworkPolicyControl from "$lib/WebNetworkPolicyControl.svelte";
   import { DEFAULT_PROVIDER_SETTINGS, diagnosticTime } from "$lib/presentation";
@@ -50,6 +51,7 @@
   let { settings, appearance, speech, isGenerating, onclose, onappearancechange, onsaved }: Props = $props();
   let settingsDraft = $state<ProviderSettings>({
     ...DEFAULT_PROVIDER_SETTINGS,
+    generationLimits: { ...DEFAULT_PROVIDER_SETTINGS.generationLimits },
     webNetworkPolicy: cloneWebNetworkPolicy(DEFAULT_PROVIDER_SETTINGS.webNetworkPolicy),
   });
   let draftInitialized = false;
@@ -96,11 +98,13 @@
     "qwen-image": false,
   });
   let dialog = $state<HTMLDivElement>();
+  let localmailControl = $state<{ savePendingChanges: () => Promise<void> }>();
   onMount(() => focusFirstModalControl(dialog));
   $effect(() => {
     if (!draftInitialized) {
       settingsDraft = {
         ...settings,
+        generationLimits: { ...settings.generationLimits },
         webNetworkPolicy: cloneWebNetworkPolicy(settings.webNetworkPolicy),
       };
       draftInitialized = true;
@@ -212,6 +216,7 @@
     settingsSaving = true;
     settingsError = "";
     try {
+      await localmailControl?.savePendingChanges();
       const saved = await updateProviderSettings({ ...settingsDraft });
       for (const providerId of ["openai", "anthropic", "brave", "exa", "qwen-image"] as const) {
         const apiKey = credentialDrafts[providerId].trim();
@@ -255,6 +260,11 @@
     <form class="settings-content" onsubmit={save}>
       <AppearancePreferences {appearance} onchange={onappearancechange} />
       <LocalSpeechSettings {speech} disabled={isGenerating || settingsSaving} />
+      <GenerationSettingsControl
+        limits={settingsDraft.generationLimits}
+        disabled={!isTauri() || isGenerating || settingsSaving}
+        onchange={(limits) => (settingsDraft.generationLimits = limits)}
+      />
 
       <p id="provider-settings-description" class="settings-intro">
         Local routes require loopback endpoints. Cloud routes require HTTPS and keep API keys in the operating-system
@@ -457,7 +467,7 @@
         onchange={(policy) => (settingsDraft.webNetworkPolicy = policy)}
       />
 
-      <LocalmailSettingsControl disabled={isGenerating || settingsSaving} />
+      <LocalmailSettingsControl bind:this={localmailControl} disabled={isGenerating || settingsSaving} />
 
       <div class="settings-policy">
         <Icon name="shield" size={15} />

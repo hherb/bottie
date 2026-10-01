@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub(super) use super::search_order::{EmailSearchSort, EmailSearchSortOrder};
-use super::{CertificateMode, build_client, endpoint, load_config, normalize_bearer_token};
+use super::{CertificateMode, build_client, endpoint, load_config, normalize_api_key};
 
 /// Maximum Unicode scalar count accepted for one email search query.
 pub(crate) const MAX_EMAIL_QUERY_CHARS: usize = 500;
@@ -186,7 +186,7 @@ pub(crate) async fn search_email_native(
     let token = credentials
         .get(LOCALMAIL_CREDENTIAL_ID)?
         .ok_or_else(missing_credential_error)
-        .and_then(|value| normalize_bearer_token(&value))?;
+        .and_then(|value| normalize_api_key(&value))?;
     let (client, _) = build_client(CertificateMode::Pinned(config.certificate_sha256))?;
     let endpoint = endpoint(&config.origin, "v1/search")?;
     execute_search_request(&client, endpoint, &token, &request).await
@@ -196,7 +196,7 @@ pub(crate) async fn search_email_native(
 #[cfg(test)]
 pub(super) async fn search_email_fixture(
     origin: &str,
-    bearer_token: &str,
+    api_key: &str,
     request: SearchEmailRequest,
 ) -> Result<SearchEmailResponse, ProviderError> {
     let request = validate_search_email_request(request)?;
@@ -208,18 +208,18 @@ pub(super) async fn search_email_fixture(
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|_| internal_search_error())?;
-    execute_search_request(&client, endpoint, bearer_token, &request).await
+    execute_search_request(&client, endpoint, api_key, &request).await
 }
 
 /// Builds and sends one redirect-free fixed-route request before bounded response decoding.
 async fn execute_search_request(
     client: &Client,
     endpoint: Url,
-    bearer_token: &str,
+    api_key: &str,
     request: &LocalmailSearchRequest,
 ) -> Result<SearchEmailResponse, ProviderError> {
     let result_limit = request.limit;
-    let request = build_search_http_request(client, endpoint, bearer_token, request)?;
+    let request = build_search_http_request(client, endpoint, api_key, request)?;
     let response = client
         .execute(request)
         .await
@@ -232,12 +232,12 @@ async fn execute_search_request(
 pub(super) fn build_search_http_request(
     client: &Client,
     endpoint: Url,
-    bearer_token: &str,
+    api_key: &str,
     request: &LocalmailSearchRequest,
 ) -> Result<Request, ProviderError> {
     let body = serde_json::to_vec(request).map_err(|_| internal_search_error())?;
-    let mut authorization = HeaderValue::from_str(&format!("Bearer {bearer_token}"))
-        .map_err(|_| internal_search_error())?;
+    let mut authorization =
+        HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(|_| internal_search_error())?;
     authorization.set_sensitive(true);
     client
         .request(Method::POST, endpoint)
@@ -254,7 +254,7 @@ async fn read_bounded_search_body(response: Response) -> Result<Vec<u8>, Provide
     match response.status() {
         StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
             return Err(ProviderError::invalid_request(
-                "Localmail rejected the configured bearer token.",
+                "Localmail rejected the configured API key.",
             ));
         }
         status if !status.is_success() => {
@@ -465,11 +465,9 @@ fn missing_connection_error() -> ProviderError {
     )
 }
 
-/// Returns the fixed failure for a missing or unavailable Localmail bearer token.
+/// Returns the fixed failure for a missing or unavailable Localmail API key.
 fn missing_credential_error() -> ProviderError {
-    ProviderError::invalid_request(
-        "Add and unlock a Localmail bearer token before searching email.",
-    )
+    ProviderError::invalid_request("Add and unlock a Localmail API key before searching email.")
 }
 
 /// Returns the fixed path-free request-layer failure.

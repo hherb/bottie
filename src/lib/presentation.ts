@@ -108,6 +108,7 @@ export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {
   anthropicBaseUrl: "https://api.anthropic.com/v1/",
   qwenImageBaseUrl: "https://dashscope-intl.aliyuncs.com/api/v1/",
   webSearchProviderId: "brave",
+  generationLimits: { maxToolRounds: 12, maxToolCalls: 24, maxOutputTokens: 8_192 },
   webNetworkPolicy: {
     httpsOnly: true,
     allowedDomains: [],

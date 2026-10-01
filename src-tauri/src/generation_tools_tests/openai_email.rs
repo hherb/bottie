@@ -168,6 +168,7 @@ fn streams_openai_email_result_and_final_answer_across_two_requests() {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: None,
             max_output_tokens: Some(128),
             reasoning_effort: ReasoningEffort::Off,

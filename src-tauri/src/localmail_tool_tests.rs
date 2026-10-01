@@ -383,6 +383,34 @@ fn rejects_before_execution_and_redacts_connector_failures() {
 }
 
 #[test]
+fn malformed_localmail_responses_explain_the_failure_without_native_details() {
+    let executor = DispatchLocalmailExecutor {
+        requests: Arc::new(Mutex::new(Vec::new())),
+        result: Err(ProviderError::malformed(
+            "private PDF content",
+            Some("secret archive location".into()),
+        )),
+    };
+    let failed = tauri::async_runtime::block_on(dispatch_localmail_tool(
+        &executor,
+        &NativeToolCall {
+            call_id: "attachment-call".into(),
+            tool_name: "read_email_attachment".into(),
+            arguments: json!({"messageId":"42", "attachmentNumber":1}),
+        },
+        None,
+    ));
+    let MemoryToolExecution::Error { error } = failed else {
+        panic!("malformed responses should use the common error envelope");
+    };
+    assert_eq!(error.code, MemoryToolExecutionErrorCode::ExecutionFailed);
+    assert_eq!(
+        error.message,
+        "Localmail returned a response Bottie could not decode."
+    );
+}
+
+#[test]
 fn configured_dispatch_validates_before_config_or_vault_access() {
     let credentials = RejectCredentialAccess;
     let executor =

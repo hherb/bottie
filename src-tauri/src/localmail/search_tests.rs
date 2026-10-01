@@ -220,7 +220,7 @@ fn fixed_search_request_uses_post_route_sensitive_bearer_and_bounded_body() {
     .expect("request");
     let client = reqwest::Client::new();
     let endpoint = url::Url::parse("https://mail.example/v1/search").expect("endpoint");
-    let request = build_search_http_request(&client, endpoint, "vault-secret", &normalized)
+    let request = build_search_http_request(&client, endpoint, "lmk_vault-secret", &normalized)
         .expect("HTTP request");
 
     assert_eq!(request.method(), reqwest::Method::POST);
@@ -232,7 +232,7 @@ fn fixed_search_request_uses_post_route_sensitive_bearer_and_bounded_body() {
     assert!(authorization.is_sensitive());
     assert_eq!(
         authorization.to_str().expect("header"),
-        "Bearer vault-secret"
+        "Bearer lmk_vault-secret"
     );
     let body = request
         .body()
@@ -243,7 +243,7 @@ fn fixed_search_request_uses_post_route_sensitive_bearer_and_bounded_body() {
     assert!(body.contains("\"limit\":3"));
     assert!(body.contains("\"sort\":\"date\""));
     assert!(body.contains("\"sort_order\":\"desc\""));
-    assert!(!body.contains("vault-secret"));
+    assert!(!body.contains("lmk_vault-secret"));
     assert!(!body.contains("cursor"));
     assert!(!body.contains("smart"));
 }
@@ -402,7 +402,7 @@ fn bounded_native_search_uses_only_the_fixed_authenticated_route() {
         let (mut stream, _) = listener.accept().expect("search request");
         let request = read_http_request(&mut stream);
         assert!(request.starts_with("POST /v1/search HTTP/1.1\r\n"));
-        assert!(request.contains("\r\nauthorization: Bearer fixture-token\r\n"));
+        assert!(request.contains("\r\nauthorization: Bearer lmk_fixture-key\r\n"));
         assert!(request.contains("\"query\":\"budget review\""));
         assert!(request.contains("\"has_attachment\":true"));
         assert!(request.contains("\"limit\":2"));
@@ -427,7 +427,7 @@ fn bounded_native_search_uses_only_the_fixed_authenticated_route() {
 
     let response = tauri::async_runtime::block_on(search_email_fixture(
         &format!("http://{address}/"),
-        "fixture-token",
+        "lmk_fixture-key",
         request(serde_json::json!({
             "query": "budget review",
             "filters": {"hasAttachments": true},

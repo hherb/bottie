@@ -127,7 +127,7 @@ fn open_http_request_is_fixed_authenticated_and_disables_external_images() {
     let client = Client::new();
     let endpoint = url::Url::parse("https://mail.example/v1/messages/42").expect("fixed endpoint");
     let request =
-        build_open_http_request(&client, endpoint, "fixture-token").expect("HTTP request");
+        build_open_http_request(&client, endpoint, "lmk_fixture-key").expect("HTTP request");
 
     assert_eq!(request.method(), reqwest::Method::GET);
     assert_eq!(
@@ -136,7 +136,7 @@ fn open_http_request_is_fixed_authenticated_and_disables_external_images() {
     );
     assert_eq!(
         request.headers()[AUTHORIZATION].to_str().expect("bearer"),
-        "Bearer fixture-token"
+        "Bearer lmk_fixture-key"
     );
     assert!(request.headers()[AUTHORIZATION].is_sensitive());
     assert!(request.body().is_none());
@@ -296,7 +296,7 @@ fn open_email_fixture_executes_one_exact_request() {
                 "GET /v1/messages/17?headers=compact&external_images=false HTTP/1.1\r\n"
             )
         );
-        assert!(request.contains("\r\nauthorization: Bearer fixture-token\r\n"));
+        assert!(request.contains("\r\nauthorization: Bearer lmk_fixture-key\r\n"));
         assert!(!request.contains("external_images=true"));
         assert!(!request.contains("headers=full"));
 
@@ -316,7 +316,7 @@ fn open_email_fixture_executes_one_exact_request() {
 
     let response = tauri::async_runtime::block_on(open_email_fixture(
         &format!("http://{address}/"),
-        "fixture-token",
+        "lmk_fixture-key",
         request(serde_json::json!({"messageId": "17"})),
     ))
     .expect("bounded fixture open");

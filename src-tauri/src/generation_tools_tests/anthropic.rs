@@ -360,6 +360,7 @@ fn tool_request() -> ChatRequest {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: None,
             max_output_tokens: Some(128),
             reasoning_effort: ReasoningEffort::Off,
@@ -384,6 +385,7 @@ fn web_tool_request() -> ChatRequest {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: None,
             max_output_tokens: Some(128),
             reasoning_effort: ReasoningEffort::Off,

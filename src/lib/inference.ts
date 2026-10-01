@@ -87,6 +87,13 @@ export type WebNetworkPolicy = {
   blockedDomains: string[];
 };
 
+/** Saved output and tool budgets for newly accepted answers. */
+export type GenerationLimits = {
+  maxToolRounds: number;
+  maxToolCalls: number;
+  maxOutputTokens: number;
+};
+
 /** Persisted non-secret provider configuration. */
 export type ProviderSettings = {
   omlxBaseUrl: string;
@@ -96,6 +103,7 @@ export type ProviderSettings = {
   qwenImageBaseUrl: string;
   webSearchProviderId: WebSearchProviderId;
   webNetworkPolicy: WebNetworkPolicy;
+  generationLimits: GenerationLimits;
   setupCompleted: boolean;
   lastProviderId: ProviderId | null;
   lastModelId: string | null;

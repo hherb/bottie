@@ -20,14 +20,15 @@ use serde_json::Value;
 use tokio::sync::Notify;
 
 use crate::{
+    inference::GenerationLimits,
     storage::{ConversationStore, SemanticEmbedder},
     tool_dispatch::{MemoryToolExecution, dispatch_memory_tool},
 };
 
-/// Maximum native tool calls accepted across one provider generation.
-pub(crate) const MAX_TOOL_LOOP_CALLS: usize = 8;
-/// Maximum provider-to-tool recursion rounds accepted across one generation.
-pub(crate) const MAX_TOOL_LOOP_ROUNDS: usize = 4;
+/// Default maximum native tool calls accepted across one provider generation.
+pub(crate) const MAX_TOOL_LOOP_CALLS: usize = 24;
+/// Default maximum provider-to-tool recursion rounds accepted across one generation.
+pub(crate) const MAX_TOOL_LOOP_ROUNDS: usize = 12;
 /// Maximum serialized provider-facing tool output retained across one generation.
 pub(crate) const MAX_TOOL_LOOP_OUTPUT_BYTES: usize = 256 * 1_024;
 /// Overall wall-clock budget for one provider-neutral tool loop.
@@ -149,6 +150,7 @@ enum ToolLoopStatus {
 /// Bounded provider-neutral state accumulated across tool recursion rounds.
 #[derive(Debug)]
 pub(crate) struct ToolLoopState {
+    limits: GenerationLimits,
     started_at: Instant,
     status: ToolLoopStatus,
     round_count: usize,
@@ -159,7 +161,13 @@ pub(crate) struct ToolLoopState {
 impl ToolLoopState {
     /// Starts one active loop at the native acceptance time.
     pub(crate) fn new(started_at: Instant) -> Self {
+        Self::with_limits(started_at, GenerationLimits::default())
+    }
+
+    /// Snapshots validated native Settings so an active answer keeps its original budgets.
+    pub(crate) fn with_limits(started_at: Instant, limits: GenerationLimits) -> Self {
         Self {
+            limits,
             started_at,
             status: ToolLoopStatus::Active,
             round_count: 0,
@@ -264,7 +272,7 @@ impl ToolLoopState {
     ) -> Result<(), ToolLoopError> {
         self.require_active()?;
         self.require_live(cancellation, now)?;
-        if self.round_count >= MAX_TOOL_LOOP_ROUNDS {
+        if self.round_count >= self.limits.max_tool_rounds {
             return Err(self.fail(ToolLoopErrorCode::RecursionLimitExceeded));
         }
         if call_count == 0 {
@@ -273,7 +281,7 @@ impl ToolLoopState {
         if self
             .call_count
             .checked_add(call_count)
-            .is_none_or(|count| count > MAX_TOOL_LOOP_CALLS)
+            .is_none_or(|count| count > self.limits.max_tool_calls)
         {
             return Err(self.fail(ToolLoopErrorCode::CallLimitExceeded));
         }

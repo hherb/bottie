@@ -6,12 +6,15 @@ use std::{
     time::Duration,
 };
 
-use keyring::v1::{Entry, Error as KeyringError};
-
 use crate::{command_types::ProviderCredentialStatus, inference::ProviderError};
 
+#[cfg(not(target_os = "macos"))]
+use keyring::v1::{Entry, Error as KeyringError};
+
 const SERVICE_NAME: &str = "com.hherb.bottie.provider-api-keys";
+#[cfg(not(target_os = "macos"))]
 const STATUS_SERVICE_NAME: &str = "com.hherb.bottie.provider-api-key-status";
+#[cfg(not(target_os = "macos"))]
 const CONFIGURED_MARKER: &str = "configured";
 const AUTHENTICATION_REASON: &str =
     "unlock saved cloud, search, image, and connector credentials for this Bottie session";
@@ -25,7 +28,7 @@ pub(crate) const NATIVE_CREDENTIAL_IDS: [&str; 5] = [
     "exa",
     crate::image_generation::QWEN_IMAGE_PROVIDER_ID,
 ];
-/// Vault identity reserved for the first-party Localmail connector token.
+/// Vault identity reserved for the first-party Localmail connector API key.
 pub(crate) const LOCALMAIL_CREDENTIAL_ID: &str = "localmail";
 /// Every credential Bottie warms after the single app-session authentication.
 const NATIVE_SESSION_CREDENTIAL_IDS: [&str; 6] = [
@@ -36,6 +39,20 @@ const NATIVE_SESSION_CREDENTIAL_IDS: [&str; 6] = [
     crate::image_generation::QWEN_IMAGE_PROVIDER_ID,
     LOCALMAIL_CREDENTIAL_ID,
 ];
+
+/// Uses an explicit test draft without consulting or unlocking any saved credential.
+pub(crate) fn draft_or_saved_credential<F>(
+    draft: Option<String>,
+    read_saved: F,
+) -> Result<Option<String>, ProviderError>
+where
+    F: FnOnce() -> Result<Option<String>, ProviderError>,
+{
+    match draft.filter(|value| !value.trim().is_empty()) {
+        Some(value) => Ok(Some(value)),
+        None => read_saved(),
+    }
+}
 
 /// Returns secret-free status for each WebView-visible credential without reading a vault value.
 pub(crate) fn provider_credential_statuses(
@@ -101,6 +118,8 @@ pub(crate) trait CredentialStore: Send + Sync {
 struct CredentialSession {
     secrets: HashMap<String, String>,
     authenticated: bool,
+    #[cfg(any(target_os = "macos", test))]
+    bundle: Option<macos::CredentialBundle>,
 }
 
 #[derive(Default)]
@@ -110,6 +129,7 @@ pub(crate) struct SystemCredentialStore {
 
 impl SystemCredentialStore {
     /// Builds a native keyring entry without exposing its contents.
+    #[cfg(not(target_os = "macos"))]
     fn entry(service: &str, provider_id: &str) -> Result<Entry, ProviderError> {
         validate_native_credential_provider(provider_id)?;
         Entry::new(service, provider_id).map_err(vault_error)
@@ -124,7 +144,14 @@ impl SystemCredentialStore {
 
     /// Authenticates once and warms every configured credential into process-only memory.
     pub(crate) fn warm_session(&self) -> Result<usize, ProviderError> {
+        #[cfg(target_os = "macos")]
+        {
+            let mut session = self.session()?;
+            return self.warm_macos_session(&mut session);
+        }
+        #[cfg(not(target_os = "macos"))]
         let mut session = self.session()?;
+        #[cfg(not(target_os = "macos"))]
         warm_configured_credentials(
             &mut session,
             &NATIVE_SESSION_CREDENTIAL_IDS,
@@ -134,9 +161,53 @@ impl SystemCredentialStore {
         )
     }
 
-    /// Migrates pre-biometric entries to a secret-free configured marker.
+    #[cfg(target_os = "macos")]
+    /// Loads all secrets from the single item under the existing session mutex.
+    fn warm_macos_session(&self, session: &mut CredentialSession) -> Result<usize, ProviderError> {
+        if session.bundle.is_some() {
+            return Ok(0);
+        }
+        let configured = !macos::configured_ids()?.is_empty();
+        if !configured {
+            session.bundle = Some(macos::empty_bundle()?);
+            return Ok(0);
+        }
+        macos::warm_bundle(
+            session,
+            configured,
+            authenticate_with_biometrics,
+            macos::load,
+        )
+    }
+
+    #[cfg(target_os = "macos")]
+    /// Commits one bundle replacement before updating the process-only cache.
+    fn change_macos_credential(
+        &self,
+        provider_id: &str,
+        api_key: Option<&str>,
+    ) -> Result<(), ProviderError> {
+        let mut session = self.session()?;
+        self.warm_macos_session(&mut session)?;
+        // Retiring legacy identities prevents deleted or replaced values from resurfacing.
+        macos::change_bundle(&mut session, provider_id, api_key, macos::save)?;
+        if api_key.is_none() {
+            // A legacy item's ACL may reject deletion without another password prompt.
+            // The committed retirement record already prevents it from being used again.
+            let _ = macos::delete_legacy(provider_id);
+        }
+        Ok(())
+    }
+
+    /// Checks public macOS item attributes or the legacy marker on other platforms.
     fn configured_in_vault(provider_id: &str) -> Result<bool, ProviderError> {
+        #[cfg(target_os = "macos")]
+        {
+            return Ok(macos::configured_ids()?.contains(provider_id));
+        }
+        #[cfg(not(target_os = "macos"))]
         let marker = Self::entry(STATUS_SERVICE_NAME, provider_id)?;
+        #[cfg(not(target_os = "macos"))]
         match marker.get_password() {
             Ok(_) => Ok(true),
             Err(KeyringError::NoEntry) => {
@@ -158,6 +229,7 @@ impl SystemCredentialStore {
     }
 
     /// Reads one secret after the caller has satisfied the biometric policy.
+    #[cfg(not(target_os = "macos"))]
     fn read_secret(provider_id: &str) -> Result<Option<String>, ProviderError> {
         match Self::entry(SERVICE_NAME, provider_id)?.get_password() {
             Ok(secret) => Ok(Some(secret)),
@@ -194,6 +266,15 @@ impl CredentialStore for SystemCredentialStore {
         if let Some(secret) = session.secrets.get(provider_id).cloned() {
             return Ok(Some(secret));
         }
+        #[cfg(target_os = "macos")]
+        {
+            self.warm_macos_session(&mut session)?;
+            if !session.secrets.contains_key(provider_id) && Self::configured_in_vault(provider_id)?
+            {
+                return Err(macos::legacy_locked_error());
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
         warm_configured_credentials(
             &mut session,
             &[provider_id],
@@ -210,40 +291,55 @@ impl CredentialStore for SystemCredentialStore {
         if api_key.is_empty() {
             return Err(ProviderError::invalid_request("API keys cannot be empty."));
         }
-        let configured = Self::configured_in_vault(provider_id)?;
-        let mut session = self.session()?;
-        let authorized = session.authenticated || session.secrets.contains_key(provider_id);
-        if requires_authentication(configured, authorized) {
-            authenticate_with_biometrics()?;
-            session.authenticated = true;
+        #[cfg(target_os = "macos")]
+        {
+            return self.change_macos_credential(provider_id, Some(api_key));
         }
-        Self::entry(SERVICE_NAME, provider_id)?
-            .set_password(api_key)
-            .map_err(vault_error)?;
-        Self::entry(STATUS_SERVICE_NAME, provider_id)?
-            .set_password(CONFIGURED_MARKER)
-            .map_err(vault_error)?;
-        session.secrets.insert(provider_id.into(), api_key.into());
-        Ok(())
+        #[cfg(not(target_os = "macos"))]
+        {
+            let mut session = self.session()?;
+            let configured = Self::configured_in_vault(provider_id)?;
+            let authorized = session.authenticated || session.secrets.contains_key(provider_id);
+            if requires_authentication(configured, authorized) {
+                authenticate_with_biometrics()?;
+                session.authenticated = true;
+            }
+            Self::entry(SERVICE_NAME, provider_id)?
+                .set_password(api_key)
+                .map_err(vault_error)?;
+            Self::entry(STATUS_SERVICE_NAME, provider_id)?
+                .set_password(CONFIGURED_MARKER)
+                .map_err(vault_error)?;
+            session.secrets.insert(provider_id.into(), api_key.into());
+            Ok(())
+        }
     }
 
     fn delete(&self, provider_id: &str) -> Result<(), ProviderError> {
         validate_native_credential_provider(provider_id)?;
-        let configured = Self::configured_in_vault(provider_id)?;
-        let mut session = self.session()?;
-        let authorized = session.authenticated || session.secrets.contains_key(provider_id);
-        if requires_authentication(configured, authorized) {
-            authenticate_with_biometrics()?;
-            session.authenticated = true;
+        #[cfg(target_os = "macos")]
+        {
+            return self.change_macos_credential(provider_id, None);
         }
-        delete_entry(SERVICE_NAME, provider_id)?;
-        delete_entry(STATUS_SERVICE_NAME, provider_id)?;
-        session.secrets.remove(provider_id);
-        Ok(())
+        #[cfg(not(target_os = "macos"))]
+        {
+            let mut session = self.session()?;
+            let configured = Self::configured_in_vault(provider_id)?;
+            let authorized = session.authenticated || session.secrets.contains_key(provider_id);
+            if requires_authentication(configured, authorized) {
+                authenticate_with_biometrics()?;
+                session.authenticated = true;
+            }
+            delete_entry(SERVICE_NAME, provider_id)?;
+            delete_entry(STATUS_SERVICE_NAME, provider_id)?;
+            session.secrets.remove(provider_id);
+            Ok(())
+        }
     }
 }
 
 /// Warms configured secrets while coalescing all reads behind one session authentication.
+#[cfg(any(not(target_os = "macos"), test))]
 fn warm_configured_credentials<C, A, R>(
     session: &mut CredentialSession,
     provider_ids: &[&str],
@@ -283,11 +379,13 @@ where
 }
 
 /// Returns whether an existing locked credential needs explicit authentication.
+#[cfg(any(not(target_os = "macos"), test))]
 fn requires_authentication(configured: bool, authorized: bool) -> bool {
     configured && !authorized
 }
 
 /// Removes one vault entry while treating an already-absent value as success.
+#[cfg(not(target_os = "macos"))]
 fn delete_entry(service: &str, provider_id: &str) -> Result<(), ProviderError> {
     match SystemCredentialStore::entry(service, provider_id)?.delete_credential() {
         Ok(()) | Err(KeyringError::NoEntry) => Ok(()),
@@ -314,7 +412,7 @@ fn authenticate_with_biometrics() -> Result<(), ProviderError> {
     use objc2_foundation::{NSError, NSString};
     use objc2_local_authentication::{LAContext, LAPolicy};
 
-    let policy = LAPolicy::DeviceOwnerAuthenticationWithBiometrics;
+    let policy = LAPolicy::DeviceOwnerAuthentication;
     let reason = NSString::from_str(AUTHENTICATION_REASON);
     let (sender, receiver) = mpsc::sync_channel(1);
     let reply = RcBlock::new(move |success: Bool, _error: *mut NSError| {
@@ -348,16 +446,17 @@ fn authenticate_with_biometrics() -> Result<(), ProviderError> {
 /// Maps unavailable biometric hardware or enrollment to a useful user action.
 fn biometric_unavailable() -> ProviderError {
     ProviderError::invalid_request(
-        "Touch ID is unavailable. Configure biometrics in System Settings before using cloud credentials.",
+        "Device authentication is unavailable. Configure a login password or Touch ID in System Settings.",
     )
 }
 
 /// Maps a cancelled or unsuccessful authentication without exposing framework diagnostics.
 fn biometric_error() -> ProviderError {
-    ProviderError::invalid_request("Touch ID did not unlock the cloud credential.")
+    ProviderError::invalid_request("Device authentication did not unlock the saved credentials.")
 }
 
 /// Maps keyring failures without returning secret material or platform debug payloads.
+#[cfg(not(target_os = "macos"))]
 fn vault_error(_error: KeyringError) -> ProviderError {
     ProviderError::internal(
         "The operating-system credential vault could not complete the request.",
@@ -368,3 +467,7 @@ fn vault_error(_error: KeyringError) -> ProviderError {
 #[cfg(test)]
 #[path = "credentials_tests.rs"]
 mod tests;
+
+#[cfg(any(target_os = "macos", test))]
+#[path = "credentials_macos.rs"]
+mod macos;

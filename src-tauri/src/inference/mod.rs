@@ -1,6 +1,7 @@
 //! Provider-neutral inference orchestration and concrete provider adapters.
 
 mod anthropic;
+mod generation_limits;
 mod multimodal;
 mod ollama;
 mod omlx;
@@ -12,6 +13,7 @@ mod types;
 
 pub use anthropic::AnthropicProvider;
 pub(crate) use anthropic::{AnthropicToolCall, AnthropicToolResult, AnthropicToolSession};
+pub(crate) use generation_limits::GenerationLimits;
 pub use ollama::OllamaProvider;
 pub(crate) use ollama::{OllamaToolCall, OllamaToolResult, OllamaToolSession};
 pub use omlx::OmlxProvider;

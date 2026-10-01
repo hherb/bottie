@@ -21,8 +21,8 @@
   let trustedOrigin = $state("");
   let trustedCertificate = $state("");
   let inspected = $state<LocalmailProbeResult | null>(null);
-  let bearerToken = $state("");
-  let removeToken = $state(false);
+  let apiKey = $state("");
+  let removeApiKey = $state(false);
   let credentialConfigured = $state(false);
   let credentialUnlocked = $state(false);
   let biometricProtected = $state(false);
@@ -96,24 +96,42 @@
     }
   }
 
-  /** Saves explicit certificate trust and one optional vault-token mutation. */
+  /** Saves explicit certificate trust and one optional vault-key mutation. */
   async function saveConnection(): Promise<void> {
     const certificate = activeCertificate();
     if (!isTauri() || disabled || busy || !certificate) return;
+    try {
+      await persistConnection(certificate);
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  /** Includes pending key edits in the dialog save without implicitly trusting a new certificate. */
+  export async function savePendingChanges(): Promise<void> {
+    if (!isTauri()) return;
+    if (busy) throw new Error("Wait for the Localmail operation to finish before saving Settings.");
+    if (!apiKey.trim() && !removeApiKey && origin === trustedOrigin && !inspected) return;
+    if (origin !== trustedOrigin || inspected || !trustedCertificate) {
+      throw new Error("Confirm the Localmail certificate trust before saving Settings.");
+    }
+    await persistConnection(trustedCertificate);
+  }
+
+  /** Clears replacement drafts only after the native vault acknowledges the write. */
+  async function persistConnection(certificate: string): Promise<void> {
     busy = "saving";
     feedback = "";
     failed = false;
     try {
-      const status = await updateLocalmailConnection(origin, certificate, bearerToken.trim() || null, removeToken);
+      const status = await updateLocalmailConnection(origin, certificate, apiKey.trim() || null, removeApiKey);
       applyStatus(status);
       inspected = null;
-      bearerToken = "";
-      removeToken = false;
+      apiKey = "";
+      removeApiKey = false;
       feedback = status.credentialConfigured
-        ? "Certificate trust and the vault-held bearer token are saved."
-        : "Certificate trust is saved. Add a bearer token to verify authentication.";
-    } catch (error) {
-      showError(error);
+        ? "Certificate trust and the vault-held API key are saved."
+        : "Certificate trust is saved. Add an API key to verify authentication.";
     } finally {
       busy = null;
     }
@@ -127,9 +145,9 @@
     feedback = "";
     failed = false;
     try {
-      const testedDraftToken = bearerToken.trim().length > 0;
-      const result = await testLocalmailConnection(origin, certificate, bearerToken.trim() || null);
-      feedback = localmailConnectionTestMessage(result, testedDraftToken, credentialConfigured);
+      const testedDraftKey = apiKey.trim().length > 0;
+      const result = await testLocalmailConnection(origin, certificate, apiKey.trim() || null);
+      feedback = localmailConnectionTestMessage(result, testedDraftKey, credentialConfigured);
     } catch (error) {
       showError(error);
     } finally {
@@ -187,16 +205,16 @@
     </div>
   {/if}
 
-  <label for="localmail-bearer-token">Bearer token</label>
+  <label for="localmail-api-key">API key</label>
   <div class="credential-row">
     <input
-      id="localmail-bearer-token"
+      id="localmail-api-key"
       type="password"
-      value={bearerToken}
-      placeholder={credentialConfigured ? "Stored in OS credential vault" : "Paste a Localmail API token"}
+      value={apiKey}
+      placeholder={credentialConfigured ? "Stored in OS credential vault" : "Paste a Localmail lmk_ API key"}
       oninput={(event) => {
-        bearerToken = event.currentTarget.value;
-        removeToken = false;
+        apiKey = event.currentTarget.value;
+        removeApiKey = false;
       }}
       disabled={!isTauri() || disabled || busy !== null}
       autocomplete="new-password"
@@ -204,28 +222,35 @@
     />
     <button
       type="button"
-      class:pending={removeToken}
+      class:pending={removeApiKey}
       disabled={!credentialConfigured || disabled || busy !== null}
-      onclick={() => (removeToken = !removeToken)}>{removeToken ? "Keep" : "Remove"}</button
+      onclick={() => {
+        removeApiKey = !removeApiKey;
+        if (removeApiKey) apiKey = "";
+      }}>{removeApiKey ? "Keep" : "Remove"}</button
     >
   </div>
   <p class="credential-status">
-    {removeToken
-      ? "The saved token will be removed when this connection is saved."
-      : bearerToken
-        ? "The replacement token remains in native memory until it is saved to the operating-system credential vault."
+    {removeApiKey
+      ? "The saved API key will be removed when this connection is saved."
+      : apiKey
+        ? "Save this connection or Save and reconnect to store the replacement API key in the operating-system credential vault."
         : credentialConfigured && biometricProtected && credentialUnlocked
-          ? "The vault token is unlocked for this Bottie session."
+          ? "The vault API key is unlocked for this Bottie session."
           : credentialConfigured && biometricProtected
-            ? "The vault token is protected by Touch ID and unlocks on first use this session."
+            ? "The saved API key unlocks with Touch ID or your login password."
             : credentialConfigured
-              ? "A bearer token is configured in the operating-system credential vault."
-              : "No bearer token is configured."}
+              ? "An API key is configured in the operating-system credential vault."
+              : "No API key is configured."}
   </p>
 
   <p class="localmail-boundary">
-    No email is read during setup. The bearer token stays in the operating-system credential vault. Inspect certificate,
-    then Confirm certificate trust; Test calls only <code>/v1/version</code> and, when a token exists,
+    Use an API key beginning with <code>lmk_</code> from your Localmail administrator. Login tokens expire.
+  </p>
+
+  <p class="localmail-boundary">
+    No email is read during setup. The API key stays in the operating-system credential vault. Inspect certificate, then
+    Confirm certificate trust; Test calls only <code>/v1/version</code> and, when an API key exists,
     <code>/v1/auth/whoami</code>.
   </p>
 

@@ -71,7 +71,7 @@ fn localmail_origins_are_https_roots_without_embedded_request_data() {
 }
 
 #[test]
-fn fingerprints_and_bearer_tokens_are_closed_and_bounded() {
+fn fingerprints_and_api_keys_are_closed_and_bounded() {
     assert_eq!(
         normalize_certificate_sha256(&"A".repeat(CERTIFICATE_SHA256_HEX_LENGTH))
             .expect("valid fingerprint"),
@@ -79,16 +79,36 @@ fn fingerprints_and_bearer_tokens_are_closed_and_bounded() {
     );
     assert!(normalize_certificate_sha256("abcd").is_err());
     assert_eq!(
-        normalize_bearer_token(" token-value ").expect("token"),
-        "token-value"
+        normalize_api_key(" lmk_test-value ").expect("API key"),
+        "lmk_test-value"
     );
-    assert!(normalize_bearer_token("").is_err());
-    assert!(normalize_bearer_token("line\nbreak").is_err());
-    assert!(normalize_bearer_token(&"x".repeat(MAX_BEARER_TOKEN_LENGTH + 1)).is_err());
+    assert!(normalize_api_key("").is_err());
+    assert!(normalize_api_key("ordinary-expiring-login-token").is_err());
+    assert!(normalize_api_key("lmk_").is_err());
+    assert!(normalize_api_key("lmk_key with spaces").is_err());
+    assert!(normalize_api_key("line\nbreak").is_err());
+    assert!(normalize_api_key(&"x".repeat(MAX_API_KEY_LENGTH + 1)).is_err());
 }
 
 #[test]
-fn persisted_connection_contains_no_bearer_token() {
+fn api_key_drafts_reject_the_old_login_token_contract_and_unknown_fields() {
+    let draft = serde_json::json!({
+        "origin": "https://mail.example", "certificateSha256": "a".repeat(64),
+        "apiKey": "lmk_fixture-key"
+    });
+    assert!(serde_json::from_value::<LocalmailConnectionDraft>(draft.clone()).is_ok());
+    let mut old = draft.clone();
+    old["bearerToken"] = serde_json::json!("old-login-token");
+    assert!(serde_json::from_value::<LocalmailConnectionDraft>(old).is_err());
+    let mut update = draft;
+    update["removeApiKey"] = serde_json::json!(false);
+    assert!(serde_json::from_value::<LocalmailConnectionUpdate>(update.clone()).is_ok());
+    update["removeToken"] = serde_json::json!(true);
+    assert!(serde_json::from_value::<LocalmailConnectionUpdate>(update).is_err());
+}
+
+#[test]
+fn persisted_connection_contains_no_api_key() {
     let directory = std::env::temp_dir().join(format!("bottie-localmail-{}", uuid::Uuid::new_v4()));
     let path = directory.join("localmail.json");
     let credentials = TestCredentialStore::default();
@@ -98,8 +118,8 @@ fn persisted_connection_contains_no_bearer_token() {
         LocalmailConnectionUpdate {
             origin: "https://mail.example:8443".into(),
             certificate_sha256: "b".repeat(CERTIFICATE_SHA256_HEX_LENGTH),
-            bearer_token: Some("vault-only-token".into()),
-            remove_token: false,
+            api_key: Some("lmk_vault-only-key".into()),
+            remove_api_key: false,
         },
     )
     .expect("connection should save");
@@ -110,19 +130,19 @@ fn persisted_connection_contains_no_bearer_token() {
     let persisted = fs::read_to_string(&path).expect("persisted connector settings");
     assert!(persisted.contains("https://mail.example:8443/"));
     assert!(persisted.contains(&"b".repeat(CERTIFICATE_SHA256_HEX_LENGTH)));
-    assert!(!persisted.contains("vault-only-token"));
+    assert!(!persisted.contains("lmk_vault-only-key"));
     assert_eq!(
         credentials
             .get(LOCALMAIL_CREDENTIAL_ID)
             .expect("credential read")
             .as_deref(),
-        Some("vault-only-token")
+        Some("lmk_vault-only-key")
     );
     fs::remove_dir_all(directory).expect("remove test directory");
 }
 
 #[test]
-fn connection_status_survives_reopen_and_token_removal() {
+fn connection_status_survives_reopen_and_api_key_removal() {
     let directory = std::env::temp_dir().join(format!("bottie-localmail-{}", uuid::Uuid::new_v4()));
     let path = directory.join("localmail.json");
     let credentials = TestCredentialStore::default();
@@ -132,8 +152,8 @@ fn connection_status_survives_reopen_and_token_removal() {
         LocalmailConnectionUpdate {
             origin: "https://mail.example".into(),
             certificate_sha256: "c".repeat(CERTIFICATE_SHA256_HEX_LENGTH),
-            bearer_token: Some("first-token".into()),
-            remove_token: false,
+            api_key: Some("lmk_first-key".into()),
+            remove_api_key: false,
         },
     )
     .expect("initial connection");
@@ -147,11 +167,11 @@ fn connection_status_survives_reopen_and_token_removal() {
         LocalmailConnectionUpdate {
             origin: status.origin.expect("origin"),
             certificate_sha256: status.certificate_sha256.expect("pin"),
-            bearer_token: None,
-            remove_token: true,
+            api_key: None,
+            remove_api_key: true,
         },
     )
-    .expect("token removal");
+    .expect("API key removal");
     assert!(!removed.credential_configured);
     assert!(load_config(&path).expect("config reload").is_some());
     fs::remove_dir_all(directory).expect("remove test directory");
@@ -168,15 +188,15 @@ fn replacement_and_removal_cannot_be_requested_together() {
         LocalmailConnectionUpdate {
             origin: "https://mail.example".into(),
             certificate_sha256: "d".repeat(CERTIFICATE_SHA256_HEX_LENGTH),
-            bearer_token: Some("new-token".into()),
-            remove_token: true,
+            api_key: Some("lmk_new-key".into()),
+            remove_api_key: true,
         },
     )
     .expect_err("conflicting credential update must fail");
 
     assert_eq!(
         error.message,
-        "Choose either a replacement Localmail token or token removal."
+        "Choose either a replacement Localmail API key or API key removal."
     );
     assert!(!path.exists());
 }

@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-/// Default completion ceiling used when the interface does not supply one.
-const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 4_096;
+use super::generation_limits::DEFAULT_MAX_OUTPUT_TOKENS;
 
 /// A provider and model pair exposed to the presentation layer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -160,6 +159,9 @@ impl ImageMediaType {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ChatSettings {
+    #[serde(skip)]
+    /// Native-only snapshot of saved tool limits; the WebView cannot override it per request.
+    pub(crate) generation_limits: super::GenerationLimits,
     /// Optional provider sampling temperature.
     pub temperature: Option<f32>,
     /// Optional maximum number of generated tokens.
@@ -182,6 +184,7 @@ pub enum ReasoningEffort {
 impl Default for ChatSettings {
     fn default() -> Self {
         Self {
+            generation_limits: super::GenerationLimits::default(),
             temperature: Some(0.7),
             max_output_tokens: Some(DEFAULT_MAX_OUTPUT_TOKENS),
             reasoning_effort: ReasoningEffort::Off,

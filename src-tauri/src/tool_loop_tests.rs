@@ -167,6 +167,79 @@ fn rejects_call_and_recursion_limits_before_executing_an_excess_round() {
 }
 
 #[test]
+fn configured_limits_allow_twelve_two_call_rounds_and_reject_the_thirteenth() {
+    let mut state = ToolLoopState::with_limits(
+        Instant::now(),
+        crate::inference::GenerationLimits {
+            max_tool_rounds: 12,
+            max_tool_calls: 24,
+            max_output_tokens: 8_192,
+        },
+    );
+    let cancellation = ToolLoopCancellation::default();
+    for round in 0..12 {
+        state
+            .execute_round_with(
+                vec![
+                    call(format!("{round}-a"), "search_memory"),
+                    call(format!("{round}-b"), "search_memory"),
+                ],
+                &cancellation,
+                Instant::now,
+                |_| bounded_memory_tool_success(json!({"matches": []})),
+            )
+            .expect("all twelve configured rounds should execute");
+    }
+    assert_eq!(state.call_count(), 24);
+    assert_eq!(state.round_count(), 12);
+    assert_eq!(
+        state
+            .execute_round_with(
+                vec![call("excess", "search_memory")],
+                &cancellation,
+                Instant::now,
+                |_| panic!("the thirteenth round must not execute"),
+            )
+            .unwrap_err()
+            .code,
+        ToolLoopErrorCode::RecursionLimitExceeded
+    );
+}
+
+#[test]
+fn configured_call_budget_is_independent_of_round_budget() {
+    let mut state = ToolLoopState::with_limits(
+        Instant::now(),
+        crate::inference::GenerationLimits {
+            max_tool_rounds: 12,
+            max_tool_calls: 2,
+            max_output_tokens: 8_192,
+        },
+    );
+    let cancellation = ToolLoopCancellation::default();
+    state
+        .execute_round_with(
+            vec![call("one", "search_memory"), call("two", "search_memory")],
+            &cancellation,
+            Instant::now,
+            |_| bounded_memory_tool_success(json!({})),
+        )
+        .unwrap();
+    assert_eq!(
+        state
+            .execute_round_with(
+                vec![call("three", "search_memory")],
+                &cancellation,
+                Instant::now,
+                |_| panic!("the configured call budget must be enforced"),
+            )
+            .unwrap_err()
+            .code,
+        ToolLoopErrorCode::CallLimitExceeded
+    );
+}
+
+#[test]
 fn stops_before_returning_aggregate_output_beyond_the_loop_ceiling() {
     let started_at = Instant::now();
     let cancellation = ToolLoopCancellation::default();

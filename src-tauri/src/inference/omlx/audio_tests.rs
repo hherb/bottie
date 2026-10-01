@@ -31,6 +31,7 @@ fn audio_request() -> ChatRequest {
         audio_enabled: true,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: Some(0.0),
             max_output_tokens: Some(80),
             reasoning_effort: ReasoningEffort::Off,

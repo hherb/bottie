@@ -50,6 +50,36 @@ master; the locked icon pipeline now derives both product favicons and the websi
 local unsigned macOS installer with contained Python by default; the explicit `:no-python` variant opts out. The
 inspected arm64 DMG is neither distribution-signed nor notarized.
 
+Credential and Localmail maintenance on 2026-10-01: macOS now stores credentials together in one keychain item.
+Status queries request public attributes only, session authentication accepts Touch ID or a login password, and
+accessible legacy entries migrate with keychain dialogs disabled. Older entries requiring separate approval remain
+intact; re-save their API keys in Settings. Public retirement metadata prevents replaced/deleted legacy entries from
+returning. Localmail setup now accepts administrator-issued `lmk_` API keys, still sent with the server's Bearer
+scheme, and rejects expiring login-token drafts. No live prompt-count or Localmail-server acceptance is claimed.
+The Settings follow-up includes Localmail key changes in Save and reconnect, keeps drafts on failed writes, and
+uses draft credentials without eagerly reading locked legacy keys for search/cloud/image tests. Removal commits
+legacy retirement before best-effort cleanup, so a legacy ACL cannot stop removal or resurrect its key. Regression
+checks cover replacement/removal across restart and actual Settings clicks with fake vault commands.
+
+Generation maintenance on 2026-10-02: recent oMLX failures hit the old four-round/eight-call tool budgets while the
+server returned valid tool requests with roughly 7k context tokens. Generation limits are now saved in Settings,
+defaulting to 12 rounds, 24 calls, and 8,192 output tokens per model request. Rust validates the saved values and
+snapshots them before run provenance; all mapped provider loops use those snapshots. Older settings gain defaults.
+The independent five-minute tool-work deadline, 120-second stream-idle timeout, and output-byte limits remain.
+Validation: 413 frontend tests and 671 active native library tests pass; the explicit loopback fixture also completes
+12 and 13 configured tool rounds. Settings clicks verify save/reopen, cancellation, and invalid-value rejection;
+native persistence checks verify restart and legacy defaults. No live private conversation was replayed.
+
+Localmail PDF maintenance on 2026-10-02: the attachment reader rejected the server's valid `offset`, `limit`, `total`,
+and `next_offset` fields because it expected a closed text-only response. It now accepts paged responses and older
+text-only responses, requests the first 12,288 characters, validates page metadata, and marks unread text truncated.
+Malformed server responses now have a specific fixed decode-failure message without exposing native details.
+Synthetic regression tests reproduce the rejection using the actual Localmail response schema. No private PDF was
+retrieved; server-side text extraction must already have completed.
+All 38 focused Localmail tests pass. The full host suite passes 673 tests but the existing shell-based Python
+cancellation fixture times out waiting for its start marker, also when run alone. The actual development-signed DMG
+passes packaged Python execution, App Sandbox containment, cancellation, and client-exit termination checks.
+
 ## Next product slice
 
 Complete independent expression review for the exact clean closure without assembling a bundle:

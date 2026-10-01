@@ -204,3 +204,30 @@ fn rejects_unknown_status_identities_before_store_access() {
     assert_eq!(error.code.as_str(), "invalid_request");
     assert_eq!(error.diagnostic, None);
 }
+
+#[test]
+fn draft_credential_bypasses_locked_saved_credentials_for_every_route() {
+    for id in NATIVE_SESSION_CREDENTIAL_IDS {
+        let key = draft_or_saved_credential(Some(" replacement ".into()), || {
+            panic!("a replacement draft must not access the locked {id} vault")
+        })
+        .expect("replacement draft");
+        assert_eq!(key.as_deref(), Some(" replacement "));
+    }
+}
+
+#[test]
+fn absent_or_blank_draft_uses_the_saved_credential_and_preserves_errors() {
+    for draft in [None, Some(" \t ".into())] {
+        assert_eq!(
+            draft_or_saved_credential(draft.clone(), || Ok(Some("saved".into())))
+                .expect("saved key")
+                .as_deref(),
+            Some("saved")
+        );
+        assert!(
+            draft_or_saved_credential(draft, || Err(ProviderError::invalid_request("locked")))
+                .is_err()
+        );
+    }
+}

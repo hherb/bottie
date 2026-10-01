@@ -11,6 +11,8 @@ use std::{
 
 use serde_json::json;
 
+mod omlx_limits;
+
 use crate::{
     diagnostics::Diagnostics,
     generation_localmail_tools::email_tools_enabled,
@@ -415,6 +417,7 @@ fn streams_an_ollama_tool_call_result_and_final_answer_across_two_requests() {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: Some(0.0),
             max_output_tokens: Some(128),
             reasoning_effort: ReasoningEffort::Off,

@@ -133,3 +133,17 @@ fn removes_anthropic_sampling_before_provider_run_provenance() {
 
     assert_eq!(normalized.settings.temperature, None);
 }
+
+#[test]
+fn applies_saved_generation_limits_before_provider_run_provenance() {
+    let mut request = text_request("Hi");
+    request.settings.max_output_tokens = Some(1);
+    let limits = crate::inference::GenerationLimits {
+        max_tool_rounds: 16,
+        max_tool_calls: 40,
+        max_output_tokens: 12_288,
+    };
+    let request = request_with_generation_limits(request, limits);
+    assert_eq!(request.settings.max_output_tokens, Some(12_288));
+    assert_eq!(request.settings.generation_limits, limits);
+}

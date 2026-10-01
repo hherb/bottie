@@ -154,16 +154,63 @@ fn attachment_text_request_is_fixed_authenticated_and_json_only() {
         "b".repeat(64)
     ))
     .unwrap();
-    let request = build_attachment_text_http_request(&client, endpoint, "fixture-token")
+    let request = build_attachment_text_http_request(&client, endpoint, "lmk_fixture-key")
         .expect("HTTP request");
 
     assert_eq!(request.method(), reqwest::Method::GET);
     assert_eq!(
         request.headers()[AUTHORIZATION].to_str().unwrap(),
-        "Bearer fixture-token"
+        "Bearer lmk_fixture-key"
     );
     assert!(request.headers()[AUTHORIZATION].is_sensitive());
     assert!(request.body().is_none());
+    assert_eq!(request.url().query(), Some("offset=0&limit=12288"));
+}
+
+#[test]
+fn accepts_localmail_text_pages_and_reports_unread_characters() {
+    for (total, next_offset, truncated) in [(7, None, false), (20, Some(7), true)] {
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "text": "Invoice", "offset": 0, "limit": 12288,
+            "total": total, "next_offset": next_offset
+        }))
+        .unwrap();
+        let response = decode_attachment_text_response(&bytes, "42", 1, fixture_attachment())
+            .expect("Localmail's actual paged response should be accepted");
+        assert_eq!(response.text, "Invoice");
+        assert_eq!(response.truncated, truncated);
+        assert!(response.untrusted);
+    }
+}
+
+#[test]
+fn rejects_invalid_text_page_metadata() {
+    for page in [
+        serde_json::json!({"text":"Invoice", "offset":1, "total":8}),
+        serde_json::json!({"text":"Invoice", "total":6}),
+        serde_json::json!({"text":"Invoice", "total":20, "next_offset":0}),
+        serde_json::json!({"text":"Invoice", "total":"private details"}),
+    ] {
+        let error = decode_attachment_text_response(
+            &serde_json::to_vec(&page).unwrap(),
+            "42",
+            1,
+            fixture_attachment(),
+        )
+        .expect_err("invalid page should fail without forwarding its content");
+        assert_eq!(error.code, ProviderErrorCode::MalformedResponse);
+        assert!(!error.message.contains("private"));
+    }
+}
+
+/// Native-only attachment identity for synthetic response tests.
+fn fixture_attachment() -> ResolvedAttachment {
+    ResolvedAttachment {
+        sha256: "b".repeat(64),
+        filename: Some("invoice.pdf".into()),
+        content_type: Some("application/pdf".into()),
+        byte_size: Some(48_213),
+    }
 }
 
 #[test]

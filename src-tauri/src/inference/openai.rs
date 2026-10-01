@@ -342,7 +342,7 @@ mod tests {
         .unwrap();
         let body = serde_json::to_value(OpenAiChatRequest::from(request)).unwrap();
         assert_eq!(body["reasoning_effort"], "low");
-        assert_eq!(body["max_completion_tokens"], 4096);
+        assert_eq!(body["max_completion_tokens"], 8192);
         assert_eq!(body["stream_options"]["include_usage"], true);
         assert!(body.get("temperature").is_none());
     }

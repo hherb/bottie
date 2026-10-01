@@ -61,6 +61,8 @@ only the typed information it needs to render the interface.
 - Fetch only validated public HTTP(S) pages through a proxy-free, redirect-limited native client.
 - Search and open email, then read already extracted attachment text, through an explicitly pinned Localmail connection
   without exposing credentials, attachment hashes, raw bytes, or mail internals to the WebView.
+- Attachment reads accept Localmail's paged text responses and request a bounded first window; longer text is marked
+  truncated. PDF text extraction must already have completed on the Localmail server.
 - Review each tool call, stable outcome, duration, and retained result in the conversation audit.
 
 ## Keyboard commands
@@ -198,11 +200,17 @@ Additional safeguards include:
 - no general HTTP client exposed to the WebView;
 - loopback-only validation for local inference providers;
 - explicit cloud routing and first-run privacy disclosure;
-- one macOS Touch ID prompt at app start, followed by process-memory caching of all configured credentials for the
-  session;
+- one macOS credential bundle, with metadata-only status checks and one session authentication (Touch ID or login
+  password), followed by native process-memory caching. macOS may request access to the single keychain item once;
+  older entries migrate without dialogs when accessible, otherwise re-save their API keys in Settings;
+- Settings saves Localmail key replacements/removals with Save and reconnect once certificate trust is confirmed;
+  connection tests use an entered replacement directly, without first unlocking an older saved key;
 - public-network and destination policy checks for web tools;
-- certificate pinning, disabled redirects, and disabled ambient proxies for Localmail;
-- fixed call, round, response-size, aggregate-output, and deadline ceilings for native tools.
+- certificate pinning, disabled redirects, and disabled ambient proxies for Localmail; use an administrator-issued
+  `lmk_` API key rather than an expiring login token. The key is stored in the OS vault and sent as a Bearer credential;
+- saved Generation limits in Settings: defaults of 12 tool rounds, 24 total calls, and 8,192 output tokens per model
+  request. Round/call budgets and output tokens are configurable and apply to newly started answers; the independent
+  five-minute tool-work budget and response-size/aggregate-output bounds still apply;
 - no updater plugin permissions or JavaScript updater binding in the WebView; only Bottie's narrow native
   check/install/cancel commands are registered.
 - no WebView media-capture capability; microphone access and sample retention remain behind narrow Rust commands.
@@ -338,15 +346,15 @@ worker remains a user-supplied reviewed bundle rather than an application payloa
 Local availability is evidence-gated, not inferred from an operating-system or GPU family. Unsupported profiles fail
 before model download or generation, and Bottie never falls back to Cloud automatically.
 
-| Host profile | Local status | Accepted evidence or next gate |
-| --- | --- | --- |
-| macOS, Apple M3 Max, 128 GiB unified memory | Supported for one 512×512 text-to-image output | Exact MLX-Gen 0.18.2 worker bundle and immutable mixed q4/q8 package; 27.5 GiB measured peak memory; 110 ms measured cancellation |
-| Other Apple silicon profiles | Unavailable | A named chip and memory tier must pass the same decoded-output, memory, offline, and cancellation proof |
-| Linux, NVIDIA DGX Spark GB10 with 128 GB unified memory | Unavailable | The exact pinned Diffusers proof passes decoded output, determinism, offline execution, memory sampling, and 100 ms cancellation; product-native packaging, selection, probing, and app-owned execution remain gated |
-| Other Linux or Windows profiles with NVIDIA GPU | Unavailable | Each native target must pass exact runtime evidence; DGX Spark does not prove Windows, WSL, discrete-VRAM, or another Linux profile |
-| Linux with AMD GPU | Unavailable | A named ROCm target must prove decoded output, memory, and cancellation behavior |
-| Windows with AMD or Intel GPU, and lower-memory GPUs | Unavailable | A pinned Vulkan/GGUF candidate needs same-seed quality and lifecycle evidence; DirectML is not claimed |
-| Any host requesting local Qwen-Image-2.0 | Unavailable | Exact 2.0 weights have not been released in Qwen's official repositories or model registries |
+| Host profile                                            | Local status                                   | Accepted evidence or next gate                                                                                                                                                                                       |
+| ------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS, Apple M3 Max, 128 GiB unified memory             | Supported for one 512×512 text-to-image output | Exact MLX-Gen 0.18.2 worker bundle and immutable mixed q4/q8 package; 27.5 GiB measured peak memory; 110 ms measured cancellation                                                                                    |
+| Other Apple silicon profiles                            | Unavailable                                    | A named chip and memory tier must pass the same decoded-output, memory, offline, and cancellation proof                                                                                                              |
+| Linux, NVIDIA DGX Spark GB10 with 128 GB unified memory | Unavailable                                    | The exact pinned Diffusers proof passes decoded output, determinism, offline execution, memory sampling, and 100 ms cancellation; product-native packaging, selection, probing, and app-owned execution remain gated |
+| Other Linux or Windows profiles with NVIDIA GPU         | Unavailable                                    | Each native target must pass exact runtime evidence; DGX Spark does not prove Windows, WSL, discrete-VRAM, or another Linux profile                                                                                  |
+| Linux with AMD GPU                                      | Unavailable                                    | A named ROCm target must prove decoded output, memory, and cancellation behavior                                                                                                                                     |
+| Windows with AMD or Intel GPU, and lower-memory GPUs    | Unavailable                                    | A pinned Vulkan/GGUF candidate needs same-seed quality and lifecycle evidence; DirectML is not claimed                                                                                                               |
+| Any host requesting local Qwen-Image-2.0                | Unavailable                                    | Exact 2.0 weights have not been released in Qwen's official repositories or model registries                                                                                                                         |
 
 The supported local route is text-to-image only. Local editing is unavailable, and Qwen-Image-2512 output is never
 labelled as Qwen-Image-2.0.

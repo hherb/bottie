@@ -7,6 +7,7 @@ use tauri::State;
 use crate::{
     AppState,
     command_types::{WebSearchConnectionDraft, WebSearchConnectionTest},
+    credentials::draft_or_saved_credential,
     diagnostics::record_diagnostic,
     inference::ProviderError,
     web_search::{
@@ -31,10 +32,7 @@ pub(crate) async fn test_web_search_connection(
     }
     let started = Instant::now();
     let provider_id = draft.provider_id;
-    let api_key = draft
-        .api_key
-        .filter(|value| !value.trim().is_empty())
-        .or(state.credentials.get(&provider_id)?)
+    let api_key = draft_or_saved_credential(draft.api_key, || state.credentials.get(&provider_id))?
         .ok_or_else(|| ProviderError::invalid_request(missing_test_credential(&provider_id)))?;
     let search_result = match provider_id.as_str() {
         BRAVE_SEARCH_PROVIDER_ID => {

@@ -326,6 +326,14 @@ fn request_omits_implicit_sampling_for_models_that_reject_nondefault_temperature
 }
 
 #[test]
+fn request_uses_eight_k_output_tokens_when_no_explicit_limit_is_supplied() {
+    let mut request = text_request("Hi");
+    request.settings.max_output_tokens = None;
+    let body = serde_json::to_value(AnthropicChatRequest::from(request)).unwrap();
+    assert_eq!(body["max_tokens"], 8192);
+}
+
+#[test]
 fn request_serializes_normalized_images_as_anthropic_source_blocks() {
     let mut request: ChatRequest = serde_json::from_str(concat!(
         r#"{"providerId":"anthropic","modelId":"claude-example","messages":["#,

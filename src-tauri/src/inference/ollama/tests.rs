@@ -56,6 +56,7 @@ fn live_request(model_id: String, prompt: &str) -> ChatRequest {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: Some(0.0),
             max_output_tokens: Some(80),
             reasoning_effort: ReasoningEffort::Off,

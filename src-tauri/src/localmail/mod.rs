@@ -1,4 +1,4 @@
-//! First-party Localmail trust, bearer authentication, and bounded inert email reading.
+//! First-party Localmail trust, API key authentication, and bounded inert email reading.
 
 mod attachment_text;
 mod commands;
@@ -40,7 +40,7 @@ use tls::{CertificateMode, CertificateVerifier};
 const LOCALMAIL_API_MAJOR: u32 = 1;
 const MAX_ORIGIN_LENGTH: usize = 2_048;
 const CERTIFICATE_SHA256_HEX_LENGTH: usize = 64;
-const MAX_BEARER_TOKEN_LENGTH: usize = 4_096;
+const MAX_API_KEY_LENGTH: usize = 128;
 const MAX_RESPONSE_BYTES: usize = 32 * 1_024;
 const MAX_SERVER_VERSION_LENGTH: usize = 128;
 const MAX_USERNAME_LENGTH: usize = 200;
@@ -49,7 +49,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Candidate Localmail HTTPS origin submitted for certificate inspection.
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct LocalmailProbeDraft {
     origin: String,
 }
@@ -65,23 +65,23 @@ pub(crate) struct LocalmailProbeResult {
     certificate_sha256: String,
 }
 
-/// Draft connection and optional replacement token used by a bounded native test.
+/// Draft connection and optional replacement API key used by a bounded native test.
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct LocalmailConnectionDraft {
     origin: String,
     certificate_sha256: String,
-    bearer_token: Option<String>,
+    api_key: Option<String>,
 }
 
-/// Confirmed non-secret connection plus the requested vault-token mutation.
+/// Confirmed non-secret connection plus the requested vault-key mutation.
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct LocalmailConnectionUpdate {
     origin: String,
     certificate_sha256: String,
-    bearer_token: Option<String>,
-    remove_token: bool,
+    api_key: Option<String>,
+    remove_api_key: bool,
 }
 
 /// Secret-free Localmail configuration and vault availability returned to the WebView.
@@ -95,7 +95,7 @@ pub(crate) struct LocalmailConnectionStatus {
     biometric_protected: bool,
 }
 
-/// Bounded result of testing Localmail identity and optional bearer authentication.
+/// Bounded result of testing Localmail identity and optional API key authentication.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct LocalmailConnectionTest {
@@ -157,18 +157,22 @@ pub(super) fn normalize_certificate_sha256(value: &str) -> Result<String, Provid
     Ok(value.to_ascii_lowercase())
 }
 
-/// Validates a bounded bearer token before it can enter an HTTP header or native vault.
-fn normalize_bearer_token(value: &str) -> Result<String, ProviderError> {
+/// Validates a bounded API key before it can enter an HTTP header or native vault.
+fn normalize_api_key(value: &str) -> Result<String, ProviderError> {
     let value = value.trim();
-    if value.is_empty() || value.len() > MAX_BEARER_TOKEN_LENGTH {
+    if !value.starts_with("lmk_")
+        || value.len() <= "lmk_".len()
+        || value.len() > MAX_API_KEY_LENGTH
+        || !value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+    {
         return Err(ProviderError::invalid_request(
-            "Enter a non-empty bounded Localmail bearer token.",
+            "Enter a Localmail API key beginning with lmk_, issued by your Localmail administrator.",
         ));
     }
     HeaderValue::from_str(value).map_err(|_| {
-        ProviderError::invalid_request(
-            "The Localmail bearer token contains unsupported characters.",
-        )
+        ProviderError::invalid_request("The Localmail API key contains unsupported characters.")
     })?;
     Ok(value.into())
 }
@@ -199,12 +203,12 @@ fn build_client(
 /// Reads one successful JSON response without retaining an unbounded provider body.
 async fn read_bounded_json<T: DeserializeOwned>(
     response: Response,
-    bearer_present: bool,
+    api_key_present: bool,
 ) -> Result<T, ProviderError> {
     let status = response.status();
     if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
-        return Err(ProviderError::invalid_request(if bearer_present {
-            "Localmail rejected the bearer token."
+        return Err(ProviderError::invalid_request(if api_key_present {
+            "Localmail rejected the API key."
         } else {
             "Localmail did not expose the required public server-identity route."
         }));
@@ -232,21 +236,21 @@ async fn read_bounded_json<T: DeserializeOwned>(
     })
 }
 
-/// Sends one bounded GET with an optional bearer credential confined to a sensitive header.
+/// Sends one bounded GET with an optional API key credential confined to a sensitive header.
 async fn get_json<T: DeserializeOwned>(
     client: &Client,
     endpoint: Url,
-    bearer_token: Option<&str>,
+    api_key: Option<&str>,
 ) -> Result<T, ProviderError> {
     let mut request = client.get(endpoint);
-    if let Some(token) = bearer_token {
+    if let Some(token) = api_key {
         request = request.bearer_auth(token);
     }
     let response = request
         .send()
         .await
         .map_err(|_| localmail_unavailable_error())?;
-    read_bounded_json(response, bearer_token.is_some()).await
+    read_bounded_json(response, api_key.is_some()).await
 }
 
 /// Appends one fixed Localmail API path to a previously validated origin.
@@ -289,20 +293,20 @@ pub(crate) fn connection_status(
     })
 }
 
-/// Persists a confirmed connection and applies one explicit token mutation.
+/// Persists a confirmed connection and applies one explicit API key mutation.
 fn update_connection(
     path: &Path,
     credentials: &dyn CredentialStore,
     update: LocalmailConnectionUpdate,
 ) -> Result<LocalmailConnectionStatus, ProviderError> {
-    if update.remove_token
+    if update.remove_api_key
         && update
-            .bearer_token
+            .api_key
             .as_deref()
             .is_some_and(|value| !value.trim().is_empty())
     {
         return Err(ProviderError::invalid_request(
-            "Choose either a replacement Localmail token or token removal.",
+            "Choose either a replacement Localmail API key or API key removal.",
         ));
     }
     let config = LocalmailConfig {
@@ -310,13 +314,13 @@ fn update_connection(
         certificate_sha256: normalize_certificate_sha256(&update.certificate_sha256)?,
     };
     let token = update
-        .bearer_token
+        .api_key
         .as_deref()
         .filter(|value| !value.trim().is_empty())
-        .map(normalize_bearer_token)
+        .map(normalize_api_key)
         .transpose()?;
     save_config(path, &config)?;
-    if update.remove_token {
+    if update.remove_api_key {
         credentials.delete(LOCALMAIL_CREDENTIAL_ID)?;
     } else if let Some(token) = token {
         credentials.set(LOCALMAIL_CREDENTIAL_ID, &token)?;

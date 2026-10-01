@@ -39,6 +39,7 @@ pub(crate) async fn stream_ollama_tools(
     python_runner: Option<Arc<dyn PythonRunner>>,
 ) -> Result<Option<Usage>, ProviderError> {
     let memory_enabled = request.memory_enabled;
+    let limits = request.settings.generation_limits;
     let mut session = OllamaToolSession::new(request, python_runner.is_some())?;
     let mut loop_state: Option<ToolLoopState> = None;
     let mut cumulative_usage = None;
@@ -67,7 +68,8 @@ pub(crate) async fn stream_ollama_tools(
             return Ok(cumulative_usage);
         }
 
-        let mut state = loop_state.unwrap_or_else(|| ToolLoopState::new(std::time::Instant::now()));
+        let mut state = loop_state
+            .unwrap_or_else(|| ToolLoopState::with_limits(std::time::Instant::now(), limits));
         let results = execute_ollama_tool_round_async(
             &mut state,
             round.tool_calls.clone(),

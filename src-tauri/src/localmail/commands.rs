@@ -6,7 +6,7 @@ use tauri::State;
 
 use crate::{
     AppState,
-    credentials::LOCALMAIL_CREDENTIAL_ID,
+    credentials::{LOCALMAIL_CREDENTIAL_ID, draft_or_saved_credential},
     diagnostics::{record_diagnostic, sanitized},
     inference::ProviderError,
 };
@@ -18,7 +18,7 @@ use super::{
 };
 
 #[tauri::command]
-/// Returns secret-free Localmail connection and token availability.
+/// Returns secret-free Localmail connection and API key availability.
 pub(crate) fn get_localmail_connection_status(
     state: State<'_, AppState>,
 ) -> Result<LocalmailConnectionStatus, ProviderError> {
@@ -57,7 +57,7 @@ pub(crate) async fn probe_localmail_connection(
 }
 
 #[tauri::command]
-/// Saves a confirmed Localmail connection and optional vault-only bearer token update.
+/// Saves a confirmed Localmail connection and optional vault-only API key update.
 pub(crate) async fn update_localmail_connection(
     update: LocalmailConnectionUpdate,
     state: State<'_, AppState>,
@@ -88,7 +88,7 @@ pub(crate) async fn update_localmail_connection(
         Some(if status.credential_configured {
             "Certificate trust and vault credential are configured"
         } else {
-            "Certificate trust is configured without a bearer credential"
+            "Certificate trust is configured without an API key credential"
         }),
     )
     .await;
@@ -96,7 +96,7 @@ pub(crate) async fn update_localmail_connection(
 }
 
 #[tauri::command]
-/// Tests the pinned Localmail identity and optional bearer authentication without reading email.
+/// Tests the pinned Localmail identity and optional API key authentication without reading email.
 pub(crate) async fn test_localmail_connection(
     draft: LocalmailConnectionDraft,
     state: State<'_, AppState>,
@@ -104,14 +104,11 @@ pub(crate) async fn test_localmail_connection(
     let started = Instant::now();
     let origin = normalize_origin(&draft.origin)?;
     let certificate_sha256 = normalize_certificate_sha256(&draft.certificate_sha256)?;
-    let token = match draft
-        .bearer_token
-        .as_deref()
-        .filter(|value| !value.trim().is_empty())
-    {
-        Some(value) => Some(normalize_bearer_token(value)?),
-        None => state.credentials.get(LOCALMAIL_CREDENTIAL_ID)?,
-    };
+    let token = draft_or_saved_credential(draft.api_key, || {
+        state.credentials.get(LOCALMAIL_CREDENTIAL_ID)
+    })?
+    .map(|value| normalize_api_key(&value))
+    .transpose()?;
     let (client, _) = build_client(CertificateMode::Pinned(certificate_sha256))?;
     let result = async {
         let version = get_json::<VersionResponse>(&client, endpoint(&origin, "v1/version")?, None)
@@ -159,9 +156,9 @@ pub(crate) async fn test_localmail_connection(
         "Localmail connection test completed",
         Some(LOCALMAIL_CREDENTIAL_ID),
         Some(if authenticated_as.is_some() {
-            "Server identity and bearer authentication verified"
+            "Server identity and API key authentication verified"
         } else {
-            "Server identity verified without bearer authentication"
+            "Server identity verified without API key authentication"
         }),
     )
     .await;
@@ -171,9 +168,9 @@ pub(crate) async fn test_localmail_connection(
         authenticated_as,
         elapsed_ms: started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
         message: if token.is_some() {
-            "Localmail identity and bearer authentication verified.".into()
+            "Localmail identity and API key authentication verified.".into()
         } else {
-            "Localmail identity verified; add a bearer token to verify authentication.".into()
+            "Localmail identity verified; add an API key to verify authentication.".into()
         },
     })
 }

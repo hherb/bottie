@@ -52,6 +52,10 @@ describe("ProviderSettingsDialog", () => {
     expect(html).toContain("Export JSON");
     expect(html).toContain("Structured with secrets and paths redacted");
     expect(html).toContain("Appearance");
+    expect(html).toContain("Generation limits");
+    expect(html).toContain('id="generation-tool-rounds"');
+    expect(html).toContain('id="generation-tool-calls"');
+    expect(html).toContain('id="generation-output-tokens"');
     expect(html).toContain("System");
     expect(html).toContain("Comfortable");
     expect(html).toContain("Compact");

@@ -248,6 +248,7 @@ fn streams_an_openai_web_search_result_and_final_answer_across_two_requests() {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: None,
             max_output_tokens: Some(128),
             reasoning_effort: ReasoningEffort::Off,
@@ -351,6 +352,7 @@ fn streams_an_openai_web_fetch_result_and_final_answer_across_two_requests() {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: None,
             max_output_tokens: Some(128),
             reasoning_effort: ReasoningEffort::Off,
@@ -462,6 +464,7 @@ fn streams_an_openai_tool_call_result_and_final_answer_across_two_requests() {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: None,
             max_output_tokens: Some(128),
             reasoning_effort: ReasoningEffort::Off,

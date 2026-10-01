@@ -150,6 +150,7 @@ fn streams_an_ollama_web_fetch_result_and_final_answer_across_two_requests() {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: Some(0.0),
             max_output_tokens: Some(128),
             reasoning_effort: ReasoningEffort::Off,

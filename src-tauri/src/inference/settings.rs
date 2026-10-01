@@ -5,7 +5,7 @@ use url::{Host, Url};
 
 use crate::web_policy::WebNetworkPolicy;
 
-use super::ProviderError;
+use super::{GenerationLimits, ProviderError};
 
 mod redaction;
 
@@ -53,6 +53,9 @@ pub struct ProviderSettings {
     /// User-configurable restrictions layered over the fixed public-Web baseline.
     #[serde(default)]
     pub web_network_policy: WebNetworkPolicy,
+    #[serde(default)]
+    /// Durable output and tool budgets applied to every newly accepted answer.
+    pub generation_limits: GenerationLimits,
     /// Whether the native first-run provider and privacy disclosure was completed.
     #[serde(default = "legacy_setup_completed")]
     pub setup_completed: bool,
@@ -83,6 +86,7 @@ impl Default for ProviderSettings {
             qwen_image_base_url: DEFAULT_QWEN_IMAGE_BASE_URL.into(),
             web_search_provider_id: DEFAULT_WEB_SEARCH_PROVIDER_ID.into(),
             web_network_policy: WebNetworkPolicy::default(),
+            generation_limits: GenerationLimits::default(),
             setup_completed: false,
             last_provider_id: None,
             last_model_id: None,
@@ -116,6 +120,7 @@ impl ProviderSettings {
                 .normalized()
                 .map_err(|error| ProviderError::invalid_request(error.message()))?,
             setup_completed: self.setup_completed,
+            generation_limits: self.generation_limits.validated()?,
             last_provider_id: normalize_provider_id(self.last_provider_id)?,
             last_model_id: normalize_model_id(self.last_model_id)?,
             memory_enabled: self.memory_enabled,
@@ -530,6 +535,7 @@ mod tests {
             [
                 "anthropicBaseUrl",
                 "emailEnabled",
+                "generationLimits",
                 "lastModelId",
                 "lastProviderId",
                 "memoryEnabled",
@@ -544,6 +550,12 @@ mod tests {
             ]
         );
         assert!(value.get("apiKey").is_none());
+        assert_eq!(
+            value["generationLimits"],
+            serde_json::json!({
+                "maxToolRounds": 12, "maxToolCalls": 24, "maxOutputTokens": 8192,
+            })
+        );
         assert!(value.get("credential").is_none());
         assert!(value.get("filesystemPath").is_none());
     }

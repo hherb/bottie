@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    CertificateMode, build_client, endpoint, load_config, normalize_bearer_token,
+    CertificateMode, build_client, endpoint, load_config, normalize_api_key,
     open::{
         MAX_EMAIL_ATTACHMENT_CONTENT_TYPE_CHARS, MAX_EMAIL_ATTACHMENT_FILENAME_CHARS,
         MAX_EMAIL_ATTACHMENTS, bounded_body, bounded_inline, build_open_http_request,
@@ -86,9 +86,13 @@ struct RawAttachmentIdentity {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct RawAttachmentTextResponse {
     text: String,
+    // Localmail's current response includes paging metadata; older versions returned text only.
+    #[serde(default)]
+    offset: usize,
+    total: Option<usize>,
+    next_offset: Option<usize>,
 }
 
 /// Native attachment identity retained only long enough to call the fixed text route.
@@ -110,7 +114,7 @@ pub(crate) async fn read_email_attachment_native(
     let token = credentials
         .get(LOCALMAIL_CREDENTIAL_ID)?
         .ok_or_else(missing_credential_error)
-        .and_then(|value| normalize_bearer_token(&value))?;
+        .and_then(|value| normalize_api_key(&value))?;
     let (client, _) = build_client(CertificateMode::Pinned(config.certificate_sha256))?;
     let detail_endpoint = endpoint(
         &config.origin,
@@ -198,12 +202,16 @@ pub(super) fn resolve_attachment(
 /// Builds the sole extracted-text request with a sensitive bearer and JSON-only response.
 pub(super) fn build_attachment_text_http_request(
     client: &Client,
-    endpoint: Url,
-    bearer_token: &str,
+    mut endpoint: Url,
+    api_key: &str,
 ) -> Result<Request, ProviderError> {
-    let mut authorization = HeaderValue::from_str(&format!("Bearer {bearer_token}"))
+    let mut authorization = HeaderValue::from_str(&format!("Bearer {api_key}"))
         .map_err(|_| internal_attachment_error())?;
     authorization.set_sensitive(true);
+    endpoint
+        .query_pairs_mut()
+        .append_pair("offset", "0")
+        .append_pair("limit", &MAX_EMAIL_ATTACHMENT_TEXT_CHARS.to_string());
     client
         .request(Method::GET, endpoint)
         .header(AUTHORIZATION, authorization)
@@ -217,7 +225,7 @@ async fn read_bounded_attachment_text_body(response: Response) -> Result<Vec<u8>
     match response.status() {
         StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
             return Err(ProviderError::invalid_request(
-                "Localmail rejected the configured bearer token.",
+                "Localmail rejected the configured API key.",
             ));
         }
         StatusCode::NOT_FOUND => return Err(unavailable_attachment_selection()),
@@ -253,6 +261,15 @@ pub(super) fn decode_attachment_text_response(
     }
     let raw: RawAttachmentTextResponse =
         serde_json::from_slice(bytes).map_err(|_| malformed_attachment_response())?;
+    let received_chars = raw.text.chars().count();
+    if raw.offset != 0
+        || raw.total.is_some_and(|total| total < received_chars)
+        || raw.next_offset.is_some_and(|next| {
+            next != received_chars || !raw.total.is_some_and(|total| total > next)
+        })
+    {
+        return Err(malformed_attachment_response());
+    }
     let normalized = bounded_body(&raw.text).ok_or_else(unavailable_attachment_selection)?;
     let original_chars = normalized.chars().count();
     let text = normalized
@@ -266,7 +283,8 @@ pub(super) fn decode_attachment_text_response(
         content_type: resolved.content_type,
         byte_size: resolved.byte_size,
         text,
-        truncated: original_chars > MAX_EMAIL_ATTACHMENT_TEXT_CHARS,
+        truncated: original_chars > MAX_EMAIL_ATTACHMENT_TEXT_CHARS
+            || raw.total.is_some_and(|total| total > received_chars),
         untrusted: true,
     })
 }
@@ -302,9 +320,7 @@ fn missing_connection_error() -> ProviderError {
 }
 
 fn missing_credential_error() -> ProviderError {
-    ProviderError::invalid_request(
-        "Add and unlock a Localmail bearer token before reading attachments.",
-    )
+    ProviderError::invalid_request("Add and unlock a Localmail API key before reading attachments.")
 }
 
 fn unavailable_attachment_error() -> ProviderError {

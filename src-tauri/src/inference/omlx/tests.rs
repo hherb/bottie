@@ -47,6 +47,7 @@ fn live_request(model_id: String, prompt: &str) -> ChatRequest {
         audio_enabled: false,
         retain_audio: false,
         settings: ChatSettings {
+            generation_limits: Default::default(),
             temperature: Some(0.0),
             max_output_tokens: Some(80),
             reasoning_effort: ReasoningEffort::Off,
@@ -368,7 +369,7 @@ fn serializes_normalized_images_as_openai_content_parts() {
 #[test]
 fn default_generation_settings_are_bounded_and_disable_reasoning() {
     let settings = ChatSettings::default();
-    assert_eq!(settings.max_output_tokens, Some(4_096));
+    assert_eq!(settings.max_output_tokens, Some(8_192));
     assert_eq!(settings.reasoning_effort, ReasoningEffort::Off);
 }
 
@@ -383,7 +384,7 @@ fn reasoning_only_ipc_settings_keep_safe_generation_defaults() {
         }"#,
     )
     .unwrap();
-    assert_eq!(request.settings.max_output_tokens, Some(4_096));
+    assert_eq!(request.settings.max_output_tokens, Some(8_192));
     assert_eq!(request.settings.reasoning_effort, ReasoningEffort::Low);
 }
 

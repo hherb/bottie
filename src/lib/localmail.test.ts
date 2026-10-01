@@ -28,7 +28,7 @@ describe("Localmail Email readiness", () => {
     expect(localmailToolsConfigured(status({ credentialConfigured: false }))).toBe(false);
   });
 
-  it("distinguishes a successful draft-token test from saved vault readiness", () => {
+  it("distinguishes a successful draft-key test from saved vault readiness", () => {
     const result: LocalmailConnectionTest = {
       origin: "https://127.0.0.1:3000",
       serverVersion: "1.0.0",
@@ -38,11 +38,13 @@ describe("Localmail Email readiness", () => {
     };
 
     expect(localmailConnectionTestMessage(result, true, false)).toContain(
-      "Save this connection before enabling Email; the tested token is not in the credential vault yet.",
+      "Save this connection before enabling Email; the tested API key is not in the credential vault yet.",
     );
     expect(localmailConnectionTestMessage(result, true, true)).toContain(
-      "Save this connection before Email uses the tested replacement token.",
+      "Save this connection before Email uses the tested replacement API key.",
     );
-    expect(localmailConnectionTestMessage(result, false, true)).toContain("The saved vault token is ready for Email.");
+    expect(localmailConnectionTestMessage(result, false, true)).toContain(
+      "The saved vault API key is ready for Email.",
+    );
   });
 });

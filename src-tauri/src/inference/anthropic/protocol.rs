@@ -6,6 +6,7 @@ use serde_json::Value;
 use crate::tool_contract::ToolDefinition;
 
 use super::super::{
+    generation_limits::DEFAULT_MAX_OUTPUT_TOKENS,
     multimodal::{AnthropicContent, anthropic_content, text_content},
     types::{ChatRequest, ChatRole, ProviderError, ReasoningEffort, Usage},
 };
@@ -79,7 +80,10 @@ impl From<ChatRequest> for AnthropicChatRequest {
             model: request.model_id,
             messages,
             system: (!system.is_empty()).then(|| system.join("\n\n")),
-            max_tokens: request.settings.max_output_tokens.unwrap_or(4_096),
+            max_tokens: request
+                .settings
+                .max_output_tokens
+                .unwrap_or(DEFAULT_MAX_OUTPUT_TOKENS),
             stream: true,
             thinking: if reasoning_enabled {
                 ThinkingConfig::Adaptive
