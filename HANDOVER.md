@@ -58,6 +58,10 @@ tabs; no full native Tauri UI click automation is claimed. See `docs/qwen-image-
 Validation: formatting, Svelte checks (zero errors/warnings), 425 frontend tests (3 skipped), and the production build
 pass. The locked serial host suite passes 690 library tests (39 opt-in fixtures ignored), the updater fixture,
 6 worker-adapter fixtures, 10 worker-transport fixtures, and doc tests. The separate live size/aspect proof passed.
+The refreshed contained-Python testing DMG is `bottie_0.9.0_image-tabs_71721b3_aarch64.dmg`, built from source commit
+`71721b339e929d07083d772c3ededb1673d25ff2`; SHA-256
+`a924fd02cb68574e428d428be4800e0707c9ab502e1f34c868109b378e62bc0e`. Disk-image verification, strict main/nested
+signatures, and the final mounted-app Python smoke proof pass. It remains an unnotarized development testing package.
 
 Testing package and optional-installer foundation completed on 2026-10-13. The contained-Python arm64 0.9.0 DMG was
 built from pre-installer commit `57d82da96ff7f9652570f2fef1ed68726a800182`, retained with that revision in its filename,

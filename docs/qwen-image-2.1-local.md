@@ -105,7 +105,18 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked --lib managed_install
 They cover exact source facts, all consent bindings, no-write rejection/pre-cancellation, resumed transfer, active
 cancellation with retained partials, corrupt-byte rejection, and verified-cache reuse after the source disappears.
 
-## Current test DMG
+## Test DMGs
+
+The refreshed tabbed-composer testing package is built from source commit
+`71721b339e929d07083d772c3ededb1673d25ff2` (Bottie 0.9.0):
+
+`src-tauri/target/release/bundle/dmg/bottie_0.9.0_image-tabs_71721b3_aarch64.dmg`
+
+SHA-256: `a924fd02cb68574e428d428be4800e0707c9ab502e1f34c868109b378e62bc0e` (42,021,931 bytes).
+It includes contained Python, Chat/Image tabs, and the size/aspect controls described above. Final read-only mounted
+app inspection verifies the main development signature; disk-image verification and the packaged Python
+execution/sandbox/cancellation/cleanup proof pass. The package remains unnotarized, without production Developer ID
+signing. Apple Silicon and macOS 14 or newer are required; image-model weights and MLX Serve are not bundled.
 
 The 2026-10-13 Apple Silicon testing installer was built **before** the managed-installer source changes, from commit
 `57d82da96ff7f9652570f2fef1ed68726a800182` (Bottie 0.9.0):
