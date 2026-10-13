@@ -316,8 +316,15 @@ lifecycle, and durable completion path. Failed or cancelled edits reopen and rev
 retry. Each generated edit presents a compact expandable source count and ordered path-free source kind, dimensions,
 media type, and byte size; opaque source IDs are not rendered. Local editing remains unavailable without fallback.
 
+Qwen-Image-2.1 is now the preferred local image model when its installed MLX Serve 8-bit pack is ready on
+`http://127.0.0.1:11234/`. Bottie reuses those files in place, including a pack already installed for oMLX, and generates
+one 512×512 PNG without another model download. The inspected oMLX server itself has no image-generation endpoint;
+start MLX Serve against the existing directory as described in [Local Qwen-Image 2.1](docs/qwen-image-2.1-local.md).
+Installation remains optional and requires acceptance of the upstream Qwen Research License. The current integration
+uses a separately installed local server; Bottie does not install or start it automatically.
+
 Qwen-Image-2.0 local execution remains intentionally unavailable until its weights and a compatible runtime are
-actually published. Local work can proceed now against the distinct open `Qwen/Qwen-Image-2512` text-to-image
+actually published. The managed legacy local route uses the distinct open `Qwen/Qwen-Image-2512` text-to-image
 checkpoint, prioritizing MLX-Gen on Apple silicon and a pinned Diffusers worker on proven Linux/Windows GPU targets.
 Every local adapter will share the same provider-neutral contract and durable native-byte path. Bottie will neither
 route exact 2.0 through oMLX or an older implementation nor label 2512 output as Qwen-Image-2.0. See Milestone 8 in
@@ -356,7 +363,7 @@ before model download or generation, and Bottie never falls back to Cloud automa
 | Windows with AMD or Intel GPU, and lower-memory GPUs    | Unavailable                                    | A pinned Vulkan/GGUF candidate needs same-seed quality and lifecycle evidence; DirectML is not claimed                                                                                                               |
 | Any host requesting local Qwen-Image-2.0                | Unavailable                                    | Exact 2.0 weights have not been released in Qwen's official repositories or model registries                                                                                                                         |
 
-The supported local route is text-to-image only. Local editing is unavailable, and Qwen-Image-2512 output is never
+Both local routes are text-to-image only. Local editing is unavailable, and Qwen-Image-2512 output is never
 labelled as Qwen-Image-2.0.
 
 On macOS, the package script development-signs each newly linked executable with an available Apple Development

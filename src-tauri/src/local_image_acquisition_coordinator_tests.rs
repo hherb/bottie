@@ -18,6 +18,27 @@ fn session() -> LocalImageAcquisitionSession {
     LocalImageAcquisitionSession::new(selected_qwen_image_2512_q4_package().unwrap())
 }
 
+#[test]
+fn ready_external_21_reuses_installed_bytes_without_offering_an_acquisition() {
+    let mut session = session();
+    let metadata = crate::local_image_worker::availability_service::server_metadata();
+    let status = session.refresh_idle(metadata, None);
+    assert_eq!(status.model_id, "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit");
+    assert_eq!(status.phase, LocalImageAcquisitionPhase::Ready);
+    assert_eq!(status.expected_disk_bytes, 0);
+    assert_eq!(status.required_memory_bytes, 0);
+    assert_eq!(status.failure, None);
+    assert!(
+        session
+            .begin(
+                &approval(),
+                &crate::local_image_worker::availability_service::server_metadata(),
+                None
+            )
+            .is_err()
+    );
+}
+
 fn metadata(
     availability: LocalImageAvailability,
 ) -> crate::local_image_worker::availability_service::LocalImageAvailabilityMetadata {
@@ -38,6 +59,7 @@ fn approval() -> LocalImageAcquisitionApproval {
         worker_expected_disk_bytes: 1_107_880_778,
         required_memory_bytes: 29_526_129_448,
         approved: true,
+        license_accepted: false,
     }
 }
 

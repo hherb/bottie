@@ -10,6 +10,8 @@ pub(crate) mod availability;
 #[allow(dead_code)]
 #[path = "local_image_worker/availability_service.rs"]
 pub(crate) mod availability_service;
+#[path = "local_image_worker/backend.rs"]
+pub(crate) mod backend;
 #[allow(dead_code)]
 #[path = "local_image_worker/execution.rs"]
 pub(crate) mod execution;
@@ -41,6 +43,8 @@ pub(crate) mod protocol;
 #[allow(dead_code)]
 #[path = "local_image_worker/runtime_proof.rs"]
 pub(crate) mod runtime_proof;
+#[path = "local_image_worker/server.rs"]
+pub(crate) mod server;
 #[allow(dead_code)]
 #[path = "local_image_worker/transport.rs"]
 pub(crate) mod transport;

@@ -13,6 +13,8 @@ mod editing_tests;
 #[cfg(test)]
 mod live_tests;
 #[cfg(test)]
+mod local_server_live_tests;
+#[cfg(test)]
 mod tests;
 
 use crate::inference::ProviderError;

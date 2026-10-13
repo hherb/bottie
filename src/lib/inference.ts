@@ -161,6 +161,8 @@ export type StartImageGenerationRequest = {
   height: number;
   count: number;
   execution: "cloud" | "local";
+  /** Exact disclosed local package, captured before asynchronous prompt persistence. */
+  localModelId?: string;
 };
 
 /** One ordered opaque source selected for native hosted image editing. */

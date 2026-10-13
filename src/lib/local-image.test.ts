@@ -4,6 +4,7 @@ import {
   localImageAcquisitionApproval,
   localImageAcquisitionPresentation,
   localImageAvailabilityPresentation,
+  localImageModelLabel,
   localImageWorkerImportApproval,
   localImageWorkerImportPresentation,
   type LocalImageAcquisitionStatus,
@@ -23,12 +24,47 @@ const READY: LocalImageAvailabilityMetadata = {
 };
 
 describe("local image availability presentation", () => {
+  it("labels the exact native-selected model without relabelling older output", () => {
+    expect(localImageModelLabel({ ...READY, modelId: "Qwen/Qwen-Image-2.1" })).toBe("Local 2.1");
+    expect(localImageModelLabel(READY)).toBe("Local 2512");
+    expect(localImageModelLabel(null)).toBe("Local");
+  });
+  it("discloses installed-server reuse without claiming zero measured memory or offering import", () => {
+    const server = {
+      ...READY,
+      modelId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+      runtimeId: "mlx-serve@external",
+      expectedDiskBytes: 0,
+      requiredMemoryBytes: 0,
+      workerExpectedDiskBytes: 0,
+    };
+    expect(localImageModelLabel(server)).toBe("Local 2.1");
+    expect(localImageAvailabilityPresentation(server).detail).toBe(
+      "Reuses the installed MLX Serve model · no additional model download",
+    );
+    expect(localImageWorkerImportPresentation(server, false).action).toBe("none");
+  });
+  it("makes research-license acceptance explicit in the optional install action", () => {
+    const research = {
+      ...READY,
+      modelId: "Qwen/Qwen-Image-2.1",
+      license: "LicenseRef-Qwen-Research",
+      phase: "awaiting_approval" as const,
+      failure: null,
+      downloadedFiles: 0,
+      totalFiles: 28,
+      downloadedBytes: 0,
+      verifiedFiles: 0,
+    };
+    expect(localImageAcquisitionPresentation(research).label).toContain("Accept license and");
+    expect(localImageAcquisitionApproval(research).licenseAccepted).toBe(true);
+  });
   it("presents exact package identity and measured byte requirements without claiming hosted 2.0", () => {
     const presentation = localImageAvailabilityPresentation(READY);
 
     expect(presentation).toEqual({
       state: "ready",
-      label: "Ready for local integration",
+      label: "Ready for local generation",
       detail: "16.2 GiB model · 27.5 GiB measured peak memory",
     });
     expect(`${READY.modelId} ${READY.packageId}`).toContain("Qwen-Image-2512");
@@ -80,7 +116,7 @@ describe("local image worker import presentation", () => {
       action: "import",
       active: false,
       label: "Select and install 1.0 GiB worker",
-      detail: "Bottie will copy only the exact reviewed MLX-Gen bundle into its app-owned cache.",
+      detail: "Bottie will copy only the exact reviewed local image worker into its app-owned cache.",
     });
     expect(localImageWorkerImportPresentation({ ...READY, availability: "worker_mismatch" }, true)).toEqual({
       action: "none",
@@ -122,6 +158,7 @@ describe("local image acquisition presentation", () => {
       workerExpectedDiskBytes: READY.workerExpectedDiskBytes,
       requiredMemoryBytes: READY.requiredMemoryBytes,
       approved: true,
+      licenseAccepted: false,
     });
   });
 

@@ -440,14 +440,17 @@ execution chosen by capability, without exposing credentials, provider result UR
 Status: active product priority. App-store certification/publication and other shipping work are paused until this
 milestone is complete or the product owner explicitly reprioritizes them.
 
-Two model tracks are intentional and must remain visibly distinct:
+These model tracks remain visibly distinct:
 
 - **[Qwen-Image-2.0](https://docs.modelstudio.console.alibabacloud.com/en/model-studio/qwen-image-2-0):**
   use the exact hosted `qwen-image-2.0-2026-03-03` snapshot now. Add local execution only when exact 2.0 weights are
   publicly released and independently verified.
 - **[Qwen-Image-2512](https://huggingface.co/Qwen/Qwen-Image-2512):** use the currently available Apache-2.0
-  `Qwen/Qwen-Image-2512` text-to-image weights for local execution now. Never label 2512 output as Qwen-Image-2.0;
+  `Qwen/Qwen-Image-2512` text-to-image weights for the managed legacy local route. Never label 2512 output as Qwen-Image-2.0;
   `2512` means the December 2025 checkpoint.
+- **[Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1):** prefer the installed MLX Serve 8-bit pack for local
+  generation, with explicit upstream research-license acceptance before an optional installation. Reuse existing
+  model bytes rather than downloading or copying a second set. See `docs/qwen-image-2.1-local.md`.
 
 ### 8.1 Shared contract and hosted Qwen-Image-2.0 foundation
 
@@ -617,6 +620,17 @@ Editing should first land through the unified hosted 2.0 model after generation 
       output before selecting MLX and CUDA/ROCm/Windows runtimes through the same worker conformance suite;
 - [ ] expose local 2.0 only after generation and editing both pass native-byte, cancellation, provenance, and hardware
       acceptance. Keep hosted and local execution explicit even when their model identity matches.
+
+### 8.6 Preferred installed Qwen-Image-2.1 local generation
+
+- [x] prefer the exact loaded MLX Serve 8-bit pack with explicit image capability on loopback port 11234; keep the
+      oMLX text service and managed 2512 route separate;
+- [x] reuse installed files through the local image API, normalize bounded inline PNGs behind Rust, retain exact
+      quantized-package/Local/seed provenance, and bind start/retry to the disclosed model without fallback;
+- [x] prove native generation, durable completion, and disconnected-client cancellation on the Apple M3 Max host;
+- [x] retain explicit revision-bound research-license consent for managed acquisition and document optional external
+      server installation without automatic model download;
+- [ ] add a Bottie-managed optional 2.1 installer with the accepted license, exact MLX pack source, and server setup.
 
 ## Cross-cutting definition of done
 

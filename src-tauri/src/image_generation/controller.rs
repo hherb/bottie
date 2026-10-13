@@ -70,6 +70,9 @@ pub(crate) struct StartImageGenerationRequest {
     pub(crate) count: u8,
     /// Explicit execution backend selected before any provider or worker operation.
     pub(crate) execution: GeneratedAssetExecution,
+    /// Exact local package shown before submission; prevents a readiness race changing models.
+    #[serde(default)]
+    pub(crate) local_model_id: Option<String>,
 }
 
 /// Opaque terminal image response selected for exact native retry.
@@ -242,6 +245,11 @@ async fn start_local_image_generation(
     request: StartImageGenerationRequest,
     on_event: Channel<ImageGenerationEvent>,
 ) -> Result<ImageGenerationRun, ProviderError> {
+    let local_model_id = request.local_model_id.ok_or_else(|| {
+        ProviderError::invalid_request(
+            "Select the disclosed local image model before generating an image.",
+        )
+    })?;
     let generation_request = ImageGenerationRequest::new_local(
         request.prompt,
         request.width,
@@ -250,7 +258,7 @@ async fn start_local_image_generation(
     )?;
     let installation = state
         .local_image_availability
-        .inspect_for_execution()
+        .inspect_for_model(&local_model_id)
         .await
         .map_err(|_| {
             ProviderError::unavailable("The selected local image runtime is not ready.", None)

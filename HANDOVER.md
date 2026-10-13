@@ -1,6 +1,6 @@
 # Bottie handover
 
-Last verified: 2026-09-22
+Last verified: 2026-10-13
 
 ## Start here
 
@@ -43,6 +43,21 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
   `git diff --check` pass.
 
 ## Recent maintenance
+
+Local image maintenance completed on 2026-10-13: Bottie now prefers the installed
+`ddalcu/Qwen-Image-2.1-MLX-Serve-8bit` pack through MLX Serve's loopback image API at port 11234. It reuses the existing
+oMLX model-directory files in place; oMLX 0.7.1.dev1 itself only lists the pack as an unloaded text model and exposes no
+image output endpoint. No oMLX configuration was changed. Starts bind the displayed package before asynchronous
+persistence, retries retain the original package/seed, and the managed 2512 worker stays separate. Inline response
+bytes remain native, bounded, redirect/proxy-free, and normalized into the shared private PNG lifecycle.
+The live native fixture passed 512×512 generation, durable completion with exact Local provenance, and cancellation;
+the MLX Serve log confirmed disconnected-client generation stopped. Research-licensed managed downloads require
+explicit revision-bound consent. This 2.1 route reuses an externally installed server; a Bottie-managed optional 2.1
+installer remains future work. See `docs/qwen-image-2.1-local.md` and Roadmap 8.6.
+Validation: 418 frontend tests pass (3 skipped), Svelte diagnostics and the production build pass, and the final host
+suite passes 682 library tests (39 opt-in tests ignored), the updater fixture, 6 worker-adapter fixtures, 10 worker
+transport fixtures, and doc tests. Cargo formatting/checking pass. The current composer was visually inspected at
+1280×720 and 620×800. The separate opt-in local 2.1 native proof also passed. No signed installer was built.
 
 Branding maintenance completed on 2026-09-30: `assets/logo_v2/bottie_icon_512.png` is the approved app/general logo
 master; the locked icon pipeline now derives both product favicons and the website header/footer logo from it.

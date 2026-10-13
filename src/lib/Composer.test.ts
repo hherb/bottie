@@ -258,7 +258,7 @@ describe("Composer", () => {
     expect(html).toContain('aria-label="Local image availability"');
     expect(html).toContain("Qwen/Qwen-Image-2512");
     expect(html).toContain("AbstractFramework/qwen-image-2512-4bit");
-    expect(html).toContain("MLX-Gen");
+    expect(html).toContain("local runtime");
     expect(html).toContain("Local worker is not installed");
     expect(html).toContain("16.2 GiB model");
     expect(html).toContain('aria-label="Execution"');
@@ -357,6 +357,46 @@ describe("Composer", () => {
     expect(html).toContain("app-owned cache");
     expect(html).toContain("generation remains offline");
     expect(html).toContain("18 exact files will be verified before activation");
+  });
+
+  it("offers ready Local 2.1 by reusing the installed image server without a download button", () => {
+    const server: LocalImageAvailabilityMetadata = {
+      modelId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+      packageId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+      runtimeId: "mlx-serve@external",
+      license: "LicenseRef-Qwen-Research",
+      sourceRevision: "server-managed",
+      expectedDiskBytes: 0,
+      workerExpectedDiskBytes: 0,
+      requiredMemoryBytes: 0,
+      availability: "ready",
+    };
+    const html = renderedComposer(
+      true,
+      true,
+      [],
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      "",
+      "",
+      false,
+      false,
+      true,
+      server,
+      false,
+      "local",
+    );
+    expect(html).toMatch(/<option value="local" selected(?:="")?>Local 2.1<\/option>/);
+    expect(html).toContain("no additional model download");
+    expect(html).toContain("image server on 127.0.0.1:11234");
+    expect(html).toContain("Qwen Research License");
+    expect(html).not.toContain("0.0 GiB");
+    expect(html).not.toContain("Download and install");
+    expect(html).not.toContain("server-managed");
   });
 
   it("labels active model progress and cancellation as separate controls", () => {

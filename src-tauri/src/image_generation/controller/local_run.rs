@@ -10,7 +10,7 @@ use crate::{
         local::LocalImageGenerationError,
     },
     inference::ProviderError,
-    local_image_worker::execution::VerifiedLocalImageInstallation,
+    local_image_worker::backend::VerifiedLocalImageBackend,
     storage::{ConversationStore, GeneratedAssetStatus, StoredMessage},
 };
 
@@ -26,7 +26,7 @@ pub(super) fn spawn_local_image_run(
     pending_message: StoredMessage,
     output_count: u8,
     generation_request: ImageGenerationRequest,
-    installation: VerifiedLocalImageInstallation,
+    installation: VerifiedLocalImageBackend,
     seed: u64,
     on_event: Channel<ImageGenerationEvent>,
 ) -> ImageGenerationRun {

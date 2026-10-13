@@ -96,7 +96,7 @@ async fn retry_local(
         .ok_or_else(invalid_retry_error)?;
     let installation = state
         .local_image_availability
-        .inspect_for_execution()
+        .inspect_for_model(&retry.provenance.model_id)
         .await
         .map_err(|_| {
             ProviderError::unavailable("The selected local image runtime is not ready.", None)

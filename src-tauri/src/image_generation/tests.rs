@@ -11,7 +11,8 @@ use url::Url;
 use super::{
     DASHSCOPE_QWEN_IMAGE_MODEL_ID, DashScopeQwenImageProvider, GeneratedImageDownloader,
     GeneratedImageReference, ImageGenerationProvider, ImageGenerationRequest,
-    local::normalize_local_outputs, validate_qwen_image_base_url,
+    local::{normalize_local_outputs, normalize_server_output},
+    validate_qwen_image_base_url,
 };
 use crate::local_image_worker::execution::LocalGeneratedOutput;
 use crate::storage::ConversationStore;
@@ -319,6 +320,20 @@ fn local_worker_pngs_use_the_shared_native_normalization_boundary() {
     assert_eq!(prepared.len(), 1);
     assert_eq!((prepared[0].width, prepared[0].height), (64, 64));
     assert!(!worker_path.exists());
+}
+
+#[test]
+fn inline_server_pngs_use_shared_normalization_and_clean_up_every_partial() {
+    let store = ConversationStore::initialize(test_database_path()).unwrap();
+    let directory = store.generated_asset_temporary_directory();
+    let prepared = normalize_server_output(png_fixture(64, 64), &store, (64, 64)).unwrap();
+    assert_eq!((prepared.width, prepared.height), (64, 64));
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
+    drop(prepared);
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 0);
+    assert!(normalize_server_output(png_fixture(64, 64), &store, (512, 512)).is_err());
+    assert!(normalize_server_output(b"not an image".to_vec(), &store, (512, 512)).is_err());
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 0);
 }
 
 /// Creates one deterministic PNG response body.

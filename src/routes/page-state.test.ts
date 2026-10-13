@@ -7,6 +7,7 @@ import { MAX_COMPOSER_DRAFT_BYTES } from "$lib/microphone";
 import { PageState } from "./page-state.svelte";
 
 const imageInference = vi.hoisted(() => ({
+  startImageGeneration: vi.fn(),
   startImageEditing: vi.fn(),
   validateQwenImageConfiguration: vi.fn(),
 }));
@@ -71,6 +72,53 @@ describe("PageState message submission", () => {
 });
 
 describe("PageState image execution", () => {
+  it("binds a local request to the model disclosed before asynchronous prompt persistence", async () => {
+    const runtime = globalThis as typeof globalThis & { isTauri?: boolean };
+    const previous = runtime.isTauri;
+    runtime.isTauri = true;
+    imageInference.startImageGeneration.mockResolvedValue({
+      runId: "local-image-run",
+      message: pendingAssistantMessage("local-image"),
+    });
+    try {
+      const state = new PageState();
+      state.imageMode = true;
+      state.imageExecution = "local";
+      state.prompt = "A blue robot";
+      state.localImageAvailability = {
+        modelId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+        packageId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+        runtimeId: "mlx-serve@external",
+        license: "LicenseRef-Qwen-Research",
+        sourceRevision: "server-managed",
+        expectedDiskBytes: 0,
+        workerExpectedDiskBytes: 0,
+        requiredMemoryBytes: 0,
+        availability: "ready",
+      };
+      vi.spyOn(state.history, "persistUserMessage").mockImplementation(async () => {
+        state.localImageAvailability = { ...state.localImageAvailability!, modelId: "Qwen/Qwen-Image-2512" };
+        return { conversationId: "conversation", requestMessageId: "request" };
+      });
+      await state.generateImage();
+      expect(imageInference.startImageGeneration).toHaveBeenCalledWith(
+        {
+          conversationId: "conversation",
+          requestMessageId: "request",
+          prompt: "A blue robot",
+          width: 512,
+          height: 512,
+          count: 1,
+          execution: "local",
+          localModelId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+        },
+        expect.any(Function),
+      );
+    } finally {
+      if (previous === undefined) Reflect.deleteProperty(runtime, "isTauri");
+      else runtime.isTauri = previous;
+    }
+  });
   it("routes unmodified Enter through the explicit image action", () => {
     const state = new PageState();
     state.imageMode = true;

@@ -497,6 +497,7 @@ export class PageState {
   async generateImage(): Promise<void> {
     if (!this.imageMode || !this.canGenerateImage) return;
     const execution = this.imageExecution;
+    const localModelId = execution === "local" ? this.localImageAvailability?.modelId : undefined;
     const preparedSources = prepareImageEditingSources(
       execution,
       this.attachment.items,
@@ -552,7 +553,13 @@ export class PageState {
       content: submittedPrompt,
       attachments: completedAttachments,
     });
-    const accepted = await this.startImageGeneration(runContext, submittedPrompt, execution, preparedSources.sources);
+    const accepted = await this.startImageGeneration(
+      runContext,
+      submittedPrompt,
+      execution,
+      preparedSources.sources,
+      localModelId,
+    );
     if (!accepted) return;
     this.prompt = "";
     this.attachment.clear();
@@ -566,6 +573,7 @@ export class PageState {
     prompt: string,
     execution: ImageGenerationExecution,
     sources: ImageEditingSourceRequest[],
+    localModelId?: string,
   ): Promise<boolean> {
     this.isGenerating = true;
     this.activeGenerationKind = "image";
@@ -592,7 +600,10 @@ export class PageState {
       const onEvent = (event: ImageGenerationEvent) => this.handleImageGenerationEvent(event, run);
       const accepted = this.activeImageEditing
         ? await invokeImageEditing({ ...request, sources }, onEvent)
-        : await invokeImageGeneration({ ...request, execution: this.activeImageExecution }, onEvent);
+        : await invokeImageGeneration(
+            { ...request, execution: this.activeImageExecution, ...(localModelId ? { localModelId } : {}) },
+            onEvent,
+          );
       nativeAccepted = true;
       if (run !== this.generationRun) {
         await cancelImageGeneration(accepted.runId);
@@ -623,7 +634,7 @@ export class PageState {
       this.imageFeedback = this.activeImageEditing
         ? "Editing with the exact hosted Qwen-Image-2.0 checkpoint…"
         : this.activeImageExecution === "local"
-          ? "Generating with the exact local Qwen-Image-2512 package…"
+          ? "Generating with the disclosed local image model…"
           : "Generating with the exact hosted Qwen-Image-2.0 checkpoint…";
     } else if (event.type === "progress") {
       const outputLabel = `${event.total} image${event.total === 1 ? "" : "s"}`;
@@ -632,7 +643,7 @@ export class PageState {
       } else {
         this.imageFeedback =
           this.activeImageExecution === "local"
-            ? `Validating ${outputLabel} from the private worker…`
+            ? `Validating ${outputLabel} from the local image runtime…`
             : `Downloading and validating ${outputLabel}…`;
       }
     } else if (event.type === "completed") {

@@ -70,7 +70,7 @@ fn service_rejects_relative_or_lexically_unsafe_app_roots() {
 #[tokio::test]
 async fn missing_installations_are_stable_across_repeated_requests() {
     let root = temporary_directory("availability-service-missing");
-    let service = LocalImageAvailabilityService::new(root.join("data")).unwrap();
+    let service = LocalImageAvailabilityService::worker_only_for_test(root.join("data")).unwrap();
 
     let first = service.inspect().await.unwrap();
     let second = service.inspect().await.unwrap();

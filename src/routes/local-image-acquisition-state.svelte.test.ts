@@ -53,6 +53,7 @@ describe("LocalImageAcquisitionState", () => {
       workerExpectedDiskBytes: awaiting.workerExpectedDiskBytes,
       requiredMemoryBytes: awaiting.requiredMemoryBytes,
       approved: true,
+      licenseAccepted: false,
     });
     expect(state.status?.phase).toBe("downloading");
   });

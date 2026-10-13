@@ -32,6 +32,7 @@ Also read the narrower authoritative references when relevant:
 - [`README.md`](../../../README.md): user-visible behavior and provider support.
 - [`docs/python-sandbox.md`](../../python-sandbox.md): protected Python execution.
 - [`docs/local-image-model-package.md`](../../local-image-model-package.md): local image packaging.
+- [`docs/qwen-image-2.1-local.md`](../../qwen-image-2.1-local.md): preferred installed local image server and native checks.
 - [`MIGRATION-ROLLBACK.md`](../../../MIGRATION-ROLLBACK.md): migration incident runbook.
 
 ## C# translation guide

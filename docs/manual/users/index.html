@@ -454,7 +454,21 @@
             downloads temporary results behind its native boundary and stores
             only validated durable PNGs.
           </p>
-          <h3>Local Qwen-Image-2512</h3>
+          <h3>Local Qwen-Image-2.1</h3>
+          <p>
+            Bottie prefers an already installed Qwen-Image-2.1 MLX Serve 8-bit pack
+            on the local image server at 127.0.0.1:11234. Choose Image, then Local 2.1
+            to generate one 512×512 PNG. The existing files are reused without a
+            second model download. The oMLX text server itself has no image-output
+            endpoint; MLX Serve can read the pack from its existing directory.
+          </p>
+          <p>
+            Installation is optional. Accept the upstream Qwen Research License
+            before downloading or installing the model through MLX Serve.
+            Bottie does not automatically download model files or start the server.
+            Local editing remains unavailable.
+          </p>
+          <h3>Legacy local Qwen-Image-2512</h3>
           <p>
             Local mode is a separate text-to-image model and never claims to be
             Qwen-Image-2.0. Bottie enables it only when the exact worker, model

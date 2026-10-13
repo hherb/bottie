@@ -50,7 +50,7 @@ export type LocalImageAcquisitionStatus = LocalImageAvailabilityMetadata & {
 export type LocalImageAcquisitionApproval = Omit<
   LocalImageAcquisitionStatus,
   "availability" | "phase" | "failure" | "downloadedFiles" | "totalFiles" | "downloadedBytes" | "verifiedFiles"
-> & { approved: true };
+> & { approved: true; licenseAccepted: boolean };
 
 /** Fixed native command rejection without paths, URLs, hashes, or response data. */
 export type LocalImageAcquisitionError = {
@@ -97,6 +97,14 @@ export type LocalImageAvailabilityPresentation = {
 
 const GIB_BYTES = 1_024 ** 3;
 const LOCAL_IMAGE_ACQUISITION_EVENT = "local-image-acquisition-changed";
+
+/** Names only the exact native-selected model, preserving older image provenance. */
+export function localImageModelLabel(metadata: LocalImageAvailabilityMetadata | null): string {
+  if (["Qwen/Qwen-Image-2.1", "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit"].includes(metadata?.modelId ?? ""))
+    return "Local 2.1";
+  if (metadata?.modelId === "Qwen/Qwen-Image-2512") return "Local 2512";
+  return "Local";
+}
 
 const UNAVAILABLE_LABELS: Record<Exclude<LocalImageAvailability, "ready">, string> = {
   unsupported_platform: "Unavailable on this operating system",
@@ -162,6 +170,7 @@ export function localImageAcquisitionApproval(status: LocalImageAcquisitionStatu
     workerExpectedDiskBytes: status.workerExpectedDiskBytes,
     requiredMemoryBytes: status.requiredMemoryBytes,
     approved: true,
+    licenseAccepted: status.license === "LicenseRef-Qwen-Research",
   };
 }
 
@@ -194,7 +203,7 @@ export function localImageWorkerImportPresentation(
       action: "import",
       active: false,
       label: `Select and install ${formatGib(metadata.workerExpectedDiskBytes)} worker`,
-      detail: "Bottie will copy only the exact reviewed MLX-Gen bundle into its app-owned cache.",
+      detail: "Bottie will copy only the exact reviewed local image worker into its app-owned cache.",
     };
   }
   return { action: "none", active: false, label: "", detail: "" };
@@ -211,7 +220,7 @@ export function localImageAcquisitionPresentation(
       return {
         action: "install",
         active: false,
-        label: `Download and install ${formatGib(status.expectedDiskBytes)}`,
+        label: `${status.license === "LicenseRef-Qwen-Research" ? "Accept license and download" : "Download and install"} ${formatGib(status.expectedDiskBytes)}`,
         detail: `${status.totalFiles} exact files will be verified before activation.`,
         percent,
       };
@@ -229,7 +238,10 @@ export function localImageAcquisitionPresentation(
       return {
         action: "resume",
         active: false,
-        label: "Resume retained download",
+        label:
+          status.license === "LicenseRef-Qwen-Research"
+            ? "Accept license and resume download"
+            : "Resume retained download",
         detail: `${failureLabel(status.failure)} · ${retained}`,
         percent,
       };
@@ -253,7 +265,8 @@ export function localImageAcquisitionPresentation(
       return {
         action: "retry",
         active: false,
-        label: "Retry exact package",
+        label:
+          status.license === "LicenseRef-Qwen-Research" ? "Accept license and retry download" : "Retry exact package",
         detail: failureDetail(status.failure),
         percent,
       };
@@ -288,9 +301,12 @@ export function localImageAvailabilityPresentation(
   }
   const disk = formatGib(metadata.expectedDiskBytes);
   const memory = formatGib(metadata.requiredMemoryBytes);
-  const detail = `${disk} model · ${memory} measured peak memory`;
+  const detail =
+    metadata.runtimeId === "mlx-serve@external"
+      ? "Reuses the installed MLX Serve model · no additional model download"
+      : `${disk} model · ${memory} measured peak memory`;
   if (metadata.availability === "ready") {
-    return { state: "ready", label: "Ready for local integration", detail };
+    return { state: "ready", label: "Ready for local generation", detail };
   }
   return {
     state: "unavailable",
