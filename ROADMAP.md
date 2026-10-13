@@ -630,7 +630,11 @@ Editing should first land through the unified hosted 2.0 model after generation 
 - [x] prove native generation, durable completion, and disconnected-client cancellation on the Apple M3 Max host;
 - [x] retain explicit revision-bound research-license consent for managed acquisition and document optional external
       server installation without automatic model download;
-- [ ] add a Bottie-managed optional 2.1 installer with the accepted license, exact MLX pack source, and server setup.
+- [x] start the optional 2.1 installer with an exact installed-pack source inventory, revision/terms-bound consent,
+      transactional native model download, source-bound resume/cancellation, and verified-cache reuse;
+- [ ] qualify/install the managed MLX Serve runtime, own its lifecycle, and expose the optional 2.1 installation
+      action with license acceptance, progress, cancellation, and readiness in the app. Model-file verification alone
+      does not qualify generation readiness. See the managed-installer section of `docs/qwen-image-2.1-local.md`.
 
 ## Cross-cutting definition of done
 

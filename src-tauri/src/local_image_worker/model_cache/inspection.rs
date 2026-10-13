@@ -98,9 +98,18 @@ pub(crate) fn inspect_cached_package(
     cache_root: &Path,
     manifest: &ModelPackageManifest,
 ) -> Result<bool, CacheError> {
+    inspect_cached_model_location(cache_root, manifest).map(|location| location.is_some())
+}
+
+/// Resolves and re-verifies promoted model files without creating or repairing cache directories.
+/// A location identifies bytes only; callers must separately qualify runtime readiness.
+pub(crate) fn inspect_cached_model_location(
+    cache_root: &Path,
+    manifest: &ModelPackageManifest,
+) -> Result<Option<ModelLocation>, CacheError> {
     validate_manifest(manifest)?;
     let Some(cache_metadata) = symlink_metadata_if_exists(cache_root)? else {
-        return Ok(false);
+        return Ok(None);
     };
     if cache_metadata.file_type().is_symlink() || !cache_metadata.is_dir() {
         return Err(CacheError::Integrity);
@@ -108,14 +117,14 @@ pub(crate) fn inspect_cached_package(
     let cache_root = cache_root.canonicalize().map_err(|_| CacheError::Storage)?;
     let packages = cache_root.join(PACKAGES_DIRECTORY);
     let Some(packages_metadata) = symlink_metadata_if_exists(&packages)? else {
-        return Ok(false);
+        return Ok(None);
     };
     if packages_metadata.file_type().is_symlink() || !packages_metadata.is_dir() {
         return Err(CacheError::Integrity);
     }
     let final_root = packages.join(identity_digest(&package_identity_bytes(manifest)?));
     if symlink_metadata_if_exists(&final_root)?.is_none() {
-        return Ok(false);
+        return Ok(None);
     }
-    reopen_exact_package(&final_root, manifest).map(|_| true)
+    reopen_exact_package(&final_root, manifest).map(Some)
 }

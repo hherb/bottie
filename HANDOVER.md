@@ -44,6 +44,26 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
 
 ## Recent maintenance
 
+Testing package and optional-installer foundation completed on 2026-10-13. The contained-Python arm64 0.9.0 DMG was
+built from pre-installer commit `57d82da96ff7f9652570f2fef1ed68726a800182`, retained with that revision in its filename,
+and verified through the mounted app. Disk-image verification and Python private-pipe/sandbox/cancellation/cleanup
+checks passed. The main app was subsequently development-signed and repacked; final mounted-byte main/nested signature
+verification and Python smoke checks passed. It is unnotarized, without production Developer ID signing. Final file:
+`bottie_0.9.0_qwen21_57d82da_development_aarch64.dmg`; SHA-256
+`8bdbbd6f461d4932471666d4a9ccbd926f004bbb2a6c84d0c8958fcd86849cfe`. Artifact, checksum, exact-byte inspection, and
+tester instructions are under `src-tauri/target/release/bundle/dmg/`.
+The native optional 2.1 model-file installer now pins the existing exercised pack at
+`fbda4caa0b4b1e17b5a29633e8deb600386f1eaf`: 18 files, 17,647,912,015 bytes. All installed files match the pinned
+size/hash inventory. Consent binds the exact terms digest/revision/identity/bytes before I/O; downloads resume,
+cancel, verify/promote atomically, and reverify/reuse completed cache files. No duplicate model download occurred.
+This is a native model-acquisition layer, not a new app action or managed server installation. Runtime qualification,
+installation/lifecycle, mutation serialization, and UI integration remain the next slice. Newer upstream `main`
+changes a weight shard and is not silently adopted. Details and runtime candidate pins are in
+`docs/qwen-image-2.1-local.md`; Roadmap 8.6 tracks the remaining work.
+Validation: six focused acquisition tests pass; the locked serial host suite passes 688 library tests (39 opt-in
+tests ignored), the updater fixture, 6 worker-adapter fixtures, 10 worker-transport fixtures, and doc tests. Cargo
+formatting/checking, 418 frontend tests (3 skipped), Svelte diagnostics, formatting, and the production build pass.
+
 Local image maintenance completed on 2026-10-13: Bottie now prefers the installed
 `ddalcu/Qwen-Image-2.1-MLX-Serve-8bit` pack through MLX Serve's loopback image API at port 11234. It reuses the existing
 oMLX model-directory files in place; oMLX 0.7.1.dev1 itself only lists the pack as an unloaded text model and exposes no
@@ -53,7 +73,7 @@ bytes remain native, bounded, redirect/proxy-free, and normalized into the share
 The live native fixture passed 512×512 generation, durable completion with exact Local provenance, and cancellation;
 the MLX Serve log confirmed disconnected-client generation stopped. Research-licensed managed downloads require
 explicit revision-bound consent. This 2.1 route reuses an externally installed server; a Bottie-managed optional 2.1
-installer remains future work. See `docs/qwen-image-2.1-local.md` and Roadmap 8.6.
+installer's runtime/app integration remains future work. See `docs/qwen-image-2.1-local.md` and Roadmap 8.6.
 Validation: 418 frontend tests pass (3 skipped), Svelte diagnostics and the production build pass, and the final host
 suite passes 682 library tests (39 opt-in tests ignored), the updater fixture, 6 worker-adapter fixtures, 10 worker
 transport fixtures, and doc tests. Cargo formatting/checking pass. The current composer was visually inspected at

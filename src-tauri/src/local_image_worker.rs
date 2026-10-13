@@ -19,6 +19,9 @@ pub(crate) mod execution;
 #[path = "local_image_worker/hardware.rs"]
 pub(crate) mod hardware;
 #[allow(dead_code)]
+#[path = "local_image_worker/managed_install.rs"]
+pub(crate) mod managed_install;
+#[allow(dead_code)]
 #[path = "local_image_worker/manager.rs"]
 pub(crate) mod manager;
 #[allow(dead_code)]
