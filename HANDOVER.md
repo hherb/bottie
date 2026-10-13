@@ -44,6 +44,21 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
 
 ## Recent maintenance
 
+Composer maintenance completed on 2026-10-13: accessible Chat/Image tabs replace the Image toggle. Chat tools and
+collapsible voice input appear only in Chat; Image has independent aspect/size controls and collapsed local model
+details. Prompt drafts survive tab switches and both clear on New conversation. Arrow keys/Home/End move tab focus
+and selection; mode switching is disabled during submission, generation, or active capture.
+Cloud and exact Local 2.1 requests use three size tiers and five exact aspect ratios. Local defaults to 512×512 and
+always returns one image. The older 2512 worker keeps its fixed 512×512 limit. Dimensions and model identity are
+snapshotted before asynchronous prompt persistence and retained in retry metadata. The request validator and server
+adapter share a closed native dimension catalog; frontend tests compare its complete set to the offered controls.
+The live 768×512 native fixture passed generation, normalization, durable dimensions/model provenance, and cancellation
+in 138.53 seconds. Browser interaction checks covered desktop/narrow layout, controls, draft retention, and keyboard
+tabs; no full native Tauri UI click automation is claimed. See `docs/qwen-image-2.1-local.md` and the user manual.
+Validation: formatting, Svelte checks (zero errors/warnings), 425 frontend tests (3 skipped), and the production build
+pass. The locked serial host suite passes 690 library tests (39 opt-in fixtures ignored), the updater fixture,
+6 worker-adapter fixtures, 10 worker-transport fixtures, and doc tests. The separate live size/aspect proof passed.
+
 Testing package and optional-installer foundation completed on 2026-10-13. The contained-Python arm64 0.9.0 DMG was
 built from pre-installer commit `57d82da96ff7f9652570f2fef1ed68726a800182`, retained with that revision in its filename,
 and verified through the mounted app. Disk-image verification and Python private-pipe/sandbox/cancellation/cleanup

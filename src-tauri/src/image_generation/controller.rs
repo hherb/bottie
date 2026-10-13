@@ -250,11 +250,12 @@ async fn start_local_image_generation(
             "Select the disclosed local image model before generating an image.",
         )
     })?;
-    let generation_request = ImageGenerationRequest::new_local(
+    let generation_request = ImageGenerationRequest::new_local_for_model(
         request.prompt,
         request.width,
         request.height,
         request.count,
+        &local_model_id,
     )?;
     let installation = state
         .local_image_availability

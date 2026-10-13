@@ -318,7 +318,9 @@ media type, and byte size; opaque source IDs are not rendered. Local editing rem
 
 Qwen-Image-2.1 is now the preferred local image model when its installed MLX Serve 8-bit pack is ready on
 `http://127.0.0.1:11234/`. Bottie reuses those files in place, including a pack already installed for oMLX, and generates
-one 512×512 PNG without another model download. The inspected oMLX server itself has no image-generation endpoint;
+one PNG at the selected size/aspect ratio without another model download. The Image tab offers five exact aspect
+ratios and Small/Medium/Large size presets; local defaults to 512×512. Chat tools and voice input stay in the Chat tab,
+and drafts are retained independently when switching tabs. The inspected oMLX server itself has no image-generation endpoint;
 start MLX Serve against the existing directory as described in [Local Qwen-Image 2.1](docs/qwen-image-2.1-local.md).
 Installation remains optional and requires acceptance of the upstream Qwen Research License. The current integration
 uses a separately installed local server; Bottie does not install or start it automatically.

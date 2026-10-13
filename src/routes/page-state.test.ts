@@ -72,6 +72,31 @@ describe("PageState message submission", () => {
 });
 
 describe("PageState image execution", () => {
+  it("clears both composer drafts when starting a new conversation", async () => {
+    const state = new PageState();
+    state.prompt = "Old chat";
+    state.toggleImageMode();
+    state.prompt = "Old image";
+    vi.spyOn(state.history, "startNew").mockResolvedValue();
+    await state.startNewChat();
+    expect(state.prompt).toBe("");
+    state.toggleImageMode();
+    expect(state.prompt).toBe("");
+  });
+  it("keeps tab drafts independent and prevents switching during submission", () => {
+    const state = new PageState();
+    state.prompt = "Chat draft";
+    state.toggleImageMode();
+    expect(state.prompt).toBe("");
+    state.prompt = "Image draft";
+    state.toggleImageMode();
+    expect(state.prompt).toBe("Chat draft");
+    state.toggleImageMode();
+    expect(state.prompt).toBe("Image draft");
+    state.isPersistingMessage = true;
+    state.toggleImageMode();
+    expect(state.imageMode).toBe(true);
+  });
   it("binds a local request to the model disclosed before asynchronous prompt persistence", async () => {
     const runtime = globalThis as typeof globalThis & { isTauri?: boolean };
     const previous = runtime.isTauri;
@@ -85,6 +110,8 @@ describe("PageState image execution", () => {
       state.imageMode = true;
       state.imageExecution = "local";
       state.prompt = "A blue robot";
+      state.imageSize = "landscape";
+      state.imageResolution = "medium";
       state.localImageAvailability = {
         modelId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
         packageId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
@@ -97,6 +124,8 @@ describe("PageState image execution", () => {
         availability: "ready",
       };
       vi.spyOn(state.history, "persistUserMessage").mockImplementation(async () => {
+        state.imageSize = "portrait";
+        state.imageResolution = "large";
         state.localImageAvailability = { ...state.localImageAvailability!, modelId: "Qwen/Qwen-Image-2512" };
         return { conversationId: "conversation", requestMessageId: "request" };
       });
@@ -106,8 +135,8 @@ describe("PageState image execution", () => {
           conversationId: "conversation",
           requestMessageId: "request",
           prompt: "A blue robot",
-          width: 512,
-          height: 512,
+          width: 1152,
+          height: 768,
           count: 1,
           execution: "local",
           localModelId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
@@ -201,8 +230,8 @@ describe("PageState image execution", () => {
           conversationId: "conversation",
           requestMessageId: "request",
           prompt: "Make these images nocturnal",
-          width: 2_688,
-          height: 1_536,
+          width: 2_496,
+          height: 1_664,
           count: 2,
           sources: [
             { sourceType: "attachment", sourceId: "source-b" },

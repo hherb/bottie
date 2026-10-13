@@ -1,18 +1,12 @@
 <script lang="ts">
   import Icon from "$lib/Icon.svelte";
-  import QwenResearchLicenseDisclosure from "$lib/QwenResearchLicenseDisclosure.svelte";
+  import ImageComposerOptions from "$lib/ImageComposerOptions.svelte";
+  import ComposerTabs from "$lib/ComposerTabs.svelte";
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
   import MicrophoneControl from "$lib/MicrophoneControl.svelte";
   import { attachmentFailure } from "$lib/attachment";
-  import {
-    localImageAcquisitionPresentation,
-    localImageAvailabilityPresentation,
-    localImageModelLabel,
-    localImageWorkerImportPresentation,
-    type LocalImageAcquisitionStatus,
-    type LocalImageAvailabilityMetadata,
-  } from "$lib/local-image";
-  import type { ImageGenerationExecution } from "$lib/image-generation";
+  import { type LocalImageAcquisitionStatus, type LocalImageAvailabilityMetadata } from "$lib/local-image";
+  import type { ImageGenerationExecution, ImageGenerationSize, ImageGenerationResolution } from "$lib/image-generation";
   import { MAX_COMPOSER_ATTACHMENTS, type Attachment, type ProviderStatus } from "$lib/presentation";
   import type { MicrophoneInputDeviceList, MicrophoneStatus } from "$lib/microphone";
 
@@ -34,7 +28,9 @@
     emailUnavailableReason: string;
     imageMode: boolean;
     imageExecution: ImageGenerationExecution;
-    imageSize: "square" | "landscape" | "portrait";
+    imageSize: ImageGenerationSize;
+    imageResolution?: ImageGenerationResolution;
+    modeSwitchDisabled?: boolean;
     imageCount: number;
     generatedImageSourceCount: number;
     imageFeedback: string;
@@ -68,7 +64,8 @@
     ontoggleemail: () => void;
     ontoggleimage: () => void;
     onimageexecution: (execution: ImageGenerationExecution) => void;
-    onimagesize: (size: "square" | "landscape" | "portrait") => void;
+    onimagesize: (size: ImageGenerationSize) => void;
+    onimageresolution?: (resolution: ImageGenerationResolution) => void;
     onimagecount: (count: number) => void;
     oninstalllocalimage: () => void;
     oncancellocalimage: () => void;
@@ -105,6 +102,8 @@
     imageMode,
     imageExecution,
     imageSize,
+    imageResolution,
+    modeSwitchDisabled = false,
     imageCount,
     generatedImageSourceCount,
     imageFeedback,
@@ -139,6 +138,7 @@
     ontoggleimage,
     onimageexecution,
     onimagesize,
+    onimageresolution = () => {},
     onimagecount,
     oninstalllocalimage,
     oncancellocalimage,
@@ -166,330 +166,211 @@
 
 <footer class="composer-zone">
   <div class="composer-shell" class:busy={isGenerating}>
-    {#if attachments.length > 0}
-      <div class="composer-attachments">
-        {#each attachments.slice(0, MAX_COMPOSER_ATTACHMENTS) as attachment (attachment.id)}
-          {@const failure = attachmentFailure(attachment)}
-          <div
-            class:failed={Boolean(failure)}
-            class="attachment-chip"
-            title={failure ? `${failure.title}. ${failure.detail}` : undefined}
-          >
-            <AttachmentVisual {attachment} className="chip-icon" iconSize={14} />
-            <span>{attachment.name}</span>
-            {#if failure}
-              <span class="visually-hidden">{failure.title}. {failure.detail}</span>
-            {/if}
-            <button
-              aria-label={`Remove ${attachment.name}`}
-              disabled={!canCompose || isGenerating}
-              onclick={() => onremove(attachment.id)}
-            >
-              <Icon name="x" size={13} />
-            </button>
-          </div>
-        {/each}
-        {#if attachments.length > MAX_COMPOSER_ATTACHMENTS}
-          <span class="more-files">+{attachments.length - MAX_COMPOSER_ATTACHMENTS}</span>
-        {/if}
-      </div>
-    {/if}
-
-    <textarea
-      bind:this={composer}
-      value={prompt}
-      oninput={(event) => {
-        onprompt(event.currentTarget.value);
-        oninput();
+    <ComposerTabs
+      {imageMode}
+      disabled={isGenerating || modeSwitchDisabled}
+      onselect={(image) => {
+        if (imageMode !== image) ontoggleimage();
       }}
-      {onkeydown}
-      rows="1"
-      disabled={!canCompose && !isGenerating}
-      placeholder={imageMode
-        ? "Describe the image to generate…"
-        : providerStatus === "available"
-          ? "Message the selected model…"
-          : "Connect a provider to send a message"}
-      aria-describedby={`composer-guidance${emailEnabled || emailUnavailableReason ? " composer-email-guidance" : ""}`}
-      aria-label="Message bottie"></textarea>
-
-    <div class="composer-toolbar">
-      <div class="composer-tools">
-        <input
-          class="visually-hidden"
-          bind:this={attachmentInput}
-          onchange={onfiles}
-          type="file"
-          multiple
-          accept={imageMode ? "image/png,image/jpeg" : undefined}
-          tabindex="-1"
-        />
-        <button
-          aria-label={imageMode
-            ? imageExecution === "cloud"
-              ? attachments.length + generatedImageSourceCount >= 3
-                ? "Reference image limit reached"
-                : "Attach reference images"
-              : "Reference-image editing is available only with Cloud execution"
-            : "Attach files"}
-          disabled={!canCompose ||
-            (imageMode && (imageExecution !== "cloud" || attachments.length + generatedImageSourceCount >= 3)) ||
-            isGenerating}
-          onclick={onadd}
-        >
-          <Icon name="paperclip" size={18} />
-        </button>
-        <button
-          class="tool-toggle"
-          aria-label={imageMode ? "Use text chat" : "Generate an image"}
-          aria-pressed={imageMode}
-          disabled={isGenerating}
-          onclick={ontoggleimage}
-        >
-          <Icon name="image" size={17} /><span>Image</span>
-        </button>
-        <button
-          class="tool-toggle"
-          aria-label={memoryAvailable
-            ? memoryEnabled
-              ? "Disable memory tools"
-              : "Enable memory tools"
-            : "Memory tools require a supported tool-capable model"}
-          aria-pressed={memoryAvailable && memoryEnabled}
-          disabled={!memoryAvailable || isGenerating}
-          onclick={ontogglememory}
-        >
-          <Icon name="brain" size={17} /><span>Memory</span>
-        </button>
-        <button
-          class="tool-toggle"
-          aria-label={webAvailable
-            ? webEnabled
-              ? "Disable web search"
-              : "Enable web search"
-            : "Web search requires a supported tool-capable model"}
-          aria-pressed={webAvailable && webEnabled}
-          disabled={!webAvailable || isGenerating}
-          onclick={ontoggleweb}
-        >
-          <Icon name="globe" size={17} /><span>Web</span>
-        </button>
-        <button
-          class="tool-toggle"
-          aria-label={emailAvailable
-            ? emailEnabled
-              ? "Disable email tools"
-              : "Enable email tools"
-            : emailUnavailableReason}
-          title={!emailAvailable ? emailUnavailableReason : undefined}
-          aria-pressed={emailAvailable && emailEnabled}
-          disabled={!emailAvailable || isGenerating}
-          onclick={ontoggleemail}
-        >
-          <Icon name="mail" size={17} /><span>Email</span>
-        </button>
-      </div>
-
-      <button
-        class="send-button"
-        class:enabled={(prompt.trim().length > 0 && canSend) || isGenerating}
-        disabled={(!prompt.trim() || !canSend) && !isGenerating}
-        aria-label={isGenerating
-          ? "Stop generating"
-          : imageMode
-            ? attachments.length + generatedImageSourceCount > 0
-              ? "Edit image"
-              : "Generate image"
-            : "Send message"}
-        onclick={onsend}
-      >
-        {#if isGenerating}
-          <span class="stop-square"></span>
-        {:else}
-          <Icon name="arrow-up" size={19} strokeWidth={2.2} />
-        {/if}
-      </button>
-    </div>
-    {#if imageMode}
-      {@const localImage = localImageAvailabilityPresentation(localImageAvailability, localImageAvailabilityFailed)}
-      {@const localImageReady = localImageAvailability?.availability === "ready"}
-      {@const localModelLabel = localImageModelLabel(localImageAvailability)}
-      {@const readyImageSourceCount =
-        attachments.filter((attachment) => attachment.kind === "image" && attachment.normalization.state === "ready")
-          .length + generatedImageSourceCount}
-      {@const selectedImageSourceCount = attachments.length + generatedImageSourceCount}
-      {@const acquisition = localImageAcquisitionStatus
-        ? localImageAcquisitionPresentation(localImageAcquisitionStatus)
-        : null}
-      {@const workerImport = localImageWorkerImportPresentation(localImageAvailability, localImageWorkerImporting)}
-      <div class="image-generation-options" aria-label="Image generation options">
-        <label>
-          <span>Execution</span>
-          <select
-            aria-label="Execution"
-            value={imageExecution}
-            disabled={isGenerating}
-            onchange={(event) => onimageexecution(event.currentTarget.value as ImageGenerationExecution)}
-          >
-            <option value="cloud">Cloud</option>
-            <option value="local" disabled={!localImageReady}
-              >{localModelLabel}{localImageReady ? "" : " · unavailable"}</option
-            >
-          </select>
-        </label>
-        {#if imageExecution === "cloud"}
-          <label>
-            <span>Size</span>
-            <select
-              value={imageSize}
-              disabled={isGenerating}
-              onchange={(event) => onimagesize(event.currentTarget.value as typeof imageSize)}
-            >
-              <option value="square">Square · 2048×2048</option>
-              <option value="landscape">Landscape · 2688×1536</option>
-              <option value="portrait">Portrait · 1536×2688</option>
-            </select>
-          </label>
-          <label>
-            <span>Images</span>
-            <select
-              value={imageCount}
-              disabled={isGenerating}
-              onchange={(event) => onimagecount(Number(event.currentTarget.value))}
-            >
-              {#each [1, 2, 3, 4, 5, 6] as count}<option value={count}>{count}</option>{/each}
-            </select>
-          </label>
-          <span class="image-execution"><strong>Cloud</strong> · <code>qwen-image-2.0-2026-03-03</code></span>
-          {#if selectedImageSourceCount > 0}
-            <span class="image-execution">
-              Editing with {readyImageSourceCount} ready source image{readyImageSourceCount === 1
-                ? ""
-                : "s"}{readyImageSourceCount === selectedImageSourceCount
-                ? ""
-                : ` of ${selectedImageSourceCount} selected`}
-            </span>
-          {/if}
-        {:else}
-          <span class="image-execution"><strong>Local</strong> · 512×512 · one image</span>
-        {/if}
-      </div>
-      {#if imageExecution === "cloud"}
-        <p class="image-delivery-note">
-          {#if selectedImageSourceCount > 0}
-            Your image prompt and normalized source image bytes are sent to Alibaba Model Studio. This may incur
-            provider charges. Source paths stay in native code. Rust downloads each temporary result immediately,
-            validates it, and stores only app-private PNG bytes.
-          {:else}
-            Your image prompt is sent to Alibaba Model Studio and may incur provider charges. Rust downloads each
-            temporary result immediately, validates it, and stores only app-private PNG bytes.
-          {/if}
-        </p>
-      {:else}
-        <p class="image-delivery-note">
-          Your prompt and generated bytes stay on this device. Bottie uses the verified local runtime and exact
-          <code>{localImageAvailability?.modelId}</code> package, then validates and stores the PNG privately.
-        </p>
-      {/if}
-      <section class="local-image-availability" aria-label="Local image availability">
-        <div class="local-image-heading">
-          <strong>{localModelLabel}</strong>
-          <span class:ready={localImage.state === "ready"}>{localImage.label}</span>
-        </div>
-        {#if localImageAvailability}
-          <code>{localImageAvailability.modelId}</code>
-          {#if localImageAvailability.runtimeId === "mlx-serve@external"}
-            <span>Installed model · Qwen Research License · image server on 127.0.0.1:11234</span>
-          {:else}
-            <span>
-              <code>{localImageAvailability.packageId}</code> · local runtime
-              <code>{localImageAvailability.runtimeId}</code>
-            </span>
-            <span>{localImageAvailability.license} · revision <code>{localImageAvailability.sourceRevision}</code></span
-            >
-          {/if}
-        {/if}
-        <small>{localImage.detail}. No automatic download or cloud fallback.</small>
-        {#if workerImport.action !== "none" || workerImport.active}
-          <div class="local-image-acquisition" aria-label="Local image worker installation">
-            <p>
-              Select the reviewed local image worker folder. The selected folder stays inside native code; only exact
-              verified bytes are copied into Bottie’s app-owned cache.
-            </p>
-            <span>{workerImport.detail}</span>
-            {#if workerImport.action === "import"}
-              <button type="button" disabled={isGenerating} onclick={onimportlocalimageworker}
-                >{workerImport.label}</button
-              >
-            {:else}
-              <strong>{workerImport.label}</strong>
-            {/if}
-          </div>
-        {/if}
-        {#if acquisition && (acquisition.action !== "none" || acquisition.active)}
-          <div class="local-image-acquisition" aria-label="Local image model installation">
-            <p>
-              Download the disclosed immutable package from Hugging Face into Bottie’s app-owned cache. Network access
-              is used only for acquisition; generation remains offline.
-            </p>
-            {#if localImageAcquisitionStatus?.license === "LicenseRef-Qwen-Research"}
-              <QwenResearchLicenseDisclosure />
-            {/if}
-            {#if acquisition.active || acquisition.percent > 0}
-              <progress aria-label="Local model download progress" max="100" value={acquisition.percent}
-                >{acquisition.percent}%</progress
-              >
-            {/if}
-            <span>{acquisition.detail}</span>
-            {#if acquisition.action === "cancel"}
-              <strong>{acquisition.label}</strong>
-              <button type="button" onclick={oncancellocalimage}>Cancel download</button>
-            {:else if ["install", "resume", "retry"].includes(acquisition.action)}
-              <button type="button" disabled={isGenerating} onclick={oninstalllocalimage}>{acquisition.label}</button>
-            {:else}
-              <strong>{acquisition.label}</strong>
-            {/if}
-          </div>
-        {/if}
-        {#if localImageAcquisitionFeedback}
-          <span class="local-image-acquisition-feedback" role="status">{localImageAcquisitionFeedback}</span>
-        {/if}
-        {#if localImageWorkerImportFeedback}
-          <span class="local-image-acquisition-feedback" role="status">{localImageWorkerImportFeedback}</span>
-        {/if}
-      </section>
-      {#if imageFeedback}<p class="image-generation-feedback" role="status">{imageFeedback}</p>{/if}
-    {/if}
-    <MicrophoneControl
-      status={microphoneStatus}
-      disabled={!microphoneAvailable}
-      willInterrupt={microphoneWillInterrupt}
-      audioAvailable={microphoneAudioAvailable}
-      audioUnavailableReason={microphoneAudioUnavailableReason}
-      sendAudio={microphoneSendAudio}
-      retainAudio={microphoneRetainAudio}
-      deviceList={microphoneDeviceList}
-      devicesLoaded={microphoneDevicesLoaded}
-      deviceListFailed={microphoneDeviceListFailed}
-      onstart={onstartmicrophone}
-      onstop={onstopmicrophone}
-      ondiscard={ondiscardmicrophone}
-      oncorrect={oncorrectmicrophone}
-      ontogglesendaudio={ontogglesendmicrophoneaudio}
-      ontoggleretainaudio={ontoggleretainmicrophoneaudio}
-      onloaddevices={onloadmicrophonedevices}
-      onselectdevice={onselectmicrophonedevice}
-      onusetext={onusemicrophonetranscript}
-      transcriptDraftFeedback={microphoneTranscriptDraftFeedback}
-      transcriptDraftError={microphoneTranscriptDraftError}
     />
+    <div id="composer-panel" role="tabpanel" tabindex="0" aria-labelledby={imageMode ? "image-tab" : "chat-tab"}>
+      {#if attachments.length > 0}
+        <div class="composer-attachments">
+          {#each attachments.slice(0, MAX_COMPOSER_ATTACHMENTS) as attachment (attachment.id)}
+            {@const failure = attachmentFailure(attachment)}
+            <div
+              class:failed={Boolean(failure)}
+              class="attachment-chip"
+              title={failure ? `${failure.title}. ${failure.detail}` : undefined}
+            >
+              <AttachmentVisual {attachment} className="chip-icon" iconSize={14} />
+              <span>{attachment.name}</span>
+              {#if failure}
+                <span class="visually-hidden">{failure.title}. {failure.detail}</span>
+              {/if}
+              <button
+                aria-label={`Remove ${attachment.name}`}
+                disabled={!canCompose || isGenerating}
+                onclick={() => onremove(attachment.id)}
+              >
+                <Icon name="x" size={13} />
+              </button>
+            </div>
+          {/each}
+          {#if attachments.length > MAX_COMPOSER_ATTACHMENTS}
+            <span class="more-files">+{attachments.length - MAX_COMPOSER_ATTACHMENTS}</span>
+          {/if}
+        </div>
+      {/if}
+
+      <textarea
+        bind:this={composer}
+        value={prompt}
+        oninput={(event) => {
+          onprompt(event.currentTarget.value);
+          oninput();
+        }}
+        {onkeydown}
+        rows="1"
+        disabled={!canCompose && !isGenerating}
+        placeholder={imageMode
+          ? "Describe the image to generate…"
+          : providerStatus === "available"
+            ? "Message the selected model…"
+            : "Connect a provider to send a message"}
+        aria-describedby={`composer-guidance${!imageMode && (emailEnabled || emailUnavailableReason) ? " composer-email-guidance" : ""}`}
+        aria-label={imageMode ? "Image prompt" : "Message bottie"}></textarea>
+
+      <div class="composer-toolbar">
+        <div class="composer-tools">
+          <input
+            class="visually-hidden"
+            bind:this={attachmentInput}
+            onchange={onfiles}
+            type="file"
+            multiple
+            accept={imageMode ? "image/png,image/jpeg" : undefined}
+            tabindex="-1"
+          />
+          <button
+            aria-label={imageMode
+              ? imageExecution === "cloud"
+                ? attachments.length + generatedImageSourceCount >= 3
+                  ? "Reference image limit reached"
+                  : "Attach reference images"
+                : "Reference-image editing is available only with Cloud execution"
+              : "Attach files"}
+            disabled={!canCompose ||
+              (imageMode && (imageExecution !== "cloud" || attachments.length + generatedImageSourceCount >= 3)) ||
+              isGenerating}
+            onclick={onadd}
+          >
+            <Icon name="paperclip" size={18} />
+          </button>
+          {#if !imageMode}
+            <button
+              class="tool-toggle"
+              aria-label={memoryAvailable
+                ? memoryEnabled
+                  ? "Disable memory tools"
+                  : "Enable memory tools"
+                : "Memory tools require a supported tool-capable model"}
+              aria-pressed={memoryAvailable && memoryEnabled}
+              disabled={!memoryAvailable || isGenerating}
+              onclick={ontogglememory}
+            >
+              <Icon name="brain" size={17} /><span>Memory</span>
+            </button>
+            <button
+              class="tool-toggle"
+              aria-label={webAvailable
+                ? webEnabled
+                  ? "Disable web search"
+                  : "Enable web search"
+                : "Web search requires a supported tool-capable model"}
+              aria-pressed={webAvailable && webEnabled}
+              disabled={!webAvailable || isGenerating}
+              onclick={ontoggleweb}
+            >
+              <Icon name="globe" size={17} /><span>Web</span>
+            </button>
+            <button
+              class="tool-toggle"
+              aria-label={emailAvailable
+                ? emailEnabled
+                  ? "Disable email tools"
+                  : "Enable email tools"
+                : emailUnavailableReason}
+              title={!emailAvailable ? emailUnavailableReason : undefined}
+              aria-pressed={emailAvailable && emailEnabled}
+              disabled={!emailAvailable || isGenerating}
+              onclick={ontoggleemail}
+            >
+              <Icon name="mail" size={17} /><span>Email</span>
+            </button>
+          {/if}
+        </div>
+
+        <button
+          class="send-button"
+          class:enabled={(prompt.trim().length > 0 && canSend) || isGenerating}
+          disabled={(!prompt.trim() || !canSend) && !isGenerating}
+          aria-label={isGenerating
+            ? "Stop generating"
+            : imageMode
+              ? attachments.length + generatedImageSourceCount > 0
+                ? "Edit image"
+                : "Generate image"
+              : "Send message"}
+          onclick={onsend}
+        >
+          {#if isGenerating}
+            <span class="stop-square"></span>
+          {:else}
+            <Icon name="arrow-up" size={19} strokeWidth={2.2} />
+          {/if}
+        </button>
+      </div>
+      {#if imageMode}
+        <ImageComposerOptions
+          {attachments}
+          isGenerating={isGenerating || modeSwitchDisabled}
+          {imageExecution}
+          {imageSize}
+          {imageResolution}
+          {imageCount}
+          {generatedImageSourceCount}
+          {imageFeedback}
+          {localImageAvailability}
+          {localImageAvailabilityFailed}
+          {localImageAcquisitionStatus}
+          {localImageAcquisitionFeedback}
+          {localImageWorkerImporting}
+          {localImageWorkerImportFeedback}
+          {onimageexecution}
+          {onimagesize}
+          {onimageresolution}
+          {onimagecount}
+          {oninstalllocalimage}
+          {oncancellocalimage}
+          {onimportlocalimageworker}
+        />
+      {:else}
+        <details class="composer-voice" open={microphoneStatus.phase !== "idle"}>
+          <summary>Voice input</summary>
+          <MicrophoneControl
+            status={microphoneStatus}
+            disabled={!microphoneAvailable}
+            willInterrupt={microphoneWillInterrupt}
+            audioAvailable={microphoneAudioAvailable}
+            audioUnavailableReason={microphoneAudioUnavailableReason}
+            sendAudio={microphoneSendAudio}
+            retainAudio={microphoneRetainAudio}
+            deviceList={microphoneDeviceList}
+            devicesLoaded={microphoneDevicesLoaded}
+            deviceListFailed={microphoneDeviceListFailed}
+            onstart={onstartmicrophone}
+            onstop={onstopmicrophone}
+            ondiscard={ondiscardmicrophone}
+            oncorrect={oncorrectmicrophone}
+            ontogglesendaudio={ontogglesendmicrophoneaudio}
+            ontoggleretainaudio={ontoggleretainmicrophoneaudio}
+            onloaddevices={onloadmicrophonedevices}
+            onselectdevice={onselectmicrophonedevice}
+            onusetext={onusemicrophonetranscript}
+            transcriptDraftFeedback={microphoneTranscriptDraftFeedback}
+            transcriptDraftError={microphoneTranscriptDraftError}
+          />
+        </details>
+      {/if}
+    </div>
   </div>
   <p id="composer-guidance" class="composer-note" aria-live="polite">
     {attachmentNote}
   </p>
-  {#if emailEnabled}
+  {#if !imageMode && emailEnabled}
     <p id="composer-email-guidance" class="email-boundary-note">{emailBoundaryNote}</p>
-  {:else if emailUnavailableReason}
+  {:else if !imageMode && emailUnavailableReason}
     <p id="composer-email-guidance" class="email-boundary-note" role="status">{emailUnavailableReason}</p>
   {/if}
 </footer>

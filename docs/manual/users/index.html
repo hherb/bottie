@@ -440,8 +440,11 @@
           <p class="kicker">Generate and edit</p>
           <h2>Images</h2>
           <p>
-            Switch the composer to <strong>Image</strong>, describe the result,
-            choose Cloud or Local, review the route disclosure, then generate.
+            Choose the composer’s <strong>Image</strong> tab, describe the result,
+            select Cloud or Local, choose an aspect ratio and image size, review
+            the route disclosure, then generate. The Chat tab contains chatbot
+            tools and voice input. Switching tabs retains each prompt draft
+            independently; both modes share the conversation timeline.
             Image generation never follows automatically from an ordinary chat
             send or an unavailable local route.
           </p>
@@ -458,7 +461,11 @@
           <p>
             Bottie prefers an already installed Qwen-Image-2.1 MLX Serve 8-bit pack
             on the local image server at 127.0.0.1:11234. Choose Image, then Local 2.1
-            to generate one 512×512 PNG. The existing files are reused without a
+            to generate one PNG. Small, Medium, and Large presets support square
+            (1:1), landscape (3:2), portrait (2:3), wide (16:9), and tall (9:16)
+            images; each size option shows its exact pixel dimensions. The default
+            is Small square, 512×512. Larger images take longer and use more memory.
+            Expand the local model details when needed. The existing files are reused without a
             second model download. The oMLX text server itself has no image-output
             endpoint; MLX Serve can read the pack from its existing directory.
           </p>
@@ -473,6 +480,8 @@
             Local mode is a separate text-to-image model and never claims to be
             Qwen-Image-2.0. Bottie enables it only when the exact worker, model
             cache, and measured hardware profile all pass native verification.
+            This older worker retains its fixed one-image 512×512 output; size and
+            aspect controls remain disabled for it.
           </p>
           <table>
             <thead>

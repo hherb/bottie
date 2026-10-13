@@ -18,8 +18,25 @@ mlx-serve --model /absolute/path/to/Qwen-Image-2.1-MLX-Serve-8bit \
 ```
 
 This reads the existing files in place, including a pack stored in oMLX's model directory. It does not copy the model
-into Bottie's cache. Choose Image, then **Local 2.1** in Bottie. The current profile produces one 512×512 PNG using
-the base model's 40-step sampling schedule and an explicit seed. Local editing is not enabled.
+into Bottie's cache. Choose the **Image** tab, then **Local 2.1** in Bottie. Choose an aspect ratio and image size;
+the default produces one 512×512 PNG using the base model's 40-step sampling schedule and an explicit seed.
+The Chat tab retains chatbot tools and voice input; each tab keeps its own prompt draft. Model details are collapsed
+until requested. Local editing is not enabled.
+
+The preferred server supports three closed size tiers across five exact ratios:
+
+| Ratio         | Small    | Medium   | Large     |
+| ------------- | -------- | -------- | --------- |
+| Square 1:1    | 512×512  | 768×768  | 1024×1024 |
+| Landscape 3:2 | 768×512  | 1152×768 | 1536×1024 |
+| Portrait 2:3  | 512×768  | 768×1152 | 1024×1536 |
+| Wide 16:9     | 1024×576 | 1536×864 | 2048×1152 |
+| Tall 9:16     | 576×1024 | 864×1536 | 1152×2048 |
+
+These presets have aligned axes and bounded area. Rust permits them only for the exact 2.1 server package; the
+legacy 2512 worker remains fixed at one 512×512 output. Settings/model identity are captured before asynchronous
+prompt persistence, saved with the generated request, and retained on retry. No schema change or cloud fallback is
+introduced. Larger sizes are allowed presets, not new measurements of their peak memory or latency.
 
 The inspected oMLX 0.7.1.dev1 installation lists this pack as an unloaded text model and has no image-generation API.
 Listing it in `/v1/models` does not make it usable for image output. MLX Serve supplies the separate
@@ -121,6 +138,13 @@ On the Apple M3 Max 128 GiB host, MLX Serve 26.9.5-dev / MLX 0.32.2 generated a 
 69.1 seconds. The opt-in native fixture then passed generation, normalization, durable completion with exact package
 provenance, and cancellation in 71.59 seconds. The server log confirmed “generation cancelled — client disconnected”.
 This is development/runtime evidence, not a signed installer or distribution claim.
+
+The subsequent size/aspect slice also passed a live 768×512 generation, native normalization, durable completion
+with exact dimensions/model provenance, and cancellation in 138.53 seconds. The browser controls were exercised at
+1280×720 and 620×800, including arrow-key tab navigation, size/aspect changes, and preserved Image drafts. Browser
+preview uses fixture conversation data; it does not perform native generation. Cloud size choices follow the
+[provider's bounded dimensions API](https://www.alibabacloud.com/help/en/model-studio/qwen-image-api), while local
+choices are a closed Rust-owned catalog. Full native Tauri UI clicks were not automated.
 
 To rerun against an already installed, license-approved local server:
 

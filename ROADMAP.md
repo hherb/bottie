@@ -623,6 +623,8 @@ Editing should first land through the unified hosted 2.0 model after generation 
 
 ### 8.6 Preferred installed Qwen-Image-2.1 local generation
 
+- [x] separate Chat and Image composer tabs, preserve prompt drafts, collapse model details, and expose exact
+      size/aspect presets for Cloud and Local 2.1; retain the legacy worker profile and retry dimensions;
 - [x] prefer the exact loaded MLX Serve 8-bit pack with explicit image capability on loopback port 11234; keep the
       oMLX text service and managed 2512 route separate;
 - [x] reuse installed files through the local image API, normalize bounded inline PNGs behind Rust, retain exact

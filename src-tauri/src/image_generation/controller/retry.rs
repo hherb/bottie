@@ -189,11 +189,12 @@ fn validate_local_retry(
     {
         return Err(invalid_retry_error());
     }
-    ImageGenerationRequest::new_local(
+    ImageGenerationRequest::new_local_for_model(
         retry.prompt.clone(),
         retry.options.width,
         retry.options.height,
         retry.output_count,
+        &retry.provenance.model_id,
     )
     .map_err(|_| invalid_retry_error())
 }
@@ -270,6 +271,21 @@ mod tests {
         retry.provenance.seed = Some(42);
         retry.options = GeneratedImageRequestOptions::new(512, 512, false).unwrap();
 
+        assert!(validate_local_retry(&retry).is_err());
+    }
+
+    #[test]
+    fn local_21_retry_retains_non_square_dimensions_and_exact_model() {
+        let mut retry = retry(Vec::new());
+        retry.provenance.execution = GeneratedAssetExecution::Local;
+        retry.provenance.model_id = crate::local_image_worker::server::IMAGE_PACKAGE_ID.into();
+        retry.provenance.seed = Some(42);
+        retry.options = GeneratedImageRequestOptions::new(1152, 768, false).unwrap();
+        assert_eq!(
+            validate_local_retry(&retry).unwrap().dimensions(),
+            (1152, 768)
+        );
+        retry.provenance.model_id = "Qwen/Qwen-Image-2512".into();
         assert!(validate_local_retry(&retry).is_err());
     }
 }

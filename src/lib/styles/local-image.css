@@ -1,7 +1,6 @@
 /** Local-image package availability disclosure kept separate from the core composer layout. */
 
 .local-image-availability {
-  display: grid;
   gap: 3px;
   margin: 0 10px 7px;
   padding: 7px 8px;
@@ -10,6 +9,22 @@
   color: var(--subtle-text);
   font-size: 8px;
   line-height: 1.4;
+}
+.local-image-availability > summary {
+  cursor: pointer;
+  font-size: 10px;
+}
+.local-image-availability > summary::after {
+  content: "+";
+  color: var(--muted-strong);
+}
+.local-image-availability[open] > summary::after {
+  content: "−";
+}
+.local-image-details {
+  display: grid;
+  gap: 4px;
+  padding-top: 7px;
 }
 .local-image-heading {
   display: flex;

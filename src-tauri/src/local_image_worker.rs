@@ -18,6 +18,8 @@ pub(crate) mod execution;
 #[allow(dead_code)]
 #[path = "local_image_worker/hardware.rs"]
 pub(crate) mod hardware;
+#[path = "local_image_worker/image_dimensions.rs"]
+pub(crate) mod image_dimensions;
 #[allow(dead_code)]
 #[path = "local_image_worker/managed_install.rs"]
 pub(crate) mod managed_install;

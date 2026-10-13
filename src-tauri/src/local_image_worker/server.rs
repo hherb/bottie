@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use super::execution::{LOCAL_GENERATION_DIMENSIONS, LOCAL_GENERATION_OUTPUT_COUNT};
+use super::{execution::LOCAL_GENERATION_OUTPUT_COUNT, image_dimensions::valid_qwen_21_dimensions};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use futures_util::StreamExt;
 use reqwest::Client;
@@ -111,7 +111,7 @@ impl LocalImageServer {
         if *cancellation.borrow() {
             return Err(LocalImageServerError::Cancelled);
         }
-        if dimensions != LOCAL_GENERATION_DIMENSIONS
+        if !valid_qwen_21_dimensions(dimensions)
             || prompt.trim().is_empty()
             || prompt.chars().count() > MAX_PROMPT_CHARACTERS
         {

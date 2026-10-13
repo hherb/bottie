@@ -32,7 +32,8 @@ async fn live_installed_qwen_21_generates_persists_and_cancels_through_native_ad
     let prepared = generator
         .generate(
             installation,
-            ImageGenerationRequest::new_local(prompt, 512, 512, 1).unwrap(),
+            ImageGenerationRequest::new_local_for_model(prompt, 768, 512, 1, IMAGE_PACKAGE_ID)
+                .unwrap(),
             42,
             store.clone(),
             cancellation,
@@ -41,7 +42,7 @@ async fn live_installed_qwen_21_generates_persists_and_cancels_through_native_ad
         .await
         .unwrap_or_else(|_| panic!("local native generation failed"));
     assert_eq!(prepared.len(), 1);
-    assert_eq!((prepared[0].width, prepared[0].height), (512, 512));
+    assert_eq!((prepared[0].width, prepared[0].height), (768, 512));
 
     let conversation = store.create_conversation("Local image proof").unwrap();
     let user = store
@@ -65,7 +66,7 @@ async fn live_installed_qwen_21_generates_persists_and_cancels_through_native_ad
         Some(42),
     )
     .unwrap();
-    let options = GeneratedImageRequestOptions::new(512, 512, false).unwrap();
+    let options = GeneratedImageRequestOptions::new(768, 512, false).unwrap();
     let pending = store
         .start_generated_image_message(&conversation.id, &user.id, prompt, 1, &provenance, &options)
         .unwrap();
@@ -116,6 +117,6 @@ async fn live_installed_qwen_21_generates_persists_and_cancels_through_native_ad
         0
     );
     println!(
-        "Verified native 512x512 generation, durable completion with exact local model provenance, and cancellation."
+        "Verified native 768x512 generation, durable completion with exact local model provenance, and cancellation."
     );
 }

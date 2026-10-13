@@ -37,7 +37,7 @@ async fn sends_one_seeded_image_request_without_credentials_or_path_fields() {
             serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
         assert_eq!(
             body,
-            json!({"model": IMAGE_MODEL_ID, "prompt": "A blue circle", "size": "512x512",
+            json!({"model": IMAGE_MODEL_ID, "prompt": "A blue circle", "size": "768x512",
             "n": 1, "steps": 40, "seed": 42, "response_format": "b64_json", "stream": false})
         );
         let body = r#"{"data":[{"b64_json":"iVBORw0KGgo="}]}"#;
@@ -52,7 +52,7 @@ async fn sends_one_seeded_image_request_without_credentials_or_path_fields() {
     let (_cancel, cancellation) = watch::channel(false);
     assert_eq!(
         server
-            .generate("A blue circle", (512, 512), 42, cancellation, || {})
+            .generate("A blue circle", (768, 512), 42, cancellation, || {})
             .await
             .unwrap(),
         b"\x89PNG\r\n\x1a\n"

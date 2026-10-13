@@ -107,6 +107,28 @@ pub(crate) struct ImageGenerationRequest {
 }
 
 impl ImageGenerationRequest {
+    /// Permits adjustable output only for the exact preferred server pack, retaining the worker profile.
+    pub(crate) fn new_local_for_model(
+        prompt: impl Into<String>,
+        width: u32,
+        height: u32,
+        count: u8,
+        model_id: &str,
+    ) -> Result<Self, ProviderError> {
+        use crate::local_image_worker::{
+            image_dimensions::valid_qwen_21_dimensions, server::IMAGE_PACKAGE_ID,
+        };
+        if model_id != IMAGE_PACKAGE_ID {
+            return Self::new_local(prompt, width, height, count);
+        }
+        if !valid_qwen_21_dimensions((width, height)) || count != LOCAL_GENERATION_OUTPUT_COUNT {
+            return Err(ProviderError::invalid_request(
+                "Choose one supported local 2.1 image size and one output.",
+            ));
+        }
+        Self::new_with_prompt_extension(prompt, width, height, count, false)
+    }
+
     /// Validates a bounded request while preserving meaningful prompt formatting.
     pub(crate) fn new(
         prompt: impl Into<String>,

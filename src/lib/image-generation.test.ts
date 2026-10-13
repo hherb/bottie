@@ -9,6 +9,20 @@ import {
 } from "./image-generation";
 import type { Attachment } from "./presentation";
 
+it("maps local 2.1 size and aspect settings while retaining the legacy worker limit", () => {
+  expect(
+    imageGenerationRequestOptions("local", "landscape", 6, "medium", "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit"),
+  ).toEqual({ width: 1152, height: 768, count: 1 });
+  expect(
+    imageGenerationRequestOptions("local", "portrait", 2, "large", "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit"),
+  ).toEqual({ width: 1024, height: 1536, count: 1 });
+  expect(imageGenerationRequestOptions("local", "landscape", 6, "large", "Qwen/Qwen-Image-2512")).toEqual({
+    width: 512,
+    height: 512,
+    count: 1,
+  });
+});
+
 /** Builds one path-free attachment fixture for image-editing eligibility tests. */
 function attachment(id: string, state: Attachment["normalization"]["state"] = "ready"): Attachment {
   return {
@@ -72,13 +86,13 @@ describe("image generation presentation", () => {
       count: 2,
     });
     expect(imageGenerationRequestOptions("cloud", "landscape", 3)).toEqual({
-      width: 2_688,
-      height: 1_536,
+      width: 2_496,
+      height: 1_664,
       count: 3,
     });
     expect(imageGenerationRequestOptions("cloud", "portrait", 4)).toEqual({
-      width: 1_536,
-      height: 2_688,
+      width: 1_664,
+      height: 2_496,
       count: 4,
     });
   });

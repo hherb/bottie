@@ -105,6 +105,24 @@ function renderedComposer(
 }
 
 describe("Composer", () => {
+  it("separates Chat and Image into labelled tabs and keeps image controls out of Chat", () => {
+    const html = renderedComposer(true, true, [], true);
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain('aria-label="Chat"');
+    expect(html).toContain('aria-label="Image"');
+    expect(html).toContain('aria-selected="true"');
+    expect(html).not.toContain('aria-label="Aspect ratio"');
+    expect(html).toContain('aria-label="Enable memory tools"');
+  });
+  it("keeps chat tools and voice controls out of the Image panel", () => {
+    const html = renderedComposer(true, true, [], true, true, true, true, true, true, "", "", false, false, true);
+    expect(html).toContain('aria-label="Aspect ratio"');
+    expect(html).toContain('aria-label="Image size"');
+    expect(html).not.toContain('aria-label="Disable memory tools"');
+    expect(html).not.toContain('aria-label="Disable web search"');
+    expect(html).not.toContain('aria-label="Disable email tools"');
+    expect(html).not.toContain("Record voice");
+  });
   it("shows exact cloud delivery and cost disclosure only for the explicit image action", () => {
     const html = renderedComposer(
       true,
@@ -169,7 +187,7 @@ describe("Composer", () => {
     expect(html).toContain('accept="image/png,image/jpeg"');
     expect(html).toContain("Editing with 1 ready source image");
     expect(html).toContain("prompt and normalized source image bytes are sent to Alibaba Model Studio");
-    expect(html).toMatch(/may incur\s+provider charges/);
+    expect(html).toMatch(/may incur\s+provider\s+charges/);
     expect(html).toContain('aria-label="Edit image"');
   });
 
@@ -222,7 +240,7 @@ describe("Composer", () => {
 
     expect(html).toContain("Editing with 1 ready source image");
     expect(html).toContain('aria-label="Edit image"');
-    expect(html).toMatch(/may incur\s+provider charges/);
+    expect(html).toMatch(/may incur\s+provider\s+charges/);
   });
 
   it("shows the local route but disables selection until native readiness is exact", () => {

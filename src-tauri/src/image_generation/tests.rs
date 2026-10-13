@@ -393,3 +393,23 @@ fn test_database_path() -> std::path::PathBuf {
     std::fs::create_dir_all(&directory).expect("test directory should exist");
     directory.join("bottie.sqlite3")
 }
+#[test]
+fn local_21_sizes_are_model_bound_and_disable_prompt_enhancement() {
+    use crate::local_image_worker::server::IMAGE_PACKAGE_ID;
+    let request =
+        ImageGenerationRequest::new_local_for_model("Draw Bottie", 768, 512, 1, IMAGE_PACKAGE_ID)
+            .unwrap();
+    assert_eq!(request.dimensions(), (768, 512));
+    assert!(!request.prompt_extend());
+    assert!(
+        ImageGenerationRequest::new_local_for_model("Draw", 768, 512, 1, "Qwen/Qwen-Image-2512")
+            .is_err()
+    );
+    assert!(
+        ImageGenerationRequest::new_local_for_model("Draw", 768, 512, 2, IMAGE_PACKAGE_ID).is_err()
+    );
+    assert!(
+        ImageGenerationRequest::new_local_for_model("Draw", 4096, 4096, 1, IMAGE_PACKAGE_ID)
+            .is_err()
+    );
+}

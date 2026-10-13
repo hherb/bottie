@@ -5,11 +5,9 @@ import type { Attachment, GeneratedAsset } from "./presentation";
 import type { StoredGeneratedImageSource } from "./storage";
 import { formatBytes } from "./chat";
 
-/** User-selected execution boundary for a newly submitted image request. */
-export type ImageGenerationExecution = "cloud" | "local";
-
-/** Fixed Qwen-Image-2.0 size choices exposed by the composer. */
-export type ImageGenerationSize = "square" | "landscape" | "portrait";
+import type { ImageGenerationExecution } from "./image-options";
+export { imageGenerationRequestOptions } from "./image-options";
+export type { ImageGenerationExecution, ImageGenerationSize, ImageGenerationResolution } from "./image-options";
 
 /** Current generated-image reference selection exposed to conversation presentation. */
 export type ImageEditingPresentation = {
@@ -102,21 +100,4 @@ export function prepareImageEditingSources(
       ...generatedAssets.map(({ id }) => ({ sourceType: "generated_asset" as const, sourceId: id })),
     ],
   };
-}
-
-/** Resolves one route and visible Cloud choice to the exact native request options. */
-export function imageGenerationRequestOptions(
-  execution: ImageGenerationExecution,
-  size: ImageGenerationSize,
-  count: number,
-): { width: number; height: number; count: number } {
-  if (execution === "local") return { width: 512, height: 512, count: 1 };
-  switch (size) {
-    case "landscape":
-      return { width: 2_688, height: 1_536, count };
-    case "portrait":
-      return { width: 1_536, height: 2_688, count };
-    default:
-      return { width: 2_048, height: 2_048, count };
-  }
 }
