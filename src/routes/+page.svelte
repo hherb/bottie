@@ -36,6 +36,7 @@
   import "$lib/styles/settings.css";
   import "$lib/styles/diagnostics.css";
   import "$lib/styles/localmail-settings.css";
+  import "$lib/styles/kastellan-settings.css";
   import "$lib/styles/recovery.css";
   import "$lib/styles/appearance.css";
   import "$lib/styles/python-approval.css";

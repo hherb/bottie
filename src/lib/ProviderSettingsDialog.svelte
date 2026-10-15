@@ -8,6 +8,7 @@
   import QwenImageSettingsControl from "$lib/QwenImageSettingsControl.svelte";
   import UpdateControl from "$lib/UpdateControl.svelte";
   import LocalmailSettingsControl from "$lib/LocalmailSettingsControl.svelte";
+  import KastellanSettingsControl from "$lib/KastellanSettingsControl.svelte";
   import LocalSpeechSettings from "$lib/LocalSpeechSettings.svelte";
   import GenerationSettingsControl from "$lib/GenerationSettingsControl.svelte";
   import ConversationRetentionControl from "$lib/ConversationRetentionControl.svelte";
@@ -99,6 +100,7 @@
   });
   let dialog = $state<HTMLDivElement>();
   let localmailControl = $state<{ savePendingChanges: () => Promise<void> }>();
+  let kastellanControl = $state<{ savePendingChanges: () => Promise<void> }>();
   onMount(() => focusFirstModalControl(dialog));
   $effect(() => {
     if (!draftInitialized) {
@@ -217,6 +219,7 @@
     settingsError = "";
     try {
       await localmailControl?.savePendingChanges();
+      await kastellanControl?.savePendingChanges();
       const saved = await updateProviderSettings({ ...settingsDraft });
       for (const providerId of ["openai", "anthropic", "brave", "exa", "qwen-image"] as const) {
         const apiKey = credentialDrafts[providerId].trim();
@@ -468,6 +471,8 @@
       />
 
       <LocalmailSettingsControl bind:this={localmailControl} disabled={isGenerating || settingsSaving} />
+
+      <KastellanSettingsControl bind:this={kastellanControl} disabled={settingsSaving} />
 
       <div class="settings-policy">
         <Icon name="shield" size={15} />
