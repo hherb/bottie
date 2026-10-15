@@ -44,6 +44,19 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
 
 ## Recent maintenance
 
+Kastellan agent requests added on 2026-10-15 (`docs/kastellan.md`). A message starting with `@kastellan:` is answered by
+a Kastellan agent daemon through its operator CLI instead of the selected model. The CLI runs directly for `localhost`
+or over batch-mode `ssh` for any other host chosen in Settings → Kastellan agent, which also offers a side-effect-free
+Test connection. Each request is an ordinary provider run (`provider_id` `kastellan`, model = host), accepted at once
+and completed in the background. A `kastellan-task-finished` event reloads the open conversation, so the composer is
+never held. The waiting conversation stays busy under the existing one-running-response rule; other conversations stay
+usable. Regenerate and edit-and-resend route Kastellan requests back to Kastellan; a task that cannot be sent (invalid
+settings, unreachable host) is saved as a failed response. Validation: 35 native Kastellan tests, 709 library tests
+(39 ignored) and all integration suites pass; 431 frontend tests (3 skipped), svelte-check, format, and build pass. The
+opt-in live probe and task round trip passed against Kastellan on the Mac and on a remote host over ssh. Known limits:
+pending tasks are marked interrupted by a restart, there is no cancel control, and Kastellan operator questions are
+reported as text.
+
 Branding maintenance completed on 2026-09-30: `assets/logo_v2/bottie_icon_512.png` is the approved app/general logo
 master; the locked icon pipeline now derives both product favicons and the website header/footer logo from it.
 `npm run package:macos:dmg` builds the

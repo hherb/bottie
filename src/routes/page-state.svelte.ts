@@ -47,6 +47,7 @@ import {
   type ImageGenerationExecution,
   type ImageGenerationSize,
 } from "$lib/image-generation";
+import { isKastellanPrompt } from "$lib/kastellan";
 import {
   DEFAULT_PROVIDER_SETTINGS,
   INITIAL_MESSAGES,
@@ -75,6 +76,7 @@ import { LocalImageAcquisitionState } from "./local-image-acquisition-state.svel
 import { LocalImageWorkerImportState } from "./local-image-worker-import-state.svelte";
 import { PythonApprovalState } from "./python-approval-state.svelte";
 import { SpeechState } from "./speech-state.svelte";
+import { KastellanState } from "./kastellan-state.svelte";
 import { ToolPreferenceState, type ToolAvailability } from "./tool-preferences";
 
 const IDLE_STAGE = -1;
@@ -128,6 +130,15 @@ export class PageState {
   localImageWorkerImport = new LocalImageWorkerImportState();
   pythonApproval = new PythonApprovalState();
   speech = new SpeechState();
+  /** `@kastellan:` requests, answered in the background into this page's timeline. */
+  kastellan = new KastellanState({
+    messages: () => this.messages,
+    replaceMessages: (messages) => (this.messages = messages),
+    activeConversationId: () => this.history.activeConversationId,
+    isBusy: () => this.isGenerating || this.isPersistingMessage,
+    reload: () => this.history.refreshAfterGeneration(),
+    scrollToBottom: (behavior) => this.interaction.scrollToBottom(behavior),
+  });
 
   private generationRun = 0;
   private cancellationRequested = false;
@@ -287,6 +298,7 @@ export class PageState {
       this.messages = applyAttachmentProcessingUpdateToMessages(this.messages, update);
       this.history.applyAttachmentProcessingUpdate(update);
     });
+    await this.kastellan.listen();
     try {
       this.runtime = await invoke<RuntimeInfo>("app_info");
     } catch (error) {
@@ -346,6 +358,7 @@ export class PageState {
     this.localImageAcquisition.dispose();
     this.pythonApproval.dispose();
     this.speech.dispose();
+    this.kastellan.dispose();
   }
   /** Opens one persisted conversation from the sidebar. */
   async openConversation(conversationId: string): Promise<void> {
@@ -464,7 +477,13 @@ export class PageState {
   /** Starts one provider-qualified chat stream and normalizes its events into message state. */
   async sendMessage(): Promise<void> {
     const submittedPrompt = this.prompt.trim();
-    if (!submittedPrompt || this.isGenerating || !this.canSend || !this.attachmentsCanSubmit || !this.audioCanSubmit) {
+    if (
+      !submittedPrompt ||
+      this.isGenerating ||
+      !this.canRespondTo(submittedPrompt) ||
+      !this.attachmentsCanSubmit ||
+      !this.audioCanSubmit
+    ) {
       return;
     }
     this.isPersistingMessage = true;
@@ -490,7 +509,18 @@ export class PageState {
     this.prompt = "";
     this.attachment.clear();
     this.interaction.resizeComposer();
-    await this.startGeneration(runContext);
+    await this.startResponse(runContext, submittedPrompt);
+  }
+
+  /** Whether a request can be answered now: Kastellan needs no selected model or reachable provider. */
+  private canRespondTo(prompt: string): boolean {
+    return isKastellanPrompt(prompt) ? !this.isPersistingMessage : this.canSend;
+  }
+
+  /** Routes one persisted request to Kastellan or to the selected model. */
+  private async startResponse(runContext: import("$lib/storage").ProviderRunContext, prompt: string): Promise<void> {
+    if (isKastellanPrompt(prompt)) await this.kastellan.dispatch(runContext, prompt);
+    else await this.startGeneration(runContext);
   }
 
   /** Persists one explicit image prompt, then starts the disclosed selected image route. */
@@ -755,12 +785,14 @@ export class PageState {
 
   /** Forks one durable user request and generates a response on the new selected branch. */
   async editAndRegenerate(message: Message, text: string): Promise<void> {
-    if (!message.storageId || this.isGenerating || !this.canSend || !this.conversationAttachmentsCanSubmit) return;
+    if (!message.storageId || this.isGenerating || !this.canRespondTo(text) || !this.conversationAttachmentsCanSubmit) {
+      return;
+    }
     if (this.speech.status.phase === "speaking") await this.speech.stop();
     const branched = await this.history.branchFromUserMessage(message.storageId, text);
     if (!branched) return;
     this.messages = branched.messages;
-    await this.startGeneration(branched.context);
+    await this.startResponse(branched.context, text.trim());
   }
 
   /** Regenerates one response, optionally requiring a retryable terminal state. */

@@ -44,6 +44,7 @@
         <a href="#chat">Start a conversation</a>
         <a href="#context">Files and context</a>
         <a href="#tools">Memory and tools</a>
+        <a href="#kastellan">Kastellan agent</a>
         <a href="#voice">Voice</a>
         <a href="#images">Images</a>
         <a href="#conversations">Manage conversations</a>
@@ -390,6 +391,39 @@
           </p>
         </section>
 
+        <section id="kastellan">
+          <p class="kicker">Delegate a task</p>
+          <h2>Kastellan agent</h2>
+          <p>
+            Start a message with <code>@kastellan:</code> to hand it to a
+            Kastellan agent instead of the selected model. Kastellan works with
+            its own tools and may take minutes, so the composer stays free and
+            the reply appears in the same conversation when it is ready.
+          </p>
+          <div class="card-grid two">
+            <article>
+              <h3>While you wait</h3>
+              <p>
+                The waiting response names the host. That conversation stays
+                busy until the reply arrives; other conversations work as usual.
+              </p>
+            </article>
+            <article>
+              <h3>The reply</h3>
+              <p>
+                Its footer shows the Kastellan task number, host, and duration.
+                Regenerate sends the request to Kastellan again.
+              </p>
+            </article>
+          </div>
+          <p class="note">
+            <strong>Choose the host</strong> in Settings → Kastellan agent.
+            Leave Host empty for Kastellan on this computer, or enter a host
+            you can already reach with <code>ssh</code>. Test connection checks
+            the route without sending a task.
+          </p>
+        </section>
+
         <section id="voice">
           <p class="kicker">Hands-free input</p>
           <h2>Voice capture and playback</h2>
@@ -575,6 +609,13 @@
               <p>
                 Select a microphone and local playback voice. If a saved device
                 disappears, Bottie falls back safely.
+              </p>
+            </article>
+            <article>
+              <h3>Kastellan agent</h3>
+              <p>
+                Choose where <code>@kastellan:</code> requests go: this
+                computer, or another host over <code>ssh</code>.
               </p>
             </article>
             <article>

@@ -45,6 +45,11 @@ Microphone/transcript, speech, updater, Python, and image-worker/model state hav
 actions are separate grants: recording audio does not authorize sending or retaining it. Downloads/workers require
 pinned identity/integrity, bounded versioned protocols, staged promotion, and deterministic cleanup.
 
+Kastellan requests (`src-tauri/src/kastellan/`) spawn `kastellan-cli` locally or through `ssh`. User text never reaches a
+shell: it is one argv element locally and stdin remotely, behind a fixed remote command line. Hosts that `ssh` could read
+as options are refused, and `ssh` runs in batch mode so Bottie never prompts for or holds ssh credentials. See
+`docs/kastellan.md`.
+
 ## Review template
 
 1. What data/authority enters each process, durable store, network, or helper?

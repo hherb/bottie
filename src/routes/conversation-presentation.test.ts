@@ -62,3 +62,27 @@ it("retains path-free generated edit lineage when rebuilding a reopened message"
 
   expect(storedMessageToPresentation(stored).generatedAssets?.[0].sources).toEqual(stored.generatedAssets[0].sources);
 });
+
+it("shows a reopened Kastellan reply's provenance as its footer rather than as reasoning", () => {
+  const stored: StoredMessage = {
+    id: "kastellan-reply",
+    role: "assistant",
+    text: "pong",
+    reasoning: "Kastellan task 204 on dgx · 34s",
+    state: "final",
+    providerId: "kastellan",
+    modelId: "dgx",
+    providerRun: null,
+    rating: null,
+    attachments: [],
+    generatedAssets: [],
+    createdAtMs: 1,
+  };
+
+  expect(storedMessageToPresentation(stored)).toMatchObject({
+    content: "pong",
+    reasoning: undefined,
+    model: "Kastellan · dgx",
+    meta: "Kastellan task 204 on dgx · 34s",
+  });
+});

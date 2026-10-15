@@ -4,6 +4,7 @@ import { persistedCompletionMeta, persistedMessagePresentation } from "$lib/chat
 import { nextMessageId, type Message } from "$lib/presentation";
 import { convertFileSrc } from "@tauri-apps/api/core";
 
+import { kastellanResponsePresentation } from "$lib/kastellan";
 import { storedAttachmentToPresentation, type StoredMessage } from "$lib/storage";
 
 /** Maps one durable record into the richer ephemeral presentation shape. */
@@ -18,14 +19,15 @@ export function storedMessageToPresentation(message: StoredMessage): Message {
     : undefined;
   const hasContent = message.text.length > 0 || Boolean(message.reasoning);
   const presentation = persistedMessagePresentation(message.state, message.providerRun?.errorCode ?? null, hasContent);
+  const kastellan = kastellanResponsePresentation(message);
   return {
     id: nextMessageId(),
     storageId: message.id,
     role: message.role,
     content: message.text || presentation.fallbackText || "",
-    reasoning: message.reasoning ?? undefined,
-    model,
-    meta: presentation.meta ?? completedMeta,
+    reasoning: kastellan ? kastellan.reasoning : (message.reasoning ?? undefined),
+    model: kastellan?.model ?? model,
+    meta: kastellan?.meta ?? presentation.meta ?? completedMeta,
     error: presentation.error,
     retryable: presentation.retryable,
     rating: message.rating ?? undefined,
