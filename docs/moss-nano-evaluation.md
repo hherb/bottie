@@ -1,7 +1,8 @@
 # MOSS-TTS-Nano evaluation
 
-Measured: 2026-10-17. Scope: the owner's requested first Nano trial for Bottie. The application still uses OS voices;
-no application source, Tauri command, settings, runtime packaging, or release behavior changed.
+Measured: 2026-10-17. Scope: the owner's requested first Nano trial for Bottie. That trial changed no application
+source, Tauri command, settings, runtime packaging, or release behavior. The optional native backend was subsequently
+implemented on 2026-10-18; see [Nano integration](moss-nano-integration.md) for current setup and validation.
 
 ## Result
 
@@ -56,21 +57,19 @@ the initial run. This establishes worker recovery, not same-process reuse after 
 
 ## Audition and integration boundary
 
-Human audition remains unrecorded. Listen to both languages, the literal numbers/abbreviations, and chunk boundaries
-before choosing a default voice or committing to its speech frontend. Long German required five independently
-conditioned text chunks, which makes voice/prosody continuity a particular listening target.
+On 2026-10-18 the owner approved the short English and German Ava samples: “These voices sound great!” This is
+qualitative approval of those two samples. Numeric/abbreviation reading, other presets, and long-form continuity
+still need listening evidence. Long German required five independently conditioned text chunks, which makes
+voice/prosody continuity a particular listening target.
 
 On the measured checkout, WAVs and diagnostic logs are retained under the ignored directory
 `src-tauri/target/moss-nano-trial/2026-10-17/`. They are synthetic trial outputs, not bundled application assets.
 Their hashes are retained in the checked-in JSON; regenerate them using the trial commands if that local directory
 is absent.
 
-The next product slice should add an explicitly selected, Rust-owned Nano backend behind `SpeechController`, with a
-dedicated inference worker, bounded native PCM playback, and opaque preset voice preferences. Stop must terminate
-generation, clear buffered playback, reap the worker, and confirm idle before microphone capture is admitted. Keep
-OS voices available and preserve session-only generated audio by default. Handle worker unavailability through the
-existing typed speech error boundary. Installation, licence notices, app lifecycle, and packaged-runtime qualification
-need their own explicit completion evidence; this trial does not prove them. The user-code `run_python` executor is
+The subsequent [native integration](moss-nano-integration.md) implements the optional backend, bounded PCM playback,
+opaque preferences, stop/capture synchronization, and explicit local setup. The original trial does not itself prove
+those behaviors, packaged-runtime qualification, or cross-platform readiness. The user-code `run_python` executor is
 not the speech inference runtime.
 
 The upstream [Nano code](https://github.com/OpenMOSS/MOSS-TTS-Nano) and both

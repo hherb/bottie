@@ -1,12 +1,13 @@
 # Bottie handover
 
-Last verified: 2026-10-13 for the retained application/image state; 2026-10-17 for the Nano trial.
+Last verified: 2026-10-13 for the retained image state; 2026-10-18 for Nano native speech integration.
 
 ## Start here
 
-The latest owner request starts MOSS-TTS-Nano work. Its first opt-in CPU evaluation is under
-`scripts/moss-nano-spike/`, with results and the next Nano boundary in `docs/moss-nano-evaluation.md`. The application
-still uses OS speech. Retain the independent Linux image-runtime continuation below; this request does not advance it.
+The owner approved the short English/German Ava samples and requested integration on 2026-10-18. Nano is now an
+optional native speech backend in the existing Settings voice picker, alongside system voices. See
+`docs/moss-nano-integration.md` for setup and validation; its dedicated runtime/model cache has been provisioned on the
+current Mac. Retain the independent Linux image-runtime continuation below; this request does not advance it.
 
 Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it merges. Read `ROADMAP.md` Milestone
 8.4 and the clean-runtime sections of `docs/local-image-linux-nvidia-proof.md` and
@@ -48,6 +49,22 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
 
 ## Recent maintenance
 
+MOSS-TTS-Nano native integration completed on 2026-10-18. An explicitly provisioned app-data runtime adds MOSS Nano · Ava
+and MOSS Nano · Adam to the existing opaque voice/preference contract. A dedicated Rust actor owns a reusable offline
+CPU worker, strict bounded PCM validation, a two-second native queue, CPAL device-rate conversion, device-predicted
+drain, and independent cancellation. Stop discards queued audio and kills/reaps the worker before capture admission;
+speech starts now share the capture-registration mutex. OS speech remains independent, including when its engine is
+unavailable. Explicit Python 3.12 setup reuses compatible environments and verified model files; paths and PCM remain
+native. The contained `run_python` executor is unchanged. The host proof passed real native English/German playback,
+warm reuse, stable preference restoration, interruption, and fresh-worker recovery. The initial sandboxed playback
+check failed and its identical host retry passed. Browser Settings inspection is fixture evidence, not native Tauri
+click automation. Exact setup, bounds, and remaining platform/distribution qualification are in
+`docs/moss-nano-integration.md`. No generated speech recording is retained by the app.
+Validation: 428 frontend/script tests (three skipped), 18 Python setup/protocol tests, Svelte diagnostics, formatting,
+the production build, Cargo formatting/locked checking, and the serial host Rust suite pass. Rust results: 700 library
+tests (40 ignored), one updater fixture, six adapter fixtures, ten transport fixtures, and doc tests. The isolated
+sandbox keychain failure passed in the identical host retry. The saved-selection startup race has regression coverage.
+
 MOSS-TTS-Nano feasibility work completed on 2026-10-17 in `scripts/moss-nano-spike/`. Twenty immutable code/model/codec
 assets (763,254,539 bytes) are explicitly acquired and SHA-256 verified before offline CPU inference. The low-level
 ONNX core avoids the convenience wrapper's Torch/TorchAudio imports. The trial uses bounded private-stdio PCM,
@@ -56,9 +73,9 @@ All six synthetic English/German short/numeric/long cases completed on macOS arm
 was 116–159 ms, RTF 0.249–0.372, fresh-process readiness 3.61 seconds, and peak process RSS 1.67 GiB. Active cancellation
 reaped the worker in 42.9 ms; a fresh worker reproduced the initial English WAV hash. All 14 boundary tests,
 byte-compilation, Black formatting, asset verification, and diff checks pass. Exact evidence and limitations are in
-`docs/moss-nano-evaluation.md` and `docs/moss-nano-measurements.json`. Human audition remains unrecorded; the application
-still uses OS speech. Next Nano work is an optional Rust-owned backend with bounded playback and microphone/stop
-synchronization; no packaged/runtime distribution, app integration, or acoustic qualification is claimed.
+`docs/moss-nano-evaluation.md` and `docs/moss-nano-measurements.json`. At that checkpoint human audition and application
+integration were still pending; the 2026-10-18 record above supersedes those next steps. The original trial does not
+claim packaged-runtime distribution or acoustic qualification.
 
 Composer maintenance completed on 2026-10-13: accessible Chat/Image tabs replace the Image toggle. Chat tools and
 collapsible voice input appear only in Chat; Image has independent aspect/size controls and collapsed local model

@@ -83,24 +83,27 @@ describe("native microphone runtime contract", () => {
     const frontendFiles = (await readdir(frontendRoot, { recursive: true })).filter(
       (file) => /\.(svelte|ts)$/.test(file) && !file.endsWith(".test.ts"),
     );
-    const [frontendSources, native, capability, cargoManifest, tauriConfig, workflows] = await Promise.all([
-      Promise.all(frontendFiles.map((file) => readFile(new URL(file, frontendRoot), "utf8"))),
-      readFile(new URL("../src-tauri/src/speech.rs", import.meta.url), "utf8"),
-      readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"),
-      readFile(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8"),
-      readFile(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"),
-      Promise.all([
-        readFile(new URL("../.github/workflows/linux-package-smoke.yml", import.meta.url), "utf8"),
-        readFile(new URL("../.github/workflows/linux-distribution-validation.yml", import.meta.url), "utf8"),
-      ]),
-    ]);
+    const [frontendSources, native, systemBackend, capability, cargoManifest, tauriConfig, workflows] =
+      await Promise.all([
+        Promise.all(frontendFiles.map((file) => readFile(new URL(file, frontendRoot), "utf8"))),
+        readFile(new URL("../src-tauri/src/speech.rs", import.meta.url), "utf8"),
+        readFile(new URL("../src-tauri/src/speech/system.rs", import.meta.url), "utf8"),
+        readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"),
+        readFile(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8"),
+        readFile(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"),
+        Promise.all([
+          readFile(new URL("../.github/workflows/linux-package-smoke.yml", import.meta.url), "utf8"),
+          readFile(new URL("../.github/workflows/linux-distribution-validation.yml", import.meta.url), "utf8"),
+        ]),
+      ]);
 
     expect(frontendSources.join("\n")).not.toMatch(/speechSynthesis|SpeechSynthesisUtterance|AudioContext/);
     expect(native).toContain("MAX_SPEECH_TEXT_BYTES");
     expect(native).toContain("MAX_SPEECH_VOICES");
     expect(native).toContain("struct SpeechVoice");
     expect(native).toContain("struct SpeechStatus");
-    expect(native).toContain("tts::Tts");
+    expect(systemBackend).toContain("tts::Tts");
+    expect(native).toContain("mod nano");
     expect(capability).not.toMatch(/speech|audio/i);
     expect(cargoManifest).toContain('tts = "=0.26.3"');
     expect(tauriConfig).toContain('"libspeechd2"');

@@ -1,4 +1,4 @@
-"""Explicitly acquire or verify the pinned Nano trial assets, outside Bottie's runtime."""
+"""Pinned Nano assets: offline verification plus explicit opt-in model acquisition."""
 
 import argparse
 import hashlib

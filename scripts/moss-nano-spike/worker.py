@@ -1,9 +1,13 @@
-"""Offline, private-stdio Nano inference worker for the feasibility trial only."""
+"""Offline private-stdio Nano inference shared by the trial and Bottie native speech backend."""
 
 import argparse
 import json
 from pathlib import Path
-import resource
+
+try:
+    import resource
+except ImportError:  # Windows does not expose resource; native playback does not depend on RSS metrics.
+    resource = None
 import sys
 import time
 
@@ -28,6 +32,8 @@ def emit(event: dict) -> None:
 
 def peak_rss_bytes() -> int:
     """Normalize process-lifetime peak RSS across macOS and Linux resource conventions."""
+    if resource is None:
+        return 0
     value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return int(value if sys.platform == "darwin" else value * 1024)
 
@@ -35,7 +41,7 @@ def peak_rss_bytes() -> int:
 def deny_network(event: str, _arguments: tuple) -> None:
     """Make accidental inference-time network access fail visibly rather than download."""
     if event in {"socket.connect", "socket.getaddrinfo", "socket.bind"}:
-        raise PermissionError("Nano trial inference is offline")
+        raise PermissionError("Nano inference is offline")
 
 
 class NanoWorker:

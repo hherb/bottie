@@ -32,7 +32,9 @@ export class SpeechState {
   async initialize(): Promise<void> {
     if (!this.nativeAvailable) return;
     try {
-      const [voices, status] = await Promise.all([listSpeechVoices(), getSpeechStatus()]);
+      // Discovery restores the saved native voice before its status can be read reliably.
+      const voices = await listSpeechVoices();
+      const status = await getSpeechStatus();
       this.voices = voices;
       this.status = status;
     } catch {

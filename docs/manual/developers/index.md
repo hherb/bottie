@@ -33,6 +33,7 @@ Also read the narrower authoritative references when relevant:
 - [`docs/python-sandbox.md`](../../python-sandbox.md): protected Python execution.
 - [`docs/local-image-model-package.md`](../../local-image-model-package.md): local image packaging.
 - [`docs/qwen-image-2.1-local.md`](../../qwen-image-2.1-local.md): preferred installed local image server and native checks.
+- [`docs/moss-nano-integration.md`](../../moss-nano-integration.md): optional CPU speech worker and native playback.
 - [`MIGRATION-ROLLBACK.md`](../../../MIGRATION-ROLLBACK.md): migration incident runbook.
 
 ## C# translation guide

@@ -439,9 +439,12 @@ OS speech backend retained. See `docs/moss-nano-evaluation.md` and `scripts/moss
 
 - [x] immutable ONNX/code asset inventory, explicit verified acquisition, Torch-free CPU worker, bounded streaming PCM,
       English/German short/numeric/long fixtures, process cancellation/reaping, and fresh-worker recovery;
-- [ ] owner audition of pronunciation, naturalness, numeric reading, and voice/chunk consistency;
-- [ ] optional Rust-owned Nano engine with bounded playback and microphone/stop synchronization;
-- [ ] explicit native model/runtime installation, dependency/voice distribution review, and packaged app qualification.
+- [x] owner approval of the short English/German Ava samples on 2026-10-18; numeric and long-form audition remain open;
+- [x] optional Rust-owned Nano engine with bounded playback, saved voice preferences, and microphone/stop synchronization;
+- [x] explicit command-line setup of a dedicated Python 3.12 runtime and pinned model cache, with compatible reuse;
+- [ ] bundled Nano runtime/model installation, dependency/voice distribution review, and Linux/Windows qualification.
+
+Current setup, native host proof, and qualification limits are in `docs/moss-nano-integration.md`.
 
 ## Milestone 8 — Generated images
 

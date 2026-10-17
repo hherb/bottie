@@ -151,7 +151,7 @@ platform identifiers remain native. **Settings** owns the voice selector, while 
 preference key for the most recent choice on this device. If that voice is unavailable after restart, Bottie chooses and remembers the default
 available local voice. Playback accepts at most 32 KiB of visible text derived from the response's safe Markdown
 tokens, so link destinations and formatting syntax are not spoken. The WebView receives only `idle`, `speaking`, or
-fixed error state and never receives generated audio, engine details, output-device identity, or the retained
+fixed error state and never receives generated audio, backend paths, output-device identity, or the retained
 utterance. **Stop local playback** ends only Bottie's current utterance. While Bottie is speaking or generating, the
 Record action becomes **Interrupt & record**. Choosing it
 requests the existing provider cancellation, stops Bottie's local playback, and only then starts native capture. Rust
@@ -159,7 +159,19 @@ also serializes capture against provider-run registration, cancels every registe
 generation that races with active capture. A failed local-playback stop keeps capture fail-closed. Playback remains
 rejected while native capture is active and also stops when the user changes conversation or branch, starts a new
 generation, or closes the page. Linux packages depend on Speech Dispatcher and recommend its eSpeak NG voices; macOS
-and Windows use their installed system voices. The browser preview can render deterministic voice controls for layout
+and Windows use their installed system voices. An optional local MOSS-TTS-Nano installation adds **MOSS Nano · Ava**
+and **MOSS Nano · Adam** to the same Settings voice picker. Nano uses a dedicated CPU inference worker and native
+streaming playback; the first reply loads the model, later replies reuse it, and Stop terminates/reaps the worker and
+clears pending audio. Generated speech remains session-only. Run the explicit setup with Python 3.12:
+
+```sh
+python3.12 scripts/moss-nano-spike/install.py
+```
+
+Setup downloads about 763 MB of pinned model assets plus its dedicated Python environment. It is separate from the
+contained `run_python` tool and does not run automatically. Restart the updated app, choose a Nano voice in Settings,
+then use **Play response aloud**. See [Nano setup and integration](docs/moss-nano-integration.md) for cache reuse and
+platform qualification. The browser preview can render deterministic voice controls for layout
 review but cannot capture, recognize, or play audio.
 
 ## Application updates
@@ -760,8 +772,8 @@ latest completed slice.
   plus immutable EmbeddingGemma, Whisper, and ONNX Runtime identities
 - [`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) — tester-facing 0.9.0 beta notes and distribution cautions
 - [`MIGRATION-ROLLBACK.md`](MIGRATION-ROLLBACK.md) — forward-only migration and recovery contract
-- [`docs/moss-nano-evaluation.md`](docs/moss-nano-evaluation.md) — opt-in CPU speech trial, measurements, and audition
-  workflow; the application still uses OS voices
+- [`docs/moss-nano-evaluation.md`](docs/moss-nano-evaluation.md) — original CPU trial, measurements, and owner audition
+- [`docs/moss-nano-integration.md`](docs/moss-nano-integration.md) — optional native speech setup, playback, and validation
 
 ## Current boundaries
 

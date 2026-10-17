@@ -592,10 +592,11 @@ fn select_speech_voice(
 
 #[tauri::command]
 /// Plays one bounded text payload through the selected local voice after explicit user action.
-fn speak_text(
+async fn speak_text(
     text: String,
     state: State<'_, AppState>,
 ) -> Result<SpeechStatus, SpeechCommandError> {
+    let _voice_guard = state.voice_interaction.lock().await;
     if state.microphone.is_capturing() {
         return Err(SpeechCommandError::MicrophoneActive);
     }
@@ -905,7 +906,10 @@ pub fn run() {
                     speech_model_cache_path,
                     remembered_microphone,
                 ),
-                speech: SpeechController::with_preference(remembered_voice),
+                speech: SpeechController::with_local_runtime(
+                    remembered_voice,
+                    app.path().app_data_dir()?,
+                ),
                 python_approval: Arc::new(PythonApprovalController::with_publisher(
                     app.handle().clone(),
                 )),

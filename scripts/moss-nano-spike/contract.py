@@ -1,4 +1,4 @@
-"""Small dependency-free contracts for the opt-in Nano speech trial."""
+"""Dependency-free contracts shared by Nano's offline native speech worker and trial."""
 
 import base64
 import math

@@ -7,6 +7,9 @@ use std::{
 
 use serde::Serialize;
 
+mod combined;
+mod nano;
+mod system;
 #[cfg(test)]
 mod tests;
 mod voices;
@@ -110,6 +113,7 @@ pub(crate) struct SpeechController {
 
 struct SpeechState {
     backend: Option<Box<dyn SpeechBackend>>,
+    app_data: Option<std::path::PathBuf>,
     voices: Vec<SpeechVoice>,
     voice_selections: Vec<(String, String)>,
     selected_voice_id: Option<String>,
@@ -132,6 +136,7 @@ impl Default for SpeechState {
     fn default() -> Self {
         Self {
             backend: None,
+            app_data: None,
             voices: Vec::new(),
             voice_selections: Vec::new(),
             selected_voice_id: None,
@@ -145,11 +150,15 @@ impl Default for SpeechState {
 }
 
 impl SpeechController {
-    /// Creates a local speech controller with one previously remembered opaque voice choice.
-    pub(crate) fn with_preference(preferred_voice_id: Option<String>) -> Self {
+    /// Enables discovery of an explicitly provisioned optional neural runtime using Rust-owned paths.
+    pub(crate) fn with_local_runtime(
+        preferred_voice_id: Option<String>,
+        app_data: std::path::PathBuf,
+    ) -> Self {
         Self {
             shared: Mutex::new(SpeechState {
                 preferred_voice_id,
+                app_data: Some(app_data),
                 ..SpeechState::default()
             }),
         }
@@ -315,7 +324,8 @@ impl SpeechState {
     fn ensure_ready(&mut self) -> Result<(), SpeechCommandError> {
         if self.backend.is_none() {
             self.backend = Some(Box::new(
-                NativeSpeechBackend::new().map_err(|code| self.fail_command(code))?,
+                combined::CombinedSpeechBackend::new(self.app_data.as_deref())
+                    .map_err(|code| self.fail_command(code))?,
             ));
         }
         if self.voices.is_empty() {
@@ -392,74 +402,10 @@ impl SpeechState {
     }
 }
 
-struct NativeSpeechBackend {
-    engine: tts::Tts,
-    native_voices: Vec<tts::Voice>,
-}
-
 struct NativeSpeechVoice {
     id: String,
     name: String,
     language: String,
-}
-
-impl NativeSpeechBackend {
-    fn new() -> Result<Self, SpeechErrorCode> {
-        let engine = tts::Tts::default().map_err(|_| SpeechErrorCode::Unavailable)?;
-        Ok(Self {
-            engine,
-            native_voices: Vec::new(),
-        })
-    }
-}
-
-impl SpeechBackend for NativeSpeechBackend {
-    fn voices(&mut self) -> Result<Vec<NativeSpeechVoice>, SpeechErrorCode> {
-        self.native_voices = self
-            .engine
-            .voices()
-            .map_err(|_| SpeechErrorCode::Unavailable)?;
-        Ok(self
-            .native_voices
-            .iter()
-            .map(|voice| NativeSpeechVoice {
-                id: voice.id(),
-                name: voice.name(),
-                language: voice.language().to_string(),
-            })
-            .collect())
-    }
-
-    fn set_voice(&mut self, voice_id: &str) -> Result<(), SpeechErrorCode> {
-        let voice = self
-            .native_voices
-            .iter()
-            .find(|voice| voice.id() == voice_id)
-            .ok_or(SpeechErrorCode::Unavailable)?;
-        self.engine
-            .set_voice(voice)
-            .map_err(|_| SpeechErrorCode::PlaybackFailed)
-    }
-
-    fn speak(&mut self, text: &str) -> Result<(), SpeechErrorCode> {
-        self.engine
-            .speak(text, true)
-            .map(|_| ())
-            .map_err(|_| SpeechErrorCode::PlaybackFailed)
-    }
-
-    fn stop(&mut self) -> Result<(), SpeechErrorCode> {
-        self.engine
-            .stop()
-            .map(|_| ())
-            .map_err(|_| SpeechErrorCode::PlaybackFailed)
-    }
-
-    fn is_speaking(&mut self) -> Result<bool, SpeechErrorCode> {
-        self.engine
-            .is_speaking()
-            .map_err(|_| SpeechErrorCode::PlaybackFailed)
-    }
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {

@@ -144,7 +144,7 @@
       "coldGeneration": false
     }
   ],
-  "auditionStatus": "not_listened",
+  "auditionStatus": "owner_approved_short_samples",
   "applicationIntegrated": false,
   "startup": {
     "event": "ready",
@@ -255,11 +255,21 @@
   },
   "measuredOn": "2026-10-17",
   "limitations": [
-    "No human audition recorded",
+    "No numeric or long-form human audition recorded",
     "No acoustic playback or Tauri integration test",
     "No concurrent chat/image workload benchmark",
     "No OS sandbox or shipping-runtime distribution qualification",
     "Numeric text is passed through without a dedicated normalization frontend",
     "Chunked PCM is concatenated without added pauses"
-  ]
+  ],
+  "ownerAudition": {
+    "date": "2026-10-18",
+    "samples": [
+      "english-short.wav",
+      "german-short.wav"
+    ],
+    "voice": "Ava",
+    "feedback": "These voices sound great!",
+    "scope": "Qualitative approval of the two short English/German samples; no numeric or long-form assessment recorded."
+  }
 }

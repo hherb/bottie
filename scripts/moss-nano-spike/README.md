@@ -1,7 +1,9 @@
 # MOSS-TTS-Nano ONNX trial
 
-Opt-in tooling for the [Nano evaluation](../../docs/moss-nano-evaluation.md). It is outside Bottie's application,
-packaging, and normal test graphs. It does not change the shipped OS speech backend or contained `run_python` runner.
+Shared offline worker modules plus opt-in tooling for the [Nano evaluation](../../docs/moss-nano-evaluation.md).
+Bottie's optional native backend embeds `worker.py`, `assets.py`, `contract.py`, and the asset lock. The probe, setup
+command, and Python tests remain separate from the application build. The dedicated speech runtime is independent of
+the contained `run_python` runner. See [native integration](../../docs/moss-nano-integration.md) for app setup.
 
 ## Reproduce on macOS
 
@@ -58,12 +60,14 @@ through the pipe. Neither measures sound at the speaker. RTF is generation secon
 better). Startup includes full asset hashing, imports, and session creation in a fresh process, without clearing OS
 disk caches. Peak RSS is the process-lifetime high-water mark, not an isolated allocation measurement per case.
 
-## Follow-up boundary
+## Native integration boundary
 
-The next product slice needs a Rust-owned optional speech engine, bounded native playback, model acquisition and
-runtime packaging, opaque voice preferences, and stop/capture synchronization. Reuse the existing speech controller's
-separation from microphone capture and OS voices. Do not route this worker through the user-code `run_python` tool.
-The trial has no Tauri command, settings control, automatic startup/download, application fallback, or release approval.
+The native backend now supplies bounded playback, stable opaque voice preferences, stop/capture synchronization, and
+OS voice coexistence. `install.py` explicitly provisions a dedicated Python 3.12 environment and verified assets, then
+atomically registers paths in app data. Existing compatible environments and model files are reused. The runtime is
+discovered after restart; merely listing voices does not load weights or open a device. Automatic setup, a bundled
+Nano environment/model, and cross-platform distribution qualification remain outside this integration. The standalone
+trial still has no Tauri authority and never invokes the user-code `run_python` tool.
 
 The upstream repository and model cards declare Apache-2.0; the exact source licence and model cards are included in
 the locked cache. This trial is not a distribution review of inference wheels, bundled voices, or a shipping runtime.

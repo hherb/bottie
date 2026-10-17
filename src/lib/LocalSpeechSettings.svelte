@@ -23,7 +23,9 @@
   >
     {#if speech.voices.length === 0}<option value="">No voices available</option>{/if}
     {#each speech.voices as voice (voice.id)}
-      <option value={voice.id}>{voice.name} · {voice.language || "Unknown language"}</option>
+      <option value={voice.id}>
+        {voice.name} · {voice.language === "mul" ? "Multilingual" : voice.language || "Unknown language"}
+      </option>
     {/each}
   </select>
   <p class:error={speech.status.phase === "error"} class="credential-status" role="status">
@@ -31,6 +33,7 @@
   </p>
   <p class="local-speech-boundary">
     Voice identity stays native. If the saved voice is unavailable after restart, Bottie uses the default local voice.
+    Installed MOSS Nano voices generate speech on this device; the first Nano reply may take a few seconds to prepare.
   </p>
 </section>
 
