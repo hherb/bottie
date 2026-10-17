@@ -93,3 +93,18 @@ uses an explicitly provisioned external Python runtime and model cache; neither 
 installer. The normal contained `run_python` runtime remains included in application builds. A complete Nano runtime
 distribution/voice review and signed release qualification are separate work. The Apache-2.0 declarations and source
 licence are retained with the locked assets; this document is not a new distribution approval.
+
+## Development installer
+
+The macOS arm64 testing DMG is
+`src-tauri/target/release/bundle/dmg/bottie_0.9.0_nano_b3fa63e_development_aarch64.dmg`, built from source commit
+`b3fa63e1cb5c3f64b98daa314be7d71650549b7e`. SHA-256:
+`8e150481670952ddfc9ec5ac4c6b670f9ef3388a5521a5e68e2985d65f758025`.
+
+The initial sandbox DMG bundler failed; the identical host build passed. The app was development-signed and repacked.
+The final disk image verifies, its mounted app matches the signed staging bundle, and strict main/nested signature
+verification passes. The contained Python proof passed private-pipe execution, denied host-file access, cancellation,
+and runner cleanup against the final mounted bytes. Inspection/proof JSON, checksum, and tester instructions are
+beside the ignored DMG. The package includes contained `run_python`; Nano's external runtime/model are already
+provisioned on the current Mac and are not included in the DMG. This is an unnotarized development testing package,
+not a production release. Quit the existing app before installing, then select a Nano voice in Settings.

@@ -64,6 +64,13 @@ Validation: 428 frontend/script tests (three skipped), 18 Python setup/protocol 
 the production build, Cargo formatting/locked checking, and the serial host Rust suite pass. Rust results: 700 library
 tests (40 ignored), one updater fixture, six adapter fixtures, ten transport fixtures, and doc tests. The isolated
 sandbox keychain failure passed in the identical host retry. The saved-selection startup race has regression coverage.
+The development-signed contained-Python DMG is `bottie_0.9.0_nano_b3fa63e_development_aarch64.dmg`, from source commit
+`b3fa63e1cb5c3f64b98daa314be7d71650549b7e`; SHA-256
+`8e150481670952ddfc9ec5ac4c6b670f9ef3388a5521a5e68e2985d65f758025`. Final DMG verification, mounted/staged app-byte
+agreement, strict main/nested signature verification, and final mounted-app contained-Python smoke checks pass. It is
+an unnotarized development testing package. Nano's external model/runtime are configured on this Mac, not bundled.
+The sandbox DMG bundler failed; the identical host build passed. Artifact/inspection/proof/checksum/tester instructions
+are under `src-tauri/target/release/bundle/dmg/`.
 
 MOSS-TTS-Nano feasibility work completed on 2026-10-17 in `scripts/moss-nano-spike/`. Twenty immutable code/model/codec
 assets (763,254,539 bytes) are explicitly acquired and SHA-256 verified before offline CPU inference. The low-level
