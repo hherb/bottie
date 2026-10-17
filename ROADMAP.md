@@ -432,6 +432,17 @@ Status: complete; evidence-gated acoustic feedback processing remains deferred.
 Voice should reuse the same provider, content-block, event, persistence, and cancellation models established in
 earlier milestones.
 
+### Optional neural speech evaluation — MOSS-TTS-Nano
+
+The owner requested Nano work on 2026-10-17. This is a separate opt-in evaluation after Milestone 7, with the shipped
+OS speech backend retained. See `docs/moss-nano-evaluation.md` and `scripts/moss-nano-spike/README.md`.
+
+- [x] immutable ONNX/code asset inventory, explicit verified acquisition, Torch-free CPU worker, bounded streaming PCM,
+      English/German short/numeric/long fixtures, process cancellation/reaping, and fresh-worker recovery;
+- [ ] owner audition of pronunciation, naturalness, numeric reading, and voice/chunk consistency;
+- [ ] optional Rust-owned Nano engine with bounded playback and microphone/stop synchronization;
+- [ ] explicit native model/runtime installation, dependency/voice distribution review, and packaged app qualification.
+
 ## Milestone 8 — Generated images
 
 Outcome: users can explicitly generate and edit durable images with exact model provenance through hosted or local

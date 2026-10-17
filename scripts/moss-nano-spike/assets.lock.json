@@ -1,0 +1,128 @@
+{
+  "formatVersion": 1,
+  "sourceRevision": "8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb",
+  "modelRevision": "f52645cb467506d8e18e746ddd59482685b74e58",
+  "codecRevision": "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae",
+  "files": [
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/README.md",
+      "size": 6095,
+      "sha256": "5147043da4b756d8599ceed41d2f4b34b0151d81be72ceca3a3db1e06b0e15da",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/README.md"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/browser_poc_manifest.json",
+      "size": 503354,
+      "sha256": "097d80e993dc29f0bae427590b4f77084a161cb578b50d82c29f455d5faa9eee",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/browser_poc_manifest.json"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/moss_tts_decode_step.onnx",
+      "size": 291483,
+      "sha256": "698cbc2fc1c2feca16e5895614ed52bbb32ded10f236c076f477b2e69abf32d8",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/moss_tts_decode_step.onnx"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/moss_tts_global_shared.data",
+      "size": 440813568,
+      "sha256": "bce8312c3df6a44545302cae229b61054fe0672e0b252ba59cba47adeed831dc",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/moss_tts_global_shared.data"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/moss_tts_local_cached_step.onnx",
+      "size": 53685,
+      "sha256": "aa9035fefc1c138a951a8bcfc0374fb03a25f1ece67f7f7f53bce349b84a1dd5",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/moss_tts_local_cached_step.onnx"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/moss_tts_local_decoder.onnx",
+      "size": 49231,
+      "sha256": "51aa754301b38550a5f9adda0ad93bd3dc95819afb511e6dcabf4a90b345a454",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/moss_tts_local_decoder.onnx"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/moss_tts_local_fixed_sampled_frame.onnx",
+      "size": 471262,
+      "sha256": "40cdb00efc171c450cf91468e01429caa41b0252222cd308e978f58fe354afa8",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/moss_tts_local_fixed_sampled_frame.onnx"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/moss_tts_local_shared.data",
+      "size": 229678080,
+      "sha256": "bae7782032c0fb12490ab42afe009f87ae6c75a0f0596fc7b5c08e4d5ee93916",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/moss_tts_local_shared.data"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/moss_tts_prefill.onnx",
+      "size": 283305,
+      "sha256": "d56126dcd0574c2f15d98fc6b35eda68d0386b5bd9c5e38e28548d6f2ea8f3db",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/moss_tts_prefill.onnx"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/tokenizer.model",
+      "size": 470897,
+      "sha256": "c353ee1479b536bf414c1b247f5542b6607fb8ae91320e5af1781fee200fddff",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/tokenizer.model"
+    },
+    {
+      "path": "MOSS-TTS-Nano-100M-ONNX/tts_browser_onnx_meta.json",
+      "size": 4487,
+      "sha256": "3edf25232dcd0af3d061c837e9a968a39e2f8592e06777d740503c4f2244f95c",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX/resolve/f52645cb467506d8e18e746ddd59482685b74e58/tts_browser_onnx_meta.json"
+    },
+    {
+      "path": "MOSS-Audio-Tokenizer-Nano-ONNX/README.md",
+      "size": 4892,
+      "sha256": "3c7b9e9ef1c8c5e5c829a077a1d32c1f7aea1668f2bf17ead318ff04bf1e6fe4",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae/README.md"
+    },
+    {
+      "path": "MOSS-Audio-Tokenizer-Nano-ONNX/codec_browser_onnx_meta.json",
+      "size": 17036,
+      "sha256": "3e291c883bb7d11ff2fe8e964e3e495519760358859f35c951254c7741592731",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae/codec_browser_onnx_meta.json"
+    },
+    {
+      "path": "MOSS-Audio-Tokenizer-Nano-ONNX/moss_audio_tokenizer_decode_full.onnx",
+      "size": 681902,
+      "sha256": "0fbbafe3fd4afa2a019af5c5ced204af6e2d1db044fa40f021525d2aee95b4ac",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae/moss_audio_tokenizer_decode_full.onnx"
+    },
+    {
+      "path": "MOSS-Audio-Tokenizer-Nano-ONNX/moss_audio_tokenizer_decode_shared.data",
+      "size": 44198912,
+      "sha256": "e69d52e0f4e84ca27850557ee54face46632d3a5a16c89bd246c7c408466dcad",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae/moss_audio_tokenizer_decode_shared.data"
+    },
+    {
+      "path": "MOSS-Audio-Tokenizer-Nano-ONNX/moss_audio_tokenizer_decode_step.onnx",
+      "size": 351400,
+      "sha256": "9527c86a29e1837edec1f74db57d5eeaadb3a715af3382703566460afed25855",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae/moss_audio_tokenizer_decode_step.onnx"
+    },
+    {
+      "path": "MOSS-Audio-Tokenizer-Nano-ONNX/moss_audio_tokenizer_encode.data",
+      "size": 44507136,
+      "sha256": "aa751265b2bab2887eac224484546b194875aa7494b607115439b3dc6b228a2c",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae/moss_audio_tokenizer_encode.data"
+    },
+    {
+      "path": "MOSS-Audio-Tokenizer-Nano-ONNX/moss_audio_tokenizer_encode.onnx",
+      "size": 815775,
+      "sha256": "eadea4a645abdcf98714c7aead122ee2ce7da6e080f9f80b977cd1ca8e19473a",
+      "url": "https://huggingface.co/OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX/resolve/ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae/moss_audio_tokenizer_encode.onnx"
+    },
+    {
+      "path": "runtime/ort_cpu_runtime.py",
+      "size": 40665,
+      "sha256": "99477efaff28c12c0c8e16a6b4aab4e880a70851693fa303d932415ba180cbd5",
+      "url": "https://raw.githubusercontent.com/OpenMOSS/MOSS-TTS-Nano/8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb/ort_cpu_runtime.py"
+    },
+    {
+      "path": "runtime/LICENSE",
+      "size": 11374,
+      "sha256": "1dc6904a1959e039b44569c6a726a611f75287051284de1b6cc0dc7712b14d11",
+      "url": "https://raw.githubusercontent.com/OpenMOSS/MOSS-TTS-Nano/8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb/LICENSE"
+    }
+  ]
+}

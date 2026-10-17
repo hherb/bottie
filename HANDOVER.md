@@ -1,8 +1,12 @@
 # Bottie handover
 
-Last verified: 2026-10-13
+Last verified: 2026-10-13 for the retained application/image state; 2026-10-17 for the Nano trial.
 
 ## Start here
+
+The latest owner request starts MOSS-TTS-Nano work. Its first opt-in CPU evaluation is under
+`scripts/moss-nano-spike/`, with results and the next Nano boundary in `docs/moss-nano-evaluation.md`. The application
+still uses OS speech. Retain the independent Linux image-runtime continuation below; this request does not advance it.
 
 Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it merges. Read `ROADMAP.md` Milestone
 8.4 and the clean-runtime sections of `docs/local-image-linux-nvidia-proof.md` and
@@ -43,6 +47,18 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
   `git diff --check` pass.
 
 ## Recent maintenance
+
+MOSS-TTS-Nano feasibility work completed on 2026-10-17 in `scripts/moss-nano-spike/`. Twenty immutable code/model/codec
+assets (763,254,539 bytes) are explicitly acquired and SHA-256 verified before offline CPU inference. The low-level
+ONNX core avoids the convenience wrapper's Torch/TorchAudio imports. The trial uses bounded private-stdio PCM,
+finite/aligned audio validation, token-limited text chunks, hard generation ceilings, and process termination/reaping.
+All six synthetic English/German short/numeric/long cases completed on macOS arm64 with four CPU threads. First PCM
+was 116–159 ms, RTF 0.249–0.372, fresh-process readiness 3.61 seconds, and peak process RSS 1.67 GiB. Active cancellation
+reaped the worker in 42.9 ms; a fresh worker reproduced the initial English WAV hash. All 14 boundary tests,
+byte-compilation, Black formatting, asset verification, and diff checks pass. Exact evidence and limitations are in
+`docs/moss-nano-evaluation.md` and `docs/moss-nano-measurements.json`. Human audition remains unrecorded; the application
+still uses OS speech. Next Nano work is an optional Rust-owned backend with bounded playback and microphone/stop
+synchronization; no packaged/runtime distribution, app integration, or acoustic qualification is claimed.
 
 Composer maintenance completed on 2026-10-13: accessible Chat/Image tabs replace the Image toggle. Chat tools and
 collapsible voice input appear only in Chat; Image has independent aspect/size controls and collapsed local model

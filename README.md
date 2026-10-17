@@ -760,6 +760,8 @@ latest completed slice.
   plus immutable EmbeddingGemma, Whisper, and ONNX Runtime identities
 - [`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) — tester-facing 0.9.0 beta notes and distribution cautions
 - [`MIGRATION-ROLLBACK.md`](MIGRATION-ROLLBACK.md) — forward-only migration and recovery contract
+- [`docs/moss-nano-evaluation.md`](docs/moss-nano-evaluation.md) — opt-in CPU speech trial, measurements, and audition
+  workflow; the application still uses OS voices
 
 ## Current boundaries
 
