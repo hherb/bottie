@@ -1,13 +1,16 @@
 # Bottie handover
 
-Last verified: 2026-10-13 for the retained image state; 2026-10-18 for Nano native speech integration.
+Last verified: 2026-10-18 for MOSS backend integration checks; live MOSS MLX qualification is in progress.
 
 ## Start here
 
-The owner approved the short English/German Ava samples and requested integration on 2026-10-18. Nano is now an
-optional native speech backend in the existing Settings voice picker, alongside system voices. See
-`docs/moss-nano-integration.md` for setup and validation; its dedicated runtime/model cache has been provisioned on the
-current Mac. Retain the independent Linux image-runtime continuation below; this request does not advance it.
+The owner requested MOSS-Image generation using Apple MLX or otherwise NVIDIA CUDA on 2026-10-18. The optional
+backend is implemented on `codex/moss-image-backend`: explicit setup, pinned Base/SFT snapshots, private one-request
+workers, layout prompts, existing image UI/storage, MOSS provenance, and exact-model retries. The Swift bridge builds
+on the current Mac after installing the missing official Metal toolchain. Model acquisition and real MLX proof remain
+in progress; do not claim CUDA or native Tauri UI qualification. See `docs/moss-image-local.md` for setup and bounds.
+The completed Nano speech integration remains intact. Retain the independent frozen Linux image-runtime continuation
+below; the MOSS request does not approve or reopen its distribution gates.
 
 Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it merges. Read `ROADMAP.md` Milestone
 8.4 and the clean-runtime sections of `docs/local-image-linux-nvidia-proof.md` and
@@ -48,6 +51,14 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
   `git diff --check` pass.
 
 ## Recent maintenance
+
+MOSS-Image integration checks on 2026-10-18 pass: 433 frontend/script tests (three existing skips), ten Python setup/
+adapter tests, Svelte diagnostics, Prettier, Black, byte compilation, frontend build, Cargo formatting/locked checking,
+and the serial host native suite: 711 library tests (41 ignored), one updater fixture, six adapter fixtures, ten
+transport fixtures, and doc tests. The Swift/MLX bridge builds with its pinned dependency graph, and a real Metal
+array probe passes from the copied app-data runtime. Full-model acquisition and live layout/storage/cancellation/
+recovery qualification are still in progress at this checkpoint. CUDA hardware and native Tauri clicks are not
+claimed. MOSS durable model IDs include the immutable weight revision so old retries cannot silently use new weights.
 
 MOSS-TTS-Nano native integration completed on 2026-10-18. An explicitly provisioned app-data runtime adds MOSS Nano · Ava
 and MOSS Nano · Adam to the existing opaque voice/preference contract. A dedicated Rust actor owns a reusable offline

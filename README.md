@@ -328,7 +328,7 @@ lifecycle, and durable completion path. Failed or cancelled edits reopen and rev
 retry. Each generated edit presents a compact expandable source count and ordered path-free source kind, dimensions,
 media type, and byte size; opaque source IDs are not rendered. Local editing remains unavailable without fallback.
 
-Qwen-Image-2.1 is now the preferred local image model when its installed MLX Serve 8-bit pack is ready on
+When MOSS is not explicitly configured, Qwen-Image-2.1 is the preferred local image model when its installed MLX Serve 8-bit pack is ready on
 `http://127.0.0.1:11234/`. Bottie reuses those files in place, including a pack already installed for oMLX, and generates
 one PNG at the selected size/aspect ratio without another model download. The Image tab offers five exact aspect
 ratios and Small/Medium/Large size presets; local defaults to 512×512. Chat tools and voice input stay in the Chat tab,
@@ -362,6 +362,22 @@ partials;
 all 18 files are re-verified before atomic activation, and only path-free progress reaches the WebView. The 1.1 GB proof
 worker remains a user-supplied reviewed bundle rather than an application payload or automatic download.
 
+#### Optional MOSS-Image backend
+
+MOSS-Image adds Apache-2.0 Base/SFT generation through Swift/MLX on Apple Silicon (macOS 26+) and Diffusers on
+Linux/Windows NVIDIA CUDA machines. Explicit setup selects SFT by default:
+
+```sh
+python3 scripts/moss-image/install.py --download
+```
+
+Setup provisions approximately 27.2 GB of pinned model assets plus its dedicated runtime. Restart an updated app,
+then choose **Image → MOSS Image SFT** under Execution. Ordinary descriptions and layout JSON use the same prompt
+field, with a separate 32 KiB UTF-8 limit and a checked 4,096-token encoder limit. Match layout coordinates to the
+selected size. Text placement and spelling need visual review. Stop kills/reaps the owned worker; normalized PNGs
+retain MOSS model/seed/local provenance, and retries cannot switch to Qwen. The runtime/model remain external to the
+installer and separate from contained `run_python`. See [MOSS setup and qualification](docs/moss-image-local.md).
+
 #### Local Qwen-Image-2512 support matrix
 
 Local availability is evidence-gated, not inferred from an operating-system or GPU family. Unsupported profiles fail
@@ -377,7 +393,7 @@ before model download or generation, and Bottie never falls back to Cloud automa
 | Windows with AMD or Intel GPU, and lower-memory GPUs    | Unavailable                                    | A pinned Vulkan/GGUF candidate needs same-seed quality and lifecycle evidence; DirectML is not claimed                                                                                                               |
 | Any host requesting local Qwen-Image-2.0                | Unavailable                                    | Exact 2.0 weights have not been released in Qwen's official repositories or model registries                                                                                                                         |
 
-Both local routes are text-to-image only. Local editing is unavailable, and Qwen-Image-2512 output is never
+All current local image routes are text-to-image only. Local editing is unavailable, and Qwen-Image-2512 output is never
 labelled as Qwen-Image-2.0.
 
 On macOS, the package script development-signs each newly linked executable with an available Apple Development

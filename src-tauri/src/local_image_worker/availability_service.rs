@@ -112,6 +112,7 @@ pub(crate) struct LocalImageAvailabilityService {
     selected: Arc<SelectedModelPackage>,
     inspection: tauri::async_runtime::Mutex<()>,
     prefer_server: bool,
+    app_data: PathBuf,
 }
 
 impl LocalImageAvailabilityService {
@@ -132,6 +133,7 @@ impl LocalImageAvailabilityService {
             worker_executable_name,
         };
         Ok(Self {
+            app_data,
             layout,
             selected: Arc::new(selected),
             inspection: tauri::async_runtime::Mutex::new(()),
@@ -144,6 +146,11 @@ impl LocalImageAvailabilityService {
         &self,
     ) -> Result<LocalImageAvailabilityMetadata, LocalImageServiceError> {
         let _inspection = self.inspection.lock().await;
+        if self.prefer_server {
+            if let Some(moss) = self.inspect_moss().await? {
+                return Ok(moss.metadata());
+            }
+        }
         if self.prefer_server && LocalImageServer::inspect().await.is_ok() {
             return Ok(server_metadata());
         }
@@ -160,6 +167,9 @@ impl LocalImageAvailabilityService {
         &self,
     ) -> Result<VerifiedLocalImageBackend, LocalImageServiceError> {
         if self.prefer_server {
+            if let Some(moss) = self.inspect_moss().await? {
+                return Ok(VerifiedLocalImageBackend::Moss(moss));
+            }
             if let Ok(server) = LocalImageServer::inspect().await {
                 return Ok(VerifiedLocalImageBackend::Server(server));
             }
@@ -174,6 +184,14 @@ impl LocalImageAvailabilityService {
         &self,
         model_id: &str,
     ) -> Result<VerifiedLocalImageBackend, LocalImageServiceError> {
+        if super::moss::is_moss_model(model_id) {
+            return self
+                .inspect_moss()
+                .await?
+                .filter(|moss| moss.matches_model(model_id))
+                .map(VerifiedLocalImageBackend::Moss)
+                .ok_or(LocalImageServiceError::NotReady);
+        }
         if model_id == IMAGE_PACKAGE_ID {
             return LocalImageServer::inspect()
                 .await
@@ -186,6 +204,19 @@ impl LocalImageAvailabilityService {
         self.inspect_worker_for_execution()
             .await
             .map(VerifiedLocalImageBackend::Worker)
+    }
+
+    /// Native registration is optional; malformed configured state is never replaced by another model.
+    async fn inspect_moss(
+        &self,
+    ) -> Result<Option<super::moss::MossInstallation>, LocalImageServiceError> {
+        let app_data = self.app_data.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            super::moss::MossInstallation::inspect(&app_data)
+        })
+        .await
+        .map_err(|_| LocalImageServiceError::InspectionUnavailable)?
+        .map_err(|_| LocalImageServiceError::NotReady)
     }
 
     async fn inspect_worker_for_execution(
@@ -208,6 +239,9 @@ impl LocalImageAvailabilityService {
         &self,
     ) -> Result<VerifiedLocalImageAcquisition, LocalImageServiceError> {
         let _inspection = self.inspection.lock().await;
+        if self.prefer_server && self.inspect_moss().await?.is_some() {
+            return Err(LocalImageServiceError::NotReady);
+        }
         if self.prefer_server && LocalImageServer::inspect().await.is_ok() {
             return Err(LocalImageServiceError::NotReady);
         }

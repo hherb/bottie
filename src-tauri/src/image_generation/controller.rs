@@ -159,6 +159,8 @@ pub(crate) async fn start_image_generation(
     request: StartImageGenerationRequest,
     on_event: Channel<ImageGenerationEvent>,
 ) -> Result<ImageGenerationRun, ProviderError> {
+    // Serialize the readiness awaits and run registration against capture admission.
+    let _voice_guard = state.voice_interaction.lock().await;
     if state.microphone.is_capturing() {
         return Err(ProviderError::invalid_request(
             "Stop or discard local voice capture before generating an image.",
@@ -266,7 +268,7 @@ async fn start_local_image_generation(
         })?;
     let seed = local_generation_seed();
     let provenance = GeneratedImageProvenance::new(
-        QWEN_IMAGE_PROVIDER_ID,
+        crate::local_image_worker::moss::provider_for_model(installation.model_id()),
         installation.model_id(),
         GeneratedAssetExecution::Local,
         Some(seed),

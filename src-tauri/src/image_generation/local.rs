@@ -73,6 +73,25 @@ impl LocalImageGenerator {
                 }
                 return Ok(vec![prepared]);
             }
+            VerifiedLocalImageBackend::Moss(moss) => {
+                let dimensions = request.dimensions();
+                let png=moss.generate(request.prompt(),dimensions,seed,cancellation.clone(),on_progress).await
+                    .map_err(|error|match error {
+                        crate::local_image_worker::moss::MossError::Cancelled => LocalImageGenerationError::Cancelled,
+                        _ => LocalImageGenerationError::Failed(ProviderError::unavailable(
+                            "MOSS-Image could not complete this local image. Check its runtime and prompt limits.", None)),
+                    })?;
+                let prepared = tauri::async_runtime::spawn_blocking(move || {
+                    normalize_server_output(png, &store, dimensions)
+                })
+                .await
+                .map_err(|_| map_server_error(LocalImageServerError::Unavailable))?
+                .map_err(|_| map_server_error(LocalImageServerError::InvalidResponse))?;
+                if *cancellation.borrow_and_update() {
+                    return Err(LocalImageGenerationError::Cancelled);
+                }
+                return Ok(vec![prepared]);
+            }
             VerifiedLocalImageBackend::Worker(worker) => worker,
         };
         let (width, height) = request.dimensions();

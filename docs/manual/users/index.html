@@ -459,9 +459,20 @@
             downloads temporary results behind its native boundary and stores
             only validated durable PNGs.
           </p>
+          <h3>Optional MOSS-Image</h3>
+          <p>
+            After explicit local setup, choose MOSS Image SFT or Base in Image
+            execution. Paste a description or layout JSON and choose matching
+            canvas dimensions. Apple Silicon uses MLX; supported NVIDIA machines
+            use CUDA. Placement and generated spelling still need visual review.
+            Stop ends the owned generation worker. Models are large and are not
+            downloaded automatically. See the
+            <a href="../../moss-image-local.md">MOSS setup guide</a>.
+          </p>
           <h3>Local Qwen-Image-2.1</h3>
           <p>
-            Bottie prefers an already installed Qwen-Image-2.1 MLX Serve 8-bit pack
+            Without a configured MOSS backend, Bottie prefers an already installed
+            Qwen-Image-2.1 MLX Serve 8-bit pack
             on the local image server at 127.0.0.1:11234. Choose Image, then Local 2.1
             to generate one PNG. Small, Medium, and Large presets support square
             (1:1), landscape (3:2), portrait (2:3), wide (16:9), and tall (9:16)

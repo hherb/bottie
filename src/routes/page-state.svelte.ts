@@ -533,7 +533,7 @@ export class PageState {
       this.imageFeedback = preparedSources.message;
       return;
     }
-    const preparedPrompt = prepareImageGenerationPrompt(this.prompt);
+    const preparedPrompt = prepareImageGenerationPrompt(this.prompt, localModelId);
     if (!preparedPrompt.ok) {
       this.providerError = {
         code: "invalid_request",

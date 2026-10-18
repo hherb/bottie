@@ -184,18 +184,22 @@ impl LocalImageAcquisitionSession {
         if self.is_active() {
             return self.status();
         }
-        if metadata.runtime_id == super::super::server::IMAGE_SERVER_RUNTIME_ID
-            && metadata.availability == LocalImageAvailability::Ready
-        {
+        let external = metadata.runtime_id == super::super::server::IMAGE_SERVER_RUNTIME_ID
+            || (super::super::moss::is_moss_model(&metadata.model_id)
+                && matches!(
+                    metadata.runtime_id.as_str(),
+                    "moss-image-mlx@external" | "moss-image-cuda@external"
+                ));
+        if external && metadata.availability == LocalImageAvailability::Ready {
             self.status = LocalImageAcquisitionStatus {
                 model_id: metadata.model_id,
                 package_id: metadata.package_id,
                 runtime_id: metadata.runtime_id,
                 license: metadata.license,
                 source_revision: metadata.source_revision,
-                expected_disk_bytes: 0,
-                worker_expected_disk_bytes: 0,
-                required_memory_bytes: 0,
+                expected_disk_bytes: metadata.expected_disk_bytes,
+                worker_expected_disk_bytes: metadata.worker_expected_disk_bytes,
+                required_memory_bytes: metadata.required_memory_bytes,
                 availability: LocalImageAvailability::Ready,
                 phase: LocalImageAcquisitionPhase::Ready,
                 failure: None,

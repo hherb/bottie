@@ -1,5 +1,6 @@
 /** Typed path-free presentation for Rust-owned local-image availability. */
 
+import { isMossImageModel } from "./moss-image";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
@@ -100,6 +101,8 @@ const LOCAL_IMAGE_ACQUISITION_EVENT = "local-image-acquisition-changed";
 
 /** Names only the exact native-selected model, preserving older image provenance. */
 export function localImageModelLabel(metadata: LocalImageAvailabilityMetadata | null): string {
+  if (isMossImageModel(metadata?.modelId))
+    return metadata!.modelId.includes("-SFT") ? "MOSS Image SFT" : "MOSS Image Base";
   if (["Qwen/Qwen-Image-2.1", "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit"].includes(metadata?.modelId ?? ""))
     return "Local 2.1";
   if (metadata?.modelId === "Qwen/Qwen-Image-2512") return "Local 2512";
@@ -304,7 +307,9 @@ export function localImageAvailabilityPresentation(
   const detail =
     metadata.runtimeId === "mlx-serve@external"
       ? "Reuses the installed MLX Serve model · no additional model download"
-      : `${disk} model · ${memory} measured peak memory`;
+      : isMossImageModel(metadata.modelId)
+        ? `${disk} model · ${metadata.runtimeId.includes("-mlx@") ? "Apple MLX" : "NVIDIA CUDA"} · peak memory not measured on this device`
+        : `${disk} model · ${memory} measured peak memory`;
   if (metadata.availability === "ready") {
     return { state: "ready", label: "Ready for local generation", detail };
   }

@@ -260,3 +260,21 @@ fn progress_with_changed_totals_fails_closed() {
         LocalImageAcquisitionErrorCode::InvalidState
     );
 }
+
+#[test]
+fn ready_moss_keeps_its_identity_in_the_initial_native_status_without_offering_qwen_downloads() {
+    let mut session = session();
+    let mut metadata = crate::local_image_worker::availability_service::server_metadata();
+    metadata.model_id = "mlx-community/MOSS-Image-SFT-bf16".into();
+    metadata.package_id = metadata.model_id.clone();
+    metadata.runtime_id = "moss-image-mlx@external".into();
+    metadata.license = "Apache-2.0".into();
+    metadata.source_revision = "ea698e99312015505884559ebad94b4a5a0d0753".into();
+    metadata.expected_disk_bytes = 27_219_783_878;
+    let status = session.refresh_idle(metadata, None);
+    assert_eq!(status.model_id, "mlx-community/MOSS-Image-SFT-bf16");
+    assert_eq!(status.phase, LocalImageAcquisitionPhase::Ready);
+    assert_eq!(status.expected_disk_bytes, 27_219_783_878);
+    assert_eq!(status.total_files, 0);
+    assert_eq!(status.failure, None);
+}

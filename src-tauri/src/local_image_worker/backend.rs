@@ -10,6 +10,8 @@ use super::{
 pub(crate) enum VerifiedLocalImageBackend {
     /// The existing hash-verified, app-owned 2512 runtime.
     Worker(VerifiedLocalImageInstallation),
+    /// Explicitly registered pinned MOSS snapshot on its platform-specific native worker.
+    Moss(super::moss::MossInstallation),
     /// The exact 2.1 package advertised by the loopback MLX image server.
     Server(LocalImageServer),
 }
@@ -19,6 +21,7 @@ impl VerifiedLocalImageBackend {
     pub(crate) fn model_id(&self) -> &str {
         match self {
             Self::Worker(worker) => worker.model_id(),
+            Self::Moss(worker) => worker.execution_id(),
             Self::Server(_) => IMAGE_PACKAGE_ID,
         }
     }

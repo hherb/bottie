@@ -1,5 +1,7 @@
 /** Closed size/aspect presets shared by the image controls and submitted request snapshot. */
 
+import { isMossImageModel } from "./moss-image";
+
 /** Visible image shape; dimensions always have the exact labelled ratio. */
 export type ImageGenerationSize = "square" | "landscape" | "portrait" | "wide" | "tall";
 /** Resolution tier independent from the selected aspect ratio. */
@@ -40,6 +42,14 @@ const LOCAL_TIERS: Record<ImageGenerationResolution, Tier> = {
     [2048, 1152],
   ],
 };
+const MOSS_TIERS: Record<ImageGenerationResolution, Tier> = {
+  ...LOCAL_TIERS,
+  large: [
+    [1024, 1024],
+    [1536, 1024],
+    [1792, 1008],
+  ],
+};
 const CLOUD_TIERS: Record<ImageGenerationResolution, Tier> = {
   small: [
     [1024, 1024],
@@ -60,7 +70,7 @@ const CLOUD_TIERS: Record<ImageGenerationResolution, Tier> = {
 
 /** Only the preferred server pack admits new sizes; the qualified legacy worker stays fixed. */
 export function imageDimensionsAdjustable(execution: ImageGenerationExecution, modelId?: string): boolean {
-  return execution === "cloud" || modelId === LOCAL_IMAGE_21_PACKAGE_ID;
+  return execution === "cloud" || modelId === LOCAL_IMAGE_21_PACKAGE_ID || isMossImageModel(modelId);
 }
 
 /** Uses a modest local default and preserves the existing cloud square resolution. */
@@ -77,7 +87,8 @@ export function imageGenerationRequestOptions(
   modelId?: string,
 ): { width: number; height: number; count: number } {
   if (!imageDimensionsAdjustable(execution, modelId)) return { width: 512, height: 512, count: 1 };
-  const tier = (execution === "local" ? LOCAL_TIERS : CLOUD_TIERS)[resolution];
+  const tiers = execution === "local" ? (isMossImageModel(modelId) ? MOSS_TIERS : LOCAL_TIERS) : CLOUD_TIERS;
+  const tier = tiers[resolution];
   const index = aspect === "square" ? 0 : aspect === "wide" || aspect === "tall" ? 2 : 1;
   const [width, height] = tier[index];
   return {

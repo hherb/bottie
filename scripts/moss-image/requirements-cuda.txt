@@ -1,0 +1,7 @@
+# Explicit optional CUDA environment; never the contained user-code run_python runtime.
+torch==2.14.1
+diffusers==0.41.0
+transformers==5.20.1
+accelerate==1.15.0
+safetensors==0.8.0
+Pillow==13.0.0

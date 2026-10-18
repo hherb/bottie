@@ -6,7 +6,7 @@ use super::{ImageGenerationEvent, ImageGenerationRun, ImageGenerationStage, stor
 use crate::{
     diagnostics::{Diagnostics, record_diagnostic, sanitized},
     image_generation::{
-        ImageGenerationRequest, ImageGenerationRuns, LocalImageGenerator, QWEN_IMAGE_PROVIDER_ID,
+        ImageGenerationRequest, ImageGenerationRuns, LocalImageGenerator,
         local::LocalImageGenerationError,
     },
     inference::ProviderError,
@@ -30,6 +30,7 @@ pub(super) fn spawn_local_image_run(
     seed: u64,
     on_event: Channel<ImageGenerationEvent>,
 ) -> ImageGenerationRun {
+    let provider_id = crate::local_image_worker::moss::provider_for_model(installation.model_id());
     let accepted = ImageGenerationRun {
         run_id: run_id.clone(),
         message: pending_message.clone(),
@@ -66,7 +67,7 @@ pub(super) fn spawn_local_image_run(
                             &diagnostics,
                             "info",
                             "Local image generation completed",
-                            Some(QWEN_IMAGE_PROVIDER_ID),
+                            Some(provider_id),
                             Some("Verified local PNG bytes reached app-private storage"),
                         )
                         .await;
@@ -75,6 +76,7 @@ pub(super) fn spawn_local_image_run(
                         finish_failure(
                             &conversations,
                             &diagnostics,
+                            provider_id,
                             &on_event,
                             &task_run_id,
                             &message_id,
@@ -88,6 +90,7 @@ pub(super) fn spawn_local_image_run(
                 finish_cancellation(
                     &conversations,
                     &diagnostics,
+                    provider_id,
                     &on_event,
                     &task_run_id,
                     &message_id,
@@ -98,6 +101,7 @@ pub(super) fn spawn_local_image_run(
                 finish_failure(
                     &conversations,
                     &diagnostics,
+                    provider_id,
                     &on_event,
                     &task_run_id,
                     &message_id,
@@ -122,6 +126,7 @@ fn send_progress(on_event: &Channel<ImageGenerationEvent>, run_id: &str, output_
 async fn finish_cancellation(
     conversations: &ConversationStore,
     diagnostics: &Diagnostics,
+    provider_id: &str,
     on_event: &Channel<ImageGenerationEvent>,
     run_id: &str,
     message_id: &str,
@@ -149,7 +154,7 @@ async fn finish_cancellation(
         diagnostics,
         "info",
         "Local image generation cancelled",
-        Some(QWEN_IMAGE_PROVIDER_ID),
+        Some(provider_id),
         Some("Private worker outputs and uncommitted normalized bytes were discarded"),
     )
     .await;
@@ -158,6 +163,7 @@ async fn finish_cancellation(
 async fn finish_failure(
     conversations: &ConversationStore,
     diagnostics: &Diagnostics,
+    provider_id: &str,
     on_event: &Channel<ImageGenerationEvent>,
     run_id: &str,
     message_id: &str,
@@ -180,7 +186,7 @@ async fn finish_failure(
         diagnostics,
         "error",
         "Local image generation failed",
-        Some(QWEN_IMAGE_PROVIDER_ID),
+        Some(provider_id),
         error.diagnostic.as_deref().or(Some(&error.message)),
     )
     .await;

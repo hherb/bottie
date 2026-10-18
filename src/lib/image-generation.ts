@@ -1,5 +1,6 @@
 /** Pure presentation contracts for explicit Cloud and local image generation. */
 
+import { isMossImageModel, MOSS_IMAGE_MAX_PROMPT_BYTES } from "./moss-image";
 import type { ImageEditingSourceRequest } from "./inference";
 import type { Attachment, GeneratedAsset } from "./presentation";
 import type { StoredGeneratedImageSource } from "./storage";
@@ -50,14 +51,17 @@ export function imageEditingSourcePresentation(source: StoredGeneratedImageSourc
 }
 
 /** Normalizes and bounds a prompt while Rust remains the authoritative request validator. */
-export function prepareImageGenerationPrompt(prompt: string): PreparedImageGenerationPrompt {
+export function prepareImageGenerationPrompt(prompt: string, modelId?: string): PreparedImageGenerationPrompt {
   const normalized = prompt.replaceAll("\r\n", "\n").trim();
   if (normalized.length === 0) return { ok: false, message: "Enter a non-empty image description." };
   const characters = Array.from(normalized);
   const hasUnsupportedControl = characters.some(
     (character) => CONTROL_CHARACTER.test(character) && character !== "\n" && character !== "\t",
   );
-  if (characters.length > MAX_IMAGE_PROMPT_CHARACTERS || hasUnsupportedControl) {
+  const tooLong = isMossImageModel(modelId)
+    ? new TextEncoder().encode(normalized).length > MOSS_IMAGE_MAX_PROMPT_BYTES
+    : characters.length > MAX_IMAGE_PROMPT_CHARACTERS;
+  if (tooLong || hasUnsupportedControl) {
     return {
       ok: false,
       message: "The image description is too long or contains unsupported control characters.",

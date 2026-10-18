@@ -8,12 +8,31 @@ const IMAGE_EDIT_LINEAGE_PREVIEW_VALUE = "edit-lineage";
 
 /** Reports whether a query explicitly requests the generated edit-lineage fixture. */
 export function imagePreviewRequested(search: string): boolean {
-  return new URLSearchParams(search).get("image") === IMAGE_EDIT_LINEAGE_PREVIEW_VALUE;
+  return [IMAGE_EDIT_LINEAGE_PREVIEW_VALUE, "moss"].includes(new URLSearchParams(search).get("image") ?? "");
 }
 
 /** Applies deterministic path-free generated image records to the disconnected browser preview. */
 export function applyImagePreview(state: PageState, search: string): boolean {
   if (!imagePreviewRequested(search)) return false;
+  if (new URLSearchParams(search).get("image") === "moss") {
+    state.localImageAvailability = {
+      modelId: "mlx-community/MOSS-Image-SFT-bf16",
+      packageId: "mlx-community/MOSS-Image-SFT-bf16",
+      runtimeId: "moss-image-mlx@external",
+      license: "Apache-2.0",
+      sourceRevision: "ea698e99312015505884559ebad94b4a5a0d0753",
+      expectedDiskBytes: 27219783878,
+      workerExpectedDiskBytes: 0,
+      requiredMemoryBytes: 0,
+      availability: "ready",
+    };
+    state.imageMode = true;
+    state.setImageExecution("local");
+    state.attachment.clear();
+    state.prompt =
+      '{"summary":{"caption":"A cream poster with the title BOTTIE"},"items":[],"bbox_coord_space":"abs_centralized","bbox_format":"yxyx"}';
+    return true;
+  }
   const commonAsset = {
     ordinal: 0,
     status: "completed" as const,

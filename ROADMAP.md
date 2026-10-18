@@ -466,6 +466,17 @@ These model tracks remain visibly distinct:
   generation, with explicit upstream research-license acceptance before an optional installation. Reuse existing
   model bytes rather than downloading or copying a second set. See `docs/qwen-image-2.1-local.md`.
 
+### Optional MOSS-Image local backend
+
+The owner requested Apple MLX / otherwise CUDA execution on 2026-10-18. See `docs/moss-image-local.md`.
+
+- [x] closed Base/SFT MLX and CUDA package/revision inventories, explicit verified setup, and platform-specific workers;
+- [x] native private-pipe execution, bounded layout prompts/PNG output, cancellation/reaping, and one-image size catalog;
+- [x] existing composer, initial readiness, normalization, durable MOSS provenance, and exact-family retry integration;
+- [ ] record real MLX layout/storage/active-cancellation/recovery proof after the model download completes;
+- [ ] live CUDA hardware qualification and broader platform/low-memory/output-quality measurements;
+- [ ] bundled runtime/model distribution and native installer UI, if requested separately.
+
 ### 8.1 Shared contract and hosted Qwen-Image-2.0 foundation
 
 - [x] provider-neutral bounded image-generation contract with model, execution, generation, and editing capabilities;

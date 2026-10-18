@@ -200,6 +200,12 @@
       {/if}
     {/if}
     <small>{localImage.detail}. No automatic download or cloud fallback.</small>
+    {#if localImageAvailability?.runtimeId.startsWith("moss-image-")}
+      <small
+        >Paste a description or layout JSON into the prompt. Use matching canvas dimensions. Layout placement and
+        generated spelling need visual review; exact typography is not guaranteed.</small
+      >
+    {/if}
     {#if workerImport.action !== "none" || workerImport.active}
       <div class="local-image-acquisition" aria-label="Local image worker installation">
         <p>

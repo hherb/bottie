@@ -25,6 +25,8 @@ pub(crate) async fn retry_image_generation(
     request: RetryImageGenerationRequest,
     on_event: Channel<ImageGenerationEvent>,
 ) -> Result<ImageGenerationRun, ProviderError> {
+    // Serialize the readiness awaits and run registration against capture admission.
+    let _voice_guard = state.voice_interaction.lock().await;
     if state.microphone.is_capturing() {
         return Err(ProviderError::invalid_request(
             "Stop or discard local voice capture before generating an image.",
@@ -183,7 +185,10 @@ fn validate_cloud_retry(retry: &GeneratedImageRetry) -> Result<HostedImageReques
 fn validate_local_retry(
     retry: &GeneratedImageRetry,
 ) -> Result<ImageGenerationRequest, ProviderError> {
-    if retry.provenance.provider_id != QWEN_IMAGE_PROVIDER_ID
+    if retry.provenance.provider_id
+        != crate::local_image_worker::moss::provider_for_model(&retry.provenance.model_id)
+        || (crate::local_image_worker::moss::is_moss_model(&retry.provenance.model_id)
+            && !retry.provenance.model_id.contains('@'))
         || retry.options.prompt_extend
         || !retry.sources.is_empty()
     {
@@ -287,5 +292,33 @@ mod tests {
         );
         retry.provenance.model_id = "Qwen/Qwen-Image-2512".into();
         assert!(validate_local_retry(&retry).is_err());
+    }
+}
+
+#[cfg(test)]
+mod moss_tests {
+    use super::*;
+    use crate::storage::{GeneratedImageProvenance, GeneratedImageRequestOptions};
+    #[test]
+    fn moss_retry_requires_its_own_family_identity_and_keeps_long_layouts() {
+        let retry = GeneratedImageRetry::for_test(
+            &"layout ".repeat(400),
+            GeneratedImageProvenance::new(
+                "moss-image",
+                "mlx-community/MOSS-Image-SFT-bf16@ea698e99312015505884559ebad94b4a5a0d0753",
+                GeneratedAssetExecution::Local,
+                Some(42),
+            )
+            .unwrap(),
+            GeneratedImageRequestOptions::new(1024, 1024, false).unwrap(),
+            Vec::new(),
+        );
+        assert!(validate_local_retry(&retry).is_ok());
+        let mut unversioned = retry.clone();
+        unversioned.provenance.model_id = "mlx-community/MOSS-Image-SFT-bf16".into();
+        assert!(validate_local_retry(&unversioned).is_err());
+        let mut relabelled = retry;
+        relabelled.provenance.provider_id = "qwen-image".into();
+        assert!(validate_local_retry(&relabelled).is_err());
     }
 }

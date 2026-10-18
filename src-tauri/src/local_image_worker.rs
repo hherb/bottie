@@ -38,6 +38,8 @@ pub(crate) mod model_download;
 #[allow(dead_code)]
 #[path = "local_image_worker/model_package.rs"]
 pub(crate) mod model_package;
+#[path = "local_image_worker/moss.rs"]
+pub(crate) mod moss;
 #[allow(dead_code)]
 #[path = "local_image_worker/package_catalog.rs"]
 pub(crate) mod package_catalog;
