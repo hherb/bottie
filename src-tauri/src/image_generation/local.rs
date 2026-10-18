@@ -75,18 +75,26 @@ impl LocalImageGenerator {
             }
             VerifiedLocalImageBackend::Moss(moss) => {
                 let dimensions = request.dimensions();
-                let png=moss.generate(request.prompt(),dimensions,seed,cancellation.clone(),on_progress).await
-                    .map_err(|error|match error {
-                        crate::local_image_worker::moss::MossError::Cancelled => LocalImageGenerationError::Cancelled,
-                        _ => LocalImageGenerationError::Failed(ProviderError::unavailable(
-                            "MOSS-Image could not complete this local image. Check its runtime and prompt limits.", None)),
-                    })?;
+                let png = moss
+                    .generate(
+                        request.prompt(),
+                        dimensions,
+                        seed,
+                        cancellation.clone(),
+                        on_progress,
+                    )
+                    .await
+                    .map_err(map_moss_error)?;
                 let prepared = tauri::async_runtime::spawn_blocking(move || {
                     normalize_server_output(png, &store, dimensions)
                 })
                 .await
-                .map_err(|_| map_server_error(LocalImageServerError::Unavailable))?
-                .map_err(|_| map_server_error(LocalImageServerError::InvalidResponse))?;
+                .map_err(|_| {
+                    map_moss_error(crate::local_image_worker::moss::MossError::Unavailable)
+                })?
+                .map_err(|_| {
+                    map_moss_error(crate::local_image_worker::moss::MossError::InvalidOutput)
+                })?;
                 if *cancellation.borrow_and_update() {
                     return Err(LocalImageGenerationError::Cancelled);
                 }
@@ -168,6 +176,22 @@ fn map_execution_error(error: LocalImageExecutionError) -> ProviderError {
     }
 }
 
+/// Keep MOSS process and normalization failures distinct from the independent Qwen server route.
+fn map_moss_error(error: crate::local_image_worker::moss::MossError) -> LocalImageGenerationError {
+    use crate::local_image_worker::moss::MossError;
+    match error {
+        MossError::Cancelled => LocalImageGenerationError::Cancelled,
+        MossError::Unavailable => LocalImageGenerationError::Failed(ProviderError::unavailable(
+            "MOSS-Image could not complete this image. Check its runtime and prompt limits.",
+            None,
+        )),
+        MossError::InvalidOutput => LocalImageGenerationError::Failed(ProviderError::malformed(
+            "MOSS-Image returned an invalid image response.",
+            None,
+        )),
+    }
+}
+
 /// Maps local transport failures without exposing response bytes or endpoint internals.
 fn map_server_error(error: LocalImageServerError) -> LocalImageGenerationError {
     match error {
@@ -187,7 +211,7 @@ fn map_server_error(error: LocalImageServerError) -> LocalImageGenerationError {
     }
 }
 
-/// Gives inline server PNGs the same metadata-free decode and storage contract as worker output.
+/// Gives local inline PNGs the same metadata-free decode and storage contract as worker output.
 pub(super) fn normalize_server_output(
     png: Vec<u8>,
     store: &ConversationStore,
@@ -211,4 +235,25 @@ pub(super) fn normalize_server_output(
     })();
     let _ = fs::remove_file(input);
     result
+}
+
+#[cfg(test)]
+mod moss_error_tests {
+    use super::*;
+    use crate::local_image_worker::moss::MossError;
+    #[test]
+    fn moss_failures_keep_their_family_and_cancellation_identity() {
+        assert!(matches!(
+            map_moss_error(MossError::Cancelled),
+            LocalImageGenerationError::Cancelled
+        ));
+        for error in [MossError::Unavailable, MossError::InvalidOutput] {
+            let LocalImageGenerationError::Failed(error) = map_moss_error(error) else {
+                panic!("not a failed result")
+            };
+            assert!(error.message.contains("MOSS-Image"));
+            assert!(!error.message.contains("Qwen"));
+            assert!(!error.message.contains("/"));
+        }
+    }
 }

@@ -27,8 +27,8 @@ That is upstream evidence, not a measurement of another Mac or a promise that a 
 
 On **Linux/Windows CUDA machines**, setup creates a dedicated Python environment using the exact direct versions in
 `requirements-cuda.txt`, or `--reuse-python /absolute/path/to/venv/python` verifies an existing environment (including official PyTorch `+cu`
-wheel tags). Use an appropriate CUDA-enabled wheel for the target architecture; a CPU-only ARM64 wheel is rejected. CUDA and
-bfloat16 support are required; there is no CPU, MPS, or cloud fallback. The worker uses GPU residency at 40 GiB device
+wheel tags). Use an appropriate CUDA-enabled wheel for the target architecture; a CPU-only ARM64 wheel is rejected. New environments explicitly acquire the official PyTorch CUDA-13 wheel, including ARM64, rather than PyPI's CPU-only
+ARM64 build. An NVIDIA driver compatible with CUDA 13 and bfloat16 support are required; there is no CPU, MPS, or cloud fallback. The worker uses GPU residency at 40 GiB device
 memory, component offload at 24 GiB, and sequential offload below that. These are placement policies, not measured
 minimum-memory guarantees. Offload also needs substantial system RAM. The CUDA backend is implemented but has not
 yet been exercised on a CUDA host in this change.
@@ -132,9 +132,9 @@ array operation from the copied runtime and its adjacent resources before model 
 Full inference qualification is recorded separately after that proof runs; CUDA hardware and native UI clicks are
 not implied by mock, protocol, or build tests. No production release or new model/runtime distribution is created.
 
-Automated checks pass: 433 frontend/script tests (three existing skips), ten Python adapter/setup tests, clean Svelte
+Automated checks pass: 433 frontend/script tests (three existing skips), 12 Python adapter/setup tests, clean Svelte
 diagnostics, Prettier, Black at 120 columns, Python byte compilation, the production frontend build, Cargo formatting,
-and locked Cargo checking. The serial host Rust suite passes 711 library tests (41 ignored), one updater fixture,
+and locked Cargo checking. The serial host Rust suite passes 712 library tests (41 ignored), one updater fixture,
 six image-adapter fixtures, ten transport fixtures, and doc tests. The real Metal probe also passes from the copied
 app-data runtime. Full model inference remains pending acquisition at this source checkpoint; its live result is
 recorded separately rather than inferred from these checks.

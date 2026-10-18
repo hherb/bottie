@@ -83,7 +83,8 @@ def download_file(directory, model, entry):
             temporary.replace(destination)
             print("Verified " + entry["path"], flush=True)
             return
-        except (OSError, ValueError):
+        except (OSError, ValueError) as error:
+            print(f"Retry {attempt + 1}/3 for {entry['path']} after {type(error).__name__}", flush=True)
             if attempt == 2:
                 raise
 

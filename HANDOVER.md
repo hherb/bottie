@@ -52,9 +52,9 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
 
 ## Recent maintenance
 
-MOSS-Image integration checks on 2026-10-18 pass: 433 frontend/script tests (three existing skips), ten Python setup/
+MOSS-Image integration checks on 2026-10-18 pass: 433 frontend/script tests (three existing skips), 12 Python setup/
 adapter tests, Svelte diagnostics, Prettier, Black, byte compilation, frontend build, Cargo formatting/locked checking,
-and the serial host native suite: 711 library tests (41 ignored), one updater fixture, six adapter fixtures, ten
+and the serial host native suite: 712 library tests (41 ignored), one updater fixture, six adapter fixtures, ten
 transport fixtures, and doc tests. The Swift/MLX bridge builds with its pinned dependency graph, and a real Metal
 array probe passes from the copied app-data runtime. Full-model acquisition and live layout/storage/cancellation/
 recovery qualification are still in progress at this checkpoint. CUDA hardware and native Tauri clicks are not

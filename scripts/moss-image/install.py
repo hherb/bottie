@@ -15,6 +15,8 @@ import venv
 from assets import download_assets, selected_model, verify_assets
 
 ROOT = Path(__file__).resolve().parent
+CUDA_WHEEL_VARIANT = "cu130"
+CUDA_WHEEL_INDEX = "https://download.pytorch.org/whl/" + CUDA_WHEEL_VARIANT
 
 
 def app_data():
@@ -78,13 +80,18 @@ def build_mlx(root):
     return executable
 
 
-def compatible_cuda_versions(versions):
-    """Accept the pinned release including official PyTorch +cu wheel tags, never another base release."""
-    requirements = dict(
+def cuda_requirements():
+    """Read the one committed direct-version inventory for acquisition and environment verification."""
+    return dict(
         line.split("==")
         for line in (ROOT / "requirements-cuda.txt").read_text().splitlines()
         if line and not line.startswith("#")
     )
+
+
+def compatible_cuda_versions(versions):
+    """Accept the pinned release including official PyTorch +cu wheel tags, never another base release."""
+    requirements = cuda_requirements()
     return all(
         (versions.get(name, "").split("+", 1)[0] if name == "torch" else versions.get(name)) == version
         for name, version in requirements.items()
@@ -95,18 +102,26 @@ def cuda_python(root, reuse):
     """Use an explicit dedicated venv and require actual CUDA rather than falling back to CPU/MPS."""
     if sys.platform not in {"linux", "win32"}:
         raise ValueError("CUDA MOSS is supported on Linux/Windows NVIDIA hosts")
+    requirements = cuda_requirements()
     if reuse:
         python = Path(os.path.abspath(reuse))
     else:
         environment = root / "runtimes" / str(uuid.uuid4())
         venv.EnvBuilder(with_pip=True, symlinks=sys.platform != "win32").create(environment)
         python = environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+        subprocess.run(
+            [
+                str(python),
+                "-m",
+                "pip",
+                "install",
+                f"torch=={requirements['torch']}+{CUDA_WHEEL_VARIANT}",
+                "--index-url",
+                CUDA_WHEEL_INDEX,
+            ],
+            check=True,
+        )
         subprocess.run([str(python), "-m", "pip", "install", "-r", str(ROOT / "requirements-cuda.txt")], check=True)
-    requirements = dict(
-        line.split("==")
-        for line in (ROOT / "requirements-cuda.txt").read_text().splitlines()
-        if line and not line.startswith("#")
-    )
     program = "import importlib.metadata,json,torch; names=" + repr(list(requirements))
     program += "; print(json.dumps({'versions':{n:importlib.metadata.version(n) for n in names},"
     program += "'cuda':torch.cuda.is_available(),'bf16':torch.cuda.is_bf16_supported()}))"

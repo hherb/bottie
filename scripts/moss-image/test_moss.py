@@ -103,5 +103,30 @@ class RuntimeArtifactTests(unittest.TestCase):
             self.assertNotIn("unrelated.o", json.dumps(config))
 
 
+class CudaWheelTests(unittest.TestCase):
+    """ARM64 PyPI's CPU wheel must not be mistaken for a working CUDA installation."""
+
+    def test_new_environment_installs_official_cuda_wheel_before_the_other_packages(self):
+        """Use the CUDA index explicitly on both supported CUDA host platforms."""
+        from install import cuda_python
+
+        versions = {
+            "torch": "2.14.1+cu130",
+            "diffusers": "0.41.0",
+            "transformers": "5.20.1",
+            "accelerate": "1.15.0",
+            "safetensors": "0.8.0",
+            "Pillow": "13.0.0",
+        }
+        with tempfile.TemporaryDirectory() as directory, patch("sys.platform", "linux"), patch(
+            "install.venv.EnvBuilder"
+        ), patch("install.subprocess.run") as run:
+            run.return_value.stdout = json.dumps({"versions": versions, "cuda": True, "bf16": True})
+            cuda_python(Path(directory), None)
+            first = run.call_args_list[0].args[0]
+            self.assertIn("--index-url", first)
+            self.assertIn("https://download.pytorch.org/whl/cu130", first)
+
+
 if __name__ == "__main__":
     unittest.main()

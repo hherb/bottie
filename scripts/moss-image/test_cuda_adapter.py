@@ -36,6 +36,15 @@ class CudaAdapterTests(unittest.TestCase):
         image.size = (512, 512)
         image.save.side_effect = lambda output, **_kwargs: output.write(b"\x89PNG\r\n\x1a\n")
         pipe.return_value.images = [image]
+        pipe.progress_bar = lambda items: iter(items)
+
+        def infer(*_args, **_kwargs):
+            """Model the upstream custom pipeline's progress iterator and image return contract."""
+            for _ in pipe.progress_bar(range(50)):
+                pass
+            return SimpleNamespace(images=[image])
+
+        pipe.side_effect = infer
         factory = MagicMock(return_value=pipe)
         torch = SimpleNamespace(
             cuda=SimpleNamespace(
@@ -83,6 +92,12 @@ class CudaAdapterTests(unittest.TestCase):
         self.assertEqual(events[-1]["seed"], 42)
         self.assertEqual(events[-1]["modelId"], "OpenMOSS-Team/MOSS-Image-SFT")
         pipe.to.assert_called_once_with("cuda")
+
+    def test_progress_remains_on_private_stdout_during_framework_output_redirection(self):
+        """A caller can observe active denoising and interrupt it rather than guessing model-load time."""
+        _, _, _, events = self.run_worker(48)
+        steps = [event["step"] for event in events if event["event"] == "progress"]
+        self.assertEqual(steps, list(range(1, 51)))
 
     def test_lower_vram_uses_component_or_sequential_offload(self):
         """Placement policies are tested as policies, not minimum-VRAM hardware qualification."""

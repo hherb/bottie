@@ -18,10 +18,11 @@ MAX_PNG_BYTES = 25 * 1024 * 1024
 STEPS = 50
 
 
-def emit(event):
+def emit(event, stream=None):
     """Reserve stdout solely for bounded protocol frames, never dependency diagnostics."""
-    sys.stdout.write(json.dumps(event, separators=(",", ":")) + "\n")
-    sys.stdout.flush()
+    target = sys.stdout if stream is None else stream
+    target.write(json.dumps(event, separators=(",", ":")) + "\n")
+    target.flush()
 
 
 def request(stream):
@@ -83,6 +84,7 @@ def main():
     parser.add_argument("--model-id", required=True)
     parser.add_argument("--revision", required=True)
     args = parser.parse_args()
+    protocol_output = sys.stdout
     threading.Thread(target=watch_parent, args=(os.getppid(),), daemon=True).start()
     os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", HF_HUB_DISABLE_TELEMETRY="1")
 
@@ -124,6 +126,15 @@ def main():
         else:
             pipe.enable_sequential_cpu_offload(device="cuda")
         pipe.set_progress_bar_config(disable=True)
+        progress_bar = pipe.progress_bar
+
+        def denoise_progress(items):
+            """Report actual completed denoise steps on the protocol stream, not redirected library output."""
+            for index, timestep in enumerate(progress_bar(items)):
+                yield timestep
+                emit(dict(event="progress", step=index + 1), stream=protocol_output)
+
+        pipe.progress_bar = denoise_progress
         image = pipe(
             data["prompt"],
             width=data["width"],
