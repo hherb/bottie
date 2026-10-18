@@ -473,8 +473,10 @@ The owner requested Apple MLX / otherwise CUDA execution on 2026-10-18. See `doc
 - [x] closed Base/SFT MLX and CUDA package/revision inventories, explicit verified setup, and platform-specific workers;
 - [x] native private-pipe execution, bounded layout prompts/PNG output, cancellation/reaping, and one-image size catalog;
 - [x] existing composer, initial readiness, normalization, durable MOSS provenance, and exact-family retry integration;
-- [ ] record real MLX layout/storage/active-cancellation/recovery proof after the model download completes;
-- [ ] live CUDA hardware qualification and broader platform/low-memory/output-quality measurements;
+- [x] real Apple M3 Max SFT layout/storage/active-cancellation/recovery proof and stable app-data installation;
+- [x] live Linux ARM64 NVIDIA GB10 CUDA SFT worker generation, active cancellation, and fresh-worker recovery;
+- [x] verified development-signed contained-Python DMG and checked-in synthetic output/provenance evidence;
+- [ ] native Linux app/UI, Windows, Base variants, and broader platform/low-memory/output-quality measurements;
 - [ ] bundled runtime/model distribution and native installer UI, if requested separately.
 
 ### 8.1 Shared contract and hosted Qwen-Image-2.0 foundation

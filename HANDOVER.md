@@ -1,14 +1,15 @@
 # Bottie handover
 
-Last verified: 2026-10-18 for MOSS backend integration checks; live MOSS MLX qualification is in progress.
+Last verified: 2026-10-18 for MOSS integration, real Apple MLX and Linux ARM64 CUDA worker proofs, and the development DMG.
 
 ## Start here
 
 The owner requested MOSS-Image generation using Apple MLX or otherwise NVIDIA CUDA on 2026-10-18. The optional
 backend is implemented on `codex/moss-image-backend`: explicit setup, pinned Base/SFT snapshots, private one-request
-workers, layout prompts, existing image UI/storage, MOSS provenance, and exact-model retries. The Swift bridge builds
-on the current Mac after installing the missing official Metal toolchain. Model acquisition and real MLX proof remain
-in progress; do not claim CUDA or native Tauri UI qualification. See `docs/moss-image-local.md` for setup and bounds.
+workers, layout prompts, existing image UI/storage, MOSS provenance, and exact-model retries. Real Apple MLX
+generation/storage/active cancellation/recovery and the NVIDIA GB10 CUDA worker proof pass.
+The SFT snapshot/runtime are registered in stable Mac app data. Base variants, Windows, lower-memory offload, and
+native Tauri UI clicks remain unqualified. See `docs/moss-image-local.md` for setup and bounds.
 The completed Nano speech integration remains intact. Retain the independent frozen Linux image-runtime continuation
 below; the MOSS request does not approve or reopen its distribution gates.
 
@@ -52,13 +53,27 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
 
 ## Recent maintenance
 
-MOSS-Image integration checks on 2026-10-18 pass: 433 frontend/script tests (three existing skips), 12 Python setup/
-adapter tests, Svelte diagnostics, Prettier, Black, byte compilation, frontend build, Cargo formatting/locked checking,
-and the serial host native suite: 712 library tests (41 ignored), one updater fixture, six adapter fixtures, ten
-transport fixtures, and doc tests. The Swift/MLX bridge builds with its pinned dependency graph, and a real Metal
-array probe passes from the copied app-data runtime. Full-model acquisition and live layout/storage/cancellation/
-recovery qualification are still in progress at this checkpoint. CUDA hardware and native Tauri clicks are not
-claimed. MOSS durable model IDs include the immutable weight revision so old retries cannot silently use new weights.
+MOSS-Image integration completed on 2026-10-18. Required checks pass: 433 frontend/script tests (three existing
+skips), 14 Python tests, Svelte diagnostics, formatting, byte compilation, production build, Cargo formatting/checking,
+and the final serial host suite: 712 library tests (41 ignored), one updater fixture, six adapter fixtures, ten transport
+fixtures, and doc tests. An existing XPC startup timing failure passed unchanged in isolation and in the full rerun.
+The real Apple M3 Max / 128 GiB native proof passes 1024² layout generation, normalization, durable exact-revision
+provenance, active denoise cancellation, and fresh-worker 512² recovery. First-image verification/loading/generation
+is 881.09 s; total proof is 1,377.60 s. Use the documented release-mode opt-in proof: debug software SHA-256 is slow
+for 27.2 GB. No integrity checks are omitted. The stable Mac model/runtime registration is ready for the updated app.
+The Linux ARM64 NVIDIA GB10 worker completes 512² in 195.28 s, kills/reaps after step two in 0.78 s, and recovers in
+197.63 s using PyTorch 2.14.1+cu130 / CUDA 13.0. This uses an isolated temporary environment and does not change
+existing services, register an owner default, or reopen the frozen Linux runtime. CUDA native app/storage/UI, Windows,
+Base variants, lower-memory behavior, and peak inference memory remain unqualified. Both sample images spell the
+requested words correctly and follow the intended arrangement; CUDA also adds unrequested decorative rules.
+See `docs/moss-image-host-proof.json`, checked-in synthetic samples, and `docs/moss-image-local.md`.
+The development-signed contained-Python DMG is `bottie_0.9.0_moss_88344d8_development_aarch64.dmg`, built from
+`88344d83e6177b0bf6811929ea3f7debb446f9a8`; SHA-256
+`0e6dabc99d7f39d76bae21bb0b0a9e8d2fdf857b8af9839087b94ea2676d1a20`. Final DMG integrity, strict recursive
+signatures, staged/mounted byte agreement, and contained-Python execution/cancellation/client-exit proofs pass.
+The subsequent source-only acquisition fix preserves short HTTP prefixes and still discards wrong full digests;
+model setup scripts and model/runtime assets are external to this installer. The DMG is not notarized or a production
+release. Native Tauri clicks are not claimed; browser composer inspection uses an explicit fixture.
 
 MOSS-TTS-Nano native integration completed on 2026-10-18. An explicitly provisioned app-data runtime adds MOSS Nano · Ava
 and MOSS Nano · Adam to the existing opaque voice/preference contract. A dedicated Rust actor owns a reusable offline

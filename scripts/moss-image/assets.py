@@ -3,6 +3,7 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
+from http.client import HTTPException
 import json
 from pathlib import Path, PurePosixPath
 import platform
@@ -77,13 +78,15 @@ def download_file(directory, model, entry):
                         if remaining < 0:
                             raise ValueError("asset exceeds pinned byte size")
                         stream.write(chunk)
+            if temporary.stat().st_size != entry["size"]:
+                raise OSError("incomplete asset response")
             if not verify_file(temporary, entry):
                 temporary.unlink(missing_ok=True)
                 raise ValueError("asset checksum mismatch")
             temporary.replace(destination)
             print("Verified " + entry["path"], flush=True)
             return
-        except (OSError, ValueError) as error:
+        except (OSError, ValueError, HTTPException) as error:
             print(f"Retry {attempt + 1}/3 for {entry['path']} after {type(error).__name__}", flush=True)
             if attempt == 2:
                 raise
