@@ -4,6 +4,9 @@ Last verified: 2026-10-18 for MOSS integration, real Apple MLX and Linux ARM64 C
 
 ## Start here
 
+**Next item to do:** work through `FIX_BOTTIE.md` (the 2026-10-28 audit's todo list, ordered by severity), starting
+with items 1-5.
+
 The owner requested MOSS-Image generation using Apple MLX or otherwise NVIDIA CUDA on 2026-10-18. The optional
 backend is implemented on `codex/moss-image-backend`: explicit setup, pinned Base/SFT snapshots, private one-request
 workers, layout prompts, existing image UI/storage, MOSS provenance, and exact-model retries. Real Apple MLX
