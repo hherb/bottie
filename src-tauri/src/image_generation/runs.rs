@@ -45,9 +45,14 @@ impl ImageGenerationRuns {
 
     /// Clears the slot only when it still belongs to the completing run.
     pub(crate) async fn finish(&self, run_id: &str) {
-        let mut active = self.active.lock().await;
-        if active.as_ref().is_some_and(|run| run.run_id == run_id) {
-            *active = None;
+        clear_if_owned(&mut *self.active.lock().await, run_id);
+    }
+
+    /// Returns a guard that clears the slot when the owning task ends, panics included.
+    pub(crate) fn finish_on_drop(&self, run_id: String) -> ImageRunCompletion {
+        ImageRunCompletion {
+            runs: self.clone(),
+            run_id,
         }
     }
 
@@ -92,6 +97,30 @@ impl ImageGenerationRuns {
     }
 }
 
+/// Clears one image run's slot on drop so a panicked task cannot hold it, and block restore, forever.
+pub(crate) struct ImageRunCompletion {
+    runs: ImageGenerationRuns,
+    run_id: String,
+}
+
+impl Drop for ImageRunCompletion {
+    fn drop(&mut self) {
+        let run_id = std::mem::take(&mut self.run_id);
+        if let Ok(mut active) = self.runs.active.try_lock() {
+            clear_if_owned(&mut active, &run_id);
+            return;
+        }
+        let runs = self.runs.clone();
+        tauri::async_runtime::spawn(async move { runs.finish(&run_id).await });
+    }
+}
+
+fn clear_if_owned(active: &mut Option<ActiveImageRun>, run_id: &str) {
+    if active.as_ref().is_some_and(|run| run.run_id == run_id) {
+        *active = None;
+    }
+}
+
 fn cancel(cancellation: &ActiveCancellation) {
     match cancellation {
         ActiveCancellation::Abort(handle) => handle.abort(),
@@ -128,6 +157,23 @@ mod tests {
             assert!(*cooperative.borrow());
             runs.finish("third").await;
             assert!(!runs.cancel_active().await);
+        });
+    }
+
+    #[test]
+    fn a_panicking_image_task_still_releases_the_slot() {
+        tauri::async_runtime::block_on(async {
+            let runs = ImageGenerationRuns::default();
+            let _registration = runs.reserve_abortable("first".into()).await.unwrap();
+            let completion = runs.finish_on_drop("first".into());
+
+            let task = tauri::async_runtime::spawn(async move {
+                let _completion = completion;
+                panic!("image task panicked");
+            });
+
+            assert!(task.await.is_err());
+            assert!(!runs.is_active().await);
         });
     }
 }

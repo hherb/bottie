@@ -19,7 +19,7 @@ pub(crate) const MAX_ERROR_BODY_BYTES: usize = 64 * 1_024;
 /// Largest model-discovery or model-detail response body accepted.
 pub(crate) const MAX_DISCOVERY_BODY_BYTES: usize = 1_024 * 1_024;
 
-/// Longest provider-supplied error message forwarded to the WebView; some providers echo part of the key.
+/// Characters of a provider-supplied error message kept before the `…` marker; some providers echo part of the key.
 pub(crate) const MAX_PROVIDER_MESSAGE_CHARACTERS: usize = 300;
 
 /// Reads a response body, returning `Ok(None)` as soon as it is known to exceed `maximum_bytes`.
@@ -139,6 +139,18 @@ mod tests {
         );
         let oversized = vec![b'x'; MAX_ERROR_BODY_BYTES + 1];
         assert_eq!(read_error_body(response(oversized)).await, "");
+    }
+
+    #[tokio::test]
+    async fn bounded_body_stops_a_chunked_body_with_no_declared_length() {
+        let chunks = futures_util::stream::iter(
+            [b"ok".to_vec(), b"!".to_vec()].map(Ok::<_, std::io::Error>),
+        );
+        let chunked = reqwest::Response::from(tauri::http::Response::new(
+            reqwest::Body::wrap_stream(chunks),
+        ));
+        assert_eq!(chunked.content_length(), None);
+        assert_eq!(read_bounded_body(chunked, 2).await.unwrap(), None);
     }
 
     #[test]

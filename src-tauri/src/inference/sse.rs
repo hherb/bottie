@@ -5,14 +5,14 @@ use super::{ProviderError, limits::ensure_frame_within_limit};
 /// Incrementally decodes UTF-8 SSE frames into their joined `data` payloads.
 ///
 /// Line endings (`\r\n`, `\r`, `\n`) are normalized to `\n` as bytes arrive, so a frame boundary is always
-/// `\n\n`. Each byte is scanned for a boundary only once, and a frame that grows past
+/// `\n\n`. Scanning resumes where the last search stopped, and a frame that grows past
 /// [`MAX_STREAM_FRAME_BYTES`](super::limits::MAX_STREAM_FRAME_BYTES) without a boundary is rejected.
 #[derive(Default)]
 pub(crate) struct SseDecoder {
     buffer: Vec<u8>,
     /// Bytes at the start of `buffer` already known to contain no boundary.
     scanned: usize,
-    /// The previous chunk ended in `\r`, so a leading `\n` in the next chunk belongs to that line ending.
+    /// The previous byte was `\r`, so an immediately following `\n` (in this chunk or the next) ends the same line.
     pending_cr: bool,
 }
 

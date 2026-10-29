@@ -2,14 +2,36 @@
 
 use crate::{
     diagnostics::{Diagnostics, record_diagnostic},
-    storage::{AttachmentGarbageCollection, ConversationStore, StorageError},
+    storage::{AttachmentGarbageCollection, ConversationStore, StagingSweep, StorageError},
 };
 
 /// Sweeps abandoned restore staging and collects unreferenced attachment content before drafts or background processing can begin.
 pub(crate) fn collect_at_startup(conversations: &ConversationStore, diagnostics: Diagnostics) {
-    conversations.sweep_interrupted_restore_staging();
+    let sweep = conversations.sweep_interrupted_restore_staging();
     let collection = conversations.collect_unreferenced_attachments();
-    tauri::async_runtime::spawn(record_collection_diagnostic(diagnostics, collection));
+    tauri::async_runtime::spawn(async move {
+        if let Some(detail) = sweep_failure_detail(&sweep) {
+            record_diagnostic(
+                &diagnostics,
+                "warn",
+                "Restore staging cleanup incomplete",
+                None,
+                Some(&detail),
+            )
+            .await;
+        }
+        record_collection_diagnostic(diagnostics, collection).await;
+    });
+}
+
+/// Describes abandoned restore staging that could not be deleted, which otherwise leaks disk space silently.
+fn sweep_failure_detail(sweep: &StagingSweep) -> Option<String> {
+    (sweep.failed > 0).then(|| {
+        format!(
+            "{} interrupted restore staging item(s) could not be removed; {} removed",
+            sweep.failed, sweep.removed
+        )
+    })
 }
 
 /// Records one path-free startup collection result in bounded session diagnostics.

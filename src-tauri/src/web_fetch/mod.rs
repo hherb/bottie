@@ -361,9 +361,10 @@ pub(crate) async fn resolve_addresses(
     .map_err(|_| WebFetchError::unavailable())?
     .filter(|address| seen.insert(*address))
     .collect::<Vec<_>>();
-    if addresses.is_empty()
-        || (!allow_non_public && addresses.iter().any(|address| !is_public_ip(address.ip())))
-    {
+    if addresses.is_empty() {
+        return Err(WebFetchError::unavailable());
+    }
+    if !allow_non_public && addresses.iter().any(|address| !is_public_ip(address.ip())) {
         return Err(blocked_address());
     }
     Ok(addresses)

@@ -103,7 +103,7 @@ The audit's baseline:
 ## Should fix
 
 - [x] **6. A hostile or buggy OpenAI-compatible server can make memory grow without limit**
-  - **Status:** Done 2026-10-30: shared `inference/limits.rs`; per-round text cap is per round, not per field. The idle timeout still resets on every chunk (bounded now by the text cap).
+  - **Status:** Done 2026-10-30: shared `inference/limits.rs`; per-round text cap is per round, not per field. Memory is bounded by the caps; stream duration is not, because the idle timeout still resets on every chunk.
   - **Where:**
     - `src-tauri/src/inference/openai/protocol.rs:368-373` (`OpenAiToolCallAccumulator::extend`).
     - `src-tauri/src/inference/sse.rs:13-16` and `:42-56` (`SseDecoder`).
@@ -215,7 +215,7 @@ The audit's baseline:
   - **Test:** Manual click-through on macOS, plus a capability check that only these schemes are allowed.
 
 - [x] **15. Opening two conversations quickly can show the wrong one**
-  - **Status:** Done 2026-10-30: `openSearchResult` shares the guard; `selectBranch` is already serialized by `isManaging`.
+  - **Status:** Done 2026-10-30: `open`, `openSearchResult` (success and failure) and `startNew` share the guard; `selectBranch` is already serialized by `isManaging`.
   - **Where:** `src/routes/conversation-state.svelte.ts:99-108` (`open`), called from
     `src/routes/page-state.svelte.ts:370-379`.
   - **Problem:** `open()` has no latest-request guard, while `search()` does. If A's `loadConversation` resolves after

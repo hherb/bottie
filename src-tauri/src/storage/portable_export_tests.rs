@@ -313,12 +313,17 @@ fn plain_export_replaces_an_existing_target_without_leaving_staging_files() {
         .expect("storage should initialize");
     let destination = store.path.with_file_name("plain-export.md");
     std::fs::write(&destination, b"old export").expect("old export should be written");
+    // A hard link shares the old inode: writing in place would change it, renaming a staged file over the
+    // target would not.
+    let alias = store.path.with_file_name("plain-export-alias.md");
+    std::fs::hard_link(&destination, &alias).expect("alias should be linked");
 
     ConversationFileExport::document("plain-export.md".into(), "new export".into())
         .write_to(&destination)
         .expect("plain export should replace the target");
 
     assert_eq!(std::fs::read(&destination).unwrap(), b"new export");
+    assert_eq!(std::fs::read(&alias).unwrap(), b"old export");
     let parent = destination.parent().unwrap();
     assert!(
         std::fs::read_dir(parent)

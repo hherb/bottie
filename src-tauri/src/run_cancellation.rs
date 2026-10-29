@@ -19,6 +19,33 @@ pub(crate) struct ActiveRun {
 /// Process-wide registry of provider generations that may be cancelled by opaque identity.
 pub(crate) type ActiveRuns = Arc<tauri::async_runtime::Mutex<HashMap<String, ActiveRun>>>;
 
+/// Unregisters one run when its task ends, panics included, so an orphaned entry can never block restore.
+pub(crate) struct ActiveRunRegistration {
+    runs: ActiveRuns,
+    run_id: String,
+}
+
+impl ActiveRunRegistration {
+    /// Takes ownership of removing `run_id`; create it inside the task that owns the run.
+    pub(crate) fn new(runs: ActiveRuns, run_id: String) -> Self {
+        Self { runs, run_id }
+    }
+}
+
+impl Drop for ActiveRunRegistration {
+    fn drop(&mut self) {
+        let run_id = std::mem::take(&mut self.run_id);
+        if let Ok(mut runs) = self.runs.try_lock() {
+            runs.remove(&run_id);
+            return;
+        }
+        let runs = self.runs.clone();
+        tauri::async_runtime::spawn(async move {
+            runs.lock().await.remove(&run_id);
+        });
+    }
+}
+
 #[tauri::command]
 /// Cancels one active generation by its opaque run identity.
 ///

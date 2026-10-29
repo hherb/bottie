@@ -127,6 +127,7 @@ export class ConversationState {
       this.storageError = null;
       return this.applyConversation(conversation);
     } catch (error) {
+      if (sequence !== this.openSequence) return null;
       this.storageError = storageErrorFromUnknown(error);
       return null;
     } finally {
@@ -456,6 +457,7 @@ export class ConversationState {
 
   /** Clears the active identity and persists the intentional blank new-chat view. */
   async startNew(): Promise<void> {
+    this.openSequence += 1;
     this.activeConversationId = null;
     this.branches = [];
     this.currentBranchId = null;

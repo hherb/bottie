@@ -267,6 +267,32 @@ fn rejects_non_object_arguments_and_mismatched_result_identity() {
     assert_eq!(error.code.as_str(), "internal");
 }
 
+#[test]
+fn rejects_a_round_whose_thinking_and_text_together_pass_the_text_limit() {
+    use crate::inference::limits::MAX_ROUND_TEXT_BYTES;
+
+    let mut response = AnthropicResponseAccumulator::default();
+    let half = "x".repeat(MAX_ROUND_TEXT_BYTES / 2);
+    for payload in [
+        r#"{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}}"#.to_owned(),
+        r#"{"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}"#.to_owned(),
+        format!(r#"{{"type":"content_block_delta","index":0,"delta":{{"type":"thinking_delta","thinking":"{half}"}}}}"#),
+        format!(r#"{{"type":"content_block_delta","index":1,"delta":{{"type":"text_delta","text":"{half}"}}}}"#),
+    ] {
+        response.apply(decode_stream_payload(&payload).unwrap()).unwrap();
+    }
+
+    let error = response
+        .apply(
+            decode_stream_payload(
+                r#"{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"!"}}"#,
+            )
+            .unwrap(),
+        )
+        .expect_err("one byte past the round limit must fail");
+    assert_eq!(error.code.as_str(), "malformed_response");
+}
+
 /// Reconstructs one signed-thinking plus fragmented-tool-use response round.
 fn fragmented_tool_round() -> AnthropicToolRound {
     let mut response = AnthropicResponseAccumulator::default();

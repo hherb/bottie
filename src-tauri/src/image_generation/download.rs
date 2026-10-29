@@ -115,6 +115,10 @@ impl GeneratedImageDownloader {
                 "The image provider returned an image location on a private network.",
                 None,
             ),
+            WebFetchErrorCode::Timeout => ProviderError::unavailable(
+                "The temporary generated image could not be reached.",
+                Some("temporary image host lookup timed out".into()),
+            ),
             _ => ProviderError::unavailable(
                 "The temporary generated image could not be reached.",
                 Some("temporary image host did not resolve".into()),

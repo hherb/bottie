@@ -33,3 +33,27 @@ fn voice_barge_in_cancels_every_registered_native_run() {
         }
     });
 }
+
+#[test]
+fn a_panicking_run_task_still_unregisters_its_run() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let (abort_handle, _registration) = AbortHandle::new_pair();
+        runs.lock().await.insert(
+            "run-one".into(),
+            ActiveRun {
+                abort_handle,
+                tool_cancellation: ToolLoopCancellation::default(),
+            },
+        );
+
+        let task_runs = runs.clone();
+        let task = tauri::async_runtime::spawn(async move {
+            let _registration = ActiveRunRegistration::new(task_runs, "run-one".into());
+            panic!("provider task panicked");
+        });
+
+        assert!(task.await.is_err());
+        assert!(runs.lock().await.is_empty());
+    });
+}

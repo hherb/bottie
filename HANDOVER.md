@@ -11,6 +11,8 @@ Last verified: 2026-10-30 (FIX_BOTTIE items 6-8, 11-13, 15-18, 20-22 on `fix/bot
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
+   - Issues from the PR #215 review: **#216** (reserve a chat run before `start_provider_run` so restore sees it)
+     and **#217** (test gaps and known limits).
    Then run the follow-up audit listed under "Not audited yet".
 3. Owed hardware re-checks (cannot run in a normal session):
    - Re-run the MOSS MLX (Mac) and CUDA (DGX) proofs to confirm item 5's minimal worker environment strips nothing a
@@ -67,12 +69,12 @@ Last verified: 2026-10-30 (FIX_BOTTIE items 6-8, 11-13, 15-18, 20-22 on `fix/bot
 
 ## Validation (2026-10-30)
 
-- Rust: `cargo test --locked` passes 774 library tests (42 ignored) plus the updater, adapter, and transport suites.
+- Rust: `cargo test --locked` passes 779 library tests (42 ignored) plus the updater, adapter, and transport suites.
   `cargo fmt` is clean. Clippy still reports ~50 style warnings (none are bugs).
 - `tests/local_image_worker_transport.rs` is flaky when run in parallel (also on `main`); it passes with
   `-- --test-threads=1`. Tracked in issue #214.
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: `npm test` passes 455 tests (3 skipped); `svelte-check` is clean.
+- Frontend: `npm test` passes 457 tests (3 skipped); `svelte-check` is clean.
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)

@@ -64,7 +64,7 @@ impl AttachmentProcessor {
 
     /// Waits for any current item to finish, then pauses work for one store replacement.
     ///
-    /// Returns a retryable busy error when the worker does not pause within [`PAUSE_ACKNOWLEDGEMENT_WAIT`].
+    /// Returns a busy error asking the user to retry when the worker does not pause within [`PAUSE_ACKNOWLEDGEMENT_WAIT`].
     pub(crate) fn pause(&self) -> Result<AttachmentProcessingPause, StorageError> {
         let (acknowledge, acknowledged) = channel();
         let sent = self.sender.send(WorkerCommand::Pause(acknowledge)).is_ok();

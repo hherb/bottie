@@ -31,7 +31,7 @@ const EMBEDDING_RUNTIME_THREADS: usize = 2;
 /// Maximum time a foreground memory lookup waits behind semantic indexing or model preparation.
 const QUERY_EMBEDDING_WAIT: Duration = Duration::from_secs(5);
 /// Maximum time restore or reindex waits for a background worker to reach a pause point, e.g. behind a
-/// first-run embedding-model download, before returning a retryable "busy" error.
+/// first-run embedding-model download, before returning a "busy" error that asks the user to retry.
 pub(crate) const PAUSE_ACKNOWLEDGEMENT_WAIT: Duration = Duration::from_secs(20);
 const RUNTIME_ASSET_MANIFEST: &str = include_str!("../../runtime-assets.json");
 
@@ -240,7 +240,7 @@ impl SemanticIndexer {
 
     /// Waits for any current batch to finish, then pauses work for one store replacement.
     ///
-    /// Returns a retryable busy error when the worker does not pause within [`PAUSE_ACKNOWLEDGEMENT_WAIT`].
+    /// Returns a busy error asking the user to retry when the worker does not pause within [`PAUSE_ACKNOWLEDGEMENT_WAIT`].
     pub(crate) fn pause(&self) -> Result<SemanticIndexingPause, StorageError> {
         self.pause_within(PAUSE_ACKNOWLEDGEMENT_WAIT)
     }
