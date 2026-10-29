@@ -21,11 +21,14 @@ pub(crate) type ActiveRuns = Arc<tauri::async_runtime::Mutex<HashMap<String, Act
 
 #[tauri::command]
 /// Cancels one active generation by its opaque run identity.
+///
+/// The run stays registered until its task records the final cancelled state, so restore keeps refusing to
+/// replace the store while that last write is still pending.
 pub(crate) async fn cancel_chat(
     run_id: String,
     state: State<'_, AppState>,
 ) -> Result<bool, ProviderError> {
-    if let Some(run) = state.runs.lock().await.remove(&run_id) {
+    if let Some(run) = state.runs.lock().await.get(&run_id) {
         cancel_run(run);
         Ok(true)
     } else {
@@ -33,20 +36,18 @@ pub(crate) async fn cancel_chat(
     }
 }
 
-/// Cancels every registered provider and native-tool run before voice capture begins.
+/// Signals every registered provider and native-tool run before voice capture begins.
+///
+/// Each run removes itself once its task has written its final state.
 pub(crate) async fn cancel_all_chats(runs: &ActiveRuns) -> usize {
-    let active_runs = {
-        let mut active_runs = runs.lock().await;
-        active_runs.drain().map(|(_, run)| run).collect::<Vec<_>>()
-    };
-    let cancelled_count = active_runs.len();
-    for run in active_runs {
+    let active_runs = runs.lock().await;
+    for run in active_runs.values() {
         cancel_run(run);
     }
-    cancelled_count
+    active_runs.len()
 }
 
-fn cancel_run(run: ActiveRun) {
+fn cancel_run(run: &ActiveRun) {
     run.tool_cancellation.cancel();
     run.abort_handle.abort();
 }

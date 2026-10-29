@@ -22,7 +22,8 @@ fn voice_barge_in_cancels_every_registered_native_run() {
         }
 
         assert_eq!(cancel_all_chats(&runs).await, 2);
-        assert!(runs.lock().await.is_empty());
+        // Runs stay registered until their tasks record the final cancelled state.
+        assert_eq!(runs.lock().await.len(), 2);
         for registration in registrations {
             assert!(
                 Abortable::new(std::future::pending::<()>(), registration)

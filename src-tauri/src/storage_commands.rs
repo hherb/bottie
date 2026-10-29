@@ -165,9 +165,7 @@ pub(crate) async fn restore_conversation_store(
     state: State<'_, AppState>,
 ) -> Result<RestoreOutcome, StorageError> {
     let _management = state.storage_management.lock().await;
-    if !state.runs.lock().await.is_empty() {
-        return Err(StorageError::restore_while_active());
-    }
+    ensure_no_active_generation(&state).await?;
     let selected = app
         .dialog()
         .file()
@@ -203,9 +201,7 @@ pub(crate) async fn restore_conversation_store(
     if !confirmed {
         return Ok(cancelled_restore());
     }
-    if !state.runs.lock().await.is_empty() {
-        return Err(StorageError::restore_while_active());
-    }
+    ensure_no_active_generation(&state).await?;
     let conversations = state.conversations.clone();
     let attachment_processing = state.attachment_processing.clone();
     let semantic_indexing = state.semantic_indexing.clone();
@@ -237,9 +233,7 @@ pub(crate) async fn restore_latest_automatic_backup(
     state: State<'_, AppState>,
 ) -> Result<RestoreOutcome, StorageError> {
     let _management = state.storage_management.lock().await;
-    if !state.runs.lock().await.is_empty() {
-        return Err(StorageError::restore_while_active());
-    }
+    ensure_no_active_generation(&state).await?;
     let status = state.conversations.recovery_status()?;
     if status.latest_automatic_backup_at_ms.is_none() {
         return Err(StorageError::no_automatic_backup());
@@ -259,9 +253,7 @@ pub(crate) async fn restore_latest_automatic_backup(
     if !confirmed {
         return Ok(cancelled_restore());
     }
-    if !state.runs.lock().await.is_empty() {
-        return Err(StorageError::restore_while_active());
-    }
+    ensure_no_active_generation(&state).await?;
     let conversations = state.conversations.clone();
     let attachment_processing = state.attachment_processing.clone();
     let semantic_indexing = state.semantic_indexing.clone();
@@ -283,6 +275,14 @@ pub(crate) async fn restore_latest_automatic_backup(
         "Bottie preserved damaged data",
         missing_files,
     ))
+}
+
+/// Refuses a store replacement while any chat or image run could still write to the live store.
+async fn ensure_no_active_generation(state: &AppState) -> Result<(), StorageError> {
+    if !state.runs.lock().await.is_empty() || state.image_runs.is_active().await {
+        return Err(StorageError::restore_while_active());
+    }
+    Ok(())
 }
 
 /// Counts files the just-restored data lacks; the restore already succeeded, so a failed count
