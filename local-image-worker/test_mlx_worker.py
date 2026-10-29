@@ -111,6 +111,15 @@ class WorkerPolicyTests(unittest.TestCase):
             interrupt.assert_called_once_with()
         self.assertTrue(controller.finish())
 
+    def test_interrupt_is_sent_while_the_operation_is_still_registered(self) -> None:
+        """finish() cannot clear the operation between the match and the interrupt."""
+        controller = CancellationController()
+        controller.begin("active")
+        held = []
+        with mock.patch("_thread.interrupt_main", side_effect=lambda: held.append(controller._lock.locked())):
+            self.assertTrue(controller.request("active"))
+        self.assertEqual(held, [True])
+
     def test_denoising_progress_yields_one_bounded_cancellation_window(self) -> None:
         """Every completed step gives the command reader one fixed cancellation window."""
         callback = ProgressCallback()
@@ -142,6 +151,37 @@ class WorkerPolicyTests(unittest.TestCase):
 
     def test_private_loop_loads_generates_and_shuts_down_in_order(self) -> None:
         """The real loop emits correlated handshake, progress, and terminal frames."""
+        decoded = self._run_private_loop(late_cancel=False)
+        self.assertEqual([event["type"] for event in decoded[:2]], ["hello", "capabilities"])
+        terminals = [event for event in decoded if event["type"] == "result"]
+        self.assertEqual([event["operation"] for event in terminals], ["load", "generate"])
+        self.assertEqual(terminals[-1]["result"]["outputs"][0]["outputName"], "generated.png")
+
+    def test_late_cancel_for_a_finished_request_leaves_the_worker_alive(self) -> None:
+        """A cancel that matches no active request is dropped and later generation still works."""
+        decoded = self._run_private_loop(late_cancel=True)
+        terminals = [event for event in decoded if event["type"] == "result"]
+        self.assertEqual([event["operation"] for event in terminals], ["load", "generate"])
+        self.assertEqual(terminals[-1]["result"]["status"], "completed")
+
+    def test_stray_interrupt_while_idle_does_not_stop_the_worker(self) -> None:
+        """A KeyboardInterrupt that lands while waiting for a command is ignored."""
+        original_get = __import__("queue").Queue.get
+        calls = []
+
+        def interrupted_once(queue_self, *args, **kwargs):
+            calls.append(None)
+            if len(calls) == 1:
+                raise KeyboardInterrupt
+            return original_get(queue_self, *args, **kwargs)
+
+        with mock.patch("queue.Queue.get", interrupted_once):
+            decoded = self._run_private_loop(late_cancel=False)
+        terminals = [event for event in decoded if event["type"] == "result"]
+        self.assertEqual([event["operation"] for event in terminals], ["load", "generate"])
+
+    def _run_private_loop(self, late_cancel: bool) -> list[dict]:
+        """Run the real loop over load, optional stale cancel, generate, and shutdown frames."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             model = root / "model"
@@ -163,6 +203,11 @@ class WorkerPolicyTests(unittest.TestCase):
                     },
                 },
             )
+            if late_cancel:
+                write_frame(
+                    commands,
+                    {"type": "cancel", "protocolVersion": 1, "requestId": "finished-request"},
+                )
             write_frame(
                 commands,
                 {
@@ -187,10 +232,7 @@ class WorkerPolicyTests(unittest.TestCase):
             decoded = []
             while events.tell() < len(events.getbuffer()):
                 decoded.append(read_frame(events))
-            self.assertEqual([event["type"] for event in decoded[:2]], ["hello", "capabilities"])
-            terminals = [event for event in decoded if event["type"] == "result"]
-            self.assertEqual([event["operation"] for event in terminals], ["load", "generate"])
-            self.assertEqual(terminals[-1]["result"]["outputs"][0]["outputName"], "generated.png")
+            return decoded
 
 
 if __name__ == "__main__":

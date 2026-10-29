@@ -90,12 +90,17 @@ class CancellationController:
             return cancelled
 
     def request(self, request_id: str) -> bool:
-        """Interrupt the main thread only for the exact active request."""
+        """Interrupt the main thread only for the exact active request.
+
+        The interrupt is raised while the lock is held, so finish() cannot clear the operation
+        in between. The main thread therefore sees the KeyboardInterrupt no later than its next
+        call into finish(), still inside the operation's try block.
+        """
         with self._lock:
             if request_id != self._active_request_id or self._cancelled:
                 return False
             self._cancelled = True
-        _thread.interrupt_main()
+            _thread.interrupt_main()
         return True
 
 
@@ -203,7 +208,11 @@ class Worker:
         )
         threading.Thread(target=self._read_commands, name="bottie-worker-commands", daemon=True).start()
         while True:
-            command = self._commands.get()
+            try:
+                command = self._commands.get()
+            except KeyboardInterrupt:
+                # Nothing is running while idle, so a stray interrupt has nothing to cancel.
+                continue
             if command is None:
                 return
             command_type = command.get("type")
@@ -224,8 +233,9 @@ class Worker:
                 command = read_frame(self._input)
                 if command.get("type") == "cancel":
                     require_cancel(command)
-                    if not self._cancellation.request(command["requestId"]):
-                        self._commands.put(command)
+                    # A cancel for a request that already finished (or never ran) is dropped;
+                    # queueing it would reach the run loop as an unsupported command.
+                    self._cancellation.request(command["requestId"])
                 else:
                     self._commands.put(command)
         except EOFError:
