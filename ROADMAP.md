@@ -338,6 +338,22 @@ with a credential-free aggregate protected-platform comparison contract, while s
 
 See `docs/python-sandbox.md` for the verified boundary, platform options, and exclusions.
 
+### Kastellan agent requests
+
+- [x] `@kastellan:` prefix routes a message to a Kastellan agent daemon instead of the selected model;
+- [x] transport through `kastellan-cli ask`, run directly for loopback hosts and over batch-mode `ssh` otherwise, with
+      the task as data (argv locally, stdin remotely) and never as shell text;
+- [x] durable provider-run placement of the reply under its request, background completion, and a reload event that
+      keeps the composer free;
+- [x] Settings → Kastellan agent: host and optional CLI path, shared validation, atomic save, and a side-effect-free
+      Test connection;
+- [x] regenerate and edit-and-resend route Kastellan requests back to Kastellan;
+- [ ] keep a pending task across a Bottie restart instead of marking it interrupted;
+- [ ] cancel a pending task from Bottie;
+- [ ] answer Kastellan operator questions inside the conversation;
+- [ ] decide whether a waiting conversation should accept new messages while its Kastellan task runs;
+- [ ] optional Matrix transport, reusing Kastellan's paired, end-to-end-encrypted channel instead of the operator CLI.
+
 ## Milestone 6 — Reliability, privacy, and desktop beta
 
 Outcome: bottie is safe and comfortable enough for sustained daily use.

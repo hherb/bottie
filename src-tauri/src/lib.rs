@@ -18,6 +18,7 @@ mod generation_usage;
 mod generation_web_tools;
 mod image_generation;
 mod inference;
+mod kastellan;
 mod local_audio_preferences;
 mod local_image_worker;
 mod localmail;
@@ -130,6 +131,10 @@ use inference::{
     AnthropicProvider, InferenceProvider, ModelInfo, OllamaProvider, OmlxProvider, OpenAiProvider,
     ProviderError, ProviderSettings, load_provider_settings, persist_completed_first_run_setup,
     save_provider_settings, validate_remote_base_url,
+};
+use kastellan::{
+    settings::{get_kastellan_settings, test_kastellan_connection, update_kastellan_settings},
+    start_kastellan_task,
 };
 use local_audio_preferences::LocalAudioPreferenceStore;
 use local_image_worker::acquisition_coordinator::{
@@ -1032,6 +1037,10 @@ pub fn run() {
             forget_conversation,
             discover_models,
             start_chat,
+            start_kastellan_task,
+            get_kastellan_settings,
+            update_kastellan_settings,
+            test_kastellan_connection,
             cancel_chat,
             #[cfg(desktop)]
             updater::check_for_update,

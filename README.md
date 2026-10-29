@@ -65,6 +65,14 @@ only the typed information it needs to render the interface.
   truncated. PDF text extraction must already have completed on the Localmail server.
 - Review each tool call, stable outcome, duration, and retained result in the conversation audit.
 
+### Hand tasks to a Kastellan agent
+
+- Start a message with `@kastellan:` to hand the task to a [Kastellan](https://github.com/hherb/kastellan) agent
+  instead of the selected model. Kastellan may take minutes; the reply lands in the same conversation, and the composer
+  stays free meanwhile.
+- Choose Kastellan on this computer or on another host reached over `ssh` in Settings → Kastellan agent, and check the
+  route with Test connection. See [`docs/kastellan.md`](docs/kastellan.md).
+
 ## Keyboard commands
 
 Open the local command palette with Command+K on macOS or Ctrl+K on Windows and Linux. It filters a small registry of
@@ -218,6 +226,8 @@ Additional safeguards include:
 - Settings saves Localmail key replacements/removals with Save and reconnect once certificate trust is confirmed;
   connection tests use an entered replacement directly, without first unlocking an older saved key;
 - public-network and destination policy checks for web tools;
+- Kastellan requests pass the task to `kastellan-cli` as data — an argv element locally, stdin over a fixed `ssh`
+  command — never as shell text, and `ssh` runs in batch mode without Bottie holding credentials;
 - certificate pinning, disabled redirects, and disabled ambient proxies for Localmail; use an administrator-issued
   `lmk_` API key rather than an expiring login token. The key is stored in the OS vault and sent as a Bearer credential;
 - saved Generation limits in Settings: defaults of 12 tool rounds, 24 total calls, and 8,192 output tokens per model

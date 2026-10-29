@@ -77,6 +77,10 @@ Use `#[cfg]` only for genuinely platform-specific code and keep a common contrac
 package/executable identity, frame size, deadline, ordering, and exit validation. Child stdout is untrusted. Read the
 Python/image specialist docs before those changes.
 
+`kastellan/` is the one route that is not an inference provider: it records a provider run for durability but answers
+through Kastellan's operator CLI in the background. Keep its planning and exit-code interpretation pure in
+`transport.rs`, and read `docs/kastellan.md` before changing it.
+
 ## Tests
 
 Unit/domain tests sit near modules; larger test modules are included under `#[cfg(test)]` in `lib.rs`; black-box tests
