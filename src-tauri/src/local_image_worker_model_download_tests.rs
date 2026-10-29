@@ -17,7 +17,7 @@ use crate::local_image_worker::{
 };
 
 #[path = "local_image_worker_model_download_tests/fixtures.rs"]
-mod fixtures;
+pub(crate) mod fixtures;
 #[path = "local_image_worker_model_download_tests/hugging_face.rs"]
 mod hugging_face;
 

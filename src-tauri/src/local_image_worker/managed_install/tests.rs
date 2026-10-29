@@ -2,9 +2,7 @@
 
 use super::*;
 
-#[path = "../../local_image_worker_model_download_tests/fixtures.rs"]
-#[allow(dead_code)]
-mod fixtures;
+use crate::local_image_worker_model_download_tests::fixtures;
 
 use crate::local_image_worker::{
     model_acquisition::{ModelFileContract, ModelPackageManifest},

@@ -19,17 +19,17 @@ use crate::local_image_worker::{
 };
 
 pub(super) const MODEL_BYTES: &[u8] = b"weights";
-pub(super) const SOURCE_REVISION: &str = "0123456789abcdef0123456789abcdef01234567";
+pub(crate) const SOURCE_REVISION: &str = "0123456789abcdef0123456789abcdef01234567";
 pub(super) const SOURCE_ETAG: &str = "\"fixture-weights-v1\"";
 const FIXTURE_ACCEPT_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(Clone)]
-pub(super) struct FixtureResponse {
-    pub(super) status: &'static str,
-    pub(super) headers: Vec<(String, String)>,
-    pub(super) first_body: Vec<u8>,
-    pub(super) delayed_body: Vec<u8>,
-    pub(super) delay: Duration,
+pub(crate) struct FixtureResponse {
+    pub(crate) status: &'static str,
+    pub(crate) headers: Vec<(String, String)>,
+    pub(crate) first_body: Vec<u8>,
+    pub(crate) delayed_body: Vec<u8>,
+    pub(crate) delay: Duration,
 }
 
 fn digest(bytes: &[u8]) -> String {
@@ -100,7 +100,7 @@ pub(super) fn limits(file_timeout: Duration) -> ModelDownloadLimits {
     )
 }
 
-pub(super) fn temp_cache(name: &str) -> PathBuf {
+pub(crate) fn temp_cache(name: &str) -> PathBuf {
     let root = std::env::temp_dir().join(format!(
         "bottie-model-download-{name}-{}",
         uuid::Uuid::new_v4()
@@ -117,7 +117,7 @@ pub(super) fn block_on<T>(future: impl Future<Output = T>) -> T {
         .block_on(future)
 }
 
-pub(super) fn response(
+pub(crate) fn response(
     status: &'static str,
     content_length: usize,
     etag: &str,
@@ -135,7 +135,7 @@ pub(super) fn response(
     }
 }
 
-pub(super) fn serve(
+pub(crate) fn serve(
     response: FixtureResponse,
 ) -> (String, Arc<Mutex<String>>, thread::JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("fixture listener should bind");
