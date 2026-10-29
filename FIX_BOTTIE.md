@@ -102,7 +102,8 @@ The audit's baseline:
 
 ## Should fix
 
-- [ ] **6. A hostile or buggy OpenAI-compatible server can make memory grow without limit**
+- [x] **6. A hostile or buggy OpenAI-compatible server can make memory grow without limit**
+  - **Status:** Done 2026-10-30: shared `inference/limits.rs`; per-round text cap is per round, not per field. The idle timeout still resets on every chunk (bounded now by the text cap).
   - **Where:**
     - `src-tauri/src/inference/openai/protocol.rs:368-373` (`OpenAiToolCallAccumulator::extend`).
     - `src-tauri/src/inference/sse.rs:13-16` and `:42-56` (`SseDecoder`).
@@ -124,7 +125,8 @@ The audit's baseline:
     - Oversized streamed arguments return a malformed error.
     - A never-terminated SSE frame larger than the cap returns a malformed error.
 
-- [ ] **7. Error and discovery response bodies are unbounded, and provider error text is forwarded verbatim**
+- [x] **7. Error and discovery response bodies are unbounded, and provider error text is forwarded verbatim**
+  - **Status:** Done 2026-10-30: also truncates Anthropic and Ollama stream `error` events.
   - **Where:**
     - Error bodies: `openai.rs:290`, `anthropic.rs:282`, `ollama.rs:358`, `omlx.rs:362`.
     - Discovery bodies: `openai.rs:219`, `anthropic.rs:210`, `ollama.rs:128,150`.
@@ -136,7 +138,8 @@ The audit's baseline:
     about 1 MiB for discovery. Truncate the forwarded provider message to about 300 characters.
   - **Test:** An oversized error body yields a bounded, truncated `ProviderError`.
 
-- [ ] **8. Overwriting an export can lose both the old and the new file**
+- [x] **8. Overwriting an export can lose both the old and the new file**
+  - **Status:** Done 2026-10-30.
   - **Where:** `src-tauri/src/storage/portable_export.rs:44` and `:53-56` (`write_to`).
   - **Problem:**
     - The ZIP path removes the old file before renaming. If the rename fails, the cleanup deletes the staging file too,
@@ -170,14 +173,16 @@ The audit's baseline:
     - Optionally record the venv `site-packages` files as artifacts, as the MLX path does.
   - **Test:** A requirements line with a wrong hash makes the install fail.
 
-- [ ] **11. `npm test` fails because vitest collects `.claude/worktrees/**`**
+- [x] **11. `npm test` fails because vitest collects `.claude/worktrees/**`**
+  - **Status:** Done 2026-10-30: the two single-file scripts exclude `.claude/**` too, since vitest filters are substring matches.
   - **Where:** the `test` script in `package.json`.
   - **Problem:** Stale worktree copies produce 22 failed files. The real suite is green.
   - **Fix:** Add `--exclude ".claude/**"` to the `test` script. Also check the `performance:frontend` and `python:bundle:test`
     scripts.
   - **Test:** `npm test` passes on this machine with the worktrees present.
 
-- [ ] **12. Restore, reindex and restore-latest can hang behind the embedding-model download**
+- [x] **12. Restore, reindex and restore-latest can hang behind the embedding-model download**
+  - **Status:** Done 2026-10-30: 20 s bound (`PAUSE_ACKNOWLEDGEMENT_WAIT`); a timed-out pause queues Resume so the worker does not stay paused.
   - **Where:** `src-tauri/src/semantic_indexer.rs:238-246` (`pause`) and `:296-328` (`FastEmbedder::load` inside an
     iteration), and `src-tauri/src/storage_commands.rs:155` and `:203-207`. The same unbounded wait is in
     `attachment_processor.rs:66-74`.
@@ -186,7 +191,8 @@ The audit's baseline:
   - **Fix:** Use `recv_timeout` in `pause()` and return a retryable "busy, try again shortly" error to the caller.
   - **Test:** A worker that never acknowledges makes `pause()` return a timeout error within the bound.
 
-- [ ] **13. Killed automatic backups leave full-size staging copies forever**
+- [x] **13. Killed automatic backups leave full-size staging copies forever**
+  - **Status:** Done 2026-10-30 in `storage/staging_sweep.rs`. Deviation: `.bottie-attachment-rollback-*` is **not** swept, because a crash mid-restore can leave the only copy of the pre-restore attachments there.
   - **Where:** `src-tauri/src/storage/backup.rs:101-113` and `:263-277` (`managed_backups` ignores them).
   - **Problem:** If the app is killed mid-backup, the `.bottie-auto-staging-*` files are never swept, and each one holds
     the database plus all blobs. The same applies to `.bottie-restore-staging-*`, `.bottie-attachment-restore-*` and
@@ -208,7 +214,8 @@ The audit's baseline:
     (`safeWebLocation`).
   - **Test:** Manual click-through on macOS, plus a capability check that only these schemes are allowed.
 
-- [ ] **15. Opening two conversations quickly can show the wrong one**
+- [x] **15. Opening two conversations quickly can show the wrong one**
+  - **Status:** Done 2026-10-30: `openSearchResult` shares the guard; `selectBranch` is already serialized by `isManaging`.
   - **Where:** `src/routes/conversation-state.svelte.ts:99-108` (`open`), called from
     `src/routes/page-state.svelte.ts:370-379`.
   - **Problem:** `open()` has no latest-request guard, while `search()` does. If A's `loadConversation` resolves after
@@ -217,7 +224,8 @@ The audit's baseline:
     `selectConversationBranch` probably needs the same guard.
   - **Test:** In `conversation-state` tests, resolve A after B and confirm B stays applied.
 
-- [ ] **16. Small UI timing races**
+- [x] **16. Small UI timing races**
+  - **Status:** Done 2026-10-30.
   - **Where:** `src/routes/page-state.svelte.ts:1010-1019` (`startNewChat`) and
     `src/routes/speech-state.svelte.ts:98-112` (`refresh`), with `stop()` at `:71-81`.
   - **Problem:**
@@ -233,7 +241,8 @@ The audit's baseline:
 
 ## Nice to have
 
-- [ ] **17. The native restore guard ignores image runs and cancelled-but-unfinished chat runs**
+- [x] **17. The native restore guard ignores image runs and cancelled-but-unfinished chat runs**
+  - **Status:** Done 2026-10-30. Still open: a run is invisible between `start_provider_run` and `runs.insert` (needs a reservation step).
   - **Where:**
     - Restore guards: `src-tauri/src/storage_commands.rs:156`, `:194`, `:226` and `:248`.
     - Cancellation and run registration: `src-tauri/src/run_cancellation.rs:28`, `src-tauri/src/generation.rs:56` and
@@ -249,7 +258,8 @@ The audit's baseline:
     - Also check `state.image_runs.is_active().await`, as `lib.rs:258` already does.
     - Leave the run in `runs` until the task finishes its final write. `cancel_chat` should only signal cancellation.
 
-- [ ] **18. Generated-image downloads have no private-address check**
+- [x] **18. Generated-image downloads have no private-address check**
+  - **Status:** Done 2026-10-30.
   - **Where:** `src-tauri/src/image_generation/download.rs:92-106`.
   - **Problem:** A URL from the provider's response is fetched after only https and userinfo checks, with the system
     proxy applied.
@@ -262,34 +272,33 @@ The audit's baseline:
   - **Fix:** Stream each conversation into the ZIP writer instead of building one `String`. This is low priority for a
     single-user app.
 
-- [ ] **20. Clippy: a test fixture is loaded as a module twice**
+- [x] **20. Clippy: a test fixture is loaded as a module twice**
+  - **Status:** Done 2026-10-30. The other ~50 clippy style warnings remain.
   - **Where:** `src-tauri/src/local_image_worker/managed_install/` includes
     `../../local_image_worker_model_download_tests/fixtures.rs` a second time.
   - **Fix:** Import the existing module with `use`; do not re-`mod` it.
   - **Optional:** Run `cargo clippy --fix` for the other style warnings (about 50, none of them bugs).
 
-- [ ] **21. The SSE decoder does not handle bare-CR line endings**
+- [x] **21. The SSE decoder does not handle bare-CR line endings**
+  - **Status:** Done 2026-10-30 with item 6.
   - **Where:** `src-tauri/src/inference/sse.rs:42-70`.
   - **Problem:** Frames ending only in `\r\r` never complete.
   - **Fix:** Normalize `\r\n` and `\r` to `\n` before looking for a boundary. Do this with item 6.
 
-- [ ] **22. The SSE decoder strips too much whitespace from `data:` values**
+- [x] **22. The SSE decoder strips too much whitespace from `data:` values**
+  - **Status:** Done 2026-10-30 with item 6.
   - **Where:** `src-tauri/src/inference/sse.rs:42-70`.
   - **Problem:** `trim_start` removes all leading whitespace; the spec removes one space.
   - **Fix:** Use `strip_prefix(' ')`.
 
 ## Minor notes (optional)
 
-- `web_fetch`'s IPv6 block list omits `64:ff9b:1::/48` (local-use NAT64). It is only reachable through a NAT64
-  gateway.
 - The Python WASI epoch deadline (`python-runner/src/lib.rs:375-387`) cannot interrupt a blocking host call, such as a
   guest `time.sleep(1e9)`. The 45 s outer kill in `python_process_transport.rs:21,73` bounds it, so the result is
   `HelperFailed` instead of `TimedOut`. Consider mapping that case to `TimedOut`.
 - The model cache has no lock across processes, so the dev binary `local_image_model_fetch` and the app could both
   write it at once. Promotion re-hashes every file, so corruption cannot be promoted. This only matters if
   `ManagedModelInstaller` gets wired into the app.
-- The local file `bottie-linux-signing-private.asc` in the repo root is mode 644. It is gitignored and untracked; run
-  `chmod 600` on it.
 
 ## Not audited yet
 

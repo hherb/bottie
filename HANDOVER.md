@@ -1,13 +1,17 @@
 # Bottie handover
 
-Last verified: 2026-10-29 (FIX_BOTTIE items 1-5 on `fix/bottie-audit-1-5`).
+Last verified: 2026-10-30 (FIX_BOTTIE items 6-8, 11-13, 15-18, 20-22 on `fix/bottie-audit-6-plus`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-10-30, PRs #212 (MOSS/Qwen 2.1 backends) and #213 (audit items 1-5) are
-   merged into `main`.
-2. **Next item:** `FIX_BOTTIE.md` items 6 onward ("Should fix"), in order. Re-locate code before editing; line numbers
-   refer to the audit commit `dae91bf`.
+1. Check the PR list first. As of 2026-10-30, PRs #212 and #213 are merged; the `fix/bottie-audit-6-plus` PR holds
+   this session's audit fixes.
+2. **Next items:** the four open `FIX_BOTTIE.md` items. Each needs something this Mac session could not provide:
+   - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
+   - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
+   - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
+   - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
+   Then run the follow-up audit listed under "Not audited yet".
 3. Owed hardware re-checks (cannot run in a normal session):
    - Re-run the MOSS MLX (Mac) and CUDA (DGX) proofs to confirm item 5's minimal worker environment strips nothing a
      runtime needs (`docs/moss-image-local.md`).
@@ -18,7 +22,18 @@ Last verified: 2026-10-29 (FIX_BOTTIE items 1-5 on `fix/bottie-audit-1-5`).
      - the Linux clean-runtime image (`sha256:740816cb…`) and its closure record. Their source pins now name the new
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
-## Audit fixes done (2026-10-29)
+## Audit fixes done
+
+2026-10-30 (items 6-8, 11-13, 15-18, 20-22; details in `FIX_BOTTIE.md` status lines):
+- Provider streams are bounded by `src-tauri/src/inference/limits.rs` (64 KiB tool arguments, 1 MiB frames, 4 MiB text
+  per round, 64 KiB error bodies, 1 MiB discovery, 300-character provider messages). SSE handles bare CR and strips one
+  space after `data:`.
+- Exports, restore pauses (20 s busy error), staging sweeps (`storage/staging_sweep.rs`; rollback dirs kept on
+  purpose), restore guards (image runs; cancelled runs stay registered until their final write), and private-address
+  refusal for generated-image downloads.
+- Frontend: stale conversation loads and speech polls are discarded; `npm test` excludes `.claude/**`.
+
+2026-10-29 (items 1-5):
 
 - **1. Saved-key leak:** connection tests read the saved credential only when the normalized draft endpoint equals
   the persisted one (OpenAI/Anthropic/Qwen base URL; Localmail origin + certificate pin). Otherwise the user must
@@ -50,15 +65,15 @@ Last verified: 2026-10-29 (FIX_BOTTIE items 1-5 on `fix/bottie-audit-1-5`).
   (`docs/local-image-linux-clean-runtime-closure-review.json`). 66 licence-only blockers remain, and `licenseReviewed`,
   `assemblyEligible`, and `distributionReviewed` are false. No bundle assembly, profile, signing, or release exists.
 
-## Validation (2026-10-29)
+## Validation (2026-10-30)
 
-- Rust: `cargo test --locked` passes 719 library tests (41 ignored) plus the updater, adapter (6), and transport (10)
-  suites. `cargo fmt` is clean.
-- Python: all 121 `local-image-worker` tests pass.
-- Frontend: 433 tests pass (3 skipped) with `.claude/**` excluded. Only `website/tests/rendered-html.test.mjs` fails,
-  because it needs a built `website/dist`.
-- Prettier reports 24 pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`); none were touched
-  here.
+- Rust: `cargo test --locked` passes 774 library tests (42 ignored) plus the updater, adapter, and transport suites.
+  `cargo fmt` is clean. Clippy still reports ~50 style warnings (none are bugs).
+- `tests/local_image_worker_transport.rs` is flaky when run in parallel (also on `main`); it passes with
+  `-- --test-threads=1`. Tracked in issue #214.
+- Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
+- Frontend: `npm test` passes 455 tests (3 skipped); `svelte-check` is clean.
+- Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)
 
