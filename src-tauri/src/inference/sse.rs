@@ -1,15 +1,12 @@
 //! Provider-neutral server-sent-event frame decoding.
 
-use super::{
-    ProviderError,
-    limits::{MAX_STREAM_FRAME_BYTES, ensure_frame_within_limit},
-};
+use super::{ProviderError, limits::ensure_frame_within_limit};
 
 /// Incrementally decodes UTF-8 SSE frames into their joined `data` payloads.
 ///
 /// Line endings (`\r\n`, `\r`, `\n`) are normalized to `\n` as bytes arrive, so a frame boundary is always
 /// `\n\n`. Each byte is scanned for a boundary only once, and a frame that grows past
-/// [`MAX_STREAM_FRAME_BYTES`] without a boundary is rejected.
+/// [`MAX_STREAM_FRAME_BYTES`](super::limits::MAX_STREAM_FRAME_BYTES) without a boundary is rejected.
 #[derive(Default)]
 pub(crate) struct SseDecoder {
     buffer: Vec<u8>,
@@ -93,6 +90,7 @@ fn decode_sse_frame(frame: &[u8]) -> Result<Option<String>, ProviderError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::inference::limits::MAX_STREAM_FRAME_BYTES;
 
     #[test]
     fn decodes_fragmented_lf_and_crlf_frames() {

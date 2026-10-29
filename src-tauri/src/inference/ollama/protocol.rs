@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{PROVIDER_ID, PROVIDER_NAME};
-use crate::inference::limits::ensure_frame_within_limit;
+use crate::inference::limits::{ensure_frame_within_limit, truncate_provider_message};
 use crate::inference::multimodal::{base64_image, text_content};
 use crate::inference::types::{
     ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
@@ -374,7 +374,7 @@ pub(super) fn decode_stream_line(line: &str) -> Result<DecodedStreamEvent, Provi
     })?;
     if let Some(message) = chunk.error.filter(|message| !message.trim().is_empty()) {
         return Err(ProviderError::server(
-            message,
+            truncate_provider_message(message),
             Some("Ollama stream error".into()),
         ));
     }

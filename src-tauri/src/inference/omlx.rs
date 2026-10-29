@@ -5,7 +5,10 @@ use url::Url;
 
 use super::{
     InferenceProvider,
-    limits::ensure_round_text_within_limit,
+    limits::{
+        ensure_round_text_within_limit, read_bounded_body, read_discovery_body, read_error_body,
+        truncate_provider_message,
+    },
     openai::protocol::{
         DecodedStreamEvent, OpenAiToolCall, OpenAiToolCallAccumulator, OpenAiToolResult,
         decode_stream_payload,
@@ -136,11 +139,7 @@ impl OmlxProvider {
         if !response.status().is_success() {
             return Err(response_error(response).await);
         }
-        response
-            .bytes()
-            .await
-            .map(|bytes| bytes.to_vec())
-            .map_err(map_request_error)
+        read_discovery_body(response, map_request_error).await
     }
 
     /// Reads one fixed discovery resource without allowing an unbounded response allocation.
@@ -159,28 +158,15 @@ impl OmlxProvider {
         if !response.status().is_success() {
             return Err(response_error(response).await);
         }
-        if response
-            .content_length()
-            .is_some_and(|length| length > maximum_bytes as u64)
-        {
-            return Err(ProviderError::malformed(
-                "oMLX returned invalid endpoint capability metadata.",
-                Some("OpenAPI response exceeded its byte limit".into()),
-            ));
-        }
-        let mut stream = response.bytes_stream();
-        let mut bytes = Vec::new();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(map_request_error)?;
-            if bytes.len().saturating_add(chunk.len()) > maximum_bytes {
-                return Err(ProviderError::malformed(
+        read_bounded_body(response, maximum_bytes)
+            .await
+            .map_err(map_request_error)?
+            .ok_or_else(|| {
+                ProviderError::malformed(
                     "oMLX returned invalid endpoint capability metadata.",
                     Some("OpenAPI response exceeded its byte limit".into()),
-                ));
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        Ok(bytes)
+                )
+            })
     }
 
     /// Streams one tool-capable oMLX round without delegating execution to the endpoint.
@@ -366,7 +352,7 @@ fn map_request_error(error: reqwest::Error) -> ProviderError {
 /// Reads and normalizes a non-success oMLX HTTP response.
 async fn response_error(response: reqwest::Response) -> ProviderError {
     let status = response.status();
-    let body = response.text().await.unwrap_or_default();
+    let body = read_error_body(response).await;
     normalize_response_error(status, &body)
 }
 
@@ -375,7 +361,8 @@ fn normalize_response_error(status: StatusCode, body: &str) -> ProviderError {
     let provider_message = serde_json::from_str::<OmlxErrorResponse>(&body)
         .ok()
         .map(|value| value.error.message)
-        .filter(|message| !message.trim().is_empty());
+        .filter(|message| !message.trim().is_empty())
+        .map(truncate_provider_message);
     let message = provider_message.unwrap_or_else(|| match status {
         StatusCode::NOT_FOUND => "The oMLX API endpoint was not found.".into(),
         StatusCode::TOO_MANY_REQUESTS => "oMLX is busy. Try again shortly.".into(),

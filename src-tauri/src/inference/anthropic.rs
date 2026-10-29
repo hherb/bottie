@@ -7,6 +7,7 @@ use url::Url;
 
 use super::{
     InferenceProvider, StreamSink,
+    limits::{read_discovery_body, read_error_body, truncate_provider_message},
     settings::{
         CONNECT_TIMEOUT, DEFAULT_ANTHROPIC_BASE_URL, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT,
         validate_remote_base_url,
@@ -207,7 +208,8 @@ impl InferenceProvider for AnthropicProvider {
         if !response.status().is_success() {
             return Err(response_error(response).await);
         }
-        let mut models = decode_model_list(&response.bytes().await.map_err(map_request_error)?)?;
+        let mut models =
+            decode_model_list(&read_discovery_body(response, map_request_error).await?)?;
         if self.base_url.as_str() == DEFAULT_ANTHROPIC_BASE_URL {
             for model in &mut models {
                 model.capabilities.tools = model.capabilities.text;
@@ -279,7 +281,7 @@ fn map_request_error(error: reqwest::Error) -> ProviderError {
 
 async fn response_error(response: reqwest::Response) -> ProviderError {
     let status = response.status();
-    let body = response.text().await.unwrap_or_default();
+    let body = read_error_body(response).await;
     normalize_response_error(status, &body)
 }
 
@@ -287,7 +289,8 @@ fn normalize_response_error(status: StatusCode, body: &str) -> ProviderError {
     let provider_message = serde_json::from_str::<AnthropicErrorResponse>(body)
         .ok()
         .map(|response| response.error.message)
-        .filter(|message| !message.trim().is_empty());
+        .filter(|message| !message.trim().is_empty())
+        .map(truncate_provider_message);
     let message = provider_message.unwrap_or_else(|| match status {
         StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
             "The Anthropic-compatible API key was rejected.".into()
