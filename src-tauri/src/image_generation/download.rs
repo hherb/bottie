@@ -3,8 +3,9 @@
 use std::{
     fs::{self, File, OpenOptions},
     io::Write,
+    net::SocketAddr,
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use futures_util::StreamExt;
@@ -13,6 +14,7 @@ use reqwest::{Client, StatusCode, header::CONTENT_TYPE};
 use crate::{
     inference::{ProviderError, ProviderErrorCode},
     storage::{ConversationStore, PreparedGeneratedImage, normalize_generated_png},
+    web_fetch::{WebFetchErrorCode, resolve_addresses},
 };
 
 use super::GeneratedImageReference;
@@ -23,42 +25,46 @@ const MAX_DOWNLOAD_BYTES: u64 = 25 * 1_024 * 1_024;
 const PNG_MEDIA_TYPE: &str = "image/png";
 const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
 
-/// Redirect-free client that retains temporary provider results only behind the native boundary.
+/// Redirect-free downloader that retains temporary provider results only behind the native boundary.
+///
+/// Each download resolves the result host once, refuses private or loopback answers, and pins the connection to
+/// those addresses with no proxy, so a provider-supplied URL cannot reach the user's local network.
 #[derive(Clone)]
 pub(crate) struct GeneratedImageDownloader {
-    client: Client,
     allow_loopback_http: bool,
 }
 
 impl GeneratedImageDownloader {
-    /// Builds the production HTTPS-only generated-image downloader.
+    /// Builds the production HTTPS-only, public-address-only generated-image downloader.
     pub(crate) fn new() -> Result<Self, ProviderError> {
-        Self::build(false)
+        Ok(Self {
+            allow_loopback_http: false,
+        })
     }
 
-    /// Builds an isolated loopback-capable client for HTTP response fixture tests.
+    /// Builds an isolated loopback-capable downloader for HTTP response fixture tests.
     #[cfg(test)]
     pub(super) fn for_fixture() -> Result<Self, ProviderError> {
-        Self::build(true)
+        Ok(Self {
+            allow_loopback_http: true,
+        })
     }
 
-    /// Creates one client with fixed connection, response, and redirect policy.
-    fn build(allow_loopback_http: bool) -> Result<Self, ProviderError> {
-        let client = Client::builder()
+    /// Creates one client with fixed timeouts, no redirects or proxy, and `host` pinned to `addresses`.
+    fn pinned_client(host: &str, addresses: &[SocketAddr]) -> Result<Client, ProviderError> {
+        Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .read_timeout(DOWNLOAD_TIMEOUT)
             .redirect(reqwest::redirect::Policy::none())
+            .no_proxy()
+            .resolve_to_addrs(host, addresses)
             .build()
             .map_err(|_| {
                 ProviderError::internal(
                     "The generated-image downloader could not be created.",
                     None,
                 )
-            })?;
-        Ok(Self {
-            client,
-            allow_loopback_http,
-        })
+            })
     }
 
     /// Downloads and normalizes every exact provider result, deleting all partials on failure.
@@ -97,8 +103,24 @@ impl GeneratedImageDownloader {
         if !allowed_scheme || parsed.username() != "" || parsed.password().is_some() {
             return Err(malformed_image());
         }
-        let response = self
-            .client
+        let host = parsed.host_str().ok_or_else(malformed_image)?.to_owned();
+        let addresses = resolve_addresses(
+            &parsed,
+            self.allow_loopback_http,
+            Instant::now() + CONNECT_TIMEOUT,
+        )
+        .await
+        .map_err(|error| match error.code {
+            WebFetchErrorCode::BlockedAddress => ProviderError::malformed(
+                "The image provider returned an image location on a private network.",
+                None,
+            ),
+            _ => ProviderError::unavailable(
+                "The temporary generated image could not be reached.",
+                Some("temporary image host did not resolve".into()),
+            ),
+        })?;
+        let response = Self::pinned_client(&host, &addresses)?
             .get(parsed)
             .timeout(DOWNLOAD_TIMEOUT)
             .send()

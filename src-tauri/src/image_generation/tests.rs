@@ -222,6 +222,31 @@ fn downloads_decodes_and_stages_only_the_exact_requested_png_dimensions() {
 }
 
 #[test]
+fn production_downloader_refuses_results_hosted_on_private_addresses() {
+    let store =
+        ConversationStore::initialize(test_database_path()).expect("store should initialize");
+    for url in [
+        "https://127.0.0.1/result.png",
+        "https://10.0.0.8/result.png",
+        "https://localhost/a.png",
+    ] {
+        let reference = GeneratedImageReference {
+            url: Url::parse(url).unwrap(),
+            width: 64,
+            height: 32,
+        };
+        let error = tauri::async_runtime::block_on(
+            GeneratedImageDownloader::new()
+                .expect("downloader should build")
+                .download_all(&[reference], &store),
+        )
+        .expect_err("a private result host must be refused");
+        assert_eq!(error.code.as_str(), "malformed_response", "{url}");
+        assert!(!error.message.contains(url));
+    }
+}
+
+#[test]
 fn rejects_wrong_media_type_signature_dimensions_and_redirects_without_urls_in_errors() {
     let fixtures = [
         ("200 OK", "text/plain", png_fixture(64, 32), None, (64, 32)),

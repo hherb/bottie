@@ -344,7 +344,7 @@ fn valid_dns_label(label: &str) -> bool {
 }
 
 /// Resolves once, rejects any non-public answer, and returns a deduplicated pinned set.
-async fn resolve_addresses(
+pub(crate) async fn resolve_addresses(
     url: &Url,
     allow_non_public: bool,
     deadline: Instant,
