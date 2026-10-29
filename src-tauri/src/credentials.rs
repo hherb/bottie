@@ -61,6 +61,17 @@ where
     }
 }
 
+/// Explains a missing test key, saying so when a saved key was withheld from a changed endpoint.
+pub(crate) fn missing_test_key(message: &str, saved_target_matches: bool) -> ProviderError {
+    if saved_target_matches {
+        ProviderError::invalid_request(message)
+    } else {
+        ProviderError::invalid_request(format!(
+            "{message} A saved key is only sent to the endpoint it was saved for."
+        ))
+    }
+}
+
 /// Returns secret-free status for each WebView-visible credential without reading a vault value.
 pub(crate) fn provider_credential_statuses(
     credentials: &dyn CredentialStore,

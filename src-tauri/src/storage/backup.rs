@@ -8,8 +8,8 @@ use std::{
 use rusqlite::{Connection, MAIN_DB, OpenFlags};
 
 use super::portable_backup::{
-    embed_portable_payload, extract_portable_payload, strip_portable_payload,
-    strip_portable_payload_from_connection, validate_portable_payload,
+    embed_portable_payload, extract_portable_payload, missing_content_count, omitted_file_count,
+    strip_portable_payload, strip_portable_payload_from_connection, validate_portable_payload,
 };
 use super::{CURRENT_SCHEMA_VERSION, ConversationStore, StorageError, now_ms};
 
@@ -91,7 +91,20 @@ impl ConversationStore {
             embed_portable_payload(path, &self.attachment_root(), &self.generated_asset_root())
                 .map_err(|_| StorageError::backup())?;
         verify_backup(path)?;
+        // Every row the snapshot lacks must be a file this backup actually found missing.
+        if omitted_file_count(path).map_err(|_| StorageError::backup())? != skipped {
+            return Err(StorageError::backup());
+        }
         Ok(skipped)
+    }
+
+    /// Counts catalogued attachment and image files that are absent from the live store's disk.
+    pub(crate) fn missing_content_files(&self) -> Result<usize, StorageError> {
+        missing_content_count(
+            &self.open()?,
+            &self.attachment_root(),
+            &self.generated_asset_root(),
+        )
     }
 
     /// Creates a verified snapshot when the newest automatic backup is at least 24 hours old.
@@ -144,7 +157,15 @@ impl ConversationStore {
                 .cmp(&left.timestamp_ms)
                 .then_with(|| right.path.cmp(&left.path))
         });
-        let expired = backups.split_off(backups.len().min(AUTOMATIC_BACKUP_RETENTION_COUNT));
+        let mut expired = backups.split_off(backups.len().min(AUTOMATIC_BACKUP_RETENTION_COUNT));
+        // A skipped file's bytes survive only in older snapshots, so keep the newest complete one.
+        let is_complete = |backup: &ManagedBackup| omitted_file_count(&backup.path) == Ok(0);
+        if skipped_files > 0
+            && !backups.iter().any(is_complete)
+            && let Some(index) = expired.iter().position(is_complete)
+        {
+            backups.push(expired.remove(index));
+        }
         for backup in &expired {
             fs::remove_file(&backup.path).map_err(|_| StorageError::automatic_backup())?;
         }

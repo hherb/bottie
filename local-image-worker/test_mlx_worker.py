@@ -111,14 +111,19 @@ class WorkerPolicyTests(unittest.TestCase):
             interrupt.assert_called_once_with()
         self.assertTrue(controller.finish())
 
-    def test_interrupt_is_sent_while_the_operation_is_still_registered(self) -> None:
-        """finish() cannot clear the operation between the match and the interrupt."""
+    def test_cancel_that_arrives_before_its_request_begins_is_honored(self) -> None:
+        """A queued request whose cancel already arrived stops as soon as it begins."""
         controller = CancellationController()
-        controller.begin("active")
-        held = []
-        with mock.patch("_thread.interrupt_main", side_effect=lambda: held.append(controller._lock.locked())):
-            self.assertTrue(controller.request("active"))
-        self.assertEqual(held, [True])
+        controller.begin("running")
+        self.assertFalse(controller.request("queued"))
+        controller.finish()
+        controller.begin("unrelated")
+        controller.finish()
+        with self.assertRaises(KeyboardInterrupt):
+            controller.begin("queued")
+        self.assertTrue(controller.finish())
+        controller.begin("queued-again")
+        self.assertFalse(controller.finish())
 
     def test_denoising_progress_yields_one_bounded_cancellation_window(self) -> None:
         """Every completed step gives the command reader one fixed cancellation window."""
@@ -151,7 +156,7 @@ class WorkerPolicyTests(unittest.TestCase):
 
     def test_private_loop_loads_generates_and_shuts_down_in_order(self) -> None:
         """The real loop emits correlated handshake, progress, and terminal frames."""
-        decoded = self._run_private_loop(late_cancel=False)
+        decoded = self._run_private_loop(cancel_id=None)
         self.assertEqual([event["type"] for event in decoded[:2]], ["hello", "capabilities"])
         terminals = [event for event in decoded if event["type"] == "result"]
         self.assertEqual([event["operation"] for event in terminals], ["load", "generate"])
@@ -159,10 +164,30 @@ class WorkerPolicyTests(unittest.TestCase):
 
     def test_late_cancel_for_a_finished_request_leaves_the_worker_alive(self) -> None:
         """A cancel that matches no active request is dropped and later generation still works."""
-        decoded = self._run_private_loop(late_cancel=True)
+        decoded = self._run_private_loop(cancel_id="finished-request")
         terminals = [event for event in decoded if event["type"] == "result"]
         self.assertEqual([event["operation"] for event in terminals], ["load", "generate"])
         self.assertEqual(terminals[-1]["result"]["status"], "completed")
+
+    def test_cancel_read_before_generate_begins_ends_it_cancelled(self) -> None:
+        """A cancel the reader handles before the main thread starts the request still applies."""
+        decoded = self._run_private_loop(cancel_id="generate-proof")
+        terminals = [event for event in decoded if event["type"] == "result"]
+        self.assertEqual([event["result"]["status"] for event in terminals], ["completed", "cancelled"])
+
+    def test_interrupt_escaping_a_failure_handler_still_reports_cancelled(self) -> None:
+        """A cancel landing while a backend failure is handled cannot kill the worker."""
+
+        def failing_generate(*args, **kwargs):
+            raise RuntimeError("backend failed")
+
+        with (
+            mock.patch.object(FakeBackend, "generate", failing_generate),
+            mock.patch("mlx_worker.report_backend_failure", side_effect=KeyboardInterrupt),
+        ):
+            decoded = self._run_private_loop(cancel_id=None)
+        terminals = [event for event in decoded if event["type"] == "result"]
+        self.assertEqual([event["result"]["status"] for event in terminals], ["completed", "cancelled"])
 
     def test_stray_interrupt_while_idle_does_not_stop_the_worker(self) -> None:
         """A KeyboardInterrupt that lands while waiting for a command is ignored."""
@@ -176,12 +201,12 @@ class WorkerPolicyTests(unittest.TestCase):
             return original_get(queue_self, *args, **kwargs)
 
         with mock.patch("queue.Queue.get", interrupted_once):
-            decoded = self._run_private_loop(late_cancel=False)
+            decoded = self._run_private_loop(cancel_id=None)
         terminals = [event for event in decoded if event["type"] == "result"]
         self.assertEqual([event["operation"] for event in terminals], ["load", "generate"])
 
-    def _run_private_loop(self, late_cancel: bool) -> list[dict]:
-        """Run the real loop over load, optional stale cancel, generate, and shutdown frames."""
+    def _run_private_loop(self, cancel_id: str | None) -> list[dict]:
+        """Run the real loop over load, an optional cancel, generate, and shutdown frames."""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             model = root / "model"
@@ -203,11 +228,8 @@ class WorkerPolicyTests(unittest.TestCase):
                     },
                 },
             )
-            if late_cancel:
-                write_frame(
-                    commands,
-                    {"type": "cancel", "protocolVersion": 1, "requestId": "finished-request"},
-                )
+            if cancel_id is not None:
+                write_frame(commands, {"type": "cancel", "protocolVersion": 1, "requestId": cancel_id})
             write_frame(
                 commands,
                 {

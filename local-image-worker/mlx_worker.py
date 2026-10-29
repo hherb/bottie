@@ -73,13 +73,20 @@ class CancellationController:
         """Create an idle cancellation controller."""
         self._lock = threading.Lock()
         self._active_request_id: str | None = None
+        self._pending_request_id: str | None = None
         self._cancelled = False
 
     def begin(self, request_id: str) -> None:
-        """Register the only operation that may currently be cancelled."""
+        """Register the only operation that may currently be cancelled.
+
+        Raises KeyboardInterrupt at once when its cancel already arrived before it began.
+        """
         with self._lock:
             self._active_request_id = request_id
-            self._cancelled = False
+            self._cancelled = self._pending_request_id == request_id
+            if self._cancelled:
+                self._pending_request_id = None
+                raise KeyboardInterrupt
 
     def finish(self) -> bool:
         """Clear the active operation and return whether it was cancelled."""
@@ -92,12 +99,15 @@ class CancellationController:
     def request(self, request_id: str) -> bool:
         """Interrupt the main thread only for the exact active request.
 
-        The interrupt is raised while the lock is held, so finish() cannot clear the operation
-        in between. The main thread therefore sees the KeyboardInterrupt no later than its next
-        call into finish(), still inside the operation's try block.
+        A cancel for any other id is remembered so begin() can honor it if that request is still
+        queued; request ids are unique, so a finished request's id never matches again. The
+        interrupt is raised under the lock, so finish() cannot clear the operation in between.
         """
         with self._lock:
-            if request_id != self._active_request_id or self._cancelled:
+            if request_id != self._active_request_id:
+                self._pending_request_id = request_id
+                return False
+            if self._cancelled:
                 return False
             self._cancelled = True
             _thread.interrupt_main()
@@ -216,10 +226,15 @@ class Worker:
             if command is None:
                 return
             command_type = command.get("type")
-            if command_type == "load":
-                self._load(command)
-            elif command_type == "generate":
-                self._generate(command)
+            if command_type in ("load", "generate"):
+                handler = self._load if command_type == "load" else self._generate
+                try:
+                    handler(command)
+                except KeyboardInterrupt:
+                    # A cancel landed outside the operation's own handlers, before any result.
+                    self._cancellation.finish()
+                    (self._output_directory / OUTPUT_NAME).unlink(missing_ok=True)
+                    self._result(command["requestId"], command_type, "cancelled")
             elif command_type == "shutdown":
                 require_shutdown(command)
                 return
@@ -233,8 +248,7 @@ class Worker:
                 command = read_frame(self._input)
                 if command.get("type") == "cancel":
                     require_cancel(command)
-                    # A cancel for a request that already finished (or never ran) is dropped;
-                    # queueing it would reach the run loop as an unsupported command.
+                    # Never queued: a cancel reaching the run loop would be an unsupported command.
                     self._cancellation.request(command["requestId"])
                 else:
                     self._commands.put(command)
@@ -246,9 +260,9 @@ class Worker:
     def _load(self, command: dict) -> None:
         """Load one exact verified package and retain it for later generation."""
         request_id, model_directory = require_load(command, self._identity)
-        self._cancellation.begin(request_id)
-        self._progress(request_id, "loading", 0, 1)
         try:
+            self._cancellation.begin(request_id)
+            self._progress(request_id, "loading", 0, 1)
             self._backend.load(model_directory)
             if self._cancellation.finish():
                 self._result(request_id, "load", "cancelled")
@@ -273,9 +287,9 @@ class Worker:
         )
         output_path = self._output_directory / OUTPUT_NAME
         output_path.unlink(missing_ok=True)
-        self._cancellation.begin(request_id)
-        self._progress(request_id, "preparing", 0, 1)
         try:
+            self._cancellation.begin(request_id)
+            self._progress(request_id, "preparing", 0, 1)
             self._backend.generate(
                 prompt,
                 width,
@@ -366,8 +380,8 @@ def write_frame(stream: BinaryIO, message: dict) -> None:
     payload = json.dumps(message, separators=(",", ":"), ensure_ascii=False).encode()
     if not payload or len(payload) > MAX_FRAME_BYTES:
         raise ValueError("invalid frame length")
-    stream.write(struct.pack(">I", len(payload)))
-    stream.write(payload)
+    # One write call: a cancel interrupt can land between Python calls, never inside this one.
+    stream.write(struct.pack(">I", len(payload)) + payload)
     stream.flush()
 
 

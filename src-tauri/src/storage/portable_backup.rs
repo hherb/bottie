@@ -130,6 +130,56 @@ pub(super) fn embed_portable_payload(
         .map_err(|_| StorageError::backup())
 }
 
+/// Counts catalog files a current-format snapshot leaves out because they were missing at backup.
+///
+/// Validation already rejects embedded rows without a catalog row, so the difference is exact.
+pub(super) fn omitted_file_count(database: &Path) -> Result<usize, StorageError> {
+    let connection = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|_| StorageError::invalid_backup())?;
+    let expected = attachment_rows(&connection)?.len()
+        + derivative_rows(&connection)?.len()
+        + generated_asset_rows(&connection)?.len();
+    let mut embedded = 0;
+    for table in [ATTACHMENT_TABLE, DERIVATIVE_TABLE, GENERATED_ASSET_TABLE] {
+        let count: i64 = connection
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .map_err(|_| StorageError::invalid_backup())?;
+        embedded += usize::try_from(count).map_err(|_| StorageError::invalid_backup())?;
+    }
+    Ok(expected.saturating_sub(embedded))
+}
+
+/// Counts catalog files that are absent from the live content roots.
+pub(super) fn missing_content_count(
+    connection: &Connection,
+    attachment_root: &Path,
+    generated_asset_root: &Path,
+) -> Result<usize, StorageError> {
+    let mut paths = Vec::new();
+    for (sha256, _) in attachment_rows(connection)? {
+        paths.push(content_path(
+            attachment_root,
+            BLOB_DIRECTORY,
+            &sha256,
+            None,
+        )?);
+    }
+    for (sha256, format, _) in derivative_rows(connection)? {
+        paths.push(content_path(
+            attachment_root,
+            NORMALIZED_DIRECTORY,
+            &sha256,
+            Some(&format),
+        )?);
+    }
+    for (sha256, _) in generated_asset_rows(connection)? {
+        paths.push(generated_content_path(generated_asset_root, &sha256)?);
+    }
+    Ok(paths.iter().filter(|path| !path.is_file()).count())
+}
+
 /// Validates a complete embedded payload and reports whether the legacy backup has one.
 pub(super) fn validate_portable_payload(connection: &Connection) -> Result<bool, StorageError> {
     let present = [

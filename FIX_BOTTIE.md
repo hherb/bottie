@@ -43,6 +43,9 @@ The audit's baseline:
 
 - [x] **3. One missing attachment blob blocks every backup, and re-attaching does not repair it**
   - **Status:** Done 2026-10-29: payload validation now accepts a verified subset; manual backups log a `warn` diagnostic.
+    PR #213 review follow-up (2026-10-30): rotation keeps the newest complete snapshot while files are missing; each
+    backup checks omitted rows equal skipped files; backup and restore outcomes report `missingFiles` in the UI;
+    re-attaching checks the hash (not size) and requeues `missing_content` extraction/normalization failures.
   - **Where:** `src-tauri/src/storage/portable_backup.rs:71-73`, `:83-90` and `:101-103` (`verified_file` failure
     aborts), and `src-tauri/src/storage/attachments.rs:125-130` (`commit_blob` duplicate branch).
   - **Problem:**
@@ -61,6 +64,8 @@ The audit's baseline:
 
 - [x] **4. The MLX image worker crashes on a late Cancel**
   - **Status:** Done 2026-10-29: Linux source pins re-pinned; the frozen Mac 2512 bundle and Linux DGX image still need rebuilding.
+    PR #213 review follow-up (2026-10-30): a cancel read before its request begins is honored; an interrupt escaping
+    an operation's handlers becomes a `cancelled` result; frames are written in one call so a cancel cannot split one.
   - **Where:** `local-image-worker/mlx_worker.py`:
     - `:225-229`: a cancel that does not match the active request is queued.
     - `:217-218`: an unknown command raises `ValueError`.
@@ -79,6 +84,7 @@ The audit's baseline:
 
 - [x] **5. The MOSS image and Nano speech workers inherit the full app environment**
   - **Status:** Done 2026-10-29 in `src-tauri/src/worker_env.rs`; real-hardware MOSS MLX/CUDA re-proof still owed.
+    PR #213 review follow-up (2026-10-30): names match case-insensitively so Windows keeps `Path` and `SystemRoot`.
   - **Where:** `src-tauri/src/local_image_worker/moss/runtime.rs:153-187` and
     `src-tauri/src/speech/nano/process.rs:34-46`.
   - **Problem:** These spawns only remove `PYTHONPATH` and `PYTHONHOME`. Variables like `ANTHROPIC_API_KEY`,

@@ -43,7 +43,7 @@ PROOF_INPUTS = (
     (
         "local-image-worker/mlx_worker.py",
         "mlx_worker.py",
-        "a4309d17de3e0fc51ff7bce3eb4b2f0ee31a4c0b5cb393e8e8321261e12b4b32",
+        "47c468167298fe18ca08c1917b5bed1069f35f20c6c3d773bd67cb716a4dae72",
     ),
 )
 

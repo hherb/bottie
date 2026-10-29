@@ -116,8 +116,8 @@ use command_types::{
 };
 use credential_session::schedule_session_unlock;
 use credentials::{
-    CredentialStore, SystemCredentialStore, draft_or_saved_credential, provider_credential_status,
-    provider_credential_statuses,
+    CredentialStore, SystemCredentialStore, draft_or_saved_credential, missing_test_key,
+    provider_credential_status, provider_credential_statuses,
 };
 use diagnostics::{DiagnosticEntry, Diagnostics, export_diagnostics, record_diagnostic, sanitized};
 use generation::start_chat;
@@ -205,7 +205,11 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
                 .await;
         let (level, event, detail) = match rotation {
             Ok(Ok(outcome)) if outcome.created => (
-                "info",
+                if outcome.skipped_files > 0 {
+                    "warn"
+                } else {
+                    "info"
+                },
                 "Automatic backup created",
                 format!(
                     "{} verified snapshot(s) retained; {} expired snapshot(s) removed; \
@@ -396,7 +400,10 @@ async fn validate_qwen_image_configuration(
         state.credentials.get(QWEN_IMAGE_PROVIDER_ID)
     })?
     .ok_or_else(|| {
-        ProviderError::invalid_request("Add a Model Studio API key to validate Qwen Image.")
+        missing_test_key(
+            "Add a Model Studio API key to validate Qwen Image.",
+            saved_target_matches,
+        )
     })?;
     let provider = DashScopeQwenImageProvider::new(&base_url, api_key)?;
     let capabilities = provider.capabilities();
@@ -640,7 +647,10 @@ async fn test_provider_connection(
                 state.credentials.get("openai")
             })?
             .ok_or_else(|| {
-                ProviderError::invalid_request("Enter an OpenAI-compatible API key to test.")
+                missing_test_key(
+                    "Enter an OpenAI-compatible API key to test.",
+                    saved_target_matches,
+                )
             })?;
             let provider = OpenAiProvider::new(&draft.base_url, key)?;
             let base_url = provider.base_url().to_owned();
@@ -658,7 +668,10 @@ async fn test_provider_connection(
                 state.credentials.get("anthropic")
             })?
             .ok_or_else(|| {
-                ProviderError::invalid_request("Enter an Anthropic-compatible API key to test.")
+                missing_test_key(
+                    "Enter an Anthropic-compatible API key to test.",
+                    saved_target_matches,
+                )
             })?;
             let provider = AnthropicProvider::new(&draft.base_url, key)?;
             let base_url = provider.base_url().to_owned();

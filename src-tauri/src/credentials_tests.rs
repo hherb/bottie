@@ -249,3 +249,15 @@ fn saved_credential_is_never_read_for_a_different_test_target() {
     .expect("typed draft");
     assert_eq!(key.as_deref(), Some("typed"));
 }
+
+#[test]
+fn missing_test_key_explains_a_withheld_saved_key_only_for_a_changed_endpoint() {
+    let same = missing_test_key("Enter a key.", true);
+    let changed = missing_test_key("Enter a key.", false);
+    assert_eq!(same.message, "Enter a key.");
+    assert!(
+        changed
+            .message
+            .starts_with("Enter a key. A saved key is only sent")
+    );
+}

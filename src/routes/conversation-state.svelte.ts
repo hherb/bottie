@@ -12,6 +12,7 @@ import {
   branchConversationMessage,
   clearLastOpenConversation,
   conversationExportFeedback,
+  missingFilesNote,
   createConversation,
   deleteConversation,
   deleteGeneratedAsset,
@@ -304,7 +305,8 @@ export class ConversationState {
     this.exportFailed = false;
     try {
       const outcome = await backupConversationStore();
-      if (outcome.status === "saved") this.backupFeedback = `Backed up ${outcome.fileName ?? "local data"}`;
+      if (outcome.status === "saved")
+        this.backupFeedback = `Backed up ${outcome.fileName ?? "local data"}${missingFilesNote(outcome.missingFiles)}`;
       this.storageError = null;
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
@@ -336,7 +338,7 @@ export class ConversationState {
       if (this.storageError) throw this.storageError;
       const backupName = outcome.fileName ?? "local data";
       const preservedName = outcome.preservedCopyName ?? "preserved local data";
-      this.backupFeedback = `Restored ${backupName} · preserved current data as ${preservedName}`;
+      this.backupFeedback = `Restored ${backupName} · preserved current data as ${preservedName}${missingFilesNote(outcome.missingFiles)}`;
       this.storageError = null;
       return messages;
     } catch (error) {

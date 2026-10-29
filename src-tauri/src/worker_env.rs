@@ -28,7 +28,9 @@ const INHERITED_VARIABLES: &[&str] = &[
     "USERPROFILE",
 ];
 
-/// Keeps only allowlisted variables from `variables`, preserving their values.
+/// Keeps only allowlisted variables from `variables`, preserving their names and values.
+///
+/// Names match case-insensitively because Windows stores them as `Path` and `SystemRoot`.
 fn allowlisted(
     variables: impl IntoIterator<Item = (OsString, OsString)>,
 ) -> Vec<(OsString, OsString)> {
@@ -37,7 +39,7 @@ fn allowlisted(
         .filter(|(name, _)| {
             INHERITED_VARIABLES
                 .iter()
-                .any(|allowed| OsStr::new(allowed) == name)
+                .any(|allowed| OsStr::new(allowed).eq_ignore_ascii_case(name))
         })
         .collect()
 }
@@ -61,6 +63,8 @@ mod tests {
             ("HF_TOKEN", "secret"),
             ("HTTPS_PROXY", "http://user:pass@proxy"),
             ("HOME", "/Users/test"),
+            ("Path", r"C:\Windows\System32"),
+            ("SystemRoot", r"C:\Windows"),
         ]
         .map(|(name, value)| (OsString::from(name), OsString::from(value)));
 
@@ -71,6 +75,11 @@ mod tests {
             vec![
                 (OsString::from("PATH"), OsString::from("/usr/bin")),
                 (OsString::from("HOME"), OsString::from("/Users/test")),
+                (
+                    OsString::from("Path"),
+                    OsString::from(r"C:\Windows\System32")
+                ),
+                (OsString::from("SystemRoot"), OsString::from(r"C:\Windows")),
             ]
         );
     }
