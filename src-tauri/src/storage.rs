@@ -473,6 +473,8 @@ mod attachment_processing_tests;
 #[cfg(test)]
 mod attachment_tests;
 #[cfg(test)]
+mod backup_missing_blob_tests;
+#[cfg(test)]
 mod backup_tests;
 #[cfg(test)]
 mod branch_tests;

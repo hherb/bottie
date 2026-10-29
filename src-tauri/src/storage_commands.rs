@@ -7,9 +7,9 @@ use crate::{
     AppState,
     storage::{
         ConversationRetentionPeriod, ConversationRetentionPolicy, ConversationSearchResult,
-        ConversationSummary, ForkedConversation, MessageState, NewStoredMessage, ResponseRating,
-        SemanticIndexProgress, StorageError, StorageRecoveryStatus, StoredAttachment,
-        StoredConversation, StoredMessage, StoredRole,
+        ConversationStore, ConversationSummary, ForkedConversation, MessageState, NewStoredMessage,
+        ResponseRating, SemanticIndexProgress, StorageError, StorageRecoveryStatus,
+        StoredAttachment, StoredConversation, StoredMessage, StoredRole,
     },
 };
 
@@ -140,10 +140,22 @@ pub(crate) async fn backup_conversation_store(
     let path = selected.into_path().map_err(|_| StorageError::backup())?;
     let conversations = state.conversations.clone();
     let backup_path = path.clone();
-    tauri::async_runtime::spawn_blocking(move || conversations.backup_to(&backup_path))
-        .await
-        .map_err(|_| StorageError::backup())??;
-    Ok(saved_backup(&path, BACKUP_FILE_NAME))
+    let skipped =
+        tauri::async_runtime::spawn_blocking(move || conversations.backup_to(&backup_path))
+            .await
+            .map_err(|_| StorageError::backup())??;
+    if skipped > 0 {
+        let detail = format!("{skipped} missing attachment or image file(s) left out");
+        crate::diagnostics::record_diagnostic(
+            &state.diagnostics,
+            "warn",
+            "Backup saved without missing files",
+            None,
+            Some(&detail),
+        )
+        .await;
+    }
+    Ok(saved_backup(&path, BACKUP_FILE_NAME, skipped))
 }
 
 #[tauri::command]
@@ -200,10 +212,11 @@ pub(crate) async fn restore_conversation_store(
     let safety_path = conversations.restore_preservation_path()?;
     let restore_path = path.clone();
     let worker_safety_path = safety_path.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let missing_files = tauri::async_runtime::spawn_blocking(move || {
         let _processing_pause = attachment_processing.pause();
         let _semantic_pause = semantic_indexing.pause();
-        conversations.restore_from(&restore_path, &worker_safety_path)
+        conversations.restore_from(&restore_path, &worker_safety_path)?;
+        Ok::<_, StorageError>(restored_missing_files(&conversations))
     })
     .await
     .map_err(|_| StorageError::restore())??;
@@ -213,6 +226,7 @@ pub(crate) async fn restore_conversation_store(
         file_name,
         &safety_path,
         "Bottie preserved local data",
+        missing_files,
     ))
 }
 
@@ -253,10 +267,11 @@ pub(crate) async fn restore_latest_automatic_backup(
     let semantic_indexing = state.semantic_indexing.clone();
     let preservation = conversations.restore_preservation_path()?;
     let worker_preservation = preservation.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let missing_files = tauri::async_runtime::spawn_blocking(move || {
         let _processing_pause = attachment_processing.pause();
         let _semantic_pause = semantic_indexing.pause();
-        conversations.restore_latest_automatic_backup(&worker_preservation)
+        conversations.restore_latest_automatic_backup(&worker_preservation)?;
+        Ok::<_, StorageError>(restored_missing_files(&conversations))
     })
     .await
     .map_err(|_| StorageError::restore())??;
@@ -266,7 +281,14 @@ pub(crate) async fn restore_latest_automatic_backup(
         "latest automatic backup".into(),
         &preservation,
         "Bottie preserved damaged data",
+        missing_files,
     ))
+}
+
+/// Counts files the just-restored data lacks; the restore already succeeded, so a failed count
+/// is reported as zero rather than as a failed restore.
+fn restored_missing_files(conversations: &ConversationStore) -> usize {
+    conversations.missing_content_files().unwrap_or(0)
 }
 
 #[tauri::command]

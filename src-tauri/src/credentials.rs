@@ -40,9 +40,15 @@ const NATIVE_SESSION_CREDENTIAL_IDS: [&str; 6] = [
     LOCALMAIL_CREDENTIAL_ID,
 ];
 
-/// Uses an explicit test draft without consulting or unlocking any saved credential.
+/// Picks the credential for a connection test.
+///
+/// A non-blank typed draft always wins and the saved vault value is never read. With a blank
+/// draft, the saved credential is read only when `saved_target_matches` is true, meaning the
+/// test targets the same normalized endpoint the credential was saved for. Otherwise this
+/// returns `Ok(None)`, so a typo or a new host never receives the saved key.
 pub(crate) fn draft_or_saved_credential<F>(
     draft: Option<String>,
+    saved_target_matches: bool,
     read_saved: F,
 ) -> Result<Option<String>, ProviderError>
 where
@@ -50,7 +56,19 @@ where
 {
     match draft.filter(|value| !value.trim().is_empty()) {
         Some(value) => Ok(Some(value)),
-        None => read_saved(),
+        None if saved_target_matches => read_saved(),
+        None => Ok(None),
+    }
+}
+
+/// Explains a missing test key, saying so when a saved key was withheld from a changed endpoint.
+pub(crate) fn missing_test_key(message: &str, saved_target_matches: bool) -> ProviderError {
+    if saved_target_matches {
+        ProviderError::invalid_request(message)
+    } else {
+        ProviderError::invalid_request(format!(
+            "{message} A saved key is only sent to the endpoint it was saved for."
+        ))
     }
 }
 

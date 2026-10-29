@@ -208,7 +208,7 @@ fn rejects_unknown_status_identities_before_store_access() {
 #[test]
 fn draft_credential_bypasses_locked_saved_credentials_for_every_route() {
     for id in NATIVE_SESSION_CREDENTIAL_IDS {
-        let key = draft_or_saved_credential(Some(" replacement ".into()), || {
+        let key = draft_or_saved_credential(Some(" replacement ".into()), true, || {
             panic!("a replacement draft must not access the locked {id} vault")
         })
         .expect("replacement draft");
@@ -220,14 +220,44 @@ fn draft_credential_bypasses_locked_saved_credentials_for_every_route() {
 fn absent_or_blank_draft_uses_the_saved_credential_and_preserves_errors() {
     for draft in [None, Some(" \t ".into())] {
         assert_eq!(
-            draft_or_saved_credential(draft.clone(), || Ok(Some("saved".into())))
+            draft_or_saved_credential(draft.clone(), true, || Ok(Some("saved".into())))
                 .expect("saved key")
                 .as_deref(),
             Some("saved")
         );
         assert!(
-            draft_or_saved_credential(draft, || Err(ProviderError::invalid_request("locked")))
-                .is_err()
+            draft_or_saved_credential(draft, true, || Err(ProviderError::invalid_request(
+                "locked"
+            )))
+            .is_err()
         );
     }
+}
+
+#[test]
+fn saved_credential_is_never_read_for_a_different_test_target() {
+    for draft in [None, Some(" \t ".into())] {
+        let key = draft_or_saved_credential(draft, false, || {
+            panic!("a changed test endpoint must not read the saved credential")
+        })
+        .expect("no credential");
+        assert_eq!(key, None);
+    }
+    let key = draft_or_saved_credential(Some("typed".into()), false, || {
+        panic!("a typed draft must not read the saved credential")
+    })
+    .expect("typed draft");
+    assert_eq!(key.as_deref(), Some("typed"));
+}
+
+#[test]
+fn missing_test_key_explains_a_withheld_saved_key_only_for_a_changed_endpoint() {
+    let same = missing_test_key("Enter a key.", true);
+    let changed = missing_test_key("Enter a key.", false);
+    assert_eq!(same.message, "Enter a key.");
+    assert!(
+        changed
+            .message
+            .starts_with("Enter a key. A saved key is only sent")
+    );
 }

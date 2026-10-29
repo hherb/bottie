@@ -24,7 +24,7 @@ const MAX_PDF_DECOMPRESSED_PAGE_BYTES: usize =
     MAX_PDF_DECOMPRESSED_PAGE_MEBIBYTES * BYTES_PER_MEBIBYTE;
 pub(super) const ERROR_CONTENT_TOO_LARGE: &str = "content_too_large";
 const ERROR_INVALID_UTF8: &str = "invalid_utf8";
-const ERROR_MISSING_CONTENT: &str = "missing_content";
+pub(super) const ERROR_MISSING_CONTENT: &str = "missing_content";
 const ERROR_PDF_ENCRYPTED: &str = "pdf_encrypted";
 const ERROR_PDF_EXTRACTION_FAILED: &str = "pdf_extraction_failed";
 const ERROR_PDF_INVALID: &str = "pdf_invalid";

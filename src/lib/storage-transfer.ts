@@ -13,6 +13,8 @@ export type ConversationExportFormat = "markdown" | "json" | "batch-json";
 export type BackupOutcome = {
   status: "saved" | "cancelled";
   fileName: string | null;
+  /** Catalogued attachment or image files left out because they were missing from disk. */
+  missingFiles: number;
 };
 
 /** Native restore result that returns leaf filenames but never filesystem paths. */
@@ -20,7 +22,15 @@ export type RestoreOutcome = {
   status: "restored" | "cancelled";
   fileName: string | null;
   preservedCopyName: string | null;
+  /** Catalogued attachment or image files the restored data has no bytes for. */
+  missingFiles: number;
 };
+
+/** Appends a missing-file warning to backup or restore feedback when any file was left out. */
+export function missingFilesNote(missingFiles: number): string {
+  if (missingFiles === 0) return "";
+  return ` · ${missingFiles} missing attachment or image file${missingFiles === 1 ? "" : "s"} not included`;
+}
 
 /** Builds compact success feedback from a path-redacted native export outcome. */
 export function conversationExportFeedback(format: ConversationExportFormat, fileName: string | null): string {

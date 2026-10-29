@@ -104,7 +104,13 @@ pub(crate) async fn test_localmail_connection(
     let started = Instant::now();
     let origin = normalize_origin(&draft.origin)?;
     let certificate_sha256 = normalize_certificate_sha256(&draft.certificate_sha256)?;
-    let token = draft_or_saved_credential(draft.api_key, || {
+    // The saved key may only go to the exact saved origin and confirmed certificate pin. An
+    // unreadable saved config only withholds the saved key; it must not block a typed-key test.
+    let saved = load_config(&state.localmail_config_path).ok().flatten();
+    let saved_target_matches = saved.as_ref().is_some_and(|saved| {
+        saved.origin == origin && saved.certificate_sha256 == certificate_sha256
+    });
+    let token = draft_or_saved_credential(draft.api_key, saved_target_matches, || {
         state.credentials.get(LOCALMAIL_CREDENTIAL_ID)
     })?
     .map(|value| normalize_api_key(&value))
@@ -169,6 +175,10 @@ pub(crate) async fn test_localmail_connection(
         elapsed_ms: started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
         message: if token.is_some() {
             "Localmail identity and API key authentication verified.".into()
+        } else if saved.is_some() && !saved_target_matches {
+            "Localmail identity verified; the saved API key is only sent to its saved server and \
+             certificate, so enter it to verify authentication here."
+                .into()
         } else {
             "Localmail identity verified; add an API key to verify authentication.".into()
         },

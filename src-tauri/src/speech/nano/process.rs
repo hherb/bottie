@@ -31,13 +31,12 @@ impl NanoProcess {
     /// Starts only the configured Python and this binary's exact embedded worker, without a shell.
     pub(super) fn spawn(runtime: &NanoRuntime) -> Result<Self, SpeechErrorCode> {
         let script = runtime.prepare_worker()?;
-        let mut child = Command::new(&runtime.python)
+        let mut command = Command::new(&runtime.python);
+        let mut child = crate::worker_env::apply_minimal_environment(&mut command)
             .args(["-I", "-u"])
             .arg(script)
             .arg("--directory")
             .arg(&runtime.assets)
-            .env_remove("PYTHONPATH")
-            .env_remove("PYTHONHOME")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())

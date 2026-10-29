@@ -8,6 +8,7 @@ use std::{
 
 use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 use super::{
     AttachmentExtractionFormat, AttachmentExtractionState, AttachmentIndexingState,
@@ -15,6 +16,8 @@ use super::{
     StoredAttachmentExtraction, StoredAttachmentIndexing, StoredImageNormalization, StoredMessage,
     StoredRole,
     attachment_policy::{PreparedAttachment, prepare_blob, validate_source},
+    extraction::ERROR_MISSING_CONTENT,
+    image_codec::ERROR_IMAGE_MISSING_CONTENT,
     load_conversation_from_connection, now_ms,
 };
 
@@ -123,6 +126,20 @@ impl ConversationStore {
         let transaction =
             connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         if let Some(existing) = find_attachment(&transaction, &prepared.sha256)? {
+            // Re-attaching identical bytes repairs a blob that went missing or was damaged.
+            let blob_path = self.attachment_blob_path(&prepared.sha256);
+            if !blob_matches(&blob_path, &prepared.sha256) {
+                fs::create_dir_all(blob_path.parent().ok_or_else(StorageError::internal)?)?;
+                fs::rename(temporary_path, &blob_path)?;
+                requeue_missing_content(&transaction, &existing.id)?;
+                let repaired = find_attachment(&transaction, &prepared.sha256)?
+                    .ok_or_else(StorageError::internal)?;
+                transaction.commit()?;
+                return Ok(IngestedAttachment {
+                    duplicate: true,
+                    ..repaired
+                });
+            }
             return Ok(IngestedAttachment {
                 duplicate: true,
                 ..existing
@@ -458,6 +475,45 @@ fn find_attachment(
         )
         .optional()
         .map_err(Into::into)
+}
+
+/// Returns whether the stored blob exists and still hashes to its content identity.
+fn blob_matches(path: &Path, sha256: &str) -> bool {
+    let Ok(mut file) = fs::File::open(path) else {
+        return false;
+    };
+    let mut hasher = Sha256::new();
+    std::io::copy(&mut file, &mut hasher).is_ok() && format!("{:x}", hasher.finalize()) == sha256
+}
+
+/// Queues extraction and normalization again when they failed only because the blob was missing.
+fn requeue_missing_content(
+    transaction: &Transaction<'_>,
+    attachment_id: &str,
+) -> Result<(), StorageError> {
+    let now = now_ms()?;
+    let requeued = transaction.execute(
+        "UPDATE attachment_extractions
+         SET state = 'pending', format = NULL, text_content = NULL, character_count = NULL,
+             page_count = NULL, error_code = NULL, updated_at_ms = ?1
+         WHERE attachment_id = ?2 AND state = 'failed' AND error_code = ?3",
+        params![now, attachment_id, ERROR_MISSING_CONTENT],
+    )?;
+    if requeued > 0 {
+        transaction.execute(
+            "UPDATE attachment_text_indexing SET state = 'waiting_for_extraction', updated_at_ms = ?1
+             WHERE attachment_id = ?2",
+            params![now, attachment_id],
+        )?;
+    }
+    transaction.execute(
+        "UPDATE attachment_image_normalizations
+         SET state = 'pending', format = NULL, width = NULL, height = NULL, byte_size = NULL,
+             normalized_sha256 = NULL, error_code = NULL, updated_at_ms = ?1
+         WHERE attachment_id = ?2 AND state = 'failed' AND error_code = ?3",
+        params![now, attachment_id, ERROR_IMAGE_MISSING_CONTENT],
+    )?;
+    Ok(())
 }
 
 /// Adds the selection-specific duplicate flag to shared path-free metadata.

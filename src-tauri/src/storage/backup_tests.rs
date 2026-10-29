@@ -504,3 +504,37 @@ fn automatic_backup_paths(live_path: &std::path::Path) -> Vec<std::path::PathBuf
     paths.sort();
     paths
 }
+
+#[test]
+fn failed_manual_backup_keeps_the_previous_backup_byte_identical() {
+    let source_path = tests::test_database_path();
+    let backup_path = source_path.with_file_name("bottie-previous-backup.sqlite3");
+    let store =
+        ConversationStore::initialize(source_path.clone()).expect("storage should initialize");
+    let attachment = ingest_backup_fixture(&store, "kept.txt", b"previous backup bytes");
+    store
+        .backup_to(&backup_path)
+        .expect("first backup should complete");
+    let previous = fs::read(&backup_path).expect("previous backup should be readable");
+
+    // Corrupting the blob makes the portable-payload embed step fail its hash check.
+    fs::write(
+        store.attachment_blob_path(&attachment.sha256),
+        b"tampered!!!!!!!!!!!!!",
+    )
+    .expect("blob should be overwritten");
+    store
+        .backup_to(&backup_path)
+        .expect_err("a backup with an unverifiable blob must fail");
+
+    assert_eq!(
+        fs::read(&backup_path).expect("previous backup should survive"),
+        previous
+    );
+    let leftovers = fs::read_dir(backup_path.parent().expect("backup directory"))
+        .expect("backup directory should list")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_name().to_string_lossy().ends_with(".part"))
+        .count();
+    assert_eq!(leftovers, 0, "a failed backup must not leave staging files");
+}

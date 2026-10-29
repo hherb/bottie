@@ -32,8 +32,10 @@ pub(crate) async fn test_web_search_connection(
     }
     let started = Instant::now();
     let provider_id = draft.provider_id;
-    let api_key = draft_or_saved_credential(draft.api_key, || state.credentials.get(&provider_id))?
-        .ok_or_else(|| ProviderError::invalid_request(missing_test_credential(&provider_id)))?;
+    // Search adapters use fixed provider hosts, so the saved key can only reach its own provider.
+    let api_key =
+        draft_or_saved_credential(draft.api_key, true, || state.credentials.get(&provider_id))?
+            .ok_or_else(|| ProviderError::invalid_request(missing_test_credential(&provider_id)))?;
     let search_result = match provider_id.as_str() {
         BRAVE_SEARCH_PROVIDER_ID => {
             BraveSearchProvider::new(api_key)

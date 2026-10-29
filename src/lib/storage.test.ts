@@ -4,6 +4,7 @@ import {
   activeConversationDateGroups,
   canBatchExportConversations,
   conversationExportFeedback,
+  missingFilesNote,
   conversationsForLifecycle,
   attachmentExtractionLabel,
   formatToolPayload,
@@ -83,6 +84,12 @@ describe("conversation storage presentation helpers", () => {
     expect(conversationExportFeedback("markdown", "bottie-notes.md")).toBe("Saved bottie-notes.md");
     expect(conversationExportFeedback("json", null)).toBe("Saved JSON export");
     expect(conversationExportFeedback("batch-json", null)).toBe("Saved all conversations");
+  });
+
+  it("warns about missing files only when a backup or restore left some out", () => {
+    expect(missingFilesNote(0)).toBe("");
+    expect(missingFilesNote(1)).toBe(" · 1 missing attachment or image file not included");
+    expect(missingFilesNote(3)).toBe(" · 3 missing attachment or image files not included");
   });
 
   it("formats retained tool payloads as readable inert JSON", () => {

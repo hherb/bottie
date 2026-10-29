@@ -12,6 +12,8 @@ pub(crate) struct BackupOutcome {
     status: BackupStatus,
     /// Saved leaf filename, absent when the dialog was cancelled.
     file_name: Option<String>,
+    /// Catalogued attachment or image files left out because they were missing from disk.
+    missing_files: usize,
 }
 
 /// Stable native backup outcomes returned to the presentation layer.
@@ -34,6 +36,8 @@ pub(crate) struct RestoreOutcome {
     file_name: Option<String>,
     /// Application-private safety file or directory name, absent when cancelled.
     preserved_copy_name: Option<String>,
+    /// Catalogued attachment or image files the restored data has no bytes for.
+    missing_files: usize,
 }
 
 /// Stable native restore outcomes returned to the presentation layer.
@@ -51,14 +55,16 @@ pub(super) fn cancelled_backup() -> BackupOutcome {
     BackupOutcome {
         status: BackupStatus::Cancelled,
         file_name: None,
+        missing_files: 0,
     }
 }
 
 /// Builds a saved-backup outcome from only the selected leaf filename.
-pub(super) fn saved_backup(path: &Path, fallback: &str) -> BackupOutcome {
+pub(super) fn saved_backup(path: &Path, fallback: &str, missing_files: usize) -> BackupOutcome {
     BackupOutcome {
         status: BackupStatus::Saved,
         file_name: Some(leaf_name(path, fallback)),
+        missing_files,
     }
 }
 
@@ -68,6 +74,7 @@ pub(super) fn cancelled_restore() -> RestoreOutcome {
         status: RestoreStatus::Cancelled,
         file_name: None,
         preserved_copy_name: None,
+        missing_files: 0,
     }
 }
 
@@ -76,11 +83,13 @@ pub(super) fn restored(
     selected_name: String,
     preserved_path: &Path,
     preserved_fallback: &str,
+    missing_files: usize,
 ) -> RestoreOutcome {
     RestoreOutcome {
         status: RestoreStatus::Restored,
         file_name: Some(selected_name),
         preserved_copy_name: Some(leaf_name(preserved_path, preserved_fallback)),
+        missing_files,
     }
 }
 
@@ -106,23 +115,26 @@ mod tests {
         let backup = saved_backup(
             Path::new("/Users/alice/Documents/private/bottie backup.sqlite3"),
             "bottie-backup.sqlite3",
+            2,
         );
         let restore = restored(
             "selected backup.sqlite3".into(),
             Path::new("/Users/alice/Library/Application Support/Bottie/pre-restore.sqlite3"),
             "Bottie preserved local data",
+            1,
         );
 
         assert_eq!(
             serde_json::to_value(backup).expect("backup outcome should serialize"),
-            json!({"status": "saved", "fileName": "bottie backup.sqlite3"})
+            json!({"status": "saved", "fileName": "bottie backup.sqlite3", "missingFiles": 2})
         );
         assert_eq!(
             serde_json::to_value(restore).expect("restore outcome should serialize"),
             json!({
                 "status": "restored",
                 "fileName": "selected backup.sqlite3",
-                "preservedCopyName": "pre-restore.sqlite3"
+                "preservedCopyName": "pre-restore.sqlite3",
+                "missingFiles": 1
             })
         );
     }
@@ -131,7 +143,7 @@ mod tests {
     fn cancelled_file_workflows_return_no_filename_or_path() {
         assert_eq!(
             serde_json::to_value(cancelled_backup()).expect("backup cancellation should serialize"),
-            json!({"status": "cancelled", "fileName": null})
+            json!({"status": "cancelled", "fileName": null, "missingFiles": 0})
         );
         assert_eq!(
             serde_json::to_value(cancelled_restore())
@@ -139,7 +151,8 @@ mod tests {
             json!({
                 "status": "cancelled",
                 "fileName": null,
-                "preservedCopyName": null
+                "preservedCopyName": null,
+                "missingFiles": 0
             })
         );
     }
