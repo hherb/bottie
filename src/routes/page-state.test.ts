@@ -557,3 +557,32 @@ describe("PageState transcript text fallback", () => {
     expect(state.microphoneTranscriptDraftFeedback).toContain("combined draft exceeds the 32 KiB text limit");
   });
 });
+
+describe("PageState new chat", () => {
+  it("retires the old run before awaiting speech shutdown", async () => {
+    const state = new PageState();
+    const run = state as unknown as { generationRun: number };
+    run.generationRun = 4;
+    state.isGenerating = true;
+    state.messages = [{ id: 1, role: "user", text: "old" } as never];
+    state.speech.status = {
+      phase: "speaking",
+      selectedVoiceId: "local-voice-001",
+      errorCode: null,
+      latency: { playbackAcceptedMs: 12 },
+    };
+    let resolveStop = () => {};
+    vi.spyOn(state.speech, "stop").mockImplementation(
+      () => new Promise<boolean>((resolve) => (resolveStop = () => resolve(true))),
+    );
+    vi.spyOn(state.history, "startNew").mockResolvedValue(undefined as never);
+
+    const started = state.startNewChat();
+
+    expect(run.generationRun).toBe(5);
+    expect(state.isGenerating).toBe(false);
+    expect(state.messages).toEqual([]);
+    resolveStop();
+    await started;
+  });
+});

@@ -77,6 +77,8 @@ export class ConversationState {
   backupFailed = $state(false);
 
   private searchSequence = 0;
+  /** Bumped by every conversation load so a slower, superseded load cannot replace a newer selection. */
+  private openSequence = 0;
 
   /** Loads navigation and returns the exact durable profile selection. */
   async initialize(): Promise<Message[]> {
@@ -98,11 +100,14 @@ export class ConversationState {
 
   /** Opens one persisted conversation and returns its presentation messages. */
   async open(conversationId: string): Promise<Message[] | null> {
+    const sequence = ++this.openSequence;
     try {
       const conversation = await loadConversation(conversationId);
+      if (sequence !== this.openSequence) return null;
       this.storageError = null;
       return this.applyConversation(conversation);
     } catch (error) {
+      if (sequence !== this.openSequence) return null;
       this.storageError = storageErrorFromUnknown(error);
       return null;
     }
@@ -112,11 +117,13 @@ export class ConversationState {
   async openSearchResult(result: ConversationSearchResult): Promise<Message[] | null> {
     if (this.isManaging) return null;
     this.isManaging = true;
+    const sequence = ++this.openSequence;
     try {
       let conversation = await loadConversation(result.conversationId);
       if (conversation.currentBranchId !== result.branchId) {
         conversation = await selectConversationBranch(result.conversationId, result.branchId);
       }
+      if (sequence !== this.openSequence) return null;
       this.storageError = null;
       return this.applyConversation(conversation);
     } catch (error) {
