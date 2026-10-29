@@ -45,6 +45,7 @@ mod web_fetch;
 mod web_policy;
 pub mod web_search;
 mod web_search_commands;
+mod worker_env;
 
 #[cfg(test)]
 mod generation_tools_tests;

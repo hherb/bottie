@@ -166,7 +166,7 @@ impl MossInstallation {
             }
             command.args(["-I", "-u"]).arg(script);
         }
-        command
+        crate::worker_env::apply_minimal_environment(&mut command)
             .arg("--model-directory")
             .arg(&self.config.model_directory)
             .arg("--model-id")
@@ -181,9 +181,7 @@ impl MossInstallation {
             )
             .env("HF_HUB_OFFLINE", "1")
             .env("TRANSFORMERS_OFFLINE", "1")
-            .env("HF_HUB_DISABLE_TELEMETRY", "1")
-            .env_remove("PYTHONPATH")
-            .env_remove("PYTHONHOME");
+            .env("HF_HUB_DISABLE_TELEMETRY", "1");
         Ok(command)
     }
     /// Handshake and output must identify this exact immutable model revision.
