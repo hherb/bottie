@@ -4,6 +4,7 @@ use url::Url;
 
 use super::{
     InferenceProvider,
+    limits::ensure_round_text_within_limit,
     provider::StreamSink,
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_local_base_url},
     types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
@@ -291,6 +292,12 @@ fn process_stream_line(
     emit_usage: bool,
 ) -> Result<bool, ProviderError> {
     let event = decode_stream_line(line)?;
+    ensure_round_text_within_limit(
+        round.thinking.len()
+            + round.content.len()
+            + event.reasoning_delta.len()
+            + event.text_delta.len(),
+    )?;
     if !event.reasoning_delta.is_empty() {
         round.thinking.push_str(&event.reasoning_delta);
         sink.reasoning_delta(event.reasoning_delta)?;

@@ -7,6 +7,7 @@ use url::Url;
 
 use super::{
     InferenceProvider, StreamSink,
+    limits::ensure_round_text_within_limit,
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_remote_base_url},
     sse::SseDecoder,
     types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
@@ -239,6 +240,12 @@ fn process_stream_event(
     calls: &mut OpenAiToolCallAccumulator,
     emit_usage: bool,
 ) -> Result<bool, ProviderError> {
+    ensure_round_text_within_limit(
+        round.reasoning.len()
+            + round.content.len()
+            + event.reasoning_delta.len()
+            + event.text_delta.len(),
+    )?;
     if !event.reasoning_delta.is_empty() {
         round.reasoning.push_str(&event.reasoning_delta);
         sink.reasoning_delta(event.reasoning_delta)?;

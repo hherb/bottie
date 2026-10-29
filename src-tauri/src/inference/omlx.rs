@@ -5,6 +5,7 @@ use url::Url;
 
 use super::{
     InferenceProvider,
+    limits::ensure_round_text_within_limit,
     openai::protocol::{
         DecodedStreamEvent, OpenAiToolCall, OpenAiToolCallAccumulator, OpenAiToolResult,
         decode_stream_payload,
@@ -276,6 +277,12 @@ fn process_stream_event(
     calls: &mut OpenAiToolCallAccumulator,
     emit_usage: bool,
 ) -> Result<bool, ProviderError> {
+    ensure_round_text_within_limit(
+        round.reasoning.len()
+            + round.content.len()
+            + event.reasoning_delta.len()
+            + event.text_delta.len(),
+    )?;
     if !event.reasoning_delta.is_empty() {
         round.reasoning.push_str(&event.reasoning_delta);
         sink.reasoning_delta(event.reasoning_delta)?;

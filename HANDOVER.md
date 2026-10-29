@@ -4,10 +4,8 @@ Last verified: 2026-10-29 (FIX_BOTTIE items 1-5 on `fix/bottie-audit-1-5`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-10-29:
-   - Draft PR #212, `codex/moss-image-backend` → `main`: Qwen 2.1, tabbed composer, MOSS-TTS-Nano, MOSS-Image, and
-     the audit list. It was never PR'd before; `main`'s HANDOVER was stale until it merges.
-   - The `fix/bottie-audit-1-5` PR targets `codex/moss-image-backend` and holds audit items 1-5.
+1. Check the PR list first. As of 2026-10-30, PRs #212 (MOSS/Qwen 2.1 backends) and #213 (audit items 1-5) are
+   merged into `main`.
 2. **Next item:** `FIX_BOTTIE.md` items 6 onward ("Should fix"), in order. Re-locate code before editing; line numbers
    refer to the audit commit `dae91bf`.
 3. Owed hardware re-checks (cannot run in a normal session):

@@ -8,12 +8,14 @@ use super::{
     AnthropicAssistantBlock, AnthropicToolCall, AnthropicToolRound, ContentDelta, DecodedEvent,
     StartBlock,
 };
-use crate::inference::{ProviderError, Usage};
+use crate::inference::{
+    ProviderError, Usage,
+    limits::{MAX_STREAMED_ARGUMENT_BYTES, ensure_round_text_within_limit},
+};
 
 const MAX_PROVIDER_CALL_ID_CHARACTERS: usize = 512;
 const MAX_TOOL_NAME_CHARACTERS: usize = 128;
 const MAX_STREAMED_TOOL_CALLS: usize = 64;
-const MAX_STREAMED_ARGUMENT_BYTES: usize = 64 * 1_024;
 
 /// Reconstructs ordered Messages content blocks and tool arguments across streamed fragments.
 #[derive(Default)]
@@ -24,6 +26,8 @@ pub(in crate::inference::anthropic) struct AnthropicResponseAccumulator {
     saw_usage: bool,
     stop_reason: Option<String>,
     completed: bool,
+    /// Text, thinking, and signature bytes streamed so far across every block in this round.
+    streamed_text_bytes: usize,
 }
 
 enum PartialBlock {
@@ -173,6 +177,14 @@ impl AnthropicResponseAccumulator {
     }
 
     fn apply_delta(&mut self, index: usize, delta: ContentDelta) -> Result<(), ProviderError> {
+        let text_bytes = match &delta {
+            ContentDelta::TextDelta { text } => text.len(),
+            ContentDelta::ThinkingDelta { thinking } => thinking.len(),
+            ContentDelta::SignatureDelta { signature } => signature.len(),
+            _ => 0,
+        };
+        self.streamed_text_bytes = self.streamed_text_bytes.saturating_add(text_bytes);
+        ensure_round_text_within_limit(self.streamed_text_bytes)?;
         let block = self
             .active
             .get_mut(&index)

@@ -1,17 +1,38 @@
 //! Provider-neutral server-sent-event frame decoding.
 
-use super::ProviderError;
+use super::{
+    ProviderError,
+    limits::{MAX_STREAM_FRAME_BYTES, ensure_frame_within_limit},
+};
 
 /// Incrementally decodes UTF-8 SSE frames into their joined `data` payloads.
+///
+/// Line endings (`\r\n`, `\r`, `\n`) are normalized to `\n` as bytes arrive, so a frame boundary is always
+/// `\n\n`. Each byte is scanned for a boundary only once, and a frame that grows past
+/// [`MAX_STREAM_FRAME_BYTES`] without a boundary is rejected.
 #[derive(Default)]
 pub(crate) struct SseDecoder {
     buffer: Vec<u8>,
+    /// Bytes at the start of `buffer` already known to contain no boundary.
+    scanned: usize,
+    /// The previous chunk ended in `\r`, so a leading `\n` in the next chunk belongs to that line ending.
+    pending_cr: bool,
 }
 
 impl SseDecoder {
     /// Appends bytes and returns every newly completed SSE data payload.
     pub(crate) fn push(&mut self, bytes: &[u8]) -> Result<Vec<String>, ProviderError> {
-        self.buffer.extend_from_slice(bytes);
+        for &byte in bytes {
+            if std::mem::take(&mut self.pending_cr) && byte == b'\n' {
+                continue;
+            }
+            if byte == b'\r' {
+                self.pending_cr = true;
+                self.buffer.push(b'\n');
+            } else {
+                self.buffer.push(byte);
+            }
+        }
         self.drain(false)
     }
 
@@ -22,15 +43,20 @@ impl SseDecoder {
 
     fn drain(&mut self, finish: bool) -> Result<Vec<String>, ProviderError> {
         let mut payloads = Vec::new();
-        while let Some((index, separator_len)) = find_event_boundary(&self.buffer) {
+        // Back up one byte: the first `\n` of a boundary may be the last byte scanned before.
+        while let Some(index) = find_event_boundary(&self.buffer, self.scanned.saturating_sub(1)) {
             let frame = self.buffer.drain(..index).collect::<Vec<_>>();
-            self.buffer.drain(..separator_len);
+            self.buffer.drain(..2);
+            self.scanned = 0;
             if let Some(payload) = decode_sse_frame(&frame)? {
                 payloads.push(payload);
             }
         }
+        self.scanned = self.buffer.len();
+        ensure_frame_within_limit(self.buffer.len())?;
         if finish && !self.buffer.is_empty() {
             let frame = std::mem::take(&mut self.buffer);
+            self.scanned = 0;
             if let Some(payload) = decode_sse_frame(&frame)? {
                 payloads.push(payload);
             }
@@ -39,20 +65,13 @@ impl SseDecoder {
     }
 }
 
-fn find_event_boundary(bytes: &[u8]) -> Option<(usize, usize)> {
-    let lf = bytes
+/// Finds the first blank-line boundary (`\n\n`) at or after `from`.
+fn find_event_boundary(bytes: &[u8], from: usize) -> Option<usize> {
+    bytes
+        .get(from..)?
         .windows(2)
         .position(|window| window == b"\n\n")
-        .map(|index| (index, 2));
-    let crlf = bytes
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .map(|index| (index, 4));
-    match (lf, crlf) {
-        (Some(left), Some(right)) => Some(if left.0 <= right.0 { left } else { right }),
-        (Some(boundary), None) | (None, Some(boundary)) => Some(boundary),
-        (None, None) => None,
-    }
+        .map(|index| from + index)
 }
 
 fn decode_sse_frame(frame: &[u8]) -> Result<Option<String>, ProviderError> {
@@ -62,9 +81,11 @@ fn decode_sse_frame(frame: &[u8]) -> Result<Option<String>, ProviderError> {
             Some(error.to_string()),
         )
     })?;
+    // The SSE spec removes exactly one space after `data:`; further indentation is part of the value.
     let data = text
-        .lines()
-        .filter_map(|line| line.strip_prefix("data:").map(str::trim_start))
+        .split('\n')
+        .filter_map(|line| line.strip_prefix("data:"))
+        .map(|value| value.strip_prefix(' ').unwrap_or(value))
         .collect::<Vec<_>>();
     Ok((!data.is_empty()).then(|| data.join("\n")))
 }
@@ -80,6 +101,37 @@ mod tests {
         assert_eq!(
             decoder.push(b"lo\r\n\r\ndata: world\n\n").unwrap(),
             ["hello", "world"]
+        );
+    }
+
+    #[test]
+    fn decodes_bare_cr_frames_even_when_crlf_is_split_across_chunks() {
+        let mut decoder = SseDecoder::default();
+        assert_eq!(decoder.push(b"data: a\r\r").unwrap(), ["a"]);
+        assert!(decoder.push(b"data: b\r").unwrap().is_empty());
+        assert_eq!(decoder.push(b"\n\r\n").unwrap(), ["b"]);
+    }
+
+    #[test]
+    fn strips_only_one_leading_space_from_data_values() {
+        let mut decoder = SseDecoder::default();
+        assert_eq!(
+            decoder.push(b"data:   indented\n\n").unwrap(),
+            ["  indented"]
+        );
+        assert_eq!(decoder.push(b"data:tight\n\n").unwrap(), ["tight"]);
+    }
+
+    #[test]
+    fn rejects_an_unterminated_frame_larger_than_the_limit() {
+        let mut decoder = SseDecoder::default();
+        let chunk = vec![b'x'; MAX_STREAM_FRAME_BYTES / 2];
+        assert!(decoder.push(b"data: ").unwrap().is_empty());
+        assert!(decoder.push(&chunk).unwrap().is_empty());
+        let error = decoder.push(&chunk).unwrap_err();
+        assert_eq!(
+            error.code,
+            crate::inference::ProviderErrorCode::MalformedResponse
         );
     }
 }

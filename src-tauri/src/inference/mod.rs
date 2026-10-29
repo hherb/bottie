@@ -2,6 +2,7 @@
 
 mod anthropic;
 mod generation_limits;
+mod limits;
 mod multimodal;
 mod ollama;
 mod omlx;
