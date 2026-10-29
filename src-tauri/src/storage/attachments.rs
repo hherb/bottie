@@ -123,6 +123,14 @@ impl ConversationStore {
         let transaction =
             connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         if let Some(existing) = find_attachment(&transaction, &prepared.sha256)? {
+            // Re-attaching identical bytes repairs a blob that went missing from disk.
+            let blob_path = self.attachment_blob_path(&prepared.sha256);
+            let intact =
+                fs::metadata(&blob_path).is_ok_and(|metadata| metadata.len() == prepared.byte_size);
+            if !intact {
+                fs::create_dir_all(blob_path.parent().ok_or_else(StorageError::internal)?)?;
+                fs::rename(temporary_path, &blob_path)?;
+            }
             return Ok(IngestedAttachment {
                 duplicate: true,
                 ..existing

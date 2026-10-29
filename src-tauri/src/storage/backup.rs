@@ -18,6 +18,7 @@ const RESTORE_STAGING_FILE_PREFIX: &str = ".bottie-restore-staging";
 const AUTOMATIC_BACKUP_DIRECTORY: &str = "automatic-backups";
 const AUTOMATIC_BACKUP_FILE_PREFIX: &str = "bottie-auto";
 const AUTOMATIC_BACKUP_STAGING_PREFIX: &str = ".bottie-auto-staging";
+const MANUAL_BACKUP_STAGING_PREFIX: &str = ".bottie-backup";
 const AUTOMATIC_BACKUP_INTERVAL_MS: i64 = 24 * 60 * 60 * 1_000;
 const AUTOMATIC_BACKUP_RETENTION_COUNT: usize = 7;
 const REQUIRED_BACKUP_TABLES: &[&str] = &[
@@ -38,6 +39,8 @@ pub(crate) struct AutomaticBackupRotation {
     pub(crate) retained: usize,
     /// Number of expired managed snapshots removed by this rotation.
     pub(crate) pruned: usize,
+    /// Catalog files left out of the new snapshot because they were missing from disk.
+    pub(crate) skipped_files: usize,
 }
 
 /// One application-owned automatic snapshot discovered from its strict filename contract.
@@ -48,28 +51,47 @@ pub(super) struct ManagedBackup {
 
 impl ConversationStore {
     /// Copies every committed page to an independently readable database through SQLite's online backup API.
-    pub(crate) fn backup_to(&self, destination: &Path) -> Result<(), StorageError> {
+    ///
+    /// Returns how many attachment or image files were left out because they were missing.
+    pub(crate) fn backup_to(&self, destination: &Path) -> Result<usize, StorageError> {
         if paths_refer_to_same_file(&self.path, destination) {
             return Err(StorageError::invalid(
                 "Choose a different location for the Bottie backup.",
             ));
         }
-        remove_database_sidecars(destination);
+        // Build and verify beside the destination, then rename over it, so a failed backup
+        // never destroys or replaces the user's previous backup.
+        let directory = destination
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        let staging = directory.join(format!(
+            "{MANUAL_BACKUP_STAGING_PREFIX}-{}.part",
+            uuid::Uuid::new_v4()
+        ));
+        let result = self.write_verified_backup(&staging).and_then(|skipped| {
+            remove_database_sidecars(destination);
+            fs::rename(&staging, destination).map_err(|_| StorageError::backup())?;
+            Ok(skipped)
+        });
+        remove_database_files(&staging);
+        result
+    }
+
+    /// Writes a complete snapshot with its portable payload to `path` and verifies it.
+    ///
+    /// On failure `path` may hold partial bytes; callers write to a staging path and clean up.
+    fn write_verified_backup(&self, path: &Path) -> Result<usize, StorageError> {
+        remove_database_sidecars(path);
         let source = self.open()?;
         source
-            .backup(MAIN_DB, destination, None)
+            .backup(MAIN_DB, path, None)
             .map_err(|_| StorageError::backup())?;
-        if embed_portable_payload(
-            destination,
-            &self.attachment_root(),
-            &self.generated_asset_root(),
-        )
-        .is_err()
-        {
-            remove_database_files(destination);
-            return Err(StorageError::backup());
-        }
-        verify_backup(destination)
+        let skipped =
+            embed_portable_payload(path, &self.attachment_root(), &self.generated_asset_root())
+                .map_err(|_| StorageError::backup())?;
+        verify_backup(path)?;
+        Ok(skipped)
     }
 
     /// Creates a verified snapshot when the newest automatic backup is at least 24 hours old.
@@ -95,6 +117,7 @@ impl ConversationStore {
                 created: false,
                 retained: backups.len(),
                 pruned: 0,
+                skipped_files: 0,
             });
         }
 
@@ -103,10 +126,10 @@ impl ConversationStore {
         let destination = directory.join(format!(
             "{AUTOMATIC_BACKUP_FILE_PREFIX}-{timestamp_ms}-{id}.sqlite3"
         ));
-        if self.backup_to(&staging).is_err() {
+        let Ok(skipped_files) = self.write_verified_backup(&staging) else {
             remove_database_files(&staging);
             return Err(StorageError::automatic_backup());
-        }
+        };
         if fs::rename(&staging, &destination).is_err() {
             remove_database_files(&staging);
             return Err(StorageError::automatic_backup());
@@ -129,6 +152,7 @@ impl ConversationStore {
             created: true,
             retained: backups.len(),
             pruned: expired.len(),
+            skipped_files,
         })
     }
 

@@ -128,7 +128,7 @@ use image_generation::{
 use inference::{
     AnthropicProvider, InferenceProvider, ModelInfo, OllamaProvider, OmlxProvider, OpenAiProvider,
     ProviderError, ProviderSettings, load_provider_settings, persist_completed_first_run_setup,
-    save_provider_settings,
+    save_provider_settings, validate_remote_base_url,
 };
 use local_audio_preferences::LocalAudioPreferenceStore;
 use local_image_worker::acquisition_coordinator::{
@@ -207,8 +207,9 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
                 "info",
                 "Automatic backup created",
                 format!(
-                    "{} verified snapshot(s) retained; {} expired snapshot(s) removed",
-                    outcome.retained, outcome.pruned
+                    "{} verified snapshot(s) retained; {} expired snapshot(s) removed; \
+                     {} missing attachment or image file(s) left out",
+                    outcome.retained, outcome.pruned, outcome.skipped_files
                 ),
             ),
             Ok(Ok(outcome)) => (
@@ -387,13 +388,15 @@ async fn validate_qwen_image_configuration(
     draft: ImageGenerationSetupDraft,
     state: State<'_, AppState>,
 ) -> Result<ImageGenerationSetupStatus, ProviderError> {
-    let api_key = draft_or_saved_credential(draft.api_key, || {
+    let base_url = validate_qwen_image_base_url(&draft.base_url)?.to_string();
+    let saved_target_matches =
+        base_url == state.providers.read().await.settings().qwen_image_base_url;
+    let api_key = draft_or_saved_credential(draft.api_key, saved_target_matches, || {
         state.credentials.get(QWEN_IMAGE_PROVIDER_ID)
     })?
     .ok_or_else(|| {
         ProviderError::invalid_request("Add a Model Studio API key to validate Qwen Image.")
     })?;
-    let base_url = validate_qwen_image_base_url(&draft.base_url)?.to_string();
     let provider = DashScopeQwenImageProvider::new(&base_url, api_key)?;
     let capabilities = provider.capabilities();
     let status = ImageGenerationSetupStatus {
@@ -616,6 +619,7 @@ async fn test_provider_connection(
     state: State<'_, AppState>,
 ) -> Result<ProviderConnectionTest, ProviderError> {
     let started = Instant::now();
+    let saved = state.providers.read().await.settings();
     let (provider_name, base_url, provider) = match draft.provider_id.as_str() {
         "omlx" => {
             let provider = OmlxProvider::with_base_url(&draft.base_url)?;
@@ -628,10 +632,15 @@ async fn test_provider_connection(
             ("Ollama", base_url, RoutedProvider::Ollama(provider))
         }
         "openai" => {
-            let key = draft_or_saved_credential(draft.api_key, || state.credentials.get("openai"))?
-                .ok_or_else(|| {
-                    ProviderError::invalid_request("Enter an OpenAI-compatible API key to test.")
-                })?;
+            let saved_target_matches =
+                validate_remote_base_url("OpenAI-compatible", &draft.base_url)?.as_str()
+                    == saved.openai_base_url;
+            let key = draft_or_saved_credential(draft.api_key, saved_target_matches, || {
+                state.credentials.get("openai")
+            })?
+            .ok_or_else(|| {
+                ProviderError::invalid_request("Enter an OpenAI-compatible API key to test.")
+            })?;
             let provider = OpenAiProvider::new(&draft.base_url, key)?;
             let base_url = provider.base_url().to_owned();
             (
@@ -641,13 +650,15 @@ async fn test_provider_connection(
             )
         }
         "anthropic" => {
-            let key =
-                draft_or_saved_credential(draft.api_key, || state.credentials.get("anthropic"))?
-                    .ok_or_else(|| {
-                        ProviderError::invalid_request(
-                            "Enter an Anthropic-compatible API key to test.",
-                        )
-                    })?;
+            let saved_target_matches =
+                validate_remote_base_url("Anthropic-compatible", &draft.base_url)?.as_str()
+                    == saved.anthropic_base_url;
+            let key = draft_or_saved_credential(draft.api_key, saved_target_matches, || {
+                state.credentials.get("anthropic")
+            })?
+            .ok_or_else(|| {
+                ProviderError::invalid_request("Enter an Anthropic-compatible API key to test.")
+            })?;
             let provider = AnthropicProvider::new(&draft.base_url, key)?;
             let base_url = provider.base_url().to_owned();
             (

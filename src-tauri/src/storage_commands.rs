@@ -140,9 +140,21 @@ pub(crate) async fn backup_conversation_store(
     let path = selected.into_path().map_err(|_| StorageError::backup())?;
     let conversations = state.conversations.clone();
     let backup_path = path.clone();
-    tauri::async_runtime::spawn_blocking(move || conversations.backup_to(&backup_path))
-        .await
-        .map_err(|_| StorageError::backup())??;
+    let skipped =
+        tauri::async_runtime::spawn_blocking(move || conversations.backup_to(&backup_path))
+            .await
+            .map_err(|_| StorageError::backup())??;
+    if skipped > 0 {
+        let detail = format!("{skipped} missing attachment or image file(s) left out");
+        crate::diagnostics::record_diagnostic(
+            &state.diagnostics,
+            "warn",
+            "Backup saved without missing files",
+            None,
+            Some(&detail),
+        )
+        .await;
+    }
     Ok(saved_backup(&path, BACKUP_FILE_NAME))
 }
 

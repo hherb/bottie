@@ -104,7 +104,11 @@ pub(crate) async fn test_localmail_connection(
     let started = Instant::now();
     let origin = normalize_origin(&draft.origin)?;
     let certificate_sha256 = normalize_certificate_sha256(&draft.certificate_sha256)?;
-    let token = draft_or_saved_credential(draft.api_key, || {
+    // The saved key may only go to the exact saved origin and confirmed certificate pin.
+    let saved_target_matches = load_config(&state.localmail_config_path)?.is_some_and(|saved| {
+        saved.origin == origin && saved.certificate_sha256 == certificate_sha256
+    });
+    let token = draft_or_saved_credential(draft.api_key, saved_target_matches, || {
         state.credentials.get(LOCALMAIL_CREDENTIAL_ID)
     })?
     .map(|value| normalize_api_key(&value))
