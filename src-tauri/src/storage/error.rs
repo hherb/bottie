@@ -118,6 +118,16 @@ impl StorageError {
         }
     }
 
+    /// Creates a retryable failure when a background worker did not pause in time, e.g. during a model download.
+    pub(crate) fn workers_busy() -> Self {
+        Self {
+            code: "invalid_request",
+            message:
+                "Bottie is still busy preparing local data in the background. Try again shortly."
+                    .into(),
+        }
+    }
+
     /// Creates a path-redacted SQLite-restore failure.
     pub(crate) fn restore() -> Self {
         Self {

@@ -76,7 +76,7 @@ pub(crate) async fn reindex_semantic_memory(
     let conversations = state.conversations.clone();
     let semantic_indexing = state.semantic_indexing.clone();
     let progress = tauri::async_runtime::spawn_blocking(move || {
-        let _semantic_pause = semantic_indexing.pause();
+        let _semantic_pause = semantic_indexing.pause()?;
         conversations.reset_semantic_index()
     })
     .await
@@ -213,8 +213,8 @@ pub(crate) async fn restore_conversation_store(
     let restore_path = path.clone();
     let worker_safety_path = safety_path.clone();
     let missing_files = tauri::async_runtime::spawn_blocking(move || {
-        let _processing_pause = attachment_processing.pause();
-        let _semantic_pause = semantic_indexing.pause();
+        let _processing_pause = attachment_processing.pause()?;
+        let _semantic_pause = semantic_indexing.pause()?;
         conversations.restore_from(&restore_path, &worker_safety_path)?;
         Ok::<_, StorageError>(restored_missing_files(&conversations))
     })
@@ -268,8 +268,8 @@ pub(crate) async fn restore_latest_automatic_backup(
     let preservation = conversations.restore_preservation_path()?;
     let worker_preservation = preservation.clone();
     let missing_files = tauri::async_runtime::spawn_blocking(move || {
-        let _processing_pause = attachment_processing.pause();
-        let _semantic_pause = semantic_indexing.pause();
+        let _processing_pause = attachment_processing.pause()?;
+        let _semantic_pause = semantic_indexing.pause()?;
         conversations.restore_latest_automatic_backup(&worker_preservation)?;
         Ok::<_, StorageError>(restored_missing_files(&conversations))
     })
