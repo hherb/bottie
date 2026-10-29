@@ -14,7 +14,8 @@ The audit's baseline:
 
 ## Must fix
 
-- [ ] **1. Test connection sends the saved API key to any HTTPS URL**
+- [x] **1. Test connection sends the saved API key to any HTTPS URL**
+  - **Status:** Done 2026-10-29: also covers the Localmail test (origin + certificate pin must match).
   - **Where:** `src-tauri/src/lib.rs:614-658` (`test_provider_connection`) and `src-tauri/src/credentials.rs:44-55`
     (`draft_or_saved_credential`).
   - **Problem:** With an empty key box, the saved vault key is used for whatever `draft.base_url` the WebView sends.
@@ -26,7 +27,8 @@ The audit's baseline:
   - **Test:** Saved key plus a different draft URL gives an error, and no saved-key read happens. Saved key plus the
     same URL still works.
 
-- [ ] **2. Manual backup destroys the previous backup on failure**
+- [x] **2. Manual backup destroys the previous backup on failure**
+  - **Status:** Done 2026-10-29.
   - **Where:** `src-tauri/src/storage/backup.rs:51-73` (`backup_to`), called from `storage_commands.rs:143`.
   - **Problem:**
     - `backup_to` writes straight onto the user-chosen path.
@@ -39,7 +41,8 @@ The audit's baseline:
     `restore_from`'s safety copy (`backup.rs:196`) goes to a fresh path and keeps working.
   - **Test:** An existing destination file survives byte-identical when the embed step is forced to fail.
 
-- [ ] **3. One missing attachment blob blocks every backup, and re-attaching does not repair it**
+- [x] **3. One missing attachment blob blocks every backup, and re-attaching does not repair it**
+  - **Status:** Done 2026-10-29: payload validation now accepts a verified subset; manual backups log a `warn` diagnostic.
   - **Where:** `src-tauri/src/storage/portable_backup.rs:71-73`, `:83-90` and `:101-103` (`verified_file` failure
     aborts), and `src-tauri/src/storage/attachments.rs:125-130` (`commit_blob` duplicate branch).
   - **Problem:**
@@ -56,7 +59,8 @@ The audit's baseline:
     - Delete one blob, then confirm automatic backup still succeeds and reports one skip.
     - Re-ingest the same bytes, then confirm the blob file exists again.
 
-- [ ] **4. The MLX image worker crashes on a late Cancel**
+- [x] **4. The MLX image worker crashes on a late Cancel**
+  - **Status:** Done 2026-10-29: Linux source pins re-pinned; the frozen Mac 2512 bundle and Linux DGX image still need rebuilding.
   - **Where:** `local-image-worker/mlx_worker.py`:
     - `:225-229`: a cancel that does not match the active request is queued.
     - `:217-218`: an unknown command raises `ValueError`.
@@ -73,7 +77,8 @@ The audit's baseline:
     - A cancel sent after a completed generate leaves the worker alive.
     - A following generate succeeds.
 
-- [ ] **5. The MOSS image and Nano speech workers inherit the full app environment**
+- [x] **5. The MOSS image and Nano speech workers inherit the full app environment**
+  - **Status:** Done 2026-10-29 in `src-tauri/src/worker_env.rs`; real-hardware MOSS MLX/CUDA re-proof still owed.
   - **Where:** `src-tauri/src/local_image_worker/moss/runtime.rs:153-187` and
     `src-tauri/src/speech/nano/process.rs:34-46`.
   - **Problem:** These spawns only remove `PYTHONPATH` and `PYTHONHOME`. Variables like `ANTHROPIC_API_KEY`,

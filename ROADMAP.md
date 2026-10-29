@@ -2,6 +2,12 @@
 
 This roadmap favors complete vertical slices over building every backend subsystem in isolation. Each milestone should leave the desktop application usable and preserve the Rust/WebView security boundary.
 
+## Current focus (2026-10-29)
+
+- `FIX_BOTTIE.md` audit list: items 1-5 (must fix) done; items 6-22 next, in order.
+- `mlx_worker.py` changed (audit item 4). The frozen Mac Qwen-Image-2512 worker bundle (8.4) and the Linux clean-runtime
+  image and closure evidence (8.4) predate it, so rebuild and re-pin both before relying on them.
+
 ## Product principles
 
 - **Local first, not local only.** Local inference and storage are first-class, while cloud providers remain explicit choices.
