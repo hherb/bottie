@@ -5,8 +5,9 @@ use crate::{
     storage::{AttachmentGarbageCollection, ConversationStore, StorageError},
 };
 
-/// Collects unreferenced attachment content before drafts or background processing can begin.
+/// Sweeps abandoned restore staging and collects unreferenced attachment content before drafts or background processing can begin.
 pub(crate) fn collect_at_startup(conversations: &ConversationStore, diagnostics: Diagnostics) {
+    conversations.sweep_interrupted_restore_staging();
     let collection = conversations.collect_unreferenced_attachments();
     tauri::async_runtime::spawn(record_collection_diagnostic(diagnostics, collection));
 }

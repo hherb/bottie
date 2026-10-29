@@ -538,3 +538,33 @@ fn failed_manual_backup_keeps_the_previous_backup_byte_identical() {
         .count();
     assert_eq!(leftovers, 0, "a failed backup must not leave staging files");
 }
+
+#[test]
+fn rotation_sweeps_abandoned_staging_but_keeps_recent_staging() {
+    let live_path = tests::test_database_path();
+    let store =
+        ConversationStore::initialize(live_path.clone()).expect("storage should initialize");
+    let backup_directory = live_path
+        .parent()
+        .expect("test database should have a parent")
+        .join("automatic-backups");
+    fs::create_dir_all(&backup_directory).expect("automatic backup directory should exist");
+    let abandoned = backup_directory.join(".bottie-auto-staging-abandoned.sqlite3");
+    let recent = backup_directory.join(".bottie-auto-staging-recent.sqlite3");
+    fs::write(&abandoned, b"killed mid-backup").expect("abandoned staging should be written");
+    fs::write(&recent, b"another process").expect("recent staging should be written");
+    fs::File::options()
+        .write(true)
+        .open(&abandoned)
+        .and_then(|file| {
+            file.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(7_200))
+        })
+        .expect("abandoned staging should be aged");
+
+    store
+        .rotate_automatic_backups_at(24 * 60 * 60 * 1_000)
+        .expect("automatic rotation should complete");
+
+    assert!(!abandoned.exists());
+    assert!(recent.exists());
+}

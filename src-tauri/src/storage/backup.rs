@@ -11,10 +11,13 @@ use super::portable_backup::{
     embed_portable_payload, extract_portable_payload, missing_content_count, omitted_file_count,
     strip_portable_payload, strip_portable_payload_from_connection, validate_portable_payload,
 };
+use super::staging_sweep::{remove_stale_staging, stale_staging_cutoff};
 use super::{CURRENT_SCHEMA_VERSION, ConversationStore, StorageError, now_ms};
 
 const PRE_RESTORE_FILE_PREFIX: &str = "bottie-pre-restore";
-const RESTORE_STAGING_FILE_PREFIX: &str = ".bottie-restore-staging";
+pub(super) const RESTORE_STAGING_FILE_PREFIX: &str = ".bottie-restore-staging";
+pub(super) const ATTACHMENT_RESTORE_STAGING_PREFIX: &str = ".bottie-attachment-restore";
+pub(super) const GENERATED_ASSET_RESTORE_STAGING_PREFIX: &str = ".bottie-generated-asset-restore";
 const AUTOMATIC_BACKUP_DIRECTORY: &str = "automatic-backups";
 const AUTOMATIC_BACKUP_FILE_PREFIX: &str = "bottie-auto";
 const AUTOMATIC_BACKUP_STAGING_PREFIX: &str = ".bottie-auto-staging";
@@ -120,6 +123,11 @@ impl ConversationStore {
     ) -> Result<AutomaticBackupRotation, StorageError> {
         let directory = automatic_backup_directory(&self.path)?;
         fs::create_dir_all(&directory).map_err(|_| StorageError::automatic_backup())?;
+        remove_stale_staging(
+            &directory,
+            &[AUTOMATIC_BACKUP_STAGING_PREFIX],
+            stale_staging_cutoff(),
+        );
         let mut backups = managed_backups(&directory)?;
         let freshness_threshold = timestamp_ms.saturating_sub(AUTOMATIC_BACKUP_INTERVAL_MS);
         if backups
@@ -404,7 +412,7 @@ pub(super) fn validate_restore_source(path: &Path) -> Result<(), StorageError> {
 fn attachment_restore_staging_path(live: &Path) -> Result<PathBuf, StorageError> {
     let parent = live.parent().ok_or_else(StorageError::restore)?;
     Ok(parent.join(format!(
-        ".bottie-attachment-restore-{}",
+        "{ATTACHMENT_RESTORE_STAGING_PREFIX}-{}",
         uuid::Uuid::new_v4()
     )))
 }
@@ -413,7 +421,7 @@ fn attachment_restore_staging_path(live: &Path) -> Result<PathBuf, StorageError>
 fn generated_asset_restore_staging_path(live: &Path) -> Result<PathBuf, StorageError> {
     let parent = live.parent().ok_or_else(StorageError::restore)?;
     Ok(parent.join(format!(
-        ".bottie-generated-asset-restore-{}",
+        "{GENERATED_ASSET_RESTORE_STAGING_PREFIX}-{}",
         uuid::Uuid::new_v4()
     )))
 }

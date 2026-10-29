@@ -68,6 +68,7 @@ mod retention_migration;
 mod runs;
 mod search;
 mod selection;
+mod staging_sweep;
 mod tool_approval_migration;
 mod tool_approvals;
 mod tool_audit_migration;
