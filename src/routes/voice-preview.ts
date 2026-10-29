@@ -6,6 +6,7 @@ const TRANSCRIPT_PREVIEW_VALUE = "final-transcript";
 const PLAYBACK_PREVIEW_VALUE = "local-playback";
 const AUDIO_CONTENT_PREVIEW_VALUE = "audio-content";
 const INPUT_DEVICES_PREVIEW_VALUE = "input-devices";
+const NANO_VOICES_PREVIEW_VALUE = "nano-voices";
 
 /** Reports whether a query explicitly requests the final-transcript fixture. */
 export function voicePreviewRequested(search: string): boolean {
@@ -14,7 +15,8 @@ export function voicePreviewRequested(search: string): boolean {
     value === TRANSCRIPT_PREVIEW_VALUE ||
     value === PLAYBACK_PREVIEW_VALUE ||
     value === AUDIO_CONTENT_PREVIEW_VALUE ||
-    value === INPUT_DEVICES_PREVIEW_VALUE
+    value === INPUT_DEVICES_PREVIEW_VALUE ||
+    value === NANO_VOICES_PREVIEW_VALUE
   );
 }
 
@@ -22,6 +24,22 @@ export function voicePreviewRequested(search: string): boolean {
 export function applyVoicePreview(state: PageState, search: string): boolean {
   if (!voicePreviewRequested(search)) return false;
   const value = new URLSearchParams(search).get("voice");
+  if (value === NANO_VOICES_PREVIEW_VALUE) {
+    state.speech.applyPreview(
+      [
+        { id: "local-voice-preview-1", name: "Karen", language: "en-AU" },
+        { id: "local-voice-preview-2", name: "MOSS Nano · Ava", language: "mul" },
+        { id: "local-voice-preview-3", name: "MOSS Nano · Adam", language: "mul" },
+      ],
+      {
+        phase: "idle",
+        selectedVoiceId: "local-voice-preview-2",
+        errorCode: null,
+        latency: { playbackAcceptedMs: null },
+      },
+    );
+    return true;
+  }
   if (value === INPUT_DEVICES_PREVIEW_VALUE) {
     state.microphone.deviceList = {
       devices: [

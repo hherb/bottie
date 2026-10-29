@@ -159,7 +159,7 @@ platform identifiers remain native. **Settings** owns the voice selector, while 
 preference key for the most recent choice on this device. If that voice is unavailable after restart, Bottie chooses and remembers the default
 available local voice. Playback accepts at most 32 KiB of visible text derived from the response's safe Markdown
 tokens, so link destinations and formatting syntax are not spoken. The WebView receives only `idle`, `speaking`, or
-fixed error state and never receives generated audio, engine details, output-device identity, or the retained
+fixed error state and never receives generated audio, backend paths, output-device identity, or the retained
 utterance. **Stop local playback** ends only Bottie's current utterance. While Bottie is speaking or generating, the
 Record action becomes **Interrupt & record**. Choosing it
 requests the existing provider cancellation, stops Bottie's local playback, and only then starts native capture. Rust
@@ -167,7 +167,19 @@ also serializes capture against provider-run registration, cancels every registe
 generation that races with active capture. A failed local-playback stop keeps capture fail-closed. Playback remains
 rejected while native capture is active and also stops when the user changes conversation or branch, starts a new
 generation, or closes the page. Linux packages depend on Speech Dispatcher and recommend its eSpeak NG voices; macOS
-and Windows use their installed system voices. The browser preview can render deterministic voice controls for layout
+and Windows use their installed system voices. An optional local MOSS-TTS-Nano installation adds **MOSS Nano · Ava**
+and **MOSS Nano · Adam** to the same Settings voice picker. Nano uses a dedicated CPU inference worker and native
+streaming playback; the first reply loads the model, later replies reuse it, and Stop terminates/reaps the worker and
+clears pending audio. Generated speech remains session-only. Run the explicit setup with Python 3.12:
+
+```sh
+python3.12 scripts/moss-nano-spike/install.py
+```
+
+Setup downloads about 763 MB of pinned model assets plus its dedicated Python environment. It is separate from the
+contained `run_python` tool and does not run automatically. Restart the updated app, choose a Nano voice in Settings,
+then use **Play response aloud**. See [Nano setup and integration](docs/moss-nano-integration.md) for cache reuse and
+platform qualification. The browser preview can render deterministic voice controls for layout
 review but cannot capture, recognize, or play audio.
 
 ## Application updates
@@ -326,8 +338,17 @@ lifecycle, and durable completion path. Failed or cancelled edits reopen and rev
 retry. Each generated edit presents a compact expandable source count and ordered path-free source kind, dimensions,
 media type, and byte size; opaque source IDs are not rendered. Local editing remains unavailable without fallback.
 
+When MOSS is not explicitly configured, Qwen-Image-2.1 is the preferred local image model when its installed MLX Serve 8-bit pack is ready on
+`http://127.0.0.1:11234/`. Bottie reuses those files in place, including a pack already installed for oMLX, and generates
+one PNG at the selected size/aspect ratio without another model download. The Image tab offers five exact aspect
+ratios and Small/Medium/Large size presets; local defaults to 512×512. Chat tools and voice input stay in the Chat tab,
+and drafts are retained independently when switching tabs. The inspected oMLX server itself has no image-generation endpoint;
+start MLX Serve against the existing directory as described in [Local Qwen-Image 2.1](docs/qwen-image-2.1-local.md).
+Installation remains optional and requires acceptance of the upstream Qwen Research License. The current integration
+uses a separately installed local server; Bottie does not install or start it automatically.
+
 Qwen-Image-2.0 local execution remains intentionally unavailable until its weights and a compatible runtime are
-actually published. Local work can proceed now against the distinct open `Qwen/Qwen-Image-2512` text-to-image
+actually published. The managed legacy local route uses the distinct open `Qwen/Qwen-Image-2512` text-to-image
 checkpoint, prioritizing MLX-Gen on Apple silicon and a pinned Diffusers worker on proven Linux/Windows GPU targets.
 Every local adapter will share the same provider-neutral contract and durable native-byte path. Bottie will neither
 route exact 2.0 through oMLX or an older implementation nor label 2512 output as Qwen-Image-2.0. See Milestone 8 in
@@ -351,6 +372,22 @@ partials;
 all 18 files are re-verified before atomic activation, and only path-free progress reaches the WebView. The 1.1 GB proof
 worker remains a user-supplied reviewed bundle rather than an application payload or automatic download.
 
+#### Optional MOSS-Image backend
+
+MOSS-Image adds Apache-2.0 Base/SFT generation through Swift/MLX on Apple Silicon (macOS 26+) and Diffusers on
+Linux/Windows NVIDIA CUDA machines. Explicit setup selects SFT by default:
+
+```sh
+python3 scripts/moss-image/install.py --download
+```
+
+Setup provisions approximately 27.2 GB of pinned model assets plus its dedicated runtime. Restart an updated app,
+then choose **Image → MOSS Image SFT** under Execution. Ordinary descriptions and layout JSON use the same prompt
+field, with a separate 32 KiB UTF-8 limit and a checked 4,096-token encoder limit. Match layout coordinates to the
+selected size. Text placement and spelling need visual review. Stop kills/reaps the owned worker; normalized PNGs
+retain MOSS model/seed/local provenance, and retries cannot switch to Qwen. The runtime/model remain external to the
+installer and separate from contained `run_python`. See [MOSS setup and qualification](docs/moss-image-local.md).
+
 #### Local Qwen-Image-2512 support matrix
 
 Local availability is evidence-gated, not inferred from an operating-system or GPU family. Unsupported profiles fail
@@ -366,7 +403,7 @@ before model download or generation, and Bottie never falls back to Cloud automa
 | Windows with AMD or Intel GPU, and lower-memory GPUs    | Unavailable                                    | A pinned Vulkan/GGUF candidate needs same-seed quality and lifecycle evidence; DirectML is not claimed                                                                                                               |
 | Any host requesting local Qwen-Image-2.0                | Unavailable                                    | Exact 2.0 weights have not been released in Qwen's official repositories or model registries                                                                                                                         |
 
-The supported local route is text-to-image only. Local editing is unavailable, and Qwen-Image-2512 output is never
+All current local image routes are text-to-image only. Local editing is unavailable, and Qwen-Image-2512 output is never
 labelled as Qwen-Image-2.0.
 
 On macOS, the package script development-signs each newly linked executable with an available Apple Development
@@ -761,6 +798,8 @@ latest completed slice.
   plus immutable EmbeddingGemma, Whisper, and ONNX Runtime identities
 - [`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) — tester-facing 0.9.0 beta notes and distribution cautions
 - [`MIGRATION-ROLLBACK.md`](MIGRATION-ROLLBACK.md) — forward-only migration and recovery contract
+- [`docs/moss-nano-evaluation.md`](docs/moss-nano-evaluation.md) — original CPU trial, measurements, and owner audition
+- [`docs/moss-nano-integration.md`](docs/moss-nano-integration.md) — optional native speech setup, playback, and validation
 
 ## Current boundaries
 

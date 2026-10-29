@@ -1,0 +1,44 @@
+[
+  {
+    "id": "english-short",
+    "language": "en",
+    "voice": "Ava",
+    "seed": 42,
+    "text": "Hello, this is Bottie. Your conversation stays on this device. You can interrupt my reply whenever you want."
+  },
+  {
+    "id": "german-short",
+    "language": "de",
+    "voice": "Ava",
+    "seed": 42,
+    "text": "Guten Tag, hier ist Bottie. Deine Unterhaltung bleibt auf diesem Gerät. Du kannst meine Antwort jederzeit unterbrechen."
+  },
+  {
+    "id": "english-numbers",
+    "language": "en",
+    "voice": "Adam",
+    "seed": 7,
+    "text": "Your appointment is at 10:30 on 17 October 2026. The total is $42.50. Please ask Dr. Müller about version 0.9.0."
+  },
+  {
+    "id": "german-numbers",
+    "language": "de",
+    "voice": "Adam",
+    "seed": 7,
+    "text": "Der Termin ist am 17. Oktober 2026 um 10:30 Uhr. Der Preis beträgt 42,50 Euro. Bitte frage Dr. Müller nach Version 0.9.0."
+  },
+  {
+    "id": "english-long",
+    "language": "en",
+    "voice": "Ava",
+    "seed": 42,
+    "text": "Here is a longer reply to check whether the voice stays consistent across sentence boundaries. First, open the conversation you want to continue. Then read the earlier messages and decide what information you would like to keep. You can ask for a shorter explanation, correct a detail, or interrupt the spoken reply at any time. The next sentence should sound like the same speaker, with a natural pause and no missing words. Finally, compare this recording with the shorter example and listen for changes in pronunciation, rhythm, and volume."
+  },
+  {
+    "id": "german-long",
+    "language": "de",
+    "voice": "Ava",
+    "seed": 42,
+    "text": "Dies ist eine längere Antwort, mit der wir die Stimme über mehrere Sätze hinweg prüfen. Öffne zuerst die Unterhaltung, die du fortsetzen möchtest. Lies dann die bisherigen Nachrichten und entscheide, welche Informationen du behalten willst. Du kannst jederzeit um eine kürzere Erklärung bitten, einen Fehler verbessern oder die gesprochene Antwort unterbrechen. Auch der nächste Satz sollte nach derselben Person klingen, mit einer natürlichen Pause und ohne ausgelassene Wörter. Vergleiche diese Aufnahme anschließend mit dem kurzen Beispiel und achte auf Aussprache, Rhythmus und Lautstärke."
+  }
+]

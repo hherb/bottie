@@ -375,6 +375,8 @@
         imageMode={state.imageMode}
         imageExecution={state.imageExecution}
         imageSize={state.imageSize}
+        imageResolution={state.selectedImageResolution}
+        modeSwitchDisabled={state.isPersistingMessage || state.microphone.isActive}
         imageCount={state.imageCount}
         generatedImageSourceCount={state.selectedGeneratedImageSources.length}
         imageFeedback={state.imageFeedback}
@@ -409,6 +411,7 @@
         ontoggleimage={() => state.toggleImageMode()}
         onimageexecution={(execution) => state.setImageExecution(execution)}
         onimagesize={(size) => (state.imageSize = size)}
+        onimageresolution={(resolution) => (state.imageResolution = resolution)}
         onimagecount={(count) => (state.imageCount = count)}
         oninstalllocalimage={() => void state.localImageAcquisition.start()}
         oncancellocalimage={() => void state.localImageAcquisition.cancel()}

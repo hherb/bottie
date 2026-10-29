@@ -25,6 +25,8 @@ pub(crate) async fn retry_image_generation(
     request: RetryImageGenerationRequest,
     on_event: Channel<ImageGenerationEvent>,
 ) -> Result<ImageGenerationRun, ProviderError> {
+    // Serialize the readiness awaits and run registration against capture admission.
+    let _voice_guard = state.voice_interaction.lock().await;
     if state.microphone.is_capturing() {
         return Err(ProviderError::invalid_request(
             "Stop or discard local voice capture before generating an image.",
@@ -96,7 +98,7 @@ async fn retry_local(
         .ok_or_else(invalid_retry_error)?;
     let installation = state
         .local_image_availability
-        .inspect_for_execution()
+        .inspect_for_model(&retry.provenance.model_id)
         .await
         .map_err(|_| {
             ProviderError::unavailable("The selected local image runtime is not ready.", None)
@@ -183,17 +185,21 @@ fn validate_cloud_retry(retry: &GeneratedImageRetry) -> Result<HostedImageReques
 fn validate_local_retry(
     retry: &GeneratedImageRetry,
 ) -> Result<ImageGenerationRequest, ProviderError> {
-    if retry.provenance.provider_id != QWEN_IMAGE_PROVIDER_ID
+    if retry.provenance.provider_id
+        != crate::local_image_worker::moss::provider_for_model(&retry.provenance.model_id)
+        || (crate::local_image_worker::moss::is_moss_model(&retry.provenance.model_id)
+            && !retry.provenance.model_id.contains('@'))
         || retry.options.prompt_extend
         || !retry.sources.is_empty()
     {
         return Err(invalid_retry_error());
     }
-    ImageGenerationRequest::new_local(
+    ImageGenerationRequest::new_local_for_model(
         retry.prompt.clone(),
         retry.options.width,
         retry.options.height,
         retry.output_count,
+        &retry.provenance.model_id,
     )
     .map_err(|_| invalid_retry_error())
 }
@@ -271,5 +277,48 @@ mod tests {
         retry.options = GeneratedImageRequestOptions::new(512, 512, false).unwrap();
 
         assert!(validate_local_retry(&retry).is_err());
+    }
+
+    #[test]
+    fn local_21_retry_retains_non_square_dimensions_and_exact_model() {
+        let mut retry = retry(Vec::new());
+        retry.provenance.execution = GeneratedAssetExecution::Local;
+        retry.provenance.model_id = crate::local_image_worker::server::IMAGE_PACKAGE_ID.into();
+        retry.provenance.seed = Some(42);
+        retry.options = GeneratedImageRequestOptions::new(1152, 768, false).unwrap();
+        assert_eq!(
+            validate_local_retry(&retry).unwrap().dimensions(),
+            (1152, 768)
+        );
+        retry.provenance.model_id = "Qwen/Qwen-Image-2512".into();
+        assert!(validate_local_retry(&retry).is_err());
+    }
+}
+
+#[cfg(test)]
+mod moss_tests {
+    use super::*;
+    use crate::storage::{GeneratedImageProvenance, GeneratedImageRequestOptions};
+    #[test]
+    fn moss_retry_requires_its_own_family_identity_and_keeps_long_layouts() {
+        let retry = GeneratedImageRetry::for_test(
+            &"layout ".repeat(400),
+            GeneratedImageProvenance::new(
+                "moss-image",
+                "mlx-community/MOSS-Image-SFT-bf16@ea698e99312015505884559ebad94b4a5a0d0753",
+                GeneratedAssetExecution::Local,
+                Some(42),
+            )
+            .unwrap(),
+            GeneratedImageRequestOptions::new(1024, 1024, false).unwrap(),
+            Vec::new(),
+        );
+        assert!(validate_local_retry(&retry).is_ok());
+        let mut unversioned = retry.clone();
+        unversioned.provenance.model_id = "mlx-community/MOSS-Image-SFT-bf16".into();
+        assert!(validate_local_retry(&unversioned).is_err());
+        let mut relabelled = retry;
+        relabelled.provenance.provider_id = "qwen-image".into();
+        assert!(validate_local_retry(&relabelled).is_err());
     }
 }

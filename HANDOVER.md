@@ -1,8 +1,20 @@
 # Bottie handover
 
-Last verified: 2026-09-22
+Last verified: 2026-10-18 for MOSS integration, real Apple MLX and Linux ARM64 CUDA worker proofs, and the development DMG.
 
 ## Start here
+
+**Next item to do:** work through `FIX_BOTTIE.md` (the 2026-10-28 audit's todo list, ordered by severity), starting
+with items 1-5.
+
+The owner requested MOSS-Image generation using Apple MLX or otherwise NVIDIA CUDA on 2026-10-18. The optional
+backend is implemented on `codex/moss-image-backend`: explicit setup, pinned Base/SFT snapshots, private one-request
+workers, layout prompts, existing image UI/storage, MOSS provenance, and exact-model retries. Real Apple MLX
+generation/storage/active cancellation/recovery and the NVIDIA GB10 CUDA worker proof pass.
+The SFT snapshot/runtime are registered in stable Mac app data. Base variants, Windows, lower-memory offload, and
+native Tauri UI clicks remain unqualified. See `docs/moss-image-local.md` for setup and bounds.
+The completed Nano speech integration remains intact. Retain the independent frozen Linux image-runtime continuation
+below; the MOSS request does not approve or reopen its distribution gates.
 
 Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it merges. Read `ROADMAP.md` Milestone
 8.4 and the clean-runtime sections of `docs/local-image-linux-nvidia-proof.md` and
@@ -43,6 +55,117 @@ Start from the draft PR for `codex/linux-clean-runtime-license-sources` after it
   `git diff --check` pass.
 
 ## Recent maintenance
+
+MOSS-Image integration completed on 2026-10-18. Required checks pass: 433 frontend/script tests (three existing
+skips), 14 Python tests, Svelte diagnostics, formatting, byte compilation, production build, Cargo formatting/checking,
+and the final serial host suite: 712 library tests (41 ignored), one updater fixture, six adapter fixtures, ten transport
+fixtures, and doc tests. An existing XPC startup timing failure passed unchanged in isolation and in the full rerun.
+The real Apple M3 Max / 128 GiB native proof passes 1024² layout generation, normalization, durable exact-revision
+provenance, active denoise cancellation, and fresh-worker 512² recovery. First-image verification/loading/generation
+is 881.09 s; total proof is 1,377.60 s. Use the documented release-mode opt-in proof: debug software SHA-256 is slow
+for 27.2 GB. No integrity checks are omitted. The stable Mac model/runtime registration is ready for the updated app.
+The Linux ARM64 NVIDIA GB10 worker completes 512² in 195.28 s, kills/reaps after step two in 0.78 s, and recovers in
+197.63 s using PyTorch 2.14.1+cu130 / CUDA 13.0. This uses an isolated temporary environment and does not change
+existing services, register an owner default, or reopen the frozen Linux runtime. CUDA native app/storage/UI, Windows,
+Base variants, lower-memory behavior, and peak inference memory remain unqualified. Both sample images spell the
+requested words correctly and follow the intended arrangement; CUDA also adds unrequested decorative rules.
+See `docs/moss-image-host-proof.json`, checked-in synthetic samples, and `docs/moss-image-local.md`.
+The development-signed contained-Python DMG is `bottie_0.9.0_moss_88344d8_development_aarch64.dmg`, built from
+`88344d83e6177b0bf6811929ea3f7debb446f9a8`; SHA-256
+`0e6dabc99d7f39d76bae21bb0b0a9e8d2fdf857b8af9839087b94ea2676d1a20`. Final DMG integrity, strict recursive
+signatures, staged/mounted byte agreement, and contained-Python execution/cancellation/client-exit proofs pass.
+The subsequent source-only acquisition fix preserves short HTTP prefixes and still discards wrong full digests;
+model setup scripts and model/runtime assets are external to this installer. The DMG is not notarized or a production
+release. Native Tauri clicks are not claimed; browser composer inspection uses an explicit fixture.
+
+MOSS-TTS-Nano native integration completed on 2026-10-18. An explicitly provisioned app-data runtime adds MOSS Nano · Ava
+and MOSS Nano · Adam to the existing opaque voice/preference contract. A dedicated Rust actor owns a reusable offline
+CPU worker, strict bounded PCM validation, a two-second native queue, CPAL device-rate conversion, device-predicted
+drain, and independent cancellation. Stop discards queued audio and kills/reaps the worker before capture admission;
+speech starts now share the capture-registration mutex. OS speech remains independent, including when its engine is
+unavailable. Explicit Python 3.12 setup reuses compatible environments and verified model files; paths and PCM remain
+native. The contained `run_python` executor is unchanged. The host proof passed real native English/German playback,
+warm reuse, stable preference restoration, interruption, and fresh-worker recovery. The initial sandboxed playback
+check failed and its identical host retry passed. Browser Settings inspection is fixture evidence, not native Tauri
+click automation. Exact setup, bounds, and remaining platform/distribution qualification are in
+`docs/moss-nano-integration.md`. No generated speech recording is retained by the app.
+Validation: 428 frontend/script tests (three skipped), 18 Python setup/protocol tests, Svelte diagnostics, formatting,
+the production build, Cargo formatting/locked checking, and the serial host Rust suite pass. Rust results: 700 library
+tests (40 ignored), one updater fixture, six adapter fixtures, ten transport fixtures, and doc tests. The isolated
+sandbox keychain failure passed in the identical host retry. The saved-selection startup race has regression coverage.
+The development-signed contained-Python DMG is `bottie_0.9.0_nano_b3fa63e_development_aarch64.dmg`, from source commit
+`b3fa63e1cb5c3f64b98daa314be7d71650549b7e`; SHA-256
+`8e150481670952ddfc9ec5ac4c6b670f9ef3388a5521a5e68e2985d65f758025`. Final DMG verification, mounted/staged app-byte
+agreement, strict main/nested signature verification, and final mounted-app contained-Python smoke checks pass. It is
+an unnotarized development testing package. Nano's external model/runtime are configured on this Mac, not bundled.
+The sandbox DMG bundler failed; the identical host build passed. Artifact/inspection/proof/checksum/tester instructions
+are under `src-tauri/target/release/bundle/dmg/`.
+
+MOSS-TTS-Nano feasibility work completed on 2026-10-17 in `scripts/moss-nano-spike/`. Twenty immutable code/model/codec
+assets (763,254,539 bytes) are explicitly acquired and SHA-256 verified before offline CPU inference. The low-level
+ONNX core avoids the convenience wrapper's Torch/TorchAudio imports. The trial uses bounded private-stdio PCM,
+finite/aligned audio validation, token-limited text chunks, hard generation ceilings, and process termination/reaping.
+All six synthetic English/German short/numeric/long cases completed on macOS arm64 with four CPU threads. First PCM
+was 116–159 ms, RTF 0.249–0.372, fresh-process readiness 3.61 seconds, and peak process RSS 1.67 GiB. Active cancellation
+reaped the worker in 42.9 ms; a fresh worker reproduced the initial English WAV hash. All 14 boundary tests,
+byte-compilation, Black formatting, asset verification, and diff checks pass. Exact evidence and limitations are in
+`docs/moss-nano-evaluation.md` and `docs/moss-nano-measurements.json`. At that checkpoint human audition and application
+integration were still pending; the 2026-10-18 record above supersedes those next steps. The original trial does not
+claim packaged-runtime distribution or acoustic qualification.
+
+Composer maintenance completed on 2026-10-13: accessible Chat/Image tabs replace the Image toggle. Chat tools and
+collapsible voice input appear only in Chat; Image has independent aspect/size controls and collapsed local model
+details. Prompt drafts survive tab switches and both clear on New conversation. Arrow keys/Home/End move tab focus
+and selection; mode switching is disabled during submission, generation, or active capture.
+Cloud and exact Local 2.1 requests use three size tiers and five exact aspect ratios. Local defaults to 512×512 and
+always returns one image. The older 2512 worker keeps its fixed 512×512 limit. Dimensions and model identity are
+snapshotted before asynchronous prompt persistence and retained in retry metadata. The request validator and server
+adapter share a closed native dimension catalog; frontend tests compare its complete set to the offered controls.
+The live 768×512 native fixture passed generation, normalization, durable dimensions/model provenance, and cancellation
+in 138.53 seconds. Browser interaction checks covered desktop/narrow layout, controls, draft retention, and keyboard
+tabs; no full native Tauri UI click automation is claimed. See `docs/qwen-image-2.1-local.md` and the user manual.
+Validation: formatting, Svelte checks (zero errors/warnings), 425 frontend tests (3 skipped), and the production build
+pass. The locked serial host suite passes 690 library tests (39 opt-in fixtures ignored), the updater fixture,
+6 worker-adapter fixtures, 10 worker-transport fixtures, and doc tests. The separate live size/aspect proof passed.
+The refreshed contained-Python testing DMG is `bottie_0.9.0_image-tabs_71721b3_aarch64.dmg`, built from source commit
+`71721b339e929d07083d772c3ededb1673d25ff2`; SHA-256
+`a924fd02cb68574e428d428be4800e0707c9ab502e1f34c868109b378e62bc0e`. Disk-image verification, strict main/nested
+signatures, and the final mounted-app Python smoke proof pass. It remains an unnotarized development testing package.
+
+Testing package and optional-installer foundation completed on 2026-10-13. The contained-Python arm64 0.9.0 DMG was
+built from pre-installer commit `57d82da96ff7f9652570f2fef1ed68726a800182`, retained with that revision in its filename,
+and verified through the mounted app. Disk-image verification and Python private-pipe/sandbox/cancellation/cleanup
+checks passed. The main app was subsequently development-signed and repacked; final mounted-byte main/nested signature
+verification and Python smoke checks passed. It is unnotarized, without production Developer ID signing. Final file:
+`bottie_0.9.0_qwen21_57d82da_development_aarch64.dmg`; SHA-256
+`8bdbbd6f461d4932471666d4a9ccbd926f004bbb2a6c84d0c8958fcd86849cfe`. Artifact, checksum, exact-byte inspection, and
+tester instructions are under `src-tauri/target/release/bundle/dmg/`.
+The native optional 2.1 model-file installer now pins the existing exercised pack at
+`fbda4caa0b4b1e17b5a29633e8deb600386f1eaf`: 18 files, 17,647,912,015 bytes. All installed files match the pinned
+size/hash inventory. Consent binds the exact terms digest/revision/identity/bytes before I/O; downloads resume,
+cancel, verify/promote atomically, and reverify/reuse completed cache files. No duplicate model download occurred.
+This is a native model-acquisition layer, not a new app action or managed server installation. Runtime qualification,
+installation/lifecycle, mutation serialization, and UI integration remain the next slice. Newer upstream `main`
+changes a weight shard and is not silently adopted. Details and runtime candidate pins are in
+`docs/qwen-image-2.1-local.md`; Roadmap 8.6 tracks the remaining work.
+Validation: six focused acquisition tests pass; the locked serial host suite passes 688 library tests (39 opt-in
+tests ignored), the updater fixture, 6 worker-adapter fixtures, 10 worker-transport fixtures, and doc tests. Cargo
+formatting/checking, 418 frontend tests (3 skipped), Svelte diagnostics, formatting, and the production build pass.
+
+Local image maintenance completed on 2026-10-13: Bottie now prefers the installed
+`ddalcu/Qwen-Image-2.1-MLX-Serve-8bit` pack through MLX Serve's loopback image API at port 11234. It reuses the existing
+oMLX model-directory files in place; oMLX 0.7.1.dev1 itself only lists the pack as an unloaded text model and exposes no
+image output endpoint. No oMLX configuration was changed. Starts bind the displayed package before asynchronous
+persistence, retries retain the original package/seed, and the managed 2512 worker stays separate. Inline response
+bytes remain native, bounded, redirect/proxy-free, and normalized into the shared private PNG lifecycle.
+The live native fixture passed 512×512 generation, durable completion with exact Local provenance, and cancellation;
+the MLX Serve log confirmed disconnected-client generation stopped. Research-licensed managed downloads require
+explicit revision-bound consent. This 2.1 route reuses an externally installed server; a Bottie-managed optional 2.1
+installer's runtime/app integration remains future work. See `docs/qwen-image-2.1-local.md` and Roadmap 8.6.
+Validation: 418 frontend tests pass (3 skipped), Svelte diagnostics and the production build pass, and the final host
+suite passes 682 library tests (39 opt-in tests ignored), the updater fixture, 6 worker-adapter fixtures, 10 worker
+transport fixtures, and doc tests. Cargo formatting/checking pass. The current composer was visually inspected at
+1280×720 and 620×800. The separate opt-in local 2.1 native proof also passed. No signed installer was built.
 
 Kastellan agent requests added on 2026-10-15 (`docs/kastellan.md`). A message starting with `@kastellan:` is answered by
 a Kastellan agent daemon through its operator CLI instead of the selected model. The CLI runs directly for `localhost`

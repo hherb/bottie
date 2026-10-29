@@ -7,6 +7,7 @@ import { MAX_COMPOSER_DRAFT_BYTES } from "$lib/microphone";
 import { PageState } from "./page-state.svelte";
 
 const imageInference = vi.hoisted(() => ({
+  startImageGeneration: vi.fn(),
   startImageEditing: vi.fn(),
   validateQwenImageConfiguration: vi.fn(),
 }));
@@ -71,6 +72,82 @@ describe("PageState message submission", () => {
 });
 
 describe("PageState image execution", () => {
+  it("clears both composer drafts when starting a new conversation", async () => {
+    const state = new PageState();
+    state.prompt = "Old chat";
+    state.toggleImageMode();
+    state.prompt = "Old image";
+    vi.spyOn(state.history, "startNew").mockResolvedValue();
+    await state.startNewChat();
+    expect(state.prompt).toBe("");
+    state.toggleImageMode();
+    expect(state.prompt).toBe("");
+  });
+  it("keeps tab drafts independent and prevents switching during submission", () => {
+    const state = new PageState();
+    state.prompt = "Chat draft";
+    state.toggleImageMode();
+    expect(state.prompt).toBe("");
+    state.prompt = "Image draft";
+    state.toggleImageMode();
+    expect(state.prompt).toBe("Chat draft");
+    state.toggleImageMode();
+    expect(state.prompt).toBe("Image draft");
+    state.isPersistingMessage = true;
+    state.toggleImageMode();
+    expect(state.imageMode).toBe(true);
+  });
+  it("binds a local request to the model disclosed before asynchronous prompt persistence", async () => {
+    const runtime = globalThis as typeof globalThis & { isTauri?: boolean };
+    const previous = runtime.isTauri;
+    runtime.isTauri = true;
+    imageInference.startImageGeneration.mockResolvedValue({
+      runId: "local-image-run",
+      message: pendingAssistantMessage("local-image"),
+    });
+    try {
+      const state = new PageState();
+      state.imageMode = true;
+      state.imageExecution = "local";
+      state.prompt = "A blue robot";
+      state.imageSize = "landscape";
+      state.imageResolution = "medium";
+      state.localImageAvailability = {
+        modelId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+        packageId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+        runtimeId: "mlx-serve@external",
+        license: "LicenseRef-Qwen-Research",
+        sourceRevision: "server-managed",
+        expectedDiskBytes: 0,
+        workerExpectedDiskBytes: 0,
+        requiredMemoryBytes: 0,
+        availability: "ready",
+      };
+      vi.spyOn(state.history, "persistUserMessage").mockImplementation(async () => {
+        state.imageSize = "portrait";
+        state.imageResolution = "large";
+        state.localImageAvailability = { ...state.localImageAvailability!, modelId: "Qwen/Qwen-Image-2512" };
+        return { conversationId: "conversation", requestMessageId: "request" };
+      });
+      await state.generateImage();
+      expect(imageInference.startImageGeneration).toHaveBeenCalledWith(
+        {
+          conversationId: "conversation",
+          requestMessageId: "request",
+          prompt: "A blue robot",
+          width: 1152,
+          height: 768,
+          count: 1,
+          execution: "local",
+          localModelId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+        },
+        expect.any(Function),
+      );
+    } finally {
+      if (previous === undefined) Reflect.deleteProperty(runtime, "isTauri");
+      else runtime.isTauri = previous;
+    }
+  });
   it("routes unmodified Enter through the explicit image action", () => {
     const state = new PageState();
     state.imageMode = true;
@@ -153,8 +230,8 @@ describe("PageState image execution", () => {
           conversationId: "conversation",
           requestMessageId: "request",
           prompt: "Make these images nocturnal",
-          width: 2_688,
-          height: 1_536,
+          width: 2_496,
+          height: 1_664,
           count: 2,
           sources: [
             { sourceType: "attachment", sourceId: "source-b" },

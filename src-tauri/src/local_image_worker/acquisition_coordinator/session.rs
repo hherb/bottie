@@ -32,6 +32,9 @@ pub(crate) struct LocalImageAcquisitionApproval {
     pub(crate) required_memory_bytes: u64,
     /// Affirmative acknowledgement set only by the explicit install or resume action.
     pub(crate) approved: bool,
+    /// Explicit acceptance of the displayed research license for this exact revision.
+    #[serde(default)]
+    pub(crate) license_accepted: bool,
 }
 
 /// Closed path-free lifecycle presented for the single selected package.
@@ -179,6 +182,32 @@ impl LocalImageAcquisitionSession {
         resume: Option<CacheResumeProgress>,
     ) -> LocalImageAcquisitionStatus {
         if self.is_active() {
+            return self.status();
+        }
+        let external = metadata.runtime_id == super::super::server::IMAGE_SERVER_RUNTIME_ID
+            || (super::super::moss::is_moss_model(&metadata.model_id)
+                && matches!(
+                    metadata.runtime_id.as_str(),
+                    "moss-image-mlx@external" | "moss-image-cuda@external"
+                ));
+        if external && metadata.availability == LocalImageAvailability::Ready {
+            self.status = LocalImageAcquisitionStatus {
+                model_id: metadata.model_id,
+                package_id: metadata.package_id,
+                runtime_id: metadata.runtime_id,
+                license: metadata.license,
+                source_revision: metadata.source_revision,
+                expected_disk_bytes: metadata.expected_disk_bytes,
+                worker_expected_disk_bytes: metadata.worker_expected_disk_bytes,
+                required_memory_bytes: metadata.required_memory_bytes,
+                availability: LocalImageAvailability::Ready,
+                phase: LocalImageAcquisitionPhase::Ready,
+                failure: None,
+                downloaded_files: 0,
+                total_files: 0,
+                downloaded_bytes: 0,
+                verified_files: 0,
+            };
             return self.status();
         }
         if !metadata_matches_selected(&self.selected, &metadata) {
@@ -372,11 +401,13 @@ fn status_for(
     }
 }
 
+/// Binds an explicit action and research-license acceptance to every displayed package fact.
 fn approval_matches(
     approval: &LocalImageAcquisitionApproval,
     metadata: &LocalImageAvailabilityMetadata,
 ) -> bool {
     approval.approved
+        && (metadata.license != "LicenseRef-Qwen-Research" || approval.license_accepted)
         && approval.model_id == metadata.model_id
         && approval.package_id == metadata.package_id
         && approval.runtime_id == metadata.runtime_id
@@ -386,6 +417,10 @@ fn approval_matches(
         && approval.worker_expected_disk_bytes == metadata.worker_expected_disk_bytes
         && approval.required_memory_bytes == metadata.required_memory_bytes
 }
+
+#[cfg(test)]
+#[path = "license_tests.rs"]
+mod license_tests;
 
 fn metadata_matches_selected(
     selected: &SelectedModelPackage,

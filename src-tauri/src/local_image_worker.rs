@@ -10,12 +10,19 @@ pub(crate) mod availability;
 #[allow(dead_code)]
 #[path = "local_image_worker/availability_service.rs"]
 pub(crate) mod availability_service;
+#[path = "local_image_worker/backend.rs"]
+pub(crate) mod backend;
 #[allow(dead_code)]
 #[path = "local_image_worker/execution.rs"]
 pub(crate) mod execution;
 #[allow(dead_code)]
 #[path = "local_image_worker/hardware.rs"]
 pub(crate) mod hardware;
+#[path = "local_image_worker/image_dimensions.rs"]
+pub(crate) mod image_dimensions;
+#[allow(dead_code)]
+#[path = "local_image_worker/managed_install.rs"]
+pub(crate) mod managed_install;
 #[allow(dead_code)]
 #[path = "local_image_worker/manager.rs"]
 pub(crate) mod manager;
@@ -31,6 +38,8 @@ pub(crate) mod model_download;
 #[allow(dead_code)]
 #[path = "local_image_worker/model_package.rs"]
 pub(crate) mod model_package;
+#[path = "local_image_worker/moss.rs"]
+pub(crate) mod moss;
 #[allow(dead_code)]
 #[path = "local_image_worker/package_catalog.rs"]
 pub(crate) mod package_catalog;
@@ -41,6 +50,8 @@ pub(crate) mod protocol;
 #[allow(dead_code)]
 #[path = "local_image_worker/runtime_proof.rs"]
 pub(crate) mod runtime_proof;
+#[path = "local_image_worker/server.rs"]
+pub(crate) mod server;
 #[allow(dead_code)]
 #[path = "local_image_worker/transport.rs"]
 pub(crate) mod transport;

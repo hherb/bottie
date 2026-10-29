@@ -70,6 +70,9 @@ pub(crate) struct StartImageGenerationRequest {
     pub(crate) count: u8,
     /// Explicit execution backend selected before any provider or worker operation.
     pub(crate) execution: GeneratedAssetExecution,
+    /// Exact local package shown before submission; prevents a readiness race changing models.
+    #[serde(default)]
+    pub(crate) local_model_id: Option<String>,
 }
 
 /// Opaque terminal image response selected for exact native retry.
@@ -156,6 +159,8 @@ pub(crate) async fn start_image_generation(
     request: StartImageGenerationRequest,
     on_event: Channel<ImageGenerationEvent>,
 ) -> Result<ImageGenerationRun, ProviderError> {
+    // Serialize the readiness awaits and run registration against capture admission.
+    let _voice_guard = state.voice_interaction.lock().await;
     if state.microphone.is_capturing() {
         return Err(ProviderError::invalid_request(
             "Stop or discard local voice capture before generating an image.",
@@ -242,22 +247,28 @@ async fn start_local_image_generation(
     request: StartImageGenerationRequest,
     on_event: Channel<ImageGenerationEvent>,
 ) -> Result<ImageGenerationRun, ProviderError> {
-    let generation_request = ImageGenerationRequest::new_local(
+    let local_model_id = request.local_model_id.ok_or_else(|| {
+        ProviderError::invalid_request(
+            "Select the disclosed local image model before generating an image.",
+        )
+    })?;
+    let generation_request = ImageGenerationRequest::new_local_for_model(
         request.prompt,
         request.width,
         request.height,
         request.count,
+        &local_model_id,
     )?;
     let installation = state
         .local_image_availability
-        .inspect_for_execution()
+        .inspect_for_model(&local_model_id)
         .await
         .map_err(|_| {
             ProviderError::unavailable("The selected local image runtime is not ready.", None)
         })?;
     let seed = local_generation_seed();
     let provenance = GeneratedImageProvenance::new(
-        QWEN_IMAGE_PROVIDER_ID,
+        crate::local_image_worker::moss::provider_for_model(installation.model_id()),
         installation.model_id(),
         GeneratedAssetExecution::Local,
         Some(seed),

@@ -448,6 +448,20 @@ Status: complete; evidence-gated acoustic feedback processing remains deferred.
 Voice should reuse the same provider, content-block, event, persistence, and cancellation models established in
 earlier milestones.
 
+### Optional neural speech evaluation — MOSS-TTS-Nano
+
+The owner requested Nano work on 2026-10-17. This is a separate opt-in evaluation after Milestone 7, with the shipped
+OS speech backend retained. See `docs/moss-nano-evaluation.md` and `scripts/moss-nano-spike/README.md`.
+
+- [x] immutable ONNX/code asset inventory, explicit verified acquisition, Torch-free CPU worker, bounded streaming PCM,
+      English/German short/numeric/long fixtures, process cancellation/reaping, and fresh-worker recovery;
+- [x] owner approval of the short English/German Ava samples on 2026-10-18; numeric and long-form audition remain open;
+- [x] optional Rust-owned Nano engine with bounded playback, saved voice preferences, and microphone/stop synchronization;
+- [x] explicit command-line setup of a dedicated Python 3.12 runtime and pinned model cache, with compatible reuse;
+- [ ] bundled Nano runtime/model installation, dependency/voice distribution review, and Linux/Windows qualification.
+
+Current setup, native host proof, and qualification limits are in `docs/moss-nano-integration.md`.
+
 ## Milestone 8 — Generated images
 
 Outcome: users can explicitly generate and edit durable images with exact model provenance through hosted or local
@@ -456,14 +470,30 @@ execution chosen by capability, without exposing credentials, provider result UR
 Status: active product priority. App-store certification/publication and other shipping work are paused until this
 milestone is complete or the product owner explicitly reprioritizes them.
 
-Two model tracks are intentional and must remain visibly distinct:
+These model tracks remain visibly distinct:
 
 - **[Qwen-Image-2.0](https://docs.modelstudio.console.alibabacloud.com/en/model-studio/qwen-image-2-0):**
   use the exact hosted `qwen-image-2.0-2026-03-03` snapshot now. Add local execution only when exact 2.0 weights are
   publicly released and independently verified.
 - **[Qwen-Image-2512](https://huggingface.co/Qwen/Qwen-Image-2512):** use the currently available Apache-2.0
-  `Qwen/Qwen-Image-2512` text-to-image weights for local execution now. Never label 2512 output as Qwen-Image-2.0;
+  `Qwen/Qwen-Image-2512` text-to-image weights for the managed legacy local route. Never label 2512 output as Qwen-Image-2.0;
   `2512` means the December 2025 checkpoint.
+- **[Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1):** prefer the installed MLX Serve 8-bit pack for local
+  generation, with explicit upstream research-license acceptance before an optional installation. Reuse existing
+  model bytes rather than downloading or copying a second set. See `docs/qwen-image-2.1-local.md`.
+
+### Optional MOSS-Image local backend
+
+The owner requested Apple MLX / otherwise CUDA execution on 2026-10-18. See `docs/moss-image-local.md`.
+
+- [x] closed Base/SFT MLX and CUDA package/revision inventories, explicit verified setup, and platform-specific workers;
+- [x] native private-pipe execution, bounded layout prompts/PNG output, cancellation/reaping, and one-image size catalog;
+- [x] existing composer, initial readiness, normalization, durable MOSS provenance, and exact-family retry integration;
+- [x] real Apple M3 Max SFT layout/storage/active-cancellation/recovery proof and stable app-data installation;
+- [x] live Linux ARM64 NVIDIA GB10 CUDA SFT worker generation, active cancellation, and fresh-worker recovery;
+- [x] verified development-signed contained-Python DMG and checked-in synthetic output/provenance evidence;
+- [ ] native Linux app/UI, Windows, Base variants, and broader platform/low-memory/output-quality measurements;
+- [ ] bundled runtime/model distribution and native installer UI, if requested separately.
 
 ### 8.1 Shared contract and hosted Qwen-Image-2.0 foundation
 
@@ -633,6 +663,23 @@ Editing should first land through the unified hosted 2.0 model after generation 
       output before selecting MLX and CUDA/ROCm/Windows runtimes through the same worker conformance suite;
 - [ ] expose local 2.0 only after generation and editing both pass native-byte, cancellation, provenance, and hardware
       acceptance. Keep hosted and local execution explicit even when their model identity matches.
+
+### 8.6 Preferred installed Qwen-Image-2.1 local generation
+
+- [x] separate Chat and Image composer tabs, preserve prompt drafts, collapse model details, and expose exact
+      size/aspect presets for Cloud and Local 2.1; retain the legacy worker profile and retry dimensions;
+- [x] prefer the exact loaded MLX Serve 8-bit pack with explicit image capability on loopback port 11234; keep the
+      oMLX text service and managed 2512 route separate;
+- [x] reuse installed files through the local image API, normalize bounded inline PNGs behind Rust, retain exact
+      quantized-package/Local/seed provenance, and bind start/retry to the disclosed model without fallback;
+- [x] prove native generation, durable completion, and disconnected-client cancellation on the Apple M3 Max host;
+- [x] retain explicit revision-bound research-license consent for managed acquisition and document optional external
+      server installation without automatic model download;
+- [x] start the optional 2.1 installer with an exact installed-pack source inventory, revision/terms-bound consent,
+      transactional native model download, source-bound resume/cancellation, and verified-cache reuse;
+- [ ] qualify/install the managed MLX Serve runtime, own its lifecycle, and expose the optional 2.1 installation
+      action with license acceptance, progress, cancellation, and readiness in the app. Model-file verification alone
+      does not qualify generation readiness. See the managed-installer section of `docs/qwen-image-2.1-local.md`.
 
 ## Cross-cutting definition of done
 

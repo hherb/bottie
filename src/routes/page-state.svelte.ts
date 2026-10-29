@@ -46,7 +46,9 @@ import {
   prepareImageGenerationPrompt,
   type ImageGenerationExecution,
   type ImageGenerationSize,
+  type ImageGenerationResolution,
 } from "$lib/image-generation";
+import { defaultImageResolution } from "$lib/image-options";
 import { isKastellanPrompt } from "$lib/kastellan";
 import {
   DEFAULT_PROVIDER_SETTINGS,
@@ -87,7 +89,17 @@ export class PageState {
   /** Local WebView presentation preference, kept outside native provider settings. */
   appearance = $state<AppearancePreferences>({ ...DEFAULT_APPEARANCE });
   messages = $state<Message[]>(isTauri() ? [] : INITIAL_MESSAGES.map((message) => ({ ...message })));
-  prompt = $state("");
+  private chatPrompt = $state("");
+  private imagePrompt = $state("");
+  /** Keeps each tab's draft independent while the conversation timeline remains shared. */
+  get prompt(): string {
+    return this.imageMode ? this.imagePrompt : this.chatPrompt;
+  }
+  /** Writes only the active tab's draft. */
+  set prompt(value: string) {
+    if (this.imageMode) this.imagePrompt = value;
+    else this.chatPrompt = value;
+  }
   isGenerating = $state(false);
   isPersistingMessage = $state(false);
   activeStage = $state(IDLE_STAGE);
@@ -107,6 +119,11 @@ export class PageState {
   imageMode = $state(false);
   imageExecution = $state<ImageGenerationExecution>("cloud");
   imageSize = $state<ImageGenerationSize>("square");
+  imageResolution = $state<ImageGenerationResolution | null>(null);
+  /** Uses the route's default until the user deliberately chooses a resolution. */
+  get selectedImageResolution(): ImageGenerationResolution {
+    return this.imageResolution ?? defaultImageResolution(this.imageExecution);
+  }
   imageCount = $state(1);
   imageFeedback = $state("");
   selectedGeneratedImageSourceIds = $state<string[]>([]);
@@ -231,8 +248,10 @@ export class PageState {
 
   /** Toggles the explicit image composer and drops ephemeral generated-source choices when leaving it. */
   toggleImageMode(): void {
+    if (this.isGenerating || this.isPersistingMessage || this.microphone.isActive) return;
     this.imageMode = !this.imageMode;
     if (!this.imageMode) this.selectedGeneratedImageSourceIds = [];
+    this.interaction.resizeComposer();
   }
 
   /** Selects one explicit image backend and removes Cloud-only generated references from Local 2512. */
@@ -527,6 +546,14 @@ export class PageState {
   async generateImage(): Promise<void> {
     if (!this.imageMode || !this.canGenerateImage) return;
     const execution = this.imageExecution;
+    const localModelId = execution === "local" ? this.localImageAvailability?.modelId : undefined;
+    const options = imageGenerationRequestOptions(
+      execution,
+      this.imageSize,
+      this.imageCount,
+      this.selectedImageResolution,
+      localModelId,
+    );
     const preparedSources = prepareImageEditingSources(
       execution,
       this.attachment.items,
@@ -536,7 +563,7 @@ export class PageState {
       this.imageFeedback = preparedSources.message;
       return;
     }
-    const preparedPrompt = prepareImageGenerationPrompt(this.prompt);
+    const preparedPrompt = prepareImageGenerationPrompt(this.prompt, localModelId);
     if (!preparedPrompt.ok) {
       this.providerError = {
         code: "invalid_request",
@@ -582,7 +609,14 @@ export class PageState {
       content: submittedPrompt,
       attachments: completedAttachments,
     });
-    const accepted = await this.startImageGeneration(runContext, submittedPrompt, execution, preparedSources.sources);
+    const accepted = await this.startImageGeneration(
+      runContext,
+      submittedPrompt,
+      execution,
+      preparedSources.sources,
+      localModelId,
+      options,
+    );
     if (!accepted) return;
     this.prompt = "";
     this.attachment.clear();
@@ -596,6 +630,8 @@ export class PageState {
     prompt: string,
     execution: ImageGenerationExecution,
     sources: ImageEditingSourceRequest[],
+    localModelId: string | undefined,
+    options: ReturnType<typeof imageGenerationRequestOptions>,
   ): Promise<boolean> {
     this.isGenerating = true;
     this.activeGenerationKind = "image";
@@ -610,7 +646,6 @@ export class PageState {
         ? "Starting the disclosed local generation…"
         : "Starting the disclosed cloud generation…";
     const run = ++this.generationRun;
-    const options = imageGenerationRequestOptions(this.activeImageExecution, this.imageSize, this.imageCount);
     let nativeAccepted = false;
     try {
       const request = {
@@ -622,7 +657,10 @@ export class PageState {
       const onEvent = (event: ImageGenerationEvent) => this.handleImageGenerationEvent(event, run);
       const accepted = this.activeImageEditing
         ? await invokeImageEditing({ ...request, sources }, onEvent)
-        : await invokeImageGeneration({ ...request, execution: this.activeImageExecution }, onEvent);
+        : await invokeImageGeneration(
+            { ...request, execution: this.activeImageExecution, ...(localModelId ? { localModelId } : {}) },
+            onEvent,
+          );
       nativeAccepted = true;
       if (run !== this.generationRun) {
         await cancelImageGeneration(accepted.runId);
@@ -653,7 +691,7 @@ export class PageState {
       this.imageFeedback = this.activeImageEditing
         ? "Editing with the exact hosted Qwen-Image-2.0 checkpoint…"
         : this.activeImageExecution === "local"
-          ? "Generating with the exact local Qwen-Image-2512 package…"
+          ? "Generating with the disclosed local image model…"
           : "Generating with the exact hosted Qwen-Image-2.0 checkpoint…";
     } else if (event.type === "progress") {
       const outputLabel = `${event.total} image${event.total === 1 ? "" : "s"}`;
@@ -662,7 +700,7 @@ export class PageState {
       } else {
         this.imageFeedback =
           this.activeImageExecution === "local"
-            ? `Validating ${outputLabel} from the private worker…`
+            ? `Validating ${outputLabel} from the local image runtime…`
             : `Downloading and validating ${outputLabel}…`;
       }
     } else if (event.type === "completed") {
@@ -1016,7 +1054,8 @@ export class PageState {
     this.activeAssistantId = null;
     this.cancellationRequested = false;
     this.activeGenerationKind = null;
-    this.prompt = "";
+    this.chatPrompt = "";
+    this.imagePrompt = "";
     this.showSidebar = false;
     this.interaction.focusAfterUpdate();
   }

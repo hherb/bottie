@@ -1,0 +1,7 @@
+# Dedicated optional Nano CPU environment; separate from run_python and without PyTorch.
+flatbuffers==25.12.19
+numpy==2.5.4
+onnxruntime==1.31.0
+packaging==26.3
+protobuf==7.36.2
+sentencepiece==0.2.2

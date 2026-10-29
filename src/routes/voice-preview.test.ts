@@ -9,8 +9,17 @@ describe("voice preview", () => {
     expect(voicePreviewRequested("?voice=local-playback")).toBe(true);
     expect(voicePreviewRequested("?voice=audio-content")).toBe(true);
     expect(voicePreviewRequested("?voice=input-devices")).toBe(true);
+    expect(voicePreviewRequested("?voice=nano-voices")).toBe(true);
     expect(voicePreviewRequested("?voice=other")).toBe(false);
     expect(voicePreviewRequested("")).toBe(false);
+  });
+
+  it("shows installed Nano presets without starting native inference in the browser", () => {
+    const state = new PageState();
+    expect(applyVoicePreview(state, "?voice=nano-voices")).toBe(true);
+    expect(state.speech.status.phase).toBe("idle");
+    expect(state.speech.voices.map((voice) => voice.name)).toContain("MOSS Nano · Ava");
+    expect(state.speech.voices.map((voice) => voice.name)).toContain("MOSS Nano · Adam");
   });
 
   it("keeps the final-transcript fixture editable without artificial provider readiness", () => {

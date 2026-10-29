@@ -15,3 +15,5 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 /scripts/audio-cpp-spike/ffi-probe/target
+/scripts/moss-image/swift/.build/
+/scripts/moss-image/__pycache__/

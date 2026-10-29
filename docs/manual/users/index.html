@@ -291,9 +291,11 @@
               controls.
             </li>
             <li>
-              <strong>Play response aloud</strong> uses a local system voice and
-              speaks visible text rather than Markdown syntax or link
-              destinations.
+              <strong>Play response aloud</strong> uses your selected local
+              voice and speaks visible text rather than Markdown syntax or link
+              destinations. Settings offers system voices and, after optional
+              local setup, MOSS Nano multilingual voices. The first Nano reply
+              may take a few seconds to prepare; Stop ends local playback.
             </li>
           </ul>
           <p class="note">
@@ -474,8 +476,11 @@
           <p class="kicker">Generate and edit</p>
           <h2>Images</h2>
           <p>
-            Switch the composer to <strong>Image</strong>, describe the result,
-            choose Cloud or Local, review the route disclosure, then generate.
+            Choose the composer’s <strong>Image</strong> tab, describe the result,
+            select Cloud or Local, choose an aspect ratio and image size, review
+            the route disclosure, then generate. The Chat tab contains chatbot
+            tools and voice input. Switching tabs retains each prompt draft
+            independently; both modes share the conversation timeline.
             Image generation never follows automatically from an ordinary chat
             send or an unavailable local route.
           </p>
@@ -488,11 +493,42 @@
             downloads temporary results behind its native boundary and stores
             only validated durable PNGs.
           </p>
-          <h3>Local Qwen-Image-2512</h3>
+          <h3>Optional MOSS-Image</h3>
+          <p>
+            After explicit local setup, choose MOSS Image SFT or Base in Image
+            execution. Paste a description or layout JSON and choose matching
+            canvas dimensions. Apple Silicon uses MLX; supported NVIDIA machines
+            use CUDA. Placement and generated spelling still need visual review.
+            Stop ends the owned generation worker. Models are large and are not
+            downloaded automatically. See the
+            <a href="../../moss-image-local.md">MOSS setup guide</a>.
+          </p>
+          <h3>Local Qwen-Image-2.1</h3>
+          <p>
+            Without a configured MOSS backend, Bottie prefers an already installed
+            Qwen-Image-2.1 MLX Serve 8-bit pack
+            on the local image server at 127.0.0.1:11234. Choose Image, then Local 2.1
+            to generate one PNG. Small, Medium, and Large presets support square
+            (1:1), landscape (3:2), portrait (2:3), wide (16:9), and tall (9:16)
+            images; each size option shows its exact pixel dimensions. The default
+            is Small square, 512×512. Larger images take longer and use more memory.
+            Expand the local model details when needed. The existing files are reused without a
+            second model download. The oMLX text server itself has no image-output
+            endpoint; MLX Serve can read the pack from its existing directory.
+          </p>
+          <p>
+            Installation is optional. Accept the upstream Qwen Research License
+            before downloading or installing the model through MLX Serve.
+            Bottie does not automatically download model files or start the server.
+            Local editing remains unavailable.
+          </p>
+          <h3>Legacy local Qwen-Image-2512</h3>
           <p>
             Local mode is a separate text-to-image model and never claims to be
             Qwen-Image-2.0. Bottie enables it only when the exact worker, model
             cache, and measured hardware profile all pass native verification.
+            This older worker retains its fixed one-image 512×512 output; size and
+            aspect controls remain disabled for it.
           </p>
           <table>
             <thead>

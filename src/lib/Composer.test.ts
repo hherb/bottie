@@ -105,6 +105,24 @@ function renderedComposer(
 }
 
 describe("Composer", () => {
+  it("separates Chat and Image into labelled tabs and keeps image controls out of Chat", () => {
+    const html = renderedComposer(true, true, [], true);
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain('aria-label="Chat"');
+    expect(html).toContain('aria-label="Image"');
+    expect(html).toContain('aria-selected="true"');
+    expect(html).not.toContain('aria-label="Aspect ratio"');
+    expect(html).toContain('aria-label="Enable memory tools"');
+  });
+  it("keeps chat tools and voice controls out of the Image panel", () => {
+    const html = renderedComposer(true, true, [], true, true, true, true, true, true, "", "", false, false, true);
+    expect(html).toContain('aria-label="Aspect ratio"');
+    expect(html).toContain('aria-label="Image size"');
+    expect(html).not.toContain('aria-label="Disable memory tools"');
+    expect(html).not.toContain('aria-label="Disable web search"');
+    expect(html).not.toContain('aria-label="Disable email tools"');
+    expect(html).not.toContain("Record voice");
+  });
   it("shows exact cloud delivery and cost disclosure only for the explicit image action", () => {
     const html = renderedComposer(
       true,
@@ -169,7 +187,7 @@ describe("Composer", () => {
     expect(html).toContain('accept="image/png,image/jpeg"');
     expect(html).toContain("Editing with 1 ready source image");
     expect(html).toContain("prompt and normalized source image bytes are sent to Alibaba Model Studio");
-    expect(html).toMatch(/may incur\s+provider charges/);
+    expect(html).toMatch(/may incur\s+provider\s+charges/);
     expect(html).toContain('aria-label="Edit image"');
   });
 
@@ -222,7 +240,7 @@ describe("Composer", () => {
 
     expect(html).toContain("Editing with 1 ready source image");
     expect(html).toContain('aria-label="Edit image"');
-    expect(html).toMatch(/may incur\s+provider charges/);
+    expect(html).toMatch(/may incur\s+provider\s+charges/);
   });
 
   it("shows the local route but disables selection until native readiness is exact", () => {
@@ -258,7 +276,7 @@ describe("Composer", () => {
     expect(html).toContain('aria-label="Local image availability"');
     expect(html).toContain("Qwen/Qwen-Image-2512");
     expect(html).toContain("AbstractFramework/qwen-image-2512-4bit");
-    expect(html).toContain("MLX-Gen");
+    expect(html).toContain("local runtime");
     expect(html).toContain("Local worker is not installed");
     expect(html).toContain("16.2 GiB model");
     expect(html).toContain('aria-label="Execution"');
@@ -357,6 +375,46 @@ describe("Composer", () => {
     expect(html).toContain("app-owned cache");
     expect(html).toContain("generation remains offline");
     expect(html).toContain("18 exact files will be verified before activation");
+  });
+
+  it("offers ready Local 2.1 by reusing the installed image server without a download button", () => {
+    const server: LocalImageAvailabilityMetadata = {
+      modelId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+      packageId: "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit",
+      runtimeId: "mlx-serve@external",
+      license: "LicenseRef-Qwen-Research",
+      sourceRevision: "server-managed",
+      expectedDiskBytes: 0,
+      workerExpectedDiskBytes: 0,
+      requiredMemoryBytes: 0,
+      availability: "ready",
+    };
+    const html = renderedComposer(
+      true,
+      true,
+      [],
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      "",
+      "",
+      false,
+      false,
+      true,
+      server,
+      false,
+      "local",
+    );
+    expect(html).toMatch(/<option value="local" selected(?:="")?>Local 2.1<\/option>/);
+    expect(html).toContain("no additional model download");
+    expect(html).toContain("image server on 127.0.0.1:11234");
+    expect(html).toContain("Qwen Research License");
+    expect(html).not.toContain("0.0 GiB");
+    expect(html).not.toContain("Download and install");
+    expect(html).not.toContain("server-managed");
   });
 
   it("labels active model progress and cancellation as separate controls", () => {

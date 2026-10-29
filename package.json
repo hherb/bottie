@@ -7,7 +7,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run --pool=forks --maxWorkers=1 --exclude \"website/**\" --exclude \"assets/**\"",
+    "test": "vitest run --pool=forks --maxWorkers=1 --exclude \"website/**\" --exclude \"assets/**\" --exclude \"**/.build/**\"",
     "performance:frontend": "vitest run src/lib/performance.test.ts --mode performance --pool=forks --maxWorkers=1",
     "performance:native": "cargo test --manifest-path src-tauri/Cargo.toml performance_budget -- --ignored --nocapture",
     "performance:test": "npm run performance:frontend && npm run performance:native",

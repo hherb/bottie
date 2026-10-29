@@ -74,6 +74,8 @@ pub(crate) async fn start_image_editing(
     request: StartImageEditingRequest,
     on_event: Channel<ImageGenerationEvent>,
 ) -> Result<ImageGenerationRun, ProviderError> {
+    // Serialize the readiness awaits and run registration against capture admission.
+    let _voice_guard = state.voice_interaction.lock().await;
     if state.microphone.is_capturing() {
         return Err(ProviderError::invalid_request(
             "Stop or discard local voice capture before editing an image.",

@@ -11,7 +11,8 @@ use url::Url;
 use super::{
     DASHSCOPE_QWEN_IMAGE_MODEL_ID, DashScopeQwenImageProvider, GeneratedImageDownloader,
     GeneratedImageReference, ImageGenerationProvider, ImageGenerationRequest,
-    local::normalize_local_outputs, validate_qwen_image_base_url,
+    local::{normalize_local_outputs, normalize_server_output},
+    validate_qwen_image_base_url,
 };
 use crate::local_image_worker::execution::LocalGeneratedOutput;
 use crate::storage::ConversationStore;
@@ -321,6 +322,20 @@ fn local_worker_pngs_use_the_shared_native_normalization_boundary() {
     assert!(!worker_path.exists());
 }
 
+#[test]
+fn inline_server_pngs_use_shared_normalization_and_clean_up_every_partial() {
+    let store = ConversationStore::initialize(test_database_path()).unwrap();
+    let directory = store.generated_asset_temporary_directory();
+    let prepared = normalize_server_output(png_fixture(64, 64), &store, (64, 64)).unwrap();
+    assert_eq!((prepared.width, prepared.height), (64, 64));
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
+    drop(prepared);
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 0);
+    assert!(normalize_server_output(png_fixture(64, 64), &store, (512, 512)).is_err());
+    assert!(normalize_server_output(b"not an image".to_vec(), &store, (512, 512)).is_err());
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 0);
+}
+
 /// Creates one deterministic PNG response body.
 fn png_fixture(width: u32, height: u32) -> Vec<u8> {
     let image = DynamicImage::ImageRgba8(RgbaImage::from_pixel(
@@ -377,4 +392,24 @@ fn test_database_path() -> std::path::PathBuf {
         std::env::temp_dir().join(format!("bottie-image-download-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&directory).expect("test directory should exist");
     directory.join("bottie.sqlite3")
+}
+#[test]
+fn local_21_sizes_are_model_bound_and_disable_prompt_enhancement() {
+    use crate::local_image_worker::server::IMAGE_PACKAGE_ID;
+    let request =
+        ImageGenerationRequest::new_local_for_model("Draw Bottie", 768, 512, 1, IMAGE_PACKAGE_ID)
+            .unwrap();
+    assert_eq!(request.dimensions(), (768, 512));
+    assert!(!request.prompt_extend());
+    assert!(
+        ImageGenerationRequest::new_local_for_model("Draw", 768, 512, 1, "Qwen/Qwen-Image-2512")
+            .is_err()
+    );
+    assert!(
+        ImageGenerationRequest::new_local_for_model("Draw", 768, 512, 2, IMAGE_PACKAGE_ID).is_err()
+    );
+    assert!(
+        ImageGenerationRequest::new_local_for_model("Draw", 4096, 4096, 1, IMAGE_PACKAGE_ID)
+            .is_err()
+    );
 }

@@ -13,6 +13,10 @@ mod editing_tests;
 #[cfg(test)]
 mod live_tests;
 #[cfg(test)]
+mod local_server_live_tests;
+#[cfg(all(test, target_os = "macos"))]
+mod moss_live_tests;
+#[cfg(test)]
 mod tests;
 
 use crate::inference::ProviderError;
@@ -105,6 +109,56 @@ pub(crate) struct ImageGenerationRequest {
 }
 
 impl ImageGenerationRequest {
+    /// Permits adjustable output only for the exact preferred server pack, retaining the worker profile.
+    pub(crate) fn new_local_for_model(
+        prompt: impl Into<String>,
+        width: u32,
+        height: u32,
+        count: u8,
+        model_id: &str,
+    ) -> Result<Self, ProviderError> {
+        use crate::local_image_worker::{
+            image_dimensions::valid_qwen_21_dimensions, server::IMAGE_PACKAGE_ID,
+        };
+        if crate::local_image_worker::moss::is_moss_model(model_id) {
+            return Self::new_moss(prompt.into(), width, height, count);
+        }
+        if model_id != IMAGE_PACKAGE_ID {
+            return Self::new_local(prompt, width, height, count);
+        }
+        if !valid_qwen_21_dimensions((width, height)) || count != LOCAL_GENERATION_OUTPUT_COUNT {
+            return Err(ProviderError::invalid_request(
+                "Choose one supported local 2.1 image size and one output.",
+            ));
+        }
+        Self::new_with_prompt_extension(prompt, width, height, count, false)
+    }
+
+    /// Preserve long layout JSON while enforcing the MOSS worker's UTF-8 and image-size envelope.
+    fn new_moss(prompt: String, width: u32, height: u32, count: u8) -> Result<Self, ProviderError> {
+        use crate::local_image_worker::moss::{MAX_PROMPT_BYTES, valid_dimensions};
+        let prompt = prompt.replace("\r\n", "\n").trim().to_owned();
+        if prompt.is_empty()
+            || prompt.len() > MAX_PROMPT_BYTES
+            || count != 1
+            || !valid_dimensions((width, height))
+            || prompt
+                .chars()
+                .any(|c| c.is_control() && !matches!(c, '\n' | '\t'))
+        {
+            return Err(ProviderError::invalid_request(
+                "Choose a supported MOSS size and a layout of at most 32 KiB.",
+            ));
+        }
+        Ok(Self {
+            prompt,
+            width,
+            height,
+            count,
+            prompt_extend: false,
+        })
+    }
+
     /// Validates a bounded request while preserving meaningful prompt formatting.
     pub(crate) fn new(
         prompt: impl Into<String>,

@@ -18,6 +18,27 @@ fn session() -> LocalImageAcquisitionSession {
     LocalImageAcquisitionSession::new(selected_qwen_image_2512_q4_package().unwrap())
 }
 
+#[test]
+fn ready_external_21_reuses_installed_bytes_without_offering_an_acquisition() {
+    let mut session = session();
+    let metadata = crate::local_image_worker::availability_service::server_metadata();
+    let status = session.refresh_idle(metadata, None);
+    assert_eq!(status.model_id, "ddalcu/Qwen-Image-2.1-MLX-Serve-8bit");
+    assert_eq!(status.phase, LocalImageAcquisitionPhase::Ready);
+    assert_eq!(status.expected_disk_bytes, 0);
+    assert_eq!(status.required_memory_bytes, 0);
+    assert_eq!(status.failure, None);
+    assert!(
+        session
+            .begin(
+                &approval(),
+                &crate::local_image_worker::availability_service::server_metadata(),
+                None
+            )
+            .is_err()
+    );
+}
+
 fn metadata(
     availability: LocalImageAvailability,
 ) -> crate::local_image_worker::availability_service::LocalImageAvailabilityMetadata {
@@ -38,6 +59,7 @@ fn approval() -> LocalImageAcquisitionApproval {
         worker_expected_disk_bytes: 1_107_880_778,
         required_memory_bytes: 29_526_129_448,
         approved: true,
+        license_accepted: false,
     }
 }
 
@@ -237,4 +259,22 @@ fn progress_with_changed_totals_fails_closed() {
             .unwrap_err(),
         LocalImageAcquisitionErrorCode::InvalidState
     );
+}
+
+#[test]
+fn ready_moss_keeps_its_identity_in_the_initial_native_status_without_offering_qwen_downloads() {
+    let mut session = session();
+    let mut metadata = crate::local_image_worker::availability_service::server_metadata();
+    metadata.model_id = "mlx-community/MOSS-Image-SFT-bf16".into();
+    metadata.package_id = metadata.model_id.clone();
+    metadata.runtime_id = "moss-image-mlx@external".into();
+    metadata.license = "Apache-2.0".into();
+    metadata.source_revision = "ea698e99312015505884559ebad94b4a5a0d0753".into();
+    metadata.expected_disk_bytes = 27_219_783_878;
+    let status = session.refresh_idle(metadata, None);
+    assert_eq!(status.model_id, "mlx-community/MOSS-Image-SFT-bf16");
+    assert_eq!(status.phase, LocalImageAcquisitionPhase::Ready);
+    assert_eq!(status.expected_disk_bytes, 27_219_783_878);
+    assert_eq!(status.total_files, 0);
+    assert_eq!(status.failure, None);
 }

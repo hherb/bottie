@@ -12,11 +12,13 @@ use super::{
         LocalImageAvailability, ModelCacheReadiness, WorkerInstallationReadiness,
         evaluate_local_image_availability, inspect_model_cache,
     },
+    backend::VerifiedLocalImageBackend,
     execution::VerifiedLocalImageInstallation,
     hardware::probe_local_image_hardware,
     model_acquisition::ModelPackageManifest,
     model_download::ModelSourcePlan,
     model_package::{SelectedModelPackage, selected_qwen_image_2512_q4_package},
+    server::{IMAGE_PACKAGE_ID, IMAGE_SERVER_RUNTIME_ID, LocalImageServer},
     worker_cache::{
         WorkerCacheError, WorkerImportApproval, import_worker_bundle, resolve_promoted_worker,
     },
@@ -83,13 +85,13 @@ pub(crate) struct LocalImageAvailabilityMetadata {
     pub(crate) runtime_id: String,
     /// SPDX license identifier for the selected model package.
     pub(crate) license: String,
-    /// Immutable selected package revision.
+    /// Immutable managed package revision, or `server-managed` for an existing local server.
     pub(crate) source_revision: String,
-    /// Exact package bytes required in the app-owned model cache.
+    /// Additional managed package bytes; zero for server-owned installation reuse.
     pub(crate) expected_disk_bytes: u64,
     /// Exact accepted worker-bundle bytes required in the app-owned worker cache.
     pub(crate) worker_expected_disk_bytes: u64,
-    /// Measured whole-process peak bytes required by the accepted hardware proof.
+    /// Managed worker's measured peak requirement; unused for a server-owned runtime.
     pub(crate) required_memory_bytes: u64,
     /// Coarse fail-closed native readiness state.
     pub(crate) availability: LocalImageAvailability,
@@ -109,6 +111,8 @@ pub(crate) struct LocalImageAvailabilityService {
     layout: LocalImageInstallationLayout,
     selected: Arc<SelectedModelPackage>,
     inspection: tauri::async_runtime::Mutex<()>,
+    prefer_server: bool,
+    app_data: PathBuf,
 }
 
 impl LocalImageAvailabilityService {
@@ -129,9 +133,11 @@ impl LocalImageAvailabilityService {
             worker_executable_name,
         };
         Ok(Self {
+            app_data,
             layout,
             selected: Arc::new(selected),
             inspection: tauri::async_runtime::Mutex::new(()),
+            prefer_server: true,
         })
     }
 
@@ -140,6 +146,14 @@ impl LocalImageAvailabilityService {
         &self,
     ) -> Result<LocalImageAvailabilityMetadata, LocalImageServiceError> {
         let _inspection = self.inspection.lock().await;
+        if self.prefer_server {
+            if let Some(moss) = self.inspect_moss().await? {
+                return Ok(moss.metadata());
+            }
+        }
+        if self.prefer_server && LocalImageServer::inspect().await.is_ok() {
+            return Ok(server_metadata());
+        }
         let layout = self.layout.clone();
         let selected = self.selected.clone();
         tauri::async_runtime::spawn_blocking(move || inspect_installation(&layout, &selected))
@@ -150,6 +164,62 @@ impl LocalImageAvailabilityService {
 
     /// Re-verifies every readiness gate and returns native locations only to Rust execution.
     pub(crate) async fn inspect_for_execution(
+        &self,
+    ) -> Result<VerifiedLocalImageBackend, LocalImageServiceError> {
+        if self.prefer_server {
+            if let Some(moss) = self.inspect_moss().await? {
+                return Ok(VerifiedLocalImageBackend::Moss(moss));
+            }
+            if let Ok(server) = LocalImageServer::inspect().await {
+                return Ok(VerifiedLocalImageBackend::Server(server));
+            }
+        }
+        self.inspect_worker_for_execution()
+            .await
+            .map(VerifiedLocalImageBackend::Worker)
+    }
+
+    /// Retries the originally recorded package; a server result never retries through 2512.
+    pub(crate) async fn inspect_for_model(
+        &self,
+        model_id: &str,
+    ) -> Result<VerifiedLocalImageBackend, LocalImageServiceError> {
+        if super::moss::is_moss_model(model_id) {
+            return self
+                .inspect_moss()
+                .await?
+                .filter(|moss| moss.matches_model(model_id))
+                .map(VerifiedLocalImageBackend::Moss)
+                .ok_or(LocalImageServiceError::NotReady);
+        }
+        if model_id == IMAGE_PACKAGE_ID {
+            return LocalImageServer::inspect()
+                .await
+                .map(VerifiedLocalImageBackend::Server)
+                .map_err(|_| LocalImageServiceError::NotReady);
+        }
+        if model_id != self.selected.manifest().model_id {
+            return Err(LocalImageServiceError::NotReady);
+        }
+        self.inspect_worker_for_execution()
+            .await
+            .map(VerifiedLocalImageBackend::Worker)
+    }
+
+    /// Native registration is optional; malformed configured state is never replaced by another model.
+    async fn inspect_moss(
+        &self,
+    ) -> Result<Option<super::moss::MossInstallation>, LocalImageServiceError> {
+        let app_data = self.app_data.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            super::moss::MossInstallation::inspect(&app_data)
+        })
+        .await
+        .map_err(|_| LocalImageServiceError::InspectionUnavailable)?
+        .map_err(|_| LocalImageServiceError::NotReady)
+    }
+
+    async fn inspect_worker_for_execution(
         &self,
     ) -> Result<VerifiedLocalImageInstallation, LocalImageServiceError> {
         let _inspection = self.inspection.lock().await;
@@ -169,6 +239,12 @@ impl LocalImageAvailabilityService {
         &self,
     ) -> Result<VerifiedLocalImageAcquisition, LocalImageServiceError> {
         let _inspection = self.inspection.lock().await;
+        if self.prefer_server && self.inspect_moss().await?.is_some() {
+            return Err(LocalImageServiceError::NotReady);
+        }
+        if self.prefer_server && LocalImageServer::inspect().await.is_ok() {
+            return Err(LocalImageServiceError::NotReady);
+        }
         let layout = self.layout.clone();
         let selected = self.selected.clone();
         let inspected_selected = selected.clone();
@@ -231,6 +307,16 @@ impl LocalImageAvailabilityService {
     }
 
     #[cfg(test)]
+    /// Constructs the legacy isolated service without consulting a developer's real image server.
+    pub(crate) fn worker_only_for_test(
+        app_data_directory: impl AsRef<Path>,
+    ) -> Result<Self, LocalImageServiceError> {
+        let mut service = Self::new(app_data_directory)?;
+        service.prefer_server = false;
+        Ok(service)
+    }
+
+    #[cfg(test)]
     /// Returns the fixed app-owned worker-cache root for native layout tests only.
     pub(crate) fn worker_cache_root_for_test(&self) -> &Path {
         &self.layout.worker_cache_root
@@ -240,6 +326,21 @@ impl LocalImageAvailabilityService {
     /// Returns the fixed model cache root for native layout tests only.
     pub(crate) fn model_cache_root_for_test(&self) -> &Path {
         &self.layout.model_cache_root
+    }
+}
+
+/// Describes reuse without inventing file revisions, disk downloads, or peak-memory measurements.
+pub(crate) fn server_metadata() -> LocalImageAvailabilityMetadata {
+    LocalImageAvailabilityMetadata {
+        model_id: IMAGE_PACKAGE_ID.into(),
+        package_id: IMAGE_PACKAGE_ID.into(),
+        runtime_id: IMAGE_SERVER_RUNTIME_ID.into(),
+        license: "LicenseRef-Qwen-Research".into(),
+        source_revision: "server-managed".into(),
+        expected_disk_bytes: 0,
+        worker_expected_disk_bytes: 0,
+        required_memory_bytes: 0,
+        availability: LocalImageAvailability::Ready,
     }
 }
 

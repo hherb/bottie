@@ -31,7 +31,8 @@ use filesystem::{
 };
 #[allow(unused_imports)]
 pub(crate) use inspection::{
-    CacheResumeProgress, inspect_bound_resume, inspect_cached_package, reopen_cached_package,
+    CacheResumeProgress, inspect_bound_resume, inspect_cached_model_location,
+    inspect_cached_package, reopen_cached_package,
 };
 use tree::{validate_cache_tree, validate_cache_tree_shape};
 pub(crate) use writer::CacheFileWriter;

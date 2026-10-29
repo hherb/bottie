@@ -1,0 +1,106 @@
+{
+  "verifiedDate": "2026-10-18",
+  "implementationRevision": "88344d83e6177b0bf6811929ea3f7debb446f9a8",
+  "apple": {
+    "chip": "Apple M3 Max",
+    "physicalMemoryGiB": 128,
+    "runtime": "Swift/MLX",
+    "variant": "SFT",
+    "nativeIntegration": {
+      "activeCancellation": true,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "durableProvenance": true,
+      "freshWorkerRecovery": true,
+      "generationAndVerificationSeconds": 881.094176166,
+      "modelId": "mlx-community/MOSS-Image-SFT-bf16@ea698e99312015505884559ebad94b4a5a0d0753",
+      "nativeUiClicks": false,
+      "packageId": "mlx-community/MOSS-Image-SFT-bf16",
+      "pixelExactClaims": false,
+      "revision": "ea698e99312015505884559ebad94b4a5a0d0753",
+      "seed": 42
+    },
+    "totalProofSeconds": 1377.6,
+    "peakMemoryMeasured": false,
+    "visualReview": {
+      "literalText": [
+        "BOTTIE",
+        "LOCAL IMAGE"
+      ],
+      "topTitleCenteredCircleBottomSubtitle": true,
+      "pixelExactGuarantee": false
+    }
+  },
+  "cuda": {
+    "modelId": "OpenMOSS-Team/MOSS-Image-SFT",
+    "revision": "fc5de0d56fc910cbca6f6625a70f5f582b26deb1",
+    "environment": {
+      "gpu": "NVIDIA GB10",
+      "torch": "2.14.1+cu130",
+      "cuda": "13.0",
+      "versions": {
+        "diffusers": "0.41.0",
+        "transformers": "5.20.1",
+        "accelerate": "1.15.0",
+        "safetensors": "0.8.0",
+        "Pillow": "13.0.0"
+      }
+    },
+    "first": {
+      "seconds": 195.28057315200567,
+      "completedSteps": 50,
+      "dimensions": [
+        512,
+        512
+      ],
+      "seed": 42
+    },
+    "cancellation": {
+      "activeCancellation": true,
+      "completedSteps": 2,
+      "reapSeconds": 0.77973647788167
+    },
+    "recovery": {
+      "seconds": 197.63126152474433,
+      "completedSteps": 50,
+      "dimensions": [
+        512,
+        512
+      ],
+      "seed": 44
+    },
+    "nativeUiClicks": false,
+    "nativeRustStorage": false,
+    "peakMemoryMeasured": false,
+    "status": "passed",
+    "platform": "Linux aarch64",
+    "driverVersion": "580.173.02",
+    "visualReview": {
+      "literalText": [
+        "BOTTIE",
+        "CUDA"
+      ],
+      "topTitleCenteredCircleBottomSubtitle": true,
+      "unrequestedDecorativeRules": true,
+      "pixelExactGuarantee": false
+    }
+  },
+  "nativeUiClicks": false,
+  "productionRelease": false,
+  "artifacts": {
+    "layout-proof.png": {
+      "path": "docs/assets/moss-image/layout-proof.png",
+      "sha256": "4392a93bbfbdfec33376a9803cef948cff4433061a65b1b710c47f94b5ddf8d6"
+    },
+    "cuda-layout-proof.png": {
+      "path": "docs/assets/moss-image/cuda-layout-proof.png",
+      "sha256": "c5683ec263c204d4d5e869cacb152190239b1a18b19888c29761fabfa7acd283"
+    },
+    "composer-preview.png": {
+      "path": "docs/assets/moss-image/composer-preview.png",
+      "sha256": "9086d53b7a0d9217a05821a6a8f4208146dce1a3e96d2377b90e4e746434f9ed"
+    }
+  }
+}
