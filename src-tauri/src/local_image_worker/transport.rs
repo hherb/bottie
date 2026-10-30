@@ -33,9 +33,10 @@ use stderr::{StderrSignal, drain_stderr};
 /// Serializes worker spawns. On macOS, std creates pipes with `pipe()` and only then sets
 /// close-on-exec, so a worker spawned by another thread in that gap inherits this worker's
 /// pipe ends and holds them open: EOF never arrives and teardown fails (issue #214).
-/// shortcut: only this transport's spawns take the lock; other spawners (Python, MOSS,
-/// Nano) can still leak pipe ends on macOS. Upgrade to a crate-wide spawn helper if seen.
-static SPAWN_LOCK: Mutex<()> = Mutex::new(());
+/// shortcut: only local-image worker spawns (this transport and MOSS) take the lock; other
+/// spawners (Python, Nano, Kastellan) can still leak pipe ends on macOS. Upgrade to a
+/// crate-wide spawn helper if seen.
+pub(super) static SPAWN_LOCK: Mutex<()> = Mutex::new(());
 
 /// Bounded read buffer used without retaining worker output beyond protocol limits.
 const PIPE_READ_BYTES: usize = 8 * 1_024;

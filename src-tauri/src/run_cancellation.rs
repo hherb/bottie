@@ -83,9 +83,9 @@ pub(crate) async fn reserve_run(
     )
 }
 
-/// Reserves `run_id`, then performs the run's first durable write, so that write can never happen while restore
-/// could still swap the store underneath it (#216). If the write fails, the returned registration is dropped and
-/// the run unregistered.
+/// Reserves `run_id`, then runs `first_write` (the run's first store access, including its first durable write), so
+/// that write can never happen while restore could still swap the store underneath it (#216). If `first_write`
+/// fails, the registration is dropped before the error returns, unregistering the run.
 pub(crate) async fn reserve_then_write<T, E>(
     runs: &ActiveRuns,
     run_id: String,

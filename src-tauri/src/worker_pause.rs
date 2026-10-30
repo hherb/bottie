@@ -1,12 +1,16 @@
 //! Shared pause handshake for Bottie's background store workers (attachment processing, semantic indexing).
 //!
-//! Restore and reindex ask each worker to pause before touching the store. A worker answers on a one-shot
-//! channel once its current item is done. If the worker thread has died, nothing will ever answer: that still
-//! counts as paused (a dead thread cannot write to the store), but the user must hear that background work has
-//! stopped, so it is recorded as a diagnostic.
+//! Restore pauses both workers, and reindex the semantic worker, before touching the store. A worker answers on a
+//! one-shot channel once its current item or batch is done. If the worker thread has died, nothing will ever answer:
+//! that still counts as paused (a dead thread cannot write to the store), but the user must hear that background
+//! work has stopped, so [`WorkerHealth`] records it as a diagnostic, once.
 
 use std::{
-    sync::mpsc::{Receiver, RecvTimeoutError},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc::{Receiver, RecvTimeoutError},
+    },
     time::Duration,
 };
 
@@ -25,6 +29,8 @@ enum PauseAcknowledgement {
     /// The worker confirmed it has paused.
     Paused,
     /// The worker thread is gone: it cannot touch the store, and it will not process work again either.
+    ///
+    /// Only a dead thread drops the acknowledgement unsent: every worker's `Pause` handler always sends it.
     WorkerGone,
 }
 
@@ -40,21 +46,35 @@ fn await_pause_acknowledgement(
     }
 }
 
-/// Confirms a pause request: `sent` is whether the pause command reached the worker's queue at all.
-///
-/// Returns `Ok` when the worker paused or is gone (recording `event` in the latter case so the stop is not
-/// silent), and a busy error when it is alive but did not pause in time.
-pub(crate) fn confirm_pause(
-    sent: bool,
-    acknowledged: &Receiver<()>,
-    timeout: Duration,
-    diagnostics: &Diagnostics,
-    event: &'static str,
-) -> Result<(), StorageError> {
-    let worker_gone = !sent
-        || await_pause_acknowledgement(acknowledged, timeout)? == PauseAcknowledgement::WorkerGone;
-    if worker_gone {
-        let diagnostics = diagnostics.clone();
+/// Whether one background worker's thread has stopped, shared by every clone of that worker's handle.
+#[derive(Clone)]
+pub(crate) struct WorkerHealth {
+    diagnostics: Diagnostics,
+    stopped_event: &'static str,
+    stopped: Arc<AtomicBool>,
+}
+
+impl WorkerHealth {
+    /// Tracks a running worker whose stop is reported as `stopped_event`.
+    pub(crate) fn new(diagnostics: Diagnostics, stopped_event: &'static str) -> Self {
+        Self {
+            diagnostics,
+            stopped_event,
+            stopped: Arc::default(),
+        }
+    }
+
+    /// Whether the worker thread was seen to stop; it will not process work again this session.
+    pub(crate) fn is_stopped(&self) -> bool {
+        self.stopped.load(Ordering::Acquire)
+    }
+
+    /// Marks the worker stopped, recording the diagnostic only the first time so repeated wakes cannot flood the log.
+    pub(crate) fn mark_stopped(&self) {
+        if self.stopped.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let (diagnostics, event) = (self.diagnostics.clone(), self.stopped_event);
         tauri::async_runtime::spawn(async move {
             record_diagnostic(
                 &diagnostics,
@@ -65,6 +85,28 @@ pub(crate) fn confirm_pause(
             )
             .await;
         });
+    }
+
+    #[cfg(test)]
+    pub(crate) fn diagnostics(&self) -> &Diagnostics {
+        &self.diagnostics
+    }
+}
+
+/// Confirms a pause request: `sent` is whether the pause command reached the worker's queue at all.
+///
+/// Returns `Ok` when the worker paused or is gone (marking `health` stopped in the latter case so the stop is not
+/// silent), and a busy error when it is alive but did not pause in time.
+pub(crate) fn confirm_pause(
+    sent: bool,
+    acknowledged: &Receiver<()>,
+    timeout: Duration,
+    health: &WorkerHealth,
+) -> Result<(), StorageError> {
+    if !sent
+        || await_pause_acknowledgement(acknowledged, timeout)? == PauseAcknowledgement::WorkerGone
+    {
+        health.mark_stopped();
     }
     Ok(())
 }
@@ -113,33 +155,28 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn an_acknowledged_pause_records_nothing() {
-        let diagnostics = Diagnostics::default();
+    fn an_acknowledged_or_timed_out_pause_marks_nothing() {
+        let health = WorkerHealth::new(Diagnostics::default(), "stopped");
         let (acknowledge, acknowledged) = channel();
         acknowledge.send(()).unwrap();
+        assert!(confirm_pause(true, &acknowledged, Duration::ZERO, &health).is_ok());
 
-        assert!(
-            confirm_pause(true, &acknowledged, Duration::ZERO, &diagnostics, "stopped").is_ok()
-        );
-        std::thread::sleep(Duration::from_millis(20));
-        assert!(diagnostics.try_lock().unwrap().is_empty());
+        // A busy worker is retried, not reported as dead.
+        let (_alive, acknowledged) = channel::<()>();
+        assert!(confirm_pause(true, &acknowledged, Duration::from_millis(5), &health).is_err());
+
+        assert!(!health.is_stopped());
     }
 
     #[test]
-    fn an_unsent_pause_counts_as_paused_and_is_reported() {
-        let diagnostics = Diagnostics::default();
+    fn an_unsent_pause_counts_as_paused_and_is_reported_once() {
+        let health = WorkerHealth::new(Diagnostics::default(), "stopped");
         let (_acknowledge, acknowledged) = channel();
 
-        assert!(
-            confirm_pause(
-                false,
-                &acknowledged,
-                Duration::ZERO,
-                &diagnostics,
-                "stopped"
-            )
-            .is_ok()
-        );
-        assert_eq!(recorded_events(&diagnostics), ["stopped"]);
+        assert!(confirm_pause(false, &acknowledged, Duration::ZERO, &health).is_ok());
+        health.clone().mark_stopped();
+
+        assert!(health.is_stopped());
+        assert_eq!(recorded_events(health.diagnostics()), ["stopped"]);
     }
 }

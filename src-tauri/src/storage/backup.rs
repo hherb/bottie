@@ -11,7 +11,9 @@ use super::portable_backup::{
     embed_portable_payload, extract_portable_payload, missing_content_count, omitted_file_count,
     strip_portable_payload, strip_portable_payload_from_connection, validate_portable_payload,
 };
-use super::staging_sweep::{remove_stale_staging, stale_staging_cutoff};
+use super::staging_sweep::{
+    remove_stale_staging, remove_stale_staging_files, stale_staging_cutoff,
+};
 use super::{CURRENT_SCHEMA_VERSION, ConversationStore, StorageError, now_ms};
 
 const PRE_RESTORE_FILE_PREFIX: &str = "bottie-pre-restore";
@@ -70,10 +72,12 @@ impl ConversationStore {
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
             .unwrap_or(Path::new("."));
-        // The user's folder has no startup sweep, so each backup clears what a killed one left there.
-        remove_stale_staging(
+        // The user's folder has no startup sweep, so each backup clears hour-old staging a killed one left there.
+        // Best effort: a file that cannot be removed now is retried by the next backup into this folder.
+        let _ = remove_stale_staging_files(
             directory,
-            &[MANUAL_BACKUP_STAGING_PREFIX],
+            MANUAL_BACKUP_STAGING_PREFIX,
+            &[".part", ".part-journal", ".part-wal", ".part-shm"],
             stale_staging_cutoff(),
         );
         let staging = directory.join(format!(

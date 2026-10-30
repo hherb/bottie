@@ -46,8 +46,7 @@ pub(crate) async fn start_chat(
         providers.settings().generation_limits,
     );
     let run_id = uuid::Uuid::new_v4().to_string();
-    // Registered before the first durable write: restore either refuses or finishes its swap before this
-    // returns. Every early return below drops `registration`, which unregisters it.
+    // Every early return below drops `registration`, which unregisters the run.
     let (registration, abort_registration, tool_cancellation, attachment_context) =
         reserve_then_write(&state.runs, run_id.clone(), || {
             let attachment_context = state.conversations.provider_attachment_context(

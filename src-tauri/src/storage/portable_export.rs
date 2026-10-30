@@ -10,7 +10,7 @@ use super::{
     ConversationStore, GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageSourceFormat,
     GeneratedImageSourceType, StorageError, StoredAttachment, StoredConversation,
     StoredGeneratedAsset, StoredGeneratedImageSource,
-    staging_sweep::{remove_stale_staging, stale_staging_cutoff},
+    staging_sweep::{remove_stale_staging_files, stale_staging_cutoff},
 };
 
 const ATTACHMENT_ARCHIVE_DIRECTORY: &str = "attachments";
@@ -47,8 +47,14 @@ impl ConversationFileExport {
     /// survives byte-identical when any step fails.
     pub(crate) fn write_to(&self, path: &Path) -> Result<(), StorageError> {
         let parent = path.parent().ok_or_else(StorageError::export)?;
-        // The user's folder has no startup sweep, so each export clears what a killed one left there.
-        remove_stale_staging(parent, &[EXPORT_STAGING_PREFIX], stale_staging_cutoff());
+        // The user's folder has no startup sweep, so each export clears hour-old staging a killed one left there.
+        // Best effort: a file that cannot be removed now is retried by the next export into this folder.
+        let _ = remove_stale_staging_files(
+            parent,
+            EXPORT_STAGING_PREFIX,
+            &[".tmp"],
+            stale_staging_cutoff(),
+        );
         let staging = parent.join(format!(
             "{EXPORT_STAGING_PREFIX}-{}.tmp",
             uuid::Uuid::new_v4()

@@ -83,7 +83,13 @@ async fn run(
         .kill_on_drop(true);
     #[cfg(target_os = "windows")]
     command.creation_flags(CREATE_NO_WINDOW);
-    let mut child = command.spawn().map_err(|_| MossError::Unavailable)?;
+    let spawned = {
+        let _guard = crate::local_image_worker::transport::SPAWN_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        command.spawn()
+    };
+    let mut child = spawned.map_err(|_| MossError::Unavailable)?;
     let result = tokio::select! { biased;
         _=cancelled(&mut cancel)=>Err(MossError::Cancelled),
         result=timeout(GENERATION_TIMEOUT,exchange(&mut child,prompt,size,seed,model,revision,runtime,&mut progress))=>

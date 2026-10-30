@@ -247,7 +247,7 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
         if cleanup_failed > 0 {
             let detail = format!(
                 "{cleanup_failed} interrupted automatic-backup staging item(s) could not be removed; \
-                 the next rotation retries them"
+                 the next launch retries them"
             );
             record_diagnostic(
                 &diagnostics,
