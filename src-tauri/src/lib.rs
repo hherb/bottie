@@ -47,6 +47,7 @@ mod web_policy;
 pub mod web_search;
 mod web_search_commands;
 mod worker_env;
+mod worker_pause;
 
 #[cfg(test)]
 mod generation_tools_tests;
@@ -208,6 +209,11 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
         let rotation =
             tauri::async_runtime::spawn_blocking(move || conversations.rotate_automatic_backups())
                 .await;
+        let cleanup_failed = rotation
+            .as_ref()
+            .ok()
+            .and_then(|result| result.as_ref().ok())
+            .map_or(0, |outcome| outcome.staging_cleanup_failed);
         let (level, event, detail) = match rotation {
             Ok(Ok(outcome)) if outcome.created => (
                 if outcome.skipped_files > 0 {
@@ -238,6 +244,20 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
             ),
         };
         record_diagnostic(&diagnostics, level, event, None, Some(&detail)).await;
+        if cleanup_failed > 0 {
+            let detail = format!(
+                "{cleanup_failed} interrupted automatic-backup staging item(s) could not be removed; \
+                 the next rotation retries them"
+            );
+            record_diagnostic(
+                &diagnostics,
+                "warn",
+                "Automatic backup staging cleanup incomplete",
+                None,
+                Some(&detail),
+            )
+            .await;
+        }
     });
 }
 

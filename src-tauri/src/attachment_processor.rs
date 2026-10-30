@@ -10,8 +10,9 @@ use tauri::{AppHandle, Emitter};
 
 use crate::{
     diagnostics::{Diagnostics, record_diagnostic},
-    semantic_indexer::{PAUSE_ACKNOWLEDGEMENT_WAIT, SemanticIndexer, await_pause_acknowledgement},
+    semantic_indexer::SemanticIndexer,
     storage::{ConversationStore, StorageError},
+    worker_pause::{PAUSE_ACKNOWLEDGEMENT_WAIT, confirm_pause},
 };
 
 /// Path-free native event emitted after one retained attachment reaches current durable state.
@@ -22,6 +23,7 @@ const WORKER_THREAD_NAME: &str = "bottie-attachment-processing";
 #[derive(Clone)]
 pub(crate) struct AttachmentProcessor {
     sender: Sender<WorkerCommand>,
+    diagnostics: Diagnostics,
 }
 
 /// Commands serialized by the single native worker thread.
@@ -53,9 +55,15 @@ impl AttachmentProcessor {
         let (sender, receiver) = channel();
         thread::Builder::new()
             .name(WORKER_THREAD_NAME.into())
-            .spawn(move || run_worker(receiver, app, conversations, diagnostics, semantic_indexing))
+            .spawn({
+                let diagnostics = diagnostics.clone();
+                move || run_worker(receiver, app, conversations, diagnostics, semantic_indexing)
+            })
             .expect("the attachment processing worker must start");
-        Self { sender }
+        Self {
+            sender,
+            diagnostics,
+        }
     }
 
     /// Wakes the worker after startup, ingestion, or a completed store restore.
@@ -77,9 +85,13 @@ impl AttachmentProcessor {
         let pause = AttachmentProcessingPause {
             sender: self.sender.clone(),
         };
-        if sent {
-            await_pause_acknowledgement(&acknowledged, timeout)?;
-        }
+        confirm_pause(
+            sent,
+            &acknowledged,
+            timeout,
+            &self.diagnostics,
+            "Attachment processing stopped",
+        )?;
         Ok(pause)
     }
 }
@@ -148,11 +160,15 @@ fn record_worker_failure(diagnostics: Diagnostics, detail: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::worker_pause::tests::recorded_events;
 
     #[test]
     fn pause_times_out_against_a_silent_worker_and_queues_resume() {
         let (sender, receiver) = channel();
-        let processor = AttachmentProcessor { sender };
+        let processor = AttachmentProcessor {
+            sender,
+            diagnostics: Diagnostics::default(),
+        };
 
         let error = processor
             .pause_within(Duration::from_millis(20))
@@ -167,12 +183,20 @@ mod tests {
     #[test]
     fn a_worker_that_drops_the_pause_counts_as_paused() {
         let (sender, receiver) = channel();
-        let processor = AttachmentProcessor { sender };
+        let processor = AttachmentProcessor {
+            sender,
+            diagnostics: Diagnostics::default(),
+        };
         // Stands in for a worker that exits after taking the command: it can no longer touch the store.
         let worker = thread::spawn(move || drop(receiver.recv()));
 
         assert!(processor.pause_within(Duration::from_secs(5)).is_ok());
         worker.join().unwrap();
+        // ...but the stop must not be silent: pending attachments would otherwise stay pending unexplained.
+        assert_eq!(
+            recorded_events(&processor.diagnostics),
+            ["Attachment processing stopped"]
+        );
     }
 
     #[test]

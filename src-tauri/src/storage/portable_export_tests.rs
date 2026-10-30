@@ -441,3 +441,22 @@ fn archive_bytes(archive: &mut ZipArchive<std::fs::File>, name: &str) -> Vec<u8>
         .expect("attachment ZIP member should be readable");
     bytes
 }
+
+#[test]
+fn export_sweeps_abandoned_export_staging_but_keeps_recent_staging() {
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    let abandoned = store.path.with_file_name(".bottie-export-abandoned.tmp");
+    let recent = store.path.with_file_name(".bottie-export-recent.tmp");
+    let hours = std::time::Duration::from_secs(2 * 60 * 60);
+    super::staging_sweep::tests::aged_file(&abandoned, hours);
+    super::staging_sweep::tests::aged_file(&recent, std::time::Duration::from_secs(60));
+
+    ConversationFileExport::document("swept.md".into(), "export".into())
+        .write_to(&store.path.with_file_name("swept.md"))
+        .expect("export should complete");
+
+    // A killed export's staging lives in the user's folder, which no startup sweep covers (#218).
+    assert!(!abandoned.exists());
+    assert!(recent.exists(), "another export may still be writing");
+}

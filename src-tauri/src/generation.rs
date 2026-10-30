@@ -19,7 +19,7 @@ use crate::{
     inference::{ChatRequest, ChatRun, ProviderError, ReasoningEffort, StreamEvent, Usage},
     provider_registry::{RoutedProvider, routed_provider},
     python_runtime::PythonRuntimeState,
-    run_cancellation::reserve_run,
+    run_cancellation::reserve_then_write,
     storage::{
         ConversationStore, NewProviderRun, ProviderRunContext, ProviderRunState,
         StoredReasoningEffort, StoredUsage,
@@ -48,24 +48,25 @@ pub(crate) async fn start_chat(
     let run_id = uuid::Uuid::new_v4().to_string();
     // Registered before the first durable write: restore either refuses or finishes its swap before this
     // returns. Every early return below drops `registration`, which unregisters it.
-    let (registration, abort_registration, tool_cancellation) =
-        reserve_run(&state.runs, run_id.clone()).await;
-    let attachment_context = state
-        .conversations
-        .provider_attachment_context(&context.conversation_id, &context.request_message_id)
-        .map_err(provider_run_storage_error)?;
-    state
-        .conversations
-        .start_provider_run(NewProviderRun {
-            id: run_id.clone(),
-            conversation_id: context.conversation_id.clone(),
-            request_message_id: context.request_message_id.clone(),
-            provider_id: request.provider_id.clone(),
-            model_id: request.model_id.clone(),
-            reasoning_effort: stored_reasoning_effort(request.settings.reasoning_effort),
-            temperature: request.settings.temperature,
-            max_output_tokens: request.settings.max_output_tokens,
+    let (registration, abort_registration, tool_cancellation, attachment_context) =
+        reserve_then_write(&state.runs, run_id.clone(), || {
+            let attachment_context = state.conversations.provider_attachment_context(
+                &context.conversation_id,
+                &context.request_message_id,
+            )?;
+            state.conversations.start_provider_run(NewProviderRun {
+                id: run_id.clone(),
+                conversation_id: context.conversation_id.clone(),
+                request_message_id: context.request_message_id.clone(),
+                provider_id: request.provider_id.clone(),
+                model_id: request.model_id.clone(),
+                reasoning_effort: stored_reasoning_effort(request.settings.reasoning_effort),
+                temperature: request.settings.temperature,
+                max_output_tokens: request.settings.max_output_tokens,
+            })?;
+            Ok(attachment_context)
         })
+        .await
         .map_err(provider_run_storage_error)?;
     let provider =
         match routed_provider(&request.provider_id, &providers, state.credentials.as_ref()) {

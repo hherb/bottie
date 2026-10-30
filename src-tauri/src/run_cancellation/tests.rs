@@ -124,3 +124,41 @@ fn runs_wait_while_restore_holds_the_idle_guard() {
         assert!(image.await.is_some());
     });
 }
+
+#[test]
+fn the_first_durable_write_runs_only_after_the_run_is_reserved() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let image_runs = ImageGenerationRuns::default();
+        let observed = runs.clone();
+
+        let (registration, _abort, _tools, written) =
+            reserve_then_write(&runs, "run-one".into(), || {
+                // Restore must already see the run when the first write happens (#216).
+                let registered = observed
+                    .try_lock()
+                    .expect("registry is free during the write")
+                    .contains_key("run-one");
+                Ok::<_, ()>(registered)
+            })
+            .await
+            .unwrap();
+        assert!(written, "the write ran before the run was registered");
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_none());
+        drop(registration);
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_some());
+    });
+}
+
+#[test]
+fn a_failed_first_write_unregisters_the_run() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let image_runs = ImageGenerationRuns::default();
+
+        let result =
+            reserve_then_write(&runs, "run-one".into(), || Err::<(), _>("disk full")).await;
+        assert!(matches!(result, Err("disk full")));
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_some());
+    });
+}

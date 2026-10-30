@@ -568,3 +568,50 @@ fn rotation_sweeps_abandoned_staging_but_keeps_recent_staging() {
     assert!(!abandoned.exists());
     assert!(recent.exists());
 }
+
+#[test]
+fn manual_backup_sweeps_abandoned_backup_staging_but_keeps_recent_staging() {
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    let abandoned = store.path.with_file_name(".bottie-backup-abandoned.part");
+    let recent = store.path.with_file_name(".bottie-backup-recent.part");
+    let hours = std::time::Duration::from_secs(2 * 60 * 60);
+    super::staging_sweep::tests::aged_file(&abandoned, hours);
+    super::staging_sweep::tests::aged_file(&recent, std::time::Duration::from_secs(60));
+
+    store
+        .backup_to(&store.path.with_file_name("swept-backup.sqlite3"))
+        .expect("backup should complete");
+
+    assert!(!abandoned.exists());
+    assert!(recent.exists(), "another backup may still be writing");
+}
+
+#[cfg(unix)]
+#[test]
+fn rotation_reports_abandoned_staging_it_could_not_remove() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let live_path = tests::test_database_path();
+    let store =
+        ConversationStore::initialize(live_path.clone()).expect("storage should initialize");
+    let staging = live_path.with_file_name("automatic-backups/.bottie-auto-staging-stuck");
+    let locked = staging.join("locked");
+    fs::create_dir_all(&locked).expect("staging should be created");
+    fs::write(locked.join("part"), b"killed mid-backup").expect("staging file should be written");
+    // A read-only directory keeps its file, so the abandoned entry cannot be deleted.
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o555)).expect("lock staging");
+    fs::File::open(&staging)
+        .and_then(|dir| {
+            dir.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(7_200))
+        })
+        .expect("abandoned staging should be aged");
+
+    let rotation = store
+        .rotate_automatic_backups_at(24 * 60 * 60 * 1_000)
+        .expect("a stuck staging entry must not block the backup");
+
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).expect("unlock staging");
+    assert!(rotation.created);
+    assert_eq!(rotation.staging_cleanup_failed, 1);
+}

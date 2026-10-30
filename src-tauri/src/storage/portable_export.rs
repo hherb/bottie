@@ -10,12 +10,15 @@ use super::{
     ConversationStore, GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageSourceFormat,
     GeneratedImageSourceType, StorageError, StoredAttachment, StoredConversation,
     StoredGeneratedAsset, StoredGeneratedImageSource,
+    staging_sweep::{remove_stale_staging, stale_staging_cutoff},
 };
 
 const ATTACHMENT_ARCHIVE_DIRECTORY: &str = "attachments";
 const GENERATED_ASSET_ARCHIVE_DIRECTORY: &str = "generated-images";
 const EDIT_SOURCE_ARCHIVE_DIRECTORY: &str = "image-edit-sources";
 const ZIP_FILENAME_EXTENSION: &str = "zip";
+/// Hidden name prefix of the staging file an export writes beside its target before renaming over it.
+const EXPORT_STAGING_PREFIX: &str = ".bottie-export";
 
 /// Native-only file payload prepared before Bottie opens a save dialog.
 pub(crate) struct ConversationFileExport {
@@ -44,7 +47,12 @@ impl ConversationFileExport {
     /// survives byte-identical when any step fails.
     pub(crate) fn write_to(&self, path: &Path) -> Result<(), StorageError> {
         let parent = path.parent().ok_or_else(StorageError::export)?;
-        let staging = parent.join(format!(".bottie-export-{}.tmp", uuid::Uuid::new_v4()));
+        // The user's folder has no startup sweep, so each export clears what a killed one left there.
+        remove_stale_staging(parent, &[EXPORT_STAGING_PREFIX], stale_staging_cutoff());
+        let staging = parent.join(format!(
+            "{EXPORT_STAGING_PREFIX}-{}.tmp",
+            uuid::Uuid::new_v4()
+        ));
         let written = if self.attachments.is_empty() {
             fs::write(&staging, &self.contents).map_err(|_| StorageError::export())
         } else {

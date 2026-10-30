@@ -44,6 +44,8 @@ pub(crate) struct AutomaticBackupRotation {
     pub(crate) pruned: usize,
     /// Catalog files left out of the new snapshot because they were missing from disk.
     pub(crate) skipped_files: usize,
+    /// Abandoned staging entries this rotation found but could not delete; the next rotation retries them.
+    pub(crate) staging_cleanup_failed: usize,
 }
 
 /// One application-owned automatic snapshot discovered from its strict filename contract.
@@ -68,6 +70,12 @@ impl ConversationStore {
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
             .unwrap_or(Path::new("."));
+        // The user's folder has no startup sweep, so each backup clears what a killed one left there.
+        remove_stale_staging(
+            directory,
+            &[MANUAL_BACKUP_STAGING_PREFIX],
+            stale_staging_cutoff(),
+        );
         let staging = directory.join(format!(
             "{MANUAL_BACKUP_STAGING_PREFIX}-{}.part",
             uuid::Uuid::new_v4()
@@ -123,11 +131,12 @@ impl ConversationStore {
     ) -> Result<AutomaticBackupRotation, StorageError> {
         let directory = automatic_backup_directory(&self.path)?;
         fs::create_dir_all(&directory).map_err(|_| StorageError::automatic_backup())?;
-        remove_stale_staging(
+        let staging_cleanup_failed = remove_stale_staging(
             &directory,
             &[AUTOMATIC_BACKUP_STAGING_PREFIX],
             stale_staging_cutoff(),
-        );
+        )
+        .failed;
         let mut backups = managed_backups(&directory)?;
         let freshness_threshold = timestamp_ms.saturating_sub(AUTOMATIC_BACKUP_INTERVAL_MS);
         if backups
@@ -139,6 +148,7 @@ impl ConversationStore {
                 retained: backups.len(),
                 pruned: 0,
                 skipped_files: 0,
+                staging_cleanup_failed,
             });
         }
 
@@ -182,6 +192,7 @@ impl ConversationStore {
             retained: backups.len(),
             pruned: expired.len(),
             skipped_files,
+            staging_cleanup_failed,
         })
     }
 

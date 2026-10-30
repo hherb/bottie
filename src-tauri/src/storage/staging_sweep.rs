@@ -102,11 +102,11 @@ impl ConversationStore {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
 
     /// Creates a staging file whose modification time is `age` in the past.
-    fn aged_file(path: &Path, age: Duration) {
+    pub(in crate::storage) fn aged_file(path: &Path, age: Duration) {
         fs::write(path, b"staging").unwrap();
         let file = fs::File::options().write(true).open(path).unwrap();
         file.set_modified(SystemTime::now() - age).unwrap();

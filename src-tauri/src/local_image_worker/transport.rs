@@ -5,6 +5,7 @@ use std::{
     ffi::OsString,
     path::{Component, PathBuf},
     process::Stdio,
+    sync::Mutex,
     time::{Duration, Instant},
 };
 
@@ -28,6 +29,13 @@ use super::{
 mod stderr;
 
 use stderr::{StderrSignal, drain_stderr};
+
+/// Serializes worker spawns. On macOS, std creates pipes with `pipe()` and only then sets
+/// close-on-exec, so a worker spawned by another thread in that gap inherits this worker's
+/// pipe ends and holds them open: EOF never arrives and teardown fails (issue #214).
+/// shortcut: only this transport's spawns take the lock; other spawners (Python, MOSS,
+/// Nano) can still leak pipe ends on macOS. Upgrade to a crate-wide spawn helper if seen.
+static SPAWN_LOCK: Mutex<()> = Mutex::new(());
 
 /// Bounded read buffer used without retaining worker output beyond protocol limits.
 const PIPE_READ_BYTES: usize = 8 * 1_024;
@@ -200,7 +208,13 @@ impl WorkerTransport {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
-        let mut child = command.spawn().map_err(|_| TransportError::SpawnFailed)?;
+        let spawned = {
+            let _guard = SPAWN_LOCK
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            command.spawn()
+        };
+        let mut child = spawned.map_err(|_| TransportError::SpawnFailed)?;
         let pipes = (child.stdin.take(), child.stdout.take(), child.stderr.take());
         let (Some(stdin), Some(stdout), Some(stderr)) = pipes else {
             return match timeout(timeouts.shutdown, child.kill()).await {
