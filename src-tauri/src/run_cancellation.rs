@@ -2,10 +2,13 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use futures_util::future::AbortHandle;
+use futures_util::future::{AbortHandle, AbortRegistration};
 use tauri::State;
 
-use crate::{AppState, inference::ProviderError, tool_loop::ToolLoopCancellation};
+use crate::{
+    AppState, image_generation::ImageGenerationRuns, inference::ProviderError,
+    tool_loop::ToolLoopCancellation,
+};
 
 #[cfg(test)]
 mod tests;
@@ -44,6 +47,43 @@ impl Drop for ActiveRunRegistration {
             runs.lock().await.remove(&run_id);
         });
     }
+}
+
+/// Registers `run_id` before its first durable write, so restore refuses to replace the store from then on.
+///
+/// Returns the guard that unregisters the run when dropped (every early return releases it) and the abort and
+/// tool-cancellation handles the generation task needs. Cancelling before the task starts is fine: the task's
+/// `Abortable` then resolves as aborted at once.
+pub(crate) async fn reserve_run(
+    runs: &ActiveRuns,
+    run_id: String,
+) -> (
+    ActiveRunRegistration,
+    AbortRegistration,
+    ToolLoopCancellation,
+) {
+    let (abort_handle, abort_registration) = AbortHandle::new_pair();
+    let tool_cancellation = ToolLoopCancellation::default();
+    runs.lock().await.insert(
+        run_id.clone(),
+        ActiveRun {
+            abort_handle,
+            tool_cancellation: tool_cancellation.clone(),
+        },
+    );
+    (
+        ActiveRunRegistration::new(runs.clone(), run_id),
+        abort_registration,
+        tool_cancellation,
+    )
+}
+
+/// Returns whether any chat or image run could still write to the live store.
+pub(crate) async fn any_generation_active(
+    runs: &ActiveRuns,
+    image_runs: &ImageGenerationRuns,
+) -> bool {
+    !runs.lock().await.is_empty() || image_runs.is_active().await
 }
 
 #[tauri::command]

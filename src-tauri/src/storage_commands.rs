@@ -5,6 +5,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 use crate::{
     AppState,
+    run_cancellation::any_generation_active,
     storage::{
         ConversationRetentionPeriod, ConversationRetentionPolicy, ConversationSearchResult,
         ConversationStore, ConversationSummary, ForkedConversation, MessageState, NewStoredMessage,
@@ -279,7 +280,7 @@ pub(crate) async fn restore_latest_automatic_backup(
 
 /// Refuses a store replacement while any chat or image run could still write to the live store.
 async fn ensure_no_active_generation(state: &AppState) -> Result<(), StorageError> {
-    if !state.runs.lock().await.is_empty() || state.image_runs.is_active().await {
+    if any_generation_active(&state.runs, &state.image_runs).await {
         return Err(StorageError::restore_while_active());
     }
     Ok(())

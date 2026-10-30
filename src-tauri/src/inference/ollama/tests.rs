@@ -408,3 +408,52 @@ fn live_ollama_stream_can_be_aborted_after_a_delta() {
         assert!(!recorded.lock().unwrap().is_empty());
     });
 }
+
+#[test]
+fn rejects_a_round_whose_thinking_and_text_together_pass_the_text_limit() {
+    use crate::inference::limits::MAX_ROUND_TEXT_BYTES;
+
+    let mut round = OllamaToolRound {
+        thinking: String::new(),
+        content: String::new(),
+        tool_calls: Vec::new(),
+        usage: None,
+    };
+    let sink = RecordingSink::default();
+    let half = MAX_ROUND_TEXT_BYTES / 2;
+    let line = |thinking: String, content: String| {
+        serde_json::json!({"message": {"role": "assistant", "thinking": thinking, "content": content}})
+            .to_string()
+    };
+    process_stream_line(
+        &line("x".repeat(half), String::new()),
+        &sink,
+        &mut round,
+        false,
+    )
+    .unwrap();
+
+    let error = process_stream_line(
+        &line(String::new(), "x".repeat(MAX_ROUND_TEXT_BYTES - half + 1)),
+        &sink,
+        &mut round,
+        false,
+    )
+    .expect_err("one byte past the round limit must fail");
+    assert_eq!(error.code.as_str(), "malformed_response");
+}
+
+#[test]
+fn long_provider_error_messages_are_truncated_in_http_and_stream_errors() {
+    let long = "k".repeat(5_000);
+    let http = normalize_response_error(
+        StatusCode::BAD_REQUEST,
+        &serde_json::json!({"error": long}).to_string(),
+    );
+    let stream = decode_stream_line(&serde_json::json!({"error": long}).to_string())
+        .expect_err("a stream error event must fail");
+    for error in [http, stream] {
+        assert_eq!(error.message.chars().count(), 301);
+        assert!(error.message.ends_with('…'));
+    }
+}

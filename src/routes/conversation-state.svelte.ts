@@ -492,7 +492,7 @@ export class ConversationState {
   async setArchived(conversationId: string, archived: boolean): Promise<boolean> {
     const wasActive = archived && this.activeConversationId === conversationId;
     const succeeded = await this.performLifecycleAction(() => setConversationArchived(conversationId, archived));
-    if (succeeded && wasActive) this.activeConversationId = null;
+    if (succeeded && wasActive) this.closeActive();
     return succeeded && wasActive;
   }
 
@@ -505,7 +505,7 @@ export class ConversationState {
   async delete(conversationId: string): Promise<boolean> {
     const wasActive = this.activeConversationId === conversationId;
     const succeeded = await this.performLifecycleAction(() => deleteConversation(conversationId));
-    if (succeeded && wasActive) this.activeConversationId = null;
+    if (succeeded && wasActive) this.closeActive();
     return succeeded && wasActive;
   }
 
@@ -528,6 +528,12 @@ export class ConversationState {
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
     }
+  }
+
+  /** Closes the open thread and discards any load of it still in flight, which would otherwise reopen it. */
+  private closeActive(): void {
+    this.openSequence += 1;
+    this.activeConversationId = null;
   }
 
   /** Runs one narrow lifecycle command and keeps failures in the existing storage-error surface. */

@@ -242,7 +242,7 @@ The audit's baseline:
 ## Nice to have
 
 - [x] **17. The native restore guard ignores image runs and cancelled-but-unfinished chat runs**
-  - **Status:** Done 2026-10-30. Still open: a run is invisible between `start_provider_run` and `runs.insert` (needs a reservation step).
+  - **Status:** Done 2026-10-30. The pre-registration gap was closed on 2026-10-30 (issue #216): `run_cancellation::reserve_run` registers a chat run before its first write.
   - **Where:**
     - Restore guards: `src-tauri/src/storage_commands.rs:156`, `:194`, `:226` and `:248`.
     - Cancellation and run registration: `src-tauri/src/run_cancellation.rs:28`, `src-tauri/src/generation.rs:56` and

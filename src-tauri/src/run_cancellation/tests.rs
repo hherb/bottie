@@ -57,3 +57,47 @@ fn a_panicking_run_task_still_unregisters_its_run() {
         assert!(runs.lock().await.is_empty());
     });
 }
+
+#[test]
+fn a_reserved_chat_run_blocks_restore_until_its_registration_drops() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let image_runs = ImageGenerationRuns::default();
+        assert!(!any_generation_active(&runs, &image_runs).await);
+
+        let (registration, _abort, _tools) = reserve_run(&runs, "run-one".into()).await;
+        assert!(any_generation_active(&runs, &image_runs).await);
+
+        drop(registration);
+        assert!(!any_generation_active(&runs, &image_runs).await);
+    });
+}
+
+#[test]
+fn cancelling_a_reserved_run_reaches_its_task_handles() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let (_registration, abort, tools) = reserve_run(&runs, "run-one".into()).await;
+
+        assert_eq!(cancel_all_chats(&runs).await, 1);
+        assert!(tools.is_cancelled());
+        assert!(
+            Abortable::new(std::future::pending::<()>(), abort)
+                .await
+                .is_err()
+        );
+    });
+}
+
+#[test]
+fn a_reserved_image_run_blocks_restore() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let image_runs = ImageGenerationRuns::default();
+        let _abort = image_runs.reserve_abortable("image-one".into()).await;
+
+        assert!(any_generation_active(&runs, &image_runs).await);
+        image_runs.finish("image-one").await;
+        assert!(!any_generation_active(&runs, &image_runs).await);
+    });
+}

@@ -1,18 +1,18 @@
 # Bottie handover
 
-Last verified: 2026-10-30 (FIX_BOTTIE items 6-8, 11-13, 15-18, 20-22 on `fix/bottie-audit-6-plus`).
+Last verified: 2026-10-30 (issues #216 and #217 on `fix/restore-guard-reservation-216-217`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-10-30, PRs #212 and #213 are merged; the `fix/bottie-audit-6-plus` PR holds
-   this session's audit fixes.
+1. Check the PR list first. As of 2026-10-30, PRs #212, #213 and #215 are merged; the
+   `fix/restore-guard-reservation-216-217` PR holds the #216/#217 fixes.
 2. **Next items:** the four open `FIX_BOTTIE.md` items. Each needs something this Mac session could not provide:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
-   - Issues from the PR #215 review: **#216** (reserve a chat run before `start_provider_run` so restore sees it)
-     and **#217** (test gaps and known limits).
+   - **#218** (low priority): export temp files left in the user's folder; backup-staging delete failures unreported.
+   - **#214**: flaky parallel transport test.
    Then run the follow-up audit listed under "Not audited yet".
 3. Owed hardware re-checks (cannot run in a normal session):
    - Re-run the MOSS MLX (Mac) and CUDA (DGX) proofs to confirm item 5's minimal worker environment strips nothing a
@@ -25,6 +25,14 @@ Last verified: 2026-10-30 (FIX_BOTTIE items 6-8, 11-13, 15-18, 20-22 on `fix/bot
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-10-30, second session (issues #216, #217):
+- `start_chat` registers its run through `run_cancellation::reserve_run` before the first durable write. Early returns
+  drop the registration. The restore guard is now the testable `any_generation_active`.
+- Tests added for the gaps #217 listed: per-adapter round-text cap and message truncation, the attachment-processor
+  pause timeout (`pause_within`) and disconnect, and speech poll epochs. OpenAI's inline tests moved to
+  `inference/openai/tests.rs`.
+- Deleting or archiving the open conversation now discards its in-flight reload (`closeActive` bumps `openSequence`).
 
 2026-10-30 (items 6-8, 11-13, 15-18, 20-22; details in `FIX_BOTTIE.md` status lines):
 - Provider streams are bounded by `src-tauri/src/inference/limits.rs` (64 KiB tool arguments, 1 MiB frames, 4 MiB text
@@ -69,12 +77,12 @@ Last verified: 2026-10-30 (FIX_BOTTIE items 6-8, 11-13, 15-18, 20-22 on `fix/bot
 
 ## Validation (2026-10-30)
 
-- Rust: `cargo test --locked` passes 779 library tests (42 ignored) plus the updater, adapter, and transport suites.
+- Rust: `cargo test --locked` passes 790 library tests (42 ignored) plus the updater, adapter, and transport suites.
   `cargo fmt` is clean. Clippy still reports ~50 style warnings (none are bugs).
 - `tests/local_image_worker_transport.rs` is flaky when run in parallel (also on `main`); it passes with
   `-- --test-threads=1`. Tracked in issue #214.
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: `npm test` passes 457 tests (3 skipped); `svelte-check` is clean.
+- Frontend: `npm test` passes 462 tests (3 skipped); `svelte-check` is clean.
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)
