@@ -400,7 +400,10 @@ fn long_provider_error_messages_are_truncated_in_http_and_stream_errors() {
     .err()
     .expect("a stream error event must fail");
     for error in [http, stream] {
-        assert_eq!(error.message.chars().count(), 301);
+        assert_eq!(
+            error.message.chars().count(),
+            crate::inference::limits::MAX_PROVIDER_MESSAGE_CHARACTERS + 1
+        );
         assert!(error.message.ends_with('…'));
     }
 }

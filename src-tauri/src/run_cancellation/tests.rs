@@ -1,6 +1,9 @@
 //! Focused tests for shared provider and native-tool cancellation.
 
-use futures_util::future::{AbortHandle, Abortable};
+use futures_util::{
+    FutureExt,
+    future::{AbortHandle, Abortable},
+};
 
 use super::*;
 
@@ -63,13 +66,13 @@ fn a_reserved_chat_run_blocks_restore_until_its_registration_drops() {
     tauri::async_runtime::block_on(async {
         let runs = ActiveRuns::default();
         let image_runs = ImageGenerationRuns::default();
-        assert!(!any_generation_active(&runs, &image_runs).await);
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_some());
 
         let (registration, _abort, _tools) = reserve_run(&runs, "run-one".into()).await;
-        assert!(any_generation_active(&runs, &image_runs).await);
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_none());
 
         drop(registration);
-        assert!(!any_generation_active(&runs, &image_runs).await);
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_some());
     });
 }
 
@@ -96,8 +99,28 @@ fn a_reserved_image_run_blocks_restore() {
         let image_runs = ImageGenerationRuns::default();
         let _abort = image_runs.reserve_abortable("image-one".into()).await;
 
-        assert!(any_generation_active(&runs, &image_runs).await);
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_none());
         image_runs.finish("image-one").await;
-        assert!(!any_generation_active(&runs, &image_runs).await);
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_some());
+    });
+}
+
+#[test]
+fn runs_wait_while_restore_holds_the_idle_guard() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let image_runs = ImageGenerationRuns::default();
+        let idle = lock_idle_generation(&runs, &image_runs)
+            .await
+            .expect("no run is active");
+
+        let mut chat = Box::pin(reserve_run(&runs, "run-one".into()));
+        let mut image = Box::pin(image_runs.reserve_abortable("image-one".into()));
+        assert!((&mut chat).now_or_never().is_none());
+        assert!((&mut image).now_or_never().is_none());
+
+        drop(idle);
+        let _chat = chat.await;
+        assert!(image.await.is_some());
     });
 }

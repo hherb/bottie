@@ -98,4 +98,27 @@ describe("closing the active conversation", () => {
     expect(await reload).toBeNull();
     expect(state.activeConversationId).toBeNull();
   });
+
+  it.each([
+    ["delete", (state: ConversationState) => state.delete("a")],
+    ["archive", (state: ConversationState) => state.setArchived("a", true)],
+  ])("%s keeps a load of another conversation that resolves afterwards", async (_name, close) => {
+    storage.loadConversation.mockResolvedValueOnce(conversation("a"));
+    storage.deleteConversation.mockResolvedValue(undefined);
+    storage.setConversationArchived.mockResolvedValue(undefined);
+    storage.listConversations.mockResolvedValue([]);
+    const state = new ConversationState();
+    await state.open("a");
+
+    let resolveB: (value: StoredConversation) => void = () => {};
+    storage.loadConversation.mockImplementationOnce(
+      () => new Promise<StoredConversation>((resolve) => (resolveB = resolve)),
+    );
+    const openB = state.open("b");
+    expect(await close(state)).toBe(true);
+    resolveB(conversation("b"));
+
+    expect(await openB).toEqual([]);
+    expect(state.activeConversationId).toBe("b");
+  });
 });

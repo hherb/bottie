@@ -46,8 +46,8 @@ pub(crate) async fn start_chat(
         providers.settings().generation_limits,
     );
     let run_id = uuid::Uuid::new_v4().to_string();
-    // Registered before the first durable write so restore cannot swap the store under this run; every early
-    // return below drops `registration`, which unregisters it.
+    // Registered before the first durable write: restore either refuses or finishes its swap before this
+    // returns. Every early return below drops `registration`, which unregisters it.
     let (registration, abort_registration, tool_cancellation) =
         reserve_run(&state.runs, run_id.clone()).await;
     let attachment_context = state
@@ -304,10 +304,14 @@ pub(crate) async fn start_chat(
     request.email_enabled = supports_email_tools;
     {
         let _voice_guard = state.voice_interaction.lock().await;
-        if state.microphone.is_capturing() {
-            let error = ProviderError::invalid_request(
-                "Stop or discard local voice capture before sending a message.",
-            );
+        // Starting capture cancels every registered run, this one included even though its task has not spawned.
+        let interrupted = tool_cancellation.is_cancelled();
+        if interrupted || state.microphone.is_capturing() {
+            let error = ProviderError::invalid_request(if interrupted {
+                "Voice capture interrupted this message. Send it again."
+            } else {
+                "Stop or discard local voice capture before sending a message."
+            });
             finish_provider_run(
                 &state.conversations,
                 &run_id,

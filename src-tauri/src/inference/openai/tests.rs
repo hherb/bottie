@@ -8,7 +8,10 @@ use crate::tool_contract::memory_tool_definitions;
 fn long_provider_error_messages_are_truncated_before_reaching_the_webview() {
     let body = serde_json::json!({"error": {"message": "k".repeat(5_000)}}).to_string();
     let error = normalize_response_error(StatusCode::UNAUTHORIZED, &body);
-    assert_eq!(error.message.chars().count(), 301);
+    assert_eq!(
+        error.message.chars().count(),
+        crate::inference::limits::MAX_PROVIDER_MESSAGE_CHARACTERS + 1
+    );
     assert!(error.message.ends_with('…'));
 }
 
@@ -212,8 +215,21 @@ fn rejects_a_round_whose_reasoning_and_text_together_pass_the_text_limit() {
     )
     .unwrap();
 
+    // Stored text counts too, not only stored reasoning and the incoming delta.
+    process_stream_event(
+        text_event(String::new(), "x".repeat(half / 2)),
+        &NoopSink,
+        &mut round,
+        &mut calls,
+        false,
+    )
+    .unwrap();
+
     let error = process_stream_event(
-        text_event(String::new(), "x".repeat(MAX_ROUND_TEXT_BYTES - half + 1)),
+        text_event(
+            String::new(),
+            "x".repeat(MAX_ROUND_TEXT_BYTES - half - half / 2 + 1),
+        ),
         &NoopSink,
         &mut round,
         &mut calls,

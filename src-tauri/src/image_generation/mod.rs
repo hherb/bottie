@@ -34,7 +34,7 @@ pub(crate) use controller::{
 pub(crate) use dashscope::DashScopeQwenImageProvider;
 pub(crate) use download::GeneratedImageDownloader;
 pub(crate) use local::LocalImageGenerator;
-pub(crate) use runs::ImageGenerationRuns;
+pub(crate) use runs::{IdleImageRuns, ImageGenerationRuns};
 
 /// Stable Bottie provider identity for the hosted Qwen Image route.
 pub(crate) const QWEN_IMAGE_PROVIDER_ID: &str = "qwen-image";

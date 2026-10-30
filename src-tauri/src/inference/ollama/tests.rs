@@ -433,8 +433,20 @@ fn rejects_a_round_whose_thinking_and_text_together_pass_the_text_limit() {
     )
     .unwrap();
 
+    // Stored text counts too, not only stored reasoning and the incoming delta.
+    process_stream_line(
+        &line(String::new(), "x".repeat(half / 2)),
+        &sink,
+        &mut round,
+        false,
+    )
+    .unwrap();
+
     let error = process_stream_line(
-        &line(String::new(), "x".repeat(MAX_ROUND_TEXT_BYTES - half + 1)),
+        &line(
+            String::new(),
+            "x".repeat(MAX_ROUND_TEXT_BYTES - half - half / 2 + 1),
+        ),
         &sink,
         &mut round,
         false,
@@ -453,7 +465,10 @@ fn long_provider_error_messages_are_truncated_in_http_and_stream_errors() {
     let stream = decode_stream_line(&serde_json::json!({"error": long}).to_string())
         .expect_err("a stream error event must fail");
     for error in [http, stream] {
-        assert_eq!(error.message.chars().count(), 301);
+        assert_eq!(
+            error.message.chars().count(),
+            crate::inference::limits::MAX_PROVIDER_MESSAGE_CHARACTERS + 1
+        );
         assert!(error.message.ends_with('…'));
     }
 }

@@ -13,6 +13,8 @@ Last verified: 2026-10-30 (issues #216 and #217 on `fix/restore-guard-reservatio
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
    - **#218** (low priority): export temp files left in the user's folder; backup-staging delete failures unreported.
    - **#214**: flaky parallel transport test.
+   - **#220** (low): report a dead attachment/semantic worker instead of silently treating it as paused.
+   - **#221**: a test that pins `start_chat`'s reserve-before-first-write order (needs a seam).
    Then run the follow-up audit listed under "Not audited yet".
 3. Owed hardware re-checks (cannot run in a normal session):
    - Re-run the MOSS MLX (Mac) and CUDA (DGX) proofs to confirm item 5's minimal worker environment strips nothing a
@@ -28,11 +30,15 @@ Last verified: 2026-10-30 (issues #216 and #217 on `fix/restore-guard-reservatio
 
 2026-10-30, second session (issues #216, #217):
 - `start_chat` registers its run through `run_cancellation::reserve_run` before the first durable write. Early returns
-  drop the registration. The restore guard is now the testable `any_generation_active`.
+  drop the registration. Restore holds both run registries (`lock_idle_generation`) from its last check through
+  the swap, so a run starting in that window waits instead of writing to the old store. A run that voice capture
+  cancels before its task spawns now fails with "Voice capture interrupted this message" instead of a silent
+  Cancelled.
 - Tests added for the gaps #217 listed: per-adapter round-text cap and message truncation, the attachment-processor
   pause timeout (`pause_within`) and disconnect, and speech poll epochs. OpenAI's inline tests moved to
   `inference/openai/tests.rs`.
-- Deleting or archiving the open conversation now discards its in-flight reload (`closeActive` bumps `openSequence`).
+- Deleting or archiving a conversation discards an in-flight load of that conversation only; a load of another
+  conversation started meanwhile still opens (`close` checks `openingConversationId`).
 
 2026-10-30 (items 6-8, 11-13, 15-18, 20-22; details in `FIX_BOTTIE.md` status lines):
 - Provider streams are bounded by `src-tauri/src/inference/limits.rs` (64 KiB tool arguments, 1 MiB frames, 4 MiB text
@@ -77,12 +83,12 @@ Last verified: 2026-10-30 (issues #216 and #217 on `fix/restore-guard-reservatio
 
 ## Validation (2026-10-30)
 
-- Rust: `cargo test --locked` passes 790 library tests (42 ignored) plus the updater, adapter, and transport suites.
+- Rust: `cargo test --locked` passes 791 library tests (42 ignored) plus the updater, adapter, and transport suites.
   `cargo fmt` is clean. Clippy still reports ~50 style warnings (none are bugs).
 - `tests/local_image_worker_transport.rs` is flaky when run in parallel (also on `main`); it passes with
   `-- --test-threads=1`. Tracked in issue #214.
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: `npm test` passes 462 tests (3 skipped); `svelte-check` is clean.
+- Frontend: `npm test` passes 464 tests (3 skipped); `svelte-check` is clean.
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)

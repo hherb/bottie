@@ -5,7 +5,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 use crate::{
     AppState,
-    run_cancellation::any_generation_active,
+    run_cancellation::{IdleGeneration, lock_idle_generation},
     storage::{
         ConversationRetentionPeriod, ConversationRetentionPolicy, ConversationSearchResult,
         ConversationStore, ConversationSummary, ForkedConversation, MessageState, NewStoredMessage,
@@ -202,7 +202,7 @@ pub(crate) async fn restore_conversation_store(
     if !confirmed {
         return Ok(cancelled_restore());
     }
-    ensure_no_active_generation(&state).await?;
+    let _idle = ensure_no_active_generation(&state).await?;
     let conversations = state.conversations.clone();
     let attachment_processing = state.attachment_processing.clone();
     let semantic_indexing = state.semantic_indexing.clone();
@@ -254,7 +254,7 @@ pub(crate) async fn restore_latest_automatic_backup(
     if !confirmed {
         return Ok(cancelled_restore());
     }
-    ensure_no_active_generation(&state).await?;
+    let _idle = ensure_no_active_generation(&state).await?;
     let conversations = state.conversations.clone();
     let attachment_processing = state.attachment_processing.clone();
     let semantic_indexing = state.semantic_indexing.clone();
@@ -279,11 +279,12 @@ pub(crate) async fn restore_latest_automatic_backup(
 }
 
 /// Refuses a store replacement while any chat or image run could still write to the live store.
-async fn ensure_no_active_generation(state: &AppState) -> Result<(), StorageError> {
-    if any_generation_active(&state.runs, &state.image_runs).await {
-        return Err(StorageError::restore_while_active());
-    }
-    Ok(())
+///
+/// Hold the returned guard across the swap: new runs wait for it to drop, so none starts against the old store.
+async fn ensure_no_active_generation(state: &AppState) -> Result<IdleGeneration<'_>, StorageError> {
+    lock_idle_generation(&state.runs, &state.image_runs)
+        .await
+        .ok_or_else(StorageError::restore_while_active)
 }
 
 /// Counts files the just-restored data lacks; the restore already succeeded, so a failed count
