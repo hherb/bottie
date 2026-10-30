@@ -1,17 +1,17 @@
 # Bottie handover
 
-Last verified: 2026-10-30 (issues #214, #218, #220, #221 in PR #222, including its review fixes).
+Last verified: 2026-10-30 (issues #223, #224, #225 on branch `fix/issues-223-224-225`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-10-30, PRs #212, #213, #215 and #219 are merged; PR #222
-   (`fix/issues-214-218-220-221`) holds the #214/#218/#220/#221 fixes. Review follow-ups are filed as #223-#226.
+1. Check the PR list first. As of 2026-10-30, PRs up to #222 are merged. The PR from `fix/issues-223-224-225`
+   fixes #223-#225. #226 is still open (low priority).
 2. **Next items:** the four open `FIX_BOTTIE.md` items. Each needs something this Mac session could not provide:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
-   - Follow-up from #214 (#226): other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see
+   - #226: spawn errors and embedder-load errors lose their cause; other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see
      `SPAWN_LOCK` in `local_image_worker/transport.rs`). Only worth a crate-wide spawn helper if it shows up.
    Then run the follow-up audit listed under "Not audited yet".
 3. Owed hardware re-checks (cannot run in a normal session):
@@ -25,6 +25,16 @@ Last verified: 2026-10-30 (issues #214, #218, #220, #221 in PR #222, including i
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-10-30, fourth session (issues #223, #224, #225):
+- **#223:** `generation_run_start::reserve_chat_run` holds `start_chat`'s reserve-then-first-write. A test holds
+  restore's idle guard and checks that no run row is written until the run registers.
+- **#225:** `backup_to` returns `ManualBackup { skipped_files, staging_cleanup_failed }`, and `write_to` returns its
+  sweep's failure count. Both commands log a `warn` diagnostic. The automatic-backup sweep is now its own call
+  (`sweep_automatic_backup_staging`) before rotation, so a failed rotation still reports it. The text comes from the
+  pure `staging_cleanup_warning`, which has a test. Automatic rotation moved to `storage/automatic_backup.rs`.
+- **#224:** `RestoreOutcome.backgroundWorkStopped` is true when the attachment or semantic worker has stopped. The
+  restore feedback then ends with "Restart Bottie to finish processing restored data".
 
 2026-10-30, third session (issues #214, #218, #220, #221):
 - **#214:** on macOS, std sets close-on-exec only after `pipe()`. A worker spawned in that gap held a sibling's pipe
@@ -95,11 +105,11 @@ Last verified: 2026-10-30 (issues #214, #218, #220, #221 in PR #222, including i
 
 ## Validation (2026-10-30)
 
-- Rust: `cargo test --locked` passes 803 library tests (42 ignored) plus the updater, adapter, and transport suites.
+- Rust: `cargo test --locked` passes 805 library tests (42 ignored) plus the updater, adapter, and transport suites.
   `cargo fmt` is clean. Clippy still reports ~50 pre-existing style warnings (none are bugs).
-- Over 500 lines: `storage/backup.rs` (517), `semantic_indexer.rs` (549). Split them when next touched.
+- Over 500 lines: `semantic_indexer.rs` (549), `storage_commands.rs` (504). Split them when next touched.
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: not touched this session (`npm test` passed 464 tests earlier on 2026-10-30).
+- Frontend: `npm test` passes 465 tests; `npm run check` is clean.
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)

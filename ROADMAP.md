@@ -5,8 +5,8 @@ This roadmap favors complete vertical slices over building every backend subsyst
 ## Current focus (2026-10-30)
 
 - `FIX_BOTTIE.md` audit list: all items done except 9 (Linux check), 10 (DGX hash lock), 14 (runtime link check), and
-  19 (low priority). Then run the follow-up audit it lists. Issues #214, #218, #220 and #221 are fixed in
-  PR #222; review follow-ups are #223-#226.
+  19 (low priority). Then run the follow-up audit it lists. Review follow-ups #223-#225 are fixed (see the PR list);
+  #226 (low-priority error causes and spawners outside `SPAWN_LOCK`) is open.
 - `mlx_worker.py` changed (audit item 4). The frozen Mac Qwen-Image-2512 worker bundle (8.4) and the Linux clean-runtime
   image and closure evidence (8.4) predate it, so rebuild and re-pin both before relying on them.
 

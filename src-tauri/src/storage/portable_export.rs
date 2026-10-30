@@ -45,16 +45,19 @@ impl ConversationFileExport {
     ///
     /// Both forms are written to a staging file beside `path` and renamed over it, so an existing export at `path`
     /// survives byte-identical when any step fails.
-    pub(crate) fn write_to(&self, path: &Path) -> Result<(), StorageError> {
+    ///
+    /// Returns how many abandoned staging files in that folder could not be deleted; the next export retries them.
+    pub(crate) fn write_to(&self, path: &Path) -> Result<usize, StorageError> {
         let parent = path.parent().ok_or_else(StorageError::export)?;
         // The user's folder has no startup sweep, so each export clears hour-old staging a killed one left there.
         // Best effort: a file that cannot be removed now is retried by the next export into this folder.
-        let _ = remove_stale_staging_files(
+        let staging_cleanup_failed = remove_stale_staging_files(
             parent,
             EXPORT_STAGING_PREFIX,
             &[".tmp"],
             stale_staging_cutoff(),
-        );
+        )
+        .failed;
         let staging = parent.join(format!(
             "{EXPORT_STAGING_PREFIX}-{}.tmp",
             uuid::Uuid::new_v4()
@@ -70,7 +73,7 @@ impl ConversationFileExport {
         if result.is_err() {
             let _ = fs::remove_file(&staging);
         }
-        result
+        result.map(|()| staging_cleanup_failed)
     }
 
     /// Writes a complete archive to one native-only staging path.

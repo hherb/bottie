@@ -459,9 +459,11 @@ fn export_sweeps_abandoned_export_staging_but_keeps_recent_staging() {
     super::staging_sweep::tests::aged_file(&users_own, hours);
     super::staging_sweep::tests::aged_file(&recent, std::time::Duration::from_secs(60));
 
-    ConversationFileExport::document("swept.md".into(), "export".into())
-        .write_to(&store.path.with_file_name("swept.md"))
-        .expect("export should complete");
+    let staging_cleanup_failed =
+        ConversationFileExport::document("swept.md".into(), "export".into())
+            .write_to(&store.path.with_file_name("swept.md"))
+            .expect("export should complete");
+    assert_eq!(staging_cleanup_failed, 0);
 
     // A killed export's staging lives in the user's folder, which no startup sweep covers (#218).
     assert!(!abandoned.exists());

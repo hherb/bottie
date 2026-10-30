@@ -144,16 +144,31 @@ pub(crate) async fn backup_conversation_store(
     let path = selected.into_path().map_err(|_| StorageError::backup())?;
     let conversations = state.conversations.clone();
     let backup_path = path.clone();
-    let skipped =
+    let backup =
         tauri::async_runtime::spawn_blocking(move || conversations.backup_to(&backup_path))
             .await
             .map_err(|_| StorageError::backup())??;
+    let skipped = backup.skipped_files;
     if skipped > 0 {
         let detail = format!("{skipped} missing attachment or image file(s) left out");
         crate::diagnostics::record_diagnostic(
             &state.diagnostics,
             "warn",
             "Backup saved without missing files",
+            None,
+            Some(&detail),
+        )
+        .await;
+    }
+    if let Some(detail) = crate::storage::staging_cleanup_warning(
+        backup.staging_cleanup_failed,
+        "backup",
+        "the next backup into that folder retries them",
+    ) {
+        crate::diagnostics::record_diagnostic(
+            &state.diagnostics,
+            "warn",
+            "Backup staging cleanup incomplete",
             None,
             Some(&detail),
         )
@@ -227,6 +242,7 @@ pub(crate) async fn restore_conversation_store(
         &safety_path,
         "Bottie preserved local data",
         missing_files,
+        background_work_stopped(&state),
     ))
 }
 
@@ -278,6 +294,7 @@ pub(crate) async fn restore_latest_automatic_backup(
         &preservation,
         "Bottie preserved damaged data",
         missing_files,
+        background_work_stopped(&state),
     ))
 }
 
@@ -288,6 +305,13 @@ async fn ensure_no_active_generation(state: &AppState) -> Result<IdleGeneration<
     lock_idle_generation(&state.runs, &state.image_runs)
         .await
         .ok_or_else(StorageError::restore_while_active)
+}
+
+/// Whether a worker stopped, so the restored data's pending attachments and search index wait for a restart (#224).
+///
+/// Call after `wake()`, which also marks a worker it finds gone.
+fn background_work_stopped(state: &AppState) -> bool {
+    state.attachment_processing.is_stopped() || state.semantic_indexing.is_stopped()
 }
 
 /// Counts files the just-restored data lacks; the restore already succeeded, so a failed count

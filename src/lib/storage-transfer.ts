@@ -24,12 +24,19 @@ export type RestoreOutcome = {
   preservedCopyName: string | null;
   /** Catalogued attachment or image files the restored data has no bytes for. */
   missingFiles: number;
+  /** A background worker has stopped, so restored attachments and search wait for a restart. */
+  backgroundWorkStopped: boolean;
 };
 
 /** Appends a missing-file warning to backup or restore feedback when any file was left out. */
 export function missingFilesNote(missingFiles: number): string {
   if (missingFiles === 0) return "";
   return ` · ${missingFiles} missing attachment or image file${missingFiles === 1 ? "" : "s"} not included`;
+}
+
+/** Appends a restart request to restore feedback when a background worker has stopped. */
+export function backgroundWorkNote(backgroundWorkStopped: boolean): string {
+  return backgroundWorkStopped ? " · Restart Bottie to finish processing restored data" : "";
 }
 
 /** Builds compact success feedback from a path-redacted native export outcome. */

@@ -147,3 +147,76 @@ fn applies_saved_generation_limits_before_provider_run_provenance() {
     assert_eq!(request.settings.max_output_tokens, Some(12_288));
     assert_eq!(request.settings.generation_limits, limits);
 }
+
+#[test]
+fn start_chat_writes_its_run_row_only_after_restore_lets_the_run_register() {
+    use crate::image_generation::ImageGenerationRuns;
+    use crate::run_cancellation::{ActiveRuns, lock_idle_generation};
+    use crate::storage::{MessageState, NewStoredMessage};
+    use futures_util::FutureExt;
+
+    let path = std::env::temp_dir()
+        .join("bottie-generation-tests")
+        .join(format!("{}.sqlite3", uuid::Uuid::new_v4()));
+    let store = ConversationStore::initialize(path).expect("fixture store should initialize");
+    let conversation = store
+        .create_conversation("Run order")
+        .expect("conversation should create");
+    let message = store
+        .append_message_with_attachments(
+            NewStoredMessage {
+                conversation_id: conversation.id.clone(),
+                role: StoredRole::User,
+                text: "Hello".into(),
+                reasoning: None,
+                state: MessageState::Final,
+                provider_id: None,
+                model_id: None,
+            },
+            &[],
+        )
+        .expect("request should append");
+    let context = ProviderRunContext {
+        conversation_id: conversation.id,
+        request_message_id: message.id,
+    };
+    let request = text_request("Hello");
+
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let image_runs = ImageGenerationRuns::default();
+        // A restore past its last check holds the run registry until its store swap is done.
+        let restore = lock_idle_generation(&runs, &image_runs)
+            .await
+            .expect("nothing is running");
+        let mut start = Box::pin(reserve_chat_run(
+            &runs,
+            &store,
+            "run-one".into(),
+            &context,
+            &request,
+        ));
+        assert!(
+            (&mut start).now_or_never().is_none(),
+            "the run must wait for restore"
+        );
+        // `recover_interrupted_runs` counts runs left in the running state: none may exist yet.
+        assert_eq!(
+            store.recover_interrupted_runs().unwrap(),
+            0,
+            "the row was written before registration"
+        );
+
+        drop(restore);
+        let (_registration, _abort, _tools, _context) = start.await.expect("run should start");
+        assert!(
+            lock_idle_generation(&runs, &image_runs).await.is_none(),
+            "the run is registered"
+        );
+        assert_eq!(
+            store.recover_interrupted_runs().unwrap(),
+            1,
+            "the run row is written"
+        );
+    });
+}

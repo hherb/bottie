@@ -540,7 +540,7 @@ fn failed_manual_backup_keeps_the_previous_backup_byte_identical() {
 }
 
 #[test]
-fn rotation_sweeps_abandoned_staging_but_keeps_recent_staging() {
+fn automatic_sweep_removes_abandoned_staging_but_keeps_recent_staging() {
     let live_path = tests::test_database_path();
     let store =
         ConversationStore::initialize(live_path.clone()).expect("storage should initialize");
@@ -561,6 +561,7 @@ fn rotation_sweeps_abandoned_staging_but_keeps_recent_staging() {
         })
         .expect("abandoned staging should be aged");
 
+    assert_eq!(store.sweep_automatic_backup_staging().failed, 0);
     store
         .rotate_automatic_backups_at(24 * 60 * 60 * 1_000)
         .expect("automatic rotation should complete");
@@ -588,10 +589,11 @@ fn manual_backup_sweeps_abandoned_backup_staging_but_keeps_recent_staging() {
     }
     super::staging_sweep::tests::aged_file(&recent, std::time::Duration::from_secs(60));
 
-    store
+    let backup = store
         .backup_to(&store.path.with_file_name("swept-backup.sqlite3"))
         .expect("backup should complete");
 
+    assert_eq!(backup.staging_cleanup_failed, 0);
     assert!(abandoned.iter().all(|path| !path.exists()));
     assert!(recent.exists(), "another backup may still be writing");
     assert!(users_own.exists());
@@ -599,7 +601,7 @@ fn manual_backup_sweeps_abandoned_backup_staging_but_keeps_recent_staging() {
 
 #[cfg(unix)]
 #[test]
-fn rotation_reports_abandoned_staging_it_could_not_remove() {
+fn automatic_staging_sweep_reports_entries_it_could_not_remove() {
     use std::os::unix::fs::PermissionsExt;
 
     let live_path = tests::test_database_path();
@@ -621,11 +623,12 @@ fn rotation_reports_abandoned_staging_it_could_not_remove() {
         })
         .expect("abandoned staging should be aged");
 
+    let sweep = store.sweep_automatic_backup_staging();
     let rotation = store
         .rotate_automatic_backups_at(24 * 60 * 60 * 1_000)
         .expect("a stuck staging entry must not block the backup");
 
     fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).expect("unlock staging");
+    assert_eq!(sweep.failed, 1);
     assert!(rotation.created);
-    assert_eq!(rotation.staging_cleanup_failed, 1);
 }
