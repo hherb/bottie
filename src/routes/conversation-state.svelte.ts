@@ -79,6 +79,8 @@ export class ConversationState {
   private searchSequence = 0;
   /** Bumped by every conversation load so a slower, superseded load cannot replace a newer selection. */
   private openSequence = 0;
+  /** Conversation the newest `open` or `openSearchResult` call is loading. */
+  private openingConversationId: string | null = null;
 
   /** Loads navigation and returns the exact durable profile selection. */
   async initialize(): Promise<Message[]> {
@@ -101,6 +103,7 @@ export class ConversationState {
   /** Opens one persisted conversation and returns its presentation messages. */
   async open(conversationId: string): Promise<Message[] | null> {
     const sequence = ++this.openSequence;
+    this.openingConversationId = conversationId;
     try {
       const conversation = await loadConversation(conversationId);
       if (sequence !== this.openSequence) return null;
@@ -118,6 +121,7 @@ export class ConversationState {
     if (this.isManaging) return null;
     this.isManaging = true;
     const sequence = ++this.openSequence;
+    this.openingConversationId = result.conversationId;
     try {
       let conversation = await loadConversation(result.conversationId);
       if (conversation.currentBranchId !== result.branchId) {
@@ -490,10 +494,8 @@ export class ConversationState {
 
   /** Moves one conversation into or out of the archive and reports whether the open thread closed. */
   async setArchived(conversationId: string, archived: boolean): Promise<boolean> {
-    const wasActive = archived && this.activeConversationId === conversationId;
     const succeeded = await this.performLifecycleAction(() => setConversationArchived(conversationId, archived));
-    if (succeeded && wasActive) this.activeConversationId = null;
-    return succeeded && wasActive;
+    return succeeded && archived && this.close(conversationId);
   }
 
   /** Excludes or restores one conversation in native long-term memory without closing it. */
@@ -503,10 +505,8 @@ export class ConversationState {
 
   /** Moves one conversation to recoverable trash and reports whether the open thread closed. */
   async delete(conversationId: string): Promise<boolean> {
-    const wasActive = this.activeConversationId === conversationId;
     const succeeded = await this.performLifecycleAction(() => deleteConversation(conversationId));
-    if (succeeded && wasActive) this.activeConversationId = null;
-    return succeeded && wasActive;
+    return succeeded && this.close(conversationId);
   }
 
   /** Restores one trashed conversation to the recent list. */
@@ -528,6 +528,17 @@ export class ConversationState {
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
     }
+  }
+
+  /**
+   * Discards a load of `conversationId` still in flight, which would otherwise reopen it, and closes it if open.
+   * Leaves a load of another conversation, opened while the lifecycle command ran, to finish. Reports whether it closed.
+   */
+  private close(conversationId: string): boolean {
+    if (this.openingConversationId === conversationId) this.openSequence += 1;
+    if (this.activeConversationId !== conversationId) return false;
+    this.activeConversationId = null;
+    return true;
   }
 
   /** Runs one narrow lifecycle command and keeps failures in the existing storage-error surface. */

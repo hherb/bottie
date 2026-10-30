@@ -3,6 +3,7 @@
 use std::{
     sync::mpsc::{Receiver, Sender, channel},
     thread,
+    time::Duration,
 };
 
 use tauri::{AppHandle, Emitter};
@@ -66,6 +67,10 @@ impl AttachmentProcessor {
     ///
     /// Returns a busy error asking the user to retry when the worker does not pause within [`PAUSE_ACKNOWLEDGEMENT_WAIT`].
     pub(crate) fn pause(&self) -> Result<AttachmentProcessingPause, StorageError> {
+        self.pause_within(PAUSE_ACKNOWLEDGEMENT_WAIT)
+    }
+
+    fn pause_within(&self, timeout: Duration) -> Result<AttachmentProcessingPause, StorageError> {
         let (acknowledge, acknowledged) = channel();
         let sent = self.sender.send(WorkerCommand::Pause(acknowledge)).is_ok();
         // Created before waiting so a timeout drops it, queueing Resume behind the late Pause.
@@ -73,7 +78,7 @@ impl AttachmentProcessor {
             sender: self.sender.clone(),
         };
         if sent {
-            await_pause_acknowledgement(&acknowledged, PAUSE_ACKNOWLEDGEMENT_WAIT)?;
+            await_pause_acknowledgement(&acknowledged, timeout)?;
         }
         Ok(pause)
     }
@@ -143,6 +148,32 @@ fn record_worker_failure(diagnostics: Diagnostics, detail: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pause_times_out_against_a_silent_worker_and_queues_resume() {
+        let (sender, receiver) = channel();
+        let processor = AttachmentProcessor { sender };
+
+        let error = processor
+            .pause_within(Duration::from_millis(20))
+            .err()
+            .expect("an unacknowledged pause must time out");
+
+        assert_eq!(error.code, "invalid_request");
+        assert!(matches!(receiver.try_recv(), Ok(WorkerCommand::Pause(_))));
+        assert!(matches!(receiver.try_recv(), Ok(WorkerCommand::Resume)));
+    }
+
+    #[test]
+    fn a_worker_that_drops_the_pause_counts_as_paused() {
+        let (sender, receiver) = channel();
+        let processor = AttachmentProcessor { sender };
+        // Stands in for a worker that exits after taking the command: it can no longer touch the store.
+        let worker = thread::spawn(move || drop(receiver.recv()));
+
+        assert!(processor.pause_within(Duration::from_secs(5)).is_ok());
+        worker.join().unwrap();
+    }
 
     #[test]
     fn pause_preserves_coalesced_work_until_resume() {

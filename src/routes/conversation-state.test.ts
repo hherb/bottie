@@ -4,7 +4,13 @@ import type { StoredConversation } from "$lib/storage";
 
 import { ConversationState } from "./conversation-state.svelte";
 
-const storage = vi.hoisted(() => ({ loadConversation: vi.fn(), clearLastOpenConversation: vi.fn() }));
+const storage = vi.hoisted(() => ({
+  loadConversation: vi.fn(),
+  clearLastOpenConversation: vi.fn(),
+  deleteConversation: vi.fn(),
+  setConversationArchived: vi.fn(),
+  listConversations: vi.fn(),
+}));
 
 vi.mock("$lib/storage", async (importOriginal) => ({
   ...(await importOriginal<typeof import("$lib/storage")>()),
@@ -65,6 +71,54 @@ describe("ConversationState.openSearchResult", () => {
 
     expect(await openA).toBeNull();
     expect(state.storageError).toBeNull();
+    expect(state.activeConversationId).toBe("b");
+  });
+});
+
+describe("closing the active conversation", () => {
+  it.each([
+    ["delete", (state: ConversationState) => state.delete("a")],
+    ["archive", (state: ConversationState) => state.setArchived("a", true)],
+  ])("%s discards a reload of it that resolves afterwards", async (_name, close) => {
+    storage.loadConversation.mockResolvedValueOnce(conversation("a"));
+    storage.deleteConversation.mockResolvedValue(undefined);
+    storage.setConversationArchived.mockResolvedValue(undefined);
+    storage.listConversations.mockResolvedValue([]);
+    const state = new ConversationState();
+    await state.open("a");
+
+    let resolveReload: (value: StoredConversation) => void = () => {};
+    storage.loadConversation.mockImplementationOnce(
+      () => new Promise<StoredConversation>((resolve) => (resolveReload = resolve)),
+    );
+    const reload = state.open("a");
+    expect(await close(state)).toBe(true);
+    resolveReload(conversation("a"));
+
+    expect(await reload).toBeNull();
+    expect(state.activeConversationId).toBeNull();
+  });
+
+  it.each([
+    ["delete", (state: ConversationState) => state.delete("a")],
+    ["archive", (state: ConversationState) => state.setArchived("a", true)],
+  ])("%s keeps a load of another conversation that resolves afterwards", async (_name, close) => {
+    storage.loadConversation.mockResolvedValueOnce(conversation("a"));
+    storage.deleteConversation.mockResolvedValue(undefined);
+    storage.setConversationArchived.mockResolvedValue(undefined);
+    storage.listConversations.mockResolvedValue([]);
+    const state = new ConversationState();
+    await state.open("a");
+
+    let resolveB: (value: StoredConversation) => void = () => {};
+    storage.loadConversation.mockImplementationOnce(
+      () => new Promise<StoredConversation>((resolve) => (resolveB = resolve)),
+    );
+    const openB = state.open("b");
+    expect(await close(state)).toBe(true);
+    resolveB(conversation("b"));
+
+    expect(await openB).toEqual([]);
     expect(state.activeConversationId).toBe("b");
   });
 });

@@ -384,3 +384,26 @@ fn request_serializes_normalized_images_as_anthropic_source_blocks() {
         "bm9ybWFsaXplZC1qcGVn"
     );
 }
+
+#[test]
+fn long_provider_error_messages_are_truncated_in_http_and_stream_errors() {
+    let long = "k".repeat(5_000);
+    let http = normalize_response_error(
+        StatusCode::UNAUTHORIZED,
+        &serde_json::json!({"type": "error", "error": {"type": "authentication_error", "message": long}})
+            .to_string(),
+    );
+    let stream = decode_stream_payload(
+        &serde_json::json!({"type": "error", "error": {"type": "overloaded_error", "message": long}})
+            .to_string(),
+    )
+    .err()
+    .expect("a stream error event must fail");
+    for error in [http, stream] {
+        assert_eq!(
+            error.message.chars().count(),
+            crate::inference::limits::MAX_PROVIDER_MESSAGE_CHARACTERS + 1
+        );
+        assert!(error.message.ends_with('…'));
+    }
+}

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use futures_util::future::{AbortHandle, AbortRegistration};
-use tokio::sync::watch;
+use tokio::sync::{MutexGuard, watch};
 
 /// Process-wide one-active-image-run registry.
 #[derive(Clone, Default)]
@@ -84,6 +84,12 @@ impl ImageGenerationRuns {
         self.active.lock().await.is_some()
     }
 
+    /// Holds the empty slot so no image run can reserve until the guard drops; `None` while a run owns it.
+    pub(crate) async fn lock_idle(&self) -> Option<IdleImageRuns<'_>> {
+        let active = self.active.lock().await;
+        active.is_none().then_some(IdleImageRuns { _slot: active })
+    }
+
     async fn reserve(&self, run_id: String, cancellation: ActiveCancellation) -> bool {
         let mut active = self.active.lock().await;
         if active.is_some() {
@@ -95,6 +101,11 @@ impl ImageGenerationRuns {
         });
         true
     }
+}
+
+/// Proof that the image slot is empty, held to keep it so.
+pub(crate) struct IdleImageRuns<'a> {
+    _slot: MutexGuard<'a, Option<ActiveImageRun>>,
 }
 
 /// Clears one image run's slot on drop so a panicked task cannot hold it, and block restore, forever.

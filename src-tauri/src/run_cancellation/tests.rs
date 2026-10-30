@@ -1,6 +1,9 @@
 //! Focused tests for shared provider and native-tool cancellation.
 
-use futures_util::future::{AbortHandle, Abortable};
+use futures_util::{
+    FutureExt,
+    future::{AbortHandle, Abortable},
+};
 
 use super::*;
 
@@ -55,5 +58,69 @@ fn a_panicking_run_task_still_unregisters_its_run() {
 
         assert!(task.await.is_err());
         assert!(runs.lock().await.is_empty());
+    });
+}
+
+#[test]
+fn a_reserved_chat_run_blocks_restore_until_its_registration_drops() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let image_runs = ImageGenerationRuns::default();
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_some());
+
+        let (registration, _abort, _tools) = reserve_run(&runs, "run-one".into()).await;
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_none());
+
+        drop(registration);
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_some());
+    });
+}
+
+#[test]
+fn cancelling_a_reserved_run_reaches_its_task_handles() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let (_registration, abort, tools) = reserve_run(&runs, "run-one".into()).await;
+
+        assert_eq!(cancel_all_chats(&runs).await, 1);
+        assert!(tools.is_cancelled());
+        assert!(
+            Abortable::new(std::future::pending::<()>(), abort)
+                .await
+                .is_err()
+        );
+    });
+}
+
+#[test]
+fn a_reserved_image_run_blocks_restore() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let image_runs = ImageGenerationRuns::default();
+        let _abort = image_runs.reserve_abortable("image-one".into()).await;
+
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_none());
+        image_runs.finish("image-one").await;
+        assert!(lock_idle_generation(&runs, &image_runs).await.is_some());
+    });
+}
+
+#[test]
+fn runs_wait_while_restore_holds_the_idle_guard() {
+    tauri::async_runtime::block_on(async {
+        let runs = ActiveRuns::default();
+        let image_runs = ImageGenerationRuns::default();
+        let idle = lock_idle_generation(&runs, &image_runs)
+            .await
+            .expect("no run is active");
+
+        let mut chat = Box::pin(reserve_run(&runs, "run-one".into()));
+        let mut image = Box::pin(image_runs.reserve_abortable("image-one".into()));
+        assert!((&mut chat).now_or_never().is_none());
+        assert!((&mut image).now_or_never().is_none());
+
+        drop(idle);
+        let _chat = chat.await;
+        assert!(image.await.is_some());
     });
 }

@@ -163,8 +163,8 @@ fixed error state and never receives generated audio, backend paths, output-devi
 utterance. **Stop local playback** ends only Bottie's current utterance. While Bottie is speaking or generating, the
 Record action becomes **Interrupt & record**. Choosing it
 requests the existing provider cancellation, stops Bottie's local playback, and only then starts native capture. Rust
-also serializes capture against provider-run registration, cancels every registered provider/tool run, and rejects a
-generation that races with active capture. A failed local-playback stop keeps capture fail-closed. Playback remains
+also serializes capture against each generation's capture check, cancels every registered provider/tool run, and
+rejects a generation that races with active capture or that capture interrupted before it started. A failed local-playback stop keeps capture fail-closed. Playback remains
 rejected while native capture is active and also stops when the user changes conversation or branch, starts a new
 generation, or closes the page. Linux packages depend on Speech Dispatcher and recommend its eSpeak NG voices; macOS
 and Windows use their installed system voices. An optional local MOSS-TTS-Nano installation adds **MOSS Nano · Ava**

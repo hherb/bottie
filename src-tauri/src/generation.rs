@@ -1,6 +1,6 @@
 //! Native provider-run lifecycle, cancellation, and durable provenance orchestration.
 
-use futures_util::future::{AbortHandle, Abortable};
+use futures_util::future::Abortable;
 use tauri::{State, ipc::Channel};
 
 use crate::{
@@ -19,13 +19,12 @@ use crate::{
     inference::{ChatRequest, ChatRun, ProviderError, ReasoningEffort, StreamEvent, Usage},
     provider_registry::{RoutedProvider, routed_provider},
     python_runtime::PythonRuntimeState,
-    run_cancellation::{ActiveRun, ActiveRunRegistration},
+    run_cancellation::reserve_run,
     storage::{
         ConversationStore, NewProviderRun, ProviderRunContext, ProviderRunState,
         StoredReasoningEffort, StoredUsage,
     },
     stream_channel::ChannelSink,
-    tool_loop::ToolLoopCancellation,
 };
 
 #[tauri::command]
@@ -47,6 +46,10 @@ pub(crate) async fn start_chat(
         providers.settings().generation_limits,
     );
     let run_id = uuid::Uuid::new_v4().to_string();
+    // Registered before the first durable write: restore either refuses or finishes its swap before this
+    // returns. Every early return below drops `registration`, which unregisters it.
+    let (registration, abort_registration, tool_cancellation) =
+        reserve_run(&state.runs, run_id.clone()).await;
     let attachment_context = state
         .conversations
         .provider_attachment_context(&context.conversation_id, &context.request_message_id)
@@ -299,14 +302,16 @@ pub(crate) async fn start_chat(
     request.memory_enabled = supports_memory_tools;
     request.web_enabled = supports_web_tools;
     request.email_enabled = supports_email_tools;
-    let (abort_handle, abort_registration) = AbortHandle::new_pair();
-    let tool_cancellation = ToolLoopCancellation::default();
     {
         let _voice_guard = state.voice_interaction.lock().await;
-        if state.microphone.is_capturing() {
-            let error = ProviderError::invalid_request(
-                "Stop or discard local voice capture before sending a message.",
-            );
+        // Starting capture cancels every registered run, this one included even though its task has not spawned.
+        let interrupted = tool_cancellation.is_cancelled();
+        if interrupted || state.microphone.is_capturing() {
+            let error = ProviderError::invalid_request(if interrupted {
+                "Voice capture interrupted this message. Send it again."
+            } else {
+                "Stop or discard local voice capture before sending a message."
+            });
             finish_provider_run(
                 &state.conversations,
                 &run_id,
@@ -316,19 +321,11 @@ pub(crate) async fn start_chat(
             )?;
             return Err(error);
         }
-        state.runs.lock().await.insert(
-            run_id.clone(),
-            ActiveRun {
-                abort_handle,
-                tool_cancellation: tool_cancellation.clone(),
-            },
-        );
     }
     if consumes_audio {
         state.microphone.discard();
     }
 
-    let runs = state.runs.clone();
     let diagnostics = state.diagnostics.clone();
     let conversations = state.conversations.clone();
     let semantic_indexing = state.semantic_indexing.clone();
@@ -339,7 +336,7 @@ pub(crate) async fn start_chat(
         .map(PythonRuntimeState::runner);
     let task_run_id = run_id.clone();
     tauri::async_runtime::spawn(async move {
-        let _registration = ActiveRunRegistration::new(runs, task_run_id.clone());
+        let _registration = registration;
         record_diagnostic(
             &diagnostics,
             "info",
