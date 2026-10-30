@@ -12,6 +12,7 @@ mod generated_asset_preview_protocol;
 mod generation;
 mod generation_context;
 mod generation_localmail_tools;
+mod generation_run_start;
 mod generation_tool_audit;
 mod generation_tools;
 mod generation_usage;
@@ -203,17 +204,19 @@ struct AppState {
     local_image_generation: LocalImageGenerator,
 }
 
-/// Starts the non-blocking startup rotation and records only path-redacted session diagnostics.
+/// Starts the non-blocking startup staging sweep and rotation, recording only path-redacted session diagnostics.
 fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diagnostics) {
     tauri::async_runtime::spawn(async move {
-        let rotation =
-            tauri::async_runtime::spawn_blocking(move || conversations.rotate_automatic_backups())
-                .await;
-        let cleanup_failed = rotation
-            .as_ref()
-            .ok()
-            .and_then(|result| result.as_ref().ok())
-            .map_or(0, |outcome| outcome.staging_cleanup_failed);
+        // The sweep runs on its own, so its failures are reported even when rotation returns an error.
+        let rotation = tauri::async_runtime::spawn_blocking(move || {
+            let sweep = conversations.sweep_automatic_backup_staging();
+            (sweep.failed, conversations.rotate_automatic_backups())
+        })
+        .await;
+        let (cleanup_failed, rotation) = match rotation {
+            Ok((cleanup_failed, rotation)) => (cleanup_failed, Ok(rotation)),
+            Err(error) => (0, Err(error)),
+        };
         let (level, event, detail) = match rotation {
             Ok(Ok(outcome)) if outcome.created => (
                 if outcome.skipped_files > 0 {
@@ -244,11 +247,11 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
             ),
         };
         record_diagnostic(&diagnostics, level, event, None, Some(&detail)).await;
-        if cleanup_failed > 0 {
-            let detail = format!(
-                "{cleanup_failed} interrupted automatic-backup staging item(s) could not be removed; \
-                 the next launch retries them"
-            );
+        if let Some(detail) = storage::staging_cleanup_warning(
+            cleanup_failed,
+            "automatic-backup",
+            "the next launch retries them",
+        ) {
             record_diagnostic(
                 &diagnostics,
                 "warn",

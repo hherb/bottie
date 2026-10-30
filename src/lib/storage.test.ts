@@ -5,6 +5,7 @@ import {
   canBatchExportConversations,
   conversationExportFeedback,
   missingFilesNote,
+  backgroundWorkNote,
   conversationsForLifecycle,
   attachmentExtractionLabel,
   formatToolPayload,
@@ -90,6 +91,11 @@ describe("conversation storage presentation helpers", () => {
     expect(missingFilesNote(0)).toBe("");
     expect(missingFilesNote(1)).toBe(" · 1 missing attachment or image file not included");
     expect(missingFilesNote(3)).toBe(" · 3 missing attachment or image files not included");
+  });
+
+  it("asks for a restart only when restore found a background worker stopped", () => {
+    expect(backgroundWorkNote(false)).toBe("");
+    expect(backgroundWorkNote(true)).toBe(" · Restart Bottie to finish processing restored data");
   });
 
   it("formats retained tool payloads as readable inert JSON", () => {

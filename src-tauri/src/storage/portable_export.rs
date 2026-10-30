@@ -10,7 +10,7 @@ use super::{
     ConversationStore, GeneratedAssetExecution, GeneratedAssetStatus, GeneratedImageSourceFormat,
     GeneratedImageSourceType, StorageError, StoredAttachment, StoredConversation,
     StoredGeneratedAsset, StoredGeneratedImageSource,
-    staging_sweep::{remove_stale_staging_files, stale_staging_cutoff},
+    staging_sweep::{StagingSweep, remove_stale_staging_files, stale_staging_cutoff},
 };
 
 const ATTACHMENT_ARCHIVE_DIRECTORY: &str = "attachments";
@@ -47,14 +47,6 @@ impl ConversationFileExport {
     /// survives byte-identical when any step fails.
     pub(crate) fn write_to(&self, path: &Path) -> Result<(), StorageError> {
         let parent = path.parent().ok_or_else(StorageError::export)?;
-        // The user's folder has no startup sweep, so each export clears hour-old staging a killed one left there.
-        // Best effort: a file that cannot be removed now is retried by the next export into this folder.
-        let _ = remove_stale_staging_files(
-            parent,
-            EXPORT_STAGING_PREFIX,
-            &[".tmp"],
-            stale_staging_cutoff(),
-        );
         let staging = parent.join(format!(
             "{EXPORT_STAGING_PREFIX}-{}.tmp",
             uuid::Uuid::new_v4()
@@ -71,6 +63,21 @@ impl ConversationFileExport {
             let _ = fs::remove_file(&staging);
         }
         result
+    }
+
+    /// Removes hour-old staging a killed export left beside `path`; call before [`Self::write_to`].
+    ///
+    /// The user's folder has no startup sweep, so each export clears it. Kept separate from the write so its failures
+    /// are reported even when the export itself then fails (#225); anything left is retried by the next export there.
+    pub(crate) fn sweep_staging(path: &Path) -> StagingSweep {
+        path.parent().map_or_else(StagingSweep::default, |parent| {
+            remove_stale_staging_files(
+                parent,
+                EXPORT_STAGING_PREFIX,
+                &[".tmp"],
+                stale_staging_cutoff(),
+            )
+        })
     }
 
     /// Writes a complete archive to one native-only staging path.

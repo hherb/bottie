@@ -20,7 +20,7 @@ use super::{
     ConversationStore,
     backup::{
         ATTACHMENT_RESTORE_STAGING_PREFIX, GENERATED_ASSET_RESTORE_STAGING_PREFIX,
-        RESTORE_STAGING_FILE_PREFIX,
+        MANUAL_BACKUP_STAGING_PREFIX, RESTORE_STAGING_FILE_PREFIX,
     },
 };
 
@@ -144,8 +144,18 @@ fn sweep_matching(
     sweep
 }
 
+/// Diagnostic text for staging a sweep could not delete, or `None` when nothing was left behind.
+///
+/// `staging` names whose staging it was (for example "automatic-backup") and `retry` says when it is tried again.
+pub(crate) fn staging_cleanup_warning(failed: usize, staging: &str, retry: &str) -> Option<String> {
+    (failed > 0).then(|| {
+        format!("{failed} interrupted {staging} staging item(s) could not be checked or removed; {retry}")
+    })
+}
+
 impl ConversationStore {
-    /// Removes abandoned restore staging beside the live database; call at startup before workers start.
+    /// Removes abandoned restore staging beside the live database, including a killed pre-restore safety copy's
+    /// backup staging; call at startup before workers start.
     pub(crate) fn sweep_interrupted_restore_staging(&self) -> StagingSweep {
         let Some(directory) = self.path.parent() else {
             return StagingSweep::default();
@@ -156,6 +166,7 @@ impl ConversationStore {
                 RESTORE_STAGING_FILE_PREFIX,
                 ATTACHMENT_RESTORE_STAGING_PREFIX,
                 GENERATED_ASSET_RESTORE_STAGING_PREFIX,
+                MANUAL_BACKUP_STAGING_PREFIX,
             ],
             stale_staging_cutoff(),
         )
@@ -165,6 +176,19 @@ impl ConversationStore {
 #[cfg(test)]
 pub(super) mod tests {
     use super::*;
+
+    #[test]
+    fn cleanup_warning_names_the_count_and_retry_only_when_something_was_left() {
+        assert_eq!(staging_cleanup_warning(0, "export", "retried later"), None);
+        assert_eq!(
+            staging_cleanup_warning(2, "export", "the next export into that folder retries them")
+                .as_deref(),
+            Some(
+                "2 interrupted export staging item(s) could not be checked or removed; \
+                 the next export into that folder retries them"
+            )
+        );
+    }
 
     /// Creates a staging file whose modification time is `age` in the past.
     pub(in crate::storage) fn aged_file(path: &Path, age: Duration) {
@@ -221,6 +245,7 @@ pub(super) mod tests {
             ".bottie-restore-staging-x.sqlite3",
             ".bottie-attachment-restore-x",
             ".bottie-generated-asset-restore-x",
+            ".bottie-backup-x.part",
         ];
         let kept = [
             ".bottie-attachment-rollback-x",
@@ -233,7 +258,7 @@ pub(super) mod tests {
         assert_eq!(
             store.sweep_interrupted_restore_staging(),
             StagingSweep {
-                removed: 3,
+                removed: 4,
                 failed: 0
             }
         );

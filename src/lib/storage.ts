@@ -6,7 +6,7 @@ import type { Usage } from "./inference";
 import type { Attachment } from "./presentation";
 import type { BackupOutcome, ConversationExportOutcome, RestoreOutcome } from "./storage-transfer";
 
-export { conversationExportFeedback, missingFilesNote } from "./storage-transfer";
+export { backgroundWorkNote, conversationExportFeedback, missingFilesNote } from "./storage-transfer";
 export { storageErrorFromUnknown } from "./storage-error";
 export type {
   BackupOutcome,

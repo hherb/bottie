@@ -6,7 +6,11 @@ use std::path::Path;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::{AppState, storage::StorageError};
+use crate::{
+    AppState,
+    diagnostics::{Diagnostics, record_diagnostic},
+    storage::{ConversationFileExport, StorageError, staging_cleanup_warning},
+};
 
 const MARKDOWN_FILTER_NAME: &str = "Markdown";
 const MARKDOWN_EXTENSION: &str = "md";
@@ -47,11 +51,13 @@ pub(crate) async fn export_conversation_markdown(
         .prepare_markdown_export(&conversation_id)?;
     save_export(
         &app,
+        &state.diagnostics,
         export,
         "Export conversation as Markdown",
         MARKDOWN_FILTER_NAME,
         MARKDOWN_EXTENSION,
     )
+    .await
 }
 
 #[tauri::command]
@@ -64,11 +70,13 @@ pub(crate) async fn export_conversation_json(
     let export = state.conversations.prepare_json_export(&conversation_id)?;
     save_export(
         &app,
+        &state.diagnostics,
         export,
         "Export conversation as JSON",
         JSON_FILTER_NAME,
         JSON_EXTENSION,
     )
+    .await
 }
 
 #[tauri::command]
@@ -84,17 +92,20 @@ pub(crate) async fn export_conversation_batch_json(
             .map_err(|_| StorageError::export())??;
     save_export(
         &app,
+        &state.diagnostics,
         export,
         "Export all conversations as JSON",
         JSON_FILTER_NAME,
         JSON_EXTENSION,
     )
+    .await
 }
 
 /// Opens one format-filtered native dialog, writes the prepared payload, and returns only its leaf filename.
-fn save_export(
+async fn save_export(
     app: &AppHandle,
-    export: crate::storage::ConversationFileExport,
+    diagnostics: &Diagnostics,
+    export: ConversationFileExport,
     title: &str,
     filter_name: &str,
     extension: &str,
@@ -115,6 +126,21 @@ fn save_export(
         return Ok(cancelled_export());
     };
     let path = selected.into_path().map_err(|_| StorageError::export())?;
+    // Reported before the write's own result, so a failed export still names the staging it could not clear.
+    if let Some(detail) = staging_cleanup_warning(
+        ConversationFileExport::sweep_staging(&path).failed,
+        "export",
+        "the next export into that folder retries them",
+    ) {
+        record_diagnostic(
+            diagnostics,
+            "warn",
+            "Export staging cleanup incomplete",
+            None,
+            Some(&detail),
+        )
+        .await;
+    }
     export.write_to(&path)?;
     Ok(saved_export(&path, &export.file_name))
 }

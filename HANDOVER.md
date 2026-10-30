@@ -1,17 +1,17 @@
 # Bottie handover
 
-Last verified: 2026-10-30 (issues #214, #218, #220, #221 in PR #222, including its review fixes).
+Last verified: 2026-10-31 (issues #223, #224, #225 and the PR #227 review on branch `fix/issues-223-224-225`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-10-30, PRs #212, #213, #215 and #219 are merged; PR #222
-   (`fix/issues-214-218-220-221`) holds the #214/#218/#220/#221 fixes. Review follow-ups are filed as #223-#226.
+1. Check the PR list first. As of 2026-10-31, PRs up to #222 are merged. PR #227 (`fix/issues-223-224-225`)
+   fixes #223-#225. #226 and #228 (PR #227 review leftovers) are still open (low priority).
 2. **Next items:** the four open `FIX_BOTTIE.md` items. Each needs something this Mac session could not provide:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
-   - Follow-up from #214 (#226): other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see
+   - #226: spawn errors and embedder-load errors lose their cause; other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see
      `SPAWN_LOCK` in `local_image_worker/transport.rs`). Only worth a crate-wide spawn helper if it shows up.
    Then run the follow-up audit listed under "Not audited yet".
 3. Owed hardware re-checks (cannot run in a normal session):
@@ -25,6 +25,21 @@ Last verified: 2026-10-30 (issues #214, #218, #220, #221 in PR #222, including i
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-10-30, fourth session (issues #223, #224, #225):
+- **#223:** `generation_run_start::reserve_chat_run` holds `start_chat`'s reserve-then-first-write. A test holds
+  restore's idle guard and checks that no run row is written until the run registers.
+- **#225:** every staging sweep is now its own call, run before the write it serves, so its failures are reported
+  even when that write fails: `sweep_manual_backup_staging`, `ConversationFileExport::sweep_staging` and
+  `sweep_automatic_backup_staging`. The backup and export commands and startup rotation log a `warn` diagnostic
+  whose text comes from the pure `staging_cleanup_warning` ("could not be checked or removed"). The startup restore
+  sweep also covers `.bottie-backup-*` staging, which a killed pre-restore safety copy leaves in app data. Automatic
+  rotation moved to `storage/automatic_backup.rs`, and the backup and restore commands moved to
+  `storage_commands/backup_restore.rs`. Unix tests lock a folder to prove that the manual and export sweeps report
+  what they could not delete.
+- **#224:** `RestoreOutcome.backgroundWorkStopped` is true when the attachment or semantic worker has stopped. The
+  restore feedback then ends with "Restart Bottie to finish processing restored data" (a `conversation-state` test
+  covers both restore sources).
 
 2026-10-30, third session (issues #214, #218, #220, #221):
 - **#214:** on macOS, std sets close-on-exec only after `pipe()`. A worker spawned in that gap held a sibling's pipe
@@ -93,13 +108,14 @@ Last verified: 2026-10-30 (issues #214, #218, #220, #221 in PR #222, including i
   (`docs/local-image-linux-clean-runtime-closure-review.json`). 66 licence-only blockers remain, and `licenseReviewed`,
   `assemblyEligible`, and `distributionReviewed` are false. No bundle assembly, profile, signing, or release exists.
 
-## Validation (2026-10-30)
+## Validation (2026-10-31)
 
-- Rust: `cargo test --locked` passes 803 library tests (42 ignored) plus the updater, adapter, and transport suites.
+- Rust: `cargo test` passes 807 library tests (42 ignored) plus the updater, adapter, and transport suites.
   `cargo fmt` is clean. Clippy still reports ~50 pre-existing style warnings (none are bugs).
-- Over 500 lines: `storage/backup.rs` (517), `semantic_indexer.rs` (549). Split them when next touched.
+- Over 500 lines: 13 non-test files, all older than this work. The largest are `lib.rs` (1077),
+  `inference/settings.rs` (562) and `semantic_indexer.rs` (549). Split each one when you next touch it.
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: not touched this session (`npm test` passed 464 tests earlier on 2026-10-30).
+- Frontend: `npm test` passes 467 tests; `npm run check` is clean.
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)

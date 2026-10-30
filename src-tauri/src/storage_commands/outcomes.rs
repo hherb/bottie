@@ -38,6 +38,8 @@ pub(crate) struct RestoreOutcome {
     preserved_copy_name: Option<String>,
     /// Catalogued attachment or image files the restored data has no bytes for.
     missing_files: usize,
+    /// Whether a background worker has stopped, so restored attachments and search wait for a restart.
+    background_work_stopped: bool,
 }
 
 /// Stable native restore outcomes returned to the presentation layer.
@@ -75,6 +77,7 @@ pub(super) fn cancelled_restore() -> RestoreOutcome {
         file_name: None,
         preserved_copy_name: None,
         missing_files: 0,
+        background_work_stopped: false,
     }
 }
 
@@ -84,12 +87,14 @@ pub(super) fn restored(
     preserved_path: &Path,
     preserved_fallback: &str,
     missing_files: usize,
+    background_work_stopped: bool,
 ) -> RestoreOutcome {
     RestoreOutcome {
         status: RestoreStatus::Restored,
         file_name: Some(selected_name),
         preserved_copy_name: Some(leaf_name(preserved_path, preserved_fallback)),
         missing_files,
+        background_work_stopped,
     }
 }
 
@@ -122,6 +127,7 @@ mod tests {
             Path::new("/Users/alice/Library/Application Support/Bottie/pre-restore.sqlite3"),
             "Bottie preserved local data",
             1,
+            true,
         );
 
         assert_eq!(
@@ -134,7 +140,8 @@ mod tests {
                 "status": "restored",
                 "fileName": "selected backup.sqlite3",
                 "preservedCopyName": "pre-restore.sqlite3",
-                "missingFiles": 1
+                "missingFiles": 1,
+                "backgroundWorkStopped": true
             })
         );
     }
@@ -152,7 +159,8 @@ mod tests {
                 "status": "cancelled",
                 "fileName": null,
                 "preservedCopyName": null,
-                "missingFiles": 0
+                "missingFiles": 0,
+                "backgroundWorkStopped": false
             })
         );
     }

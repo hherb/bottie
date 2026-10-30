@@ -11,19 +11,16 @@ use crate::{
         request_with_generation_limits,
     },
     generation_localmail_tools::{configured_localmail_tools, email_tools_enabled},
+    generation_run_start::reserve_chat_run,
     generation_tools::stream_native_tools,
     generation_web_tools::{
         configured_web_fetch, configured_web_search, memory_tools_enabled, provider_tools_enabled,
         web_fetch_enabled, web_tools_enabled, with_web_citation_guidance,
     },
-    inference::{ChatRequest, ChatRun, ProviderError, ReasoningEffort, StreamEvent, Usage},
+    inference::{ChatRequest, ChatRun, ProviderError, StreamEvent, Usage},
     provider_registry::{RoutedProvider, routed_provider},
     python_runtime::PythonRuntimeState,
-    run_cancellation::reserve_then_write,
-    storage::{
-        ConversationStore, NewProviderRun, ProviderRunContext, ProviderRunState,
-        StoredReasoningEffort, StoredUsage,
-    },
+    storage::{ConversationStore, ProviderRunContext, ProviderRunState, StorageError, StoredUsage},
     stream_channel::ChannelSink,
 };
 
@@ -48,23 +45,13 @@ pub(crate) async fn start_chat(
     let run_id = uuid::Uuid::new_v4().to_string();
     // Every early return below drops `registration`, which unregisters the run.
     let (registration, abort_registration, tool_cancellation, attachment_context) =
-        reserve_then_write(&state.runs, run_id.clone(), || {
-            let attachment_context = state.conversations.provider_attachment_context(
-                &context.conversation_id,
-                &context.request_message_id,
-            )?;
-            state.conversations.start_provider_run(NewProviderRun {
-                id: run_id.clone(),
-                conversation_id: context.conversation_id.clone(),
-                request_message_id: context.request_message_id.clone(),
-                provider_id: request.provider_id.clone(),
-                model_id: request.model_id.clone(),
-                reasoning_effort: stored_reasoning_effort(request.settings.reasoning_effort),
-                temperature: request.settings.temperature,
-                max_output_tokens: request.settings.max_output_tokens,
-            })?;
-            Ok(attachment_context)
-        })
+        reserve_chat_run(
+            &state.runs,
+            &state.conversations,
+            run_id.clone(),
+            &context,
+            &request,
+        )
         .await
         .map_err(provider_run_storage_error)?;
     let provider =
@@ -462,14 +449,6 @@ pub(crate) async fn start_chat(
     Ok(ChatRun { run_id })
 }
 
-/// Converts the provider-neutral reasoning setting to its durable representation.
-fn stored_reasoning_effort(reasoning_effort: ReasoningEffort) -> StoredReasoningEffort {
-    match reasoning_effort {
-        ReasoningEffort::Off => StoredReasoningEffort::Off,
-        ReasoningEffort::Low => StoredReasoningEffort::Low,
-    }
-}
-
 /// Persists a terminal provider outcome before it is exposed to the WebView.
 fn finish_provider_run(
     conversations: &ConversationStore,
@@ -493,7 +472,7 @@ fn finish_provider_run(
 }
 
 /// Maps secret-free storage failures into the existing provider error surface.
-fn provider_run_storage_error(error: crate::storage::StorageError) -> ProviderError {
+fn provider_run_storage_error(error: StorageError) -> ProviderError {
     match error.code {
         "invalid_request" | "not_found" => ProviderError::invalid_request(error.message),
         _ => ProviderError::internal(error.message, None),

@@ -193,6 +193,7 @@ The audit's baseline:
 
 - [x] **13. Killed automatic backups leave full-size staging copies forever**
   - **Status:** Done 2026-10-30 in `storage/staging_sweep.rs`. Deviation: `.bottie-attachment-rollback-*` is **not** swept, because a crash mid-restore can leave the only copy of the pre-restore attachments there.
+    Since #225, rotation lives in `storage/automatic_backup.rs` and `sweep_automatic_backup_staging` is its own call before rotation, so the line references below are historical.
   - **Where:** `src-tauri/src/storage/backup.rs:101-113` and `:263-277` (`managed_backups` ignores them).
   - **Problem:** If the app is killed mid-backup, the `.bottie-auto-staging-*` files are never swept, and each one holds
     the database plus all blobs. The same applies to `.bottie-restore-staging-*`, `.bottie-attachment-restore-*` and
