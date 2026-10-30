@@ -111,7 +111,10 @@ async fn run() -> Result<(), &'static str> {
     let mut transport =
         WorkerTransport::spawn_with_timeouts(spec, env!("CARGO_PKG_VERSION"), timeouts)
             .await
-            .map_err(|_| "worker handshake failed")?;
+            .map_err(|error| {
+                eprintln!("worker transport error: {error:?}");
+                "worker handshake failed"
+            })?;
     let process_id = transport
         .process_id()
         .ok_or("worker process identity unavailable")?;

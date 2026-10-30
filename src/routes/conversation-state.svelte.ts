@@ -76,6 +76,8 @@ export class ConversationState {
   exportFailed = $state(false);
   backupFeedback = $state<string | null>(null);
   backupFailed = $state(false);
+  /** The backup or restore succeeded but left something for the user to act on (missing files, restart). */
+  backupWarning = $state(false);
 
   private searchSequence = 0;
   /** Bumped by every conversation load so a slower, superseded load cannot replace a newer selection. */
@@ -286,6 +288,7 @@ export class ConversationState {
     this.exportFailed = false;
     this.backupFeedback = null;
     this.backupFailed = false;
+    this.backupWarning = false;
     try {
       const outcome =
         format === "batch-json"
@@ -314,12 +317,15 @@ export class ConversationState {
     this.isBackingUp = true;
     this.backupFeedback = null;
     this.backupFailed = false;
+    this.backupWarning = false;
     this.exportFeedback = null;
     this.exportFailed = false;
     try {
       const outcome = await backupConversationStore();
-      if (outcome.status === "saved")
+      if (outcome.status === "saved") {
         this.backupFeedback = `Backed up ${outcome.fileName ?? "local data"}${missingFilesNote(outcome.missingFiles)}`;
+        this.backupWarning = outcome.missingFiles > 0;
+      }
       this.storageError = null;
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
@@ -338,6 +344,7 @@ export class ConversationState {
     this.isRestoring = true;
     this.backupFeedback = null;
     this.backupFailed = false;
+    this.backupWarning = false;
     this.exportFeedback = null;
     this.exportFailed = false;
     try {
@@ -352,6 +359,7 @@ export class ConversationState {
       const backupName = outcome.fileName ?? "local data";
       const preservedName = outcome.preservedCopyName ?? "preserved local data";
       this.backupFeedback = `Restored ${backupName} · preserved current data as ${preservedName}${missingFilesNote(outcome.missingFiles)}${backgroundWorkNote(outcome.backgroundWorkStopped)}`;
+      this.backupWarning = outcome.missingFiles > 0 || outcome.backgroundWorkStopped;
       this.storageError = null;
       return messages;
     } catch (error) {

@@ -145,8 +145,27 @@ describe("ConversationState.restoreBackup", () => {
     expect(await state.restoreBackup(source)).toEqual([]);
 
     expect(state.backupFailed).toBe(false);
+    expect(state.backupWarning).toBe(true);
     expect(state.backupFeedback).toBe(
       "Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Restart Bottie to finish processing restored data",
     );
+  });
+
+  it("marks a clean restore as neither failed nor a warning", async () => {
+    storage.restoreConversationStore.mockResolvedValue({
+      status: "restored",
+      fileName: "backup.sqlite3",
+      preservedCopyName: "preserved.sqlite3",
+      missingFiles: 0,
+      backgroundWorkStopped: false,
+    });
+    storage.listConversations.mockResolvedValue([]);
+    storage.loadLastOpenConversation.mockResolvedValue(null);
+    const state = new ConversationState();
+
+    await state.restoreBackup();
+
+    expect(state.backupFailed).toBe(false);
+    expect(state.backupWarning).toBe(false);
   });
 });

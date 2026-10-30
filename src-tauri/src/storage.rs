@@ -71,6 +71,7 @@ mod runs;
 mod search;
 mod selection;
 mod staging_sweep;
+pub(crate) use automatic_backup::unreadable_backup_warning;
 pub(crate) use staging_sweep::staging_cleanup_warning;
 mod tool_approval_migration;
 mod tool_approvals;

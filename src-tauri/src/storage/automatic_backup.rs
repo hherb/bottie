@@ -27,12 +27,22 @@ pub(crate) struct AutomaticBackupRotation {
     pub(crate) pruned: usize,
     /// Catalog files left out of the new snapshot because they were missing from disk.
     pub(crate) skipped_files: usize,
+    /// Directory entries that could not be read, so they were neither kept nor pruned (#228).
+    pub(crate) unreadable_entries: usize,
 }
 
 /// One application-owned automatic snapshot discovered from its strict filename contract.
 pub(super) struct ManagedBackup {
     pub(super) timestamp_ms: i64,
     pub(super) path: PathBuf,
+}
+
+/// The managed snapshots in a directory, plus how many entries could not be read to decide.
+pub(super) struct ManagedBackupListing {
+    pub(super) backups: Vec<ManagedBackup>,
+    /// Entries whose directory record or file type failed to read; a snapshot among them is invisible to
+    /// retention and recovery, so callers report this count instead of dropping it silently.
+    pub(super) unreadable: usize,
 }
 
 impl ConversationStore {
@@ -61,7 +71,10 @@ impl ConversationStore {
     ) -> Result<AutomaticBackupRotation, StorageError> {
         let directory = automatic_backup_directory(&self.path)?;
         fs::create_dir_all(&directory).map_err(|_| StorageError::automatic_backup())?;
-        let mut backups = managed_backups(&directory)?;
+        let ManagedBackupListing {
+            mut backups,
+            unreadable: unreadable_entries,
+        } = managed_backups(&directory)?;
         let freshness_threshold = timestamp_ms.saturating_sub(AUTOMATIC_BACKUP_INTERVAL_MS);
         if backups
             .iter()
@@ -72,6 +85,7 @@ impl ConversationStore {
                 retained: backups.len(),
                 pruned: 0,
                 skipped_files: 0,
+                unreadable_entries,
             });
         }
 
@@ -115,6 +129,7 @@ impl ConversationStore {
             retained: backups.len(),
             pruned: expired.len(),
             skipped_files,
+            unreadable_entries,
         })
     }
 }
@@ -127,20 +142,41 @@ pub(super) fn automatic_backup_directory(live: &Path) -> Result<PathBuf, Storage
 }
 
 /// Finds only regular files whose names exactly match Bottie's automatic-backup contract.
-pub(super) fn managed_backups(directory: &Path) -> Result<Vec<ManagedBackup>, StorageError> {
-    let backups = fs::read_dir(directory)
-        .map_err(|_| StorageError::automatic_backup())?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.file_type().is_ok_and(|file_type| file_type.is_file()))
-        .filter_map(|entry| {
-            let timestamp_ms = automatic_backup_timestamp(&entry.file_name())?;
-            Some(ManagedBackup {
+pub(super) fn managed_backups(directory: &Path) -> Result<ManagedBackupListing, StorageError> {
+    let mut listing = ManagedBackupListing {
+        backups: Vec::new(),
+        unreadable: 0,
+    };
+    for entry in fs::read_dir(directory).map_err(|_| StorageError::automatic_backup())? {
+        let Ok(entry) = entry else {
+            listing.unreadable += 1;
+            continue;
+        };
+        let Ok(file_type) = entry.file_type() else {
+            listing.unreadable += 1;
+            continue;
+        };
+        if !file_type.is_file() {
+            continue;
+        }
+        if let Some(timestamp_ms) = automatic_backup_timestamp(&entry.file_name()) {
+            listing.backups.push(ManagedBackup {
                 timestamp_ms,
                 path: entry.path(),
-            })
-        })
-        .collect();
-    Ok(backups)
+            });
+        }
+    }
+    Ok(listing)
+}
+
+/// Diagnostic text for backup-folder entries rotation could not read, or `None` when every entry was read.
+pub(crate) fn unreadable_backup_warning(unreadable: usize) -> Option<String> {
+    (unreadable > 0).then(|| {
+        format!(
+            "{unreadable} item(s) in the automatic-backup folder could not be read, so retention and \
+             recovery skip them; the next launch checks again"
+        )
+    })
 }
 
 /// Parses the timestamp from one strictly formatted managed automatic-backup filename.
@@ -152,4 +188,21 @@ fn automatic_backup_timestamp(name: &std::ffi::OsStr) -> Option<i64> {
     let (timestamp, id) = body.split_once('-')?;
     uuid::Uuid::parse_str(id).ok()?;
     timestamp.parse().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unreadable_warning_names_the_count_only_when_entries_were_skipped() {
+        assert_eq!(unreadable_backup_warning(0), None);
+        assert_eq!(
+            unreadable_backup_warning(1).as_deref(),
+            Some(
+                "1 item(s) in the automatic-backup folder could not be read, so retention and \
+                 recovery skip them; the next launch checks again"
+            )
+        );
+    }
 }

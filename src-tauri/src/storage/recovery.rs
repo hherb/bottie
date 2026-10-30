@@ -228,7 +228,9 @@ impl ConversationStore {
         if !directory.exists() {
             return Ok(Vec::new());
         }
+        // shortcut: unreadable entries are skipped here; startup rotation already reports their count.
         let mut backups = managed_backups(&directory)?
+            .backups
             .into_iter()
             .filter(|backup| validate_restore_source(&backup.path).is_ok())
             .map(|backup| (backup.timestamp_ms, backup.path))

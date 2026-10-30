@@ -373,7 +373,9 @@ impl LocalImageWorkerRuntime {
                 .await
             {
                 Ok(transport) => transport,
-                Err(_) => {
+                Err(error) => {
+                    // The returned error stays a stable code, so log the path-free cause for debugging (#226).
+                    eprintln!("[bottie] local image worker failed to start: {error:?}");
                     let _ = fs::remove_dir(&output_directory);
                     return Err(LocalImageExecutionError::WorkerUnavailable);
                 }

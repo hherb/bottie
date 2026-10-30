@@ -4,7 +4,7 @@ use std::{
     env,
     fs::File,
     io::Read,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::mpsc::{Receiver, Sender, channel},
     thread,
     time::Duration,
@@ -313,6 +313,17 @@ fn run_worker(
     }
 }
 
+/// Loads the model on first use, returning the load's own error code (such as `model_cache`) on failure (#226).
+fn loaded_embedder<'a>(
+    cache_dir: &Path,
+    embedder: &'a mut Option<FastEmbedder>,
+) -> Result<&'a mut FastEmbedder, String> {
+    if embedder.is_none() {
+        *embedder = Some(FastEmbedder::load(cache_dir.to_path_buf())?);
+    }
+    embedder.as_mut().ok_or_else(|| "model_runtime".to_owned())
+}
+
 /// Result of one bounded worker iteration.
 enum WorkerOutcome {
     Continue,
@@ -398,13 +409,7 @@ fn handle_command(
             let result = if *paused {
                 Err("embedding_paused".into())
             } else {
-                if embedder.is_none() {
-                    *embedder = FastEmbedder::load(cache_dir.clone()).ok();
-                }
-                embedder
-                    .as_mut()
-                    .ok_or_else(|| "model_runtime".to_owned())
-                    .and_then(|embedder| embedder.embed(&texts))
+                loaded_embedder(cache_dir, embedder).and_then(|embedder| embedder.embed(&texts))
             };
             let _ = response.send(result);
         }

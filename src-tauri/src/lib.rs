@@ -217,6 +217,10 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
             Ok((cleanup_failed, rotation)) => (cleanup_failed, Ok(rotation)),
             Err(error) => (0, Err(error)),
         };
+        let unreadable = match &rotation {
+            Ok(Ok(outcome)) => outcome.unreadable_entries,
+            _ => 0,
+        };
         let (level, event, detail) = match rotation {
             Ok(Ok(outcome)) if outcome.created => (
                 if outcome.skipped_files > 0 {
@@ -256,6 +260,16 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
                 &diagnostics,
                 "warn",
                 "Automatic backup staging cleanup incomplete",
+                None,
+                Some(&detail),
+            )
+            .await;
+        }
+        if let Some(detail) = storage::unreadable_backup_warning(unreadable) {
+            record_diagnostic(
+                &diagnostics,
+                "warn",
+                "Automatic backup folder partly unreadable",
                 None,
                 Some(&detail),
             )

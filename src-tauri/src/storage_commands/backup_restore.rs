@@ -11,9 +11,7 @@ use crate::{
     AppState,
     diagnostics::record_diagnostic,
     run_cancellation::{IdleGeneration, lock_idle_generation},
-    storage::{
-        ConversationStore, StorageError, staging_cleanup_warning, sweep_manual_backup_staging,
-    },
+    storage::{StorageError, staging_cleanup_warning, sweep_manual_backup_staging},
 };
 
 const SQLITE_FILTER_NAME: &str = "SQLite database";
@@ -130,10 +128,11 @@ pub(crate) async fn restore_conversation_store(
         let _processing_pause = attachment_processing.pause()?;
         let _semantic_pause = semantic_indexing.pause()?;
         conversations.restore_from(&restore_path, &worker_safety_path)?;
-        Ok::<_, StorageError>(restored_missing_files(&conversations))
+        Ok::<_, StorageError>(conversations.missing_content_files().ok())
     })
     .await
     .map_err(|_| StorageError::restore())??;
+    let missing_files = reported_missing_files(&state, missing_files).await;
     state.attachment_processing.wake();
     state.semantic_indexing.wake();
     Ok(restored(
@@ -182,10 +181,11 @@ pub(crate) async fn restore_latest_automatic_backup(
         let _processing_pause = attachment_processing.pause()?;
         let _semantic_pause = semantic_indexing.pause()?;
         conversations.restore_latest_automatic_backup(&worker_preservation)?;
-        Ok::<_, StorageError>(restored_missing_files(&conversations))
+        Ok::<_, StorageError>(conversations.missing_content_files().ok())
     })
     .await
     .map_err(|_| StorageError::restore())??;
+    let missing_files = reported_missing_files(&state, missing_files).await;
     state.attachment_processing.wake();
     state.semantic_indexing.wake();
     Ok(restored(
@@ -213,8 +213,20 @@ fn background_work_stopped(state: &AppState) -> bool {
     state.attachment_processing.is_stopped() || state.semantic_indexing.is_stopped()
 }
 
-/// Counts files the just-restored data lacks; the restore already succeeded, so a failed count
-/// is reported as zero rather than as a failed restore.
-fn restored_missing_files(conversations: &ConversationStore) -> usize {
-    conversations.missing_content_files().unwrap_or(0)
+/// Counts files the just-restored data lacks. The restore already succeeded, so a failed count
+/// (`None`) is reported as zero plus a `warn` diagnostic rather than as a failed restore (#228).
+async fn reported_missing_files(state: &AppState, counted: Option<usize>) -> usize {
+    if counted.is_none() {
+        record_diagnostic(
+            &state.diagnostics,
+            "warn",
+            "Restored data not fully checked",
+            None,
+            Some(
+                "Bottie could not count attachment or image files missing from the restored data.",
+            ),
+        )
+        .await;
+    }
+    counted.unwrap_or(0)
 }
