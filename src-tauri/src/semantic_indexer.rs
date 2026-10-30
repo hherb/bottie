@@ -5,7 +5,7 @@ use std::{
     fs::File,
     io::Read,
     path::PathBuf,
-    sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel},
+    sync::mpsc::{Receiver, Sender, channel},
     thread,
     time::Duration,
 };
@@ -24,15 +24,13 @@ use crate::{
         ConversationStore, DEFAULT_SEMANTIC_BATCH_SIZE, SemanticEmbedder, SemanticIndexState,
         StorageError,
     },
+    worker_pause::{PAUSE_ACKNOWLEDGEMENT_WAIT, WorkerHealth, confirm_pause},
 };
 
 const WORKER_THREAD_NAME: &str = "bottie-semantic-indexing";
 const EMBEDDING_RUNTIME_THREADS: usize = 2;
 /// Maximum time a foreground memory lookup waits behind semantic indexing or model preparation.
 const QUERY_EMBEDDING_WAIT: Duration = Duration::from_secs(5);
-/// Maximum time restore or reindex waits for a background worker to reach a pause point, e.g. behind a
-/// first-run embedding-model download, before returning a "busy" error that asks the user to retry.
-pub(crate) const PAUSE_ACKNOWLEDGEMENT_WAIT: Duration = Duration::from_secs(20);
 const RUNTIME_ASSET_MANIFEST: &str = include_str!("../../runtime-assets.json");
 
 /// Compiled release contract for the only runtime-downloaded model.
@@ -64,6 +62,7 @@ struct ModelFileContract {
 #[derive(Clone)]
 pub(crate) struct SemanticIndexer {
     sender: Sender<WorkerCommand>,
+    health: WorkerHealth,
 }
 
 /// Synchronous embedding proxy serviced by Bottie's single model-owning worker thread.
@@ -221,14 +220,32 @@ impl SemanticIndexer {
         let (sender, receiver) = channel();
         thread::Builder::new()
             .name(WORKER_THREAD_NAME.into())
-            .spawn(move || run_worker(receiver, cache_dir, conversations, diagnostics))
+            .spawn({
+                let diagnostics = diagnostics.clone();
+                move || run_worker(receiver, cache_dir, conversations, diagnostics)
+            })
             .expect("the semantic indexing worker must start");
-        Self { sender }
+        Self::with_sender(sender, diagnostics)
+    }
+
+    /// Wraps the worker's command queue; a stop is reported under this worker's own event name.
+    fn with_sender(sender: Sender<WorkerCommand>, diagnostics: Diagnostics) -> Self {
+        Self {
+            sender,
+            health: WorkerHealth::new(diagnostics, "Semantic indexing stopped"),
+        }
     }
 
     /// Wakes the worker after startup, source changes, or a completed store restore.
     pub(crate) fn wake(&self) {
-        let _ = self.sender.send(WorkerCommand::Wake);
+        if self.sender.send(WorkerCommand::Wake).is_err() {
+            self.health.mark_stopped();
+        }
+    }
+
+    /// Whether the worker thread was seen to stop, so derived vectors cleared now would never be rebuilt.
+    pub(crate) fn is_stopped(&self) -> bool {
+        self.health.is_stopped()
     }
 
     /// Returns a cheap proxy for query embeddings through the existing model-owning worker.
@@ -252,23 +269,8 @@ impl SemanticIndexer {
         let pause = SemanticIndexingPause {
             sender: self.sender.clone(),
         };
-        if sent {
-            await_pause_acknowledgement(&acknowledged, timeout)?;
-        }
+        confirm_pause(sent, &acknowledged, timeout, &self.health)?;
         Ok(pause)
-    }
-}
-
-/// Waits up to `timeout` for a worker's pause acknowledgement.
-///
-/// A worker that has exited cannot touch the store, so a disconnected channel counts as paused.
-pub(crate) fn await_pause_acknowledgement(
-    acknowledged: &Receiver<()>,
-    timeout: Duration,
-) -> Result<(), StorageError> {
-    match acknowledged.recv_timeout(timeout) {
-        Ok(()) | Err(RecvTimeoutError::Disconnected) => Ok(()),
-        Err(RecvTimeoutError::Timeout) => Err(StorageError::workers_busy()),
     }
 }
 
@@ -459,7 +461,7 @@ mod tests {
     #[test]
     fn pause_times_out_against_a_silent_worker_and_queues_resume() {
         let (sender, receiver) = channel();
-        let indexer = SemanticIndexer { sender };
+        let indexer = SemanticIndexer::with_sender(sender, Diagnostics::default());
         let started = std::time::Instant::now();
 
         let error = indexer
@@ -471,6 +473,22 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(5));
         assert!(matches!(receiver.try_recv(), Ok(WorkerCommand::Pause(_))));
         assert!(matches!(receiver.try_recv(), Ok(WorkerCommand::Resume)));
+    }
+
+    #[test]
+    fn a_dead_worker_is_reported_as_semantic_indexing_stopped() {
+        let (sender, receiver) = channel();
+        let indexer = SemanticIndexer::with_sender(sender, Diagnostics::default());
+        drop(receiver);
+
+        indexer.wake();
+        assert!(indexer.pause_within(Duration::ZERO).is_ok());
+
+        assert!(indexer.is_stopped());
+        assert_eq!(
+            crate::worker_pause::tests::recorded_events(indexer.health.diagnostics()),
+            ["Semantic indexing stopped"]
+        );
     }
 
     #[test]

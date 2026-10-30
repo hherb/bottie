@@ -78,6 +78,9 @@ pub(crate) async fn reindex_semantic_memory(
     let semantic_indexing = state.semantic_indexing.clone();
     let progress = tauri::async_runtime::spawn_blocking(move || {
         let _semantic_pause = semantic_indexing.pause()?;
+        if semantic_indexing.is_stopped() {
+            return Err(StorageError::semantic_indexing_stopped());
+        }
         conversations.reset_semantic_index()
     })
     .await

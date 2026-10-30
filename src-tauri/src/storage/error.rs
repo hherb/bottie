@@ -128,6 +128,15 @@ impl StorageError {
         }
     }
 
+    /// Explains that reindexing would clear vectors no running worker could rebuild this session.
+    pub(crate) fn semantic_indexing_stopped() -> Self {
+        Self {
+            code: "internal",
+            message: "Memory indexing is not running. Restart Bottie, then try reindexing again."
+                .into(),
+        }
+    }
+
     /// Creates a path-redacted SQLite-restore failure.
     pub(crate) fn restore() -> Self {
         Self {

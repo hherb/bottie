@@ -1,20 +1,18 @@
 # Bottie handover
 
-Last verified: 2026-10-30 (issues #216 and #217 on `fix/restore-guard-reservation-216-217`).
+Last verified: 2026-10-30 (issues #214, #218, #220, #221 in PR #222, including its review fixes).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-10-30, PRs #212, #213 and #215 are merged; the
-   `fix/restore-guard-reservation-216-217` PR holds the #216/#217 fixes.
+1. Check the PR list first. As of 2026-10-30, PRs #212, #213, #215 and #219 are merged; PR #222
+   (`fix/issues-214-218-220-221`) holds the #214/#218/#220/#221 fixes. Review follow-ups are filed as #223-#226.
 2. **Next items:** the four open `FIX_BOTTIE.md` items. Each needs something this Mac session could not provide:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
-   - **#218** (low priority): export temp files left in the user's folder; backup-staging delete failures unreported.
-   - **#214**: flaky parallel transport test.
-   - **#220** (low): report a dead attachment/semantic worker instead of silently treating it as paused.
-   - **#221**: a test that pins `start_chat`'s reserve-before-first-write order (needs a seam).
+   - Follow-up from #214 (#226): other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see
+     `SPAWN_LOCK` in `local_image_worker/transport.rs`). Only worth a crate-wide spawn helper if it shows up.
    Then run the follow-up audit listed under "Not audited yet".
 3. Owed hardware re-checks (cannot run in a normal session):
    - Re-run the MOSS MLX (Mac) and CUDA (DGX) proofs to confirm item 5's minimal worker environment strips nothing a
@@ -27,6 +25,20 @@ Last verified: 2026-10-30 (issues #216 and #217 on `fix/restore-guard-reservatio
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-10-30, third session (issues #214, #218, #220, #221):
+- **#214:** on macOS, std sets close-on-exec only after `pipe()`. A worker spawned in that gap held a sibling's pipe
+  ends, so EOF never came and teardown failed. Transport and MOSS spawns now take `SPAWN_LOCK`. 29/29 parallel runs
+  passed (was 3/6 failing).
+- **#221:** `run_cancellation::reserve_then_write` reserves, then runs the first durable write. `start_chat` uses it,
+  and two tests pin the helper's order and unregister-on-failure path (a `start_chat` call-site test is #223).
+- **#220:** new `worker_pause.rs` (moved out of `semantic_indexer.rs`). A dead attachment or semantic worker still
+  counts as paused for restore, but `WorkerHealth` records an error diagnostic once ("… stopped; restart Bottie"),
+  also when a `wake()` finds the worker gone. Reindex refuses to clear vectors when the semantic worker is stopped.
+- **#218:** exports and manual backups sweep their own stale (>1 h) staging in the target folder, but only plain
+  files named `<prefix>-<uuid><suffix>` (`remove_stale_staging_files`), so user files with a similar name survive.
+  When rotation succeeds, it reports staging it could not delete (or inspect) as a `warn` diagnostic; other
+  sweep-failure reporting is #225.
 
 2026-10-30, second session (issues #216, #217):
 - `start_chat` registers its run through `run_cancellation::reserve_run` before the first durable write. Early returns
@@ -83,12 +95,11 @@ Last verified: 2026-10-30 (issues #216 and #217 on `fix/restore-guard-reservatio
 
 ## Validation (2026-10-30)
 
-- Rust: `cargo test --locked` passes 791 library tests (42 ignored) plus the updater, adapter, and transport suites.
-  `cargo fmt` is clean. Clippy still reports ~50 style warnings (none are bugs).
-- `tests/local_image_worker_transport.rs` is flaky when run in parallel (also on `main`); it passes with
-  `-- --test-threads=1`. Tracked in issue #214.
+- Rust: `cargo test --locked` passes 803 library tests (42 ignored) plus the updater, adapter, and transport suites.
+  `cargo fmt` is clean. Clippy still reports ~50 pre-existing style warnings (none are bugs).
+- Over 500 lines: `storage/backup.rs` (517), `semantic_indexer.rs` (549). Split them when next touched.
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: `npm test` passes 464 tests (3 skipped); `svelte-check` is clean.
+- Frontend: not touched this session (`npm test` passed 464 tests earlier on 2026-10-30).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)
