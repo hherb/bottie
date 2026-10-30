@@ -204,10 +204,10 @@ struct AppState {
     local_image_generation: LocalImageGenerator,
 }
 
-/// Starts the non-blocking startup rotation and records only path-redacted session diagnostics.
+/// Starts the non-blocking startup staging sweep and rotation, recording only path-redacted session diagnostics.
 fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diagnostics) {
     tauri::async_runtime::spawn(async move {
-        // The sweep runs on its own, so its failures are reported even when rotation then fails.
+        // The sweep runs on its own, so its failures are reported even when rotation returns an error.
         let rotation = tauri::async_runtime::spawn_blocking(move || {
             let sweep = conversations.sweep_automatic_backup_staging();
             (sweep.failed, conversations.rotate_automatic_backups())

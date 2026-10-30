@@ -71,12 +71,12 @@ impl AttachmentProcessor {
         }
     }
 
-    /// Wakes the worker after startup, ingestion, or a completed store restore.
     /// Whether the worker thread was seen to stop, so queued attachments will not be processed this session.
     pub(crate) fn is_stopped(&self) -> bool {
         self.health.is_stopped()
     }
 
+    /// Wakes the worker after startup, ingestion, or a completed store restore.
     pub(crate) fn wake(&self) {
         if self.sender.send(WorkerCommand::Wake).is_err() {
             self.health.mark_stopped();

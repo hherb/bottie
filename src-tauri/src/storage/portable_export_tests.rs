@@ -459,14 +459,41 @@ fn export_sweeps_abandoned_export_staging_but_keeps_recent_staging() {
     super::staging_sweep::tests::aged_file(&users_own, hours);
     super::staging_sweep::tests::aged_file(&recent, std::time::Duration::from_secs(60));
 
-    let staging_cleanup_failed =
-        ConversationFileExport::document("swept.md".into(), "export".into())
-            .write_to(&store.path.with_file_name("swept.md"))
-            .expect("export should complete");
-    assert_eq!(staging_cleanup_failed, 0);
+    let sweep = ConversationFileExport::sweep_staging(&store.path.with_file_name("swept.md"));
+
+    assert_eq!(
+        sweep,
+        super::staging_sweep::StagingSweep {
+            removed: 1,
+            failed: 0
+        }
+    );
 
     // A killed export's staging lives in the user's folder, which no startup sweep covers (#218).
     assert!(!abandoned.exists());
     assert!(recent.exists(), "another export may still be writing");
     assert!(users_own.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn export_staging_sweep_reports_files_it_could_not_remove() {
+    use std::{fs, os::unix::fs::PermissionsExt};
+
+    let folder = tests::test_database_path().with_file_name("locked-exports");
+    fs::create_dir_all(&folder).expect("export folder should be created");
+    let stuck = folder.join(format!(".bottie-export-{}.tmp", uuid::Uuid::new_v4()));
+    super::staging_sweep::tests::aged_file(&stuck, std::time::Duration::from_secs(7_200));
+    // A read-only folder keeps its files, so the abandoned staging cannot be deleted.
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o555)).expect("lock folder");
+    if fs::write(folder.join("probe"), b"").is_ok() {
+        // Root ignores directory permissions, so nothing here can be made undeletable.
+        return;
+    }
+
+    let sweep = ConversationFileExport::sweep_staging(&folder.join("export.md"));
+
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).expect("unlock folder");
+    assert_eq!(sweep.failed, 1);
+    assert!(stuck.exists());
 }

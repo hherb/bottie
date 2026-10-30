@@ -60,8 +60,7 @@ fn manual_backup_reports_skipped_blobs() {
 
     let skipped = store
         .backup_to(&store.path.with_file_name("manual.sqlite3"))
-        .expect("a missing blob must not block a manual backup")
-        .skipped_files;
+        .expect("a missing blob must not block a manual backup");
 
     assert_eq!(skipped, 1);
 }
@@ -138,10 +137,7 @@ fn restoring_a_backup_that_left_out_a_file_succeeds_and_counts_it() {
     fs::remove_file(source.attachment_blob_path(&missing.sha256)).expect("blob should delete");
     let backup_path = source.path.with_file_name("partial.sqlite3");
     assert_eq!(
-        source
-            .backup_to(&backup_path)
-            .expect("backup should save")
-            .skipped_files,
+        source.backup_to(&backup_path).expect("backup should save"),
         1
     );
 

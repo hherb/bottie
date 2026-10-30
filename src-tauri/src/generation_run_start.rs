@@ -12,8 +12,9 @@ use crate::{
     tool_loop::ToolLoopCancellation,
 };
 
-/// Registers the chat run, then reads its attachment context and writes its durable row, in that order, so restore
-/// can never swap the store between the two (#216). Kept out of `start_chat` so a test can pin the order (#223).
+/// Registers the chat run before reading its attachment context and writing its durable row (#216): a restore in
+/// progress makes registration wait, and a registered run makes restore refuse, so both store accesses hit the same
+/// store. Kept out of `start_chat` so a test can pin the order (#223).
 pub(crate) async fn reserve_chat_run(
     runs: &ActiveRuns,
     store: &ConversationStore,

@@ -1,4 +1,4 @@
-//! Consistent manual backup, automatic rotation, and restore for Bottie's live SQLite store.
+//! Consistent manual backup and restore for Bottie's live SQLite store; rotation lives in `automatic_backup`.
 
 use std::{
     fs,
@@ -11,14 +11,14 @@ use super::portable_backup::{
     embed_portable_payload, extract_portable_payload, missing_content_count, omitted_file_count,
     strip_portable_payload, strip_portable_payload_from_connection, validate_portable_payload,
 };
-use super::staging_sweep::{remove_stale_staging_files, stale_staging_cutoff};
+use super::staging_sweep::{StagingSweep, remove_stale_staging_files, stale_staging_cutoff};
 use super::{CURRENT_SCHEMA_VERSION, ConversationStore, StorageError, now_ms};
 
 const PRE_RESTORE_FILE_PREFIX: &str = "bottie-pre-restore";
 pub(super) const RESTORE_STAGING_FILE_PREFIX: &str = ".bottie-restore-staging";
 pub(super) const ATTACHMENT_RESTORE_STAGING_PREFIX: &str = ".bottie-attachment-restore";
 pub(super) const GENERATED_ASSET_RESTORE_STAGING_PREFIX: &str = ".bottie-generated-asset-restore";
-const MANUAL_BACKUP_STAGING_PREFIX: &str = ".bottie-backup";
+pub(super) const MANUAL_BACKUP_STAGING_PREFIX: &str = ".bottie-backup";
 const REQUIRED_BACKUP_TABLES: &[&str] = &[
     "schema_migrations",
     "profiles",
@@ -28,20 +28,33 @@ const REQUIRED_BACKUP_TABLES: &[&str] = &[
     "message_blocks",
 ];
 
-/// Outcome of one manual backup without exposing native paths.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct ManualBackup {
-    /// Catalog files left out of the backup because they were missing from disk.
-    pub(crate) skipped_files: usize,
-    /// Abandoned staging files in the destination folder that could not be deleted; the next backup there retries.
-    pub(crate) staging_cleanup_failed: usize,
+/// Removes hour-old staging a killed manual backup left beside `destination`; call before
+/// [`ConversationStore::backup_to`].
+///
+/// The user's folder has no startup sweep, so each backup clears it. Kept separate from the backup so its failures
+/// are reported even when the backup itself then fails (#225); anything left is retried by the next backup there.
+pub(crate) fn sweep_manual_backup_staging(destination: &Path) -> StagingSweep {
+    remove_stale_staging_files(
+        backup_directory(destination),
+        MANUAL_BACKUP_STAGING_PREFIX,
+        &[".part", ".part-journal", ".part-wal", ".part-shm"],
+        stale_staging_cutoff(),
+    )
+}
+
+/// The folder a backup to `destination` stages in; a bare filename stages in the working directory.
+fn backup_directory(destination: &Path) -> &Path {
+    destination
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."))
 }
 
 impl ConversationStore {
     /// Copies every committed page to an independently readable database through SQLite's online backup API.
     ///
-    /// Reports how many attachment or image files were left out because they were missing.
-    pub(crate) fn backup_to(&self, destination: &Path) -> Result<ManualBackup, StorageError> {
+    /// Returns how many attachment or image files were left out because they were missing.
+    pub(crate) fn backup_to(&self, destination: &Path) -> Result<usize, StorageError> {
         if paths_refer_to_same_file(&self.path, destination) {
             return Err(StorageError::invalid(
                 "Choose a different location for the Bottie backup.",
@@ -49,30 +62,14 @@ impl ConversationStore {
         }
         // Build and verify beside the destination, then rename over it, so a failed backup
         // never destroys or replaces the user's previous backup.
-        let directory = destination
-            .parent()
-            .filter(|parent| !parent.as_os_str().is_empty())
-            .unwrap_or(Path::new("."));
-        // The user's folder has no startup sweep, so each backup clears hour-old staging a killed one left there.
-        // Best effort: a file that cannot be removed now is retried by the next backup into this folder.
-        let staging_cleanup_failed = remove_stale_staging_files(
-            directory,
-            MANUAL_BACKUP_STAGING_PREFIX,
-            &[".part", ".part-journal", ".part-wal", ".part-shm"],
-            stale_staging_cutoff(),
-        )
-        .failed;
-        let staging = directory.join(format!(
+        let staging = backup_directory(destination).join(format!(
             "{MANUAL_BACKUP_STAGING_PREFIX}-{}.part",
             uuid::Uuid::new_v4()
         ));
         let result = self.write_verified_backup(&staging).and_then(|skipped| {
             remove_database_sidecars(destination);
             fs::rename(&staging, destination).map_err(|_| StorageError::backup())?;
-            Ok(ManualBackup {
-                skipped_files: skipped,
-                staging_cleanup_failed,
-            })
+            Ok(skipped)
         });
         remove_database_files(&staging);
         result

@@ -10,6 +10,9 @@ const storage = vi.hoisted(() => ({
   deleteConversation: vi.fn(),
   setConversationArchived: vi.fn(),
   listConversations: vi.fn(),
+  loadLastOpenConversation: vi.fn(),
+  restoreConversationStore: vi.fn(),
+  restoreLatestAutomaticBackup: vi.fn(),
 }));
 
 vi.mock("$lib/storage", async (importOriginal) => ({
@@ -120,5 +123,30 @@ describe("closing the active conversation", () => {
 
     expect(await openB).toEqual([]);
     expect(state.activeConversationId).toBe("b");
+  });
+});
+
+describe("ConversationState.restoreBackup", () => {
+  it.each([
+    ["manual", storage.restoreConversationStore],
+    ["automatic", storage.restoreLatestAutomaticBackup],
+  ] as const)("asks for a restart after a %s restore when background work stopped", async (source, restore) => {
+    restore.mockResolvedValue({
+      status: "restored",
+      fileName: "backup.sqlite3",
+      preservedCopyName: "preserved.sqlite3",
+      missingFiles: 0,
+      backgroundWorkStopped: true,
+    });
+    storage.listConversations.mockResolvedValue([]);
+    storage.loadLastOpenConversation.mockResolvedValue(null);
+    const state = new ConversationState();
+
+    expect(await state.restoreBackup(source)).toEqual([]);
+
+    expect(state.backupFailed).toBe(false);
+    expect(state.backupFeedback).toBe(
+      "Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Restart Bottie to finish processing restored data",
+    );
   });
 });

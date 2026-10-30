@@ -1,11 +1,11 @@
 # Bottie handover
 
-Last verified: 2026-10-30 (issues #223, #224, #225 on branch `fix/issues-223-224-225`).
+Last verified: 2026-10-31 (issues #223, #224, #225 and the PR #227 review on branch `fix/issues-223-224-225`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-10-30, PRs up to #222 are merged. The PR from `fix/issues-223-224-225`
-   fixes #223-#225. #226 is still open (low priority).
+1. Check the PR list first. As of 2026-10-31, PRs up to #222 are merged. PR #227 (`fix/issues-223-224-225`)
+   fixes #223-#225. #226 and #228 (PR #227 review leftovers) are still open (low priority).
 2. **Next items:** the four open `FIX_BOTTIE.md` items. Each needs something this Mac session could not provide:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
@@ -29,12 +29,17 @@ Last verified: 2026-10-30 (issues #223, #224, #225 on branch `fix/issues-223-224
 2026-10-30, fourth session (issues #223, #224, #225):
 - **#223:** `generation_run_start::reserve_chat_run` holds `start_chat`'s reserve-then-first-write. A test holds
   restore's idle guard and checks that no run row is written until the run registers.
-- **#225:** `backup_to` returns `ManualBackup { skipped_files, staging_cleanup_failed }`, and `write_to` returns its
-  sweep's failure count. Both commands log a `warn` diagnostic. The automatic-backup sweep is now its own call
-  (`sweep_automatic_backup_staging`) before rotation, so a failed rotation still reports it. The text comes from the
-  pure `staging_cleanup_warning`, which has a test. Automatic rotation moved to `storage/automatic_backup.rs`.
+- **#225:** every staging sweep is now its own call, run before the write it serves, so its failures are reported
+  even when that write fails: `sweep_manual_backup_staging`, `ConversationFileExport::sweep_staging` and
+  `sweep_automatic_backup_staging`. The backup and export commands and startup rotation log a `warn` diagnostic
+  whose text comes from the pure `staging_cleanup_warning` ("could not be checked or removed"). The startup restore
+  sweep also covers `.bottie-backup-*` staging, which a killed pre-restore safety copy leaves in app data. Automatic
+  rotation moved to `storage/automatic_backup.rs`, and the backup and restore commands moved to
+  `storage_commands/backup_restore.rs`. Unix tests lock a folder to prove that the manual and export sweeps report
+  what they could not delete.
 - **#224:** `RestoreOutcome.backgroundWorkStopped` is true when the attachment or semantic worker has stopped. The
-  restore feedback then ends with "Restart Bottie to finish processing restored data".
+  restore feedback then ends with "Restart Bottie to finish processing restored data" (a `conversation-state` test
+  covers both restore sources).
 
 2026-10-30, third session (issues #214, #218, #220, #221):
 - **#214:** on macOS, std sets close-on-exec only after `pipe()`. A worker spawned in that gap held a sibling's pipe
@@ -103,13 +108,14 @@ Last verified: 2026-10-30 (issues #223, #224, #225 on branch `fix/issues-223-224
   (`docs/local-image-linux-clean-runtime-closure-review.json`). 66 licence-only blockers remain, and `licenseReviewed`,
   `assemblyEligible`, and `distributionReviewed` are false. No bundle assembly, profile, signing, or release exists.
 
-## Validation (2026-10-30)
+## Validation (2026-10-31)
 
-- Rust: `cargo test --locked` passes 805 library tests (42 ignored) plus the updater, adapter, and transport suites.
+- Rust: `cargo test` passes 807 library tests (42 ignored) plus the updater, adapter, and transport suites.
   `cargo fmt` is clean. Clippy still reports ~50 pre-existing style warnings (none are bugs).
-- Over 500 lines: `semantic_indexer.rs` (549), `storage_commands.rs` (504). Split them when next touched.
+- Over 500 lines: 13 non-test files, all older than this work. The largest are `lib.rs` (1077),
+  `inference/settings.rs` (562) and `semantic_indexer.rs` (549). Split each one when you next touch it.
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: `npm test` passes 465 tests; `npm run check` is clean.
+- Frontend: `npm test` passes 467 tests; `npm run check` is clean.
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)

@@ -9,7 +9,7 @@ use tauri_plugin_dialog::DialogExt;
 use crate::{
     AppState,
     diagnostics::{Diagnostics, record_diagnostic},
-    storage::{StorageError, staging_cleanup_warning},
+    storage::{ConversationFileExport, StorageError, staging_cleanup_warning},
 };
 
 const MARKDOWN_FILTER_NAME: &str = "Markdown";
@@ -105,7 +105,7 @@ pub(crate) async fn export_conversation_batch_json(
 async fn save_export(
     app: &AppHandle,
     diagnostics: &Diagnostics,
-    export: crate::storage::ConversationFileExport,
+    export: ConversationFileExport,
     title: &str,
     filter_name: &str,
     extension: &str,
@@ -126,9 +126,9 @@ async fn save_export(
         return Ok(cancelled_export());
     };
     let path = selected.into_path().map_err(|_| StorageError::export())?;
-    let staging_cleanup_failed = export.write_to(&path)?;
+    // Reported before the write's own result, so a failed export still names the staging it could not clear.
     if let Some(detail) = staging_cleanup_warning(
-        staging_cleanup_failed,
+        ConversationFileExport::sweep_staging(&path).failed,
         "export",
         "the next export into that folder retries them",
     ) {
@@ -141,6 +141,7 @@ async fn save_export(
         )
         .await;
     }
+    export.write_to(&path)?;
     Ok(saved_export(&path, &export.file_name))
 }
 
