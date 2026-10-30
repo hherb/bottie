@@ -122,6 +122,18 @@ fn keeps_embedding_only_models_out_of_the_chat_catalogue() {
 }
 
 #[test]
+fn rejects_an_unterminated_ndjson_line_larger_than_the_limit() {
+    let mut decoder = NdjsonDecoder::default();
+    let half = vec![b'x'; crate::inference::limits::MAX_STREAM_FRAME_BYTES / 2 + 1];
+    assert!(decoder.push(&half).unwrap().is_empty());
+    let error = decoder.push(&half).unwrap_err();
+    assert_eq!(
+        error.code,
+        crate::inference::ProviderErrorCode::MalformedResponse
+    );
+}
+
+#[test]
 fn decodes_fragmented_ndjson_and_completion_usage() {
     let mut decoder = NdjsonDecoder::default();
     assert!(

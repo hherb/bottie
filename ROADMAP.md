@@ -2,9 +2,11 @@
 
 This roadmap favors complete vertical slices over building every backend subsystem in isolation. Each milestone should leave the desktop application usable and preserve the Rust/WebView security boundary.
 
-## Current focus (2026-10-29)
+## Current focus (2026-10-30)
 
-- `FIX_BOTTIE.md` audit list: items 1-5 (must fix) done; items 6-22 next, in order.
+- `FIX_BOTTIE.md` audit list: all items done except 9 (Linux check), 10 (DGX hash lock), 14 (runtime link check), and
+  19 (low priority). Then run the follow-up audit it lists. Flaky transport test: issue #214. PR #215 review
+  follow-ups: issue #216 (restore guard misses chat runs before they register) and #217 (test gaps).
 - `mlx_worker.py` changed (audit item 4). The frozen Mac Qwen-Image-2512 worker bundle (8.4) and the Linux clean-runtime
   image and closure evidence (8.4) predate it, so rebuild and re-pin both before relying on them.
 
@@ -18,237 +20,41 @@ This roadmap favors complete vertical slices over building every backend subsyst
 - **Calm transparency.** Activity is visible and auditable without turning normal conversation into a developer console.
 - **Accessible motion and interaction.** Keyboard operation, contrast, reduced motion, and responsive layouts remain release requirements.
 
-## Milestone 0 — Product shell
+## Completed milestones 0-4
 
-Status: complete
+Item-level checklists are in git history (before 2026-10-30) and the linked `docs/`.
 
-- Tauri 2, Rust, SvelteKit, and TypeScript scaffold
-- bottie visual language and responsive three-pane layout
-- conversation, composer, attachment, memory, model, and privacy surfaces
-- simulated activity and token streaming
-- working simulated cancellation
-- typed `app_info` Rust command
-- minimal Tauri permissions and CSP
-- compile, build, native-launch, and interaction verification
-
-## Milestone 1 — Real inference
-
-Outcome: bottie can conduct reliable text conversations through real local and remote providers.
-
-### 1.1 Provider-neutral stream and oMLX
-
-Status: complete
-
-- [x] normalized provider capabilities, content blocks, requests, events, usage, and errors;
-- [x] Rust-owned oMLX model discovery;
-- [x] streaming chat completions through a typed Tauri IPC channel;
-- [x] end-to-end cancellation;
-- [x] offline, malformed-response, timeout, and retry UX;
-- [x] fixture-driven protocol tests and opt-in live oMLX tests.
-
-See `HANDOVER.md` for verification evidence.
-
-### 1.2 Ollama
-
-Status: complete
-
-- [x] native Ollama discovery and chat adapter;
-- [x] capability mapping for tools, vision, embeddings, and context size;
-- [x] explicit loaded/on-demand model state from the running-model API;
-- [x] fixture and opt-in live parity tests against the normalized stream contract.
-
-### 1.3 Provider configuration
-
-Status: complete
-
-- [x] provider settings UI;
-- [x] persisted Rust-owned local endpoint settings;
-- [x] loopback-only endpoint validation and connection testing;
-- [x] model picker populated from actual discovery;
-- [x] separate provider/model selectors with provider-specific model refresh;
-- [x] last successful provider/model selection remembered across restart;
-- [x] provider-qualified model choice applied to the active conversation and recorded on responses;
-- [x] sensible connect, discovery, stream-idle, and reconnect behavior;
-- [x] structured in-memory diagnostic logging with secret redaction.
-
-The native provider/model selection, provider-specific refresh, and remembered-selection experience were manually reviewed and confirmed on 2026-08-18; see `HANDOVER.md`.
-
-### 1.3a Bounded reasoning controls
-
-Status: complete
-
-- [x] explicit per-request reasoning control with off as the safe default and low as the enabled level;
-- [x] native oMLX and Ollama request mapping instead of model-name heuristics in the WebView;
-- [x] separate normalized reasoning deltas across the Rust/Tauri boundary;
-- [x] collapsed, user-expandable reasoning presentation kept separate from answer text;
-- [x] a 4,096-token default completion ceiling to prevent unbounded provider defaults;
-- [x] fixture coverage for request mapping and stream decoding plus a bounded live oMLX check.
-
-### 1.4 Remote OpenAI and Anthropic APIs
-
-Status: complete
-
-- [x] native adapters instead of forcing both APIs through one request shape;
-- [x] generic OpenAI-compatible and Anthropic-compatible endpoint profiles;
-- [x] API keys stored in the operating system credential vault, with one Touch ID unlock at macOS app start and
-      process-memory caching for the session;
-- [x] explicit local/cloud routing indicator before sending;
-- [x] usage and cost metadata where providers return it.
-
-## Milestone 2 — Durable conversations
-
-Outcome: conversations survive restart and can be searched, branched, exported, and recovered.
-
-Status: complete
-
-### Design gate
-
-Decision: Bottie starts with one built-in local profile scoped to the current OS account. The schema retains explicit
-profile ownership so optional local profiles can be added later without application authentication or a conversation
-ownership rewrite.
-
-### Storage foundation
-
-- [x] bundled SQLite owned exclusively by Rust;
-- [x] ordered, transactional migrations with schema-version history;
-- [x] WAL mode, foreign keys, busy handling, and startup integrity checks;
-- [x] built-in local profile, conversations, main branches, ordered messages, and text/reasoning blocks;
-- [x] append-oriented provider runs and provider-reported usage records;
-- [x] append-oriented tool invocations and results;
-- [x] crash-safe draft/partial message persistence and interrupted-run recovery;
-- [x] manual SQLite backup creation through a Rust-owned Save dialog and SQLite's online backup API;
-- [x] confirmed manual restore from a validated Bottie backup with a pre-restore safety copy;
-- [x] automatic backup rotation with one snapshot per 24 hours and seven-snapshot retention;
-- [x] corruption detection and guided automatic/manual recovery with damaged-store preservation;
-- [x] soft deletion and retention metadata.
-
-### Conversation experience
-
-- [x] create conversations on first send, list recent conversations, and reopen stored messages after restart;
-- [x] rename, archive, delete, and restore conversations;
-- [x] edit-and-regenerate branches using parent message IDs;
-- [x] reopen the exact conversation after restart;
-- [x] date grouping based on real conversation activity;
-- [x] bounded native conversation search across titles and visible message text;
-- [x] Markdown rendering with sanitization;
-- [x] assistant-response and reasoning copying as labelled Markdown with accessible outcome feedback;
-- [x] response retry for interrupted, cancelled, and transiently failed attempts on preserved branches;
-- [x] durable Good/Poor response rating with replacement, clearing, and preserved-branch restoration;
-- [x] single-conversation Markdown export through a Rust-owned native Save dialog;
-- [x] single-conversation JSON export through the same selected-lineage and native Save policy;
-- [x] batch JSON export of active and archived selected lineages through a Rust-owned native Save dialog.
-
-## Milestone 3 — Attachments and multimodal context
-
-Outcome: users can safely add images and documents and see exactly what is sent to a model.
-
-Status: complete
-
-- [x] content-addressed attachment storage in the application data directory;
-- [x] MIME sniffing, hashes, size limits, duplicate detection, and safe display names;
-- [x] bounded native extraction state and UTF-8 source retention for plain text and Markdown;
-- [x] bounded page-aware PDF text extraction with path-free failure states;
-- [x] bounded DOCX extraction as the first selected office format;
-- [x] bounded JPEG/PNG normalization, EXIF orientation application, and metadata removal policy;
-- [x] durable background extraction and image-normalization lifecycle;
-- [x] durable background indexing-readiness states for extracted attachment text;
-- [x] capability-aware image delivery to vision models;
-- [x] clear behavior for text-only models;
-- [x] per-message association with selected-branch reopen, fork inheritance, and association removal;
-- [x] conversation-level attachment scope;
-- [x] portable attachment backup and export behavior;
-- [x] restart-boundary attachment garbage collection;
-- [x] bounded ready-image previews and explicit extraction/normalization-error UX.
-
-Raw local filesystem paths must never be forwarded to a provider.
-
-## Milestone 4 — Persistent memory
-
-Outcome: models can retrieve relevant past conversations with visible provenance and user control.
-
-Status: complete
-
-### Search foundation
-
-- [x] native SQLite FTS5 whole-source index and bounded BM25 lexical search with built-in-profile enforcement plus
-      source, conversation, and date filters;
-- [x] versioned deterministic Unicode-safe chunk catalog for final message answers and ready extracted documents;
-- [x] statically linked `sqlite-vec` semantic index;
-- [x] Rust-owned FastEmbed runtime using Q4 EmbeddingGemma 300M as the single built-in embedding model;
-- [x] application-owned model cache progress and versioned embedding metadata, without an embedding-provider picker;
-- [x] embedding model, dimensions, chunking version, input contract, and index-generation metadata;
-- [x] resumable bounded background indexing;
-- [x] bounded current-generation semantic KNN retrieval with EmbeddingGemma query prompting and lifecycle-safe
-      profile, source, conversation, association, and date filters;
-- [x] explicit derived-only reindex control with durable path-free progress and restore-safe worker coordination;
-- [x] bounded source-level reciprocal-rank fusion of lexical and vector results under one shared filter contract;
-
-### Memory tools
-
-- [x] Rust-owned `search_memory` contract for ranked message excerpts with bounded path-free provenance;
-- [x] `open_memory` for bounded surrounding final turns on the matched message's immutable branch lineage;
-- [x] `search_attached_files` for indexed document chunks with bounded path-free file provenance;
-- [x] structured `search_memory` results with conversation/message identifiers and optional exact chunk offsets;
-- [x] provider-independent definitions and strict closed argument schemas for the three native memory tools;
-- [x] provider-neutral single-call dispatch with a bounded structured result/error envelope;
-- [x] explicit Ollama native memory-tool definition/call/result mapping and bounded generation-loop integration;
-- [x] explicit OpenAI Chat Completions definition/call/result mapping and bounded generation-loop integration;
-- [x] explicit Anthropic Messages definition/call/result mapping and bounded generation-loop integration;
-- [x] visible and removable memory citations in the context panel;
-- [x] reversible per-conversation exclude-from-memory control enforced across native indexes and memory tools;
-- [x] explicit per-conversation forget from Trash with documented source, derived-data, attachment, and backup policy;
-- [x] opt-in 30-day, 90-day, or one-year Trash retention with manual retention as the default and healthy-startup
-      enforcement through the explicit-forget data policy (explicit derived-only reindex is complete).
-
-Do not silently inject arbitrary long-term memories into every prompt. Recent conversation context may be automatic; long-term recall should be explicit and inspectable.
+- **0 — Product shell:** Tauri 2, Rust, SvelteKit, and TypeScript scaffold; three-pane layout; typed IPC; minimal
+  permissions and CSP.
+- **1 — Real inference:** provider-neutral stream, event, usage, and error contract; native oMLX, Ollama,
+  OpenAI-compatible, and Anthropic-compatible adapters; capability detection; end-to-end cancellation; bounded reasoning
+  controls; keychain-held API keys with one Touch ID unlock; local/cloud routing indicator; usage and cost metadata.
+- **2 — Durable conversations:** one built-in local profile (the schema keeps profile ownership so local profiles can
+  be added later); Rust-owned SQLite with ordered migrations, WAL, and integrity checks; crash-safe partials; manual and
+  automatic backup, restore, and guided recovery; rename, archive, Trash, branches, search, retry, ratings, and
+  Markdown/JSON/batch export.
+- **3 — Attachments and multimodal context:** content-addressed storage; MIME sniffing, hashing, and size limits; text,
+  Markdown, PDF, and DOCX extraction; JPEG/PNG normalization; capability-aware image delivery; per-message and
+  conversation scope; portable backup and export; restart-boundary garbage collection. Raw local paths never reach a
+  provider.
+- **4 — Persistent memory:** FTS5 lexical and `sqlite-vec` semantic indexes with EmbeddingGemma (FastEmbed),
+  resumable indexing, reciprocal-rank fusion, and the `search_memory`, `open_memory`, and `search_attached_files` tools
+  across all providers; visible citations; per-conversation exclusion, forget, and Trash retention. Long-term recall
+  stays explicit and inspectable, never silently injected.
 
 ## Milestone 5 — Tool runtime and internet access
 
 Outcome: bottie can use host-managed tools consistently across providers.
 
-### Tool orchestration
+### Tool orchestration and web tools
 
-- [x] provider-independent definitions for the native memory tool set;
-- [x] provider-neutral single-call execution dispatcher with a 64 KiB serialized output ceiling;
-- [x] provider-independent multi-call execution state machine;
-- [x] strict JSON-schema argument validation for the native memory tool set;
-- [x] recursion, call-count, aggregate-output, and overall-deadline limits;
-- [x] restart-safe Generation limits in Settings, defaulting to 12 rounds, 24 calls, and 8,192 output tokens;
-- [x] provider-neutral cancellation signal with checks before and after every native call;
-- [x] Ollama native definition/call/result mapping and generation-loop wiring;
-- [x] OpenAI Chat Completions definition/call/result mapping and generation-loop wiring;
-- [x] Anthropic Messages definition/call/result mapping and generation-loop wiring;
-- [x] Rust-owned zero-argument UTC `current_time` tool with closed schema, safe policy, durable audit, and mappings for
-      every explicitly tool-capable route;
-- [x] bounded oMLX endpoint-capability discovery plus native clock, Memory, and Web tool-loop mapping without provider
-      MCP or arbitrary server-tool execution;
-- [x] current Anthropic Models API structured-capability decoding with legacy compatible-response preservation;
-- [x] active-generation cancellation propagation through mapped providers and native tool work;
-- [x] safe versus approval-required tool policy;
-- [x] structured audit records and expandable activity UI;
-- [x] protection against malformed or unsupported tool calls.
+Status: complete (checklists in git history before 2026-10-30).
 
-### Web tools
-
-- [x] pluggable native search-provider interface with bounded fixed-endpoint Brave Search and Exa Search adapters;
-- [x] independent native search-engine credentials, fixed-route connection tests, and a saved active-engine choice;
-- [x] draft-key tests bypass locked legacy credentials, and Settings saves Localmail key edits with Save and reconnect;
-- [x] provider-independent `web_search` contract and native dispatcher with freshness and domain filters;
-- [x] explicit Ollama definition/call/result mapping and generation-loop integration for `web_search`;
-- [x] explicit OpenAI Chat Completions definition/call/result mapping and generation-loop integration for
-      `web_search`;
-- [x] explicit Anthropic Messages definition/call/result mapping and generation-loop integration for `web_search`;
-- [x] provider-independent `web_fetch` contract and native public-network client/dispatcher with explicit redirects,
-      DNS/address pinning, size limits, UTF-8 content-type checks, and one shared timeout;
-- [x] explicit Ollama generation-loop mapping for `web_fetch`;
-- [x] explicit OpenAI-compatible generation-loop mapping for `web_fetch`;
-- [x] explicit Anthropic-compatible generation-loop mapping for `web_fetch`;
-- [x] extraction to inert text with source URL, title, and publication metadata;
-- [x] removable path-free Context-panel source cards derived from successful selected-lineage Web tool results;
-- [x] citations connected to claims and retained with the conversation;
-- [x] prompt-injection labeling for explicitly untrusted fetched-page content in source cards and durable tool audit;
-- [x] user-configurable HTTPS, allowlisted-domain, and blocklisted-domain policy applied to Web search results,
-      fetches, and every redirect without weakening the fixed public-address baseline.
+- Provider-neutral tool contract, strict argument validation, multi-call state machine, and recursion, call, output, and
+  deadline limits (Settings default: 12 rounds, 24 calls, 8,192 output tokens), mapped for Ollama, oMLX, OpenAI, and
+  Anthropic; `current_time`; safe vs. approval-required policy; structured audit and activity UI.
+- `web_search` (Brave, Exa) and `web_fetch` (DNS pinning, explicit redirects, size and type limits, inert extraction)
+  with source cards, retained citations, prompt-injection labelling, and user HTTPS/allow/block policy.
 
 MCP interoperability can follow after bottie's own tool contract and policy model are stable.
 
@@ -424,35 +230,11 @@ Outcome: bottie is safe and comfortable enough for sustained daily use.
 
 ## Milestone 7 — Local voice conversations
 
-Outcome: users can hold interruptible, private voice conversations without requiring a cloud speech service.
+Status: complete. Done: Rust-owned capture with voice activity detection, local streaming Whisper transcription,
+transcript correction and text fallback, OS text-to-speech, barge-in through the shared cancellation boundary,
+off-by-default audio delivery and retention, latency status, and durable input-device selection.
 
-Status: complete; evidence-gated acoustic feedback processing remains deferred.
-
-- [x] Rust-owned default-input capture behind an explicit Record voice action, with operating-system permission,
-      bounded session-only PCM retention, path-free status, Stop/Discard controls, and no provider delivery;
-- [x] bounded native voice activity detection with path-free speech/silence timing and calm live/captured state;
-- [x] local streaming speech-to-text with a pinned multilingual Whisper tiny Q5 model, bounded partial/final transcript
-      ranges, visible timing, app-owned cache verification, and session-only audio/text state;
-- [x] session-only transcript correction and visible numbered turn boundaries;
-- [x] bounded local text-to-speech with explicit assistant-response playback, a Settings-owned durable system-voice
-      choice, opaque native identities, unavailable-choice fallback, and no generated-audio retention;
-- [x] explicit barge-in that stops Bottie's local playback, cancels active provider/tool work through the existing
-      durable cancellation boundary, and serializes new generation registration against native capture;
-- [x] provider-neutral native-only audio content blocks plus separate off-by-default provider delivery and app-private
-      WAV retention choices;
-- [x] bounded session-only native latency status for input readiness, first/final local transcript availability, and
-      local speech-engine acceptance, labelled by observable endpoints rather than acoustic claims;
-- [x] explicit durable input-device selection with bounded display labels, process-local public tokens, Rust-owned
-      stable opaque preference keys, startup fallback to System default when unavailable, exact-device resolution at Record,
-      and fail-closed playback/capture separation;
-- [x] explicit transcript-to-text fallback that copies only current visible final turns into a bounded editable unsent
-      draft, preserves existing text, keeps capture state intact, and provides keyboard, focus, and screen-reader feedback;
-- [x] deterministic same-input repeated capture after a stopped worker's final unwind, with active capture overlap
-      still rejected and native macOS regression acceptance;
-- [ ] acoustic echo cancellation or general system-feedback processing, if later evidence justifies native DSP;
-
-Voice should reuse the same provider, content-block, event, persistence, and cancellation models established in
-earlier milestones.
+- [ ] acoustic echo cancellation or general system-feedback processing, if later evidence justifies native DSP.
 
 ### Optional neural speech evaluation — MOSS-TTS-Nano
 
@@ -501,41 +283,13 @@ The owner requested Apple MLX / otherwise CUDA execution on 2026-10-18. See `doc
 - [ ] native Linux app/UI, Windows, Base variants, and broader platform/low-memory/output-quality measurements;
 - [ ] bundled runtime/model distribution and native installer UI, if requested separately.
 
-### 8.1 Shared contract and hosted Qwen-Image-2.0 foundation
+### 8.1-8.2 Hosted Qwen-Image-2.0 and durable generation
 
-- [x] provider-neutral bounded image-generation contract with model, execution, generation, and editing capabilities;
-- [x] exact synchronous DashScope adapter pinned to `qwen-image-2.0-2026-03-03`, with fixed request shape, bounded
-      dimensions and output count, terminal-choice validation, strict HTTPS result references, response-size limits, and
-      redacted errors;
-- [x] Singapore-preferred default at `https://dashscope-intl.aliyuncs.com/api/v1/`, while accepting only the documented
-      Singapore and Beijing legacy/workspace domains and exact `/api/v1/` root;
-- [x] credential-free endpoint persistence, OS-vault API-key handling, and structural setup validation that performs no
-      provider request and incurs no charge;
-- [x] add an opt-in live fixture using a throwaway Singapore key and workspace, kept ignored by default and fixed at one
-      low-risk output; never run it implicitly in ordinary tests.
-
-### 8.2 Durable generation vertical slice
-
-Implement this once for both hosted and local adapters before adding more runtimes.
-
-1. [x] Add a `generated_assets` migration owned by assistant messages, with content hash, media type, dimensions, byte
-       count, created time, provider ID, exact model ID, execution backend, seed when supported, and terminal status.
-2. [x] Add a Rust-owned generation controller with one active run identity, shared cancellation, bounded progress
-       events, terminal cleanup, and no provider or worker correlation identifier crossing IPC.
-3. [x] Add an explicit composer action for prompt, aspect ratio, count, execution choice, and provider delivery/cost
-       disclosure. Cloud and exact Local 2512 execution are explicit, while unavailable local state remains disabled. Cloud
-       generation must never follow from an ordinary chat send or failed local route.
-4. [x] For hosted 2.0, immediately download temporary URLs inside Rust, with redirects disabled, fixed byte/time limits,
-       content sniffing, PNG decode, actual dimension/pixel checks, and content-addressed app-private storage. Discard URLs
-       and partial bytes before returning path-free metadata.
-5. [x] Present pending, completed, failed, and cancelled assistant image messages with bounded previews. Completed
-       outputs have opaque-ID native open/export, bounded-preview clipboard copy, and confirmed reference-aware deletion.
-       Failed and cancelled messages retry only from their selected-branch durable user prompt, accepted dimensions/options,
-       output rows, and exact provenance; no native path, content hash, temporary URL, or provider correlation ID crosses IPC.
-6. [x] Extend portable export, backup, restore, retention, branching, and garbage collection so generated bytes follow
-       the same ownership and recovery guarantees as other conversation assets.
-7. [x] Test malformed provider output, expired URLs, decompression bombs, count/dimension mismatches, cancellation at
-       every boundary, restart recovery, branch ownership, deletion, path-free IPC, and secret-redacted diagnostics.
+Status: complete (checklists in git history before 2026-10-30). A bounded generation contract; a DashScope adapter
+pinned to `qwen-image-2.0-2026-03-03` (Singapore default, vault-held key, opt-in live fixture); `generated_assets`
+storage; one Rust-owned generation controller with shared cancellation; an explicit composer action (no implicit cloud
+fallback); in-Rust download with fixed limits, PNG decode, and content-addressed storage; durable pending, completed,
+failed, and cancelled image messages with retry; and export, backup, restore, retention, branching, and GC coverage.
 
 ### 8.3 Local worker and model lifecycle
 

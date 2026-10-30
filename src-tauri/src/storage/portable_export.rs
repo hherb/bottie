@@ -39,26 +39,24 @@ impl ConversationFileExport {
     }
 
     /// Writes a plain document or a ZIP bundle while mapping paths to one redacted error.
+    ///
+    /// Both forms are written to a staging file beside `path` and renamed over it, so an existing export at `path`
+    /// survives byte-identical when any step fails.
     pub(crate) fn write_to(&self, path: &Path) -> Result<(), StorageError> {
-        if self.attachments.is_empty() {
-            return fs::write(path, &self.contents).map_err(|_| StorageError::export());
-        }
         let parent = path.parent().ok_or_else(StorageError::export)?;
         let staging = parent.join(format!(".bottie-export-{}.tmp", uuid::Uuid::new_v4()));
-        let result = self.write_bundle(&staging);
+        let written = if self.attachments.is_empty() {
+            fs::write(&staging, &self.contents).map_err(|_| StorageError::export())
+        } else {
+            self.write_bundle(&staging)
+        };
+        // `fs::rename` replaces an existing target on both unix and Windows, so no prior delete is needed.
+        let result =
+            written.and_then(|()| fs::rename(&staging, path).map_err(|_| StorageError::export()));
         if result.is_err() {
             let _ = fs::remove_file(&staging);
-            return result;
         }
-        if path.exists() && fs::remove_file(path).is_err() {
-            let _ = fs::remove_file(&staging);
-            return Err(StorageError::export());
-        }
-        fs::rename(&staging, path).map_err(|_| {
-            let _ = fs::remove_file(&staging);
-            StorageError::export()
-        })?;
-        Ok(())
+        result
     }
 
     /// Writes a complete archive to one native-only staging path.

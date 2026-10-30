@@ -19,7 +19,7 @@ use crate::{
     inference::{ChatRequest, ChatRun, ProviderError, ReasoningEffort, StreamEvent, Usage},
     provider_registry::{RoutedProvider, routed_provider},
     python_runtime::PythonRuntimeState,
-    run_cancellation::ActiveRun,
+    run_cancellation::{ActiveRun, ActiveRunRegistration},
     storage::{
         ConversationStore, NewProviderRun, ProviderRunContext, ProviderRunState,
         StoredReasoningEffort, StoredUsage,
@@ -339,6 +339,7 @@ pub(crate) async fn start_chat(
         .map(PythonRuntimeState::runner);
     let task_run_id = run_id.clone();
     tauri::async_runtime::spawn(async move {
+        let _registration = ActiveRunRegistration::new(runs, task_run_id.clone());
         record_diagnostic(
             &diagnostics,
             "info",
@@ -459,7 +460,6 @@ pub(crate) async fn start_chat(
             }
         }
         semantic_indexing.wake();
-        runs.lock().await.remove(&task_run_id);
     });
 
     Ok(ChatRun { run_id })

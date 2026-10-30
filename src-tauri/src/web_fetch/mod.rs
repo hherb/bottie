@@ -344,7 +344,7 @@ fn valid_dns_label(label: &str) -> bool {
 }
 
 /// Resolves once, rejects any non-public answer, and returns a deduplicated pinned set.
-async fn resolve_addresses(
+pub(crate) async fn resolve_addresses(
     url: &Url,
     allow_non_public: bool,
     deadline: Instant,
@@ -361,9 +361,10 @@ async fn resolve_addresses(
     .map_err(|_| WebFetchError::unavailable())?
     .filter(|address| seen.insert(*address))
     .collect::<Vec<_>>();
-    if addresses.is_empty()
-        || (!allow_non_public && addresses.iter().any(|address| !is_public_ip(address.ip())))
-    {
+    if addresses.is_empty() {
+        return Err(WebFetchError::unavailable());
+    }
+    if !allow_non_public && addresses.iter().any(|address| !is_public_ip(address.ip())) {
         return Err(blocked_address());
     }
     Ok(addresses)

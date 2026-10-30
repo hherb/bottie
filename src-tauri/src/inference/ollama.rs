@@ -4,6 +4,10 @@ use url::Url;
 
 use super::{
     InferenceProvider,
+    limits::{
+        ensure_round_text_within_limit, read_discovery_body, read_error_body,
+        truncate_provider_message,
+    },
     provider::StreamSink,
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_local_base_url},
     types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
@@ -124,11 +128,7 @@ impl OllamaProvider {
         if !response.status().is_success() {
             return Err(response_error(response).await);
         }
-        response
-            .bytes()
-            .await
-            .map(|bytes| bytes.to_vec())
-            .map_err(map_request_error)
+        read_discovery_body(response, map_request_error).await
     }
 
     /// Fetches detailed capability metadata for one installed model.
@@ -147,7 +147,7 @@ impl OllamaProvider {
         if !response.status().is_success() {
             return Err(response_error(response).await);
         }
-        let bytes = response.bytes().await.map_err(map_request_error)?;
+        let bytes = read_discovery_body(response, map_request_error).await?;
         serde_json::from_slice(&bytes).map_err(|error| {
             ProviderError::malformed(
                 "Ollama returned invalid model details.",
@@ -291,6 +291,12 @@ fn process_stream_line(
     emit_usage: bool,
 ) -> Result<bool, ProviderError> {
     let event = decode_stream_line(line)?;
+    ensure_round_text_within_limit(
+        round.thinking.len()
+            + round.content.len()
+            + event.reasoning_delta.len()
+            + event.text_delta.len(),
+    )?;
     if !event.reasoning_delta.is_empty() {
         round.thinking.push_str(&event.reasoning_delta);
         sink.reasoning_delta(event.reasoning_delta)?;
@@ -355,7 +361,7 @@ fn map_request_error(error: reqwest::Error) -> ProviderError {
 /// Reads and normalizes a non-success Ollama HTTP response.
 async fn response_error(response: reqwest::Response) -> ProviderError {
     let status = response.status();
-    let body = response.text().await.unwrap_or_default();
+    let body = read_error_body(response).await;
     normalize_response_error(status, &body)
 }
 
@@ -364,7 +370,8 @@ fn normalize_response_error(status: StatusCode, body: &str) -> ProviderError {
     let provider_message = serde_json::from_str::<OllamaErrorResponse>(body)
         .ok()
         .map(|value| value.error)
-        .filter(|message| !message.trim().is_empty());
+        .filter(|message| !message.trim().is_empty())
+        .map(truncate_provider_message);
     let message = provider_message.unwrap_or_else(|| match status {
         StatusCode::NOT_FOUND => "The Ollama API endpoint or model was not found.".into(),
         StatusCode::TOO_MANY_REQUESTS => "Ollama is busy. Try again shortly.".into(),

@@ -27,6 +27,8 @@ export class SpeechState {
   private readonly nativeAvailable = isTauri();
   private pollTimer?: ReturnType<typeof setInterval>;
   private pollInFlight = false;
+  /** Bumped by stop() and startPolling(); a poll result from an older epoch is discarded. */
+  private pollEpoch = 0;
 
   /** Lazily discovers local voices without starting playback. */
   async initialize(): Promise<void> {
@@ -70,6 +72,7 @@ export class SpeechState {
   /** Stops only Bottie's local speech and clears the active response marker. */
   async stop(): Promise<boolean> {
     if (!this.nativeAvailable) return false;
+    this.pollEpoch += 1;
     try {
       this.status = await stopSpeech();
     } catch {
@@ -98,20 +101,25 @@ export class SpeechState {
   private async refresh(): Promise<void> {
     if (this.pollInFlight) return;
     this.pollInFlight = true;
+    const epoch = this.pollEpoch;
     try {
-      this.status = await getSpeechStatus();
+      const status = await getSpeechStatus();
+      // A Stop or a new playback since this poll began owns the status now.
+      if (epoch !== this.pollEpoch) return;
+      this.status = status;
       if (this.status.phase !== "speaking") {
         this.activeMessageId = null;
         this.stopPolling();
       }
     } catch {
-      this.failClosed("playback_failed");
+      if (epoch === this.pollEpoch) this.failClosed("playback_failed");
     } finally {
       this.pollInFlight = false;
     }
   }
 
   private startPolling(): void {
+    this.pollEpoch += 1;
     if (this.pollTimer) return;
     this.pollTimer = setInterval(() => void this.refresh(), STATUS_POLL_INTERVAL_MS);
   }

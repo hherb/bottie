@@ -8,6 +8,7 @@ use serde_json::Value;
 use crate::tool_contract::ToolDefinition;
 
 use super::super::{
+    limits::MAX_STREAMED_ARGUMENT_BYTES,
     multimodal::{OpenAiContent, openai_content},
     types::{ChatRequest, ChatRole, ProviderError, ReasoningEffort, Usage},
 };
@@ -367,8 +368,18 @@ impl OpenAiToolCallAccumulator {
             if let Some(function) = delta.function {
                 if let Some(name) = function.name {
                     call.tool_name.push_str(&name);
+                    if call.tool_name.chars().count() > MAX_TOOL_NAME_CHARACTERS {
+                        return Err(malformed_tool_call("streamed tool name exceeded its limit"));
+                    }
                 }
                 if let Some(arguments) = function.arguments {
+                    if call.arguments.len().saturating_add(arguments.len())
+                        > MAX_STREAMED_ARGUMENT_BYTES
+                    {
+                        return Err(malformed_tool_call(
+                            "streamed tool arguments exceeded their limit",
+                        ));
+                    }
                     call.arguments.push_str(&arguments);
                 }
             }
@@ -459,6 +470,41 @@ mod tests {
         let mut calls = OpenAiToolCallAccumulator::default();
         calls.extend(event.tool_call_deltas).unwrap();
         calls
+    }
+
+    /// Decodes one argument-only continuation delta for call index 0.
+    fn argument_delta(arguments: &str) -> Vec<OpenAiToolCallDelta> {
+        let payload = serde_json::json!({
+            "choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": arguments}}]}}]
+        });
+        decode_stream_payload(&payload.to_string())
+            .unwrap()
+            .tool_call_deltas
+    }
+
+    #[test]
+    fn rejects_streamed_arguments_past_the_shared_limit() {
+        let mut calls = call_accumulator("");
+        let half = "x".repeat(MAX_STREAMED_ARGUMENT_BYTES / 2);
+        calls.extend(argument_delta(&half)).unwrap();
+        calls.extend(argument_delta(&half)).unwrap();
+        let error = calls
+            .extend(argument_delta("x"))
+            .expect_err("one byte past the limit must fail");
+        assert_eq!(error.code.as_str(), "malformed_response");
+    }
+
+    #[test]
+    fn rejects_a_streamed_tool_name_past_its_limit() {
+        let mut calls = OpenAiToolCallAccumulator::default();
+        let payload = serde_json::json!({
+            "choices": [{"delta": {"tool_calls": [{
+                "index": 0, "function": {"name": "n".repeat(MAX_TOOL_NAME_CHARACTERS + 1)}
+            }]}}]
+        });
+        let event = decode_stream_payload(&payload.to_string()).unwrap();
+        let error = calls.extend(event.tool_call_deltas).unwrap_err();
+        assert_eq!(error.code.as_str(), "malformed_response");
     }
 
     #[test]

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{PROVIDER_ID, PROVIDER_NAME};
+use crate::inference::limits::{ensure_frame_within_limit, truncate_provider_message};
 use crate::inference::multimodal::{base64_image, text_content};
 use crate::inference::types::{
     ChatRequest, ChatRole, ContentBlock, ModelInfo, ModelLoadState, ProviderCapabilities,
@@ -373,7 +374,7 @@ pub(super) fn decode_stream_line(line: &str) -> Result<DecodedStreamEvent, Provi
     })?;
     if let Some(message) = chunk.error.filter(|message| !message.trim().is_empty()) {
         return Err(ProviderError::server(
-            message,
+            truncate_provider_message(message),
             Some("Ollama stream error".into()),
         ));
     }
@@ -422,6 +423,8 @@ pub(super) fn normalize_usage(
 /// Incremental newline-delimited JSON byte decoder.
 pub(super) struct NdjsonDecoder {
     buffer: Vec<u8>,
+    /// Bytes at the start of `buffer` already known to contain no newline, so each byte is scanned once.
+    scanned: usize,
 }
 
 impl NdjsonDecoder {
@@ -439,15 +442,25 @@ impl NdjsonDecoder {
     /// Drains complete NDJSON records from the internal byte buffer.
     fn drain(&mut self, finish: bool) -> Result<Vec<String>, ProviderError> {
         let mut lines = Vec::new();
-        while let Some(index) = self.buffer.iter().position(|byte| *byte == b'\n') {
-            let line = self.buffer.drain(..index).collect::<Vec<_>>();
+        while let Some(offset) = self.buffer[self.scanned..]
+            .iter()
+            .position(|byte| *byte == b'\n')
+        {
+            let line = self
+                .buffer
+                .drain(..self.scanned + offset)
+                .collect::<Vec<_>>();
             self.buffer.drain(..1);
+            self.scanned = 0;
             if let Some(line) = decode_ndjson_line(&line)? {
                 lines.push(line);
             }
         }
+        self.scanned = self.buffer.len();
+        ensure_frame_within_limit(self.buffer.len())?;
         if finish && !self.buffer.is_empty() {
             let line = std::mem::take(&mut self.buffer);
+            self.scanned = 0;
             if let Some(line) = decode_ndjson_line(&line)? {
                 lines.push(line);
             }

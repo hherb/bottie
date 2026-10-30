@@ -38,6 +38,7 @@ pub(super) fn spawn_local_image_run(
     let task_run_id = run_id.clone();
     let message_id = pending_message.id.clone();
     tauri::async_runtime::spawn(async move {
+        let _completion = runs.finish_on_drop(task_run_id.clone());
         let _ = on_event.send(ImageGenerationEvent::Started {
             run_id: task_run_id.clone(),
             message: pending_message,
@@ -110,7 +111,6 @@ pub(super) fn spawn_local_image_run(
                 .await;
             }
         }
-        runs.finish(&task_run_id).await;
     });
     accepted
 }

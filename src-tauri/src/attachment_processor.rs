@@ -9,8 +9,8 @@ use tauri::{AppHandle, Emitter};
 
 use crate::{
     diagnostics::{Diagnostics, record_diagnostic},
-    semantic_indexer::SemanticIndexer,
-    storage::ConversationStore,
+    semantic_indexer::{PAUSE_ACKNOWLEDGEMENT_WAIT, SemanticIndexer, await_pause_acknowledgement},
+    storage::{ConversationStore, StorageError},
 };
 
 /// Path-free native event emitted after one retained attachment reaches current durable state.
@@ -63,14 +63,19 @@ impl AttachmentProcessor {
     }
 
     /// Waits for any current item to finish, then pauses work for one store replacement.
-    pub(crate) fn pause(&self) -> AttachmentProcessingPause {
+    ///
+    /// Returns a busy error asking the user to retry when the worker does not pause within [`PAUSE_ACKNOWLEDGEMENT_WAIT`].
+    pub(crate) fn pause(&self) -> Result<AttachmentProcessingPause, StorageError> {
         let (acknowledge, acknowledged) = channel();
-        if self.sender.send(WorkerCommand::Pause(acknowledge)).is_ok() {
-            let _ = acknowledged.recv();
-        }
-        AttachmentProcessingPause {
+        let sent = self.sender.send(WorkerCommand::Pause(acknowledge)).is_ok();
+        // Created before waiting so a timeout drops it, queueing Resume behind the late Pause.
+        let pause = AttachmentProcessingPause {
             sender: self.sender.clone(),
+        };
+        if sent {
+            await_pause_acknowledgement(&acknowledged, PAUSE_ACKNOWLEDGEMENT_WAIT)?;
         }
+        Ok(pause)
     }
 }
 

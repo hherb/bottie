@@ -7,6 +7,10 @@ use url::Url;
 
 use super::{
     InferenceProvider, StreamSink,
+    limits::{
+        ensure_round_text_within_limit, read_discovery_body, read_error_body,
+        truncate_provider_message,
+    },
     settings::{CONNECT_TIMEOUT, DISCOVERY_TIMEOUT, STREAM_IDLE_TIMEOUT, validate_remote_base_url},
     sse::SseDecoder,
     types::{ChatRequest, ModelInfo, ProviderError, ProviderErrorCode, Usage},
@@ -216,7 +220,7 @@ impl InferenceProvider for OpenAiProvider {
         if !response.status().is_success() {
             return Err(response_error(response).await);
         }
-        decode_model_list(&response.bytes().await.map_err(map_request_error)?)
+        decode_model_list(&read_discovery_body(response, map_request_error).await?)
     }
 
     async fn stream_chat(
@@ -239,6 +243,12 @@ fn process_stream_event(
     calls: &mut OpenAiToolCallAccumulator,
     emit_usage: bool,
 ) -> Result<bool, ProviderError> {
+    ensure_round_text_within_limit(
+        round.reasoning.len()
+            + round.content.len()
+            + event.reasoning_delta.len()
+            + event.text_delta.len(),
+    )?;
     if !event.reasoning_delta.is_empty() {
         round.reasoning.push_str(&event.reasoning_delta);
         sink.reasoning_delta(event.reasoning_delta)?;
@@ -287,7 +297,7 @@ fn map_request_error(error: reqwest::Error) -> ProviderError {
 
 async fn response_error(response: reqwest::Response) -> ProviderError {
     let status = response.status();
-    let body = response.text().await.unwrap_or_default();
+    let body = read_error_body(response).await;
     normalize_response_error(status, &body)
 }
 
@@ -295,7 +305,8 @@ fn normalize_response_error(status: StatusCode, body: &str) -> ProviderError {
     let provider_message = serde_json::from_str::<OpenAiErrorResponse>(body)
         .ok()
         .map(|response| response.error.message)
-        .filter(|message| !message.trim().is_empty());
+        .filter(|message| !message.trim().is_empty())
+        .map(truncate_provider_message);
     let message = provider_message.unwrap_or_else(|| match status {
         StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
             "The OpenAI-compatible API key was rejected.".into()
@@ -331,6 +342,14 @@ mod tests {
     use super::*;
     use crate::inference::ContentBlock;
     use crate::tool_contract::memory_tool_definitions;
+
+    #[test]
+    fn long_provider_error_messages_are_truncated_before_reaching_the_webview() {
+        let body = serde_json::json!({"error": {"message": "k".repeat(5_000)}}).to_string();
+        let error = normalize_response_error(StatusCode::UNAUTHORIZED, &body);
+        assert_eq!(error.message.chars().count(), 301);
+        assert!(error.message.ends_with('…'));
+    }
 
     #[test]
     fn request_keeps_reasoning_explicit_and_bounded() {

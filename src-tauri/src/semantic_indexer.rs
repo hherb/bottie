@@ -5,7 +5,7 @@ use std::{
     fs::File,
     io::Read,
     path::PathBuf,
-    sync::mpsc::{Receiver, Sender, channel},
+    sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel},
     thread,
     time::Duration,
 };
@@ -22,6 +22,7 @@ use crate::{
     diagnostics::{Diagnostics, record_diagnostic},
     storage::{
         ConversationStore, DEFAULT_SEMANTIC_BATCH_SIZE, SemanticEmbedder, SemanticIndexState,
+        StorageError,
     },
 };
 
@@ -29,6 +30,9 @@ const WORKER_THREAD_NAME: &str = "bottie-semantic-indexing";
 const EMBEDDING_RUNTIME_THREADS: usize = 2;
 /// Maximum time a foreground memory lookup waits behind semantic indexing or model preparation.
 const QUERY_EMBEDDING_WAIT: Duration = Duration::from_secs(5);
+/// Maximum time restore or reindex waits for a background worker to reach a pause point, e.g. behind a
+/// first-run embedding-model download, before returning a "busy" error that asks the user to retry.
+pub(crate) const PAUSE_ACKNOWLEDGEMENT_WAIT: Duration = Duration::from_secs(20);
 const RUNTIME_ASSET_MANIFEST: &str = include_str!("../../runtime-assets.json");
 
 /// Compiled release contract for the only runtime-downloaded model.
@@ -235,14 +239,36 @@ impl SemanticIndexer {
     }
 
     /// Waits for any current batch to finish, then pauses work for one store replacement.
-    pub(crate) fn pause(&self) -> SemanticIndexingPause {
+    ///
+    /// Returns a busy error asking the user to retry when the worker does not pause within [`PAUSE_ACKNOWLEDGEMENT_WAIT`].
+    pub(crate) fn pause(&self) -> Result<SemanticIndexingPause, StorageError> {
+        self.pause_within(PAUSE_ACKNOWLEDGEMENT_WAIT)
+    }
+
+    fn pause_within(&self, timeout: Duration) -> Result<SemanticIndexingPause, StorageError> {
         let (acknowledge, acknowledged) = channel();
-        if self.sender.send(WorkerCommand::Pause(acknowledge)).is_ok() {
-            let _ = acknowledged.recv();
-        }
-        SemanticIndexingPause {
+        let sent = self.sender.send(WorkerCommand::Pause(acknowledge)).is_ok();
+        // Created before waiting so a timeout drops it, queueing Resume behind the late Pause.
+        let pause = SemanticIndexingPause {
             sender: self.sender.clone(),
+        };
+        if sent {
+            await_pause_acknowledgement(&acknowledged, timeout)?;
         }
+        Ok(pause)
+    }
+}
+
+/// Waits up to `timeout` for a worker's pause acknowledgement.
+///
+/// A worker that has exited cannot touch the store, so a disconnected channel counts as paused.
+pub(crate) fn await_pause_acknowledgement(
+    acknowledged: &Receiver<()>,
+    timeout: Duration,
+) -> Result<(), StorageError> {
+    match acknowledged.recv_timeout(timeout) {
+        Ok(()) | Err(RecvTimeoutError::Disconnected) => Ok(()),
+        Err(RecvTimeoutError::Timeout) => Err(StorageError::workers_busy()),
     }
 }
 
@@ -429,6 +455,23 @@ fn record_ready(diagnostics: Diagnostics) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pause_times_out_against_a_silent_worker_and_queues_resume() {
+        let (sender, receiver) = channel();
+        let indexer = SemanticIndexer { sender };
+        let started = std::time::Instant::now();
+
+        let error = indexer
+            .pause_within(Duration::from_millis(20))
+            .err()
+            .expect("an unacknowledged pause must time out");
+
+        assert_eq!(error.code, "invalid_request");
+        assert!(started.elapsed() < Duration::from_secs(5));
+        assert!(matches!(receiver.try_recv(), Ok(WorkerCommand::Pause(_))));
+        assert!(matches!(receiver.try_recv(), Ok(WorkerCommand::Resume)));
+    }
 
     #[test]
     fn pause_preserves_coalesced_work_until_resume() {

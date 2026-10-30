@@ -7,6 +7,7 @@ use crate::tool_contract::ToolDefinition;
 
 use super::super::{
     generation_limits::DEFAULT_MAX_OUTPUT_TOKENS,
+    limits::truncate_provider_message,
     multimodal::{AnthropicContent, anthropic_content, text_content},
     types::{ChatRequest, ChatRole, ProviderError, ReasoningEffort, Usage},
 };
@@ -428,7 +429,10 @@ pub(super) fn decode_stream_payload(payload: &str) -> Result<DecodedEvent, Provi
             usage: usage.into(),
         }),
         StreamPayload::MessageStop => Ok(DecodedEvent::Done),
-        StreamPayload::Error { error } => Err(ProviderError::server(error.message, None)),
+        StreamPayload::Error { error } => Err(ProviderError::server(
+            truncate_provider_message(error.message),
+            None,
+        )),
         StreamPayload::Unknown => Ok(DecodedEvent::Ignored),
     }
 }

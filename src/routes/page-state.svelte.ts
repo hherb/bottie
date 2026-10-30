@@ -1044,9 +1044,7 @@ export class PageState {
       if (this.activeGenerationKind === "image") void cancelImageGeneration(this.activeRunId);
       else void cancelChat(this.activeRunId);
     }
-    if (this.speech.status.phase === "speaking") await this.speech.stop();
-    this.messages = [];
-    await this.history.startNew();
+    // Retire the old run before any await, so a late event from it cannot land in the new blank chat.
     this.activeStage = IDLE_STAGE;
     this.generationRun += 1;
     this.isGenerating = false;
@@ -1054,6 +1052,9 @@ export class PageState {
     this.activeAssistantId = null;
     this.cancellationRequested = false;
     this.activeGenerationKind = null;
+    this.messages = [];
+    if (this.speech.status.phase === "speaking") await this.speech.stop();
+    await this.history.startNew();
     this.chatPrompt = "";
     this.imagePrompt = "";
     this.showSidebar = false;
