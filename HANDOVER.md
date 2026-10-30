@@ -13,6 +13,8 @@ Last verified: 2026-10-31 (issues #226 and #228 on branch `fix/issues-226-228`).
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
    - #226 remainder: other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see `SPAWN_LOCK`
      in `local_image_worker/transport.rs`). Only worth a crate-wide spawn helper if it shows up.
+   - PR #229 review follow-ups: #230 (an unchecked restore count and a failed prune still look like the wrong
+     outcome in the UI) and #231 (the image-worker cause reaches only stderr; `FastEmbedder::load` codes are coarse).
    Then run the follow-up audit listed under "Not audited yet".
 3. Owed hardware re-checks (cannot run in a normal session):
    - Re-run the MOSS MLX (Mac) and CUDA (DGX) proofs to confirm item 5's minimal worker environment strips nothing a
@@ -27,14 +29,16 @@ Last verified: 2026-10-31 (issues #226 and #228 on branch `fix/issues-226-228`).
 ## Audit fixes done
 
 2026-10-31 (issues #226, #228):
-- **#228:** a failed missing-file count after a restore logs a `warn` diagnostic ("Restored data not fully checked")
-  and still reports zero. `managed_backups` counts directory entries it cannot read (`ManagedBackupListing.unreadable`).
-  Startup rotation reports them as a `warn` diagnostic (`unreadable_backup_warning`), and recovery skips them. The
-  toolbar now shows backup/restore feedback with missing files or a stopped worker in amber (`backupWarning`), and its
+- **#228:** a failed missing-file count after a restore logs a `warn` diagnostic naming the error code ("Restored data
+  not fully checked") and still reports zero. `managed_backups` counts entries whose file type it cannot read and
+  flags a listing that stopped early (std ends a unix directory stream at its first error). Startup runs
+  `automatic_backup_folder_warning` on its own, in both normal and recovery launches (rotation is skipped in
+  recovery), and records a `warn` diagnostic; recovery itself still skips those entries. The toolbar now shows backup/restore feedback with missing files or a stopped worker in amber (`backupWarning`), and its
   `title` shows the full text, which the 150 px ellipsis used to hide.
 - **#226 (bullets 1-2):** `TransportError::SpawnFailed` carries the `io::ErrorKind`, and the local-image execution
   boundary logs it to stderr (`[bottie] local image worker failed to start`). On-demand embedding now returns the
-  load's own error code (`loaded_embedder`) instead of a generic `model_runtime`.
+  load's own error code (`loaded_embedder`; `model_runtime` remains only for a failed runtime init), and the semantic
+  query path logs it to stderr before falling back to lexical search.
 
 2026-10-30, fourth session (issues #223, #224, #225):
 - **#223:** `generation_run_start::reserve_chat_run` holds `start_chat`'s reserve-then-first-write. A test holds
@@ -120,12 +124,12 @@ Last verified: 2026-10-31 (issues #226 and #228 on branch `fix/issues-226-228`).
 
 ## Validation (2026-10-31)
 
-- Rust: `cargo test` passes 808 library tests (42 ignored) plus the updater, adapter, and transport (11) suites.
+- Rust: `cargo test` passes 809 library tests (42 ignored) plus the updater, adapter, and transport (11) suites.
   `cargo fmt` is clean. Clippy still reports ~50 pre-existing style warnings (none are bugs).
 - Over 500 lines: 13 non-test files, all older than this work. The largest are `lib.rs` (1077),
   `inference/settings.rs` (562) and `semantic_indexer.rs` (549). Split each one when you next touch it.
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: `npm test` passes 468 tests; `npm run check` is clean.
+- Frontend: `npm test` passes 470 tests; `npm run check` is clean.
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)

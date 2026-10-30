@@ -207,19 +207,22 @@ struct AppState {
 /// Starts the non-blocking startup staging sweep and rotation, recording only path-redacted session diagnostics.
 fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diagnostics) {
     tauri::async_runtime::spawn(async move {
-        // The sweep runs on its own, so its failures are reported even when rotation returns an error.
+        // The sweep and folder check run on their own, so they are reported even when rotation returns an error.
         let rotation = tauri::async_runtime::spawn_blocking(move || {
             let sweep = conversations.sweep_automatic_backup_staging();
-            (sweep.failed, conversations.rotate_automatic_backups())
+            let folder_warning = conversations.automatic_backup_folder_warning();
+            (
+                sweep.failed,
+                folder_warning,
+                conversations.rotate_automatic_backups(),
+            )
         })
         .await;
-        let (cleanup_failed, rotation) = match rotation {
-            Ok((cleanup_failed, rotation)) => (cleanup_failed, Ok(rotation)),
-            Err(error) => (0, Err(error)),
-        };
-        let unreadable = match &rotation {
-            Ok(Ok(outcome)) => outcome.unreadable_entries,
-            _ => 0,
+        let (cleanup_failed, folder_warning, rotation) = match rotation {
+            Ok((cleanup_failed, folder_warning, rotation)) => {
+                (cleanup_failed, folder_warning, Ok(rotation))
+            }
+            Err(error) => (0, None, Err(error)),
         };
         let (level, event, detail) = match rotation {
             Ok(Ok(outcome)) if outcome.created => (
@@ -265,17 +268,22 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
             )
             .await;
         }
-        if let Some(detail) = storage::unreadable_backup_warning(unreadable) {
-            record_diagnostic(
-                &diagnostics,
-                "warn",
-                "Automatic backup folder partly unreadable",
-                None,
-                Some(&detail),
-            )
-            .await;
-        }
+        record_backup_folder_warning(&diagnostics, folder_warning).await;
     });
+}
+
+/// Records why rotation or recovery may not see every automatic snapshot (#228).
+async fn record_backup_folder_warning(diagnostics: &Diagnostics, warning: Option<String>) {
+    if let Some(detail) = warning {
+        record_diagnostic(
+            diagnostics,
+            "warn",
+            "Automatic backup folder partly unreadable",
+            None,
+            Some(&detail),
+        )
+        .await;
+    }
 }
 
 #[tauri::command]
@@ -936,6 +944,7 @@ pub fn run() {
             );
             if startup.recovery_required {
                 let recovery_diagnostics = diagnostics.clone();
+                let recovery_conversations = conversations.clone();
                 tauri::async_runtime::spawn(async move {
                     record_diagnostic(
                         &recovery_diagnostics,
@@ -945,6 +954,14 @@ pub fn run() {
                         Some("SQLite integrity failed; conversation access is paused"),
                     )
                     .await;
+                    // Rotation is skipped in recovery, so check the folder recovery restores from here.
+                    let folder_warning = tauri::async_runtime::spawn_blocking(move || {
+                        recovery_conversations.automatic_backup_folder_warning()
+                    })
+                    .await
+                    .ok()
+                    .flatten();
+                    record_backup_folder_warning(&recovery_diagnostics, folder_warning).await;
                 });
             } else {
                 schedule_automatic_backup(conversations.clone(), diagnostics.clone());

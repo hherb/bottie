@@ -58,7 +58,11 @@ impl ConversationStore {
         }
         let embeddings = embedder
             .embed(&[format!("{QUERY_INPUT_PREFIX}{query}")])
-            .map_err(|_| StorageError::internal())?;
+            .map_err(|code| {
+                // The caller falls back to lexical search, so log the path-free load or embed code (#226).
+                eprintln!("[bottie] semantic query embedding failed: {code}");
+                StorageError::internal()
+            })?;
         let [embedding] = embeddings.as_slice() else {
             return Err(StorageError::internal());
         };

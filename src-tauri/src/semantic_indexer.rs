@@ -318,10 +318,10 @@ fn loaded_embedder<'a>(
     cache_dir: &Path,
     embedder: &'a mut Option<FastEmbedder>,
 ) -> Result<&'a mut FastEmbedder, String> {
-    if embedder.is_none() {
-        *embedder = Some(FastEmbedder::load(cache_dir.to_path_buf())?);
+    match embedder {
+        Some(embedder) => Ok(embedder),
+        None => Ok(embedder.insert(FastEmbedder::load(cache_dir.to_path_buf())?)),
     }
-    embedder.as_mut().ok_or_else(|| "model_runtime".to_owned())
 }
 
 /// Result of one bounded worker iteration.
@@ -462,6 +462,20 @@ fn record_ready(diagnostics: Diagnostics) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_model_load_returns_its_own_code_and_retries_next_time() {
+        let blocker =
+            std::env::temp_dir().join(format!("bottie-cache-blocker-{}", uuid::Uuid::new_v4()));
+        std::fs::write(&blocker, b"not a directory").expect("blocking file should be created");
+        let mut embedder = None;
+
+        let error = loaded_embedder(&blocker.join("cache"), &mut embedder).err();
+
+        assert_eq!(error.as_deref(), Some("model_cache"));
+        assert!(embedder.is_none());
+        let _ = std::fs::remove_file(blocker);
+    }
 
     #[test]
     fn pause_times_out_against_a_silent_worker_and_queues_resume() {

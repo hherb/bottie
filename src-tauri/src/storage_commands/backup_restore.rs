@@ -128,7 +128,7 @@ pub(crate) async fn restore_conversation_store(
         let _processing_pause = attachment_processing.pause()?;
         let _semantic_pause = semantic_indexing.pause()?;
         conversations.restore_from(&restore_path, &worker_safety_path)?;
-        Ok::<_, StorageError>(conversations.missing_content_files().ok())
+        Ok::<_, StorageError>(conversations.missing_content_files())
     })
     .await
     .map_err(|_| StorageError::restore())??;
@@ -181,7 +181,7 @@ pub(crate) async fn restore_latest_automatic_backup(
         let _processing_pause = attachment_processing.pause()?;
         let _semantic_pause = semantic_indexing.pause()?;
         conversations.restore_latest_automatic_backup(&worker_preservation)?;
-        Ok::<_, StorageError>(conversations.missing_content_files().ok())
+        Ok::<_, StorageError>(conversations.missing_content_files())
     })
     .await
     .map_err(|_| StorageError::restore())??;
@@ -214,19 +214,24 @@ fn background_work_stopped(state: &AppState) -> bool {
 }
 
 /// Counts files the just-restored data lacks. The restore already succeeded, so a failed count
-/// (`None`) is reported as zero plus a `warn` diagnostic rather than as a failed restore (#228).
-async fn reported_missing_files(state: &AppState, counted: Option<usize>) -> usize {
-    if counted.is_none() {
-        record_diagnostic(
-            &state.diagnostics,
-            "warn",
-            "Restored data not fully checked",
-            None,
-            Some(
-                "Bottie could not count attachment or image files missing from the restored data.",
-            ),
-        )
-        .await;
+/// is reported as zero plus a `warn` diagnostic naming its error code rather than as a failed restore (#228).
+async fn reported_missing_files(state: &AppState, counted: Result<usize, StorageError>) -> usize {
+    match counted {
+        Ok(count) => count,
+        Err(error) => {
+            let detail = format!(
+                "Bottie could not count attachment or image files missing from the restored data ({}).",
+                error.code
+            );
+            record_diagnostic(
+                &state.diagnostics,
+                "warn",
+                "Restored data not fully checked",
+                None,
+                Some(&detail),
+            )
+            .await;
+            0
+        }
     }
-    counted.unwrap_or(0)
 }

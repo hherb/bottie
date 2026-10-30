@@ -27,8 +27,6 @@ pub(crate) struct AutomaticBackupRotation {
     pub(crate) pruned: usize,
     /// Catalog files left out of the new snapshot because they were missing from disk.
     pub(crate) skipped_files: usize,
-    /// Directory entries that could not be read, so they were neither kept nor pruned (#228).
-    pub(crate) unreadable_entries: usize,
 }
 
 /// One application-owned automatic snapshot discovered from its strict filename contract.
@@ -37,12 +35,14 @@ pub(super) struct ManagedBackup {
     pub(super) path: PathBuf,
 }
 
-/// The managed snapshots in a directory, plus how many entries could not be read to decide.
+/// The managed snapshots in a directory, plus what the listing could not see.
 pub(super) struct ManagedBackupListing {
     pub(super) backups: Vec<ManagedBackup>,
-    /// Entries whose directory record or file type failed to read; a snapshot among them is invisible to
-    /// retention and recovery, so callers report this count instead of dropping it silently.
+    /// Entries whose file type failed to read; a snapshot among them is left on disk but invisible to
+    /// retention and recovery, which `automatic_backup_folder_warning` reports at startup (#228).
     pub(super) unreadable: usize,
+    /// The directory listing stopped on an error, so entries after it were never seen.
+    pub(super) incomplete: bool,
 }
 
 impl ConversationStore {
@@ -58,6 +58,19 @@ impl ConversationStore {
         )
     }
 
+    /// Checks the automatic-backup folder on its own, so a partly unreadable folder is reported even when
+    /// rotation fails or is skipped for recovery (#228). `None` when every entry was read.
+    pub(crate) fn automatic_backup_folder_warning(&self) -> Option<String> {
+        let directory = automatic_backup_directory(&self.path).ok()?;
+        if !directory.exists() {
+            return None;
+        }
+        match managed_backups(&directory) {
+            Ok(listing) => backup_folder_warning(listing.unreadable, listing.incomplete),
+            Err(_) => backup_folder_warning(0, true),
+        }
+    }
+
     /// Creates a verified snapshot when the newest automatic backup is at least 24 hours old.
     pub(crate) fn rotate_automatic_backups(&self) -> Result<AutomaticBackupRotation, StorageError> {
         let timestamp_ms = now_ms().map_err(|_| StorageError::automatic_backup())?;
@@ -71,10 +84,7 @@ impl ConversationStore {
     ) -> Result<AutomaticBackupRotation, StorageError> {
         let directory = automatic_backup_directory(&self.path)?;
         fs::create_dir_all(&directory).map_err(|_| StorageError::automatic_backup())?;
-        let ManagedBackupListing {
-            mut backups,
-            unreadable: unreadable_entries,
-        } = managed_backups(&directory)?;
+        let mut backups = managed_backups(&directory)?.backups;
         let freshness_threshold = timestamp_ms.saturating_sub(AUTOMATIC_BACKUP_INTERVAL_MS);
         if backups
             .iter()
@@ -85,7 +95,6 @@ impl ConversationStore {
                 retained: backups.len(),
                 pruned: 0,
                 skipped_files: 0,
-                unreadable_entries,
             });
         }
 
@@ -129,7 +138,6 @@ impl ConversationStore {
             retained: backups.len(),
             pruned: expired.len(),
             skipped_files,
-            unreadable_entries,
         })
     }
 }
@@ -146,11 +154,13 @@ pub(super) fn managed_backups(directory: &Path) -> Result<ManagedBackupListing, 
     let mut listing = ManagedBackupListing {
         backups: Vec::new(),
         unreadable: 0,
+        incomplete: false,
     };
     for entry in fs::read_dir(directory).map_err(|_| StorageError::automatic_backup())? {
+        // std ends a unix directory stream after its first read error, so this is not one skipped item.
         let Ok(entry) = entry else {
-            listing.unreadable += 1;
-            continue;
+            listing.incomplete = true;
+            break;
         };
         let Ok(file_type) = entry.file_type() else {
             listing.unreadable += 1;
@@ -169,12 +179,19 @@ pub(super) fn managed_backups(directory: &Path) -> Result<ManagedBackupListing, 
     Ok(listing)
 }
 
-/// Diagnostic text for backup-folder entries rotation could not read, or `None` when every entry was read.
-pub(crate) fn unreadable_backup_warning(unreadable: usize) -> Option<String> {
+/// Diagnostic text for a backup folder that could not be fully read, or `None` when every entry was read.
+fn backup_folder_warning(unreadable: usize, incomplete: bool) -> Option<String> {
+    if incomplete {
+        return Some(
+            "The automatic-backup folder could not be read in full, so retention and recovery may miss \
+             snapshots; later launches check again"
+                .to_owned(),
+        );
+    }
     (unreadable > 0).then(|| {
         format!(
             "{unreadable} item(s) in the automatic-backup folder could not be read, so retention and \
-             recovery skip them; the next launch checks again"
+             recovery skip them; later launches check again"
         )
     })
 }
@@ -195,13 +212,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unreadable_warning_names_the_count_only_when_entries_were_skipped() {
-        assert_eq!(unreadable_backup_warning(0), None);
+    fn folder_warning_names_unreadable_items_or_an_incomplete_listing() {
+        assert_eq!(backup_folder_warning(0, false), None);
         assert_eq!(
-            unreadable_backup_warning(1).as_deref(),
+            backup_folder_warning(1, false).as_deref(),
             Some(
                 "1 item(s) in the automatic-backup folder could not be read, so retention and \
-                 recovery skip them; the next launch checks again"
+                 recovery skip them; later launches check again"
+            )
+        );
+        assert_eq!(
+            backup_folder_warning(1, true).as_deref(),
+            Some(
+                "The automatic-backup folder could not be read in full, so retention and recovery \
+                 may miss snapshots; later launches check again"
             )
         );
     }

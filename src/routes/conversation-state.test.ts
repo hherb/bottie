@@ -11,6 +11,7 @@ const storage = vi.hoisted(() => ({
   setConversationArchived: vi.fn(),
   listConversations: vi.fn(),
   loadLastOpenConversation: vi.fn(),
+  backupConversationStore: vi.fn(),
   restoreConversationStore: vi.fn(),
   restoreLatestAutomaticBackup: vi.fn(),
 }));
@@ -167,5 +168,20 @@ describe("ConversationState.restoreBackup", () => {
 
     expect(state.backupFailed).toBe(false);
     expect(state.backupWarning).toBe(false);
+  });
+});
+
+describe("ConversationState.backup", () => {
+  it.each([
+    [2, true],
+    [0, false],
+  ])("marks a backup with %i missing file(s) as warning=%s, never failed", async (missingFiles, warning) => {
+    storage.backupConversationStore.mockResolvedValue({ status: "saved", fileName: "backup.sqlite3", missingFiles });
+    const state = new ConversationState();
+
+    await state.backup();
+
+    expect(state.backupFailed).toBe(false);
+    expect(state.backupWarning).toBe(warning);
   });
 });
