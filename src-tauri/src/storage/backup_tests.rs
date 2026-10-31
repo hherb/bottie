@@ -489,6 +489,36 @@ fn retains_seven_automatic_backups_without_pruning_other_files() {
     assert!(safety_copy.exists());
 }
 
+#[test]
+fn a_failed_prune_still_reports_the_new_snapshot_as_created() {
+    const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
+    let live_path = tests::test_database_path();
+    let store =
+        ConversationStore::initialize(live_path.clone()).expect("storage should initialize");
+    for day in 1..=7 {
+        store
+            .rotate_automatic_backups_at(day * DAY_MS)
+            .expect("automatic rotation should complete");
+    }
+
+    let outcome = store
+        .rotate_automatic_backups_with(8 * DAY_MS, |_| {
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+        })
+        .expect("a failed prune must not fail the rotation (#230)");
+
+    assert!(outcome.created);
+    assert_eq!(outcome.retained, 7);
+    assert_eq!(outcome.pruned, 0);
+    assert_eq!(outcome.prune_failed, 1);
+    let paths = automatic_backup_paths(&live_path);
+    assert_eq!(paths.len(), 8);
+    assert!(paths.iter().any(|path| {
+        path.to_string_lossy()
+            .contains(&format!("-{}-", 8 * DAY_MS))
+    }));
+}
+
 /// Lists only automatic snapshots recognized by Bottie's filename contract.
 fn automatic_backup_paths(live_path: &std::path::Path) -> Vec<std::path::PathBuf> {
     let directory = live_path

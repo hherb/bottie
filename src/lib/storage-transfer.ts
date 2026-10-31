@@ -38,7 +38,9 @@ export function missingFilesNote(missingFiles: number): string {
 
 /** Appends a warning to restore feedback when the restored data's missing files could not be counted. */
 export function missingFilesUncheckedNote(missingFilesUnchecked: boolean): string {
-  return missingFilesUnchecked ? " · Missing attachment or image files could not be checked" : "";
+  return missingFilesUnchecked
+    ? " · Missing attachment or image files could not be checked; see Recent diagnostics in Settings"
+    : "";
 }
 
 /** Appends a restart request to restore feedback when a background worker has stopped. */

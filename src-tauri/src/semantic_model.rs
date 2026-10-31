@@ -23,7 +23,7 @@ struct RuntimeAssetManifest {
     embedding_gemma: EmbeddingGemmaContract,
 }
 
-/// Immutable repository revision, variant, terms, and file identities for EmbeddingGemma.
+/// Immutable repository revision, variant, and file identities for EmbeddingGemma; other manifest fields are ignored.
 #[derive(Deserialize)]
 struct EmbeddingGemmaContract {
     repository: String,
@@ -46,11 +46,14 @@ pub(crate) struct FastEmbedder {
 }
 
 impl FastEmbedder {
-    /// Loads or downloads the Q4 EmbeddingGemma model through the app-owned cache directory.
+    /// Loads or downloads the Q4 EmbeddingGemma model through the app-owned cache directory, or
+    /// through `HF_HOME` and `HF_ENDPOINT` for the pinned snapshot when those are set.
     ///
-    /// Each failing step returns its own path-free code (`model_cache_dir`, `model_download`,
-    /// `model_cache_read`, `model_integrity`, `model_cache_ref`, `model_runtime`) so diagnostics
-    /// say which step broke (#231). FastEmbed's own error is opaque, so `model_runtime` stays one code.
+    /// Failures return path-free codes so diagnostics say which stage broke (#231):
+    /// `model_contract`, `model_cache_dir`, `model_download` (client setup, fetch, or the hf-hub cache
+    /// write, which share one I/O error), `model_cache_read`, `model_integrity`, `model_cache_ref`, and
+    /// `model_runtime`. FastEmbed returns an untyped error whose text may hold cache paths, so
+    /// `model_runtime` stays one code.
     pub(crate) fn load(cache_dir: PathBuf) -> Result<Self, String> {
         std::fs::create_dir_all(&cache_dir).map_err(|_| "model_cache_dir")?;
         prepare_pinned_model_snapshot(&cache_dir)?;

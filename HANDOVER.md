@@ -4,8 +4,9 @@ Last verified: 2026-10-31 (issues #230 and #231 on branch `fix/issues-230-231`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-10-31, PRs up to #229 are merged. The `fix/issues-230-231` PR fixes #230 and
-   #231.
+1. Check the PR list first. As of 2026-10-31, PRs up to #229 are merged. PR #233 (`fix/issues-230-231`) fixes #230
+   and #231 plus its review findings. Open follow-ups: #232 and #234 (local image worker causes), #235 (backup and
+   recovery diagnostics).
 2. **Next items:** the four open `FIX_BOTTIE.md` items. Each needs something this Mac session could not provide:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
@@ -28,15 +29,19 @@ Last verified: 2026-10-31 (issues #230 and #231 on branch `fix/issues-230-231`).
 
 2026-10-31, second session (issues #230, #231):
 - **#230:** `RestoreOutcome.missingFilesUnchecked` is true when the post-restore count failed; the toolbar shows it
-  in amber ("Missing attachment or image files could not be checked"). Rotation no longer fails when an expired
-  snapshot cannot be removed: `AutomaticBackupRotation.prune_failed` counts it, and the startup diagnostic becomes a
-  `warn` ("… could not be removed and are retried next rotation").
+  in amber ("Missing attachment or image files could not be checked; see Recent diagnostics in Settings"). Rotation
+  no longer fails when an expired snapshot cannot be removed: `AutomaticBackupRotation.prune_failed` counts it (an
+  already-gone file counts as removed), and the startup diagnostic becomes a `warn` that names it only then
+  (`created_report`). The leftover is retried by the next rotation that creates a snapshot, not the next launch.
+  If reloading after a restore fails, the feedback still names the preserved copy and adds the reload error.
 - **#231:** `LocalImageExecutionError::WorkerUnavailable(TransportError)` and `RuntimeMismatch(Option<TransportError>)`
   carry the cause (and a failed shutdown of a mismatched worker) into the "Local image generation failed" diagnostic;
   the stderr line is gone. `FastEmbedder` moved to `semantic_model.rs`, and each load step has its own code
-  (`model_cache_dir`, `model_download`, `model_cache_read`, `model_integrity`, `model_cache_ref`, `model_runtime`),
-  which the indexer's failure diagnostic now names and Settings labels. FastEmbed's own error is opaque, so
-  `model_runtime` stays one code. Not done: the other `let _ = transport.shutdown()` sites in `execution.rs`
+  (`model_contract`, `model_cache_dir`, `model_download`, `model_cache_read`, `model_integrity`, `model_cache_ref`,
+  `model_runtime`), which the indexer's failure diagnostic now names and Settings labels. Every indexer failure
+  diagnostic now names its storage code, including a failed save of the failed state. FastEmbed returns an untyped
+  error whose text may hold cache paths, so `model_runtime` stays one code; `model_download` also covers hf-hub cache
+  writes, which share its I/O error. Other execution errors now print their variant in the diagnostic. Not done: the other `let _ = transport.shutdown()` sites in `execution.rs`
   (unsafe/invalid output) still drop a shutdown failure (#232).
 
 2026-10-31 (issues #226, #228):
@@ -135,12 +140,14 @@ Last verified: 2026-10-31 (issues #230 and #231 on branch `fix/issues-230-231`).
 
 ## Validation (2026-10-31, second session)
 
-- Rust: `cargo test` passes 813 library tests (42 ignored) plus the updater, adapter, and transport (11) suites.
-  `cargo fmt` is clean. Clippy reports 56 pre-existing style warnings (none are bugs; none new).
-- Over 500 lines: 11 non-test files, all older than this work. The largest are `lib.rs` (1110) and
-  `inference/settings.rs` (562). Split each one when you next touch it (`semantic_indexer.rs` is now 431).
+- Rust: `cargo test` passes 815 library tests (42 ignored) plus the updater, adapter, and transport (11) suites.
+  `cargo fmt` is clean. `cargo clippy --all-targets -D warnings` reports 52 pre-existing style lints (none are bugs;
+  none new).
+- Over 500 lines: 11 Rust non-test files, all older than this work; the largest are `lib.rs` (1100) and
+  `inference/settings.rs` (562). Frontend: `page-state.svelte.ts` (1063), `conversation-state.svelte.ts` (575) and
+  `storage.ts` (574). Split each one when you next touch it (`semantic_indexer.rs` is now 423).
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: `npm test` passes 476 tests; `npm run check` is clean.
+- Frontend: `npm test` passes 478 tests; `npm run check` is clean.
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)

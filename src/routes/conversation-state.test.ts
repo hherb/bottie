@@ -190,7 +190,30 @@ describe("ConversationState.restoreBackup", () => {
     expect(state.backupFailed).toBe(false);
     expect(state.backupWarning).toBe(true);
     expect(state.backupFeedback).toBe(
-      "Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Missing attachment or image files could not be checked",
+      "Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Missing attachment or image files could not be checked; see Recent diagnostics in Settings",
+    );
+  });
+
+  it("keeps the preserved copy's name when reloading the restored data fails", async () => {
+    storage.restoreConversationStore.mockResolvedValue({
+      status: "restored",
+      fileName: "backup.sqlite3",
+      preservedCopyName: "preserved.sqlite3",
+      missingFiles: 0,
+      missingFilesUnchecked: false,
+      backgroundWorkStopped: false,
+    });
+    storage.listConversations.mockRejectedValue({ code: "storage_unavailable", message: "Storage is unavailable." });
+    storage.loadLastOpenConversation.mockResolvedValue(null);
+    const state = new ConversationState();
+
+    expect(await state.restoreBackup()).toBeNull();
+
+    expect(state.backupFailed).toBe(false);
+    expect(state.backupWarning).toBe(true);
+    expect(state.storageError).not.toBeNull();
+    expect(state.backupFeedback).toBe(
+      `Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Reloading the restored data failed: Storage is unavailable.`,
     );
   });
 });

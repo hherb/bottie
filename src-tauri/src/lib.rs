@@ -226,20 +226,10 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
             Err(error) => (0, None, Err(error)),
         };
         let (level, event, detail) = match rotation {
-            Ok(Ok(outcome)) if outcome.created => (
-                if outcome.skipped_files > 0 || outcome.prune_failed > 0 {
-                    "warn"
-                } else {
-                    "info"
-                },
-                "Automatic backup created",
-                format!(
-                    "{} verified snapshot(s) retained; {} expired snapshot(s) removed; \
-                     {} expired snapshot(s) could not be removed and are retried next rotation; \
-                     {} missing attachment or image file(s) left out",
-                    outcome.retained, outcome.pruned, outcome.prune_failed, outcome.skipped_files
-                ),
-            ),
+            Ok(Ok(outcome)) if outcome.created => {
+                let (level, detail) = outcome.created_report();
+                (level, "Automatic backup created", detail)
+            }
             Ok(Ok(outcome)) => (
                 "info",
                 "Automatic backups current",

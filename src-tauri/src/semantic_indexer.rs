@@ -210,8 +210,8 @@ fn process_requested_work(
 ) -> WorkerOutcome {
     let progress = match conversations.semantic_index_progress() {
         Ok(progress) => progress,
-        Err(_) => {
-            record_failure(diagnostics.clone(), "Semantic indexing paused", None);
+        Err(error) => {
+            record_failure(diagnostics.clone(), "Semantic indexing paused", error.code);
             return WorkerOutcome::Failed;
         }
     };
@@ -221,20 +221,20 @@ fn process_requested_work(
         return WorkerOutcome::Idle;
     }
     if embedder.is_none() {
-        if conversations.mark_semantic_model_loading().is_err() {
-            record_failure(diagnostics.clone(), "Semantic indexing paused", None);
+        if let Err(error) = conversations.mark_semantic_model_loading() {
+            record_failure(diagnostics.clone(), "Semantic indexing paused", error.code);
             return WorkerOutcome::Failed;
         }
         record_loading(diagnostics.clone());
         match FastEmbedder::load(cache_dir.clone()) {
             Ok(loaded) => *embedder = Some(loaded),
             Err(code) => {
-                let _ = conversations.mark_semantic_failed(&code);
-                record_failure(
-                    diagnostics.clone(),
-                    "Local memory model unavailable",
-                    Some(&code),
-                );
+                // An unsaved failure leaves the settings view on "Preparing local model", so say so.
+                let code = match conversations.mark_semantic_failed(&code) {
+                    Ok(()) => code,
+                    Err(error) => format!("{code}; state not saved: {}", error.code),
+                };
+                record_failure(diagnostics.clone(), "Local memory model unavailable", &code);
                 return WorkerOutcome::Failed;
             }
         }
@@ -248,8 +248,8 @@ fn process_requested_work(
             record_ready(diagnostics.clone());
             WorkerOutcome::Idle
         }
-        Err(_) => {
-            record_failure(diagnostics.clone(), "Semantic indexing paused", None);
+        Err(error) => {
+            record_failure(diagnostics.clone(), "Semantic indexing paused", error.code);
             WorkerOutcome::Failed
         }
     }
@@ -306,20 +306,16 @@ fn record_loading(diagnostics: Diagnostics) {
 }
 
 /// Records a stable path-free worker failure without blocking the native thread.
-fn record_failure(diagnostics: Diagnostics, event: &'static str, code: Option<&str>) {
+fn record_failure(diagnostics: Diagnostics, event: &'static str, code: &str) {
     let detail = failure_detail(code);
     tauri::async_runtime::spawn(async move {
         record_diagnostic(&diagnostics, "error", event, None, Some(&detail)).await;
     });
 }
 
-/// Retry note for a failure diagnostic, naming the path-free error code when there is one (#231).
-fn failure_detail(code: Option<&str>) -> String {
-    let retry = "Bottie will retry the local semantic index after its next wake.";
-    match code {
-        Some(code) => format!("{retry} ({code})"),
-        None => retry.to_owned(),
-    }
+/// Retry note for a failure diagnostic, naming the path-free error code (#231).
+fn failure_detail(code: &str) -> String {
+    format!("Bottie will retry the local semantic index after its next wake. ({code})")
 }
 
 /// Records completion counts without exposing chunks, model paths, or cache paths.
@@ -355,14 +351,10 @@ mod tests {
     }
 
     #[test]
-    fn failure_detail_names_the_load_code_when_known() {
+    fn failure_detail_names_the_failure_code() {
         assert_eq!(
-            failure_detail(Some("model_cache_read")),
+            failure_detail("model_cache_read"),
             "Bottie will retry the local semantic index after its next wake. (model_cache_read)"
-        );
-        assert_eq!(
-            failure_detail(None),
-            "Bottie will retry the local semantic index after its next wake."
         );
     }
 

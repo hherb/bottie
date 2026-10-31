@@ -183,7 +183,10 @@ fn map_execution_error(error: LocalImageExecutionError) -> ProviderError {
             }
             ProviderError::unavailable(RUNTIME_UNAVAILABLE, Some(detail))
         }
-        _ => ProviderError::unavailable(RUNTIME_UNAVAILABLE, None),
+        other => ProviderError::unavailable(
+            RUNTIME_UNAVAILABLE,
+            Some(format!("Local image execution failed ({other:?})")),
+        ),
     }
 }
 
@@ -285,6 +288,7 @@ mod execution_error_tests {
             TransportError::TeardownFailed,
         )));
         let mismatch = map_execution_error(LocalImageExecutionError::RuntimeMismatch(None));
+        let model = map_execution_error(LocalImageExecutionError::ModelUnavailable);
 
         assert_eq!(
             unavailable.diagnostic.as_deref(),
@@ -300,6 +304,10 @@ mod execution_error_tests {
         assert_eq!(
             mismatch.diagnostic.as_deref(),
             Some("Local image worker runtime identity mismatch")
+        );
+        assert_eq!(
+            model.diagnostic.as_deref(),
+            Some("Local image execution failed (ModelUnavailable)")
         );
         assert_eq!(
             unavailable.message,
