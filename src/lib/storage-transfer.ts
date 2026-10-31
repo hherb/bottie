@@ -24,6 +24,8 @@ export type RestoreOutcome = {
   preservedCopyName: string | null;
   /** Catalogued attachment or image files the restored data has no bytes for. */
   missingFiles: number;
+  /** The missing-file count failed after the restore, so `missingFiles` is 0 only because it is unknown. */
+  missingFilesUnchecked: boolean;
   /** A background worker has stopped, so restored attachments and search wait for a restart. */
   backgroundWorkStopped: boolean;
 };
@@ -32,6 +34,13 @@ export type RestoreOutcome = {
 export function missingFilesNote(missingFiles: number): string {
   if (missingFiles === 0) return "";
   return ` · ${missingFiles} missing attachment or image file${missingFiles === 1 ? "" : "s"} not included`;
+}
+
+/** Appends a warning to restore feedback when the restored data's missing files could not be counted. */
+export function missingFilesUncheckedNote(missingFilesUnchecked: boolean): string {
+  return missingFilesUnchecked
+    ? " · Missing attachment or image files could not be checked; see Recent diagnostics in Settings"
+    : "";
 }
 
 /** Appends a restart request to restore feedback when a background worker has stopped. */

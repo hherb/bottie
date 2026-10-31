@@ -25,8 +25,37 @@ pub(crate) struct AutomaticBackupRotation {
     pub(crate) retained: usize,
     /// Number of expired managed snapshots removed by this rotation.
     pub(crate) pruned: usize,
+    /// Expired snapshots that could not be removed; the new snapshot still exists, and the next rotation
+    /// that creates a snapshot retries them (#230).
+    pub(crate) prune_failed: usize,
     /// Catalog files left out of the new snapshot because they were missing from disk.
     pub(crate) skipped_files: usize,
+}
+
+impl AutomaticBackupRotation {
+    /// Diagnostic level and detail for a rotation that created a snapshot; skipped files or a failed
+    /// prune raise it to `warn`.
+    pub(crate) fn created_report(&self) -> (&'static str, String) {
+        let level = if self.skipped_files > 0 || self.prune_failed > 0 {
+            "warn"
+        } else {
+            "info"
+        };
+        let prune_failed = if self.prune_failed > 0 {
+            format!(
+                " {} expired snapshot(s) could not be removed and are retried by the next new snapshot;",
+                self.prune_failed
+            )
+        } else {
+            String::new()
+        };
+        let detail = format!(
+            "{} verified snapshot(s) retained; {} expired snapshot(s) removed;{prune_failed} \
+             {} missing attachment or image file(s) left out",
+            self.retained, self.pruned, self.skipped_files
+        );
+        (level, detail)
+    }
 }
 
 /// One application-owned automatic snapshot discovered from its strict filename contract.
@@ -82,6 +111,15 @@ impl ConversationStore {
         &self,
         timestamp_ms: i64,
     ) -> Result<AutomaticBackupRotation, StorageError> {
+        self.rotate_automatic_backups_with(timestamp_ms, |path| fs::remove_file(path))
+    }
+
+    /// Rotation with an injectable snapshot remover, so tests can fail a prune after the snapshot exists.
+    pub(super) fn rotate_automatic_backups_with(
+        &self,
+        timestamp_ms: i64,
+        remove: impl FnMut(&Path) -> std::io::Result<()>,
+    ) -> Result<AutomaticBackupRotation, StorageError> {
         let directory = automatic_backup_directory(&self.path)?;
         fs::create_dir_all(&directory).map_err(|_| StorageError::automatic_backup())?;
         let mut backups = managed_backups(&directory)?.backups;
@@ -94,6 +132,7 @@ impl ConversationStore {
                 created: false,
                 retained: backups.len(),
                 pruned: 0,
+                prune_failed: 0,
                 skipped_files: 0,
             });
         }
@@ -130,13 +169,13 @@ impl ConversationStore {
         {
             backups.push(expired.remove(index));
         }
-        for backup in &expired {
-            fs::remove_file(&backup.path).map_err(|_| StorageError::automatic_backup())?;
-        }
+        // The new snapshot is already in place, so a failed removal is a retention problem, not a failed backup.
+        let prune_failed = remove_expired(&expired, remove);
         Ok(AutomaticBackupRotation {
             created: true,
             retained: backups.len(),
-            pruned: expired.len(),
+            pruned: expired.len() - prune_failed,
+            prune_failed,
             skipped_files,
         })
     }
@@ -179,6 +218,20 @@ pub(super) fn managed_backups(directory: &Path) -> Result<ManagedBackupListing, 
     Ok(listing)
 }
 
+/// Tries to remove every expired snapshot with `remove`, returning how many removals failed.
+/// A snapshot already gone (deleted by the user, say) counts as removed, not as a failure.
+fn remove_expired(
+    expired: &[ManagedBackup],
+    mut remove: impl FnMut(&Path) -> std::io::Result<()>,
+) -> usize {
+    expired
+        .iter()
+        .filter(|backup| {
+            remove(&backup.path).is_err_and(|error| error.kind() != std::io::ErrorKind::NotFound)
+        })
+        .count()
+}
+
 /// Diagnostic text for a backup folder that could not be fully read, or `None` when every entry was read.
 fn backup_folder_warning(unreadable: usize, incomplete: bool) -> Option<String> {
     if incomplete {
@@ -210,6 +263,59 @@ fn automatic_backup_timestamp(name: &std::ffi::OsStr) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn created_report_warns_and_names_failed_prunes_only_when_there_are_any() {
+        let clean = AutomaticBackupRotation {
+            created: true,
+            retained: 7,
+            pruned: 1,
+            prune_failed: 0,
+            skipped_files: 0,
+        };
+        assert_eq!(
+            clean.created_report(),
+            (
+                "info",
+                "7 verified snapshot(s) retained; 1 expired snapshot(s) removed; \
+                 0 missing attachment or image file(s) left out"
+                    .to_owned()
+            )
+        );
+        let stuck = AutomaticBackupRotation {
+            pruned: 0,
+            prune_failed: 1,
+            ..clean
+        };
+        let (level, detail) = stuck.created_report();
+        assert_eq!(level, "warn");
+        assert!(detail.contains(
+            "1 expired snapshot(s) could not be removed and are retried by the next new snapshot;"
+        ));
+    }
+
+    #[test]
+    fn a_failed_prune_is_counted_and_the_rest_are_still_removed() {
+        let expired = ["a", "b", "c", "gone"].map(|name| ManagedBackup {
+            timestamp_ms: 0,
+            path: PathBuf::from(name),
+        });
+        let mut attempted = Vec::new();
+
+        let failed = remove_expired(&expired, |path| {
+            attempted.push(path.to_owned());
+            if path == Path::new("b") {
+                Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+            } else if path == Path::new("gone") {
+                Err(std::io::Error::from(std::io::ErrorKind::NotFound))
+            } else {
+                Ok(())
+            }
+        });
+
+        assert_eq!(failed, 1);
+        assert_eq!(attempted.len(), 4);
+    }
 
     #[test]
     fn folder_warning_names_unreadable_items_or_an_incomplete_listing() {

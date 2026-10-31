@@ -18,7 +18,14 @@ const FAILURE_LABELS: Record<string, string> = {
   embedding_dimensions: "embedding output invalid",
   embedding_runtime: "embedding runtime unavailable",
   embedding_values: "embedding output invalid",
+  // `model_cache` is no longer produced but may remain in an older durable index row.
   model_cache: "local model unavailable",
+  model_cache_dir: "local model folder unavailable; check disk space",
+  model_cache_read: "local model files unreadable",
+  model_cache_ref: "local model folder unavailable; check disk space",
+  model_contract: "local model unavailable",
+  model_download: "local model download failed",
+  model_integrity: "local model failed verification",
   model_runtime: "local model unavailable",
 };
 

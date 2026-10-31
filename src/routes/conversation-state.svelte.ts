@@ -13,6 +13,7 @@ import {
   clearLastOpenConversation,
   conversationExportFeedback,
   missingFilesNote,
+  missingFilesUncheckedNote,
   backgroundWorkNote,
   createConversation,
   deleteConversation,
@@ -354,14 +355,20 @@ export class ConversationState {
       this.searchQuery = "";
       this.searchResults = [];
       this.isSearching = false;
+      this.storageError = null;
       const messages = await this.initialize();
-      if (this.storageError) throw this.storageError;
+      // The native restore already replaced the data, so a failed reload must not hide the preserved copy's name.
+      const reloadError = this.storageError as StorageError | null;
+      const reloadNote = reloadError ? ` · Reloading the restored data failed: ${reloadError.message}` : "";
       const backupName = outcome.fileName ?? "local data";
       const preservedName = outcome.preservedCopyName ?? "preserved local data";
-      this.backupFeedback = `Restored ${backupName} · preserved current data as ${preservedName}${missingFilesNote(outcome.missingFiles)}${backgroundWorkNote(outcome.backgroundWorkStopped)}`;
-      this.backupWarning = outcome.missingFiles > 0 || outcome.backgroundWorkStopped;
-      this.storageError = null;
-      return messages;
+      this.backupFeedback = `Restored ${backupName} · preserved current data as ${preservedName}${missingFilesNote(outcome.missingFiles)}${missingFilesUncheckedNote(outcome.missingFilesUnchecked)}${backgroundWorkNote(outcome.backgroundWorkStopped)}${reloadNote}`;
+      this.backupWarning =
+        outcome.missingFiles > 0 ||
+        outcome.missingFilesUnchecked ||
+        outcome.backgroundWorkStopped ||
+        reloadError !== null;
+      return reloadError ? null : messages;
     } catch (error) {
       this.storageError = storageErrorFromUnknown(error);
       this.backupFeedback = this.storageError.message;

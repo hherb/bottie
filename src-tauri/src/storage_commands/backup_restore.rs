@@ -213,11 +213,14 @@ fn background_work_stopped(state: &AppState) -> bool {
     state.attachment_processing.is_stopped() || state.semantic_indexing.is_stopped()
 }
 
-/// Counts files the just-restored data lacks. The restore already succeeded, so a failed count
-/// is reported as zero plus a `warn` diagnostic naming its error code rather than as a failed restore (#228).
-async fn reported_missing_files(state: &AppState, counted: Result<usize, StorageError>) -> usize {
+/// Counts files the just-restored data lacks. The restore already succeeded, so a failed count is
+/// `None` plus a `warn` diagnostic naming its error code rather than a failed restore (#228, #230).
+async fn reported_missing_files(
+    state: &AppState,
+    counted: Result<usize, StorageError>,
+) -> Option<usize> {
     match counted {
-        Ok(count) => count,
+        Ok(count) => Some(count),
         Err(error) => {
             let detail = format!(
                 "Bottie could not count attachment or image files missing from the restored data ({}).",
@@ -231,7 +234,7 @@ async fn reported_missing_files(state: &AppState, counted: Result<usize, Storage
                 Some(&detail),
             )
             .await;
-            0
+            None
         }
     }
 }

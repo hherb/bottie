@@ -38,6 +38,8 @@ pub(crate) struct RestoreOutcome {
     preserved_copy_name: Option<String>,
     /// Catalogued attachment or image files the restored data has no bytes for.
     missing_files: usize,
+    /// The missing-file count failed after the restore, so `missing_files` is 0 only because it is unknown (#230).
+    missing_files_unchecked: bool,
     /// Whether a background worker has stopped, so restored attachments and search wait for a restart.
     background_work_stopped: bool,
 }
@@ -77,23 +79,27 @@ pub(super) fn cancelled_restore() -> RestoreOutcome {
         file_name: None,
         preserved_copy_name: None,
         missing_files: 0,
+        missing_files_unchecked: false,
         background_work_stopped: false,
     }
 }
 
 /// Builds a restored outcome from path-free selected and preserved leaf labels.
+///
+/// `missing_files` is `None` when the post-restore count failed.
 pub(super) fn restored(
     selected_name: String,
     preserved_path: &Path,
     preserved_fallback: &str,
-    missing_files: usize,
+    missing_files: Option<usize>,
     background_work_stopped: bool,
 ) -> RestoreOutcome {
     RestoreOutcome {
         status: RestoreStatus::Restored,
         file_name: Some(selected_name),
         preserved_copy_name: Some(leaf_name(preserved_path, preserved_fallback)),
-        missing_files,
+        missing_files: missing_files.unwrap_or(0),
+        missing_files_unchecked: missing_files.is_none(),
         background_work_stopped,
     }
 }
@@ -126,8 +132,15 @@ mod tests {
             "selected backup.sqlite3".into(),
             Path::new("/Users/alice/Library/Application Support/Bottie/pre-restore.sqlite3"),
             "Bottie preserved local data",
-            1,
+            Some(1),
             true,
+        );
+        let unchecked = restored(
+            "selected backup.sqlite3".into(),
+            Path::new("/private/pre-restore.sqlite3"),
+            "Bottie preserved local data",
+            None,
+            false,
         );
 
         assert_eq!(
@@ -141,9 +154,13 @@ mod tests {
                 "fileName": "selected backup.sqlite3",
                 "preservedCopyName": "pre-restore.sqlite3",
                 "missingFiles": 1,
+                "missingFilesUnchecked": false,
                 "backgroundWorkStopped": true
             })
         );
+        let unchecked = serde_json::to_value(unchecked).expect("restore outcome should serialize");
+        assert_eq!(unchecked["missingFiles"], json!(0));
+        assert_eq!(unchecked["missingFilesUnchecked"], json!(true));
     }
 
     #[test]
@@ -160,6 +177,7 @@ mod tests {
                 "fileName": null,
                 "preservedCopyName": null,
                 "missingFiles": 0,
+                "missingFilesUnchecked": false,
                 "backgroundWorkStopped": false
             })
         );
