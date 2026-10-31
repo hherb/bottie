@@ -33,6 +33,7 @@ mod python_process_transport;
 mod python_runtime;
 mod run_cancellation;
 mod semantic_indexer;
+mod semantic_model;
 mod speech;
 mod storage;
 mod storage_commands;
@@ -226,7 +227,7 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
         };
         let (level, event, detail) = match rotation {
             Ok(Ok(outcome)) if outcome.created => (
-                if outcome.skipped_files > 0 {
+                if outcome.skipped_files > 0 || outcome.prune_failed > 0 {
                     "warn"
                 } else {
                     "info"
@@ -234,8 +235,9 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
                 "Automatic backup created",
                 format!(
                     "{} verified snapshot(s) retained; {} expired snapshot(s) removed; \
+                     {} expired snapshot(s) could not be removed and are retried next rotation; \
                      {} missing attachment or image file(s) left out",
-                    outcome.retained, outcome.pruned, outcome.skipped_files
+                    outcome.retained, outcome.pruned, outcome.prune_failed, outcome.skipped_files
                 ),
             ),
             Ok(Ok(outcome)) => (

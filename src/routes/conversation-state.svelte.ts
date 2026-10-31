@@ -13,6 +13,7 @@ import {
   clearLastOpenConversation,
   conversationExportFeedback,
   missingFilesNote,
+  missingFilesUncheckedNote,
   backgroundWorkNote,
   createConversation,
   deleteConversation,
@@ -358,8 +359,8 @@ export class ConversationState {
       if (this.storageError) throw this.storageError;
       const backupName = outcome.fileName ?? "local data";
       const preservedName = outcome.preservedCopyName ?? "preserved local data";
-      this.backupFeedback = `Restored ${backupName} · preserved current data as ${preservedName}${missingFilesNote(outcome.missingFiles)}${backgroundWorkNote(outcome.backgroundWorkStopped)}`;
-      this.backupWarning = outcome.missingFiles > 0 || outcome.backgroundWorkStopped;
+      this.backupFeedback = `Restored ${backupName} · preserved current data as ${preservedName}${missingFilesNote(outcome.missingFiles)}${missingFilesUncheckedNote(outcome.missingFilesUnchecked)}${backgroundWorkNote(outcome.backgroundWorkStopped)}`;
+      this.backupWarning = outcome.missingFiles > 0 || outcome.missingFilesUnchecked || outcome.backgroundWorkStopped;
       this.storageError = null;
       return messages;
     } catch (error) {

@@ -1,25 +1,15 @@
 //! Process-lifetime scheduling for resumable native semantic indexing.
 
 use std::{
-    env,
-    fs::File,
-    io::Read,
     path::{Path, PathBuf},
     sync::mpsc::{Receiver, Sender, channel},
     thread,
     time::Duration,
 };
 
-use fastembed::{EmbeddingModel, TextEmbedding, TextInitOptions};
-use hf_hub::{
-    Cache, Repo, RepoType,
-    api::sync::{ApiBuilder, ApiRepo},
-};
-use serde::Deserialize;
-use sha2::{Digest, Sha256};
-
 use crate::{
     diagnostics::{Diagnostics, record_diagnostic},
+    semantic_model::FastEmbedder,
     storage::{
         ConversationStore, DEFAULT_SEMANTIC_BATCH_SIZE, SemanticEmbedder, SemanticIndexState,
         StorageError,
@@ -28,35 +18,8 @@ use crate::{
 };
 
 const WORKER_THREAD_NAME: &str = "bottie-semantic-indexing";
-const EMBEDDING_RUNTIME_THREADS: usize = 2;
 /// Maximum time a foreground memory lookup waits behind semantic indexing or model preparation.
 const QUERY_EMBEDDING_WAIT: Duration = Duration::from_secs(5);
-const RUNTIME_ASSET_MANIFEST: &str = include_str!("../../runtime-assets.json");
-
-/// Compiled release contract for the only runtime-downloaded model.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RuntimeAssetManifest {
-    schema_version: u8,
-    embedding_gemma: EmbeddingGemmaContract,
-}
-
-/// Immutable repository revision, variant, terms, and file identities for EmbeddingGemma.
-#[derive(Deserialize)]
-struct EmbeddingGemmaContract {
-    repository: String,
-    revision: String,
-    variant: String,
-    files: Vec<ModelFileContract>,
-}
-
-/// One exact model-cache file expected by the built-in FastEmbed adapter.
-#[derive(Deserialize)]
-struct ModelFileContract {
-    path: String,
-    sha256: String,
-    size: u64,
-}
 
 /// Cheap wake handle for Bottie's single semantic-index worker.
 #[derive(Clone)]
@@ -90,99 +53,6 @@ pub(crate) struct SemanticIndexingPause {
 impl Drop for SemanticIndexingPause {
     fn drop(&mut self) {
         let _ = self.sender.send(WorkerCommand::Resume);
-    }
-}
-
-/// Production adapter around Bottie's one built-in FastEmbed model.
-struct FastEmbedder {
-    model: TextEmbedding,
-}
-
-impl FastEmbedder {
-    /// Loads or downloads the Q4 EmbeddingGemma model through the app-owned cache directory.
-    fn load(cache_dir: PathBuf) -> Result<Self, String> {
-        std::fs::create_dir_all(&cache_dir).map_err(|_| "model_cache")?;
-        prepare_pinned_model_snapshot(&cache_dir)?;
-        let options = TextInitOptions::new(EmbeddingModel::EmbeddingGemma300MQ4)
-            .with_cache_dir(cache_dir)
-            .with_show_download_progress(false)
-            .with_intra_threads(EMBEDDING_RUNTIME_THREADS);
-        TextEmbedding::try_new(options)
-            .map(|model| Self { model })
-            .map_err(|_| "model_runtime".into())
-    }
-}
-
-/// Downloads only the compiled revision, verifies every file, then points FastEmbed's main cache ref at it.
-fn prepare_pinned_model_snapshot(default_cache_dir: &PathBuf) -> Result<(), String> {
-    let contract: RuntimeAssetManifest =
-        serde_json::from_str(RUNTIME_ASSET_MANIFEST).map_err(|_| "model_contract")?;
-    if contract.schema_version != 1 || contract.embedding_gemma.variant != "EmbeddingGemma300MQ4" {
-        return Err("model_contract".into());
-    }
-    let cache_dir = env::var_os("HF_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| default_cache_dir.clone());
-    let endpoint = env::var("HF_ENDPOINT").unwrap_or_else(|_| "https://huggingface.co".to_owned());
-    let api = ApiBuilder::new()
-        .with_cache_dir(cache_dir.clone())
-        .with_endpoint(endpoint)
-        .with_progress(false)
-        .build()
-        .map_err(|_| "model_cache")?;
-    let revision = contract.embedding_gemma.revision.clone();
-    let repository = contract.embedding_gemma.repository.clone();
-    let pinned = api.repo(Repo::with_revision(
-        repository.clone(),
-        RepoType::Model,
-        revision.clone(),
-    ));
-    verify_pinned_files(&pinned, &contract.embedding_gemma.files)?;
-    Cache::new(cache_dir)
-        .repo(Repo::new(repository, RepoType::Model))
-        .create_ref(&revision)
-        .map_err(|_| "model_cache".to_owned())
-}
-
-/// Fetches and verifies the exact model files without retaining remote bodies or cache paths in errors.
-fn verify_pinned_files(repo: &ApiRepo, files: &[ModelFileContract]) -> Result<(), String> {
-    for expected in files {
-        let path = repo.get(&expected.path).map_err(|_| "model_download")?;
-        let file = File::open(path).map_err(|_| "model_cache")?;
-        verify_model_reader(file, expected.size, &expected.sha256)?;
-    }
-    Ok(())
-}
-
-/// Verifies one bounded expected size and SHA-256 while streaming cache bytes.
-fn verify_model_reader(
-    mut reader: impl Read,
-    expected_size: u64,
-    expected_sha256: &str,
-) -> Result<(), String> {
-    let mut hasher = Sha256::new();
-    let mut size = 0_u64;
-    let mut buffer = [0_u8; 64 * 1024];
-    loop {
-        let count = reader.read(&mut buffer).map_err(|_| "model_cache")?;
-        if count == 0 {
-            break;
-        }
-        size = size.checked_add(count as u64).ok_or("model_contract")?;
-        hasher.update(&buffer[..count]);
-    }
-    if size != expected_size || format!("{:x}", hasher.finalize()) != expected_sha256 {
-        return Err("model_integrity".into());
-    }
-    Ok(())
-}
-
-impl SemanticEmbedder for FastEmbedder {
-    /// Produces normalized EmbeddingGemma vectors for versioned document inputs.
-    fn embed(&mut self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
-        self.model
-            .embed(texts, None)
-            .map_err(|_| "embedding_runtime".into())
     }
 }
 
@@ -313,7 +183,7 @@ fn run_worker(
     }
 }
 
-/// Loads the model on first use, returning the load's own error code (such as `model_cache`) on failure (#226).
+/// Loads the model on first use, returning the load's own error code (such as `model_cache_dir`) on failure (#226).
 fn loaded_embedder<'a>(
     cache_dir: &Path,
     embedder: &'a mut Option<FastEmbedder>,
@@ -341,7 +211,7 @@ fn process_requested_work(
     let progress = match conversations.semantic_index_progress() {
         Ok(progress) => progress,
         Err(_) => {
-            record_failure(diagnostics.clone(), "Semantic indexing paused");
+            record_failure(diagnostics.clone(), "Semantic indexing paused", None);
             return WorkerOutcome::Failed;
         }
     };
@@ -352,7 +222,7 @@ fn process_requested_work(
     }
     if embedder.is_none() {
         if conversations.mark_semantic_model_loading().is_err() {
-            record_failure(diagnostics.clone(), "Semantic indexing paused");
+            record_failure(diagnostics.clone(), "Semantic indexing paused", None);
             return WorkerOutcome::Failed;
         }
         record_loading(diagnostics.clone());
@@ -360,7 +230,11 @@ fn process_requested_work(
             Ok(loaded) => *embedder = Some(loaded),
             Err(code) => {
                 let _ = conversations.mark_semantic_failed(&code);
-                record_failure(diagnostics.clone(), "Local memory model unavailable");
+                record_failure(
+                    diagnostics.clone(),
+                    "Local memory model unavailable",
+                    Some(&code),
+                );
                 return WorkerOutcome::Failed;
             }
         }
@@ -375,7 +249,7 @@ fn process_requested_work(
             WorkerOutcome::Idle
         }
         Err(_) => {
-            record_failure(diagnostics.clone(), "Semantic indexing paused");
+            record_failure(diagnostics.clone(), "Semantic indexing paused", None);
             WorkerOutcome::Failed
         }
     }
@@ -432,17 +306,20 @@ fn record_loading(diagnostics: Diagnostics) {
 }
 
 /// Records a stable path-free worker failure without blocking the native thread.
-fn record_failure(diagnostics: Diagnostics, event: &'static str) {
+fn record_failure(diagnostics: Diagnostics, event: &'static str, code: Option<&str>) {
+    let detail = failure_detail(code);
     tauri::async_runtime::spawn(async move {
-        record_diagnostic(
-            &diagnostics,
-            "error",
-            event,
-            None,
-            Some("Bottie will retry the local semantic index after its next wake."),
-        )
-        .await;
+        record_diagnostic(&diagnostics, "error", event, None, Some(&detail)).await;
     });
+}
+
+/// Retry note for a failure diagnostic, naming the path-free error code when there is one (#231).
+fn failure_detail(code: Option<&str>) -> String {
+    let retry = "Bottie will retry the local semantic index after its next wake.";
+    match code {
+        Some(code) => format!("{retry} ({code})"),
+        None => retry.to_owned(),
+    }
 }
 
 /// Records completion counts without exposing chunks, model paths, or cache paths.
@@ -472,9 +349,21 @@ mod tests {
 
         let error = loaded_embedder(&blocker.join("cache"), &mut embedder).err();
 
-        assert_eq!(error.as_deref(), Some("model_cache"));
+        assert_eq!(error.as_deref(), Some("model_cache_dir"));
         assert!(embedder.is_none());
         let _ = std::fs::remove_file(blocker);
+    }
+
+    #[test]
+    fn failure_detail_names_the_load_code_when_known() {
+        assert_eq!(
+            failure_detail(Some("model_cache_read")),
+            "Bottie will retry the local semantic index after its next wake. (model_cache_read)"
+        );
+        assert_eq!(
+            failure_detail(None),
+            "Bottie will retry the local semantic index after its next wake."
+        );
     }
 
     #[test]
@@ -529,32 +418,6 @@ mod tests {
         apply_command(WorkerCommand::Resume, &mut wake_requested, &mut paused);
         assert!(wake_requested);
         assert!(!paused);
-    }
-
-    #[test]
-    fn compiled_model_contract_is_complete_and_reader_verification_fails_closed() {
-        let manifest: RuntimeAssetManifest = serde_json::from_str(RUNTIME_ASSET_MANIFEST)
-            .expect("compiled release contract should parse");
-        assert_eq!(manifest.schema_version, 1);
-        assert_eq!(manifest.embedding_gemma.files.len(), 6);
-        assert!(
-            manifest
-                .embedding_gemma
-                .revision
-                .chars()
-                .all(|value| value.is_ascii_hexdigit())
-        );
-
-        let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
-        assert_eq!(verify_model_reader(&b"abc"[..], 3, digest), Ok(()));
-        assert_eq!(
-            verify_model_reader(&b"abc"[..], 4, digest),
-            Err("model_integrity".into())
-        );
-        assert_eq!(
-            verify_model_reader(&b"abd"[..], 3, digest),
-            Err("model_integrity".into())
-        );
     }
 
     #[test]

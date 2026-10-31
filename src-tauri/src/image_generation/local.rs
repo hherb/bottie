@@ -172,9 +172,22 @@ fn map_execution_error(error: LocalImageExecutionError) -> ProviderError {
         LocalImageExecutionError::Cancelled => {
             ProviderError::unavailable("The local image generation was cancelled.", None)
         }
-        _ => ProviderError::unavailable("The verified local image runtime is unavailable.", None),
+        LocalImageExecutionError::WorkerUnavailable(cause) => ProviderError::unavailable(
+            RUNTIME_UNAVAILABLE,
+            Some(format!("Local image worker unavailable ({cause:?})")),
+        ),
+        LocalImageExecutionError::RuntimeMismatch(stuck) => {
+            let mut detail = "Local image worker runtime identity mismatch".to_owned();
+            if let Some(cause) = stuck {
+                detail.push_str(&format!("; the worker also failed to stop ({cause:?})"));
+            }
+            ProviderError::unavailable(RUNTIME_UNAVAILABLE, Some(detail))
+        }
+        _ => ProviderError::unavailable(RUNTIME_UNAVAILABLE, None),
     }
 }
+
+const RUNTIME_UNAVAILABLE: &str = "The verified local image runtime is unavailable.";
 
 /// Keep MOSS process and normalization failures distinct from the independent Qwen server route.
 fn map_moss_error(error: crate::local_image_worker::moss::MossError) -> LocalImageGenerationError {
@@ -255,5 +268,42 @@ mod moss_error_tests {
             assert!(!error.message.contains("Qwen"));
             assert!(!error.message.contains("/"));
         }
+    }
+}
+
+#[cfg(test)]
+mod execution_error_tests {
+    use super::*;
+    use crate::local_image_worker::transport::TransportError;
+
+    #[test]
+    fn worker_start_and_runtime_mismatch_causes_reach_the_diagnostic() {
+        let unavailable = map_execution_error(LocalImageExecutionError::WorkerUnavailable(
+            TransportError::SpawnFailed(std::io::ErrorKind::NotFound),
+        ));
+        let stuck = map_execution_error(LocalImageExecutionError::RuntimeMismatch(Some(
+            TransportError::TeardownFailed,
+        )));
+        let mismatch = map_execution_error(LocalImageExecutionError::RuntimeMismatch(None));
+
+        assert_eq!(
+            unavailable.diagnostic.as_deref(),
+            Some("Local image worker unavailable (SpawnFailed(NotFound))")
+        );
+        assert_eq!(
+            stuck.diagnostic.as_deref(),
+            Some(
+                "Local image worker runtime identity mismatch; the worker also failed to stop \
+                 (TeardownFailed)"
+            )
+        );
+        assert_eq!(
+            mismatch.diagnostic.as_deref(),
+            Some("Local image worker runtime identity mismatch")
+        );
+        assert_eq!(
+            unavailable.message,
+            "The verified local image runtime is unavailable."
+        );
     }
 }

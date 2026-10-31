@@ -137,6 +137,7 @@ describe("ConversationState.restoreBackup", () => {
       fileName: "backup.sqlite3",
       preservedCopyName: "preserved.sqlite3",
       missingFiles: 0,
+      missingFilesUnchecked: false,
       backgroundWorkStopped: true,
     });
     storage.listConversations.mockResolvedValue([]);
@@ -158,6 +159,7 @@ describe("ConversationState.restoreBackup", () => {
       fileName: "backup.sqlite3",
       preservedCopyName: "preserved.sqlite3",
       missingFiles: 0,
+      missingFilesUnchecked: false,
       backgroundWorkStopped: false,
     });
     storage.listConversations.mockResolvedValue([]);
@@ -168,6 +170,28 @@ describe("ConversationState.restoreBackup", () => {
 
     expect(state.backupFailed).toBe(false);
     expect(state.backupWarning).toBe(false);
+  });
+
+  it("warns when the restored data's missing files could not be checked", async () => {
+    storage.restoreConversationStore.mockResolvedValue({
+      status: "restored",
+      fileName: "backup.sqlite3",
+      preservedCopyName: "preserved.sqlite3",
+      missingFiles: 0,
+      missingFilesUnchecked: true,
+      backgroundWorkStopped: false,
+    });
+    storage.listConversations.mockResolvedValue([]);
+    storage.loadLastOpenConversation.mockResolvedValue(null);
+    const state = new ConversationState();
+
+    await state.restoreBackup();
+
+    expect(state.backupFailed).toBe(false);
+    expect(state.backupWarning).toBe(true);
+    expect(state.backupFeedback).toBe(
+      "Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Missing attachment or image files could not be checked",
+    );
   });
 });
 

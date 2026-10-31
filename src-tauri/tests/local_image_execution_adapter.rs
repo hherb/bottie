@@ -104,7 +104,10 @@ async fn cancellation_is_cooperative_and_keeps_the_loaded_worker_reusable() {
 #[tokio::test]
 async fn runtime_identity_and_missing_output_bytes_fail_closed_without_native_detail() {
     for (mode, expected) in [
-        ("wrong-runtime", LocalImageExecutionError::RuntimeMismatch),
+        (
+            "wrong-runtime",
+            LocalImageExecutionError::RuntimeMismatch(None),
+        ),
         ("missing-output", LocalImageExecutionError::InvalidOutput),
     ] {
         let fixture = prepared_fixture(mode);

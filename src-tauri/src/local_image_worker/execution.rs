@@ -23,7 +23,7 @@ use super::{
     manager::{ManagerEvent, WorkerReadiness},
     model_acquisition::ModelPackageManifest,
     model_cache::begin_cached_model_load,
-    transport::{TransportTimeouts, WorkerProcessSpec, WorkerTransport},
+    transport::{TransportError, TransportTimeouts, WorkerProcessSpec, WorkerTransport},
 };
 
 /// Exact fixed product profile accepted by the first local Qwen Image runtime proof.
@@ -45,10 +45,11 @@ pub(crate) enum LocalImageExecutionError {
     InvalidLayout,
     /// This build target cannot apply the accepted runtime's operating-system sandbox.
     UnsupportedPlatform,
-    /// The exact worker could not start or negotiate the private protocol.
-    WorkerUnavailable,
-    /// The worker's negotiated runtime identity differed from the verified package.
-    RuntimeMismatch,
+    /// The exact worker could not start, negotiate, or answer the private protocol; carries the path-free cause.
+    WorkerUnavailable(TransportError),
+    /// The worker's negotiated runtime identity differed from the verified package; carries the shutdown
+    /// failure when the mismatched worker also could not be stopped (#231).
+    RuntimeMismatch(Option<TransportError>),
     /// The promoted model changed or could not be loaded at the worker boundary.
     ModelUnavailable,
     /// The worker rejected or failed one bounded generation.
@@ -374,17 +375,15 @@ impl LocalImageWorkerRuntime {
             {
                 Ok(transport) => transport,
                 Err(error) => {
-                    // The returned error stays a stable code, so log the path-free cause for debugging (#226).
-                    eprintln!("[bottie] local image worker failed to start: {error:?}");
                     let _ = fs::remove_dir(&output_directory);
-                    return Err(LocalImageExecutionError::WorkerUnavailable);
+                    return Err(LocalImageExecutionError::WorkerUnavailable(error));
                 }
             };
         self.worker_starts.fetch_add(1, Ordering::Relaxed);
         if transport.runtime_id() != Some(installation.manifest.runtime_id.as_str()) {
-            let _ = transport.shutdown().await;
+            let stuck = transport.shutdown().await.err();
             let _ = fs::remove_dir(&output_directory);
-            return Err(LocalImageExecutionError::RuntimeMismatch);
+            return Err(LocalImageExecutionError::RuntimeMismatch(stuck));
         }
         Ok(WorkerSession {
             key,
@@ -429,11 +428,11 @@ async fn wait_for_terminal(
         }
         tokio::select! {
             event = transport.next_event() => {
-                let event = event.map_err(|_| {
+                let event = event.map_err(|error| {
                     if cancellation_sent {
                         LocalImageExecutionError::Cancelled
                     } else {
-                        LocalImageExecutionError::WorkerUnavailable
+                        LocalImageExecutionError::WorkerUnavailable(error)
                     }
                 })?;
                 if event == ManagerEvent::Progress {

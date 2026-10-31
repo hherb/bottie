@@ -25,6 +25,8 @@ pub(crate) struct AutomaticBackupRotation {
     pub(crate) retained: usize,
     /// Number of expired managed snapshots removed by this rotation.
     pub(crate) pruned: usize,
+    /// Expired snapshots that could not be removed; the new snapshot still exists and the next rotation retries (#230).
+    pub(crate) prune_failed: usize,
     /// Catalog files left out of the new snapshot because they were missing from disk.
     pub(crate) skipped_files: usize,
 }
@@ -94,6 +96,7 @@ impl ConversationStore {
                 created: false,
                 retained: backups.len(),
                 pruned: 0,
+                prune_failed: 0,
                 skipped_files: 0,
             });
         }
@@ -130,13 +133,13 @@ impl ConversationStore {
         {
             backups.push(expired.remove(index));
         }
-        for backup in &expired {
-            fs::remove_file(&backup.path).map_err(|_| StorageError::automatic_backup())?;
-        }
+        // The new snapshot is already in place, so a failed removal is a retention problem, not a failed backup.
+        let prune_failed = remove_expired(&expired, |path| fs::remove_file(path));
         Ok(AutomaticBackupRotation {
             created: true,
             retained: backups.len(),
-            pruned: expired.len(),
+            pruned: expired.len() - prune_failed,
+            prune_failed,
             skipped_files,
         })
     }
@@ -179,6 +182,17 @@ pub(super) fn managed_backups(directory: &Path) -> Result<ManagedBackupListing, 
     Ok(listing)
 }
 
+/// Tries to remove every expired snapshot with `remove`, returning how many removals failed.
+fn remove_expired(
+    expired: &[ManagedBackup],
+    mut remove: impl FnMut(&Path) -> std::io::Result<()>,
+) -> usize {
+    expired
+        .iter()
+        .filter(|backup| remove(&backup.path).is_err())
+        .count()
+}
+
 /// Diagnostic text for a backup folder that could not be fully read, or `None` when every entry was read.
 fn backup_folder_warning(unreadable: usize, incomplete: bool) -> Option<String> {
     if incomplete {
@@ -210,6 +224,27 @@ fn automatic_backup_timestamp(name: &std::ffi::OsStr) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_prune_is_counted_and_the_rest_are_still_removed() {
+        let expired = ["a", "b", "c"].map(|name| ManagedBackup {
+            timestamp_ms: 0,
+            path: PathBuf::from(name),
+        });
+        let mut attempted = Vec::new();
+
+        let failed = remove_expired(&expired, |path| {
+            attempted.push(path.to_owned());
+            if path == Path::new("b") {
+                Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+            } else {
+                Ok(())
+            }
+        });
+
+        assert_eq!(failed, 1);
+        assert_eq!(attempted.len(), 3);
+    }
 
     #[test]
     fn folder_warning_names_unreadable_items_or_an_incomplete_listing() {

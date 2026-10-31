@@ -39,6 +39,18 @@ describe("semantic memory index presentation", () => {
     );
   });
 
+  it.each([
+    ["model_cache_dir", "local model unavailable"],
+    ["model_cache_read", "local model unavailable"],
+    ["model_cache_ref", "local model unavailable"],
+    ["model_download", "local model download failed"],
+    ["model_integrity", "local model failed verification"],
+  ])("labels the %s load failure", (errorCode, label) => {
+    expect(memoryIndexCopy({ ...ready, state: "failed", completedChunks: 12, errorCode })).toBe(
+      `Paused · 12 of 84 chunks · ${label}`,
+    );
+  });
+
   it("clamps percentages from defensive native progress values", () => {
     expect(memoryIndexPercent({ ...ready, completedChunks: 90 })).toBe(100);
     expect(memoryIndexPercent({ ...ready, completedChunks: 0, totalChunks: 0 })).toBe(100);
