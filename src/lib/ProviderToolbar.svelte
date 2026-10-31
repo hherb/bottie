@@ -26,6 +26,7 @@
     isRestoring: boolean;
     backupFeedback: string | null;
     backupFailed: boolean;
+    backupWarning: boolean;
     onproviderchange: (providerId: ProviderId) => void;
     onmodelchange: (modelKey: string) => void;
     ontogglereasoning: () => void;
@@ -62,6 +63,7 @@
     isRestoring,
     backupFeedback,
     backupFailed,
+    backupWarning,
     onproviderchange,
     onmodelchange,
     ontogglereasoning,
@@ -185,7 +187,13 @@
       <Icon name="panel" size={18} />
     </button>
     {#if backupFeedback || exportFeedback}
-      <span class:error={backupFeedback ? backupFailed : exportFailed} class="export-feedback" role="status">
+      <span
+        class:error={backupFeedback ? backupFailed : exportFailed}
+        class:warning={backupFeedback !== null && backupWarning}
+        class="export-feedback"
+        role="status"
+        title={backupFeedback ?? exportFeedback}
+      >
         {backupFeedback ?? exportFeedback}
       </span>
     {/if}

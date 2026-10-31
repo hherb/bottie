@@ -1,18 +1,20 @@
 # Bottie handover
 
-Last verified: 2026-10-31 (issues #223, #224, #225 and the PR #227 review on branch `fix/issues-223-224-225`).
+Last verified: 2026-10-31 (issues #226 and #228 on branch `fix/issues-226-228`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-10-31, PRs up to #222 are merged. PR #227 (`fix/issues-223-224-225`)
-   fixes #223-#225. #226 and #228 (PR #227 review leftovers) are still open (low priority).
+1. Check the PR list first. As of 2026-10-31, PRs up to #227 are merged. The `fix/issues-226-228` PR fixes #228 and
+   the first two bullets of #226.
 2. **Next items:** the four open `FIX_BOTTIE.md` items. Each needs something this Mac session could not provide:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
-   - #226: spawn errors and embedder-load errors lose their cause; other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see
-     `SPAWN_LOCK` in `local_image_worker/transport.rs`). Only worth a crate-wide spawn helper if it shows up.
+   - #226 remainder: other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see `SPAWN_LOCK`
+     in `local_image_worker/transport.rs`). Only worth a crate-wide spawn helper if it shows up.
+   - PR #229 review follow-ups: #230 (an unchecked restore count and a failed prune still look like the wrong
+     outcome in the UI) and #231 (the image-worker cause reaches only stderr; `FastEmbedder::load` codes are coarse).
    Then run the follow-up audit listed under "Not audited yet".
 3. Owed hardware re-checks (cannot run in a normal session):
    - Re-run the MOSS MLX (Mac) and CUDA (DGX) proofs to confirm item 5's minimal worker environment strips nothing a
@@ -25,6 +27,18 @@ Last verified: 2026-10-31 (issues #223, #224, #225 and the PR #227 review on bra
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-10-31 (issues #226, #228):
+- **#228:** a failed missing-file count after a restore logs a `warn` diagnostic naming the error code ("Restored data
+  not fully checked") and still reports zero. `managed_backups` counts entries whose file type it cannot read and
+  flags a listing that stopped early (std ends a unix directory stream at its first error). Startup runs
+  `automatic_backup_folder_warning` on its own, in both normal and recovery launches (rotation is skipped in
+  recovery), and records a `warn` diagnostic; recovery itself still skips those entries. The toolbar now shows backup/restore feedback with missing files or a stopped worker in amber (`backupWarning`), and its
+  `title` shows the full text, which the 150 px ellipsis used to hide.
+- **#226 (bullets 1-2):** `TransportError::SpawnFailed` carries the `io::ErrorKind`, and the local-image execution
+  boundary logs it to stderr (`[bottie] local image worker failed to start`). On-demand embedding now returns the
+  load's own error code (`loaded_embedder`; `model_runtime` remains only for a failed runtime init), and the semantic
+  query path logs it to stderr before falling back to lexical search.
 
 2026-10-30, fourth session (issues #223, #224, #225):
 - **#223:** `generation_run_start::reserve_chat_run` holds `start_chat`'s reserve-then-first-write. A test holds
@@ -110,12 +124,12 @@ Last verified: 2026-10-31 (issues #223, #224, #225 and the PR #227 review on bra
 
 ## Validation (2026-10-31)
 
-- Rust: `cargo test` passes 807 library tests (42 ignored) plus the updater, adapter, and transport suites.
+- Rust: `cargo test` passes 809 library tests (42 ignored) plus the updater, adapter, and transport (11) suites.
   `cargo fmt` is clean. Clippy still reports ~50 pre-existing style warnings (none are bugs).
 - Over 500 lines: 13 non-test files, all older than this work. The largest are `lib.rs` (1077),
   `inference/settings.rs` (562) and `semantic_indexer.rs` (549). Split each one when you next touch it.
 - Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: `npm test` passes 467 tests; `npm run check` is clean.
+- Frontend: `npm test` passes 470 tests; `npm run check` is clean.
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)

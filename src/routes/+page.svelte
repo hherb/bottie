@@ -285,6 +285,7 @@
         isRestoring={state.history.isRestoring}
         backupFeedback={state.history.backupFeedback}
         backupFailed={state.history.backupFailed}
+        backupWarning={state.history.backupWarning}
         onproviderchange={(providerId) => void state.changeProvider(providerId)}
         onmodelchange={(modelKey) => void state.changeModel(modelKey)}
         ontogglereasoning={() => state.toggleReasoning()}

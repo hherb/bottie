@@ -4,7 +4,7 @@ use std::{
     env,
     fs::File,
     io::Read,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::mpsc::{Receiver, Sender, channel},
     thread,
     time::Duration,
@@ -313,6 +313,17 @@ fn run_worker(
     }
 }
 
+/// Loads the model on first use, returning the load's own error code (such as `model_cache`) on failure (#226).
+fn loaded_embedder<'a>(
+    cache_dir: &Path,
+    embedder: &'a mut Option<FastEmbedder>,
+) -> Result<&'a mut FastEmbedder, String> {
+    match embedder {
+        Some(embedder) => Ok(embedder),
+        None => Ok(embedder.insert(FastEmbedder::load(cache_dir.to_path_buf())?)),
+    }
+}
+
 /// Result of one bounded worker iteration.
 enum WorkerOutcome {
     Continue,
@@ -398,13 +409,7 @@ fn handle_command(
             let result = if *paused {
                 Err("embedding_paused".into())
             } else {
-                if embedder.is_none() {
-                    *embedder = FastEmbedder::load(cache_dir.clone()).ok();
-                }
-                embedder
-                    .as_mut()
-                    .ok_or_else(|| "model_runtime".to_owned())
-                    .and_then(|embedder| embedder.embed(&texts))
+                loaded_embedder(cache_dir, embedder).and_then(|embedder| embedder.embed(&texts))
             };
             let _ = response.send(result);
         }
@@ -457,6 +462,20 @@ fn record_ready(diagnostics: Diagnostics) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_model_load_returns_its_own_code_and_retries_next_time() {
+        let blocker =
+            std::env::temp_dir().join(format!("bottie-cache-blocker-{}", uuid::Uuid::new_v4()));
+        std::fs::write(&blocker, b"not a directory").expect("blocking file should be created");
+        let mut embedder = None;
+
+        let error = loaded_embedder(&blocker.join("cache"), &mut embedder).err();
+
+        assert_eq!(error.as_deref(), Some("model_cache"));
+        assert!(embedder.is_none());
+        let _ = std::fs::remove_file(blocker);
+    }
 
     #[test]
     fn pause_times_out_against_a_silent_worker_and_queues_resume() {

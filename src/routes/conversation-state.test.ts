@@ -11,6 +11,7 @@ const storage = vi.hoisted(() => ({
   setConversationArchived: vi.fn(),
   listConversations: vi.fn(),
   loadLastOpenConversation: vi.fn(),
+  backupConversationStore: vi.fn(),
   restoreConversationStore: vi.fn(),
   restoreLatestAutomaticBackup: vi.fn(),
 }));
@@ -145,8 +146,42 @@ describe("ConversationState.restoreBackup", () => {
     expect(await state.restoreBackup(source)).toEqual([]);
 
     expect(state.backupFailed).toBe(false);
+    expect(state.backupWarning).toBe(true);
     expect(state.backupFeedback).toBe(
       "Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Restart Bottie to finish processing restored data",
     );
+  });
+
+  it("marks a clean restore as neither failed nor a warning", async () => {
+    storage.restoreConversationStore.mockResolvedValue({
+      status: "restored",
+      fileName: "backup.sqlite3",
+      preservedCopyName: "preserved.sqlite3",
+      missingFiles: 0,
+      backgroundWorkStopped: false,
+    });
+    storage.listConversations.mockResolvedValue([]);
+    storage.loadLastOpenConversation.mockResolvedValue(null);
+    const state = new ConversationState();
+
+    await state.restoreBackup();
+
+    expect(state.backupFailed).toBe(false);
+    expect(state.backupWarning).toBe(false);
+  });
+});
+
+describe("ConversationState.backup", () => {
+  it.each([
+    [2, true],
+    [0, false],
+  ])("marks a backup with %i missing file(s) as warning=%s, never failed", async (missingFiles, warning) => {
+    storage.backupConversationStore.mockResolvedValue({ status: "saved", fileName: "backup.sqlite3", missingFiles });
+    const state = new ConversationState();
+
+    await state.backup();
+
+    expect(state.backupFailed).toBe(false);
+    expect(state.backupWarning).toBe(warning);
   });
 });

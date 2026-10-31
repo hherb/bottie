@@ -35,6 +35,16 @@ pub(super) struct ManagedBackup {
     pub(super) path: PathBuf,
 }
 
+/// The managed snapshots in a directory, plus what the listing could not see.
+pub(super) struct ManagedBackupListing {
+    pub(super) backups: Vec<ManagedBackup>,
+    /// Entries whose file type failed to read; a snapshot among them is left on disk but invisible to
+    /// retention and recovery, which `automatic_backup_folder_warning` reports at startup (#228).
+    pub(super) unreadable: usize,
+    /// The directory listing stopped on an error, so entries after it were never seen.
+    pub(super) incomplete: bool,
+}
+
 impl ConversationStore {
     /// Removes abandoned automatic-backup staging; kept apart from rotation so its count survives a failed rotation.
     pub(crate) fn sweep_automatic_backup_staging(&self) -> StagingSweep {
@@ -46,6 +56,19 @@ impl ConversationStore {
             &[AUTOMATIC_BACKUP_STAGING_PREFIX],
             stale_staging_cutoff(),
         )
+    }
+
+    /// Checks the automatic-backup folder on its own, so a partly unreadable folder is reported even when
+    /// rotation fails or is skipped for recovery (#228). `None` when every entry was read.
+    pub(crate) fn automatic_backup_folder_warning(&self) -> Option<String> {
+        let directory = automatic_backup_directory(&self.path).ok()?;
+        if !directory.exists() {
+            return None;
+        }
+        match managed_backups(&directory) {
+            Ok(listing) => backup_folder_warning(listing.unreadable, listing.incomplete),
+            Err(_) => backup_folder_warning(0, true),
+        }
     }
 
     /// Creates a verified snapshot when the newest automatic backup is at least 24 hours old.
@@ -61,7 +84,7 @@ impl ConversationStore {
     ) -> Result<AutomaticBackupRotation, StorageError> {
         let directory = automatic_backup_directory(&self.path)?;
         fs::create_dir_all(&directory).map_err(|_| StorageError::automatic_backup())?;
-        let mut backups = managed_backups(&directory)?;
+        let mut backups = managed_backups(&directory)?.backups;
         let freshness_threshold = timestamp_ms.saturating_sub(AUTOMATIC_BACKUP_INTERVAL_MS);
         if backups
             .iter()
@@ -127,20 +150,50 @@ pub(super) fn automatic_backup_directory(live: &Path) -> Result<PathBuf, Storage
 }
 
 /// Finds only regular files whose names exactly match Bottie's automatic-backup contract.
-pub(super) fn managed_backups(directory: &Path) -> Result<Vec<ManagedBackup>, StorageError> {
-    let backups = fs::read_dir(directory)
-        .map_err(|_| StorageError::automatic_backup())?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.file_type().is_ok_and(|file_type| file_type.is_file()))
-        .filter_map(|entry| {
-            let timestamp_ms = automatic_backup_timestamp(&entry.file_name())?;
-            Some(ManagedBackup {
+pub(super) fn managed_backups(directory: &Path) -> Result<ManagedBackupListing, StorageError> {
+    let mut listing = ManagedBackupListing {
+        backups: Vec::new(),
+        unreadable: 0,
+        incomplete: false,
+    };
+    for entry in fs::read_dir(directory).map_err(|_| StorageError::automatic_backup())? {
+        // std ends a unix directory stream after its first read error, so this is not one skipped item.
+        let Ok(entry) = entry else {
+            listing.incomplete = true;
+            break;
+        };
+        let Ok(file_type) = entry.file_type() else {
+            listing.unreadable += 1;
+            continue;
+        };
+        if !file_type.is_file() {
+            continue;
+        }
+        if let Some(timestamp_ms) = automatic_backup_timestamp(&entry.file_name()) {
+            listing.backups.push(ManagedBackup {
                 timestamp_ms,
                 path: entry.path(),
-            })
-        })
-        .collect();
-    Ok(backups)
+            });
+        }
+    }
+    Ok(listing)
+}
+
+/// Diagnostic text for a backup folder that could not be fully read, or `None` when every entry was read.
+fn backup_folder_warning(unreadable: usize, incomplete: bool) -> Option<String> {
+    if incomplete {
+        return Some(
+            "The automatic-backup folder could not be read in full, so retention and recovery may miss \
+             snapshots; later launches check again"
+                .to_owned(),
+        );
+    }
+    (unreadable > 0).then(|| {
+        format!(
+            "{unreadable} item(s) in the automatic-backup folder could not be read, so retention and \
+             recovery skip them; later launches check again"
+        )
+    })
 }
 
 /// Parses the timestamp from one strictly formatted managed automatic-backup filename.
@@ -152,4 +205,28 @@ fn automatic_backup_timestamp(name: &std::ffi::OsStr) -> Option<i64> {
     let (timestamp, id) = body.split_once('-')?;
     uuid::Uuid::parse_str(id).ok()?;
     timestamp.parse().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn folder_warning_names_unreadable_items_or_an_incomplete_listing() {
+        assert_eq!(backup_folder_warning(0, false), None);
+        assert_eq!(
+            backup_folder_warning(1, false).as_deref(),
+            Some(
+                "1 item(s) in the automatic-backup folder could not be read, so retention and \
+                 recovery skip them; later launches check again"
+            )
+        );
+        assert_eq!(
+            backup_folder_warning(1, true).as_deref(),
+            Some(
+                "The automatic-backup folder could not be read in full, so retention and recovery \
+                 may miss snapshots; later launches check again"
+            )
+        );
+    }
 }

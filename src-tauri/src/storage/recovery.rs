@@ -87,6 +87,7 @@ impl ConversationStore {
                 latest_automatic_backup_at_ms: None,
             });
         }
+        // An unreadable folder shows as no snapshots here; startup records why via the folder warning (#228).
         let backups = self.valid_automatic_backups().unwrap_or_default();
         Ok(StorageRecoveryStatus {
             state: StorageRecoveryState::RecoveryRequired,
@@ -228,7 +229,9 @@ impl ConversationStore {
         if !directory.exists() {
             return Ok(Vec::new());
         }
+        // Unreadable entries are skipped here; `automatic_backup_folder_warning` reports them at every startup.
         let mut backups = managed_backups(&directory)?
+            .backups
             .into_iter()
             .filter(|backup| validate_restore_source(&backup.path).is_ok())
             .map(|backup| (backup.timestamp_ms, backup.path))

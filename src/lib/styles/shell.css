@@ -464,6 +464,9 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.export-feedback.warning {
+  color: #e7b47f;
+}
 .export-feedback.error {
   color: #e79a9a;
 }

@@ -465,6 +465,8 @@ fn retains_seven_automatic_backups_without_pruning_other_files() {
     let safety_copy = live_path.with_file_name("bottie-pre-restore-keep.sqlite3");
     fs::write(&unrelated, b"not managed by rotation").expect("unrelated file should be created");
     fs::write(&safety_copy, b"separate safety copy").expect("safety copy should be created");
+    fs::create_dir(backup_directory.join("nested-folder"))
+        .expect("nested folder should be created");
 
     let mut final_outcome = None;
     for day in 1..=ROTATIONS {
@@ -478,6 +480,8 @@ fn retains_seven_automatic_backups_without_pruning_other_files() {
     let outcome = final_outcome.expect("rotation should produce an outcome");
     let paths = automatic_backup_paths(&live_path);
     assert!(outcome.created);
+    // Folders and unmanaged files are read normally, so they must not raise the unreadable warning.
+    assert_eq!(store.automatic_backup_folder_warning(), None);
     assert_eq!(outcome.retained, 7);
     assert_eq!(outcome.pruned, 1);
     assert_eq!(paths.len(), 7);

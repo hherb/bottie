@@ -56,8 +56,9 @@ pub(crate) enum TransportError {
     InvalidExecutable,
     /// One or more configured process-I/O deadlines were zero.
     InvalidTimeout,
-    /// The trusted worker process could not be spawned.
-    SpawnFailed,
+    /// The trusted worker process could not be spawned; the kind (not found, permission denied, too many open
+    /// files, ...) is kept for diagnostics and carries no path.
+    SpawnFailed(std::io::ErrorKind),
     /// A required private pipe was not available after spawn.
     PipeUnavailable,
     /// The handshake did not finish within its fixed deadline.
@@ -215,7 +216,7 @@ impl WorkerTransport {
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             command.spawn()
         };
-        let mut child = spawned.map_err(|_| TransportError::SpawnFailed)?;
+        let mut child = spawned.map_err(|error| TransportError::SpawnFailed(error.kind()))?;
         let pipes = (child.stdin.take(), child.stdout.take(), child.stderr.take());
         let (Some(stdin), Some(stdout), Some(stderr)) = pipes else {
             return match timeout(timeouts.shutdown, child.kill()).await {

@@ -131,6 +131,19 @@ async fn rejects_relative_executables_and_zero_deadlines_before_spawn() {
 }
 
 #[tokio::test]
+async fn spawn_failure_keeps_its_io_error_kind() {
+    let missing =
+        std::env::temp_dir().join(format!("bottie-missing-worker-{}", uuid::Uuid::new_v4()));
+    let spec = WorkerProcessSpec::new(missing, Vec::new());
+    assert_eq!(
+        WorkerTransport::spawn_with_timeouts(spec, "0.9.0", test_timeouts())
+            .await
+            .unwrap_err(),
+        TransportError::SpawnFailed(std::io::ErrorKind::NotFound)
+    );
+}
+
+#[tokio::test]
 async fn fragmented_consecutive_handshake_frames_keep_one_worker_warm() {
     let mut transport = loaded_transport("fragmented").await;
     assert_eq!(transport.readiness(), WorkerReadiness::Loaded);
