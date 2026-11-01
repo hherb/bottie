@@ -26,7 +26,7 @@ const CHANGING_EXTENSION_FINAL_MS: u64 = 1_000;
 
 /// Stable reason one turn ended without the user pressing Stop.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub(crate) enum EndReason {
     /// The newest two partials were byte-identical, so local recognition has settled.
     StableTranscript,
