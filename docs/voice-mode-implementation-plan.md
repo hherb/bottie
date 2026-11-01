@@ -4,7 +4,7 @@ Written 2026-11-01 against commit `118dea43` (2026-10-31). This turns
 [`voice-mode-evaluation.md`](voice-mode-evaluation.md) and the measured engine decision in
 [`voice-mode-parts/tts-head-to-head.md`](voice-mode-parts/tts-head-to-head.md) into work against the modules Bottie has today.
 
-Status: plan, nothing implemented. The engine and endpointing decisions are made; the open questions are engineering
+Status: phase 0 in progress. 0.1–0.3 are implemented on branch `feat/voice-mode-phase0`; 0.4 (conversation controller and commands) and 0.5 (frontend) remain. The engine and endpointing decisions are made; the open questions are engineering
 and are listed per phase.
 
 ## 0. Phase map
@@ -271,9 +271,9 @@ fp32 weights** so the provenance chain and the Open RAIL-M notices are unambiguo
 
 | # | Task | Depends on | Size |
 | --- | --- | --- | --- |
-| 0.1 | `SpeakableReducer`, `Chunker`, `StreamingSpeechSession` + fake-sink tests (done 2026-11-01, branch `feat/voice-mode-phase0`) | — | M |
-| 0.2 | `EndPointer` + unit tests (module done 2026-11-01); capture auto-stop + status fields remain | 0.1 | M |
-| 0.3 | `impl SpeechSink for Arc<SpeechController>` + `ChannelSink` speech tap + generation wiring; needs `SpeechController` behind an `Arc` in `AppState` | 0.1 | M |
+| 0.1 | ~~`SpeakableReducer`, `Chunker`, `StreamingSpeechSession` + fake-sink tests~~ — done 2026-11-01 (`6cc386b`, `4783c11`) | — | M |
+| 0.2 | ~~`EndPointer` + unit tests + capture auto-stop + status fields~~ — done 2026-11-01 (`6cc386b`, `2e1b769`) | 0.1 | M |
+| 0.3 | ~~`impl SpeechSink for SpeechController`, `ChannelSink` speech tap, `voice::VoiceSpeech`, generation wiring, `Arc` controller in `AppState`~~ — done 2026-11-01 (`4a0eb0b`) | 0.1 | M |
 | 0.4 | `VoiceConversationController` + commands + admission/ordering rules | 0.2, 0.3 | M |
 | 0.5 | Frontend store + controls + auto-submit + interrupt | 0.4 | M |
 | 0.6 | Acceptance run: latency instrumentation, self-hearing test, five-turn script | 0.5 | S |
