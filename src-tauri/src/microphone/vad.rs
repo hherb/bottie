@@ -2,12 +2,14 @@
 
 use serde::Serialize;
 
-const FRAME_DURATION_MS: u32 = 20;
+pub(super) const FRAME_DURATION_MS: u32 = 20;
 const SPEECH_ONSET_FRAMES: u16 = 3;
 const SILENCE_RELEASE_FRAMES: u16 = 10;
 const SPEECH_RMS_THRESHOLD: f32 = 0.02;
 const SILENCE_RMS_THRESHOLD: f32 = 0.012;
 pub(super) const MAX_VOICE_SEGMENTS: usize = 512;
+/// One completed frame activity per 20 ms; the capture callback drains these immediately.
+pub(super) const MAX_PENDING_FRAME_ACTIVITIES: usize = 64;
 
 /// Stable activity classification safe to expose without detector internals.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -39,6 +41,7 @@ pub(super) struct VoiceActivityDetector {
     current_start_sample: usize,
     candidate: Option<ActivityCandidate>,
     segments: Vec<SampleSegment>,
+    frame_activities: Vec<VoiceActivity>,
 }
 
 struct ActivityCandidate {
@@ -73,6 +76,7 @@ impl VoiceActivityDetector {
             current_start_sample: 0,
             candidate: None,
             segments: Vec::new(),
+            frame_activities: Vec::new(),
         }
     }
 
@@ -111,7 +115,23 @@ impl VoiceActivityDetector {
         segments
     }
 
+    /// Drains the confirmed classification of every 20 ms frame completed since the last call.
+    ///
+    /// One entry is produced per completed frame, in order, so a caller can drive end-of-turn logic at the detector's
+    /// own cadence instead of at callback cadence. The trace is bounded and drops the newest frames (never queued
+    /// unboundedly) if a caller stops draining it.
+    pub(super) fn take_frame_activities(&mut self, activities: &mut Vec<VoiceActivity>) {
+        activities.append(&mut self.frame_activities);
+    }
+
     fn classify_frame(&mut self) {
+        self.classify_frame_inner();
+        if self.frame_activities.len() < MAX_PENDING_FRAME_ACTIVITIES {
+            self.frame_activities.push(self.activity);
+        }
+    }
+
+    fn classify_frame_inner(&mut self) {
         let rms = (self.frame_energy / self.frame_samples as f64).sqrt() as f32;
         let observed = match self.activity {
             VoiceActivity::Silence if rms >= SPEECH_RMS_THRESHOLD => VoiceActivity::Speech,

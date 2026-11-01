@@ -171,10 +171,12 @@ fn downmixes_pcm_and_reports_only_bounded_metadata() {
         [
             "channels",
             "durationMs",
+            "endpointReason",
             "errorCode",
             "inputLevel",
             "latency",
             "maxDurationMs",
+            "mode",
             "permission",
             "phase",
             "retainedByteSize",
@@ -491,4 +493,80 @@ fn discard_clears_every_retained_sample_and_permission_result() {
 
     assert_eq!(state.status(), MicrophoneController::default().status());
     assert!(state.status().voice_segments.is_empty());
+}
+
+/// 200 ms of deliberate speech at 16 kHz: enough frames to confirm the onset and a sustained speech run.
+fn confirm_speech(state: &mut CaptureState) {
+    state.append(&vec![0.5_f32; 3_200]);
+}
+
+/// One second of digital silence at 16 kHz: covers the release confirmation plus the hangover that follows the last
+/// confirmed speech frame.
+fn silence_hangover(state: &mut CaptureState) {
+    state.append(&vec![0.0_f32; 16_000]);
+}
+
+fn partial_transcript(state: &mut CaptureState, generation: u64, text: &str, now: Instant) {
+    state.apply_transcription_at(
+        state.capture_id,
+        generation,
+        false,
+        Ok(vec![RawTranscriptSegment {
+            text: text.into(),
+            start_ms: 0,
+            end_ms: 100,
+        }]),
+        now,
+    );
+}
+
+#[test]
+fn conversation_capture_latches_terminal_punctuation_as_its_own_end_of_turn() {
+    let now = Instant::now();
+    let mut state = CaptureState::default();
+    state.mode = MicrophoneMode::Conversation;
+    state.begin_recording(16_000, 1);
+    confirm_speech(&mut state);
+    partial_transcript(&mut state, 1, "are you there?", now);
+    assert_eq!(state.endpoint_finished(), None);
+
+    silence_hangover(&mut state);
+
+    assert_eq!(
+        state.endpoint_finished(),
+        Some(EndReason::TerminalPunctuation)
+    );
+    let status = state.status();
+    assert_eq!(status.mode, MicrophoneMode::Conversation);
+    assert_eq!(status.endpoint_reason, Some(EndReason::TerminalPunctuation));
+}
+
+#[test]
+fn a_stable_partial_transcript_ends_the_turn_at_the_hangover() {
+    let now = Instant::now();
+    let mut state = CaptureState::default();
+    state.mode = MicrophoneMode::Conversation;
+    state.begin_recording(16_000, 1);
+    confirm_speech(&mut state);
+    partial_transcript(&mut state, 1, "hello there", now);
+    partial_transcript(&mut state, 2, "hello there", now);
+
+    silence_hangover(&mut state);
+
+    assert_eq!(state.endpoint_finished(), Some(EndReason::StableTranscript));
+}
+
+#[test]
+fn push_to_talk_capture_never_ends_itself() {
+    let now = Instant::now();
+    let mut state = CaptureState::default();
+    state.begin_recording(16_000, 1);
+    confirm_speech(&mut state);
+    partial_transcript(&mut state, 1, "are you there?", now);
+    silence_hangover(&mut state);
+    state.append(&vec![0.0_f32; 16_000]);
+
+    assert_eq!(state.endpoint_finished(), None);
+    assert_eq!(state.status().endpoint_reason, None);
+    assert_eq!(state.status().mode, MicrophoneMode::PushToTalk);
 }

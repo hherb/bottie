@@ -15,6 +15,8 @@
 
 use std::time::Instant;
 
+use serde::Serialize;
+
 use super::vad::VoiceActivity;
 
 /// Silence deadline used while the transcript is still changing, first extension.
@@ -23,7 +25,8 @@ const CHANGING_EXTENSION_MS: u64 = 750;
 const CHANGING_EXTENSION_FINAL_MS: u64 = 1_000;
 
 /// Stable reason one turn ended without the user pressing Stop.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub(super) enum EndReason {
     /// The newest two partials were byte-identical, so local recognition has settled.
     StableTranscript,
@@ -90,6 +93,12 @@ pub(super) struct EndPointer {
     transcript_stable: bool,
     saw_transcript: bool,
     finished: Option<EndReason>,
+}
+
+impl Default for EndPointer {
+    fn default() -> Self {
+        Self::new(EndpointConfig::default())
+    }
 }
 
 impl EndPointer {
@@ -163,6 +172,11 @@ impl EndPointer {
         self.saw_transcript |= !text.trim().is_empty();
         self.transcript = Some(text.to_owned());
         self.evaluate(now)
+    }
+
+    /// Reports the latched end-of-turn reason, if this turn has already finished.
+    pub(super) fn finished(&self) -> Option<EndReason> {
+        self.finished
     }
 
     /// Clears every decision and returns this machine to idle.
