@@ -89,6 +89,7 @@ pub(super) struct EndPointer {
     transcript: Option<String>,
     transcript_stable: bool,
     saw_transcript: bool,
+    finished: Option<EndReason>,
 }
 
 impl EndPointer {
@@ -104,6 +105,7 @@ impl EndPointer {
             transcript: None,
             transcript_stable: false,
             saw_transcript: false,
+            finished: None,
         }
     }
 
@@ -130,6 +132,9 @@ impl EndPointer {
         if !self.armed {
             return EndpointDecision::Continue;
         }
+        if let Some(reason) = self.finished {
+            return EndpointDecision::End { reason };
+        }
         match activity {
             VoiceActivity::Speech => self.on_speech_frame(now),
             VoiceActivity::Silence => {
@@ -147,6 +152,9 @@ impl EndPointer {
     pub(super) fn on_transcript(&mut self, now: Instant, text: &str) -> EndpointDecision {
         if !self.armed {
             return EndpointDecision::Continue;
+        }
+        if let Some(reason) = self.finished {
+            return EndpointDecision::End { reason };
         }
         self.transcript_stable = self
             .transcript
@@ -176,8 +184,20 @@ impl EndPointer {
         EndpointDecision::Continue
     }
 
-    /// Evaluates every timer against the newest confirmed speech frame.
+    /// Latches the first end-of-turn decision so later frames cannot reopen a finished turn.
+    ///
+    /// The wiring calls this machine until it reports `End`; without the latch a transcript that arrives during the
+    /// same hangover window could pull the caller back to `Continue` and delay the turn. Re-arming clears the latch.
     fn evaluate(&mut self, now: Instant) -> EndpointDecision {
+        let decision = self.evaluate_inner(now);
+        if let EndpointDecision::End { reason } = decision {
+            self.finished = Some(reason);
+        }
+        decision
+    }
+
+    /// Evaluates every timer against the newest confirmed speech frame.
+    fn evaluate_inner(&mut self, now: Instant) -> EndpointDecision {
         let Some(last_speech_at) = self.last_speech_at else {
             return EndpointDecision::Continue;
         };
@@ -253,6 +273,7 @@ impl EndPointer {
         self.transcript = None;
         self.transcript_stable = false;
         self.saw_transcript = false;
+        self.finished = None;
     }
 }
 
@@ -303,6 +324,35 @@ mod tests {
 
     fn silence(pointer: &mut EndPointer, now: Instant) -> EndpointDecision {
         pointer.on_activity(now, VoiceActivity::Silence)
+    }
+
+    #[test]
+    fn first_end_is_final_and_later_input_repeats_it() {
+        let base = clock();
+        let mut pointer = armed_pointer(base);
+        confirm_speech(&mut pointer, base);
+        assert_eq!(
+            pointer.on_transcript(at(base, 100), "are you there?"),
+            EndpointDecision::Continue
+        );
+        let ended = end(EndReason::TerminalPunctuation);
+        assert_eq!(silence(&mut pointer, at(base, 540)), ended);
+        // Later frames, a new speech run, and a changed transcript all keep the latched decision.
+        assert_eq!(silence(&mut pointer, at(base, 3_000)), ended);
+        assert_eq!(
+            pointer.on_activity(at(base, 3_020), VoiceActivity::Speech),
+            ended
+        );
+        assert_eq!(
+            pointer.on_transcript(at(base, 3_040), "different text"),
+            ended
+        );
+        // A new turn is the only thing that reopens the machine.
+        pointer.armed(at(base, 4_000));
+        assert_eq!(
+            silence(&mut pointer, at(base, 4_100)),
+            EndpointDecision::Continue
+        );
     }
 
     #[test]
