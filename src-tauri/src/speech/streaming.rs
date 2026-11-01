@@ -7,6 +7,7 @@
 
 #![cfg_attr(not(test), allow(dead_code))]
 
+use serde::Serialize;
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex, MutexGuard, mpsc},
@@ -28,7 +29,8 @@ const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(20);
 const IDLE_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Path-free progress vocabulary for one streamed reply.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum SessionProgress {
     /// No streamed speech has been requested.
     Idle,

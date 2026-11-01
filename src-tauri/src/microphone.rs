@@ -5,7 +5,7 @@ mod buffer;
 mod capture;
 mod correction;
 mod devices;
-mod endpointing;
+pub(crate) mod endpointing;
 pub(crate) mod latency;
 mod transcription;
 mod vad;
@@ -197,6 +197,16 @@ impl MicrophoneController {
     /// Returns the current path-free capture state.
     pub(crate) fn status(&self) -> MicrophoneStatus {
         lock(&self.shared).status()
+    }
+
+    /// Reports the latched end-of-turn reason for conversation capture, if the turn has finished.
+    pub(crate) fn endpoint_reason(&self) -> Option<EndReason> {
+        lock(&self.shared).endpoint_finished()
+    }
+
+    /// Reports whether the last capture attempt failed and no input is open.
+    pub(crate) fn failed(&self) -> bool {
+        lock(&self.shared).phase == MicrophonePhase::Error
     }
 
     /// Reports whether native input is starting or actively recording.

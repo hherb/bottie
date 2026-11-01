@@ -315,6 +315,8 @@ pub(crate) async fn start_chat(
 
     let diagnostics = state.diagnostics.clone();
     let voice_speech = state.voice_speech.clone();
+    let voice_conversation = state.voice_conversation.clone();
+    let speech = state.speech.clone();
     let conversations = state.conversations.clone();
     let semantic_indexing = state.semantic_indexing.clone();
     let python_approval = state.python_approval.clone();
@@ -338,11 +340,18 @@ pub(crate) async fn start_chat(
             provider_id: provider.provider_id().into(),
             model_id: request.model_id.clone(),
         });
+        let speech_session = if voice_conversation.take_pending_reply()
+            && voice_conversation.adopt_reply(&task_run_id, &speech)
+        {
+            voice_speech.session_for(&task_run_id)
+        } else {
+            None
+        };
         let sink = ChannelSink {
             run_id: task_run_id.clone(),
             channel: on_event.clone(),
             conversations: conversations.clone(),
-            speech: voice_speech.session_for(&task_run_id),
+            speech: speech_session,
         };
         let query_embedder = semantic_indexing.query_embedder();
         let generation = async {
@@ -445,6 +454,7 @@ pub(crate) async fn start_chat(
                 .await;
             }
         }
+        voice_conversation.finish_reply();
         voice_speech.finish_run(&task_run_id);
         semantic_indexing.wake();
     });

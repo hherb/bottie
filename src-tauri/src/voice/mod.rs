@@ -4,10 +4,14 @@
 //! session that speaks the matching run, and `ChannelSink` feeds that session's reducer from the token stream. Keeping
 //! the lifecycle here means the generation path stays unaware of voices: it only asks "is this run spoken?".
 //!
-//! Phase 0.3 wires only `session_for` and `finish_run` into generation; `begin`, `interrupt`, and `progress` are used
-//! by the phase 0.4 controller, so unused-item noise is silenced for non-test builds until then.
+//! `VoiceSpeech` is the phase-0.3 half of that bridge and `VoiceConversation` is the phase-0.4 state machine the Tauri
+//! commands drive. The conversation phase lives in its own module; this module owns the speech session lifecycle.
 
 #![cfg_attr(not(test), allow(dead_code))]
+
+mod conversation;
+
+pub(crate) use conversation::{VoiceCommandError, VoiceConversation, VoiceConversationStatus};
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
