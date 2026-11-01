@@ -11,7 +11,7 @@ and are listed per phase.
 
 | Phase | Ships | Engine/deps | Blocked on |
 | --- | --- | --- | --- |
-| **0** | Hands-free half-duplex conversation: explicit **Start conversation**, automatic end-of-turn, transcript auto-submitted, reply spoken sentence-by-sentence while it streams, explicit **Interrupt** | none — existing OS/Nano speech backends | nothing; starts with the speech-controller concurrency fix below |
+| **0** | Hands-free half-duplex conversation: explicit **Start conversation**, automatic end-of-turn, transcript auto-submitted, reply spoken sentence-by-sentence while it streams, explicit **Interrupt** | none — existing OS/Nano speech backends | nothing; the pure primitives are already on `feat/voice-mode-phase0`, wiring is next |
 | 1 | Audio owner hardening: one long-lived output owner, resampling, duplex ring buffer, device-change recovery, measured output latency | `rubato`, `ringbuf` | phase 0 |
 | 2 | Endpointing upgrade: Silero VAD via `whisper-rs`'s `WhisperVadContext`, 1,000 ms ASR interval, optional `ggml-base-q5_1` | none (new pinned assets) | phase 0; asset contract |
 | 3 | Supertonic 3 engine: fp32 weights (owner-approved voice) through `sherpa-onnx`, clause chunker, first-audible target | `sherpa-onnx` + pinned weights | phase 1 for the PCM-owning path; packaging review |
@@ -53,10 +53,15 @@ Grounded in the current tree:
 
 Two facts force prerequisites:
 
-1. **`SpeechController::speak` holds the controller mutex across `backend.speak`, and the OS backend calls
-   `tts.speak(text, true)` (blocking).** Any `stop_speech`/`interrupt & record` arriving during OS playback waits on
-   that mutex, so today there is no bounded interrupt path for OS voices. Chunked streaming playback and the
-   ≤250 ms interrupt target both require moving the engine onto its own actor thread. **This is phase 0 task 1.**
+1. **Chunked playback is blocked by the backend's interrupt semantics, not by the controller lock** (corrected
+   2026-11-01 after reading the pinned crates). `tts` 0.26.3's `speak(text, interrupt: bool)` is non-blocking and the
+   bool means *interrupt*, not *block*; the controller lock is held only for the dispatch, so `stop` already reaches
+   `engine.stop()` during OS playback. What breaks streaming is that `SystemSpeechBackend` hardcodes
+   `speak(text, true)` — every chunk would cut off the previous one — and `NanoBackend::speak` returns
+   `PlaybackFailed` while its progress is not `Idle`, so Nano cannot queue a second chunk at all. The phase-0 fix is
+   therefore a **streaming session that waits for the engine to become idle between chunks** (implemented in
+   `speech/streaming.rs`), not an actor refactor. Reactor-shaped engine ownership remains a later option if
+   per-chunk idle polling proves too slow; the measured cost is one 20 ms poll gap between chunks at worst.
 2. **The capture/playback interlock is the anti-self-hearing guarantee.** `speak_text` fails with
    `MicrophoneActive`; capture stops playback first. A hands-free session must relax device *exclusion* into a
    *processing* gate — the input stream stays open, frames are dropped while Bottie speaks, and the gate lives in the
@@ -111,21 +116,18 @@ ends the turn empty (returns to `Listening`). Unit-testable with a fake clock, m
 partial-stability bucket, path-free), and call `conversation.note_transcript(...)` when a partial is applied so the
 stability gates can see it. Push-to-talk behaviour is untouched when the mode is `PushToTalk`.
 
-**`speech.rs` — engine actor (phase 0 task 1).** Move `Box<dyn SpeechBackend>` off the shared state into
-`SpeechActor` on its own thread, reachable by a bounded command channel:
+**`speech/streaming.rs` — the streaming driver (implemented 2026-11-01, inert until wired).** It plays chunks strictly
+in order through a narrow `SpeechSink` trait (`is_idle`/`speak`/`stop`), waiting for the engine to become idle before
+each chunk so neither the OS interrupt semantics nor Nano's busy rejection can cut a chunk off. The session owns one
+worker thread, a bounded command queue, and a `SessionProgress` state; interrupts are processed on the worker loop so
+they are never blocked behind a waiting chunk. The future `impl SpeechSink for Arc<SpeechController>` is the only
+controller-side addition this needs; engine ownership stays where it is.
 
-```rust
-enum SpeechCommand { Voices{reply}, Select{id,reply}, Speak{text, accepted}, Stop{ack}, IsSpeaking{reply} }
-```
+`SpeechController::speak` itself is unchanged, and its existing tests stand. If per-chunk idle polling ever costs too
+much first-audio time, the fallback is to add a queueing `speak_followup(text)` (OS backend calls
+`tts.speak(text, false)`) before considering an actor refactor.
 
-The controller keeps policy state (voice preference, phase, latency) but **never holds the mutex across playback**.
-`Speak` is accepted-and-returned (non-blocking) for every backend; completion is reported back to the controller as a
-message that flips phase to `idle`. `Stop` signals the actor and waits at most a bounded timeout for an ack, so a
-stuck engine cannot wedge the UI. This preserves the existing status/error vocabulary and command semantics while
-making interruption real. Existing `speech/tests.rs` fakes move to the actor model; add a test that a blocking fake
-`speak` cannot delay `stop` beyond the timeout.
-
-**New `src-tauri/src/speech/streaming.rs`**:
+`SpeakableReducer` and `Chunker` in the same file are pure and tested:
 
 - `SpeakableReducer` — a streaming-safe Markdown reduction that **never emits a link destination**, holds back
   unterminated constructs (`` ` ``, `[`…`](`, `**`, fences), and clamps its buffer (8 KiB) by flushing at the last
@@ -186,12 +188,12 @@ Ordering rules, written down because they are the bug surface:
 
 ### 2.4 Tests
 
-Rust: `EndPointer` table tests with fake clocks (including "no transcript yet", "still changing", "punctuation",
-"empty turn"); `SpeakableReducer` Markdown cases (link destinations never emitted, fences, partial emphasis, overflow
-flush); `Chunker` boundary tests (never split a word, first chunk ≤4 words); speech actor tests (blocking engine
-cannot delay stop past the timeout; commands remain ordered); `ChannelSink` test that a `text_delta` reaches both the
-checkpoint and the speech session; capture-loop test with the fake clock for auto-stop; a self-hearing test asserting
-zero decoded frames while state is `Speaking`.
+Rust: `EndPointer` table tests with fake clocks (done: twelve tests including "no transcript yet", "still changing",
+"punctuation", "empty turn", hard-cap-versus-late-transcript); `SpeakableReducer` Markdown cases (done: link
+destinations never emitted, fences, unterminated link); `Chunker` tests (done: short first chunk, order-preserving,
+no word split); `StreamingSpeechSession` tests (done: in-order drain, interrupt, failure); `ChannelSink` test that a
+`text_delta` reaches both the checkpoint and the speech session; capture-loop test with the fake clock for auto-stop;
+a self-hearing test asserting zero decoded frames while state is `Speaking`.
 
 Frontend: store tests for the turn cycle (listen → captured → submit → thinking → speaking → listen), interrupt
 ordering, and "Send is not called while capture is active"; existing `MicrophoneControl` tests extended for the new
@@ -204,7 +206,7 @@ mode.
 - Final transcript produced ≤ 1.0 s after end of speech with the phase-0 policy (instrumented; today's interval would
   be ~1.5 s, so this may need the phase-2 interval change pulled forward — measure before promising).
 - Speech starts on the first finished sentence while the reply is still generating; no second `speak_text` call.
-- Interrupt: user action → silence ≤ 250 ms, with the bounded-ack actor.
+- Interrupt: user action → silence ≤ 250 ms, measured through the streaming session's interrupt path.
 - Self-hearing: zero frames decoded while speaking, and the UI says the mic is muted.
 - All existing microphone/speech tests plus the new ones green; no source path or PCM crosses IPC.
 
@@ -269,9 +271,9 @@ fp32 weights** so the provenance chain and the Open RAIL-M notices are unambiguo
 
 | # | Task | Depends on | Size |
 | --- | --- | --- | --- |
-| 0.1 | Speech engine actor refactor + bounded stop (fixes the interrupt path) | — | M |
-| 0.2 | `EndPointer` + capture auto-stop + status fields + tests | 0.1 | M |
-| 0.3 | `SpeakableReducer`, `Chunker`, `StreamingSpeechSession`, `SpeechTap`; `ChannelSink` wiring | 0.1 | M |
+| 0.1 | `SpeakableReducer`, `Chunker`, `StreamingSpeechSession` + fake-sink tests (done 2026-11-01, branch `feat/voice-mode-phase0`) | — | M |
+| 0.2 | `EndPointer` + unit tests (module done 2026-11-01); capture auto-stop + status fields remain | 0.1 | M |
+| 0.3 | `impl SpeechSink for Arc<SpeechController>` + `ChannelSink` speech tap + generation wiring; needs `SpeechController` behind an `Arc` in `AppState` | 0.1 | M |
 | 0.4 | `VoiceConversationController` + commands + admission/ordering rules | 0.2, 0.3 | M |
 | 0.5 | Frontend store + controls + auto-submit + interrupt | 0.4 | M |
 | 0.6 | Acceptance run: latency instrumentation, self-hearing test, five-turn script | 0.5 | S |
@@ -290,7 +292,8 @@ Sizes are relative (S ≤ a day, M ≈ 2–4 days, L ≈ 1–2 weeks) for one en
 
 | Risk | Where it bites | Mitigation |
 | --- | --- | --- |
-| Blocking speech mutex makes interrupt/streaming impossible | 0.1 prerequisite | actor refactor first, bounded stop ack, test with a blocking fake |
+| Per-chunk idle polling inserts a gap between chunks | 0.3 playback | one 20 ms poll at worst in phase 0; phase 1's audio owner removes the gap, and a queueing `speak_followup` is the fallback |
+| Chunked playback cuts off the previous chunk | 0.3 | session waits for idle before each chunk; OS backend's interrupt semantics never see two chunks in flight |
 | Mic-gate leak transcribes Bottie's own speech | 0.4/0.6 | gate inside the audio callback, zero-delivery test, UI states the mic is muted |
 | Provider token rate makes "first sentence" slow | 0.3/0.6 | measure end-to-end; first chunk is a short clause, so a slow provider only delays that clause |
 | `sherpa-onnx-sys` build-time native download is a supply-chain hole | 3.2 | pin the archive digest or vendor it; codesign the bundled dylib; verify on all four targets |
