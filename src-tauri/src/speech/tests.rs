@@ -368,3 +368,24 @@ impl SpeechBackend for RecordingBackend {
         Ok(record.speaking)
     }
 }
+
+#[test]
+fn streaming_speak_fails_closed_while_the_microphone_gate_is_set() {
+    let backend = RecordingBackend::default();
+    let record = backend.record.clone();
+    let controller = std::sync::Arc::new(SpeechController::with_backend(Box::new(backend)));
+
+    controller.set_microphone_gate(true);
+    assert_eq!(
+        streaming::SpeechSink::speak(controller.as_ref(), "blocked"),
+        Err(())
+    );
+    assert!(record.lock().unwrap().spoken.is_empty());
+
+    controller.set_microphone_gate(false);
+    assert_eq!(
+        streaming::SpeechSink::speak(controller.as_ref(), "allowed"),
+        Ok(())
+    );
+    assert_eq!(record.lock().unwrap().spoken, vec!["allowed"]);
+}

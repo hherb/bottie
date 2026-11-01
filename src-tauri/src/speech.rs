@@ -1,7 +1,10 @@
 //! Bounded Rust-owned local text-to-speech orchestration.
 
 use std::{
-    sync::{Mutex, MutexGuard},
+    sync::{
+        Mutex, MutexGuard,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Instant,
 };
 
@@ -110,6 +113,8 @@ pub(crate) trait SpeechBackend: Send {
 /// Process-lifetime owner for one local speech engine with a durable opaque selection.
 pub(crate) struct SpeechController {
     shared: Mutex<SpeechState>,
+    /// Set while native capture owns the input device; streamed chunks fail closed instead of speaking over it.
+    microphone_gate: AtomicBool,
 }
 
 struct SpeechState {
@@ -129,6 +134,7 @@ impl Default for SpeechController {
     fn default() -> Self {
         Self {
             shared: Mutex::new(SpeechState::default()),
+            microphone_gate: AtomicBool::new(false),
         }
     }
 }
@@ -162,6 +168,7 @@ impl SpeechController {
                 app_data: Some(app_data),
                 ..SpeechState::default()
             }),
+            microphone_gate: AtomicBool::new(false),
         }
     }
 
@@ -171,6 +178,16 @@ impl SpeechController {
         let mut state = lock(&self.shared);
         state.refresh_playback();
         state.playback_may_be_active
+    }
+
+    /// Prevents streamed playback chunks from starting while native capture owns the input device.
+    pub(crate) fn set_microphone_gate(&self, muted: bool) {
+        self.microphone_gate.store(muted, Ordering::SeqCst);
+    }
+
+    /// Reports whether capture currently blocks new streamed playback chunks.
+    pub(crate) fn microphone_gate(&self) -> bool {
+        self.microphone_gate.load(Ordering::SeqCst)
     }
 
     /// Returns the current state and refreshes only the engine's speaking flag.
@@ -296,6 +313,7 @@ impl SpeechController {
                 preferred_voice_id,
                 ..SpeechState::default()
             }),
+            microphone_gate: AtomicBool::new(false),
         }
     }
 }
@@ -410,6 +428,9 @@ impl streaming::SpeechSink for SpeechController {
     }
 
     fn speak(&self, text: &str) -> Result<(), ()> {
+        if self.microphone_gate() {
+            return Err(());
+        }
         SpeechController::speak(self, text)
             .map(|_| ())
             .map_err(|_| ())

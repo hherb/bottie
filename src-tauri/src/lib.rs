@@ -587,18 +587,21 @@ async fn start_microphone_capture(
     cancel_all_chats(&state.runs).await;
     state.image_runs.cancel_active().await;
     state.speech.stop_before_microphone_capture()?;
+    state.speech.set_microphone_gate(true);
     Ok(state.microphone.start())
 }
 
 #[tauri::command]
 /// Stops native capture while retaining only its bounded in-memory PCM buffer.
 fn stop_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
+    state.speech.set_microphone_gate(false);
     state.microphone.stop()
 }
 
 #[tauri::command]
 /// Discards the current native PCM buffer without persisting or forwarding it.
 fn discard_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
+    state.speech.set_microphone_gate(false);
     state.microphone.discard()
 }
 
@@ -657,6 +660,7 @@ async fn speak_text(
     if state.microphone.is_capturing() {
         return Err(SpeechCommandError::MicrophoneActive);
     }
+    state.speech.set_microphone_gate(false);
     state.speech.speak(&text)
 }
 
@@ -675,9 +679,12 @@ async fn start_voice_conversation(
     cancel_all_chats(&state.runs).await;
     state.image_runs.cancel_active().await;
     state.speech.stop_before_microphone_capture()?;
+    state.speech.set_microphone_gate(true);
     state.voice_conversation.started();
+    state.microphone.start_conversation();
     if state.microphone.failed() {
         state.voice_conversation.ended();
+        state.speech.set_microphone_gate(false);
         return Err(VoiceCommandError::SpeechUnavailable);
     }
     Ok(voice_conversation_status(&state))
@@ -693,8 +700,11 @@ async fn resume_voice_listening(
     }
     let _voice_guard = state.voice_interaction.lock().await;
     state.speech.stop_before_microphone_capture()?;
+    state.speech.set_microphone_gate(true);
+    state.microphone.start_conversation();
     if state.microphone.failed() {
         state.voice_conversation.ended();
+        state.speech.set_microphone_gate(false);
         return Err(VoiceCommandError::SpeechUnavailable);
     }
     state.voice_conversation.listening();
@@ -706,7 +716,12 @@ async fn resume_voice_listening(
 fn arm_voice_reply(
     state: State<'_, AppState>,
 ) -> Result<VoiceConversationStatus, VoiceCommandError> {
+    if state.microphone.is_capturing() {
+        return Err(VoiceCommandError::CaptureActive);
+    }
     state.voice_conversation.arm_reply()?;
+    // The turn's capture is closed, so streamed chunks may speak again.
+    state.speech.set_microphone_gate(false);
     Ok(voice_conversation_status(&state))
 }
 
@@ -722,8 +737,11 @@ async fn interrupt_voice_turn(
     state.speech.stop_before_microphone_capture()?;
     cancel_all_chats(&state.runs).await;
     state.voice_conversation.interrupted();
+    state.speech.set_microphone_gate(true);
+    state.microphone.start_conversation();
     if state.microphone.failed() {
         state.voice_conversation.ended();
+        state.speech.set_microphone_gate(false);
         return Err(VoiceCommandError::SpeechUnavailable);
     }
     Ok(voice_conversation_status(&state))
@@ -738,6 +756,7 @@ async fn end_voice_conversation(
     let _ = state.speech.stop();
     cancel_all_chats(&state.runs).await;
     let _ = state.microphone.stop();
+    state.speech.set_microphone_gate(false);
     state.voice_conversation.ended();
     Ok(voice_conversation_status(&state))
 }

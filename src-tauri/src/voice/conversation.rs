@@ -44,6 +44,8 @@ pub(crate) struct VoiceConversationStatus {
 pub(crate) enum VoiceCommandError {
     /// The requested action only applies while a conversation session is active.
     NotActive,
+    /// The turn's capture is still open, so the reply cannot be armed yet.
+    CaptureActive,
     /// No local speech engine or voice is available for this session.
     SpeechUnavailable,
     /// The local speech engine failed without exposing backend detail.
@@ -111,6 +113,18 @@ impl VoiceConversation {
             state.phase = VoicePhase::Listening;
             // A stale "speak the next reply" intent must not survive a re-arm.
             state.pending_reply = false;
+        }
+    }
+
+    /// Restores listening after a submit failed before a reply was ever dispatched.
+    ///
+    /// Generation consumes the pending intent at entry; an early error (routing, validation, a store failure) would
+    /// otherwise leave the session stuck in `thinking`.
+    pub(crate) fn reply_not_started(&self) {
+        let mut state = lock(&self.state);
+        state.pending_reply = false;
+        if state.phase == VoicePhase::Thinking {
+            state.phase = VoicePhase::Listening;
         }
     }
 
@@ -294,6 +308,18 @@ mod tests {
         assert_eq!(status.phase, VoicePhase::Listening);
         assert!(!status.pending_reply);
         assert!(status.active);
+    }
+
+    #[test]
+    fn a_reply_that_never_dispatches_restores_listening() {
+        let (conversation, _speech) = conversation();
+        conversation.started();
+        conversation.arm_reply().unwrap();
+        assert!(conversation.take_pending_reply());
+        conversation.reply_not_started();
+        let status = conversation.status(None);
+        assert_eq!(status.phase, VoicePhase::Listening);
+        assert!(!status.pending_reply);
     }
 
     #[test]
