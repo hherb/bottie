@@ -44,6 +44,7 @@ mod tool_loop;
 mod tool_policy;
 #[cfg(desktop)]
 mod updater;
+mod voice;
 mod web_fetch;
 mod web_policy;
 pub mod web_search;
@@ -180,6 +181,7 @@ use storage_commands::{
 };
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
+use voice::VoiceSpeech;
 use web_search_commands::test_web_search_connection;
 
 struct AppState {
@@ -188,7 +190,8 @@ struct AppState {
     local_audio_preferences: Mutex<LocalAudioPreferenceStore>,
     localmail_config_path: PathBuf,
     microphone: MicrophoneController,
-    speech: SpeechController,
+    speech: Arc<SpeechController>,
+    voice_speech: Arc<VoiceSpeech>,
     python_approval: Arc<PythonApprovalController>,
     python_runtime: Option<PythonRuntimeState>,
     runs: ActiveRuns,
@@ -982,10 +985,11 @@ pub fn run() {
                     speech_model_cache_path,
                     remembered_microphone,
                 ),
-                speech: SpeechController::with_local_runtime(
+                speech: Arc::new(SpeechController::with_local_runtime(
                     remembered_voice,
                     app.path().app_data_dir()?,
-                ),
+                )),
+                voice_speech: Arc::new(VoiceSpeech::new()),
                 python_approval: Arc::new(PythonApprovalController::with_publisher(
                     app.handle().clone(),
                 )),

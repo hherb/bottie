@@ -29,7 +29,7 @@ const IDLE_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Path-free progress vocabulary for one streamed reply.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum SessionProgress {
+pub(crate) enum SessionProgress {
     /// No streamed speech has been requested.
     Idle,
     /// Text is accumulating but nothing is currently playing.
@@ -43,7 +43,7 @@ pub(super) enum SessionProgress {
 }
 
 /// The narrow synchronous speech surface a streaming session needs.
-pub(super) trait SpeechSink: Send + Sync {
+pub(crate) trait SpeechSink: Send + Sync {
     /// Reports whether the underlying engine is currently playing.
     fn is_idle(&self) -> Result<bool, ()>;
     /// Starts one chunk. Must accept the chunk without waiting for playback to finish.
@@ -233,7 +233,7 @@ impl Chunker {
 }
 
 /// Owns one background worker that plays chunks strictly in order.
-pub(super) struct StreamingSpeechSession {
+pub(crate) struct StreamingSpeechSession {
     commands: mpsc::SyncSender<SessionCommand>,
     progress: Arc<Mutex<SessionProgress>>,
     thread: Option<JoinHandle<()>>,
@@ -241,7 +241,7 @@ pub(super) struct StreamingSpeechSession {
 
 impl StreamingSpeechSession {
     /// Starts a worker for one reply. The sink is shared with the controller that observes playback.
-    pub(super) fn start(sink: Arc<dyn SpeechSink>) -> Result<Self, ()> {
+    pub(crate) fn start(sink: Arc<dyn SpeechSink>) -> Result<Self, ()> {
         let (commands, receiver) = mpsc::sync_channel(MAX_QUEUED_COMMANDS);
         let progress = Arc::new(Mutex::new(SessionProgress::Buffering));
         let shared = progress.clone();
@@ -257,26 +257,26 @@ impl StreamingSpeechSession {
     }
 
     /// Non-blocking push from the generation thread; a full queue fails closed instead of stalling.
-    pub(super) fn push_delta(&self, delta: &str) -> Result<(), ()> {
+    pub(crate) fn push_delta(&self, delta: &str) -> Result<(), ()> {
         self.commands
             .try_send(SessionCommand::Delta(delta.to_owned()))
             .map_err(|_| ())
     }
 
     /// Flushes remaining text and lets the worker drain playback before returning.
-    pub(super) fn end(&self) -> Result<(), ()> {
+    pub(crate) fn end(&self) -> Result<(), ()> {
         self.commands.send(SessionCommand::End).map_err(|_| ())
     }
 
     /// Interrupts playback; queued chunks are dropped and the engine is stopped.
-    pub(super) fn interrupt(&self) -> Result<(), ()> {
+    pub(crate) fn interrupt(&self) -> Result<(), ()> {
         self.commands
             .try_send(SessionCommand::Interrupt)
             .map_err(|_| ())
     }
 
     /// Reads only bounded actor state, never waiting for playback.
-    pub(super) fn progress(&self) -> SessionProgress {
+    pub(crate) fn progress(&self) -> SessionProgress {
         *lock(&self.progress)
     }
 }

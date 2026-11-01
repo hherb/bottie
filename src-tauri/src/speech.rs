@@ -9,7 +9,7 @@ use serde::Serialize;
 
 mod combined;
 mod nano;
-mod streaming;
+pub(crate) mod streaming;
 mod system;
 #[cfg(test)]
 mod tests;
@@ -99,7 +99,7 @@ pub(crate) struct SpeechLatency {
 }
 
 /// Narrow engine surface kept behind Bottie's controller for deterministic tests.
-trait SpeechBackend: Send {
+pub(crate) trait SpeechBackend: Send {
     fn voices(&mut self) -> Result<Vec<NativeSpeechVoice>, SpeechErrorCode>;
     fn set_voice(&mut self, voice_id: &str) -> Result<(), SpeechErrorCode>;
     fn speak(&mut self, text: &str) -> Result<(), SpeechErrorCode>;
@@ -281,7 +281,7 @@ impl SpeechController {
     }
 
     #[cfg(test)]
-    fn with_backend(backend: Box<dyn SpeechBackend>) -> Self {
+    pub(crate) fn with_backend(backend: Box<dyn SpeechBackend>) -> Self {
         Self::with_backend_and_preference(backend, None)
     }
 
@@ -403,10 +403,28 @@ impl SpeechState {
     }
 }
 
-struct NativeSpeechVoice {
-    id: String,
-    name: String,
-    language: String,
+/// The streaming session speaks through the same controller the commands use.
+impl streaming::SpeechSink for SpeechController {
+    fn is_idle(&self) -> Result<bool, ()> {
+        Ok(matches!(self.status().phase, SpeechPhase::Idle))
+    }
+
+    fn speak(&self, text: &str) -> Result<(), ()> {
+        SpeechController::speak(self, text)
+            .map(|_| ())
+            .map_err(|_| ())
+    }
+
+    fn stop(&self) -> Result<(), ()> {
+        let _ = SpeechController::stop(self);
+        Ok(())
+    }
+}
+
+pub(crate) struct NativeSpeechVoice {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) language: String,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
