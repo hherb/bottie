@@ -399,6 +399,9 @@
         microphoneDeviceListFailed={state.microphone.deviceListFailed}
         microphoneTranscriptDraftFeedback={state.microphoneTranscriptDraftFeedback}
         microphoneTranscriptDraftError={state.microphoneTranscriptDraftError}
+        voiceConversationStatus={state.voice.status}
+        voiceConversationError={state.voice.error}
+        voiceConversationFeedback={state.voiceFeedback}
         onprompt={(prompt) => (state.prompt = prompt)}
         oninput={() => state.interaction.resizeComposer()}
         onkeydown={(event) => state.handleComposerKeydown(event)}
@@ -426,6 +429,9 @@
         onloadmicrophonedevices={() => void state.microphone.loadDevices()}
         onselectmicrophonedevice={(token) => void state.microphone.selectDevice(token)}
         onusemicrophonetranscript={() => state.useMicrophoneTranscriptAsText()}
+        onstartvoiceconversation={() => void state.startVoiceConversation()}
+        onendvoiceconversation={() => void state.endVoiceConversation()}
+        oninterruptvoiceconversation={() => void state.interruptVoiceTurn()}
         oncomposerready={(element) => state.interaction.setComposer(element)}
         onattachmentinputready={(element) => state.attachment.setBrowserInput(element)}
       />

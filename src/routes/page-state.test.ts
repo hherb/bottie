@@ -152,7 +152,7 @@ describe("PageState image execution", () => {
     const state = new PageState();
     state.imageMode = true;
     const generateImage = vi.spyOn(state, "generateImage").mockResolvedValue();
-    const sendMessage = vi.spyOn(state, "sendMessage").mockResolvedValue();
+    const sendMessage = vi.spyOn(state, "sendMessage").mockResolvedValue(true);
     const event = {
       key: "Enter",
       shiftKey: false,

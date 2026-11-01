@@ -10,6 +10,12 @@
     type MicrophoneInputDeviceList,
     type MicrophoneStatus,
   } from "$lib/microphone";
+  import {
+    INITIAL_VOICE_CONVERSATION_STATUS,
+    voiceConversationFeedback,
+    voiceMicrophoneGateFeedback,
+    type VoiceConversationStatus,
+  } from "$lib/voice-conversation";
 
   let {
     status,
@@ -33,6 +39,12 @@
     onusetext,
     transcriptDraftFeedback,
     transcriptDraftError,
+    voiceStatus = INITIAL_VOICE_CONVERSATION_STATUS,
+    voiceError = null,
+    voiceFeedback = "",
+    onstartconversation = () => {},
+    onendconversation = () => {},
+    oninterruptconversation = () => {},
   }: {
     status: MicrophoneStatus;
     disabled: boolean;
@@ -55,6 +67,12 @@
     onusetext: () => void;
     transcriptDraftFeedback: string;
     transcriptDraftError: boolean;
+    voiceStatus?: VoiceConversationStatus;
+    voiceError?: string | null;
+    voiceFeedback?: string;
+    onstartconversation?: () => void;
+    onendconversation?: () => void;
+    oninterruptconversation?: () => void;
   } = $props();
 
   const busy = $derived(
@@ -72,10 +90,64 @@
       "last available choice is remembered on this device",
   );
   const transcriptCanBecomeText = $derived(canUseTranscriptAsText(status));
+  const conversationActive = $derived(voiceStatus.active);
+  const conversationFeedback = $derived(voiceConversationFeedback(voiceStatus));
+  const conversationGate = $derived(voiceMicrophoneGateFeedback(voiceStatus));
+  const conversationInterruptible = $derived(
+    voiceStatus.phase === "thinking" || voiceStatus.phase === "speaking" || voiceStatus.phase === "finalizing",
+  );
 </script>
 
+{#snippet feedback()}
+  {#if conversationActive}
+    <p class="voice-conversation-feedback" role="status" aria-live="polite">{conversationFeedback}</p>
+    {#if conversationGate}
+      <p class="voice-conversation-gate" role="status">{conversationGate}</p>
+    {/if}
+  {:else}
+    <p class:error={hasError} class="microphone-feedback" role={hasError ? "alert" : "status"}>
+      {microphoneFeedback(status)}
+    </p>
+  {/if}
+  {#if voiceError}
+    <p class="voice-conversation-error error" role="alert">{voiceError}</p>
+  {/if}
+  {#if voiceFeedback}
+    <p class="voice-conversation-note" role="status">{voiceFeedback}</p>
+  {/if}
+{/snippet}
+
 <div class="microphone-control">
-  {#if status.phase === "recording"}
+  {#if conversationActive}
+    <button
+      class="voice-action"
+      aria-label="End voice conversation"
+      disabled={disabled || voiceStatus.phase === "idle"}
+      onclick={onendconversation}
+    >
+      <Icon name="x" size={16} /><span>End conversation</span>
+    </button>
+    <button
+      class="voice-action interrupt"
+      aria-label="Interrupt Bottie's spoken reply"
+      disabled={disabled || !conversationInterruptible}
+      onclick={oninterruptconversation}
+    >
+      <span class="stop-square"></span><span>Interrupt</span>
+    </button>
+    {#if status.phase === "recording"}
+      <span
+        class="input-level"
+        role="progressbar"
+        aria-label="Microphone input level"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow={levelPercent}
+      >
+        <span style={`--input-level: ${levelPercent}%`}></span>
+      </span>
+    {/if}
+  {:else if status.phase === "recording"}
     <button class="voice-action recording" aria-label="Stop voice capture" onclick={onstop}>
       <span class="stop-square"></span><span>Stop</span>
     </button>
@@ -107,9 +179,17 @@
               : "Record voice"}</span
       >
     </button>
+    <button
+      class="voice-action conversation"
+      aria-label="Start a hands-free voice conversation"
+      disabled={disabled || busy}
+      onclick={onstartconversation}
+    >
+      <Icon name="speaker" size={16} /><span>Start conversation</span>
+    </button>
   {/if}
 
-  {#if status.phase === "captured" || status.phase === "error"}
+  {#if !conversationActive && (status.phase === "captured" || status.phase === "error")}
     <button class="discard-voice" aria-label="Discard voice capture" onclick={ondiscard}>
       <Icon name="trash" size={14} />
     </button>
@@ -120,7 +200,7 @@
       <select
         aria-label="Microphone input"
         value={deviceList.selectedToken}
-        disabled={disabled || busy}
+        disabled={disabled || busy || conversationActive}
         onchange={(event) => onselectdevice(event.currentTarget.value)}
       >
         {#if !deviceList.selectionAvailable}
@@ -133,25 +213,25 @@
       <button
         class="refresh-microphones"
         aria-label="Refresh microphone choices"
-        disabled={disabled || busy}
+        disabled={disabled || busy || conversationActive}
         onclick={onloaddevices}>Refresh</button
       >
     {:else}
       <button
         class="choose-microphone"
         aria-label="Choose microphone input"
-        disabled={disabled || busy}
+        disabled={disabled || busy || conversationActive}
         onclick={onloaddevices}>Choose microphone</button
       >
     {/if}
   </div>
 </div>
 
-<p class:error={hasError} class="microphone-feedback" role={hasError ? "alert" : "status"}>
-  {microphoneFeedback(status)}
-</p>
+{@render feedback()}
 
-{#if deviceListFailed}
+{#if conversationActive}
+  <!-- Conversation capture owns the device; push-to-talk notes stay hidden. -->
+{:else if deviceListFailed}
   <p class="microphone-device-note error" role="alert">
     Microphone choices could not be refreshed. Your current session selection is unchanged.
   </p>
@@ -167,11 +247,11 @@
   <p class="microphone-device-note" role="status">{deviceCountFeedback}</p>
 {/if}
 
-{#if latencyFeedback}
+{#if !conversationActive && latencyFeedback}
   <p class="voice-latency" aria-label="Local voice timing">{latencyFeedback}</p>
 {/if}
 
-{#if status.phase === "captured"}
+{#if !conversationActive && status.phase === "captured"}
   <div class="audio-delivery" aria-label="Recording delivery choices">
     <button
       class="audio-choice"
@@ -250,7 +330,7 @@
   </ol>
 {/if}
 
-{#if transcriptCanBecomeText}
+{#if !conversationActive && transcriptCanBecomeText}
   <div class="transcript-draft-action">
     <button aria-label="Use final transcript as an editable text draft" onclick={onusetext}>
       Use transcript as text
