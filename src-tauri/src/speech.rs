@@ -9,6 +9,7 @@ use serde::Serialize;
 
 mod combined;
 mod nano;
+mod streaming;
 mod system;
 #[cfg(test)]
 mod tests;

@@ -5,6 +5,7 @@ mod buffer;
 mod capture;
 mod correction;
 mod devices;
+mod endpointing;
 pub(crate) mod latency;
 mod transcription;
 mod vad;
