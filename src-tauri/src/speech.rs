@@ -10,6 +10,7 @@ use std::{
 
 use serde::Serialize;
 
+mod audio_owner;
 mod combined;
 mod nano;
 pub(crate) mod streaming;
@@ -99,6 +100,8 @@ pub(crate) struct SpeechStatus {
 pub(crate) struct SpeechLatency {
     /// Play request until the native engine accepts the utterance command.
     playback_accepted_ms: Option<u32>,
+    /// Device buffering measured for the current PCM playback, when a PCM engine reports it.
+    output_latency_ms: Option<u32>,
 }
 
 /// Narrow engine surface kept behind Bottie's controller for deterministic tests.
@@ -108,6 +111,10 @@ pub(crate) trait SpeechBackend: Send {
     fn speak(&mut self, text: &str) -> Result<(), SpeechErrorCode>;
     fn stop(&mut self) -> Result<(), SpeechErrorCode>;
     fn is_speaking(&mut self) -> Result<bool, SpeechErrorCode>;
+    /// Reports measured output-device latency for the current playback, when the engine owns PCM output.
+    fn output_latency_ms(&mut self) -> Option<u32> {
+        None
+    }
 }
 
 /// Process-lifetime owner for one local speech engine with a durable opaque selection.
@@ -323,19 +330,24 @@ impl SpeechState {
         if !self.playback_may_be_active {
             return;
         }
-        let speaking = self.backend.as_mut().map(|backend| backend.is_speaking());
-        match speaking {
-            Some(Ok(true)) => {
+        let observed = self
+            .backend
+            .as_mut()
+            .map(|backend| (backend.is_speaking(), backend.output_latency_ms()));
+        match observed {
+            Some((Ok(true), output_latency_ms)) => {
                 self.phase = SpeechPhase::Speaking;
                 self.error_code = None;
+                // Keep the accepted-playback measurement; add the device's own latency when a PCM engine reports it.
+                self.latency.output_latency_ms = output_latency_ms;
             }
-            Some(Ok(false)) => {
+            Some((Ok(false), _)) => {
                 self.playback_may_be_active = false;
                 self.phase = SpeechPhase::Idle;
                 self.error_code = None;
                 self.latency = SpeechLatency::default();
             }
-            Some(Err(code)) => self.fail(code),
+            Some((Err(code), _)) => self.fail(code),
             None => self.fail(SpeechErrorCode::Unavailable),
         }
     }
