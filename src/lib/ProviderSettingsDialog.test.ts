@@ -17,7 +17,7 @@ describe("ProviderSettingsDialog", () => {
             phase: "idle",
             selectedVoiceId: "voice.en-au",
             errorCode: null,
-            latency: { playbackAcceptedMs: null },
+            latency: { playbackAcceptedMs: null, outputLatencyMs: null },
           },
           selectVoice: vi.fn(),
         },

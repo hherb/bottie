@@ -35,7 +35,7 @@ export function applyVoicePreview(state: PageState, search: string): boolean {
         phase: "idle",
         selectedVoiceId: "local-voice-preview-2",
         errorCode: null,
-        latency: { playbackAcceptedMs: null },
+        latency: { playbackAcceptedMs: null, outputLatencyMs: null },
       },
     );
     return true;
@@ -64,7 +64,7 @@ export function applyVoicePreview(state: PageState, search: string): boolean {
         phase: "speaking",
         selectedVoiceId: "voice.en-au",
         errorCode: null,
-        latency: { playbackAcceptedMs: 14 },
+        latency: { playbackAcceptedMs: 14, outputLatencyMs: null },
       },
     );
     return true;

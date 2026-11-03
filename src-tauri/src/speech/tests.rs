@@ -157,7 +157,7 @@ fn reports_engine_acceptance_without_claiming_audible_output_and_clears_it_on_st
     assert_eq!(speaking.latency.playback_accepted_ms, Some(14));
     assert_eq!(
         serde_json::to_value(&speaking).unwrap()["latency"],
-        serde_json::json!({"playbackAcceptedMs": 14}),
+        serde_json::json!({"playbackAcceptedMs": 14, "outputLatencyMs": null}),
     );
 
     let stopped = controller.stop();
@@ -388,4 +388,46 @@ fn streaming_speak_fails_closed_while_the_microphone_gate_is_set() {
         Ok(())
     );
     assert_eq!(record.lock().unwrap().spoken, vec!["allowed"]);
+}
+
+/// Minimal PCM-engine fake whose measured output latency is visible through the controller status.
+struct LatencyBackend;
+
+impl SpeechBackend for LatencyBackend {
+    fn voices(&mut self) -> Result<Vec<NativeSpeechVoice>, SpeechErrorCode> {
+        Ok(vec![NativeSpeechVoice {
+            id: "voice.one".into(),
+            name: "One".into(),
+            language: "en".into(),
+        }])
+    }
+
+    fn set_voice(&mut self, _voice_id: &str) -> Result<(), SpeechErrorCode> {
+        Ok(())
+    }
+
+    fn speak(&mut self, _text: &str) -> Result<(), SpeechErrorCode> {
+        Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), SpeechErrorCode> {
+        Ok(())
+    }
+
+    fn is_speaking(&mut self) -> Result<bool, SpeechErrorCode> {
+        Ok(true)
+    }
+
+    fn output_latency_ms(&mut self) -> Option<u32> {
+        Some(17)
+    }
+}
+
+#[test]
+fn status_reports_measured_pcm_output_latency_while_speaking() {
+    let controller = SpeechController::with_backend(Box::new(LatencyBackend));
+    controller.speak("Read this locally.").unwrap();
+    let status = controller.status();
+    assert_eq!(status.phase, SpeechPhase::Speaking);
+    assert_eq!(status.latency.output_latency_ms, Some(17));
 }

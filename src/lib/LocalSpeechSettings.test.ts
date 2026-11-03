@@ -17,7 +17,7 @@ describe("optional Nano voices", () => {
             phase: "idle",
             selectedVoiceId: "local-voice-002",
             errorCode: null,
-            latency: { playbackAcceptedMs: null },
+            latency: { playbackAcceptedMs: null, outputLatencyMs: null },
           },
           selectVoice: vi.fn(),
         },

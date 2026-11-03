@@ -102,6 +102,11 @@ impl SpeechBackend for CombinedSpeechBackend {
     fn is_speaking(&mut self) -> Result<bool, SpeechErrorCode> {
         self.selected()?.is_speaking()
     }
+    fn output_latency_ms(&mut self) -> Option<u32> {
+        self.selected()
+            .ok()
+            .and_then(|backend| backend.output_latency_ms())
+    }
 }
 
 impl Drop for CombinedSpeechBackend {

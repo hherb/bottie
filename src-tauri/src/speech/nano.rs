@@ -1,7 +1,5 @@
 //! Optional offline MOSS-TTS-Nano inference and native PCM playback.
 
-mod buffer;
-mod playback;
 mod process;
 mod protocol;
 mod runtime;
@@ -85,6 +83,9 @@ impl SpeechBackend for NanoBackend {
             Some(Progress::Active) => Ok(true),
             _ => Ok(false),
         }
+    }
+    fn output_latency_ms(&mut self) -> Option<u32> {
+        self.service.as_ref()?.output_latency_ms()
     }
 }
 

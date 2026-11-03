@@ -111,7 +111,7 @@ describe.runIf(import.meta.env.MODE === "performance")("frontend performance bud
             phase: "idle",
             selectedVoiceId: null,
             errorCode: null,
-            latency: { playbackAcceptedMs: null },
+            latency: { playbackAcceptedMs: null, outputLatencyMs: null },
           },
           speakingMessageId: null,
           microphoneCapturing: false,
