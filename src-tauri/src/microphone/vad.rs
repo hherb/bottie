@@ -5,8 +5,18 @@ use serde::Serialize;
 pub(super) const FRAME_DURATION_MS: u32 = 20;
 const SPEECH_ONSET_FRAMES: u16 = 3;
 const SILENCE_RELEASE_FRAMES: u16 = 10;
-const SPEECH_RMS_THRESHOLD: f32 = 0.02;
-const SILENCE_RMS_THRESHOLD: f32 = 0.012;
+/// Quiet-room fallback thresholds. A built-in microphone with normal gain often produces speech RMS far below the
+/// old fixed 0.02, so the detector adapts to a tracked noise floor and only falls back to these when the room is quiet.
+const MIN_SPEECH_RMS: f32 = 0.003;
+const MIN_SILENCE_RMS: f32 = 0.0018;
+/// Speech has to stand this far above the tracked noise floor; released silence falls this far below it.
+const SPEECH_NOISE_RATIO: f32 = 3.0;
+const SILENCE_NOISE_RATIO: f32 = 1.8;
+/// Slow per-frame adaptation so a burst of speech cannot deafen the detector.
+const NOISE_FLOOR_ADAPTATION: f32 = 0.02;
+const MIN_NOISE_FLOOR_RMS: f32 = 0.0002;
+const MAX_NOISE_FLOOR_RMS: f32 = 0.02;
+const MAX_SPEECH_RMS: f32 = 0.2;
 pub(super) const MAX_VOICE_SEGMENTS: usize = 512;
 /// One completed frame activity per 20 ms; the capture callback drains these immediately.
 pub(super) const MAX_PENDING_FRAME_ACTIVITIES: usize = 64;
@@ -42,6 +52,8 @@ pub(super) struct VoiceActivityDetector {
     candidate: Option<ActivityCandidate>,
     segments: Vec<SampleSegment>,
     frame_activities: Vec<VoiceActivity>,
+    /// Slowly tracked ambient level used to scale the speech and silence thresholds.
+    noise_floor_rms: f32,
 }
 
 struct ActivityCandidate {
@@ -77,6 +89,7 @@ impl VoiceActivityDetector {
             candidate: None,
             segments: Vec::new(),
             frame_activities: Vec::new(),
+            noise_floor_rms: MIN_NOISE_FLOOR_RMS,
         }
     }
 
@@ -133,11 +146,25 @@ impl VoiceActivityDetector {
 
     fn classify_frame_inner(&mut self) {
         let rms = (self.frame_energy / self.frame_samples as f64).sqrt() as f32;
+        let noise_floor = self
+            .noise_floor_rms
+            .clamp(MIN_NOISE_FLOOR_RMS, MAX_NOISE_FLOOR_RMS);
+        let speech_threshold = (noise_floor * SPEECH_NOISE_RATIO)
+            .max(MIN_SPEECH_RMS)
+            .min(MAX_SPEECH_RMS);
+        let silence_threshold = (noise_floor * SILENCE_NOISE_RATIO)
+            .max(MIN_SILENCE_RMS)
+            .min(speech_threshold);
         let observed = match self.activity {
-            VoiceActivity::Silence if rms >= SPEECH_RMS_THRESHOLD => VoiceActivity::Speech,
-            VoiceActivity::Speech if rms <= SILENCE_RMS_THRESHOLD => VoiceActivity::Silence,
+            VoiceActivity::Silence if rms >= speech_threshold => VoiceActivity::Speech,
+            VoiceActivity::Speech if rms <= silence_threshold => VoiceActivity::Silence,
             activity => activity,
         };
+        if observed == VoiceActivity::Silence {
+            self.noise_floor_rms = (self.noise_floor_rms
+                + (rms - self.noise_floor_rms) * NOISE_FLOOR_ADAPTATION)
+                .clamp(MIN_NOISE_FLOOR_RMS, MAX_NOISE_FLOOR_RMS);
+        }
         if observed == self.activity {
             self.candidate = None;
             return;
@@ -198,4 +225,75 @@ fn samples_to_milliseconds(samples: usize, sample_rate_hz: u32) -> u64 {
     (samples as u64)
         .saturating_mul(1_000)
         .saturating_div(u64::from(sample_rate_hz.max(1)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const RATE: u32 = 48_000;
+
+    fn frame_sample_count() -> usize {
+        (RATE as usize * FRAME_DURATION_MS as usize) / 1_000
+    }
+
+    fn feed(detector: &mut VoiceActivityDetector, amplitude: f32, frames: usize) {
+        for _ in 0..frames {
+            for _ in 0..frame_sample_count() {
+                detector.push(amplitude);
+            }
+        }
+    }
+
+    #[test]
+    fn constant_silence_stays_silent() {
+        let mut detector = VoiceActivityDetector::new(RATE);
+        feed(&mut detector, 0.0, 50);
+        assert_eq!(detector.activity(), VoiceActivity::Silence);
+    }
+
+    #[test]
+    fn quiet_room_noise_is_not_speech() {
+        let mut detector = VoiceActivityDetector::new(RATE);
+        feed(&mut detector, 0.001, 30);
+        assert_eq!(detector.activity(), VoiceActivity::Silence);
+    }
+
+    #[test]
+    fn ordinary_speech_on_a_quiet_mic_confirms_after_the_onset_window() {
+        let mut detector = VoiceActivityDetector::new(RATE);
+        feed(&mut detector, 0.001, 20);
+        assert_eq!(detector.activity(), VoiceActivity::Silence);
+        feed(&mut detector, 0.01, 4);
+        assert_eq!(detector.activity(), VoiceActivity::Speech);
+    }
+
+    /// The old fixed 0.02 RMS threshold never fired on a built-in mic at normal gain; the adaptive floor must.
+    #[test]
+    fn quiet_speech_above_the_tracked_noise_floor_is_detected() {
+        let mut detector = VoiceActivityDetector::new(RATE);
+        feed(&mut detector, 0.0008, 30);
+        assert_eq!(detector.activity(), VoiceActivity::Silence);
+        feed(&mut detector, 0.004, 4);
+        assert_eq!(detector.activity(), VoiceActivity::Speech);
+    }
+
+    #[test]
+    fn release_still_requires_the_full_silence_window() {
+        let mut detector = VoiceActivityDetector::new(RATE);
+        feed(&mut detector, 0.01, 4);
+        assert_eq!(detector.activity(), VoiceActivity::Speech);
+        feed(&mut detector, 0.0, 9);
+        assert_eq!(detector.activity(), VoiceActivity::Speech);
+        feed(&mut detector, 0.0, 1);
+        assert_eq!(detector.activity(), VoiceActivity::Silence);
+    }
+
+    #[test]
+    fn the_noise_floor_is_bounded_so_a_loud_room_cannot_deafen_the_detector() {
+        let mut detector = VoiceActivityDetector::new(RATE);
+        feed(&mut detector, 0.03, 50);
+        let floor = detector.noise_floor_rms;
+        assert!((MIN_NOISE_FLOOR_RMS..=MAX_NOISE_FLOOR_RMS).contains(&floor));
+    }
 }
