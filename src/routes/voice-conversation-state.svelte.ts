@@ -111,7 +111,8 @@ export class VoiceConversationState {
       this.apply(await resumeVoiceListening());
       return true;
     } catch (error) {
-      this.fail(error);
+      // A reply that is still draining is not a failure; the next poll resumes once it settles.
+      if (voiceCommandErrorCode(error) !== "speech_active") this.fail(error);
       return false;
     } finally {
       this.busy = false;

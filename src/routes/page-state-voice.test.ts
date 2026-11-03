@@ -69,6 +69,15 @@ const IDLE_MICROPHONE: MicrophoneStatus = {
   latency: { inputReadyMs: null, firstTranscriptMs: null, finalTranscriptMs: null },
 };
 
+const RECORDING_MICROPHONE: MicrophoneStatus = {
+  ...IDLE_MICROPHONE,
+  phase: "recording",
+  permission: "granted",
+  transcriptionPhase: "listening",
+  inputLevel: 0.02,
+  voiceActivity: "silence",
+};
+
 const CAPTURED_TRANSCRIPT: MicrophoneStatus = {
   ...IDLE_MICROPHONE,
   phase: "captured",
@@ -100,7 +109,7 @@ describe("PageState voice conversation turns", () => {
     vi.clearAllMocks();
     runtime.isTauri = true;
     inference.startChat.mockResolvedValue({ runId: "voice-run" });
-    vi.mocked(getMicrophoneStatus).mockResolvedValue({ ...CAPTURED_TRANSCRIPT });
+    vi.mocked(getMicrophoneStatus).mockResolvedValue({ ...RECORDING_MICROPHONE });
     vi.mocked(startVoiceConversation).mockResolvedValue(LISTENING);
     vi.mocked(getVoiceConversationStatus).mockResolvedValue(LISTENING);
     vi.mocked(armVoiceReply).mockResolvedValue(THINKING);
@@ -145,7 +154,7 @@ describe("PageState voice conversation turns", () => {
       .mockResolvedValue({ conversationId: "conversation", requestMessageId: "request" });
 
     await state.startVoiceConversation();
-    state.microphone.status = { ...CAPTURED_TRANSCRIPT };
+    vi.mocked(getMicrophoneStatus).mockResolvedValue({ ...CAPTURED_TRANSCRIPT });
     await state.voice.refresh();
 
     await vi.waitFor(() => expect(armVoiceReply).toHaveBeenCalledOnce());
@@ -171,7 +180,7 @@ describe("PageState voice conversation turns", () => {
     state.microphone.status = { ...IDLE_MICROPHONE };
 
     await state.startVoiceConversation();
-    state.microphone.status = { ...CAPTURED_TRANSCRIPT };
+    vi.mocked(getMicrophoneStatus).mockResolvedValue({ ...CAPTURED_TRANSCRIPT });
     await state.voice.refresh();
 
     await vi.waitFor(() => expect(endVoiceConversation).toHaveBeenCalledOnce());
@@ -188,7 +197,7 @@ describe("PageState voice conversation turns", () => {
     vi.spyOn(state.history, "persistUserMessage").mockResolvedValue(null);
 
     await state.startVoiceConversation();
-    state.microphone.status = { ...CAPTURED_TRANSCRIPT };
+    vi.mocked(getMicrophoneStatus).mockResolvedValue({ ...CAPTURED_TRANSCRIPT });
     await state.voice.refresh();
 
     await vi.waitFor(() => expect(endVoiceConversation).toHaveBeenCalledOnce());
@@ -216,6 +225,7 @@ describe("PageState voice conversation turns", () => {
   it("resumes listening only after the spoken reply finished", async () => {
     vi.mocked(startVoiceConversation).mockResolvedValue(status({ phase: "speaking" }));
     vi.mocked(getVoiceConversationStatus).mockResolvedValue(status({ phase: "speaking" }));
+    vi.mocked(getMicrophoneStatus).mockResolvedValue({ ...IDLE_MICROPHONE });
     vi.mocked(resumeVoiceListening).mockResolvedValue(LISTENING);
     const state = readyPage();
 
@@ -240,7 +250,7 @@ describe("PageState voice conversation turns", () => {
     await state.startVoiceConversation();
     await state.startMicrophoneCapture();
 
-    expect(state.microphone.status.phase).toBe("idle");
+    expect(state.microphone.status.phase).toBe("recording");
     state.dispose();
   });
 });

@@ -25,7 +25,13 @@ export type VoiceConversationStatus = {
 
 /** Stable conversation command failures that are safe to show in the WebView. */
 export type VoiceCommandErrorCode =
-  "not_active" | "capture_active" | "speech_unavailable" | "speech_playback_failed" | "unavailable" | "command_failed";
+  | "not_active"
+  | "capture_active"
+  | "speech_active"
+  | "speech_unavailable"
+  | "speech_playback_failed"
+  | "unavailable"
+  | "command_failed";
 
 /** State before any conversation command has been issued. */
 export const INITIAL_VOICE_CONVERSATION_STATUS: VoiceConversationStatus = {
@@ -94,6 +100,20 @@ export function voiceConversationFeedback(status: VoiceConversationStatus): stri
   return "Bottie is speaking";
 }
 
+/**
+ * Describes what the open conversation microphone is hearing right now.
+ *
+ * Returns null unless the session is actively listening, so the page never claims live capture during thinking or
+ * speaking. This is presentation only; capture and endpointing stay native.
+ */
+export function voiceCaptureActivityFeedback(
+  status: VoiceConversationStatus,
+  activity: "speech" | "silence" | null,
+): string | null {
+  if (!status.active || status.phase !== "listening") return null;
+  return activity === "speech" ? "Microphone open · hearing you" : "Microphone open · waiting for your voice";
+}
+
 /** Reports why the microphone is not taking a new turn, or null when it is open. */
 export function voiceMicrophoneGateFeedback(status: VoiceConversationStatus): string | null {
   if (!status.active) return null;
@@ -118,6 +138,8 @@ export function voiceCommandErrorCode(error: unknown): VoiceCommandErrorCode {
       return "not_active";
     case "capture_active":
       return "capture_active";
+    case "speech_active":
+      return "speech_active";
     case "speech_unavailable":
       return "speech_unavailable";
     case "speech_playback_failed":
@@ -133,6 +155,7 @@ export function voiceCommandErrorCode(error: unknown): VoiceCommandErrorCode {
 export function voiceCommandErrorFeedback(code: VoiceCommandErrorCode): string {
   if (code === "not_active") return "The voice conversation is no longer active.";
   if (code === "capture_active") return "Bottie is still finishing the transcript.";
+  if (code === "speech_active") return "Bottie is still speaking the previous reply.";
   if (code === "speech_unavailable") return "Local speech is unavailable, so the spoken reply cannot start.";
   if (code === "speech_playback_failed") return "Local speech failed during the spoken reply.";
   if (code === "unavailable") return "Voice conversation needs the native desktop app.";
@@ -152,6 +175,8 @@ export type VoiceTurnInput = {
   /** Native input is starting, recording, preparing a model, or transcribing. */
   capturing: boolean;
   microphone: MicrophoneStatus;
+  /** Progress of the reply's speech, including a finished reply whose last chunks are still playing. */
+  speechProgress: VoiceSpeechProgress | null;
   /** The current turn's transcript was already handed to the ordinary send path. */
   turnSubmitted: boolean;
   /** A recovery resume was already issued and native input has not reopened since. */
@@ -175,6 +200,9 @@ export function voiceTurnAction(input: VoiceTurnInput): VoiceTurnAction {
   if (!input.active) return "none";
   if (input.busy || input.capturing) return "none";
   if (!input.turnSubmitted && voiceTurnTranscript(input.microphone) !== null) return "submit";
+  // Never reopen capture while the reply is still speaking: that would cut the last chunks off and let Bottie speak
+  // into its own microphone. The reply drains on its own and the next poll re-evaluates.
+  if (!speechSettled(input.speechProgress)) return "none";
   if (input.phase === "finalizing" && !input.pendingReply) return "resume";
   // A session can lose its reply before adoption, which leaves it listening with a consumed turn. Recover that
   // once, because the reopened capture is what clears both markers for the next turn.
@@ -182,4 +210,9 @@ export function voiceTurnAction(input: VoiceTurnInput): VoiceTurnAction {
     return "resume";
   }
   return "none";
+}
+
+/** Whether playback finished (or never started) so capture may reopen. */
+function speechSettled(progress: VoiceSpeechProgress | null): boolean {
+  return progress === null || progress === "idle" || progress === "interrupted" || progress === "failed";
 }

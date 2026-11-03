@@ -1023,6 +1023,7 @@ export class PageState {
     this.voiceTurnSubmitted = false;
     this.voiceResumeRequested = false;
     await this.voice.start();
+    await this.microphone.refresh();
   }
   /** Ends the hands-free conversation and releases native capture. */
   async endVoiceConversation(): Promise<void> {
@@ -1055,22 +1056,26 @@ export class PageState {
       this.voiceTurnSubmitted = false;
       this.voiceResumeRequested = false;
     }
+    // Acquire the re-entrancy guard before any await: two observer calls must never both decide to submit.
     if (this.voiceReconciling) return;
-    const action = voiceTurnAction({
-      active: status.active,
-      phase: status.phase,
-      pendingReply: status.pendingReply,
-      busy: this.isGenerating || this.isPersistingMessage,
-      capturing: this.microphone.isActive,
-      microphone: this.microphone.status,
-      turnSubmitted: this.voiceTurnSubmitted,
-      resumeRequested: this.voiceResumeRequested,
-    });
-    if (action === "none") return;
     this.voiceReconciling = true;
     try {
+      // Conversation capture opens and closes natively, so the composer's own polling may be idle by now; read the
+      // native status before deciding, including the final transcript that arrives after capture stops.
+      await this.microphone.refresh();
+      const action = voiceTurnAction({
+        active: status.active,
+        phase: status.phase,
+        pendingReply: status.pendingReply,
+        speechProgress: status.speechProgress,
+        busy: this.isGenerating || this.isPersistingMessage,
+        capturing: this.microphone.isActive,
+        microphone: this.microphone.status,
+        turnSubmitted: this.voiceTurnSubmitted,
+        resumeRequested: this.voiceResumeRequested,
+      });
       if (action === "resume") await this.resumeVoiceListening();
-      else await this.submitVoiceTurn();
+      else if (action === "submit") await this.submitVoiceTurn();
     } catch (error) {
       console.warn("Could not advance the voice conversation turn", error);
       await this.recoverVoiceTurn();

@@ -150,12 +150,19 @@ export class MicrophoneState {
     this.stopPolling();
   }
 
-  private async refresh(): Promise<void> {
+  /**
+   * Reads native status once and keeps polling aligned with activity.
+   *
+   * Public because conversation mode opens and closes capture through the voice commands rather than through this
+   * store; the page calls this so the composer still sees recording, final-transcript readiness, and completion.
+   */
+  async refresh(): Promise<void> {
     if (this.pollInFlight) return;
     this.pollInFlight = true;
     try {
       this.status = await getMicrophoneStatus();
-      if (!this.isActive) this.stopPolling();
+      if (this.isActive) this.startPolling();
+      else this.stopPolling();
     } catch {
       this.failClosed();
     } finally {

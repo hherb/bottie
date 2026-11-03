@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { MicrophoneStatus } from "$lib/microphone";
 import {
   INITIAL_VOICE_CONVERSATION_STATUS,
+  voiceCaptureActivityFeedback,
   voiceCommandErrorCode,
   voiceCommandErrorFeedback,
   voiceConversationFeedback,
@@ -59,6 +60,7 @@ function turnInput(patch: Partial<VoiceTurnInput> = {}): VoiceTurnInput {
     busy: false,
     capturing: false,
     microphone: IDLE_MICROPHONE,
+    speechProgress: null,
     turnSubmitted: false,
     resumeRequested: false,
     ...patch,
@@ -86,6 +88,14 @@ describe("voice conversation presentation", () => {
     expect(voiceConversationFeedback(status({ phase: "speaking" }))).toBe("Bottie is speaking");
   });
 
+  it("reopens listening only after the reply stopped speaking", () => {
+    expect(voiceTurnAction(turnInput({ phase: "finalizing" }))).toBe("resume");
+    expect(voiceTurnAction(turnInput({ phase: "finalizing", speechProgress: "idle" }))).toBe("resume");
+    expect(voiceTurnAction(turnInput({ phase: "finalizing", speechProgress: "buffering" }))).toBe("none");
+    expect(voiceTurnAction(turnInput({ phase: "finalizing", speechProgress: "speaking" }))).toBe("none");
+    expect(voiceTurnAction(turnInput({ phase: "finalizing", speechProgress: "failed" }))).toBe("resume");
+  });
+
   it("explains the latched end-of-turn reason and falls back for unknown reasons", () => {
     expect(voiceConversationFeedback(status({ phase: "finalizing", endpointReason: "terminalPunctuation" }))).toBe(
       "Finishing the transcript · you finished the sentence",
@@ -96,6 +106,20 @@ describe("voice conversation presentation", () => {
         endpointReason: "unknown_reason" as unknown as VoiceConversationStatus["endpointReason"],
       }),
     ).toBe("Finishing the transcript");
+  });
+
+  it("reports live capture only while the conversation is listening", () => {
+    expect(voiceCaptureActivityFeedback(status({ phase: "listening" }), null)).toBe(
+      "Microphone open · waiting for your voice",
+    );
+    expect(voiceCaptureActivityFeedback(status({ phase: "listening" }), "silence")).toBe(
+      "Microphone open · waiting for your voice",
+    );
+    expect(voiceCaptureActivityFeedback(status({ phase: "listening" }), "speech")).toBe(
+      "Microphone open · hearing you",
+    );
+    expect(voiceCaptureActivityFeedback(status({ phase: "speaking" }), "speech")).toBeNull();
+    expect(voiceCaptureActivityFeedback({ ...INITIAL_VOICE_CONVERSATION_STATUS }, "speech")).toBeNull();
   });
 
   it("folds spoken-reply progress into the speaking vocabulary", () => {
