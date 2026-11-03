@@ -6,7 +6,7 @@
 //! reopened on the next request instead of failing the engine permanently.
 
 use cpal::{
-    FromSample, Sample, SampleFormat, SizedSample, Stream, StreamConfig,
+    DeviceId, FromSample, Sample, SampleFormat, SizedSample, Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use std::{
@@ -21,6 +21,8 @@ use crate::speech::SpeechErrorCode;
 const MAX_QUEUE_SECONDS: u32 = 2;
 /// An output device reporting more buffering than this is treated as stalled rather than waited on.
 const MAX_DEVICE_LATENCY: Duration = Duration::from_secs(2);
+/// Rendered mono reference retained for a later echo canceller.
+const MAX_REFERENCE_SECONDS: u32 = 2;
 const MIN_SAMPLE_RATE: u32 = 8_000;
 const MAX_SAMPLE_RATE: u32 = 192_000;
 const MAX_DEVICE_CHANNELS: u16 = 8;
@@ -38,6 +40,8 @@ struct OutputState {
     last_audio_deadline: Option<Instant>,
     /// Measured device buffering for the most recent audible callback, in milliseconds.
     output_latency_ms: Option<u32>,
+    /// Mono mix of every device frame this owner rendered, for phase 4's echo cancellation.
+    reference: ReferenceBuffer,
 }
 
 /// Owns one output stream and a bounded source-rate queue.
@@ -47,6 +51,7 @@ struct OutputState {
 pub(super) struct AudioOwner {
     stream: Option<Stream>,
     shared: Arc<Mutex<OutputState>>,
+    device_id: Option<DeviceId>,
 }
 
 impl AudioOwner {
@@ -66,10 +71,15 @@ impl AudioOwner {
             failed: false,
             last_audio_deadline: None,
             output_latency_ms: None,
+            reference: ReferenceBuffer::new(
+                usize::try_from(format.sample_rate_hz).unwrap_or(48_000),
+                format.sample_rate_hz,
+            ),
         }));
         let mut owner = Self {
             stream: None,
             shared,
+            device_id: None,
         };
         owner.open()?;
         Ok(owner)
@@ -104,11 +114,36 @@ impl AudioOwner {
                 .is_none_or(|end| Instant::now() >= end))
     }
 
-    /// Discards everything queued for the current utterance.
+    /// Discards everything queued for the current utterance and picks up a changed default device.
     pub(super) fn clear(&mut self) {
+        self.refresh_default_device();
         let mut state = lock(&self.shared);
         state.queue.clear();
         state.last_audio_deadline = None;
+    }
+
+    /// Returns a bounded handle to the rendered mono reference for a future echo canceller.
+    #[cfg_attr(not(test), allow(dead_code))] // Consumed by phase 4's AEC.
+    pub(super) fn reference(&self) -> AudioReference {
+        AudioReference {
+            shared: self.shared.clone(),
+        }
+    }
+
+    /// Reopens the output when the operating system's default device changed between utterances.
+    ///
+    /// Mid-utterance changes surface as stream errors and take the `recover_if_failed` path instead.
+    fn refresh_default_device(&mut self) {
+        let current = cpal::default_host()
+            .default_output_device()
+            .and_then(|device| device.id().ok());
+        if current.is_none() || current == self.device_id {
+            return;
+        }
+        self.stream = None;
+        if self.open().is_err() {
+            lock(&self.shared).failed = true;
+        }
     }
 
     /// Returns the most recent measured output latency, if audio has played.
@@ -157,7 +192,14 @@ impl AudioOwner {
         {
             let mut state = lock(&self.shared);
             state.failed = false;
+            state.reference = ReferenceBuffer::new(
+                usize::try_from(config.sample_rate)
+                    .unwrap_or(48_000)
+                    .saturating_mul(usize::try_from(MAX_REFERENCE_SECONDS).unwrap_or(2)),
+                config.sample_rate,
+            );
         }
+        self.device_id = device.id().ok();
         self.stream = Some(stream);
         Ok(())
     }
@@ -174,6 +216,69 @@ impl Drop for AudioOwner {
             let _ = stream.pause();
         }
         self.stream = None;
+    }
+}
+
+/// Bounded mono reference of the frames this owner rendered.
+struct ReferenceBuffer {
+    samples: VecDeque<f32>,
+    capacity: usize,
+    sample_rate_hz: u32,
+    next_sequence: u64,
+}
+
+impl ReferenceBuffer {
+    fn new(capacity: usize, sample_rate_hz: u32) -> Self {
+        Self {
+            samples: VecDeque::with_capacity(capacity.min(1 << 20)),
+            capacity: capacity.max(1),
+            sample_rate_hz: sample_rate_hz.max(1),
+            next_sequence: 0,
+        }
+    }
+
+    fn push(&mut self, sample: f32) {
+        while self.samples.len() >= self.capacity {
+            self.samples.pop_front();
+        }
+        self.samples.push_back(sample);
+        self.next_sequence = self.next_sequence.saturating_add(1);
+    }
+
+    fn snapshot(&self) -> ReferenceSnapshot {
+        ReferenceSnapshot {
+            sample_rate_hz: self.sample_rate_hz,
+            samples: self.samples.iter().copied().collect(),
+            next_sequence: self.next_sequence,
+        }
+    }
+}
+
+/// One bounded copy of rendered output, newest sample last.
+#[cfg_attr(not(test), allow(dead_code))] // Consumed by phase 4's AEC.
+pub(super) struct ReferenceSnapshot {
+    pub(super) sample_rate_hz: u32,
+    pub(super) samples: Vec<f32>,
+    /// Sequence of the next sample this buffer will receive; lets a consumer align its own window.
+    pub(super) next_sequence: u64,
+}
+
+/// Read-only handle to the output owner's rendered reference.
+#[cfg_attr(not(test), allow(dead_code))] // Consumed by phase 4's AEC.
+pub(super) struct AudioReference {
+    shared: Arc<Mutex<OutputState>>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))] // Consumed by phase 4's AEC.
+impl AudioReference {
+    /// Copies the retained reference window.
+    pub(super) fn snapshot(&self) -> ReferenceSnapshot {
+        lock(&self.shared).reference.snapshot()
+    }
+
+    /// Reports how many rendered samples are currently retained.
+    pub(super) fn available_samples(&self) -> usize {
+        lock(&self.shared).reference.samples.len()
     }
 }
 
@@ -332,6 +437,9 @@ where
                     for value in output.iter_mut().skip(target.len()) {
                         *value = T::from_sample(0.0);
                     }
+                    // One mono reference sample per device frame keeps the AEC timeline contiguous, silence included.
+                    let mono = target.iter().copied().sum::<f32>() / target.len().max(1) as f32;
+                    state.reference.push(mono);
                 }
                 if has_audio {
                     let timestamp = info.timestamp();
@@ -417,6 +525,18 @@ mod tests {
         assert_eq!(frame, [0.5]);
         assert!(queue.next_frame(96_000, &mut frame));
         assert_eq!(frame, [1.0]);
+    }
+
+    #[test]
+    fn rendered_reference_is_bounded_and_unit_mono() {
+        let mut reference = ReferenceBuffer::new(3, 48_000);
+        for sample in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            reference.push(sample);
+        }
+        let snapshot = reference.snapshot();
+        assert_eq!(snapshot.sample_rate_hz, 48_000);
+        assert_eq!(snapshot.samples, vec![0.5, 0.75, 1.0]);
+        assert_eq!(snapshot.next_sequence, 5);
     }
 
     #[test]
