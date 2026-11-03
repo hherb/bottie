@@ -46,6 +46,8 @@ pub(crate) enum VoiceCommandError {
     NotActive,
     /// The turn's capture is still open, so the reply cannot be armed yet.
     CaptureActive,
+    /// The previous reply is still playing, so capture must not reopen yet.
+    SpeechActive,
     /// No local speech engine or voice is available for this session.
     SpeechUnavailable,
     /// The local speech engine failed without exposing backend detail.
@@ -80,6 +82,11 @@ impl VoiceConversation {
             state: Mutex::new(ConversationState::default()),
             speech,
         }
+    }
+
+    /// Reports the current reply's speech progress, including a previous reply that is still draining.
+    pub(crate) fn speech_progress(&self) -> Option<SessionProgress> {
+        self.speech.progress()
     }
 
     /// Reports whether a conversation session owns voice input.

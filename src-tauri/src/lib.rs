@@ -698,6 +698,14 @@ async fn resume_voice_listening(
     if !state.voice_conversation.is_active() {
         return Err(VoiceCommandError::NotActive);
     }
+    if matches!(
+        state.voice_conversation.speech_progress(),
+        Some(crate::speech::streaming::SessionProgress::Buffering)
+            | Some(crate::speech::streaming::SessionProgress::Speaking)
+    ) {
+        // Reopening capture now would both cut the reply off and let it speak over the microphone.
+        return Err(VoiceCommandError::SpeechActive);
+    }
     let _voice_guard = state.voice_interaction.lock().await;
     state.speech.stop_before_microphone_capture()?;
     state.speech.set_microphone_gate(true);

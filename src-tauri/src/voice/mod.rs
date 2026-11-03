@@ -20,10 +20,18 @@ use crate::speech::{
     streaming::{SessionProgress, StreamingSpeechSession},
 };
 
-/// Owns at most one streamed reply's speech session at a time.
+/// Owns at most one streamed reply's speech session at a time, plus the previous reply while it drains.
 #[derive(Default)]
 pub(crate) struct VoiceSpeech {
-    active: Mutex<Option<ActiveTurn>>,
+    shared: Mutex<SpeechSessions>,
+}
+
+#[derive(Default)]
+struct SpeechSessions {
+    /// The reply the current generation run is still feeding.
+    active: Option<ActiveTurn>,
+    /// A finished reply whose last chunks are still playing. Kept alive so its session is not interrupted on drop.
+    draining: Option<Arc<StreamingSpeechSession>>,
 }
 
 /// One run whose reply is being spoken.
@@ -43,12 +51,16 @@ impl VoiceSpeech {
     /// A second begin is rejected until the active turn is finished or interrupted, so two replies can never share one
     /// audio device.
     pub(crate) fn begin(&self, run_id: &str, speech: &Arc<SpeechController>) -> Result<(), ()> {
-        let mut active = lock(&self.active);
-        if active.is_some() {
+        let mut shared = lock(&self.shared);
+        if shared.active.is_some() {
             return Err(());
         }
+        // A stale draining session must never speak into the next reply's turn.
+        if let Some(draining) = shared.draining.take() {
+            let _ = draining.interrupt();
+        }
         let session = Arc::new(StreamingSpeechSession::start(speech.clone())?);
-        *active = Some(ActiveTurn {
+        shared.active = Some(ActiveTurn {
             run_id: run_id.to_owned(),
             session,
         });
@@ -57,41 +69,63 @@ impl VoiceSpeech {
 
     /// Returns the session that speaks this run, or `None` when the run is not the active voice turn.
     pub(crate) fn session_for(&self, run_id: &str) -> Option<Arc<StreamingSpeechSession>> {
-        lock(&self.active)
+        lock(&self.shared)
+            .active
             .as_ref()
             .filter(|turn| turn.run_id == run_id)
             .map(|turn| Arc::clone(&turn.session))
     }
 
-    /// Ends the run's session, flushing remaining text and letting playback drain.
+    /// Ends the run's session, flushing remaining text and keeping it alive until its last chunk played.
     ///
     /// Runs for other ids are left untouched; the generation path calls this unconditionally at the end of every run.
+    /// The session is retained here rather than dropped with the generation sink, because dropping it would interrupt
+    /// the chunks that were queued before the reply finished.
     pub(crate) fn finish_run(&self, run_id: &str) {
-        let turn = {
-            let mut active = lock(&self.active);
-            match active.as_ref() {
-                Some(current) if current.run_id == run_id => active.take(),
-                _ => None,
-            }
+        let mut shared = lock(&self.shared);
+        let Some(current) = shared.active.as_ref() else {
+            return;
         };
-        if let Some(turn) = turn {
-            let _ = turn.session.end();
+        if current.run_id != run_id {
+            return;
         }
+        let turn = shared.active.take().expect("a matching active turn exists");
+        let session = Arc::clone(&turn.session);
+        shared.draining = Some(session.clone());
+        drop(shared);
+        let _ = session.end();
     }
 
-    /// Interrupts the active voice turn, if any, and drops queued speech.
+    /// Interrupts the active voice turn and any draining reply, dropping queued speech.
     pub(crate) fn interrupt(&self) {
-        let turn = lock(&self.active).take();
-        if let Some(turn) = turn {
+        let mut shared = lock(&self.shared);
+        let active = shared.active.take();
+        let draining = shared.draining.take();
+        drop(shared);
+        if let Some(turn) = active {
             let _ = turn.session.interrupt();
         }
+        if let Some(session) = draining {
+            let _ = session.interrupt();
+        }
     }
 
-    /// Reports the active session's progress without waiting for playback.
+    /// Reports the active or draining session's progress without waiting for playback.
     pub(crate) fn progress(&self) -> Option<SessionProgress> {
-        lock(&self.active)
-            .as_ref()
-            .map(|turn| turn.session.progress())
+        let mut shared = lock(&self.shared);
+        if let Some(turn) = shared.active.as_ref() {
+            return Some(turn.session.progress());
+        }
+        let progress = shared.draining.as_ref().map(|session| session.progress())?;
+        if matches!(
+            progress,
+            SessionProgress::Idle | SessionProgress::Interrupted | SessionProgress::Failed
+        ) {
+            // The worker is finished; dropping the last handle joins it immediately.
+            shared.draining = None;
+            return None;
+        }
+        Some(progress)
     }
 }
 
@@ -167,7 +201,37 @@ mod tests {
 
         coordinator.finish_run("run-1");
         assert!(coordinator.session_for("run-1").is_none());
+        // The finished reply is retained while its last chunks drain; it is released once playback settles.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while coordinator.progress().is_some() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
         assert!(coordinator.progress().is_none());
+    }
+
+    #[test]
+    fn a_finished_reply_keeps_playing_its_queued_chunks() {
+        let (speech, spoken) = controller();
+        let coordinator = VoiceSpeech::new();
+        coordinator.begin("run-1", &speech).unwrap();
+        let session = coordinator.session_for("run-1").unwrap();
+        session
+            .push_delta("Sure, here is the whole answer. The second sentence follows it. ")
+            .unwrap();
+        // The generation sink is dropped here; the coordinator must keep the session alive and drain it.
+        coordinator.finish_run("run-1");
+        drop(session);
+
+        let expected = "Sure, here is the whole answer. The second sentence follows it.";
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while std::time::Instant::now() < deadline {
+            let spoken = spoken.lock().unwrap().join(" ");
+            if spoken.contains("second sentence") {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(spoken.lock().unwrap().join(" "), expected);
     }
 
     #[test]
