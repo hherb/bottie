@@ -4,7 +4,7 @@ Written 2026-11-01 against commit `118dea43` (2026-10-31). This turns
 [`voice-mode-evaluation.md`](voice-mode-evaluation.md) and the measured engine decision in
 [`voice-mode-parts/tts-head-to-head.md`](voice-mode-parts/tts-head-to-head.md) into work against the modules Bottie has today.
 
-Status: phase 0 is implemented on branch `feat/voice-mode-phase0` (0.1–0.5, plus hardening). What remains is the manual five-turn acceptance run in the desktop app and phase 1. The engine and endpointing decisions are made; the open questions are engineering
+Status: phase 0 is implemented, hardened after a manual acceptance run on macOS, and pushed on branch `feat/voice-mode-phase0` (`e166a11`). Phase 1 (audio owner) is next. The engine and endpointing decisions are made; the open questions are engineering
 and are listed per phase.
 
 ## 0. Phase map
@@ -210,6 +210,23 @@ mode.
 - Self-hearing: zero frames decoded while speaking, and the UI says the mic is muted.
 - All existing microphone/speech tests plus the new ones green; no source path or PCM crosses IPC.
 
+### 2.6 What the acceptance run changed
+
+The first real hands-free run did not work, and each failure became a committed fix rather than a tweak to the plan:
+
+| Symptom | Cause | Fix (commit) |
+| --- | --- | --- |
+| Capture opened at 48 kHz but every sample was zero; no TCC prompt; the app never appeared under Privacy & Security > Microphone | Hardened-runtime bundle signed without the microphone entitlement | `com.apple.security.device.audio-input` in `src-tauri/Entitlements.plist` (`313739f`) |
+| Real speech never ended a turn; the detector saw only silence | Fixed 0.02 speech RMS was far above the built-in mic's frame RMS | Adaptive noise-floor thresholds: `max(0.003, 3×floor)` onset, `max(0.0018, 1.8×floor)` release (`988c3d2`) |
+| Replies spoke only their first short chunk | The generation sink dropped the speech session at reply end, interrupting queued chunks; resume then stopped playback to reopen the mic | Keep the finished session draining; `speech_active` refuses capture until playback settles (`3505d8b`) |
+| Turn completed but was never submitted | The composer's microphone store stopped polling when native capture closed, so it never saw the final transcript | Refresh native status before each turn decision; keep polling aligned with activity; wait for speech to settle before resuming (`0f44c4d`) |
+| Composer card grew and shrank during a turn | Voice status rendered one to four conditional paragraphs | Fixed two-line status slot, ellipsized detail line (`e166a11`) |
+
+Two consequences worth carrying into later phases: packaged macOS builds **must** ship the audio-input entitlement (the
+same class of bug would have hit push-to-talk in any release), and the "listening" UI cannot be driven by the
+conversation phase alone — capture readiness, final-transcript readiness, and speech draining are three separate
+signals that the page has to reconcile.
+
 ## 3. Phase 1 — audio owner hardening
 
 New `src-tauri/src/speech/audio_owner.rs`: one long-lived output stream, a bounded queue (≤2 s), engine-rate PCM with
@@ -276,7 +293,7 @@ fp32 weights** so the provenance chain and the Open RAIL-M notices are unambiguo
 | 0.3 | ~~`impl SpeechSink for SpeechController`, `ChannelSink` speech tap, `voice::VoiceSpeech`, generation wiring, `Arc` controller in `AppState`~~ — done 2026-11-01 (`4aeb0eb`) | 0.1 | M |
 | 0.4 | ~~`VoiceConversationController` + commands + admission/ordering rules~~ — done 2026-11-01 (`dde1ef4`); frontend is 0.5 | 0.2, 0.3 | M |
 | 0.5 | ~~Frontend store + controls + auto-submit + interrupt~~ — done 2026-11-01 (`d4c6e67`, `83c5252`) | 0.4 | M |
-| 0.6 | Acceptance run: latency instrumentation, self-hearing test, five-turn script — pending manual run in the desktop app | 0.5 | S |
+| 0.6 | ~~Acceptance run~~ — manual five-turn run completed 2026-11-02; five fixes landed (`313739f`…`e166a11`); latency was observed as acceptable but not instrumented | 0.5 | S |
 | 1.1 | Audio owner (queue, resample, duplex ring buffer, device recovery) | 0.6 | L |
 | 2.1 | Silero VAD module + assets + interval/anchoring changes | 0.6 | M |
 | 2.2 | Optional base-q5_1 checkpoint option | 2.1 | S |
