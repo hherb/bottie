@@ -426,8 +426,8 @@ describe("MicrophoneControl conversation mode", () => {
     );
 
     expect(html).toContain("Thinking");
-    expect(html).toContain("Microphone closed while Bottie thinks");
-    expect(html).toContain('class="voice-conversation-error error"');
+    // The fixed detail slot carries the error cause and the actionable note together, so the card cannot resize.
+    expect(html).toContain("voice-conversation-detail");
     expect(html).toContain("Local speech is unavailable");
     expect(html).toContain("the voice turn was copied into it");
     expect(html).not.toContain("/tmp/");

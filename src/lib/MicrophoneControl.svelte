@@ -12,6 +12,7 @@
   } from "$lib/microphone";
   import {
     INITIAL_VOICE_CONVERSATION_STATUS,
+    voiceCaptureActivityFeedback,
     voiceConversationFeedback,
     voiceMicrophoneGateFeedback,
     type VoiceConversationStatus,
@@ -91,29 +92,69 @@
   );
   const transcriptCanBecomeText = $derived(canUseTranscriptAsText(status));
   const conversationActive = $derived(voiceStatus.active);
+  /** Conversation capture uses a decibel scale so a quiet built-in mic still moves the meter visibly. */
+  const conversationLevelPercent = $derived(toDecibelPercent(status.inputLevel));
+  const conversationFinishing = $derived(
+    conversationActive &&
+      voiceStatus.phase === "listening" &&
+      status.phase !== "recording" &&
+      (status.transcriptionPhase === "preparing_model" ||
+        status.transcriptionPhase === "transcribing" ||
+        status.transcriptionPhase === "ready"),
+  );
+  const conversationQuiet = $derived(
+    conversationActive &&
+      voiceStatus.phase === "listening" &&
+      status.phase === "recording" &&
+      status.inputLevel < 0.0015,
+  );
   const conversationFeedback = $derived(voiceConversationFeedback(voiceStatus));
-  const conversationGate = $derived(voiceMicrophoneGateFeedback(voiceStatus));
   const conversationInterruptible = $derived(
     voiceStatus.phase === "thinking" || voiceStatus.phase === "speaking" || voiceStatus.phase === "finalizing",
   );
+  const conversationGate = $derived(voiceMicrophoneGateFeedback(voiceStatus));
+  const conversationActivity = $derived(voiceCaptureActivityFeedback(voiceStatus, status.voiceActivity));
+  // Exactly one fixed-height detail line keeps the composer card from growing and shrinking while a turn runs.
+  const conversationDetail = $derived(
+    voiceError !== null
+      ? voiceFeedback.trim().length > 0
+        ? `${voiceError} ${voiceFeedback}`
+        : voiceError
+      : voiceFeedback.trim().length > 0
+        ? voiceFeedback
+        : conversationGate
+          ? conversationGate
+          : conversationFinishing
+            ? "Finishing the transcript"
+            : (conversationActivity ?? (conversationQuiet ? "Very quiet input · check the selected microphone" : "")),
+  );
+  const conversationDetailTone = $derived(voiceError !== null ? "error" : conversationQuiet ? "quiet" : "normal");
+
+  function toDecibelPercent(level: number): number {
+    const decibels = 20 * Math.log10(Math.max(level, 0.0001));
+    return Math.round(Math.max(0, Math.min(100, ((decibels + 60) / 60) * 100)));
+  }
 </script>
 
 {#snippet feedback()}
   {#if conversationActive}
-    <p class="voice-conversation-feedback" role="status" aria-live="polite">{conversationFeedback}</p>
-    {#if conversationGate}
-      <p class="voice-conversation-gate" role="status">{conversationGate}</p>
-    {/if}
+    <!-- Fixed two-line slot: phase on top, one detail line below, so the composer never resizes mid-turn. -->
+    <div class="voice-conversation-status">
+      <p class="voice-conversation-feedback" role="status" aria-live="polite">{conversationFeedback}</p>
+      <p
+        class:error={conversationDetailTone === "error"}
+        class:quiet={conversationDetailTone === "quiet"}
+        class="voice-conversation-detail"
+        role={conversationDetailTone === "error" ? "alert" : "status"}
+        aria-live="polite"
+      >
+        {conversationDetail}
+      </p>
+    </div>
   {:else}
     <p class:error={hasError} class="microphone-feedback" role={hasError ? "alert" : "status"}>
       {microphoneFeedback(status)}
     </p>
-  {/if}
-  {#if voiceError}
-    <p class="voice-conversation-error error" role="alert">{voiceError}</p>
-  {/if}
-  {#if voiceFeedback}
-    <p class="voice-conversation-note" role="status">{voiceFeedback}</p>
   {/if}
 {/snippet}
 
@@ -142,9 +183,9 @@
         aria-label="Microphone input level"
         aria-valuemin="0"
         aria-valuemax="100"
-        aria-valuenow={levelPercent}
+        aria-valuenow={conversationLevelPercent}
       >
-        <span style={`--input-level: ${levelPercent}%`}></span>
+        <span style={`--input-level: ${conversationLevelPercent}%`}></span>
       </span>
     {/if}
   {:else if status.phase === "recording"}
