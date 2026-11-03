@@ -4,7 +4,7 @@ Written 2026-11-01 against commit `118dea43` (2026-10-31). This turns
 [`voice-mode-evaluation.md`](voice-mode-evaluation.md) and the measured engine decision in
 [`voice-mode-parts/tts-head-to-head.md`](voice-mode-parts/tts-head-to-head.md) into work against the modules Bottie has today.
 
-Status: phase 0 is implemented, hardened after a manual acceptance run on macOS, and pushed on branch `feat/voice-mode-phase0` (`e166a11`). Phase 1 (audio owner) is next. The engine and endpointing decisions are made; the open questions are engineering
+Status: phase 0 is implemented and manually accepted on macOS; phase 1 is in progress on branch `feat/voice-mode-phase0` (output ownership and latency landed in `2bbc41e`/`71aab0f`). The engine and endpointing decisions are made; the open questions are engineering
 and are listed per phase.
 
 ## 0. Phase map
@@ -229,11 +229,24 @@ signals that the page has to reconcile.
 
 ## 3. Phase 1 — audio owner hardening
 
-New `src-tauri/src/speech/audio_owner.rs`: one long-lived output stream, a bounded queue (≤2 s), engine-rate PCM with
-device-rate conversion at the edge, `rubato` resampling, a duplex ring buffer implemented as **two cpal streams** (cpal
-0.18.2 has no duplex API — verified in the pinned crate source), device-change recovery, and output latency measured
-from callback timestamps into the existing `SpeechLatency`. Exit: a route change mid-session does not break playback;
-no per-sentence device open; measured output latency reported in status.
+Status: the output half is implemented (`2bbc41e`, `71aab0f`); the capture-reference half is next.
+
+Done:
+
+- `src-tauri/src/speech/audio_owner.rs` owns one CPAL output stream and a two-second bounded source queue for the
+  engine's lifetime, converts source PCM to the device layout and rate in the callback (stereo/mono mapping plus
+  linear resampling), reopens a failed stream once on the next request, and records measured device buffering.
+- Nano uses one owner per actor instead of opening and closing the device per utterance, releasing it before child
+  teardown so Stop stays prompt. The old per-utterance playback and buffer modules are gone.
+- `SpeechStatus.latency.outputLatencyMs` reports the measured device buffering while a PCM engine speaks; OS voices
+  leave it null. The dependency-free linear resampler is retained behind the queue API — `rubato` remains a drop-in
+  option if phase 3's measurements show audible artefacts.
+
+Remaining:
+
+- A duplex reference ring buffer (two cpal streams; cpal 0.18.2 has no duplex API) for phase 4's AEC, and device-change
+  recovery exercised against a real unplug/route change in the app.
+- The exit criterion "no per-sentence device open" holds for Nano; Supertonic (phase 3) will use the same owner.
 
 ## 4. Phase 2 — endpointing upgrade
 
@@ -294,7 +307,7 @@ fp32 weights** so the provenance chain and the Open RAIL-M notices are unambiguo
 | 0.4 | ~~`VoiceConversationController` + commands + admission/ordering rules~~ — done 2026-11-01 (`dde1ef4`); frontend is 0.5 | 0.2, 0.3 | M |
 | 0.5 | ~~Frontend store + controls + auto-submit + interrupt~~ — done 2026-11-01 (`d4c6e67`, `83c5252`) | 0.4 | M |
 | 0.6 | ~~Acceptance run~~ — manual five-turn run completed 2026-11-02; five fixes landed (`313739f`…`e166a11`); latency was observed as acceptable but not instrumented | 0.5 | S |
-| 1.1 | Audio owner (queue, resample, duplex ring buffer, device recovery) | 0.6 | L |
+| 1.1 | ~~Audio owner (queue, resample, device recovery)~~ — done `2bbc41e`; duplex reference ring buffer remains for AEC | 0.6 | L |
 | 2.1 | Silero VAD module + assets + interval/anchoring changes | 0.6 | M |
 | 2.2 | Optional base-q5_1 checkpoint option | 2.1 | S |
 | 3.1 | Supertonic weight contract + first-party conversion + golden tests | 1.1 | M |
