@@ -4,7 +4,7 @@ Written 2026-11-01 against commit `118dea43` (2026-10-31). This turns
 [`voice-mode-evaluation.md`](voice-mode-evaluation.md) and the measured engine decision in
 [`voice-mode-parts/tts-head-to-head.md`](voice-mode-parts/tts-head-to-head.md) into work against the modules Bottie has today.
 
-Status: phase 0 is implemented and manually accepted on macOS; phase 1 is in progress on branch `feat/voice-mode-phase0` (output ownership and latency landed in `2bbc41e`/`71aab0f`). The engine and endpointing decisions are made; the open questions are engineering
+Status: phase 0 is implemented and manually accepted on macOS; phase 1 is structurally complete on branch `feat/voice-mode-phase0` (`2bbc41e`, `71aab0f`, `901c11f`), with a real unplug/route-change exercise still outstanding. The engine and endpointing decisions are made; the open questions are engineering
 and are listed per phase.
 
 ## 0. Phase map
@@ -242,11 +242,21 @@ Done:
   leave it null. The dependency-free linear resampler is retained behind the queue API — `rubato` remains a drop-in
   option if phase 3's measurements show audible artefacts.
 
+Also done (`901c11f`):
+
+- The output callback retains a bounded two-second mono reference of the frames it rendered, with a monotonic sequence
+  and the device sample rate, exposed through `AudioOwner::reference()` for phase 4's echo canceller. Nothing consumes
+  it yet.
+- The owner remembers the output device identity and reopens the stream when the default device changed between
+  utterances; mid-utterance changes still take the stream-error reopen path.
+
 Remaining:
 
-- A duplex reference ring buffer (two cpal streams; cpal 0.18.2 has no duplex API) for phase 4's AEC, and device-change
-  recovery exercised against a real unplug/route change in the app.
+- Exercise device-change recovery against a real unplug/route change in the app (the code path exists but has only
+  been reasoned about, not observed).
 - The exit criterion "no per-sentence device open" holds for Nano; Supertonic (phase 3) will use the same owner.
+  cpal still has no duplex API, so phase 4 will pair this owner's reference with the microphone stream rather than open
+  one duplex stream.
 
 ## 4. Phase 2 — endpointing upgrade
 
@@ -307,7 +317,7 @@ fp32 weights** so the provenance chain and the Open RAIL-M notices are unambiguo
 | 0.4 | ~~`VoiceConversationController` + commands + admission/ordering rules~~ — done 2026-11-01 (`dde1ef4`); frontend is 0.5 | 0.2, 0.3 | M |
 | 0.5 | ~~Frontend store + controls + auto-submit + interrupt~~ — done 2026-11-01 (`d4c6e67`, `83c5252`) | 0.4 | M |
 | 0.6 | ~~Acceptance run~~ — manual five-turn run completed 2026-11-02; five fixes landed (`313739f`…`e166a11`); latency was observed as acceptable but not instrumented | 0.5 | S |
-| 1.1 | ~~Audio owner (queue, resample, device recovery)~~ — done `2bbc41e`; duplex reference ring buffer remains for AEC | 0.6 | L |
+| 1.1 | ~~Audio owner (queue, resample, device recovery, rendered reference)~~ — done `2bbc41e`/`901c11f`; real unplug exercise outstanding | 0.6 | L |
 | 2.1 | Silero VAD module + assets + interval/anchoring changes | 0.6 | M |
 | 2.2 | Optional base-q5_1 checkpoint option | 2.1 | S |
 | 3.1 | Supertonic weight contract + first-party conversion + golden tests | 1.1 | M |
