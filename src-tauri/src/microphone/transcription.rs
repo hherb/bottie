@@ -23,7 +23,10 @@ use whisper_rs::{
 
 use super::{CaptureState, VoiceActivity, VoiceSegment, lock};
 
+/// Push-to-talk keeps the original cadence; the text is only used after the user stops capture.
 pub(super) const TRANSCRIPTION_INTERVAL_MS: u64 = 1_500;
+/// Conversation mode wants the stability gates earlier, so a partial arrives about a second after capture starts.
+pub(super) const CONVERSATION_TRANSCRIPTION_INTERVAL_MS: u64 = 1_000;
 const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
 const MODEL_RUNTIME_THREADS: i32 = 2;
 pub(super) const MAX_TRANSCRIPT_SEGMENTS: usize = 32;

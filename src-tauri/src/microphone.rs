@@ -408,6 +408,14 @@ impl CaptureState {
             .join(" ")
     }
 
+    /// Conversation capture asks for earlier partials than push-to-talk.
+    fn transcription_interval_ms(&self) -> u64 {
+        match self.mode {
+            MicrophoneMode::Conversation => transcription::CONVERSATION_TRANSCRIPTION_INTERVAL_MS,
+            MicrophoneMode::PushToTalk => transcription::TRANSCRIPTION_INTERVAL_MS,
+        }
+    }
+
     fn schedule_transcription(&mut self, is_final: bool) -> bool {
         self.schedule_transcription_at(is_final, Instant::now())
     }
@@ -423,8 +431,7 @@ impl CaptureState {
         if !is_final && duration_ms < self.next_transcription_ms {
             return false;
         }
-        self.next_transcription_ms =
-            duration_ms.saturating_add(transcription::TRANSCRIPTION_INTERVAL_MS);
+        self.next_transcription_ms = duration_ms.saturating_add(self.transcription_interval_ms());
         let Some(job) = TranscriptionJob::from_capture(
             self.capture_id,
             self.transcription_generation.wrapping_add(1),
@@ -513,7 +520,7 @@ impl CaptureState {
         self.transcript_segments.clear();
         self.transcription_error_code = None;
         self.pending_transcription = None;
-        self.next_transcription_ms = transcription::TRANSCRIPTION_INTERVAL_MS;
+        self.next_transcription_ms = self.transcription_interval_ms();
     }
 
     fn status(&self) -> MicrophoneStatus {

@@ -570,3 +570,29 @@ fn push_to_talk_capture_never_ends_itself() {
     assert_eq!(state.status().endpoint_reason, None);
     assert_eq!(state.status().mode, MicrophoneMode::PushToTalk);
 }
+
+#[test]
+fn conversation_capture_schedules_partials_a_second_after_capture_starts() {
+    let requested_at = Instant::now();
+
+    let mut push_to_talk = CaptureState::default();
+    push_to_talk.begin_starting_at(requested_at);
+    push_to_talk.begin_recording(16_000, 1);
+    push_to_talk.append(&vec![0.5_f32; 16_000]);
+    // One second of audio is below push-to-talk's retained 1.5 s cadence.
+    assert!(
+        !push_to_talk.schedule_transcription_at(false, requested_at + Duration::from_millis(1_000))
+    );
+    push_to_talk.append(&vec![0.5_f32; 8_000]);
+    assert!(
+        push_to_talk.schedule_transcription_at(false, requested_at + Duration::from_millis(1_500))
+    );
+
+    let mut conversation = CaptureState::default();
+    conversation.mode = MicrophoneMode::Conversation;
+    conversation.begin_recording(16_000, 1);
+    conversation.append(&vec![0.5_f32; 16_000]);
+    assert!(
+        conversation.schedule_transcription_at(false, requested_at + Duration::from_millis(1_000))
+    );
+}
