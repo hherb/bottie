@@ -4,7 +4,7 @@ Written 2026-11-01 against commit `118dea43` (2026-10-31). This turns
 [`voice-mode-evaluation.md`](voice-mode-evaluation.md) and the measured engine decision in
 [`voice-mode-parts/tts-head-to-head.md`](voice-mode-parts/tts-head-to-head.md) into work against the modules Bottie has today.
 
-Status: phase 0 is implemented and manually accepted on macOS; phase 1 is structurally complete on branch `feat/voice-mode-phase0` (`2bbc41e`, `71aab0f`, `901c11f`), with a real unplug/route-change exercise still outstanding. The engine and endpointing decisions are made; the open questions are engineering
+Status: phase 0 is implemented and manually accepted on macOS; phase 1 is structurally complete (`2bbc41e`, `71aab0f`, `901c11f`, real unplug exercise outstanding); phase 2 has started with the conversation recognition cadence (`93c69bf`). The engine and endpointing decisions are made; the open questions are engineering
 and are listed per phase.
 
 ## 0. Phase map
@@ -259,6 +259,11 @@ Remaining:
   one duplex stream.
 
 ## 4. Phase 2 — endpointing upgrade
+
+Status: started. The conversation recognition cadence is implemented (`93c69bf`): conversation capture schedules partials
+every 1,000 ms, push-to-talk keeps 1,500 ms, chosen per scheduling decision. Remaining: the pinned Silero VAD asset and
+release gate, the optional base-q5_1 checkpoint, and the onset anchor (the cadence currently follows captured audio
+duration rather than the first confirmed speech frame).
 
 - `microphone/vad_silero.rs` (new): owns `whisper_rs::WhisperVadContext`, resamples to 16 kHz once at the stream edge,
   evaluates a trailing 2,000 ms window every 100 ms on its own thread; exposes one decision per 20 ms frame to the
