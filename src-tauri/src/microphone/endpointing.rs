@@ -92,6 +92,8 @@ pub(super) struct EndPointer {
     transcript: Option<String>,
     transcript_stable: bool,
     saw_transcript: bool,
+    /// Capture-relative instant of the first confirmed speech run, used to anchor recognition cadence.
+    first_speech_at: Option<Instant>,
     finished: Option<EndReason>,
 }
 
@@ -114,6 +116,7 @@ impl EndPointer {
             transcript: None,
             transcript_stable: false,
             saw_transcript: false,
+            first_speech_at: None,
             finished: None,
         }
     }
@@ -174,6 +177,11 @@ impl EndPointer {
         self.evaluate(now)
     }
 
+    /// Reports when the first speech run of this turn started, if speech has been confirmed.
+    pub(super) fn first_speech_at(&self) -> Option<Instant> {
+        self.first_speech_at
+    }
+
     /// Reports the latched end-of-turn reason, if this turn has already finished.
     pub(super) fn finished(&self) -> Option<EndReason> {
         self.finished
@@ -190,6 +198,9 @@ impl EndPointer {
         let started = *self.speech_run_started_at.get_or_insert(now);
         if elapsed_ms(started, now) >= self.config.min_speech_ms {
             self.speech_run_confirmed = true;
+            if self.first_speech_at.is_none() {
+                self.first_speech_at = Some(started);
+            }
         }
         if self.speech_run_confirmed {
             self.last_speech_at = Some(now);
@@ -287,6 +298,7 @@ impl EndPointer {
         self.transcript = None;
         self.transcript_stable = false;
         self.saw_transcript = false;
+        self.first_speech_at = None;
         self.finished = None;
     }
 }

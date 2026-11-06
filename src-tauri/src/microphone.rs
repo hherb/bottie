@@ -153,6 +153,7 @@ struct CaptureState {
     mode: MicrophoneMode,
     endpointer: EndPointer,
     capture_started_at: Option<Instant>,
+    first_speech_ms: Option<u64>,
     vad_frames_processed: u64,
     permission: MicrophonePermission,
     buffer: Option<CaptureBuffer>,
@@ -302,6 +303,7 @@ impl CaptureState {
         self.input_level = 0.0;
         self.error_code = None;
         self.capture_started_at = None;
+        self.first_speech_ms = None;
         self.vad_frames_processed = 0;
         self.endpointer.reset();
         self.clear_transcription(TranscriptionPhase::Idle);
@@ -311,6 +313,7 @@ impl CaptureState {
     fn begin_recording(&mut self, sample_rate_hz: u32, channels: u16) {
         let now = Instant::now();
         self.capture_started_at = Some(now);
+        self.first_speech_ms = None;
         self.vad_frames_processed = 0;
         if self.mode == MicrophoneMode::Conversation {
             self.endpointer.armed(now);
@@ -392,7 +395,22 @@ impl CaptureState {
                         .saturating_mul(u64::from(vad::FRAME_DURATION_MS)),
                 );
             let _ = self.endpointer.on_activity(at, activity);
+            self.anchor_transcription_to_onset(started_at);
         }
+    }
+
+    /// Starts conversation partials a full interval after the first confirmed speech, not after capture start.
+    fn anchor_transcription_to_onset(&mut self, started_at: Instant) {
+        if self.mode != MicrophoneMode::Conversation || self.first_speech_ms.is_some() {
+            return;
+        }
+        let Some(onset) = self.endpointer.first_speech_at() else {
+            return;
+        };
+        let onset_ms = u64::try_from(onset.saturating_duration_since(started_at).as_millis())
+            .unwrap_or(u64::MAX);
+        self.first_speech_ms = Some(onset_ms);
+        self.next_transcription_ms = onset_ms.saturating_add(self.transcription_interval_ms());
     }
 
     /// Reports the latched end-of-turn reason for conversation capture.

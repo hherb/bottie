@@ -591,8 +591,34 @@ fn conversation_capture_schedules_partials_a_second_after_capture_starts() {
     let mut conversation = CaptureState::default();
     conversation.mode = MicrophoneMode::Conversation;
     conversation.begin_recording(16_000, 1);
+    // Isolate the interval choice: onset anchoring is covered by its own test.
+    conversation.first_speech_ms = Some(0);
     conversation.append(&vec![0.5_f32; 16_000]);
     assert!(
         conversation.schedule_transcription_at(false, requested_at + Duration::from_millis(1_000))
     );
+}
+
+#[test]
+fn conversation_partials_are_anchored_to_the_first_confirmed_speech() {
+    let mut state = CaptureState::default();
+    state.mode = MicrophoneMode::Conversation;
+    state.begin_recording(16_000, 1);
+    assert_eq!(state.next_transcription_ms, 1_000);
+
+    // 800 ms of silence followed by 300 ms of speech: the cadence must move to speech onset, not capture start.
+    state.append(&vec![0.0_f32; 12_800]);
+    state.append(&vec![0.5_f32; 4_800]);
+
+    let onset = state.first_speech_ms.expect("speech onset was confirmed");
+    assert!((800..=1_000).contains(&onset), "unexpected onset {onset}");
+    assert_eq!(state.next_transcription_ms, onset + 1_000);
+
+    // Push-to-talk never anchors; its cadence stays at capture-relative 1.5 s.
+    let mut push_to_talk = CaptureState::default();
+    push_to_talk.begin_recording(16_000, 1);
+    push_to_talk.append(&vec![0.0_f32; 12_800]);
+    push_to_talk.append(&vec![0.5_f32; 4_800]);
+    assert_eq!(push_to_talk.first_speech_ms, None);
+    assert_eq!(push_to_talk.next_transcription_ms, 1_500);
 }
