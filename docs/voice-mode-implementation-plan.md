@@ -4,7 +4,7 @@ Written 2026-11-01 against commit `118dea43` (2026-10-31). This turns
 [`voice-mode-evaluation.md`](voice-mode-evaluation.md) and the measured engine decision in
 [`voice-mode-parts/tts-head-to-head.md`](voice-mode-parts/tts-head-to-head.md) into work against the modules Bottie has today.
 
-Status: phase 0 is implemented and manually accepted on macOS; phase 1 is structurally complete (`2bbc41e`, `71aab0f`, `901c11f`, real unplug exercise outstanding); phase 2 has started with the conversation recognition cadence (`93c69bf`). The engine and endpointing decisions are made; the open questions are engineering
+Status: phase 0 is implemented and manually accepted on macOS; phase 1 is structurally complete (`2bbc41e`, `71aab0f`, `901c11f`, real unplug exercise outstanding); phase 2 has the conversation recognition cadence (`93c69bf`) and the pinned Silero VAD recognizer gate (`314fc0a`); the endpointer release gate and optional base checkpoint remain. The engine and endpointing decisions are made; the open questions are engineering
 and are listed per phase.
 
 ## 0. Phase map
@@ -260,10 +260,24 @@ Remaining:
 
 ## 4. Phase 2 — endpointing upgrade
 
-Status: started. The conversation recognition cadence is implemented (`93c69bf`): conversation capture schedules partials
-every 1,000 ms, push-to-talk keeps 1,500 ms, chosen per scheduling decision. Remaining: the pinned Silero VAD asset and
-release gate, the optional base-q5_1 checkpoint, and the onset anchor (the cadence currently follows captured audio
-duration rather than the first confirmed speech frame).
+Status: in progress.
+
+Done:
+
+- Conversation capture schedules partials every 1,000 ms; push-to-talk keeps 1,500 ms, chosen per scheduling decision
+  (`93c69bf`).
+- `ggml-silero-v6.2.0.bin` is pinned to the immutable `ggml-org/whisper-vad` revision through the reviewed
+  runtime-asset contract and verified like the recognition model. `microphone/vad_silero` wraps whisper-rs's
+  `WhisperVadContext`; the recognizer now refuses snapshots with no detected speech (empty transcript instead of a
+  hallucination) and trims recognition to the detected span, falling back to the whole snapshot when the asset is
+  unavailable (`314fc0a`).
+
+Remaining:
+
+- Wire Silero as the *release gate* in the live endpointer (currently the energy VAD still decides frame activity; Silero
+  only gates recognizer snapshots).
+- Optional `ggml-base-q5_1` checkpoint behind the same contract.
+- Onset anchor: the cadence follows captured audio duration, not the first confirmed speech frame.
 
 - `microphone/vad_silero.rs` (new): owns `whisper_rs::WhisperVadContext`, resamples to 16 kHz once at the stream edge,
   evaluates a trailing 2,000 ms window every 100 ms on its own thread; exposes one decision per 20 ms frame to the
