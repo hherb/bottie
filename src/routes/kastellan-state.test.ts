@@ -5,11 +5,17 @@ import type { Message } from "$lib/presentation";
 
 import { KastellanState, type KastellanPage } from "./kastellan-state.svelte";
 
-const native = vi.hoisted(() => ({ startKastellanTask: vi.fn() }));
+const native = vi.hoisted(() => ({
+  startKastellanTask: vi.fn(),
+  stopKastellanTask: vi.fn(),
+  correctKastellanTask: vi.fn(),
+}));
 
 vi.mock("$lib/kastellan", async (importOriginal) => ({
   ...(await importOriginal<typeof import("$lib/kastellan")>()),
   startKastellanTask: native.startKastellanTask,
+  stopKastellanTask: native.stopKastellanTask,
+  correctKastellanTask: native.correctKastellanTask,
 }));
 
 const CONTEXT = { conversationId: "open", requestMessageId: "request" };
@@ -91,5 +97,38 @@ describe("KastellanState", () => {
     await applied;
 
     expect(target.timeline).toEqual([{ id: 7, role: "user", content: "a message in the other conversation" }]);
+  });
+
+  it("shows progress on the running response and keeps it for a reopened one", async () => {
+    native.startKastellanTask.mockReset().mockResolvedValue({ runId: "run", host: "dgx" });
+    const target = page();
+    const state = new KastellanState(target);
+    await state.dispatch(CONTEXT, "@kastellan: do it");
+    expect(target.timeline[0].kastellan).toEqual({ runId: "run", progress: [] });
+
+    state.applyProgress({ conversationId: "open", runId: "run", line: "Plan: 1. find it" });
+    expect(target.timeline[0].kastellan?.progress).toEqual(["Plan: 1. find it"]);
+
+    // Reopened from storage: the response has its run id but no progress until the next line restores all of it.
+    target.timeline.splice(0, 1, { id: 99, role: "assistant", content: "", kastellan: { runId: "run", progress: [] } });
+    state.applyProgress({ conversationId: "open", runId: "run", line: "Step 1 done: found" });
+    expect(target.timeline[0].kastellan?.progress).toEqual(["Plan: 1. find it", "Step 1 done: found"]);
+  });
+
+  it("relays Stop and Correct, and shows a refusal in the progress", async () => {
+    const target = page();
+    target.timeline.push({ id: 1, role: "assistant", content: "", kastellan: { runId: "run", progress: [] } });
+    const state = new KastellanState(target);
+    native.stopKastellanTask.mockReset().mockResolvedValue(undefined);
+    await state.stop("run");
+    expect(native.stopKastellanTask).toHaveBeenCalledWith("run");
+
+    native.correctKastellanTask.mockReset().mockResolvedValue(undefined);
+    expect(await state.correct("run", "the other account")).toBe(true);
+    expect(native.correctKastellanTask).toHaveBeenCalledWith("run", "the other account");
+
+    native.correctKastellanTask.mockRejectedValue({ code: "invalid_request", message: "no longer running" });
+    expect(await state.correct("run", "x")).toBe(false);
+    expect(target.timeline[0].kastellan?.progress).toEqual(["Could not send the correction: no longer running"]);
   });
 });

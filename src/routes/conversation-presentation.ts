@@ -33,6 +33,7 @@ export function storedMessageToPresentation(message: StoredMessage): Message {
     rating: message.rating ?? undefined,
     toolInvocations: message.providerRun?.toolInvocations,
     attachments: message.attachments.map(storedAttachmentToPresentation),
+    kastellan: kastellan?.live,
     generatedAssets: message.generatedAssets.map((asset) => ({
       ...asset,
       previewUrl: asset.status === "completed" ? convertFileSrc(asset.id, "bottie-generated-asset") : null,

@@ -6,14 +6,22 @@
 //! WebView can reload the conversation. Bottie's one-running-response-per-conversation rule still applies, so the
 //! conversation is busy until Kastellan answers while every other conversation stays usable.
 //!
-//! The transport is Kastellan's operator CLI, `kastellan-cli ask`, run directly for a loopback host or over `ssh`;
-//! see [`transport`]. The host is chosen in Settings and saved as `kastellan.json`; see [`config`].
+//! The transport is one `kastellan-cli session` per request, run directly for a loopback host or over `ssh`; see
+//! [`transport`], [`session`] and [`session_run`]. While the task runs, each notebook entry is announced as a
+//! [`KASTELLAN_PROGRESS_EVENT`], and [`stop_kastellan_task`] / [`correct_kastellan_task`] reach it through the
+//! request's control channel. The host is chosen in Settings and saved as `kastellan.json`; see [`config`].
 
 pub(crate) mod config;
+pub(crate) mod session;
+pub(crate) mod session_run;
 pub(crate) mod settings;
 pub(crate) mod transport;
 
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, Mutex},
+    time::{Duration, Instant},
+};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -28,13 +36,19 @@ use crate::{
     },
 };
 use config::load_config;
+use session::Control;
 use settings::{config_path, home_directory};
-use transport::{Action, TaskOutcome, execute, instruction_from_prompt, plan_invocation};
+use tokio::sync::mpsc;
+use transport::{
+    Action, MAX_INSTRUCTION_BYTES, TaskOutcome, instruction_from_prompt, plan_invocation,
+};
 
 /// Stable provider identity recorded on Kastellan runs.
 pub(crate) const KASTELLAN_PROVIDER_ID: &str = "kastellan";
 /// Application event emitted after a Kastellan run reaches a terminal durable state.
 pub(crate) const KASTELLAN_TASK_EVENT: &str = "kastellan-task-finished";
+/// Application event emitted for each progress line of a running Kastellan task. Transient: only the reply is saved.
+pub(crate) const KASTELLAN_PROGRESS_EVENT: &str = "kastellan-task-progress";
 /// Upper bound on one task, after which the CLI is killed. The Kastellan task itself keeps running.
 const TASK_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 /// Durable error code for a run whose outcome could not be saved.
@@ -58,13 +72,54 @@ pub(crate) struct KastellanTaskFinished {
     pub(crate) run_id: String,
 }
 
-/// Plans the CLI invocation for one prompt; every error here becomes the saved response.
+/// Event payload carrying one progress line of a running task.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct KastellanTaskProgress {
+    pub(crate) conversation_id: String,
+    pub(crate) run_id: String,
+    pub(crate) line: String,
+}
+
+/// Control channels of the requests running now, by run id. An entry lives exactly as long as its session.
+static RUNNING: LazyLock<Mutex<HashMap<String, mpsc::UnboundedSender<Control>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Plans the session for one prompt and returns it with the instruction; every error here becomes the saved response.
 pub(crate) fn prepare(
     config: &config::KastellanConfig,
     prompt: &str,
     home: Option<&std::path::Path>,
-) -> Result<transport::Invocation, ProviderError> {
-    plan_invocation(config, Action::Ask(instruction_from_prompt(prompt)?), home)
+) -> Result<(transport::Invocation, String), ProviderError> {
+    let instruction = instruction_from_prompt(prompt)?.to_owned();
+    Ok((plan_invocation(config, Action::Session, home)?, instruction))
+}
+
+/// Hands `control` to the running request `run_id`; an error when it is not running (it may just have finished).
+pub(crate) fn send_control(run_id: &str, control: Control) -> Result<(), ProviderError> {
+    let running = RUNNING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    running
+        .get(run_id)
+        .and_then(|sender| sender.send(control).ok())
+        .ok_or_else(|| ProviderError::invalid_request("This Kastellan task is no longer running."))
+}
+
+/// The correction text Kastellan accepts: not blank, within the task limit, no NUL.
+pub(crate) fn correction_text(text: &str) -> Result<String, ProviderError> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Err(ProviderError::invalid_request(
+            "Write the correction first.",
+        ));
+    }
+    if text.len() > MAX_INSTRUCTION_BYTES || text.contains('\0') {
+        return Err(ProviderError::invalid_request(
+            "A correction is limited to 32 KiB of text without NUL characters.",
+        ));
+    }
+    Ok(text.to_owned())
 }
 
 /// Formats the one-line provenance saved with every reply.
@@ -105,6 +160,7 @@ fn save_outcome(
     let (text, state, code) = match outcome {
         TaskOutcome::Reply(text) => (text, ProviderRunState::Completed, None),
         TaskOutcome::Failed { text, code } => (text, ProviderRunState::Failed, Some(*code)),
+        TaskOutcome::Stopped(text) => (text, ProviderRunState::Cancelled, None),
     };
     store.checkpoint(run_id, RunBlockKind::Text, text)?;
     store.finish(run_id, state, code)
@@ -178,10 +234,39 @@ pub(crate) async fn start_kastellan_task(
     let diagnostics = state.diagnostics.clone();
     let task_run_id = run_id.clone();
     let task_host = host.clone();
+    let (controls, control_receiver) = mpsc::unbounded_channel();
+    RUNNING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(run_id.clone(), controls);
     tauri::async_runtime::spawn(async move {
         let started = Instant::now();
         let (outcome, task_id) = match prepared {
-            Ok(invocation) => execute(&invocation, TASK_TIMEOUT).await,
+            Ok((invocation, instruction)) => {
+                let (progress_app, conversation_id, progress_run_id) = (
+                    app.clone(),
+                    context.conversation_id.clone(),
+                    task_run_id.clone(),
+                );
+                let on_progress = move |line: String| {
+                    let _ = progress_app.emit(
+                        KASTELLAN_PROGRESS_EVENT,
+                        KastellanTaskProgress {
+                            conversation_id: conversation_id.clone(),
+                            run_id: progress_run_id.clone(),
+                            line,
+                        },
+                    );
+                };
+                session_run::run_session(
+                    &invocation,
+                    &instruction,
+                    TASK_TIMEOUT,
+                    control_receiver,
+                    on_progress,
+                )
+                .await
+            }
             Err(error) => (
                 TaskOutcome::Failed {
                     text: error.message,
@@ -190,13 +275,17 @@ pub(crate) async fn start_kastellan_task(
                 None,
             ),
         };
+        RUNNING
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(&task_run_id);
         let line = provenance(task_id.as_deref(), &task_host, started.elapsed());
         let detail = match persist_outcome(&conversations, &task_run_id, &outcome, &line) {
             Ok(()) => line,
             Err(error) => format!("{line}; not saved: {}", error.message),
         };
         let level = match outcome {
-            TaskOutcome::Reply(_) => "info",
+            TaskOutcome::Reply(_) | TaskOutcome::Stopped(_) => "info",
             TaskOutcome::Failed { .. } => "error",
         };
         record_diagnostic(
@@ -216,6 +305,18 @@ pub(crate) async fn start_kastellan_task(
         );
     });
     Ok(KastellanRun { run_id, host })
+}
+
+#[tauri::command]
+/// Stops a running Kastellan request: its task is cancelled, and the reply is saved as stopped once Kastellan confirms.
+pub(crate) fn stop_kastellan_task(run_id: String) -> Result<(), ProviderError> {
+    send_control(&run_id, Control::Stop)
+}
+
+#[tauri::command]
+/// Adds an operator correction to a running Kastellan request; the planner reads it on its next turn.
+pub(crate) fn correct_kastellan_task(run_id: String, text: String) -> Result<(), ProviderError> {
+    send_control(&run_id, Control::Correct(correction_text(&text)?))
 }
 
 #[cfg(test)]

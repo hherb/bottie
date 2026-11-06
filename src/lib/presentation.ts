@@ -1,4 +1,5 @@
 import type { ProviderId, ProviderSettings, WebSearchProviderId } from "./inference";
+import type { KastellanLive } from "./kastellan";
 import type {
   AttachmentExtraction,
   AttachmentIndexing,
@@ -41,6 +42,8 @@ export type Message = {
   toolInvocations?: StoredToolInvocation[];
   attachments?: Attachment[];
   generatedAssets?: GeneratedAsset[];
+  /** Set while a Kastellan task runs: its run id (for Stop and Correct) and progress lines. */
+  kastellan?: KastellanLive;
 };
 
 /** Browser presentation for one path-free assistant-generated image. */

@@ -1,0 +1,59 @@
+/* The live part of a running Kastellan response: progress lines, Correct field and Stop button. */
+.kastellan-live {
+  margin: 4px 0 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(91, 184, 167, 0.16);
+  border-radius: 10px;
+  background: rgba(91, 184, 167, 0.035);
+}
+.kastellan-progress {
+  display: grid;
+  gap: 4px;
+  max-height: 220px;
+  margin: 0 0 9px;
+  padding-left: 18px;
+  overflow-y: auto;
+  color: #b9c6c3;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.kastellan-progress-empty {
+  margin: 0 0 9px;
+  color: #66726f;
+  font-size: 11px;
+}
+.kastellan-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.kastellan-controls input {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+}
+.kastellan-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  background: transparent;
+  color: #b9c6c3;
+  font-size: 11px;
+  cursor: pointer;
+}
+.kastellan-controls button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.kastellan-controls .kastellan-stop {
+  color: #e0a39a;
+}
