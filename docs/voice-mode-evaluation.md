@@ -1,10 +1,10 @@
 # Voice mode: local STT and TTS options
 
-Last reviewed: 2026-11-01
+Last reviewed: 2026-11-02
 
-This document evaluates local speech-to-text and text-to-speech options for a better Bottie voice mode. It is an
-evaluation of options, not a decision and not a commitment to integrate. Nothing here changes what Bottie ships;
-Milestone 7 remains the current voice implementation.
+This document evaluates local speech-to-text and text-to-speech options for a better Bottie voice mode. It began as an
+evaluation of options; the phase-0 and phase-1/2 slices have since been implemented on branch
+`feat/voice-mode-phase0`, and this document remains the options-and-evidence record behind that work.
 
 The question came from the product owner: Bottie needs a better voice mode, the investigation should cover local
 STT and TTS, keep the inference model free to be any (non-voice) model, and pay particular attention to
@@ -24,6 +24,39 @@ measurement of three TTS engines on this host is recorded in
 [`voice-mode-parts/samples/`](voice-mode-parts/samples/). The implementation plan that turns this document into work
 against the existing modules is [`voice-mode-implementation-plan.md`](voice-mode-implementation-plan.md). Every number
 below is labelled, and the unlabelled latency figures in the plan are estimates composed from labelled pieces.
+
+## Implementation status (2026-11-02)
+
+What exists on `feat/voice-mode-phase0`, in the order it was built:
+
+| Slice | What shipped |
+| --- | --- |
+| Phase 0 | Explicit hands-free half-duplex conversation: conversation-mode capture with native end-of-turn, automatic submission through the ordinary send path, sentence-by-sentence spoken replies over the existing OS-voice backend, explicit Interrupt, and a composer that keeps one fixed height. Five defects found by the manual acceptance run were fixed: the missing macOS audio-input entitlement (silent microphone and no prompt), a fixed speech threshold far above a built-in mic (adaptive noise floor), replies cut after their first chunk (drain the finished speech session), a turn that was never submitted (microphone status polling during native capture), and a composer that resized on every status change. |
+| Phase 1 | One process-lifetime CPAL output owner with a two-second bounded queue, device-layout/rate conversion, reopen-on-failure, default-device following between utterances, measured `outputLatencyMs` in speech status, and a bounded rendered mono reference with a monotonic sequence for a future echo canceller. Nano playback uses it instead of opening the device per utterance. |
+| Phase 2 | Conversation partials every 1,000 ms anchored to the first confirmed speech; Silero VAD pinned as a verified runtime asset and used to refuse/trim recognizer snapshots (empty transcript instead of a hallucination, whole-snapshot fallback when the asset is unavailable). |
+
+Verification at this point: Rust lib **871 passed**, frontend **519 passed** (3 perf skipped), `svelte-check` clean,
+`cargo fmt --check`/Prettier clean, and the runtime-asset contract check passes. A manual five-turn acceptance run on
+macOS passed after the phase-0 fixes: no keypress between turns, replies spoken in full, Interrupt prompt, mic reopened
+only after playback.
+
+Deliberately not done yet, and why:
+
+- **Live Silero release gate.** Silero currently gates recognizer snapshots; the turn endpointer still runs on the
+  energy VAD. Moving Silero onto the live release path needs a bounded off-thread window evaluator and a second gate in
+  the frame loop, and it should be measured on room noise before it replaces a working detector.
+- **Optional `ggml-base-q5_1` checkpoint.** The asset contract work is mechanical, but the accuracy/offline trade-off
+  has not been measured on this host, so it is deferred rather than guessed.
+- **Phase 3 (Supertonic via `sherpa-onnx`, fp32 first-party conversion).** The engine, weights, latency, and packaging
+  path are decided and measured; the work is a dedicated integration with a pinned native build and codesigned dylib.
+- **Phase 4 (AEC/barge-in) and phase 5 (wakeword).** The rendered reference and the endpointing work here are their
+  prerequisites; both still need per-platform measurement and, for wakeword, a licence-clean classifier.
+- **Smaller follow-ups:** `rubato` behind the existing queue API if phase 3 shows artefacts, a real unplug/route-change
+  exercise, and latency instrumentation for turn-end and first-audible numbers.
+
+Operational consequences: packaged macOS builds must keep `com.apple.security.device.audio-input`; the first voice use
+downloads and verifies the 32 MB Whisper tiny checkpoint and the 885 KB Silero VAD asset into Bottie's cache; and
+conversation mode is an explicit mode, while push-to-talk and typed chat are unchanged.
 
 ## Summary
 

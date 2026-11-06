@@ -4,7 +4,7 @@ Written 2026-11-01 against commit `118dea43` (2026-10-31). This turns
 [`voice-mode-evaluation.md`](voice-mode-evaluation.md) and the measured engine decision in
 [`voice-mode-parts/tts-head-to-head.md`](voice-mode-parts/tts-head-to-head.md) into work against the modules Bottie has today.
 
-Status: phase 0 is implemented and manually accepted on macOS; phase 1 is structurally complete (`2bbc41e`, `71aab0f`, `901c11f`, real unplug exercise outstanding); phase 2 has the conversation recognition cadence (`93c69bf`) and the pinned Silero VAD recognizer gate (`314fc0a`); the endpointer release gate and optional base checkpoint remain. The engine and endpointing decisions are made; the open questions are engineering
+Status: phase 0 is implemented and manually accepted on macOS; phase 1 is structurally complete (`2bbc41e`, `71aab0f`, `901c11f`, real unplug exercise outstanding); phase 2's detection work is complete except the live Silero release gate (`93c69bf`, `314fc0a`, `81b30bf`). Phases 3–5 remain future work. The engine and endpointing decisions are made; the open questions are engineering
 and are listed per phase.
 
 ## 0. Phase map
@@ -275,9 +275,10 @@ Done:
 Remaining:
 
 - Wire Silero as the *release gate* in the live endpointer (currently the energy VAD still decides frame activity; Silero
-  only gates recognizer snapshots).
-- Optional `ggml-base-q5_1` checkpoint behind the same contract.
-- Onset anchor: the cadence follows captured audio duration, not the first confirmed speech frame.
+  only gates recognizer snapshots). This is the one remaining detection item.
+- Optional `ggml-base-q5_1` checkpoint behind the same contract — deferred until the accuracy/offline trade-off is
+  measured on this host rather than guessed.
+- Onset anchor: done (`81b30bf`) — the first conversation partial follows the first confirmed speech frame.
 
 - `microphone/vad_silero.rs` (new): owns `whisper_rs::WhisperVadContext`, resamples to 16 kHz once at the stream edge,
   evaluates a trailing 2,000 ms window every 100 ms on its own thread; exposes one decision per 20 ms frame to the
@@ -337,8 +338,8 @@ fp32 weights** so the provenance chain and the Open RAIL-M notices are unambiguo
 | 0.5 | ~~Frontend store + controls + auto-submit + interrupt~~ — done 2026-11-01 (`d4c6e67`, `83c5252`) | 0.4 | M |
 | 0.6 | ~~Acceptance run~~ — manual five-turn run completed 2026-11-02; five fixes landed (`313739f`…`e166a11`); latency was observed as acceptable but not instrumented | 0.5 | S |
 | 1.1 | ~~Audio owner (queue, resample, device recovery, rendered reference)~~ — done `2bbc41e`/`901c11f`; real unplug exercise outstanding | 0.6 | L |
-| 2.1 | Silero VAD module + assets + interval/anchoring changes | 0.6 | M |
-| 2.2 | Optional base-q5_1 checkpoint option | 2.1 | S |
+| 2.1 | ~~Silero VAD recognizer gate, cadence and onset anchor~~ — done `314fc0a`/`81b30bf`; live release gate remains | 0.6 | M |
+| 2.2 | Optional base-q5_1 checkpoint option — deferred pending measurement | 2.1 | S |
 | 3.1 | Supertonic weight contract + first-party conversion + golden tests | 1.1 | M |
 | 3.2 | `sherpa-onnx` integration, packaging pin, Tauri dylib bundling/codesign | 3.1 | L |
 | 3.3 | End-to-end first-audible measurement + tuning | 3.2 | S |
