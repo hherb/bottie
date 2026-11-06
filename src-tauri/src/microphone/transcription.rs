@@ -21,7 +21,10 @@ use whisper_rs::{
     FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, install_logging_hooks,
 };
 
-use super::{CaptureState, VoiceActivity, VoiceSegment, lock};
+use super::{
+    CaptureState, VoiceActivity, VoiceSegment, lock,
+    vad_silero::{SileroVad, lock_vad, speech_sample_bounds},
+};
 
 /// Push-to-talk keeps the original cadence; the text is only used after the user stops capture.
 pub(super) const TRANSCRIPTION_INTERVAL_MS: u64 = 1_500;
@@ -182,6 +185,8 @@ impl TranscriptionWorker {
 
 struct WhisperTranscriber {
     context: WhisperContext,
+    /// Silero is an enhancement: when its asset is unavailable, recognition still runs over the whole snapshot.
+    vad: Option<Mutex<SileroVad>>,
 }
 
 impl WhisperTranscriber {
@@ -192,7 +197,8 @@ impl WhisperTranscriber {
         let context =
             WhisperContext::new_with_params(model_path, WhisperContextParameters::default())
                 .map_err(|_| TranscriptionErrorCode::RecognitionFailed)?;
-        Ok(Self { context })
+        let vad = SileroVad::load(cache_dir).ok().map(Mutex::new);
+        Ok(Self { context, vad })
     }
 
     fn transcribe(
@@ -200,6 +206,32 @@ impl WhisperTranscriber {
         job: &TranscriptionJob,
     ) -> Result<Vec<RawTranscriptSegment>, TranscriptionErrorCode> {
         let audio = resample_linear(&job.samples, job.sample_rate_hz, TARGET_SAMPLE_RATE_HZ);
+        // Silero decides whether this window contains speech at all and where it starts and ends, so a noisy or empty
+        // snapshot becomes an honest empty transcript instead of a Whisper hallucination. Without its asset the whole
+        // snapshot is recognized, which keeps offline push-to-talk working.
+        let window = match self.vad.as_ref() {
+            Some(vad) => {
+                let window = lock_vad(vad).speech_window(&audio);
+                let Some(window) = window else {
+                    return Ok(Vec::new());
+                };
+                window
+            }
+            None => crate::microphone::vad_silero::SpeechWindow {
+                start_ms: 0,
+                end_ms: u64::try_from(audio.len())
+                    .unwrap_or(u64::MAX)
+                    .saturating_mul(1_000)
+                    / u64::from(TARGET_SAMPLE_RATE_HZ),
+            },
+        };
+        let Some((start_sample, end_sample)) =
+            speech_sample_bounds(audio.len(), TARGET_SAMPLE_RATE_HZ, window)
+        else {
+            return Ok(Vec::new());
+        };
+        let audio = &audio[start_sample..end_sample];
+        let window_offset_ms = job.offset_ms.saturating_add(window.start_ms);
         let mut state = self
             .context
             .create_state()
@@ -218,12 +250,10 @@ impl WhisperTranscriber {
         Ok(state
             .as_iter()
             .filter_map(|segment| {
-                let start_ms = job
-                    .offset_ms
+                let start_ms = window_offset_ms
                     .saturating_add(timestamp_to_milliseconds(segment.start_timestamp()))
                     .min(job.end_ms);
-                let end_ms = job
-                    .offset_ms
+                let end_ms = window_offset_ms
                     .saturating_add(timestamp_to_milliseconds(segment.end_timestamp()))
                     .min(job.end_ms);
                 (end_ms >= start_ms).then(|| RawTranscriptSegment {
@@ -250,11 +280,12 @@ fn process_job(
 #[serde(rename_all = "camelCase")]
 struct RuntimeAssetManifest {
     schema_version: u8,
-    whisper_tiny_q5: WhisperModelContract,
+    whisper_tiny_q5: PinnedModelContract,
+    silero_vad_ggml: PinnedModelContract,
 }
 
 #[derive(Deserialize)]
-struct WhisperModelContract {
+struct PinnedModelContract {
     repository: String,
     revision: String,
     file: ModelFileContract,
@@ -267,12 +298,32 @@ struct ModelFileContract {
     size: u64,
 }
 
-fn prepare_pinned_model(cache_dir: &PathBuf) -> Result<PathBuf, TranscriptionErrorCode> {
+fn runtime_asset_contract() -> Result<RuntimeAssetManifest, TranscriptionErrorCode> {
     let contract: RuntimeAssetManifest = serde_json::from_str(RUNTIME_ASSET_MANIFEST)
         .map_err(|_| TranscriptionErrorCode::ModelIntegrity)?;
     if contract.schema_version != 1 {
         return Err(TranscriptionErrorCode::ModelIntegrity);
     }
+    Ok(contract)
+}
+
+fn prepare_pinned_model(cache_dir: &PathBuf) -> Result<PathBuf, TranscriptionErrorCode> {
+    let contract = runtime_asset_contract()?;
+    prepare_pinned_contract(cache_dir, &contract.whisper_tiny_q5)
+}
+
+/// Returns the verified Silero VAD ggml model path, using the same gate as the recognition model.
+pub(super) fn prepare_pinned_vad_model(
+    cache_dir: &PathBuf,
+) -> Result<PathBuf, TranscriptionErrorCode> {
+    let contract = runtime_asset_contract()?;
+    prepare_pinned_contract(cache_dir, &contract.silero_vad_ggml)
+}
+
+fn prepare_pinned_contract(
+    cache_dir: &PathBuf,
+    contract: &PinnedModelContract,
+) -> Result<PathBuf, TranscriptionErrorCode> {
     let api = ApiBuilder::new()
         .with_cache_dir(cache_dir.clone())
         .with_endpoint("https://huggingface.co".into())
@@ -280,11 +331,11 @@ fn prepare_pinned_model(cache_dir: &PathBuf) -> Result<PathBuf, TranscriptionErr
         .build()
         .map_err(|_| TranscriptionErrorCode::ModelUnavailable)?;
     let repository = api.repo(Repo::with_revision(
-        contract.whisper_tiny_q5.repository,
+        contract.repository.clone(),
         RepoType::Model,
-        contract.whisper_tiny_q5.revision,
+        contract.revision.clone(),
     ));
-    verified_model_path(&repository, &contract.whisper_tiny_q5.file)
+    verified_model_path(&repository, &contract.file)
 }
 
 fn verified_model_path(

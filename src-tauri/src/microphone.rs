@@ -9,6 +9,7 @@ pub(crate) mod endpointing;
 pub(crate) mod latency;
 mod transcription;
 mod vad;
+mod vad_silero;
 
 use std::{
     path::PathBuf,

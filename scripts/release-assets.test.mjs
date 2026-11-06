@@ -45,6 +45,20 @@ describe("release runtime assets", () => {
     expect(manifest.whisperTinyQ5.licence).toMatchObject({ sha256: SHA, spdx: "MIT" });
   });
 
+  it("pins the Silero VAD model used by the native recognizer gate", () => {
+    const manifest = buildRuntimeAssetManifest(ASSET_HASHES);
+
+    expect(manifest.sileroVadGgml.repository).toBe("ggml-org/whisper-vad");
+    expect(manifest.sileroVadGgml.revision).toMatch(/^[a-f0-9]{40}$/);
+    expect(manifest.sileroVadGgml.variant).toBe("silero-v6.2.0");
+    expect(manifest.sileroVadGgml.file).toEqual({
+      path: "ggml-silero-v6.2.0.bin",
+      sha256: "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987",
+      size: 885_098,
+    });
+    expect(manifest.sileroVadGgml.licence).toMatchObject({ spdx: "MIT" });
+  });
+
   it("records the four supported ONNX Runtime archives and exact reviewed notices", () => {
     const manifest = buildRuntimeAssetManifest(ASSET_HASHES);
 
