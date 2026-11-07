@@ -37,6 +37,7 @@
   import "$lib/styles/diagnostics.css";
   import "$lib/styles/localmail-settings.css";
   import "$lib/styles/kastellan-settings.css";
+  import "$lib/styles/kastellan-progress.css";
   import "$lib/styles/recovery.css";
   import "$lib/styles/appearance.css";
   import "$lib/styles/python-approval.css";
@@ -348,6 +349,8 @@
         onspeakresponse={(messageId, markdown) => void state.speech.speak(messageId, markdown)}
         onstopspeech={() => void state.speech.stop()}
         onscrollready={(element) => state.interaction.setMessageScroll(element)}
+        onstopkastellan={(runId) => void state.kastellan.stop(runId)}
+        oncorrectkastellan={(runId, text) => state.kastellan.correct(runId, text)}
       />
 
       <Composer

@@ -136,8 +136,9 @@ use inference::{
     save_provider_settings, validate_remote_base_url,
 };
 use kastellan::{
+    correct_kastellan_task,
     settings::{get_kastellan_settings, test_kastellan_connection, update_kastellan_settings},
-    start_kastellan_task,
+    start_kastellan_task, stop_kastellan_task,
 };
 use local_audio_preferences::LocalAudioPreferenceStore;
 use local_image_worker::acquisition_coordinator::{
@@ -1084,6 +1085,8 @@ pub fn run() {
             discover_models,
             start_chat,
             start_kastellan_task,
+            stop_kastellan_task,
+            correct_kastellan_task,
             get_kastellan_settings,
             update_kastellan_settings,
             test_kastellan_connection,

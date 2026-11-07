@@ -156,7 +156,7 @@ fn a_rejected_task_is_saved_as_a_failed_response_the_user_can_regenerate() {
     let run_id = start_run(&store, &conversation_id, &request_id);
     let error = prepare(
         &config::KastellanConfig::default(),
-        "@kastellan: --long x",
+        "@kastellan: a\0b",
         None,
     )
     .unwrap_err();
@@ -178,12 +178,74 @@ fn a_rejected_task_is_saved_as_a_failed_response_the_user_can_regenerate() {
         .pop()
         .unwrap();
     assert_eq!(reply.state, MessageState::Failed);
-    assert!(
-        reply.text.contains("cannot start with '-'"),
-        "{}",
-        reply.text
-    );
+    assert!(reply.text.contains("cannot contain NUL"), "{}", reply.text);
     send(&store, &conversation_id, "@kastellan: x").expect("the failure frees the conversation");
+}
+
+#[test]
+fn a_stopped_task_is_saved_as_stopped_and_frees_its_conversation() {
+    let (store, conversation_id, request_id) = store_with_request();
+    let run_id = start_run(&store, &conversation_id, &request_id);
+    let outcome = TaskOutcome::Stopped("Kastellan stopped this task.".into());
+    persist_outcome(&store, &run_id, &outcome, "Kastellan task 9 on dgx · 3s").unwrap();
+    let reply = store
+        .load_conversation(&conversation_id)
+        .unwrap()
+        .messages
+        .pop()
+        .unwrap();
+    assert_eq!(reply.state, MessageState::Cancelled);
+    assert_eq!(reply.text, "Kastellan stopped this task.");
+    send(&store, &conversation_id, "@kastellan: x").expect("a stopped task frees the conversation");
+}
+
+#[test]
+fn a_session_is_planned_with_the_instruction_kept_for_its_stdin() {
+    let (invocation, instruction) = prepare(
+        &config::KastellanConfig::default(),
+        "@kastellan:  find the invoice ",
+        Some(std::path::Path::new("/home/u")),
+    )
+    .unwrap();
+    assert_eq!(invocation.args, ["session"]);
+    assert_eq!(instruction, "find the invoice");
+    // A leading dash is fine now: the instruction is JSON, not an argv flag.
+    assert!(
+        prepare(
+            &config::KastellanConfig::default(),
+            "@kastellan: -x",
+            Some(std::path::Path::new("/h"))
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn controls_reach_only_a_running_request() {
+    assert!(send_control("no-such-run", session::Control::Stop).is_err());
+    let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+    RUNNING.lock().unwrap().insert("run-a".into(), sender);
+    send_control("run-a", session::Control::Correct("x".into())).unwrap();
+    assert_eq!(
+        receiver.try_recv().unwrap(),
+        session::Control::Correct("x".into())
+    );
+    RUNNING.lock().unwrap().remove("run-a");
+    assert!(
+        send_control("run-a", session::Control::Stop).is_err(),
+        "a finished request takes no control"
+    );
+}
+
+#[test]
+fn a_correction_must_be_text_kastellan_accepts() {
+    assert_eq!(
+        correction_text("  the other account \n").unwrap(),
+        "the other account"
+    );
+    assert!(correction_text("   ").is_err());
+    assert!(correction_text("a\0b").is_err());
+    assert!(correction_text(&"x".repeat(MAX_INSTRUCTION_BYTES + 1)).is_err());
 }
 
 /// A store whose text checkpoint fails, recording every call.

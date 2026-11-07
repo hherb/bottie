@@ -8,6 +8,7 @@
   import Icon from "$lib/Icon.svelte";
   import AttachmentVisual from "$lib/AttachmentVisual.svelte";
   import ToolActivity from "$lib/ToolActivity.svelte";
+  import KastellanProgress from "$lib/KastellanProgress.svelte";
   import { renderAssistantMarkdown } from "$lib/markdown";
   import {
     assistantSpeechText,
@@ -56,6 +57,8 @@
     onspeakresponse: (messageId: number, markdown: string) => void;
     onstopspeech: () => void;
     onscrollready: (element: HTMLDivElement) => void;
+    onstopkastellan?: (runId: string) => void;
+    oncorrectkastellan?: (runId: string, text: string) => Promise<boolean>;
   };
 
   let {
@@ -90,6 +93,8 @@
     onspeakresponse,
     onstopspeech,
     onscrollready,
+    onstopkastellan = () => {},
+    oncorrectkastellan = async () => false,
   }: Props = $props();
   let messageScroll: HTMLDivElement;
   let editingMessageId = $state<number | null>(null);
@@ -262,6 +267,10 @@
                 {#each message.reasoning.split("\n\n") as paragraph}<p>{paragraph}</p>{/each}
               </div>
             </details>
+          {/if}
+
+          {#if message.kastellan}
+            <KastellanProgress live={message.kastellan} onstop={onstopkastellan} oncorrect={oncorrectkastellan} />
           {/if}
 
           {#if message.toolInvocations?.length}

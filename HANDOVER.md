@@ -4,6 +4,13 @@ Last verified: 2026-10-31 (issues #230 and #231 on branch `fix/issues-230-231`).
 
 ## Start here
 
+0. **2026-11-07 (branch `feat/kastellan-session`): `@kastellan:` requests run through `kastellan-cli session`**, one
+   per request (`src-tauri/src/kastellan/session.rs` pure protocol, `session_run.rs` runner): live progress lines in
+   the waiting response (`KastellanProgress.svelte`, transient), Stop and Correct (`stop_kastellan_task`,
+   `correct_kastellan_task`, by run id). Needs a Kastellan with `session` (kastellan PR #986+; deployed on the DGX
+   2026-11-07; the Mac's install predates it). Live round trip to the DGX passed (task 386). Not yet clicked through in
+   the running app; do that before relying on the UI.
+
 1. Check the PR list first. As of 2026-10-31, PRs up to #229 are merged. PR #233 (`fix/issues-230-231`) fixes #230
    and #231 plus its review findings. Open follow-ups: #232 and #234 (local image worker causes), #235 (backup and
    recovery diagnostics).

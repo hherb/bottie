@@ -21,13 +21,7 @@ fn extracts_the_trimmed_instruction_after_the_prefix() {
 
 #[test]
 fn rejects_prompts_the_cli_cannot_accept() {
-    for prompt in [
-        "@kastellan:",
-        "@kastellan:   ",
-        "@kastellan: --long x",
-        "hello",
-        "@kastellan: a\0b",
-    ] {
+    for prompt in ["@kastellan:", "@kastellan:   ", "hello", "@kastellan: a\0b"] {
         assert!(
             instruction_from_prompt(prompt).is_err(),
             "{prompt:?} should be rejected"
@@ -43,46 +37,22 @@ fn bounds_the_task_at_the_composer_limit() {
     assert!(instruction_from_prompt(&over).is_err());
 }
 
-#[tokio::test]
-async fn an_early_exit_reports_the_child_error_not_a_broken_pipe() {
-    // ssh failing authentication exits before reading stdin; its stderr must survive the write error.
-    let plan = Invocation {
-        program: "/bin/sh".into(),
-        args: vec![
-            "-c".into(),
-            "echo 'Permission denied (publickey).' >&2; exit 255".into(),
-        ],
-        stdin: Some("x".repeat(1024 * 1024)),
-    };
-    let output = run_invocation(&plan, Duration::from_secs(10))
-        .await
-        .unwrap();
-    let TaskOutcome::Failed { text, code } =
-        interpret_output(output.status.code(), true, &output.stdout, &output.stderr)
-    else {
-        panic!("an ssh failure is a failure")
-    };
-    assert_eq!(code, "unavailable");
-    assert!(text.contains("Permission denied"), "{text}");
-}
-
 #[test]
-fn loopback_hosts_run_the_cli_directly_with_the_instruction_as_argv() {
+fn loopback_hosts_run_the_cli_session_directly() {
     let plan = plan_invocation(
         &KastellanConfig::default(),
-        Action::Ask("do it"),
+        Action::Session,
         Some(Path::new("/home/u")),
     )
     .unwrap();
     assert_eq!(plan.program, "/home/u/.local/bin/kastellan-cli");
-    assert_eq!(plan.args, ["ask", "do it"]);
-    assert_eq!(plan.stdin, None);
+    assert_eq!(plan.args, ["session"]);
     let configured = KastellanConfig {
         host: Some("127.0.0.1".into()),
         cli_path: Some("/opt/k/kastellan-cli".into()),
     };
     assert_eq!(
-        plan_invocation(&configured, Action::Ask("x"), None)
+        plan_invocation(&configured, Action::Session, None)
             .unwrap()
             .program,
         "/opt/k/kastellan-cli"
@@ -95,20 +65,14 @@ fn a_local_default_needs_a_home_folder() {
 }
 
 #[test]
-fn remote_hosts_use_ssh_with_a_fixed_command_and_the_instruction_on_stdin() {
-    let instruction = "it's $(rm -rf ~); `x` \"quoted\"";
-    let plan = plan_invocation(&remote("dgx"), Action::Ask(instruction), None).unwrap();
+fn remote_hosts_use_ssh_with_a_fixed_command() {
+    let plan = plan_invocation(&remote("dgx"), Action::Session, None).unwrap();
     assert_eq!(plan.program, "ssh");
     assert_eq!(plan.args[plan.args.len() - 3..][..2], ["--", "dgx"]);
     assert_eq!(
         plan.args.last().unwrap(),
-        "exec \"$HOME/.local/bin/kastellan-cli\" ask \"$(cat)\""
+        "exec \"$HOME/.local/bin/kastellan-cli\" session"
     );
-    assert!(
-        plan.args.iter().all(|arg| !arg.contains("rm -rf")),
-        "instruction must not reach the shell line"
-    );
-    assert_eq!(plan.stdin.as_deref(), Some(instruction));
 }
 
 #[test]
@@ -120,13 +84,11 @@ fn the_probe_reads_the_inbox_and_sends_nothing() {
     )
     .unwrap();
     assert_eq!(local.args, ["inbox", "list"]);
-    assert_eq!(local.stdin, None);
     let ssh = plan_invocation(&remote("dgx"), Action::Probe, None).unwrap();
     assert_eq!(
         ssh.args.last().unwrap(),
         "exec \"$HOME/.local/bin/kastellan-cli\" inbox list"
     );
-    assert_eq!(ssh.stdin, None);
 }
 
 #[test]
@@ -145,42 +107,24 @@ fn planning_refuses_a_config_that_fails_validation() {
 }
 
 #[test]
-fn interprets_the_ask_exit_contract() {
-    assert_eq!(
-        interpret_output(Some(0), false, b"  the answer\n", b"ask: submitted task 7"),
-        TaskOutcome::Reply("the answer".into())
-    );
-    let parked = interpret_output(
-        Some(0),
-        false,
-        b"",
-        b"ask: submitted task 7 (lane=fast); waiting\n\
-          ask: task 7 is waiting for an operator decision. Run `kastellan-cli inbox list`",
-    );
-    let TaskOutcome::Reply(text) = parked else {
-        panic!("a parked task is not a failure")
-    };
-    assert!(
-        text.contains("operator decision") && text.contains("task 7 is waiting"),
-        "{text}"
-    );
+fn a_session_that_ends_early_is_read_by_its_exit_status() {
     assert!(matches!(
-        interpret_output(Some(255), true, b"", b"ssh: connect: refused"),
+        early_exit_outcome(Some(255), true, b"ssh: connect: refused"),
         TaskOutcome::Failed {
             code: "unavailable",
             ..
         }
     ));
     let TaskOutcome::Failed { text, code } =
-        interpret_output(Some(1), false, b"", b"ask: task ended in state 'failed'")
+        early_exit_outcome(Some(2), false, b"unknown command: session")
     else {
-        panic!("a non-zero exit is a failure")
+        panic!("an early exit is a failure")
     };
     assert_eq!(code, "server");
-    assert!(text.contains("ended in state 'failed'"));
+    assert!(text.contains("unknown command: session"));
     // 255 from the local CLI is not an ssh failure.
     assert!(matches!(
-        interpret_output(Some(255), false, b"", b""),
+        early_exit_outcome(Some(255), false, b""),
         TaskOutcome::Failed { code: "server", .. }
     ));
 }
@@ -210,19 +154,6 @@ fn interprets_the_probe_without_showing_inbox_contents() {
     assert!(
         cli.message.contains("could not reach Kastellan")
             && cli.message.contains("db connect failed")
-    );
-}
-
-#[test]
-fn reads_the_task_id_from_the_submission_line() {
-    assert_eq!(
-        submitted_task_id(b"warn\nask: submitted task 4821 (lane=fast); waiting for completion\n")
-            .as_deref(),
-        Some("4821")
-    );
-    assert_eq!(
-        submitted_task_id(b"ask: submitted task abc (lane=fast)"),
-        None
     );
 }
 
@@ -269,20 +200,6 @@ mod process {
     }
 
     #[tokio::test]
-    async fn a_local_task_returns_the_cli_reply_and_task_id() {
-        let cli = fake_cli(
-            r#"echo "ask: submitted task 42 (lane=fast); waiting" >&2; printf 'did: %s' "$2""#,
-        );
-        let plan = plan_invocation(&local(&cli), Action::Ask("it's \"$(quoted)\""), None).unwrap();
-        let (outcome, task_id) = execute(&plan, Duration::from_secs(10)).await;
-        assert_eq!(
-            outcome,
-            TaskOutcome::Reply("did: it's \"$(quoted)\"".into())
-        );
-        assert_eq!(task_id.as_deref(), Some("42"));
-    }
-
-    #[tokio::test]
     async fn the_probe_runs_the_inbox_subcommand() {
         let cli = fake_cli(r#"[ "$1 $2" = "inbox list" ] || exit 3; echo "secret question""#);
         let plan = plan_invocation(&local(&cli), Action::Probe, None).unwrap();
@@ -293,76 +210,27 @@ mod process {
     }
 
     #[tokio::test]
-    async fn stdin_reaches_the_child_and_is_closed() {
-        let plan = Invocation {
-            program: "/bin/sh".into(),
-            args: vec!["-c".into(), "cat".into()],
-            stdin: Some("from stdin".into()),
-        };
-        let (outcome, _) = execute(&plan, Duration::from_secs(10)).await;
-        assert_eq!(outcome, TaskOutcome::Reply("from stdin".into()));
-    }
-
-    #[tokio::test]
-    async fn a_missing_cli_and_a_hung_cli_both_fail_with_a_reason() {
+    async fn a_missing_and_a_hung_probe_both_fail_with_a_reason() {
         let missing = Invocation {
             program: "/nonexistent/kastellan-cli".into(),
             args: vec![],
-            stdin: None,
         };
-        assert!(matches!(
-            execute(&missing, Duration::from_secs(5)).await.0,
-            TaskOutcome::Failed {
-                code: "unavailable",
-                ..
-            }
-        ));
+        let error = run_invocation(&missing, Duration::from_secs(5))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, ProviderErrorCode::Unavailable);
         let hung = Invocation {
             program: fake_cli("sleep 30").to_string_lossy().into_owned(),
             args: vec![],
-            stdin: None,
         };
         let started = Instant::now();
-        let (outcome, _) = execute(&hung, Duration::from_millis(200)).await;
-        assert!(
-            matches!(
-                outcome,
-                TaskOutcome::Failed {
-                    code: "timeout",
-                    ..
-                }
-            ),
-            "{outcome:?}"
-        );
+        let error = run_invocation(&hung, Duration::from_millis(200))
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, ProviderErrorCode::Timeout);
         assert!(
             started.elapsed() < Duration::from_secs(5),
             "the timeout must not wait for the child"
-        );
-    }
-
-    #[tokio::test]
-    async fn a_child_that_never_reads_a_large_task_still_times_out() {
-        // Larger than any pipe buffer: the write cannot complete unless the child reads.
-        let plan = Invocation {
-            program: fake_cli("sleep 30").to_string_lossy().into_owned(),
-            args: vec![],
-            stdin: Some("x".repeat(1024 * 1024)),
-        };
-        let started = Instant::now();
-        let (outcome, _) = execute(&plan, Duration::from_millis(300)).await;
-        assert!(
-            matches!(
-                outcome,
-                TaskOutcome::Failed {
-                    code: "timeout",
-                    ..
-                }
-            ),
-            "{outcome:?}"
-        );
-        assert!(
-            started.elapsed() < Duration::from_secs(5),
-            "a blocked stdin write must be inside the timeout"
         );
     }
 
@@ -388,13 +256,16 @@ mod process {
         eprintln!("probe on {}: {reached:?}", config.host());
         reached.unwrap();
 
-        let ask = plan_invocation(
-            &config,
-            Action::Ask("Reply with exactly one word: pong"),
-            home.as_deref(),
+        let session = plan_invocation(&config, Action::Session, home.as_deref()).unwrap();
+        let (_controls, receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (outcome, task_id) = crate::kastellan::session_run::run_session(
+            &session,
+            "Reply with exactly one word: pong",
+            Duration::from_secs(600),
+            receiver,
+            |line| eprintln!("progress: {line}"),
         )
-        .unwrap();
-        let (outcome, task_id) = execute(&ask, Duration::from_secs(600)).await;
+        .await;
         eprintln!("task {task_id:?} on {}: {outcome:?}", config.host());
         assert!(
             task_id.is_some(),
