@@ -485,8 +485,25 @@ fn strip_markup(text: &str) -> String {
     output
 }
 
+/// Collapses whitespace runs to one space but keeps edge spaces, so fragments emitted by separate deltas never fuse.
 fn normalize_spacing(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
+    let mut output = String::with_capacity(text.len());
+    let mut pending_space = false;
+    for character in text.chars() {
+        if character.is_whitespace() {
+            pending_space = true;
+            continue;
+        }
+        if pending_space {
+            output.push(' ');
+            pending_space = false;
+        }
+        output.push(character);
+    }
+    if pending_space {
+        output.push(' ');
+    }
+    output
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -573,7 +590,7 @@ mod tests {
     #[test]
     fn reducer_speaks_text_before_an_unterminated_link_and_holds_the_link() {
         let mut reducer = SpeakableReducer::default();
-        assert_eq!(reducer.push("Read [the docs](https://example.com"), "Read");
+        assert_eq!(reducer.push("Read [the docs](https://example.com"), "Read ");
         let spoken = reducer.push("/secret) now.");
         assert!(spoken.contains("docs"));
         assert!(!spoken.contains("example.com"));
@@ -592,7 +609,7 @@ mod tests {
     #[test]
     fn reducer_holds_a_closed_label_until_it_knows_whether_a_destination_follows() {
         let mut reducer = SpeakableReducer::default();
-        assert_eq!(reducer.push("Read [the docs]"), "Read");
+        assert_eq!(reducer.push("Read [the docs]"), "Read ");
         let spoken = reducer.push("(https://example.com) now.");
         assert!(spoken.contains("the docs now."), "{spoken}");
         assert!(!spoken.contains("example.com"));
@@ -601,7 +618,7 @@ mod tests {
     #[test]
     fn reducer_flushes_an_unclosed_bracket_at_end_of_stream() {
         let mut reducer = SpeakableReducer::default();
-        assert_eq!(reducer.push("The range [0, 10"), "The range");
+        assert_eq!(reducer.push("The range [0, 10"), "The range ");
         assert_eq!(reducer.finish(), "0, 10");
     }
 
@@ -624,9 +641,33 @@ mod tests {
     #[test]
     fn an_unmatched_bracket_releases_its_line_without_waiting_for_the_stream_to_end() {
         let mut reducer = SpeakableReducer::default();
-        assert_eq!(reducer.push("See [the list"), "See");
+        assert_eq!(reducer.push("See [the list"), "See ");
         let spoken = reducer.push(" below.\nNext line.");
         assert!(spoken.contains("the list below."), "{spoken}");
+    }
+
+    #[test]
+    fn words_split_across_reducer_emissions_keep_their_boundary() {
+        let speak = |deltas: &[&str]| {
+            let mut reducer = SpeakableReducer::default();
+            let mut chunker = Chunker::default();
+            let mut chunks = VecDeque::new();
+            for delta in deltas {
+                chunker.push(&reducer.push(delta), &mut chunks);
+            }
+            chunker.push(&reducer.finish(), &mut chunks);
+            chunker.finish(&mut chunks);
+            chunks.into_iter().collect::<Vec<_>>().join(" ")
+        };
+        assert_eq!(
+            speak(&["Read [the docs]", "(https://example.com) now."]),
+            "Read the docs now."
+        );
+        assert_eq!(speak(&["Heading\n", "Body text"]), "Heading Body text");
+        assert_eq!(
+            speak(&["The range [0, 10", " is open"]),
+            "The range 0, 10 is open"
+        );
     }
 
     #[test]
