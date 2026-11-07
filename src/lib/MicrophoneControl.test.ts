@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import MicrophoneControl from "./MicrophoneControl.svelte";
 import { INITIAL_MICROPHONE_DEVICE_LIST, type MicrophoneInputDeviceList, type MicrophoneStatus } from "./microphone";
+import { INITIAL_VOICE_CONVERSATION_STATUS, type VoiceConversationStatus } from "./voice-conversation";
 
 const IDLE_STATUS: MicrophoneStatus = {
   phase: "idle",
@@ -22,6 +23,24 @@ const IDLE_STATUS: MicrophoneStatus = {
   latency: { inputReadyMs: null, firstTranscriptMs: null, finalTranscriptMs: null },
 };
 
+/** Inert action props shared by every microphone-control render. */
+function inertProps() {
+  return {
+    onstart: vi.fn(),
+    onstop: vi.fn(),
+    ondiscard: vi.fn(),
+    oncorrect: vi.fn(),
+    ontogglesendaudio: vi.fn(),
+    ontoggleretainaudio: vi.fn(),
+    onloaddevices: vi.fn(),
+    onselectdevice: vi.fn(),
+    onusetext: vi.fn(),
+    onstartconversation: vi.fn(),
+    onendconversation: vi.fn(),
+    oninterruptconversation: vi.fn(),
+  };
+}
+
 /** Renders the microphone control with inert actions and one path-free native status. */
 function rendered(
   status: MicrophoneStatus,
@@ -38,6 +57,7 @@ function rendered(
 ): string {
   return render(MicrophoneControl, {
     props: {
+      ...inertProps(),
       status,
       disabled,
       willInterrupt,
@@ -48,17 +68,37 @@ function rendered(
       deviceList,
       devicesLoaded,
       deviceListFailed,
-      onstart: vi.fn(),
-      onstop: vi.fn(),
-      ondiscard: vi.fn(),
-      oncorrect: vi.fn(),
-      ontogglesendaudio: vi.fn(),
-      ontoggleretainaudio: vi.fn(),
-      onloaddevices: vi.fn(),
-      onselectdevice: vi.fn(),
-      onusetext: vi.fn(),
       transcriptDraftFeedback,
       transcriptDraftError,
+    },
+  }).body;
+}
+
+/** Renders the same control with one path-free conversation status. */
+function renderedConversation(
+  status: MicrophoneStatus,
+  voiceStatus: VoiceConversationStatus,
+  voiceError: string | null = null,
+  voiceFeedback = "",
+): string {
+  return render(MicrophoneControl, {
+    props: {
+      ...inertProps(),
+      status,
+      disabled: false,
+      willInterrupt: false,
+      audioAvailable: false,
+      audioUnavailableReason: "Choose an audio-capable model to send this recording.",
+      sendAudio: false,
+      retainAudio: false,
+      deviceList: INITIAL_MICROPHONE_DEVICE_LIST,
+      devicesLoaded: false,
+      deviceListFailed: false,
+      transcriptDraftFeedback: "",
+      transcriptDraftError: false,
+      voiceStatus,
+      voiceError,
+      voiceFeedback,
     },
   }).body;
 }
@@ -328,5 +368,68 @@ describe("MicrophoneControl", () => {
     expect(html).toContain("First transcript after Record: 1.73 s");
     expect(html).toContain("Final transcript after capture stopped: 245 ms");
     expect(html).not.toMatch(/first sample|first token|audible/i);
+  });
+});
+
+describe("MicrophoneControl conversation mode", () => {
+  const ACTIVE_LISTENING: VoiceConversationStatus = {
+    ...INITIAL_VOICE_CONVERSATION_STATUS,
+    active: true,
+    phase: "listening",
+  };
+  const RECORDING: MicrophoneStatus = { ...IDLE_STATUS, phase: "recording", permission: "granted" };
+
+  it("offers hands-free conversation without removing push-to-talk", () => {
+    const html = rendered(IDLE_STATUS);
+
+    expect(html).toContain('aria-label="Start a hands-free voice conversation"');
+    expect(html).toContain("Start conversation");
+    expect(html).toContain('aria-label="Record voice locally"');
+  });
+
+  it("replaces push-to-talk controls with conversation controls while active", () => {
+    const html = renderedConversation(RECORDING, ACTIVE_LISTENING);
+
+    expect(html).toContain('aria-label="End voice conversation"');
+    expect(html).toContain("End conversation");
+    expect(html).toContain('aria-label="Interrupt Bottie\'s spoken reply"');
+    expect(html).toContain("Listening");
+    expect(html).not.toContain('aria-label="Stop voice capture"');
+    expect(html).not.toContain('aria-label="Record voice locally"');
+    expect(html).toContain('aria-label="Microphone input level"');
+  });
+
+  it("shows that the microphone is muted while Bottie speaks", () => {
+    const html = renderedConversation(
+      { ...IDLE_STATUS, phase: "captured", permission: "granted" },
+      { ...ACTIVE_LISTENING, phase: "speaking", speechProgress: "speaking" },
+    );
+
+    expect(html).toContain("Bottie is speaking");
+    expect(html).toContain("Microphone muted while Bottie speaks");
+    expect(html).toContain('aria-label="Interrupt Bottie\'s spoken reply"');
+    expect(html).not.toMatch(/aria-label="Interrupt Bottie's spoken reply"[^>]*disabled/);
+  });
+
+  it("disables Interrupt while only listening", () => {
+    const html = renderedConversation(RECORDING, ACTIVE_LISTENING);
+
+    expect(html).toMatch(/aria-label="Interrupt Bottie's spoken reply"[^>]*disabled/);
+  });
+
+  it("renders bounded conversation errors and notes without native detail", () => {
+    const html = renderedConversation(
+      { ...IDLE_STATUS, phase: "captured", permission: "granted" },
+      { ...ACTIVE_LISTENING, phase: "thinking" },
+      "Local speech is unavailable, so the spoken reply cannot start.",
+      "Finish or clear your draft first · the voice turn was copied into it.",
+    );
+
+    expect(html).toContain("Thinking");
+    // The fixed detail slot carries the error cause and the actionable note together, so the card cannot resize.
+    expect(html).toContain("voice-conversation-detail");
+    expect(html).toContain("Local speech is unavailable");
+    expect(html).toContain("the voice turn was copied into it");
+    expect(html).not.toContain("/tmp/");
   });
 });

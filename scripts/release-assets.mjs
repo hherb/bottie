@@ -58,6 +58,17 @@ const WHISPER_TINY_Q5 = {
   },
 };
 
+const WHISPER_SILERO_VAD = {
+  repository: "ggml-org/whisper-vad",
+  revision: "9ffd54a1e1ee413ddf265af9913beaf518d1639b",
+  variant: "silero-v6.2.0",
+  file: {
+    path: "ggml-silero-v6.2.0.bin",
+    sha256: "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987",
+    size: 885_098,
+  },
+};
+
 const ONNX_RUNTIME_ARCHIVES = [
   [
     "aarch64-apple-darwin",
@@ -105,6 +116,15 @@ export function buildRuntimeAssetManifest({
         path: WHISPER_MODEL_LICENCE_PATH,
         sha256: whisperModelLicenceSha256,
         source: "https://huggingface.co/ggerganov/whisper.cpp",
+        spdx: "MIT",
+      },
+    },
+    sileroVadGgml: {
+      ...WHISPER_SILERO_VAD,
+      licence: {
+        path: WHISPER_MODEL_LICENCE_PATH,
+        sha256: whisperModelLicenceSha256,
+        source: "https://huggingface.co/ggml-org/whisper-vad",
         spdx: "MIT",
       },
     },

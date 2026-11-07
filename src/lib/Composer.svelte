@@ -9,6 +9,7 @@
   import type { ImageGenerationExecution, ImageGenerationSize, ImageGenerationResolution } from "$lib/image-generation";
   import { MAX_COMPOSER_ATTACHMENTS, type Attachment, type ProviderStatus } from "$lib/presentation";
   import type { MicrophoneInputDeviceList, MicrophoneStatus } from "$lib/microphone";
+  import type { VoiceConversationStatus } from "$lib/voice-conversation";
 
   type Props = {
     attachments: Attachment[];
@@ -52,6 +53,9 @@
     microphoneDeviceListFailed: boolean;
     microphoneTranscriptDraftFeedback: string;
     microphoneTranscriptDraftError: boolean;
+    voiceConversationStatus?: VoiceConversationStatus;
+    voiceConversationError?: string | null;
+    voiceConversationFeedback?: string;
     onprompt: (prompt: string) => void;
     oninput: () => void;
     onkeydown: (event: KeyboardEvent) => void;
@@ -79,6 +83,9 @@
     onloadmicrophonedevices: () => void;
     onselectmicrophonedevice: (token: string) => void;
     onusemicrophonetranscript: () => void;
+    onstartvoiceconversation?: () => void;
+    onendvoiceconversation?: () => void;
+    oninterruptvoiceconversation?: () => void;
     oncomposerready: (element: HTMLTextAreaElement) => void;
     onattachmentinputready: (element: HTMLInputElement) => void;
   };
@@ -125,6 +132,9 @@
     microphoneDeviceListFailed,
     microphoneTranscriptDraftFeedback,
     microphoneTranscriptDraftError,
+    voiceConversationStatus,
+    voiceConversationError,
+    voiceConversationFeedback,
     onprompt,
     oninput,
     onkeydown,
@@ -152,6 +162,9 @@
     onloadmicrophonedevices,
     onselectmicrophonedevice,
     onusemicrophonetranscript,
+    onstartvoiceconversation,
+    onendvoiceconversation,
+    oninterruptvoiceconversation,
     oncomposerready,
     onattachmentinputready,
   }: Props = $props();
@@ -360,6 +373,12 @@
             onusetext={onusemicrophonetranscript}
             transcriptDraftFeedback={microphoneTranscriptDraftFeedback}
             transcriptDraftError={microphoneTranscriptDraftError}
+            voiceStatus={voiceConversationStatus}
+            voiceError={voiceConversationError}
+            voiceFeedback={voiceConversationFeedback}
+            onstartconversation={onstartvoiceconversation}
+            onendconversation={onendvoiceconversation}
+            oninterruptconversation={oninterruptvoiceconversation}
           />
         </details>
       {/if}

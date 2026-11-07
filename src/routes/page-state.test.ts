@@ -46,7 +46,7 @@ describe("PageState message submission", () => {
       phase: "speaking",
       selectedVoiceId: "local-voice-001",
       errorCode: null,
-      latency: { playbackAcceptedMs: 12 },
+      latency: { playbackAcceptedMs: 12, outputLatencyMs: null },
     };
 
     let resolveStop = () => {};
@@ -152,7 +152,7 @@ describe("PageState image execution", () => {
     const state = new PageState();
     state.imageMode = true;
     const generateImage = vi.spyOn(state, "generateImage").mockResolvedValue();
-    const sendMessage = vi.spyOn(state, "sendMessage").mockResolvedValue();
+    const sendMessage = vi.spyOn(state, "sendMessage").mockResolvedValue(true);
     const event = {
       key: "Enter",
       shiftKey: false,
@@ -408,7 +408,7 @@ describe("PageState voice barge-in", () => {
       phase: "speaking",
       selectedVoiceId: "local-voice-001",
       errorCode: null,
-      latency: { playbackAcceptedMs: 12 },
+      latency: { playbackAcceptedMs: 12, outputLatencyMs: null },
     };
 
     const order: string[] = [];
@@ -443,7 +443,7 @@ describe("PageState voice barge-in", () => {
       phase: "speaking",
       selectedVoiceId: "local-voice-001",
       errorCode: null,
-      latency: { playbackAcceptedMs: 12 },
+      latency: { playbackAcceptedMs: 12, outputLatencyMs: null },
     };
     vi.spyOn(state.speech, "stop").mockResolvedValue(false);
     const capture = vi.spyOn(state.microphone, "start").mockResolvedValue();
@@ -569,7 +569,7 @@ describe("PageState new chat", () => {
       phase: "speaking",
       selectedVoiceId: "local-voice-001",
       errorCode: null,
-      latency: { playbackAcceptedMs: 12 },
+      latency: { playbackAcceptedMs: 12, outputLatencyMs: null },
     };
     let resolveStop = () => {};
     vi.spyOn(state.speech, "stop").mockImplementation(

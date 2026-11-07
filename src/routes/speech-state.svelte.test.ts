@@ -29,7 +29,7 @@ describe("native saved speech selection", () => {
       phase: "idle",
       selectedVoiceId: "local-voice-002",
       errorCode: null,
-      latency: { playbackAcceptedMs: null },
+      latency: { playbackAcceptedMs: null, outputLatencyMs: null },
     });
     const state = new SpeechState();
     const initialized = state.initialize();
@@ -48,7 +48,7 @@ describe("speech status polling", () => {
     phase,
     selectedVoiceId: "local-voice-001",
     errorCode: null,
-    latency: { playbackAcceptedMs: null },
+    latency: { playbackAcceptedMs: null, outputLatencyMs: null },
   });
 
   it("ignores a poll that was in flight when Stop was pressed", async () => {

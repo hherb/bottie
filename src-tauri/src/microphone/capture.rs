@@ -59,6 +59,10 @@ pub(super) fn capture_worker(
         if lock(&shared).phase == super::MicrophonePhase::Error || lock(&shared).limit_reached() {
             break false;
         }
+        // Conversation capture ends itself on the latched native decision; push-to-talk never arms this.
+        if lock(&shared).endpoint_finished().is_some() {
+            break false;
+        }
         schedule_transcription(&shared, transcription_wake.as_ref(), false);
         match receiver.recv_timeout(CAPTURE_WORKER_POLL) {
             Ok(CaptureCommand::Stop) => break false,

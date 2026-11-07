@@ -1,14 +1,19 @@
 //! Bounded Rust-owned local text-to-speech orchestration.
 
 use std::{
-    sync::{Mutex, MutexGuard},
+    sync::{
+        Mutex, MutexGuard,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Instant,
 };
 
 use serde::Serialize;
 
+mod audio_owner;
 mod combined;
 mod nano;
+pub(crate) mod streaming;
 mod system;
 #[cfg(test)]
 mod tests;
@@ -95,20 +100,28 @@ pub(crate) struct SpeechStatus {
 pub(crate) struct SpeechLatency {
     /// Play request until the native engine accepts the utterance command.
     playback_accepted_ms: Option<u32>,
+    /// Device buffering measured for the current PCM playback, when a PCM engine reports it.
+    output_latency_ms: Option<u32>,
 }
 
 /// Narrow engine surface kept behind Bottie's controller for deterministic tests.
-trait SpeechBackend: Send {
+pub(crate) trait SpeechBackend: Send {
     fn voices(&mut self) -> Result<Vec<NativeSpeechVoice>, SpeechErrorCode>;
     fn set_voice(&mut self, voice_id: &str) -> Result<(), SpeechErrorCode>;
     fn speak(&mut self, text: &str) -> Result<(), SpeechErrorCode>;
     fn stop(&mut self) -> Result<(), SpeechErrorCode>;
     fn is_speaking(&mut self) -> Result<bool, SpeechErrorCode>;
+    /// Reports measured output-device latency for the current playback, when the engine owns PCM output.
+    fn output_latency_ms(&mut self) -> Option<u32> {
+        None
+    }
 }
 
 /// Process-lifetime owner for one local speech engine with a durable opaque selection.
 pub(crate) struct SpeechController {
     shared: Mutex<SpeechState>,
+    /// Set while native capture owns the input device; streamed chunks fail closed instead of speaking over it.
+    microphone_gate: AtomicBool,
 }
 
 struct SpeechState {
@@ -128,6 +141,7 @@ impl Default for SpeechController {
     fn default() -> Self {
         Self {
             shared: Mutex::new(SpeechState::default()),
+            microphone_gate: AtomicBool::new(false),
         }
     }
 }
@@ -161,6 +175,7 @@ impl SpeechController {
                 app_data: Some(app_data),
                 ..SpeechState::default()
             }),
+            microphone_gate: AtomicBool::new(false),
         }
     }
 
@@ -170,6 +185,16 @@ impl SpeechController {
         let mut state = lock(&self.shared);
         state.refresh_playback();
         state.playback_may_be_active
+    }
+
+    /// Prevents streamed playback chunks from starting while native capture owns the input device.
+    pub(crate) fn set_microphone_gate(&self, muted: bool) {
+        self.microphone_gate.store(muted, Ordering::SeqCst);
+    }
+
+    /// Reports whether capture currently blocks new streamed playback chunks.
+    pub(crate) fn microphone_gate(&self) -> bool {
+        self.microphone_gate.load(Ordering::SeqCst)
     }
 
     /// Returns the current state and refreshes only the engine's speaking flag.
@@ -280,7 +305,7 @@ impl SpeechController {
     }
 
     #[cfg(test)]
-    fn with_backend(backend: Box<dyn SpeechBackend>) -> Self {
+    pub(crate) fn with_backend(backend: Box<dyn SpeechBackend>) -> Self {
         Self::with_backend_and_preference(backend, None)
     }
 
@@ -295,6 +320,7 @@ impl SpeechController {
                 preferred_voice_id,
                 ..SpeechState::default()
             }),
+            microphone_gate: AtomicBool::new(false),
         }
     }
 }
@@ -304,19 +330,24 @@ impl SpeechState {
         if !self.playback_may_be_active {
             return;
         }
-        let speaking = self.backend.as_mut().map(|backend| backend.is_speaking());
-        match speaking {
-            Some(Ok(true)) => {
+        let observed = self
+            .backend
+            .as_mut()
+            .map(|backend| (backend.is_speaking(), backend.output_latency_ms()));
+        match observed {
+            Some((Ok(true), output_latency_ms)) => {
                 self.phase = SpeechPhase::Speaking;
                 self.error_code = None;
+                // Keep the accepted-playback measurement; add the device's own latency when a PCM engine reports it.
+                self.latency.output_latency_ms = output_latency_ms;
             }
-            Some(Ok(false)) => {
+            Some((Ok(false), _)) => {
                 self.playback_may_be_active = false;
                 self.phase = SpeechPhase::Idle;
                 self.error_code = None;
                 self.latency = SpeechLatency::default();
             }
-            Some(Err(code)) => self.fail(code),
+            Some((Err(code), _)) => self.fail(code),
             None => self.fail(SpeechErrorCode::Unavailable),
         }
     }
@@ -402,10 +433,36 @@ impl SpeechState {
     }
 }
 
-struct NativeSpeechVoice {
-    id: String,
-    name: String,
-    language: String,
+/// The streaming session speaks through the same controller the commands use.
+impl streaming::SpeechSink for SpeechController {
+    fn is_idle(&self) -> Result<bool, ()> {
+        match self.status().phase {
+            SpeechPhase::Idle => Ok(true),
+            // A failed engine never returns to idle on its own; reporting it lets the session fail instead of wait.
+            SpeechPhase::Error => Err(()),
+            SpeechPhase::Speaking => Ok(false),
+        }
+    }
+
+    fn speak(&self, text: &str) -> Result<(), ()> {
+        if self.microphone_gate() {
+            return Err(());
+        }
+        SpeechController::speak(self, text)
+            .map(|_| ())
+            .map_err(|_| ())
+    }
+
+    fn stop(&self) -> Result<(), ()> {
+        let _ = SpeechController::stop(self);
+        Ok(())
+    }
+}
+
+pub(crate) struct NativeSpeechVoice {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) language: String,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {

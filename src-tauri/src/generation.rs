@@ -37,6 +37,13 @@ pub(crate) async fn start_chat(
             "Stop or discard local voice capture before sending a message.",
         ));
     }
+    // Consume the conversation's intent before any fallible setup: an early error must not leave a stale
+    // "speak the next reply" that would later speak a typed message.
+    let speak_reply = state.voice_conversation.take_pending_reply();
+    let mut reply_guard = PendingReplyGuard {
+        conversation: &state.voice_conversation,
+        dispatched: false,
+    };
     let providers = state.providers.read().await.clone();
     let request = request_with_generation_limits(
         normalize_provider_request(request),
@@ -314,6 +321,9 @@ pub(crate) async fn start_chat(
     }
 
     let diagnostics = state.diagnostics.clone();
+    let voice_speech = state.voice_speech.clone();
+    let voice_conversation = state.voice_conversation.clone();
+    let speech = state.speech.clone();
     let conversations = state.conversations.clone();
     let semantic_indexing = state.semantic_indexing.clone();
     let python_approval = state.python_approval.clone();
@@ -322,6 +332,7 @@ pub(crate) async fn start_chat(
         .as_ref()
         .map(PythonRuntimeState::runner);
     let task_run_id = run_id.clone();
+    reply_guard.dispatched = true;
     tauri::async_runtime::spawn(async move {
         let _registration = registration;
         record_diagnostic(
@@ -337,10 +348,17 @@ pub(crate) async fn start_chat(
             provider_id: provider.provider_id().into(),
             model_id: request.model_id.clone(),
         });
+        let speech_session = if speak_reply && voice_conversation.adopt_reply(&task_run_id, &speech)
+        {
+            voice_speech.session_for(&task_run_id)
+        } else {
+            None
+        };
         let sink = ChannelSink {
             run_id: task_run_id.clone(),
             channel: on_event.clone(),
             conversations: conversations.clone(),
+            speech: speech_session,
         };
         let query_embedder = semantic_indexing.query_embedder();
         let generation = async {
@@ -443,10 +461,29 @@ pub(crate) async fn start_chat(
                 .await;
             }
         }
+        // Only the run that is still the spoken turn moves the conversation on; a typed run or one already interrupted
+        // must not close a microphone that was reopened for the next turn.
+        if voice_speech.finish_run(&task_run_id) {
+            voice_conversation.finish_reply();
+        }
         semantic_indexing.wake();
     });
 
     Ok(ChatRun { run_id })
+}
+
+/// Clears a consumed "speak the next reply" intent when submission fails before the generation starts.
+struct PendingReplyGuard<'a> {
+    conversation: &'a crate::voice::VoiceConversation,
+    dispatched: bool,
+}
+
+impl Drop for PendingReplyGuard<'_> {
+    fn drop(&mut self) {
+        if !self.dispatched {
+            self.conversation.reply_not_started();
+        }
+    }
 }
 
 /// Persists a terminal provider outcome before it is exposed to the WebView.

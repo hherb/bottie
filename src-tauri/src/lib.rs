@@ -44,6 +44,7 @@ mod tool_loop;
 mod tool_policy;
 #[cfg(desktop)]
 mod updater;
+mod voice;
 mod web_fetch;
 mod web_policy;
 pub mod web_search;
@@ -181,6 +182,7 @@ use storage_commands::{
 };
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
+use voice::{VoiceCommandError, VoiceConversation, VoiceConversationStatus, VoiceSpeech};
 use web_search_commands::test_web_search_connection;
 
 struct AppState {
@@ -189,7 +191,9 @@ struct AppState {
     local_audio_preferences: Mutex<LocalAudioPreferenceStore>,
     localmail_config_path: PathBuf,
     microphone: MicrophoneController,
-    speech: SpeechController,
+    speech: Arc<SpeechController>,
+    voice_speech: Arc<VoiceSpeech>,
+    voice_conversation: Arc<VoiceConversation>,
     python_approval: Arc<PythonApprovalController>,
     python_runtime: Option<PythonRuntimeState>,
     runs: ActiveRuns,
@@ -584,18 +588,21 @@ async fn start_microphone_capture(
     cancel_all_chats(&state.runs).await;
     state.image_runs.cancel_active().await;
     state.speech.stop_before_microphone_capture()?;
+    state.speech.set_microphone_gate(true);
     Ok(state.microphone.start())
 }
 
 #[tauri::command]
 /// Stops native capture while retaining only its bounded in-memory PCM buffer.
 fn stop_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
+    state.speech.set_microphone_gate(false);
     state.microphone.stop()
 }
 
 #[tauri::command]
 /// Discards the current native PCM buffer without persisting or forwarding it.
 fn discard_microphone_capture(state: State<'_, AppState>) -> MicrophoneStatus {
+    state.speech.set_microphone_gate(false);
     state.microphone.discard()
 }
 
@@ -654,6 +661,7 @@ async fn speak_text(
     if state.microphone.is_capturing() {
         return Err(SpeechCommandError::MicrophoneActive);
     }
+    state.speech.set_microphone_gate(false);
     state.speech.speak(&text)
 }
 
@@ -661,6 +669,122 @@ async fn speak_text(
 /// Stops only Bottie's current local speech playback.
 fn stop_speech(state: State<'_, AppState>) -> SpeechStatus {
     state.speech.stop()
+}
+
+#[tauri::command]
+/// Starts the one hands-free conversation session over the selected input.
+async fn start_voice_conversation(
+    state: State<'_, AppState>,
+) -> Result<VoiceConversationStatus, VoiceCommandError> {
+    let _voice_guard = state.voice_interaction.lock().await;
+    cancel_all_chats(&state.runs).await;
+    state.image_runs.cancel_active().await;
+    state.speech.stop_before_microphone_capture()?;
+    state.speech.set_microphone_gate(true);
+    state.voice_conversation.started();
+    state.microphone.start_conversation();
+    if state.microphone.failed() {
+        state.voice_conversation.ended();
+        state.speech.set_microphone_gate(false);
+        return Err(VoiceCommandError::MicrophoneFailed);
+    }
+    Ok(voice_conversation_status(&state))
+}
+
+#[tauri::command]
+/// Re-opens conversation capture after a spoken reply drained.
+async fn resume_voice_listening(
+    state: State<'_, AppState>,
+) -> Result<VoiceConversationStatus, VoiceCommandError> {
+    if !state.voice_conversation.is_active() {
+        return Err(VoiceCommandError::NotActive);
+    }
+    if matches!(
+        state.voice_conversation.speech_progress(),
+        Some(crate::speech::streaming::SessionProgress::Buffering)
+            | Some(crate::speech::streaming::SessionProgress::Speaking)
+    ) {
+        // Reopening capture now would both cut the reply off and let it speak over the microphone.
+        return Err(VoiceCommandError::SpeechActive);
+    }
+    let _voice_guard = state.voice_interaction.lock().await;
+    state.speech.stop_before_microphone_capture()?;
+    state.speech.set_microphone_gate(true);
+    state.microphone.start_conversation();
+    if state.microphone.failed() {
+        state.voice_conversation.ended();
+        state.speech.set_microphone_gate(false);
+        return Err(VoiceCommandError::MicrophoneFailed);
+    }
+    state.voice_conversation.listening();
+    Ok(voice_conversation_status(&state))
+}
+
+#[tauri::command]
+/// Marks the reply about to be submitted as spoken by the active conversation session.
+fn arm_voice_reply(
+    state: State<'_, AppState>,
+) -> Result<VoiceConversationStatus, VoiceCommandError> {
+    if state.microphone.is_capturing() {
+        return Err(VoiceCommandError::CaptureActive);
+    }
+    state.voice_conversation.arm_reply()?;
+    // The turn's capture is closed, so streamed chunks may speak again.
+    state.speech.set_microphone_gate(false);
+    Ok(voice_conversation_status(&state))
+}
+
+#[tauri::command]
+/// Stops playback and generation, then returns to listening.
+async fn interrupt_voice_turn(
+    state: State<'_, AppState>,
+) -> Result<VoiceConversationStatus, VoiceCommandError> {
+    if !state.voice_conversation.is_active() {
+        return Err(VoiceCommandError::NotActive);
+    }
+    let _voice_guard = state.voice_interaction.lock().await;
+    // Cancel the reply before touching the engine, so a failed engine stop cannot leave the reply running.
+    cancel_all_chats(&state.runs).await;
+    state.voice_conversation.interrupted();
+    if let Err(error) = state.speech.stop_before_microphone_capture() {
+        // Without a stopped engine capture cannot reopen; ending is the only state the page can recover from.
+        state.voice_conversation.ended();
+        return Err(error.into());
+    }
+    state.speech.set_microphone_gate(true);
+    state.microphone.start_conversation();
+    if state.microphone.failed() {
+        state.voice_conversation.ended();
+        state.speech.set_microphone_gate(false);
+        return Err(VoiceCommandError::MicrophoneFailed);
+    }
+    Ok(voice_conversation_status(&state))
+}
+
+#[tauri::command]
+/// Ends the conversation session, stops playback, and cancels the active generation.
+async fn end_voice_conversation(
+    state: State<'_, AppState>,
+) -> Result<VoiceConversationStatus, VoiceCommandError> {
+    let _voice_guard = state.voice_interaction.lock().await;
+    let _ = state.speech.stop();
+    cancel_all_chats(&state.runs).await;
+    let _ = state.microphone.stop();
+    state.speech.set_microphone_gate(false);
+    state.voice_conversation.ended();
+    Ok(voice_conversation_status(&state))
+}
+
+#[tauri::command]
+/// Returns the path-free conversation phase without observing or changing audio state.
+fn get_voice_conversation_status(state: State<'_, AppState>) -> VoiceConversationStatus {
+    voice_conversation_status(&state)
+}
+
+fn voice_conversation_status(state: &AppState) -> VoiceConversationStatus {
+    state
+        .voice_conversation
+        .status(state.microphone.endpoint_reason())
 }
 
 #[tauri::command]
@@ -972,6 +1096,8 @@ pub fn run() {
                     .expect("the built-in Ollama configuration must be valid"),
                 settings: ProviderSettings::default(),
             });
+            let voice_speech = Arc::new(VoiceSpeech::new());
+            let voice_conversation = Arc::new(VoiceConversation::new(voice_speech.clone()));
             let credentials = Arc::new(SystemCredentialStore::default());
             schedule_session_unlock(credentials.clone(), diagnostics.clone());
             app.manage(AppState {
@@ -983,10 +1109,12 @@ pub fn run() {
                     speech_model_cache_path,
                     remembered_microphone,
                 ),
-                speech: SpeechController::with_local_runtime(
+                speech: Arc::new(SpeechController::with_local_runtime(
                     remembered_voice,
                     app.path().app_data_dir()?,
-                ),
+                )),
+                voice_speech: voice_speech.clone(),
+                voice_conversation,
                 python_approval: Arc::new(PythonApprovalController::with_publisher(
                     app.handle().clone(),
                 )),
@@ -1036,6 +1164,12 @@ pub fn run() {
             select_speech_voice,
             speak_text,
             stop_speech,
+            start_voice_conversation,
+            resume_voice_listening,
+            arm_voice_reply,
+            interrupt_voice_turn,
+            end_voice_conversation,
+            get_voice_conversation_status,
             get_python_approval,
             decide_python_approval,
             test_provider_connection,

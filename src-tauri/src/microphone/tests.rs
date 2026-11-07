@@ -171,10 +171,12 @@ fn downmixes_pcm_and_reports_only_bounded_metadata() {
         [
             "channels",
             "durationMs",
+            "endpointReason",
             "errorCode",
             "inputLevel",
             "latency",
             "maxDurationMs",
+            "mode",
             "permission",
             "phase",
             "retainedByteSize",
@@ -491,4 +493,154 @@ fn discard_clears_every_retained_sample_and_permission_result() {
 
     assert_eq!(state.status(), MicrophoneController::default().status());
     assert!(state.status().voice_segments.is_empty());
+}
+
+/// 200 ms of deliberate speech at 16 kHz: enough frames to confirm the onset and a sustained speech run.
+fn confirm_speech(state: &mut CaptureState) {
+    state.append(&vec![0.5_f32; 3_200]);
+}
+
+/// One second of digital silence at 16 kHz: covers the release confirmation plus the hangover that follows the last
+/// confirmed speech frame.
+fn silence_hangover(state: &mut CaptureState) {
+    state.append(&vec![0.0_f32; 16_000]);
+}
+
+fn partial_transcript(state: &mut CaptureState, generation: u64, text: &str, now: Instant) {
+    state.apply_transcription_at(
+        state.capture_id,
+        generation,
+        false,
+        Ok(vec![RawTranscriptSegment {
+            text: text.into(),
+            start_ms: 0,
+            end_ms: 100,
+        }]),
+        now,
+    );
+}
+
+#[test]
+fn conversation_capture_latches_terminal_punctuation_as_its_own_end_of_turn() {
+    let now = Instant::now();
+    let mut state = CaptureState::default();
+    state.mode = MicrophoneMode::Conversation;
+    state.begin_recording(16_000, 1);
+    confirm_speech(&mut state);
+    partial_transcript(&mut state, 1, "are you there?", now);
+    assert_eq!(state.endpoint_finished(), None);
+
+    silence_hangover(&mut state);
+
+    assert_eq!(
+        state.endpoint_finished(),
+        Some(EndReason::TerminalPunctuation)
+    );
+    let status = state.status();
+    assert_eq!(status.mode, MicrophoneMode::Conversation);
+    assert_eq!(status.endpoint_reason, Some(EndReason::TerminalPunctuation));
+}
+
+#[test]
+fn a_stable_partial_transcript_ends_the_turn_at_the_hangover() {
+    let now = Instant::now();
+    let mut state = CaptureState::default();
+    state.mode = MicrophoneMode::Conversation;
+    state.begin_recording(16_000, 1);
+    confirm_speech(&mut state);
+    partial_transcript(&mut state, 1, "hello there", now);
+    partial_transcript(&mut state, 2, "hello there", now);
+
+    silence_hangover(&mut state);
+
+    assert_eq!(state.endpoint_finished(), Some(EndReason::StableTranscript));
+}
+
+#[test]
+fn a_partial_that_arrives_late_on_the_wall_clock_does_not_end_the_turn() {
+    let mut state = CaptureState::default();
+    state.mode = MicrophoneMode::Conversation;
+    state.begin_recording(16_000, 1);
+    confirm_speech(&mut state);
+    // Device startup and callback buffering put wall time well ahead of the audio timeline; that lag is not silence.
+    partial_transcript(
+        &mut state,
+        1,
+        "are you there?",
+        Instant::now() + Duration::from_secs(5),
+    );
+    assert_eq!(state.endpoint_finished(), None);
+
+    silence_hangover(&mut state);
+    assert_eq!(
+        state.endpoint_finished(),
+        Some(EndReason::TerminalPunctuation)
+    );
+}
+
+#[test]
+fn push_to_talk_capture_never_ends_itself() {
+    let now = Instant::now();
+    let mut state = CaptureState::default();
+    state.begin_recording(16_000, 1);
+    confirm_speech(&mut state);
+    partial_transcript(&mut state, 1, "are you there?", now);
+    silence_hangover(&mut state);
+    state.append(&vec![0.0_f32; 16_000]);
+
+    assert_eq!(state.endpoint_finished(), None);
+    assert_eq!(state.status().endpoint_reason, None);
+    assert_eq!(state.status().mode, MicrophoneMode::PushToTalk);
+}
+
+#[test]
+fn conversation_capture_schedules_partials_a_second_after_capture_starts() {
+    let requested_at = Instant::now();
+
+    let mut push_to_talk = CaptureState::default();
+    push_to_talk.begin_starting_at(requested_at);
+    push_to_talk.begin_recording(16_000, 1);
+    push_to_talk.append(&vec![0.5_f32; 16_000]);
+    // One second of audio is below push-to-talk's retained 1.5 s cadence.
+    assert!(
+        !push_to_talk.schedule_transcription_at(false, requested_at + Duration::from_millis(1_000))
+    );
+    push_to_talk.append(&vec![0.5_f32; 8_000]);
+    assert!(
+        push_to_talk.schedule_transcription_at(false, requested_at + Duration::from_millis(1_500))
+    );
+
+    let mut conversation = CaptureState::default();
+    conversation.mode = MicrophoneMode::Conversation;
+    conversation.begin_recording(16_000, 1);
+    // Isolate the interval choice: onset anchoring is covered by its own test.
+    conversation.first_speech_ms = Some(0);
+    conversation.append(&vec![0.5_f32; 16_000]);
+    assert!(
+        conversation.schedule_transcription_at(false, requested_at + Duration::from_millis(1_000))
+    );
+}
+
+#[test]
+fn conversation_partials_are_anchored_to_the_first_confirmed_speech() {
+    let mut state = CaptureState::default();
+    state.mode = MicrophoneMode::Conversation;
+    state.begin_recording(16_000, 1);
+    assert_eq!(state.next_transcription_ms, 1_000);
+
+    // 800 ms of silence followed by 300 ms of speech: the cadence must move to speech onset, not capture start.
+    state.append(&vec![0.0_f32; 12_800]);
+    state.append(&vec![0.5_f32; 4_800]);
+
+    let onset = state.first_speech_ms.expect("speech onset was confirmed");
+    assert!((800..=1_000).contains(&onset), "unexpected onset {onset}");
+    assert_eq!(state.next_transcription_ms, onset + 1_000);
+
+    // Push-to-talk never anchors; its cadence stays at capture-relative 1.5 s.
+    let mut push_to_talk = CaptureState::default();
+    push_to_talk.begin_recording(16_000, 1);
+    push_to_talk.append(&vec![0.0_f32; 12_800]);
+    push_to_talk.append(&vec![0.5_f32; 4_800]);
+    assert_eq!(push_to_talk.first_speech_ms, None);
+    assert_eq!(push_to_talk.next_transcription_ms, 1_500);
 }

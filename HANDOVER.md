@@ -1,6 +1,6 @@
 # Bottie handover
 
-Last verified: 2026-10-31 (issues #230 and #231 on branch `fix/issues-230-231`).
+Last verified: 2026-11-07 (review fixes on branch `feat/voice-mode-phase0`).
 
 ## Start here
 
@@ -22,7 +22,12 @@ Last verified: 2026-10-31 (issues #230 and #231 on branch `fix/issues-230-231`).
    - #226 remainder: other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see `SPAWN_LOCK`
      in `local_image_worker/transport.rs`). Only worth a crate-wide spawn helper if it shows up.
    Then run the follow-up audit listed under "Not audited yet".
-3. Owed hardware re-checks (cannot run in a normal session):
+3. **Hands-free voice conversation mode** (`feat/voice-mode-phase0`): phase 0 is built and its review findings are
+   fixed (see "Audit fixes done", 2026-11-07). Open follow-ups: #237 (output stream recovery reports success), #238
+   (Silero load failure is silent), #239 (frame clock and dropped VAD frames), #240 (test gaps and edge cases). Still
+   owed: a real-device run, especially with Bluetooth input, to check endpoint timing and word loss under a slow
+   first `speak`.
+4. Owed hardware re-checks (cannot run in a normal session):
    - Re-run the MOSS MLX (Mac) and CUDA (DGX) proofs to confirm item 5's minimal worker environment strips nothing a
      runtime needs (`docs/moss-image-local.md`).
    - Item 4 changed `mlx_worker.py`, but both shipped forms of it are frozen builds of the old bytes. Until each is
@@ -33,6 +38,31 @@ Last verified: 2026-10-31 (issues #230 and #231 on branch `fix/issues-230-231`).
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-11-07 (review of `feat/voice-mode-phase0`):
+- **Streaming speech** (`speech/streaming.rs`): the 4-slot `try_send` queue dropped words, and could lose Interrupt
+  and Shutdown and hang `Drop`. It is now an unbounded channel: the sender refuses text past `MAX_STREAM_TEXT_BYTES`.
+  After that, speech already queued still plays and the session ends `Failed` rather than going quiet. An
+  `AtomicBool` flag carries the interrupt, and the worker checks it every iteration. A bare `[label]` is spoken, and
+  a bracket never reaches across a line or code fence, so text after it is no longer lost. A chunk
+  still playing after 60 s, or an engine in `SpeechPhase::Error` (now `Err` from `is_idle`), fails the session; it
+  no longer stays "speaking" forever.
+- **Conversation state** (`voice/`):
+  - `adopt_reply` holds the state lock and adopts only from `Thinking`, so End or Interrupt cannot be overwritten.
+  - `finish_run` returns whether the run was the spoken turn, and only then does `finish_reply` set `Finalizing`.
+  - A reply that could not be spoken, or failed while draining, stays visible as `speechProgress: "failed"` until
+    the next turn.
+  - Microphone start failures return `microphone_failed`.
+  - Interrupt cancels generation before stopping the engine, and ends the session if that stop fails.
+- **Capture:** both endpointer inputs use the audio frame clock (`CaptureState::frame_clock`); wall-clock lag used
+  to end turns early. A Silero inference error recognizes the whole snapshot rather than returning "no speech".
+- **Frontend:**
+  - A listening turn that closed with no usable transcript reopens listening once.
+  - A failed microphone ends the session and shows the microphone's own error.
+  - Recovery keeps the reason the session ended.
+  - `speech_active` on resume is retried instead of ending the session.
+  - One failed status poll no longer stops polling.
+  - `finalizing` now reads "Finishing the reply"; the endpoint reason is shown as "Turn ended · …" while listening.
 
 2026-10-31, second session (issues #230, #231):
 - **#230:** `RestoreOutcome.missingFilesUnchecked` is true when the post-restore count failed; the toolbar shows it

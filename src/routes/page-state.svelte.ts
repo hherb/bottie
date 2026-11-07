@@ -4,7 +4,8 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
 import { DEFAULT_APPEARANCE, type AppearancePreferences } from "$lib/appearance";
-import { buildTranscriptComposerDraft, canUseTranscriptAsText } from "$lib/microphone";
+import { buildTranscriptComposerDraft, canUseTranscriptAsText, microphoneFeedback } from "$lib/microphone";
+import { voiceTurnAction, voiceTurnTranscript, type VoiceConversationStatus } from "$lib/voice-conversation";
 import type { LocalImageAcquisitionStatus, LocalImageAvailabilityMetadata } from "$lib/local-image";
 import {
   chatTurnsForMessages,
@@ -78,6 +79,7 @@ import { LocalImageAcquisitionState } from "./local-image-acquisition-state.svel
 import { LocalImageWorkerImportState } from "./local-image-worker-import-state.svelte";
 import { PythonApprovalState } from "./python-approval-state.svelte";
 import { SpeechState } from "./speech-state.svelte";
+import { VoiceConversationState } from "./voice-conversation-state.svelte";
 import { KastellanState } from "./kastellan-state.svelte";
 import { ToolPreferenceState, type ToolAvailability } from "./tool-preferences";
 
@@ -147,6 +149,10 @@ export class PageState {
   localImageWorkerImport = new LocalImageWorkerImportState();
   pythonApproval = new PythonApprovalState();
   speech = new SpeechState();
+  /** Hands-free conversation session; its status changes drive one turn decision at a time. */
+  voice = new VoiceConversationState((status) => void this.reconcileVoiceTurn(status));
+  /** Bounded orchestration guidance for a voice turn the page could not submit. */
+  voiceFeedback = $state("");
   /** `@kastellan:` requests, answered in the background into this page's timeline. */
   kastellan = new KastellanState({
     messages: () => this.messages,
@@ -162,6 +168,12 @@ export class PageState {
   private activeGenerationKind: "chat" | "image" | null = null;
   private activeImageExecution: ImageGenerationExecution = "cloud";
   private activeImageEditing = false;
+  /** Set once the current conversation turn's transcript entered the ordinary send path. */
+  private voiceTurnSubmitted = false;
+  /** Keeps one reconciliation from re-entering itself through its own status observer. */
+  private voiceReconciling = false;
+  /** Set after a recovery resume so a stale capture status cannot request the same resume repeatedly. */
+  private voiceResumeRequested = false;
   /** Currently selected provider-qualified model, when discovery has produced one. */
   get selectedModel(): ModelInfo | undefined {
     return this.models.find((model) => modelKey(model) === this.selectedModelKey);
@@ -377,6 +389,7 @@ export class PageState {
     this.localImageAcquisition.dispose();
     this.pythonApproval.dispose();
     this.speech.dispose();
+    this.voice.dispose();
     this.kastellan.dispose();
   }
   /** Opens one persisted conversation from the sidebar. */
@@ -493,8 +506,13 @@ export class PageState {
     }
   }
 
-  /** Starts one provider-qualified chat stream and normalizes its events into message state. */
-  async sendMessage(): Promise<void> {
+  /**
+   * Starts one provider-qualified chat stream and normalizes its events into message state.
+   *
+   * Returns whether the draft was persisted and handed to the response path, so a caller that supplied the
+   * prompt itself (voice mode) can recover when submission never began.
+   */
+  async sendMessage(): Promise<boolean> {
     const submittedPrompt = this.prompt.trim();
     if (
       !submittedPrompt ||
@@ -503,7 +521,7 @@ export class PageState {
       !this.attachmentsCanSubmit ||
       !this.audioCanSubmit
     ) {
-      return;
+      return false;
     }
     this.isPersistingMessage = true;
     if (this.speech.status.phase === "speaking") await this.speech.stop();
@@ -515,7 +533,7 @@ export class PageState {
     this.isPersistingMessage = false;
     if (!runContext) {
       this.attachment.cancelSubmission();
-      return;
+      return false;
     }
     const completedAttachments = this.attachment.finishSubmission();
     this.messages.push({
@@ -529,6 +547,7 @@ export class PageState {
     this.attachment.clear();
     this.interaction.resizeComposer();
     await this.startResponse(runContext, submittedPrompt);
+    return true;
   }
 
   /** Whether a request can be answered now: Kastellan needs no selected model or reachable provider. */
@@ -989,11 +1008,141 @@ export class PageState {
   }
   /** Interrupts active Bottie output before starting one explicit local voice capture. */
   async startMicrophoneCapture(): Promise<void> {
-    if (this.microphone.isActive) return;
+    // One conversation session owns native input; push-to-talk resumes after it ends.
+    if (this.microphone.isActive || this.voice.status.active) return;
     this.clearMicrophoneTranscriptDraftFeedback();
     if (this.isGenerating) this.stopGenerating();
     if (this.speech.status.phase === "speaking" && !(await this.speech.stop())) return;
     await this.microphone.start();
+  }
+  /** Starts one explicit hands-free conversation over the selected microphone. */
+  async startVoiceConversation(): Promise<void> {
+    if (this.microphone.isActive) return;
+    this.clearMicrophoneTranscriptDraftFeedback();
+    this.voiceFeedback = "";
+    this.voiceTurnSubmitted = false;
+    this.voiceResumeRequested = false;
+    await this.voice.start();
+    await this.microphone.refresh();
+  }
+  /** Ends the hands-free conversation and releases native capture. */
+  async endVoiceConversation(): Promise<void> {
+    this.voiceFeedback = "";
+    this.voiceTurnSubmitted = false;
+    this.voiceResumeRequested = false;
+    await this.voice.end();
+  }
+  /** Interrupts the spoken reply and its generation, then reopens listening for the next turn. */
+  async interruptVoiceTurn(): Promise<void> {
+    this.voiceFeedback = "";
+    this.voiceTurnSubmitted = false;
+    this.voiceResumeRequested = false;
+    await this.voice.interrupt();
+  }
+  /**
+   * Takes at most one conversation turn decision from the latest native status.
+   *
+   * The native smoke path is fixed: arm the next reply, submit it through the ordinary send path, and reopen
+   * listening only after that reply drained or the turn lost its reply before dispatch.
+   */
+  private async reconcileVoiceTurn(status: VoiceConversationStatus): Promise<void> {
+    if (!status.active) {
+      this.voiceTurnSubmitted = false;
+      this.voiceResumeRequested = false;
+      return;
+    }
+    // A new capture belongs to a new turn, so the previous turn's markers must not suppress or repeat it.
+    if (this.microphone.isActive) {
+      this.voiceTurnSubmitted = false;
+      this.voiceResumeRequested = false;
+    }
+    // Acquire the re-entrancy guard before any await: two observer calls must never both decide to submit.
+    if (this.voiceReconciling) return;
+    this.voiceReconciling = true;
+    try {
+      // Conversation capture opens and closes natively, so the composer's own polling may be idle by now; read the
+      // native status before deciding, including the final transcript that arrives after capture stops.
+      await this.microphone.refresh();
+      const action = voiceTurnAction({
+        active: status.active,
+        phase: status.phase,
+        pendingReply: status.pendingReply,
+        speechProgress: status.speechProgress,
+        busy: this.isGenerating || this.isPersistingMessage,
+        capturing: this.microphone.isActive,
+        microphone: this.microphone.status,
+        turnSubmitted: this.voiceTurnSubmitted,
+        resumeRequested: this.voiceResumeRequested,
+      });
+      if (action === "resume") await this.resumeVoiceListening();
+      else if (action === "submit") await this.submitVoiceTurn();
+      else if (action === "end") {
+        // The conversation view replaces the microphone's own error line, so the failure is carried into voice feedback.
+        this.voiceFeedback = microphoneFeedback(this.microphone.status);
+        await this.voice.end();
+      }
+    } catch (error) {
+      console.warn("Could not advance the voice conversation turn", error);
+      await this.recoverVoiceTurn();
+    } finally {
+      this.voiceReconciling = false;
+    }
+  }
+  /** Reopens listening after a drained reply, falling back to ending an unusable session. */
+  private async resumeVoiceListening(): Promise<void> {
+    this.voiceResumeRequested = true;
+    if (await this.voice.resume()) return;
+    // A reply that is still draining is benign: clear the marker so the next status change retries.
+    if (this.voice.error === null) {
+      this.voiceResumeRequested = false;
+      return;
+    }
+    await this.recoverVoiceTurn();
+  }
+  /** Hands the finished voice turn to the ordinary send path, preserving it when it cannot be sent. */
+  private async submitVoiceTurn(): Promise<void> {
+    const transcript = voiceTurnTranscript(this.microphone.status);
+    if (transcript === null) return;
+    if (!this.canSend) {
+      this.voiceFeedback =
+        "A voice turn needs a reachable provider and a selected model. The transcript stays in your draft.";
+      this.useMicrophoneTranscriptAsText();
+      await this.voice.end();
+      return;
+    }
+    if (this.prompt.trim().length > 0) {
+      this.voiceFeedback = "Finish or clear your draft first · the voice turn was copied into it.";
+      this.useMicrophoneTranscriptAsText();
+      await this.voice.end();
+      return;
+    }
+    this.voiceTurnSubmitted = true;
+    this.voiceResumeRequested = false;
+    this.voiceFeedback = "";
+    if (!(await this.voice.armReply())) {
+      this.voiceTurnSubmitted = false;
+      // A capture that is still closing is benign and retried on the next status change; anything else ends a
+      // session that cannot speak.
+      if (this.voice.error === null) return;
+      await this.recoverVoiceTurn();
+      return;
+    }
+    this.prompt = transcript;
+    if (await this.sendMessage()) return;
+    this.voiceTurnSubmitted = false;
+    this.voiceFeedback = "The voice turn was not sent. The transcript stays in your draft.";
+    // The transcript is already the draft, so ending is the only recovery that cannot duplicate it.
+    await this.voice.end();
+  }
+  /** Returns to listening when possible, otherwise ends the session so no dead microphone stays armed. */
+  private async recoverVoiceTurn(): Promise<void> {
+    this.voiceTurnSubmitted = false;
+    if (!this.voice.status.active) return;
+    // Both recovery commands clear the store's error, so keep the reason the turn failed visible.
+    const reason = this.voice.error;
+    if (await this.voice.resume()) return;
+    await this.voice.end();
+    if (reason !== null && this.voiceFeedback === "") this.voiceFeedback = reason;
   }
   /** Copies the current visible final transcript into the editable unsent composer draft. */
   useMicrophoneTranscriptAsText(): void {

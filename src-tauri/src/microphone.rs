@@ -5,9 +5,11 @@ mod buffer;
 mod capture;
 mod correction;
 mod devices;
+pub(crate) mod endpointing;
 pub(crate) mod latency;
 mod transcription;
 mod vad;
+mod vad_silero;
 
 use std::{
     path::PathBuf,
@@ -29,6 +31,7 @@ use correction::MAX_TRANSCRIPT_TURN_BYTES;
 pub(crate) use correction::TranscriptCorrectionError;
 use devices::MicrophoneDeviceRegistry;
 pub(crate) use devices::{MicrophoneDeviceCommandError, MicrophoneInputDeviceList};
+use endpointing::{EndPointer, EndReason};
 use latency::{MicrophoneLatency, MicrophoneLatencyTracker};
 use transcription::{
     RawTranscriptSegment, TranscriptSegment, TranscriptionErrorCode, TranscriptionJob,
@@ -40,6 +43,17 @@ const MAX_CAPTURE_DURATION: Duration = Duration::from_secs(60);
 const MAX_RETAINED_BYTES: usize = 32 * 1024 * 1024;
 const CAPTURE_WORKER_POLL: Duration = Duration::from_millis(40);
 const FLOAT_SAMPLE_BYTES: usize = size_of::<f32>();
+
+/// How the current native capture decides when a turn ends.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum MicrophoneMode {
+    /// The user presses Stop; the native endpoint detector stays idle.
+    #[default]
+    PushToTalk,
+    /// The native endpoint detector decides when the turn ended and stops capture.
+    Conversation,
+}
 
 /// User-visible lifecycle for one session-only native voice capture.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
@@ -96,6 +110,7 @@ pub(crate) enum MicrophoneErrorCode {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MicrophoneStatus {
     phase: MicrophonePhase,
+    mode: MicrophoneMode,
     permission: MicrophonePermission,
     duration_ms: u64,
     max_duration_ms: u64,
@@ -110,6 +125,7 @@ pub(crate) struct MicrophoneStatus {
     transcription_error_code: Option<TranscriptionErrorCode>,
     error_code: Option<MicrophoneErrorCode>,
     latency: MicrophoneLatency,
+    endpoint_reason: Option<EndReason>,
 }
 
 /// Thread-safe controller for the one session-only native capture slot.
@@ -134,6 +150,11 @@ enum CaptureCommand {
 #[derive(Default)]
 struct CaptureState {
     phase: MicrophonePhase,
+    mode: MicrophoneMode,
+    endpointer: EndPointer,
+    capture_started_at: Option<Instant>,
+    first_speech_ms: Option<u64>,
+    vad_frames_processed: u64,
     permission: MicrophonePermission,
     buffer: Option<CaptureBuffer>,
     input_level: f32,
@@ -180,6 +201,16 @@ impl MicrophoneController {
         lock(&self.shared).status()
     }
 
+    /// Reports the latched end-of-turn reason for conversation capture, if the turn has finished.
+    pub(crate) fn endpoint_reason(&self) -> Option<EndReason> {
+        lock(&self.shared).endpoint_finished()
+    }
+
+    /// Reports whether the last capture attempt failed and no input is open.
+    pub(crate) fn failed(&self) -> bool {
+        lock(&self.shared).phase == MicrophonePhase::Error
+    }
+
     /// Reports whether native input is starting or actively recording.
     pub(crate) fn is_capturing(&self) -> bool {
         matches!(
@@ -190,6 +221,15 @@ impl MicrophoneController {
 
     /// Starts one selected-input capture only after the WebView's explicit user action.
     pub(crate) fn start(&self) -> MicrophoneStatus {
+        self.start_with_mode(MicrophoneMode::PushToTalk)
+    }
+
+    /// Starts a conversation capture whose turn ends in the native endpoint detector.
+    pub(crate) fn start_conversation(&self) -> MicrophoneStatus {
+        self.start_with_mode(MicrophoneMode::Conversation)
+    }
+
+    fn start_with_mode(&self, mode: MicrophoneMode) -> MicrophoneStatus {
         let mut worker = lock(&self.worker);
         let phase = lock(&self.shared).phase;
         clear_worker_for_restart(&mut worker, phase);
@@ -199,7 +239,11 @@ impl MicrophoneController {
 
         let devices = lock(&self.devices);
         let input_selection = devices.capture_selection();
-        lock(&self.shared).begin_starting();
+        {
+            let mut state = lock(&self.shared);
+            state.mode = mode;
+            state.begin_starting();
+        }
         drop(devices);
         let (commands, receiver) = mpsc::channel();
         let shared = self.shared.clone();
@@ -257,11 +301,24 @@ impl CaptureState {
         self.buffer = None;
         self.input_level = 0.0;
         self.error_code = None;
+        self.capture_started_at = None;
+        self.first_speech_ms = None;
+        self.vad_frames_processed = 0;
+        self.endpointer.reset();
         self.clear_transcription(TranscriptionPhase::Idle);
         self.latency.begin_capture(now);
     }
 
     fn begin_recording(&mut self, sample_rate_hz: u32, channels: u16) {
+        let now = Instant::now();
+        self.capture_started_at = Some(now);
+        self.first_speech_ms = None;
+        self.vad_frames_processed = 0;
+        if self.mode == MicrophoneMode::Conversation {
+            self.endpointer.arm();
+        } else {
+            self.endpointer.reset();
+        }
         self.phase = MicrophonePhase::Recording;
         self.permission = MicrophonePermission::Granted;
         self.buffer = Some(CaptureBuffer::new(sample_rate_hz, channels));
@@ -315,6 +372,74 @@ impl CaptureState {
             return;
         };
         self.input_level = buffer.append(input);
+        if self.mode != MicrophoneMode::Conversation {
+            let mut drained = Vec::new();
+            if let Some(buffer) = self.buffer.as_mut() {
+                buffer.voice_detector.take_frame_activities(&mut drained);
+            }
+            return;
+        }
+        let Some(started_at) = self.capture_started_at else {
+            return;
+        };
+        let mut frames = Vec::new();
+        if let Some(buffer) = self.buffer.as_mut() {
+            buffer.voice_detector.take_frame_activities(&mut frames);
+        }
+        for activity in frames {
+            self.vad_frames_processed = self.vad_frames_processed.saturating_add(1);
+            let at = self.frame_clock(started_at);
+            let _ = self.endpointer.on_activity(at, activity);
+            self.anchor_transcription_to_onset(started_at);
+        }
+    }
+
+    /// The audio timeline: capture start plus every processed VAD frame.
+    ///
+    /// The endpointer must see one clock. Wall time runs ahead of this timeline by device startup and callback
+    /// buffering, and that lag would otherwise count as silence and end a turn while the user is still speaking.
+    fn frame_clock(&self, started_at: Instant) -> Instant {
+        started_at
+            + Duration::from_millis(
+                self.vad_frames_processed
+                    .saturating_mul(u64::from(vad::FRAME_DURATION_MS)),
+            )
+    }
+
+    /// Starts conversation partials a full interval after the first confirmed speech, not after capture start.
+    fn anchor_transcription_to_onset(&mut self, started_at: Instant) {
+        if self.mode != MicrophoneMode::Conversation || self.first_speech_ms.is_some() {
+            return;
+        }
+        let Some(onset) = self.endpointer.first_speech_at() else {
+            return;
+        };
+        let onset_ms = u64::try_from(onset.saturating_duration_since(started_at).as_millis())
+            .unwrap_or(u64::MAX);
+        self.first_speech_ms = Some(onset_ms);
+        self.next_transcription_ms = onset_ms.saturating_add(self.transcription_interval_ms());
+    }
+
+    /// Reports the latched end-of-turn reason for conversation capture.
+    fn endpoint_finished(&self) -> Option<EndReason> {
+        self.endpointer.finished()
+    }
+
+    /// Joins the bounded transcript segments into the text an end-of-turn gate evaluates.
+    fn transcript_text(&self) -> String {
+        self.transcript_segments
+            .iter()
+            .map(|segment| segment.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Conversation capture asks for earlier partials than push-to-talk.
+    fn transcription_interval_ms(&self) -> u64 {
+        match self.mode {
+            MicrophoneMode::Conversation => transcription::CONVERSATION_TRANSCRIPTION_INTERVAL_MS,
+            MicrophoneMode::PushToTalk => transcription::TRANSCRIPTION_INTERVAL_MS,
+        }
     }
 
     fn schedule_transcription(&mut self, is_final: bool) -> bool {
@@ -332,8 +457,7 @@ impl CaptureState {
         if !is_final && duration_ms < self.next_transcription_ms {
             return false;
         }
-        self.next_transcription_ms =
-            duration_ms.saturating_add(transcription::TRANSCRIPTION_INTERVAL_MS);
+        self.next_transcription_ms = duration_ms.saturating_add(self.transcription_interval_ms());
         let Some(job) = TranscriptionJob::from_capture(
             self.capture_id,
             self.transcription_generation.wrapping_add(1),
@@ -402,6 +526,14 @@ impl CaptureState {
                 if is_final {
                     self.latency.mark_final_transcript(now);
                 }
+                if self.mode == MicrophoneMode::Conversation
+                    && !is_final
+                    && let Some(started_at) = self.capture_started_at
+                {
+                    let text = self.transcript_text();
+                    let at = self.frame_clock(started_at);
+                    let _ = self.endpointer.on_transcript(at, &text);
+                }
                 self.transcription_error_code = None;
             }
             Err(code) => {
@@ -418,7 +550,7 @@ impl CaptureState {
         self.transcript_segments.clear();
         self.transcription_error_code = None;
         self.pending_transcription = None;
-        self.next_transcription_ms = transcription::TRANSCRIPTION_INTERVAL_MS;
+        self.next_transcription_ms = self.transcription_interval_ms();
     }
 
     fn status(&self) -> MicrophoneStatus {
@@ -429,6 +561,7 @@ impl CaptureState {
         );
         MicrophoneStatus {
             phase: self.phase,
+            mode: self.mode,
             permission: self.permission,
             duration_ms,
             max_duration_ms,
@@ -452,6 +585,7 @@ impl CaptureState {
             transcription_error_code: self.transcription_error_code,
             error_code: self.error_code,
             latency: self.latency.summary(),
+            endpoint_reason: self.endpointer.finished(),
         }
     }
 }

@@ -377,6 +377,41 @@ textarea:disabled {
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
+.voice-action.interrupt {
+  background: rgba(217, 120, 128, 0.12);
+  color: #e7a2a8;
+}
+/* Reserved two-line status slot for voice conversation mode: constant height, ellipsized lines. */
+.voice-conversation-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 30px;
+  margin: -2px 10px 8px;
+  overflow: hidden;
+}
+.voice-conversation-status p {
+  margin: 0;
+  padding: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.voice-conversation-feedback {
+  color: var(--muted-strong);
+  font-size: 9px;
+}
+.voice-conversation-detail {
+  color: var(--subtle-text);
+  font-size: 8px;
+}
+.voice-conversation-detail.quiet {
+  color: #d8b47a;
+}
+.voice-conversation-detail.error {
+  color: #d89a91;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .input-level span {

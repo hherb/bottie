@@ -1,0 +1,228 @@
+/** Reactive controller for the one Rust-owned hands-free voice conversation session. */
+
+import { isTauri } from "@tauri-apps/api/core";
+
+import {
+  armVoiceReply,
+  endVoiceConversation,
+  getVoiceConversationStatus,
+  INITIAL_VOICE_CONVERSATION_STATUS,
+  interruptVoiceTurn,
+  resumeVoiceListening,
+  startVoiceConversation,
+  voiceCommandErrorCode,
+  voiceCommandErrorFeedback,
+  type VoiceConversationStatus,
+} from "$lib/voice-conversation";
+
+const STATUS_POLL_INTERVAL_MS = 200;
+
+/**
+ * Owns conversation commands, bounded error feedback, and path-free status polling.
+ *
+ * The optional observer runs after every applied status, including an unchanged poll, so the page notices a
+ * capture that became ready without the native conversation phase having moved. The store itself knows nothing
+ * about generation, prompts, or submission.
+ */
+export class VoiceConversationState {
+  status = $state<VoiceConversationStatus>({ ...INITIAL_VOICE_CONVERSATION_STATUS });
+  error = $state<string | null>(null);
+  starting = $state(false);
+  busy = $state(false);
+  readonly available = isTauri();
+
+  private readonly onStatus: (status: VoiceConversationStatus) => void;
+  private pollTimer?: ReturnType<typeof setInterval>;
+  private pollInFlight = false;
+  /** Bumped by every action and every applied active status; a poll result from an older epoch is discarded. */
+  private pollEpoch = 0;
+  /** The current error came from a failed poll, so the next successful poll clears it. */
+  private pollFailed = false;
+  private actionInFlight = false;
+  /** Settles a stop that arrived while another action was in flight; set only until that stop runs. */
+  private resolveQueuedEnd?: (ended: boolean) => void;
+  private queuedEnd?: Promise<boolean>;
+
+  /** Creates the controller with one optional status observer for turn orchestration. */
+  constructor(onStatus: (status: VoiceConversationStatus) => void = () => {}) {
+    this.onStatus = onStatus;
+  }
+
+  /** Starts the hands-free session after the composer's explicit user action. */
+  async start(): Promise<boolean> {
+    if (!this.available || this.actionInFlight) return false;
+    this.error = null;
+    this.starting = true;
+    this.actionInFlight = true;
+    this.pollEpoch += 1;
+    try {
+      this.apply(await startVoiceConversation());
+      return this.status.active && !this.endQueued;
+    } catch (error) {
+      this.fail(error);
+      return false;
+    } finally {
+      this.starting = false;
+      this.finishAction();
+    }
+  }
+
+  /**
+   * Ends the session and stops playback, generation, and conversation capture.
+   *
+   * A stop that arrives while another action is in flight waits for it and then runs, so a late result can never
+   * reopen a session the user is ending.
+   */
+  async end(): Promise<boolean> {
+    if (!this.available) return false;
+    if (this.actionInFlight) {
+      this.queuedEnd ??= new Promise((resolve) => (this.resolveQueuedEnd = resolve));
+      return this.queuedEnd;
+    }
+    this.error = null;
+    this.busy = true;
+    this.actionInFlight = true;
+    this.pollEpoch += 1;
+    try {
+      this.apply(await endVoiceConversation());
+      return !this.status.active;
+    } catch (error) {
+      this.fail(error);
+      return false;
+    } finally {
+      this.busy = false;
+      this.finishAction();
+    }
+  }
+
+  /** Stops the current spoken reply and generation, then reopens listening. */
+  async interrupt(): Promise<boolean> {
+    if (!this.available || this.actionInFlight || !this.status.active) return false;
+    this.error = null;
+    this.busy = true;
+    this.actionInFlight = true;
+    this.pollEpoch += 1;
+    try {
+      this.apply(await interruptVoiceTurn());
+      return this.status.active && !this.endQueued;
+    } catch (error) {
+      this.fail(error);
+      return false;
+    } finally {
+      this.busy = false;
+      this.finishAction();
+    }
+  }
+
+  /** Reopens listening so the next turn can start after a reply drained. */
+  async resume(): Promise<boolean> {
+    if (!this.available || this.actionInFlight || !this.status.active) return false;
+    this.error = null;
+    this.busy = true;
+    this.actionInFlight = true;
+    this.pollEpoch += 1;
+    try {
+      this.apply(await resumeVoiceListening());
+      return !this.endQueued;
+    } catch (error) {
+      // A reply that is still draining is not a failure; the next poll resumes once it settles.
+      if (voiceCommandErrorCode(error) !== "speech_active") this.fail(error);
+      return false;
+    } finally {
+      this.busy = false;
+      this.finishAction();
+    }
+  }
+
+  /**
+   * Marks the reply about to be submitted as spoken by this session.
+   *
+   * A capture that is still open is recoverable: the caller retries after the next status change, so it is not
+   * reported as a failure.
+   */
+  async armReply(): Promise<boolean> {
+    if (!this.available || this.actionInFlight || !this.status.active) return false;
+    this.actionInFlight = true;
+    this.pollEpoch += 1;
+    try {
+      this.apply(await armVoiceReply());
+      this.error = null;
+      // A stop requested meanwhile supersedes the turn, so the caller must not send it.
+      return !this.endQueued;
+    } catch (error) {
+      if (voiceCommandErrorCode(error) !== "capture_active") this.fail(error);
+      return false;
+    } finally {
+      this.finishAction();
+    }
+  }
+
+  /** Reads the current phase once without starting native audio or polling. */
+  async refresh(): Promise<void> {
+    if (!this.available || this.pollInFlight) return;
+    this.pollInFlight = true;
+    const epoch = this.pollEpoch;
+    try {
+      const status = await getVoiceConversationStatus();
+      // An action or a newer poll since this request began owns the state now.
+      if (epoch !== this.pollEpoch) return;
+      if (this.pollFailed) {
+        this.pollFailed = false;
+        this.error = null;
+      }
+      this.apply(status);
+    } catch (error) {
+      if (epoch !== this.pollEpoch) return;
+      // Native capture and endpointing keep running, so keep polling: stopping here would strand an open microphone.
+      this.error = voiceCommandErrorFeedback(voiceCommandErrorCode(error));
+      this.pollFailed = true;
+    } finally {
+      this.pollInFlight = false;
+    }
+  }
+
+  /** Stops polling and releases native input when the page is unmounted. */
+  dispose(): void {
+    this.stopPolling();
+    // A start still in flight may open native input after unmount, so it is stopped too.
+    if (this.available && (this.status.active || this.actionInFlight)) void this.end();
+  }
+
+  private apply(status: VoiceConversationStatus): void {
+    this.status = status;
+    if (status.active) this.startPolling();
+    else this.stopPolling();
+    // A status that lands while a stop is queued must not start another turn.
+    if (!this.endQueued) this.onStatus(this.status);
+  }
+
+  private get endQueued(): boolean {
+    return this.resolveQueuedEnd !== undefined;
+  }
+
+  private finishAction(): void {
+    this.actionInFlight = false;
+    const resolve = this.resolveQueuedEnd;
+    if (!resolve) return;
+    this.resolveQueuedEnd = undefined;
+    this.queuedEnd = undefined;
+    void this.end().then(resolve);
+  }
+
+  private startPolling(): void {
+    this.pollEpoch += 1;
+    if (this.pollTimer) return;
+    this.pollTimer = setInterval(() => void this.refresh(), STATUS_POLL_INTERVAL_MS);
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    this.pollTimer = undefined;
+  }
+
+  private fail(error: unknown): void {
+    this.error = voiceCommandErrorFeedback(voiceCommandErrorCode(error));
+    this.pollFailed = false;
+    this.stopPolling();
+  }
+}

@@ -1,11 +1,11 @@
 //! One persistent speech actor owns Python, CPAL, cancellation, and child teardown on a dedicated thread.
 
 use super::{
-    playback::NativePlayback,
     process::NanoProcess,
-    protocol::{Decoder, request_chunks},
+    protocol::{Decoder, SOURCE_RATE, request_chunks},
     runtime::NanoRuntime,
 };
+use crate::speech::audio_owner::{AudioFormat, AudioOwner};
 use crate::speech::{SpeechErrorCode, lock};
 use std::{
     sync::{Arc, Mutex, mpsc},
@@ -39,6 +39,7 @@ pub(super) struct NanoService {
     commands: async_mpsc::Sender<Request>,
     cancel: watch::Sender<bool>,
     progress: Arc<Mutex<Progress>>,
+    latency: Arc<Mutex<Option<u32>>>,
     done: mpsc::Receiver<()>,
     thread: Option<JoinHandle<()>>,
 }
@@ -50,6 +51,8 @@ impl NanoService {
         let (cancel, cancellation) = watch::channel(false);
         let progress = Arc::new(Mutex::new(Progress::Idle));
         let shared = progress.clone();
+        let latency = Arc::new(Mutex::new(None));
+        let reported_latency = latency.clone();
         let (done_tx, done) = mpsc::channel();
         let thread = thread::Builder::new()
             .name("bottie-nano-speech".to_owned())
@@ -58,9 +61,13 @@ impl NanoService {
                     .enable_all()
                     .build();
                 match executor {
-                    Ok(executor) => {
-                        executor.block_on(actor(runtime, receiver, cancellation, shared.clone()))
-                    }
+                    Ok(executor) => executor.block_on(actor(
+                        runtime,
+                        receiver,
+                        cancellation,
+                        shared.clone(),
+                        reported_latency,
+                    )),
                     Err(_) => *lock(&shared) = Progress::Failed,
                 }
                 let _ = done_tx.send(());
@@ -70,6 +77,7 @@ impl NanoService {
             commands,
             cancel,
             progress,
+            latency,
             done,
             thread: Some(thread),
         })
@@ -94,6 +102,10 @@ impl NanoService {
     /// Reads only bounded actor state, never waiting for inference or the output device.
     pub(super) fn progress(&self) -> Progress {
         *lock(&self.progress)
+    }
+    /// Reads the last measured output-device latency reported by the actor.
+    pub(super) fn output_latency_ms(&self) -> Option<u32> {
+        *lock(&self.latency)
     }
     /// Confirms that playback is dropped and Python is reaped before returning success.
     pub(super) fn stop(&mut self) -> Result<(), SpeechErrorCode> {
@@ -125,8 +137,12 @@ async fn actor(
     mut commands: async_mpsc::Receiver<Request>,
     mut cancel: watch::Receiver<bool>,
     progress: Arc<Mutex<Progress>>,
+    latency: Arc<Mutex<Option<u32>>>,
 ) {
     let mut process: Option<NanoProcess> = None;
+    // One output owner for the actor's lifetime: an utterance reopens the device only after a stream failure or a
+    // default-device change.
+    let mut output: Option<AudioOwner> = None;
     loop {
         let request = tokio::select! { biased;
             _ = cancel.changed() => break,
@@ -149,24 +165,48 @@ async fn actor(
                 break;
             }
         }
+        if output.is_none() {
+            match AudioOwner::new(AudioFormat {
+                sample_rate_hz: SOURCE_RATE,
+                channels: 2,
+            }) {
+                Ok(owner) => output = Some(owner),
+                Err(_) => {
+                    *lock(&progress) = Progress::Failed;
+                    break;
+                }
+            }
+        }
         let result = tokio::select! { biased;
             _ = cancel.changed() => break,
-            result = timeout(UTTERANCE_TIMEOUT, play(process.as_mut().unwrap(), request)) => result,
+            result = timeout(
+                UTTERANCE_TIMEOUT,
+                play(process.as_mut().unwrap(), request, output.as_mut().unwrap()),
+            ) => result,
         };
+        if let Some(owner) = output.as_mut() {
+            *lock(&latency) = owner.output_latency_ms();
+        }
         if !matches!(result, Ok(Ok(()))) {
             *lock(&progress) = Progress::Failed;
             break;
         }
         *lock(&progress) = Progress::Idle;
     }
+    // Release the output device before the child process teardown so Stop returns with audio closed.
+    drop(output);
     if let Some(process) = process.as_mut() {
         process.terminate().await;
     }
 }
 
 /// Stream backpressure keeps Python, private pipes, and the two-second native queue bounded.
-async fn play(process: &mut NanoProcess, request: Request) -> Result<(), SpeechErrorCode> {
-    let output = NativePlayback::new()?;
+async fn play(
+    process: &mut NanoProcess,
+    request: Request,
+    output: &mut AudioOwner,
+) -> Result<(), SpeechErrorCode> {
+    output.clear();
     for text in request_chunks(&request.text) {
         process.speak(&text, &request.voice).await?;
         let mut decoder = Decoder::default();
@@ -175,7 +215,11 @@ async fn play(process: &mut NanoProcess, request: Request) -> Result<(), SpeechE
             match event["event"].as_str() {
                 Some("audio") => {
                     let frames = decoder.audio(event)?;
-                    wait_for_output(|| output.try_push(&frames), OUTPUT_STALL_TIMEOUT).await?;
+                    let mut interleaved = Vec::with_capacity(frames.len().saturating_mul(2));
+                    for frame in &frames {
+                        interleaved.extend_from_slice(frame);
+                    }
+                    wait_for_output(|| output.try_push(&interleaved), OUTPUT_STALL_TIMEOUT).await?;
                 }
                 Some("complete") => {
                     decoder.complete(&event)?;

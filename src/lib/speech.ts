@@ -40,6 +40,7 @@ export type SpeechSettingsState = {
 /** Native-observable timing for the current explicit playback action. */
 export type SpeechLatency = {
   playbackAcceptedMs: number | null;
+  outputLatencyMs: number | null;
 };
 
 /** Initial state before native voice discovery is explicitly requested. */
@@ -47,7 +48,7 @@ export const INITIAL_SPEECH_STATUS: SpeechStatus = {
   phase: "idle",
   selectedVoiceId: null,
   errorCode: null,
-  latency: { playbackAcceptedMs: null },
+  latency: { playbackAcceptedMs: null, outputLatencyMs: null },
 };
 
 type SpeechToken = {

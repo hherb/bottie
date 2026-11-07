@@ -1,6 +1,7 @@
 //! Pure failure-boundary tests for Nano installation, PCM framing, and playback buffering.
 
-use super::{buffer::PcmBuffer, protocol::Decoder, runtime::NanoRuntime};
+use super::{protocol::Decoder, runtime::NanoRuntime};
+use crate::speech::audio_owner::PcmQueue;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use std::fs;
 
@@ -54,21 +55,27 @@ fn nano_rejects_reordered_nonfinite_and_mismatched_pcm() {
 
 #[test]
 fn nano_buffer_bounds_resamples_and_clears_without_retaining_audio() {
-    let mut queue = PcmBuffer::new(4);
-    assert!(queue.push(&[[0.0, 0.0]; 5]).is_err());
+    let mut queue = PcmQueue::new(8, 2, 48_000);
+    assert!(queue.push_interleaved(&[0.0; 10]).is_err());
     queue
-        .push(&[[0.0, 1.0], [1.0, 0.0], [0.0, -1.0], [-1.0, 0.0]])
+        .push_interleaved(&[0.0, 1.0, 1.0, 0.0, 0.0, -1.0, -1.0, 0.0])
         .unwrap();
-    assert_eq!(queue.next_frame(48000), [0.0, 1.0]);
-    assert_eq!(queue.next_frame(48000), [1.0, 0.0]);
+    let mut frame = [0.0_f32; 2];
+    assert!(queue.next_frame(48_000, &mut frame));
+    assert_eq!(frame, [0.0, 1.0]);
+    assert!(queue.next_frame(48_000, &mut frame));
+    assert_eq!(frame, [1.0, 0.0]);
     queue.clear();
     assert!(queue.is_empty());
-    assert_eq!(queue.next_frame(44100), [0.0, 0.0]);
+    assert!(!queue.next_frame(44_100, &mut frame));
+    assert_eq!(frame, [0.0, 0.0]);
     queue
-        .push(&[[0.0, 0.0], [1.0, 1.0], [0.0, 0.0], [1.0, 1.0]])
+        .push_interleaved(&[0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0])
         .unwrap();
-    assert_eq!(queue.next_frame(96000), [0.0, 0.0]);
-    assert_eq!(queue.next_frame(96000), [0.5, 0.5]);
+    assert!(queue.next_frame(96_000, &mut frame));
+    assert_eq!(frame, [0.0, 0.0]);
+    assert!(queue.next_frame(96_000, &mut frame));
+    assert_eq!(frame, [0.5, 0.5]);
 }
 
 #[test]
