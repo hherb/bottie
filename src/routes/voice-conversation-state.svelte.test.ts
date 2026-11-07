@@ -202,4 +202,43 @@ describe("voice conversation state", () => {
 
     expect(endVoiceConversation).toHaveBeenCalledOnce();
   });
+
+  it("runs a stop requested during an in-flight action once it settles, and supersedes its result", async () => {
+    vi.mocked(startVoiceConversation).mockResolvedValue(LISTENING);
+    vi.mocked(endVoiceConversation).mockResolvedValue(INACTIVE);
+    let finishArm!: (next: VoiceConversationStatus) => void;
+    vi.mocked(armVoiceReply).mockReturnValue(new Promise((resolve) => (finishArm = resolve)));
+    const observed: VoiceConversationStatus[] = [];
+    const state = new VoiceConversationState((next) => observed.push(next));
+    await state.start();
+
+    const arming = state.armReply();
+    const ending = state.end();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(endVoiceConversation).not.toHaveBeenCalled();
+
+    finishArm(status({ phase: "thinking", pendingReply: true }));
+    // The superseded turn must not be sent, and its late status never reaches the page.
+    await expect(arming).resolves.toBe(false);
+    await expect(ending).resolves.toBe(true);
+    expect(endVoiceConversation).toHaveBeenCalledOnce();
+    expect(observed.map((next) => next.phase)).toEqual(["listening", "idle"]);
+    expect(state.status.active).toBe(false);
+  });
+
+  it("stops a session whose start was still in flight when the page unmounted", async () => {
+    let finishStart!: (next: VoiceConversationStatus) => void;
+    vi.mocked(startVoiceConversation).mockReturnValue(new Promise((resolve) => (finishStart = resolve)));
+    vi.mocked(endVoiceConversation).mockResolvedValue(INACTIVE);
+    const state = new VoiceConversationState();
+
+    const starting = state.start();
+    state.dispose();
+    finishStart(LISTENING);
+
+    await expect(starting).resolves.toBe(false);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(endVoiceConversation).toHaveBeenCalledOnce();
+    expect(state.status.active).toBe(false);
+  });
 });

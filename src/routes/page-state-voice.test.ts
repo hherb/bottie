@@ -173,6 +173,28 @@ describe("PageState voice conversation turns", () => {
     state.dispose();
   });
 
+  it("never sends a turn whose session the user ended while its reply was being armed", async () => {
+    let finishArm!: (next: VoiceConversationStatus) => void;
+    vi.mocked(armVoiceReply).mockReturnValue(new Promise((resolve) => (finishArm = resolve)));
+    const state = readyPage();
+    const persist = vi.spyOn(state.history, "persistUserMessage");
+
+    await state.startVoiceConversation();
+    vi.mocked(getMicrophoneStatus).mockResolvedValue({ ...CAPTURED_TRANSCRIPT });
+    await state.voice.refresh();
+    await vi.waitFor(() => expect(armVoiceReply).toHaveBeenCalledOnce());
+
+    const ending = state.endVoiceConversation();
+    finishArm(THINKING);
+    await ending;
+
+    expect(endVoiceConversation).toHaveBeenCalledOnce();
+    expect(state.voice.status.active).toBe(false);
+    expect(persist).not.toHaveBeenCalled();
+    expect(inference.startChat).not.toHaveBeenCalled();
+    state.dispose();
+  });
+
   it("reopens listening once when a turn closed with nothing heard", async () => {
     const state = readyPage();
 

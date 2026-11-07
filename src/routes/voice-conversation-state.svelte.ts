@@ -39,6 +39,9 @@ export class VoiceConversationState {
   /** The current error came from a failed poll, so the next successful poll clears it. */
   private pollFailed = false;
   private actionInFlight = false;
+  /** Settles a stop that arrived while another action was in flight; set only until that stop runs. */
+  private resolveQueuedEnd?: (ended: boolean) => void;
+  private queuedEnd?: Promise<boolean>;
 
   /** Creates the controller with one optional status observer for turn orchestration. */
   constructor(onStatus: (status: VoiceConversationStatus) => void = () => {}) {
@@ -54,19 +57,28 @@ export class VoiceConversationState {
     this.pollEpoch += 1;
     try {
       this.apply(await startVoiceConversation());
-      return this.status.active;
+      return this.status.active && !this.endQueued;
     } catch (error) {
       this.fail(error);
       return false;
     } finally {
       this.starting = false;
-      this.actionInFlight = false;
+      this.finishAction();
     }
   }
 
-  /** Ends the session and stops playback, generation, and conversation capture. */
+  /**
+   * Ends the session and stops playback, generation, and conversation capture.
+   *
+   * A stop that arrives while another action is in flight waits for it and then runs, so a late result can never
+   * reopen a session the user is ending.
+   */
   async end(): Promise<boolean> {
-    if (!this.available || this.actionInFlight) return false;
+    if (!this.available) return false;
+    if (this.actionInFlight) {
+      this.queuedEnd ??= new Promise((resolve) => (this.resolveQueuedEnd = resolve));
+      return this.queuedEnd;
+    }
     this.error = null;
     this.busy = true;
     this.actionInFlight = true;
@@ -79,7 +91,7 @@ export class VoiceConversationState {
       return false;
     } finally {
       this.busy = false;
-      this.actionInFlight = false;
+      this.finishAction();
     }
   }
 
@@ -92,13 +104,13 @@ export class VoiceConversationState {
     this.pollEpoch += 1;
     try {
       this.apply(await interruptVoiceTurn());
-      return this.status.active;
+      return this.status.active && !this.endQueued;
     } catch (error) {
       this.fail(error);
       return false;
     } finally {
       this.busy = false;
-      this.actionInFlight = false;
+      this.finishAction();
     }
   }
 
@@ -111,14 +123,14 @@ export class VoiceConversationState {
     this.pollEpoch += 1;
     try {
       this.apply(await resumeVoiceListening());
-      return true;
+      return !this.endQueued;
     } catch (error) {
       // A reply that is still draining is not a failure; the next poll resumes once it settles.
       if (voiceCommandErrorCode(error) !== "speech_active") this.fail(error);
       return false;
     } finally {
       this.busy = false;
-      this.actionInFlight = false;
+      this.finishAction();
     }
   }
 
@@ -135,12 +147,13 @@ export class VoiceConversationState {
     try {
       this.apply(await armVoiceReply());
       this.error = null;
-      return true;
+      // A stop requested meanwhile supersedes the turn, so the caller must not send it.
+      return !this.endQueued;
     } catch (error) {
       if (voiceCommandErrorCode(error) !== "capture_active") this.fail(error);
       return false;
     } finally {
-      this.actionInFlight = false;
+      this.finishAction();
     }
   }
 
@@ -171,14 +184,29 @@ export class VoiceConversationState {
   /** Stops polling and releases native input when the page is unmounted. */
   dispose(): void {
     this.stopPolling();
-    if (this.available && this.status.active) void this.end();
+    // A start still in flight may open native input after unmount, so it is stopped too.
+    if (this.available && (this.status.active || this.actionInFlight)) void this.end();
   }
 
   private apply(status: VoiceConversationStatus): void {
     this.status = status;
     if (status.active) this.startPolling();
     else this.stopPolling();
-    this.onStatus(this.status);
+    // A status that lands while a stop is queued must not start another turn.
+    if (!this.endQueued) this.onStatus(this.status);
+  }
+
+  private get endQueued(): boolean {
+    return this.resolveQueuedEnd !== undefined;
+  }
+
+  private finishAction(): void {
+    this.actionInFlight = false;
+    const resolve = this.resolveQueuedEnd;
+    if (!resolve) return;
+    this.resolveQueuedEnd = undefined;
+    this.queuedEnd = undefined;
+    void this.end().then(resolve);
   }
 
   private startPolling(): void {
