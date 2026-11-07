@@ -48,10 +48,14 @@ impl SileroVad {
         Ok(Self { context })
     }
 
-    /// Returns the speech span of one 16 kHz snapshot, or `None` when it contains no speech.
-    pub(super) fn speech_window(&mut self, samples_16k: &[f32]) -> Option<SpeechWindow> {
+    /// Returns the speech span of one 16 kHz snapshot, `None` when it contains no speech, or `Err` when inference
+    /// failed, which must never be mistaken for silence.
+    pub(super) fn speech_window(
+        &mut self,
+        samples_16k: &[f32],
+    ) -> Result<Option<SpeechWindow>, ()> {
         if samples_16k.len() < MIN_WINDOW_SAMPLES {
-            return None;
+            return Ok(None);
         }
         let mut params = WhisperVadParams::default();
         params.set_threshold(VAD_THRESHOLD);
@@ -61,12 +65,10 @@ impl SileroVad {
         let segments = self
             .context
             .segments_from_samples(params, samples_16k)
-            .ok()?;
-        merge_segments(
-            segments
-                .into_iter()
-                .map(|segment| (f64::from(segment.start), f64::from(segment.end))),
-        )
+            .map_err(|_| ())?;
+        Ok(merge_segments(segments.into_iter().map(|segment| {
+            (f64::from(segment.start), f64::from(segment.end))
+        })))
     }
 }
 

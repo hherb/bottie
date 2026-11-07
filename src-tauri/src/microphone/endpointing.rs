@@ -7,11 +7,8 @@
 //! to stop waiting.** Every timer is relative to the newest confirmed speech frame and never to the arrival time of a
 //! transcript, so a slow recognition pass can never hold a turn open on its own.
 //!
-//! Phase 0 keeps this module unwired: nothing outside these tests constructs an [`EndPointer`] yet, so the unused-item
-//! noise is silenced for non-test builds only, matching the existing `image_generation` precedent. Remove this attribute
-//! when the capture loop starts driving it.
-
-#![cfg_attr(not(test), allow(dead_code))]
+//! The activity it consumes is the energy detector's debounced output, so every timer here starts after that detector's
+//! own onset and release confirmation: real silence before a hangover fires is the hangover plus the release delay.
 
 use std::time::Instant;
 
@@ -54,10 +51,10 @@ pub(super) enum EndpointDecision {
 
 /// Timing policy for automatic end-of-turn detection.
 ///
-/// The phase-0 defaults follow the endpointing design: a 480 ms silence hangover, changes allowed to extend it to
+/// The defaults follow the endpointing design: a 480 ms silence hangover, changes allowed to extend it to
 /// 750 ms and then 1,000 ms, a 1,200 ms hard cap, and 700 ms of silence before an empty turn is reported as
-/// [`EndReason::NoSpeech`]. `min_speech_ms` matches the 60 ms speech onset confirmation Bottie's existing energy
-/// detector already requires.
+/// [`EndReason::NoSpeech`]. These are measured on the energy detector's debounced activity, so each one runs on top of
+/// that detector's 60 ms onset and 200 ms release confirmation rather than from the raw audio.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) struct EndpointConfig {
     /// Shortest speech run that counts as the user having started a turn.
@@ -92,7 +89,7 @@ pub(super) struct EndPointer {
     transcript: Option<String>,
     transcript_stable: bool,
     saw_transcript: bool,
-    /// Capture-relative instant of the first confirmed speech run, used to anchor recognition cadence.
+    /// Instant of the first confirmed speech run; the caller turns it into a capture offset for recognition cadence.
     first_speech_at: Option<Instant>,
     finished: Option<EndReason>,
 }
@@ -123,9 +120,8 @@ impl EndPointer {
 
     /// Arms this machine for one new turn, discarding every earlier decision.
     ///
-    /// Every timer here is relative to the last confirmed speech frame, so arming records no anchor of its own. The
-    /// timestamp is accepted so the frame loop can hand every entry point the same monotonic clock.
-    pub(super) fn armed(&mut self, _now: Instant) {
+    /// Every timer here is relative to the last confirmed speech frame, so arming records no anchor of its own.
+    pub(super) fn arm(&mut self) {
         self.clear_turn();
         self.armed = true;
     }
@@ -332,9 +328,9 @@ mod tests {
         EndpointDecision::End { reason }
     }
 
-    fn armed_pointer(base: Instant) -> EndPointer {
+    fn armed_pointer() -> EndPointer {
         let mut pointer = EndPointer::new(EndpointConfig::default());
-        pointer.armed(base);
+        pointer.arm();
         pointer
     }
 
@@ -355,7 +351,7 @@ mod tests {
     #[test]
     fn first_end_is_final_and_later_input_repeats_it() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             pointer.on_transcript(at(base, 100), "are you there?"),
@@ -374,7 +370,7 @@ mod tests {
             ended
         );
         // A new turn is the only thing that reopens the machine.
-        pointer.armed(at(base, 4_000));
+        pointer.arm();
         assert_eq!(
             silence(&mut pointer, at(base, 4_100)),
             EndpointDecision::Continue
@@ -384,7 +380,7 @@ mod tests {
     #[test]
     fn no_end_before_silence_hangover() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             pointer.on_transcript(at(base, 100), "are you there?"),
@@ -404,7 +400,7 @@ mod tests {
     #[test]
     fn silence_timer_resets_when_speech_returns() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             pointer.on_transcript(at(base, 100), "are you there?"),
@@ -438,7 +434,7 @@ mod tests {
     #[test]
     fn stable_transcript_ends_at_silence_hangover() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             pointer.on_transcript(at(base, 100), "hello there"),
@@ -463,7 +459,7 @@ mod tests {
     fn terminal_punctuation_ends_at_silence_hangover() {
         let base = clock();
         for text in ["done.", "done?", "done!"] {
-            let mut pointer = armed_pointer(base);
+            let mut pointer = armed_pointer();
             confirm_speech(&mut pointer, base);
             assert_eq!(
                 pointer.on_transcript(at(base, 100), text),
@@ -476,7 +472,7 @@ mod tests {
             );
         }
         // Punctuation that is not sentence-final leaves the turn open.
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             pointer.on_transcript(at(base, 100), "done,"),
@@ -491,7 +487,7 @@ mod tests {
     #[test]
     fn changing_transcript_extends_deadline_then_times_out() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             pointer.on_transcript(at(base, 100), "one two"),
@@ -526,7 +522,7 @@ mod tests {
     #[test]
     fn hard_cap_ends_on_a_late_transcript() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             pointer.on_transcript(at(base, 100), "half a thought"),
@@ -550,7 +546,7 @@ mod tests {
     #[test]
     fn hard_cap_wins_over_a_stable_late_transcript() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             pointer.on_transcript(at(base, 100), "hello"),
@@ -571,7 +567,7 @@ mod tests {
     #[test]
     fn empty_turn_ends_with_no_speech() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             silence(&mut pointer, at(base, 759)),
@@ -586,7 +582,7 @@ mod tests {
     #[test]
     fn short_speech_blip_does_not_restart_the_empty_turn_timer() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         // A silence frame closes the first speech run, so the next speech frame opens a new one.
         assert_eq!(
@@ -611,7 +607,7 @@ mod tests {
     #[test]
     fn blank_transcript_is_not_completed_speech() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         assert_eq!(
             pointer.on_transcript(at(base, 100), "   "),
@@ -644,7 +640,7 @@ mod tests {
             pointer.on_transcript(at(base, 10_000), "done."),
             EndpointDecision::Continue
         );
-        pointer.armed(at(base, 20_000));
+        pointer.arm();
         confirm_speech(&mut pointer, at(base, 20_000));
         assert_eq!(
             pointer.on_transcript(at(base, 20_100), "done."),
@@ -659,7 +655,7 @@ mod tests {
     #[test]
     fn reset_returns_the_machine_to_idle() {
         let base = clock();
-        let mut pointer = armed_pointer(base);
+        let mut pointer = armed_pointer();
         confirm_speech(&mut pointer, base);
         pointer.reset();
         assert_eq!(

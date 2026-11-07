@@ -5,8 +5,8 @@ use serde::Serialize;
 pub(super) const FRAME_DURATION_MS: u32 = 20;
 const SPEECH_ONSET_FRAMES: u16 = 3;
 const SILENCE_RELEASE_FRAMES: u16 = 10;
-/// Quiet-room fallback thresholds. A built-in microphone with normal gain often produces speech RMS far below the
-/// old fixed 0.02, so the detector adapts to a tracked noise floor and only falls back to these when the room is quiet.
+/// Quiet-room fallback thresholds. A built-in microphone with normal gain often produces speech RMS far below
+/// a fixed 0.02 threshold, so the detector adapts to a tracked noise floor and only falls back to these when it is quiet.
 const MIN_SPEECH_RMS: f32 = 0.003;
 const MIN_SILENCE_RMS: f32 = 0.0018;
 /// Speech has to stand this far above the tracked noise floor; released silence falls this far below it.
@@ -268,7 +268,7 @@ mod tests {
         assert_eq!(detector.activity(), VoiceActivity::Speech);
     }
 
-    /// The old fixed 0.02 RMS threshold never fired on a built-in mic at normal gain; the adaptive floor must.
+    /// A fixed 0.02 RMS threshold never fires on a built-in mic at normal gain; the adaptive floor must.
     #[test]
     fn quiet_speech_above_the_tracked_noise_floor_is_detected() {
         let mut detector = VoiceActivityDetector::new(RATE);

@@ -4,7 +4,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { applyAttachmentProcessingUpdateToMessages } from "$lib/attachment";
 import { DEFAULT_APPEARANCE, type AppearancePreferences } from "$lib/appearance";
-import { buildTranscriptComposerDraft, canUseTranscriptAsText } from "$lib/microphone";
+import { buildTranscriptComposerDraft, canUseTranscriptAsText, microphoneFeedback } from "$lib/microphone";
 import { voiceTurnAction, voiceTurnTranscript, type VoiceConversationStatus } from "$lib/voice-conversation";
 import type { LocalImageAcquisitionStatus, LocalImageAvailabilityMetadata } from "$lib/local-image";
 import {
@@ -1076,6 +1076,11 @@ export class PageState {
       });
       if (action === "resume") await this.resumeVoiceListening();
       else if (action === "submit") await this.submitVoiceTurn();
+      else if (action === "end") {
+        // The conversation view replaces the microphone's own error line, so the failure is carried into voice feedback.
+        this.voiceFeedback = microphoneFeedback(this.microphone.status);
+        await this.voice.end();
+      }
     } catch (error) {
       console.warn("Could not advance the voice conversation turn", error);
       await this.recoverVoiceTurn();
@@ -1087,6 +1092,11 @@ export class PageState {
   private async resumeVoiceListening(): Promise<void> {
     this.voiceResumeRequested = true;
     if (await this.voice.resume()) return;
+    // A reply that is still draining is benign: clear the marker so the next status change retries.
+    if (this.voice.error === null) {
+      this.voiceResumeRequested = false;
+      return;
+    }
     await this.recoverVoiceTurn();
   }
   /** Hands the finished voice turn to the ordinary send path, preserving it when it cannot be sent. */
@@ -1128,8 +1138,11 @@ export class PageState {
   private async recoverVoiceTurn(): Promise<void> {
     this.voiceTurnSubmitted = false;
     if (!this.voice.status.active) return;
+    // Both recovery commands clear the store's error, so keep the reason the turn failed visible.
+    const reason = this.voice.error;
     if (await this.voice.resume()) return;
     await this.voice.end();
+    if (reason !== null && this.voiceFeedback === "") this.voiceFeedback = reason;
   }
   /** Copies the current visible final transcript into the editable unsent composer draft. */
   useMicrophoneTranscriptAsText(): void {

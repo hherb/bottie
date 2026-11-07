@@ -1,13 +1,10 @@
-//! Phase 0.3 bridge between one voice-conversation turn and streaming speech.
+//! Bridge between one voice-conversation turn and streaming speech.
 //!
-//! The conversation controller (`phase 0.4`) will begin a turn, the generation path asks this coordinator for the
-//! session that speaks the matching run, and `ChannelSink` feeds that session's reducer from the token stream. Keeping
-//! the lifecycle here means the generation path stays unaware of voices: it only asks "is this run spoken?".
+//! The conversation controller begins a turn, the generation path asks this coordinator for the session that speaks
+//! the matching run, and `ChannelSink` feeds that session's reducer from the token stream. Keeping the lifecycle here
+//! means the generation path stays unaware of voices: it only asks "is this run spoken?".
 //!
-//! `VoiceSpeech` is the phase-0.3 half of that bridge and `VoiceConversation` is the phase-0.4 state machine the Tauri
-//! commands drive. The conversation phase lives in its own module; this module owns the speech session lifecycle.
-
-#![cfg_attr(not(test), allow(dead_code))]
+//! `VoiceSpeech` owns the speech session lifecycle; `VoiceConversation` is the state machine the Tauri commands drive.
 
 mod conversation;
 
@@ -32,6 +29,8 @@ struct SpeechSessions {
     active: Option<ActiveTurn>,
     /// A finished reply whose last chunks are still playing. Kept alive so its session is not interrupted on drop.
     draining: Option<Arc<StreamingSpeechSession>>,
+    /// A drained reply that failed, kept visible until the next turn so the failure is not reported as a clean drain.
+    failed: bool,
 }
 
 /// One run whose reply is being spoken.
@@ -56,14 +55,19 @@ impl VoiceSpeech {
             return Err(());
         }
         // A stale draining session must never speak into the next reply's turn.
-        if let Some(draining) = shared.draining.take() {
+        let stale = shared.draining.take();
+        if let Some(draining) = stale.as_ref() {
             let _ = draining.interrupt();
         }
+        shared.failed = false;
         let session = Arc::new(StreamingSpeechSession::start(speech.clone())?);
         shared.active = Some(ActiveTurn {
             run_id: run_id.to_owned(),
             session,
         });
+        // Dropping the stale session joins its worker, which must not happen while the lock is held.
+        drop(shared);
+        drop(stale);
         Ok(())
     }
 
@@ -78,22 +82,31 @@ impl VoiceSpeech {
 
     /// Ends the run's session, flushing remaining text and keeping it alive until its last chunk played.
     ///
-    /// Runs for other ids are left untouched; the generation path calls this unconditionally at the end of every run.
-    /// The session is retained here rather than dropped with the generation sink, because dropping it would interrupt
-    /// the chunks that were queued before the reply finished.
-    pub(crate) fn finish_run(&self, run_id: &str) {
+    /// Returns whether `run_id` was the active voice turn. Runs for other ids, including one already interrupted, are
+    /// left untouched; the generation path calls this unconditionally at the end of every run. The session is retained
+    /// here rather than dropped with the generation sink, because dropping it would interrupt the chunks that were
+    /// queued before the reply finished.
+    pub(crate) fn finish_run(&self, run_id: &str) -> bool {
         let mut shared = lock(&self.shared);
-        let Some(current) = shared.active.as_ref() else {
-            return;
-        };
-        if current.run_id != run_id {
-            return;
+        if shared
+            .active
+            .as_ref()
+            .is_none_or(|turn| turn.run_id != run_id)
+        {
+            return false;
         }
         let turn = shared.active.take().expect("a matching active turn exists");
         let session = Arc::clone(&turn.session);
-        shared.draining = Some(session.clone());
+        let stale = shared.draining.replace(session.clone());
         drop(shared);
+        drop(stale);
         let _ = session.end();
+        true
+    }
+
+    /// Records that the current reply could not be spoken, so the page does not mistake it for a clean drain.
+    pub(crate) fn mark_failed(&self) {
+        lock(&self.shared).failed = true;
     }
 
     /// Interrupts the active voice turn and any draining reply, dropping queued speech.
@@ -101,6 +114,7 @@ impl VoiceSpeech {
         let mut shared = lock(&self.shared);
         let active = shared.active.take();
         let draining = shared.draining.take();
+        shared.failed = false;
         drop(shared);
         if let Some(turn) = active {
             let _ = turn.session.interrupt();
@@ -111,19 +125,24 @@ impl VoiceSpeech {
     }
 
     /// Reports the active or draining session's progress without waiting for playback.
+    ///
+    /// A drained reply that failed keeps reporting `Failed` until the next turn begins or speech is interrupted.
     pub(crate) fn progress(&self) -> Option<SessionProgress> {
         let mut shared = lock(&self.shared);
         if let Some(turn) = shared.active.as_ref() {
             return Some(turn.session.progress());
         }
-        let progress = shared.draining.as_ref().map(|session| session.progress())?;
+        let Some(progress) = shared.draining.as_ref().map(|session| session.progress()) else {
+            return shared.failed.then_some(SessionProgress::Failed);
+        };
         if matches!(
             progress,
             SessionProgress::Idle | SessionProgress::Interrupted | SessionProgress::Failed
         ) {
             // The worker is finished; dropping the last handle joins it immediately.
             shared.draining = None;
-            return None;
+            shared.failed |= progress == SessionProgress::Failed;
+            return shared.failed.then_some(SessionProgress::Failed);
         }
         Some(progress)
     }

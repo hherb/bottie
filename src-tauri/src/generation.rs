@@ -461,8 +461,11 @@ pub(crate) async fn start_chat(
                 .await;
             }
         }
-        voice_conversation.finish_reply();
-        voice_speech.finish_run(&task_run_id);
+        // Only the run that is still the spoken turn moves the conversation on; a typed run or one already interrupted
+        // must not close a microphone that was reopened for the next turn.
+        if voice_speech.finish_run(&task_run_id) {
+            voice_conversation.finish_reply();
+        }
         semantic_indexing.wake();
     });
 

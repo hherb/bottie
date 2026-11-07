@@ -1,16 +1,13 @@
 //! Streaming speech: reduce a token stream to speakable chunks and play them in order.
 
-//!
-//! Phase 0 keeps this module unwired: nothing outside these tests constructs a session yet, so the unused-item noise is
-//! silenced for non-test builds only, matching the existing `image_generation` precedent. Remove this attribute when the
-//! generation tap starts driving it.
-
-#![cfg_attr(not(test), allow(dead_code))]
-
 use serde::Serialize;
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex, MutexGuard, mpsc},
+    sync::{
+        Arc, Mutex, MutexGuard,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+        mpsc,
+    },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
@@ -21,12 +18,14 @@ const MAX_STREAM_TEXT_BYTES: usize = 32 * 1_024;
 const FIRST_CHUNK_MAX_WORDS: usize = 4;
 /// Later chunks follow sentence/clause boundaries but stay bounded for cancellation granularity.
 const NEXT_CHUNK_MAX_WORDS: usize = 20;
-/// Bounded command queue between the generation thread and the speech worker.
-const MAX_QUEUED_COMMANDS: usize = 4;
 /// Poll cadence while waiting for one chunk to finish playing.
 const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(20);
 /// A synchronous sink that never becomes idle is treated as failed rather than waited on forever.
 const IDLE_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
+/// A held `[label](destination)` longer than this is spoken as plain text instead of waiting for more deltas.
+const MAX_LINK_BYTES: usize = 2 * 1_024;
+/// One bounded chunk (at most `NEXT_CHUNK_MAX_WORDS`) that is still playing after this long is treated as stuck.
+const CHUNK_PLAYBACK_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Path-free progress vocabulary for one streamed reply.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -36,7 +35,7 @@ pub(crate) enum SessionProgress {
     Idle,
     /// Text is accumulating but nothing is currently playing.
     Buffering,
-    /// At least one chunk is playing or queued for playback.
+    /// Playback has started; later chunks may still be waiting for text.
     Speaking,
     /// The reply was interrupted; queued chunks were dropped.
     Interrupted,
@@ -46,7 +45,7 @@ pub(crate) enum SessionProgress {
 
 /// The narrow synchronous speech surface a streaming session needs.
 pub(crate) trait SpeechSink: Send + Sync {
-    /// Reports whether the underlying engine is currently playing.
+    /// Reports whether the underlying engine is not playing; `Err` means the engine failed.
     fn is_idle(&self) -> Result<bool, ()>;
     /// Starts one chunk. Must accept the chunk without waiting for playback to finish.
     fn speak(&self, text: &str) -> Result<(), ()>;
@@ -61,7 +60,7 @@ enum SessionCommand {
     Shutdown,
 }
 
-/// Converts provider deltas into speakable text without ever speaking Markdown structure.
+/// Converts provider deltas into speakable text, dropping code fences, link destinations, and inline markup.
 #[derive(Default)]
 pub(super) struct SpeakableReducer {
     buffer: String,
@@ -138,7 +137,7 @@ impl SpeakableReducer {
                         continue;
                     }
                     // The link starts at the buffer head: speak its label, never its destination.
-                    match parse_link(&buffer) {
+                    match parse_link(&buffer, final_flush) {
                         Some((label, consumed)) => {
                             output.push_str(&label);
                             self.buffer = buffer[consumed..].to_owned();
@@ -164,19 +163,37 @@ impl SpeakableReducer {
     }
 }
 
-/// Parses a leading `[label](destination)` or `[label]` construct into speakable label text.
-fn parse_link(buffer: &str) -> Option<(String, usize)> {
-    let close = buffer.find(']')?;
-    let label = strip_markup(&buffer[1..close]);
-    let mut consumed = close + 1;
-    if buffer[consumed..].starts_with('(') {
-        let end = buffer[consumed..].find(')')?;
-        consumed += end + 1;
-    } else {
-        // An unterminated destination is still an incomplete link; hold until more text arrives.
+/// Parses a leading `[label](destination)` or bare `[label]` into speakable label text and the bytes it consumed.
+///
+/// A link never spans a line or a code fence, so a bracket that cannot close before one is plain text and only the
+/// `[` itself is consumed. Returns `None` only while the construct may still be completed by a later delta; at end of
+/// stream every bracket resolves, so no text after it is ever lost.
+fn parse_link(buffer: &str, final_flush: bool) -> Option<(String, usize)> {
+    let scope_end = [buffer.find('\n'), buffer.find("```")]
+        .into_iter()
+        .flatten()
+        .min();
+    let scope = &buffer[..scope_end.unwrap_or(buffer.len())];
+    // Holding stops once the construct can no longer grow: the line ended, the stream ended, or it is too long.
+    let settled = final_flush || scope_end.is_some() || scope.len() > MAX_LINK_BYTES;
+    let Some(close) = scope.find(']') else {
+        return settled.then(|| (String::new(), 1));
+    };
+    let label = strip_markup(&scope[1..close]);
+    let rest = &scope[close + 1..];
+    if rest.starts_with('(') {
+        return match rest.find(')') {
+            Some(end) => Some((label, close + 1 + end + 1)),
+            // The destination never closed: speak the label and drop the partial destination.
+            None => settled.then_some((label, scope.len())),
+        };
+    }
+    if rest.is_empty() && !settled {
+        // A `(destination)` may still arrive in the next delta.
         return None;
     }
-    Some((label, consumed))
+    // A bare `[label]`, such as a citation, is spoken as its label.
+    Some((label, close + 1))
 }
 
 /// Chunks speakable text into bounded playback units.
@@ -236,44 +253,63 @@ impl Chunker {
 
 /// Owns one background worker that plays chunks strictly in order.
 pub(crate) struct StreamingSpeechSession {
-    commands: mpsc::SyncSender<SessionCommand>,
+    commands: mpsc::Sender<SessionCommand>,
     progress: Arc<Mutex<SessionProgress>>,
+    /// Checked by the worker on every iteration, so an interrupt never waits behind queued deltas.
+    interrupted: Arc<AtomicBool>,
+    /// Bounds the unbounded command queue: text past `MAX_STREAM_TEXT_BYTES` is refused at the sender.
+    sent_bytes: AtomicUsize,
     thread: Option<JoinHandle<()>>,
 }
 
 impl StreamingSpeechSession {
     /// Starts a worker for one reply. The sink is shared with the controller that observes playback.
     pub(crate) fn start(sink: Arc<dyn SpeechSink>) -> Result<Self, ()> {
-        let (commands, receiver) = mpsc::sync_channel(MAX_QUEUED_COMMANDS);
+        let (commands, receiver) = mpsc::channel();
         let progress = Arc::new(Mutex::new(SessionProgress::Buffering));
-        let shared = progress.clone();
+        let interrupted = Arc::new(AtomicBool::new(false));
+        let worker = Worker {
+            receiver,
+            sink,
+            progress: progress.clone(),
+            interrupted: interrupted.clone(),
+        };
         let thread = thread::Builder::new()
             .name("bottie-streaming-speech".to_owned())
-            .spawn(move || run_worker(receiver, sink, shared))
+            .spawn(move || worker.run())
             .map_err(|_| ())?;
         Ok(Self {
             commands,
             progress,
+            interrupted,
+            sent_bytes: AtomicUsize::new(0),
             thread: Some(thread),
         })
     }
 
-    /// Non-blocking push from the generation thread; a full queue fails closed instead of stalling.
+    /// Non-blocking push from the generation thread. Every word is kept; only text past the session cap is refused.
+    /// The session then finishes speaking what it already queued and reports `Failed`, never a silent truncation.
     pub(crate) fn push_delta(&self, delta: &str) -> Result<(), ()> {
+        let previous = self.sent_bytes.fetch_add(delta.len(), Ordering::SeqCst);
+        if previous > MAX_STREAM_TEXT_BYTES {
+            return Err(());
+        }
         self.commands
-            .try_send(SessionCommand::Delta(delta.to_owned()))
+            .send(SessionCommand::Delta(delta.to_owned()))
             .map_err(|_| ())
     }
 
-    /// Flushes remaining text and lets the worker drain playback before returning.
+    /// Marks the end of the reply; the worker flushes remaining text and drains playback on its own.
     pub(crate) fn end(&self) -> Result<(), ()> {
         self.commands.send(SessionCommand::End).map_err(|_| ())
     }
 
     /// Interrupts playback; queued chunks are dropped and the engine is stopped.
     pub(crate) fn interrupt(&self) -> Result<(), ()> {
+        self.interrupted.store(true, Ordering::SeqCst);
+        // Wakes a worker waiting for text; the flag alone already stops it within one poll interval.
         self.commands
-            .try_send(SessionCommand::Interrupt)
+            .send(SessionCommand::Interrupt)
             .map_err(|_| ())
     }
 
@@ -288,106 +324,129 @@ impl Drop for StreamingSpeechSession {
         if self.thread.is_none() {
             return;
         }
-        // Interrupt first so an in-flight chunk is stopped; then shut the worker down and join.
-        let _ = self.commands.try_send(SessionCommand::Interrupt);
-        let _ = self.commands.try_send(SessionCommand::Shutdown);
+        // The flag stops the worker on its next iteration even if it never reads the queue again, so the join is
+        // bounded by one in-flight engine call.
+        self.interrupted.store(true, Ordering::SeqCst);
+        let _ = self.commands.send(SessionCommand::Shutdown);
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
     }
 }
 
-fn run_worker(
+struct Worker {
     receiver: mpsc::Receiver<SessionCommand>,
     sink: Arc<dyn SpeechSink>,
     progress: Arc<Mutex<SessionProgress>>,
-) {
-    let mut reducer = SpeakableReducer::default();
-    let mut chunker = Chunker::default();
-    let mut queue: VecDeque<String> = VecDeque::new();
-    let mut session_progress = SessionProgress::Buffering;
-    let mut speaking = false;
-    let mut ending = false;
-    let mut idle_deadline: Option<Instant> = None;
+    interrupted: Arc<AtomicBool>,
+}
 
-    loop {
-        match receiver.recv_timeout(IDLE_POLL_INTERVAL) {
-            Ok(SessionCommand::Delta(delta)) => {
-                let speakable = reducer.push(&delta);
-                if !speakable.is_empty() {
-                    chunker.push(&speakable, &mut queue);
-                }
-            }
-            Ok(SessionCommand::End) => {
-                let speakable = reducer.finish();
-                if !speakable.is_empty() {
-                    chunker.push(&speakable, &mut queue);
-                }
-                chunker.finish(&mut queue);
-                ending = true;
-            }
-            Ok(SessionCommand::Interrupt) => {
+impl Worker {
+    fn run(self) {
+        let Self {
+            receiver,
+            sink,
+            progress,
+            interrupted,
+        } = self;
+        let mut reducer = SpeakableReducer::default();
+        let mut chunker = Chunker::default();
+        let mut queue: VecDeque<String> = VecDeque::new();
+        let mut session_progress = SessionProgress::Buffering;
+        let mut speaking_since: Option<Instant> = None;
+        let mut ending = false;
+        // The reply passed the text cap: what is already queued still plays, then the session reports failure.
+        let mut overflowed = false;
+        let mut idle_deadline: Option<Instant> = None;
+        let fail = |sink: &Arc<dyn SpeechSink>| {
+            let _ = sink.stop();
+            *lock(&progress) = SessionProgress::Failed;
+        };
+
+        loop {
+            if interrupted.load(Ordering::SeqCst) {
                 queue.clear();
                 let _ = sink.stop();
                 *lock(&progress) = SessionProgress::Interrupted;
                 return;
             }
-            Ok(SessionCommand::Shutdown) => {
-                let _ = sink.stop();
-                return;
-            }
-            Err(mpsc::RecvTimeoutError::Timeout) => {}
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                let _ = sink.stop();
-                return;
-            }
-        }
-
-        // Advance at most one playback step per iteration so commands stay responsive.
-        if speaking {
-            match sink.is_idle() {
-                Ok(true) => {
-                    speaking = false;
-                    idle_deadline = None;
-                }
-                Ok(false) => {}
-                Err(()) => {
-                    *lock(&progress) = SessionProgress::Failed;
-                    return;
-                }
-            }
-        }
-
-        if !speaking && !queue.is_empty() {
-            match sink.is_idle() {
-                Ok(true) => {
-                    let chunk = queue.pop_front().expect("a non-empty queue has a front");
-                    if sink.speak(&chunk).is_err() {
-                        *lock(&progress) = SessionProgress::Failed;
-                        return;
+            // A chunk ready to play must not wait out the poll interval behind an empty command queue.
+            let wait = if speaking_since.is_none() && !queue.is_empty() {
+                Duration::ZERO
+            } else {
+                IDLE_POLL_INTERVAL
+            };
+            match receiver.recv_timeout(wait) {
+                Ok(SessionCommand::Delta(delta)) => {
+                    let speakable = reducer.push(&delta);
+                    if reducer.failed && !overflowed {
+                        overflowed = true;
+                        ending = true;
+                        chunker.finish(&mut queue);
                     }
-                    speaking = true;
-                    session_progress = SessionProgress::Speaking;
-                }
-                Ok(false) => {
-                    let deadline = idle_deadline.get_or_insert_with(Instant::now);
-                    if deadline.elapsed() >= IDLE_WAIT_TIMEOUT {
-                        *lock(&progress) = SessionProgress::Failed;
-                        return;
+                    if !speakable.is_empty() {
+                        chunker.push(&speakable, &mut queue);
                     }
                 }
-                Err(()) => {
-                    *lock(&progress) = SessionProgress::Failed;
+                Ok(SessionCommand::End) => {
+                    let speakable = reducer.finish();
+                    if !speakable.is_empty() {
+                        chunker.push(&speakable, &mut queue);
+                    }
+                    chunker.finish(&mut queue);
+                    ending = true;
+                }
+                // The flag is the interrupt itself; the command only wakes this loop.
+                Ok(SessionCommand::Interrupt) => continue,
+                Ok(SessionCommand::Shutdown) | Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    let _ = sink.stop();
                     return;
                 }
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
             }
-        }
 
-        if ending && !speaking && queue.is_empty() {
-            *lock(&progress) = SessionProgress::Idle;
-            return;
+            // Advance at most one playback step per iteration so commands stay responsive.
+            if let Some(started) = speaking_since {
+                match sink.is_idle() {
+                    Ok(true) => {
+                        speaking_since = None;
+                        idle_deadline = None;
+                    }
+                    Ok(false) if started.elapsed() < CHUNK_PLAYBACK_TIMEOUT => {}
+                    Ok(false) | Err(()) => return fail(&sink),
+                }
+            }
+
+            if speaking_since.is_none() && !queue.is_empty() {
+                // An engine error left over from an earlier utterance is not playback; `speak` clears it or fails.
+                match sink.is_idle() {
+                    Ok(true) | Err(()) => {
+                        let chunk = queue.pop_front().expect("a non-empty queue has a front");
+                        if sink.speak(&chunk).is_err() {
+                            return fail(&sink);
+                        }
+                        speaking_since = Some(Instant::now());
+                        session_progress = SessionProgress::Speaking;
+                    }
+                    Ok(false) => {
+                        let deadline = idle_deadline.get_or_insert_with(Instant::now);
+                        if deadline.elapsed() >= IDLE_WAIT_TIMEOUT {
+                            return fail(&sink);
+                        }
+                    }
+                }
+            }
+
+            if ending && speaking_since.is_none() && queue.is_empty() {
+                *lock(&progress) = if overflowed {
+                    SessionProgress::Failed
+                } else {
+                    SessionProgress::Idle
+                };
+                return;
+            }
+            *lock(&progress) = session_progress;
         }
-        *lock(&progress) = session_progress;
     }
 }
 
@@ -448,6 +507,10 @@ mod tests {
         stops: AtomicUsize,
         always_speaking: bool,
         fail_speak: bool,
+        /// Simulates an engine whose `speak` blocks, such as a first call that loads the model.
+        speak_delay: Duration,
+        /// Simulates an engine that fails while the chunk it accepted is playing.
+        fail_while_playing: bool,
     }
 
     impl FakeSink {
@@ -461,6 +524,9 @@ mod tests {
 
     impl SpeechSink for FakeSink {
         fn is_idle(&self) -> Result<bool, ()> {
+            if self.fail_while_playing && !self.spoken.lock().unwrap().is_empty() {
+                return Err(());
+            }
             if self.always_speaking {
                 Ok(false)
             } else {
@@ -472,6 +538,7 @@ mod tests {
             if self.fail_speak {
                 return Err(());
             }
+            thread::sleep(self.speak_delay);
             self.spoken.lock().unwrap().push(text.to_owned());
             Ok(())
         }
@@ -510,6 +577,56 @@ mod tests {
         let spoken = reducer.push("/secret) now.");
         assert!(spoken.contains("docs"));
         assert!(!spoken.contains("example.com"));
+    }
+
+    #[test]
+    fn reducer_speaks_a_bare_bracket_and_everything_after_it() {
+        let mut reducer = SpeakableReducer::default();
+        let mut spoken = reducer.push("See note [1] for details. Then arr[0] is set.");
+        spoken.push(' ');
+        spoken.push_str(&reducer.finish());
+        assert!(spoken.contains("See note 1 for details."), "{spoken}");
+        assert!(spoken.contains("is set."), "{spoken}");
+    }
+
+    #[test]
+    fn reducer_holds_a_closed_label_until_it_knows_whether_a_destination_follows() {
+        let mut reducer = SpeakableReducer::default();
+        assert_eq!(reducer.push("Read [the docs]"), "Read");
+        let spoken = reducer.push("(https://example.com) now.");
+        assert!(spoken.contains("the docs now."), "{spoken}");
+        assert!(!spoken.contains("example.com"));
+    }
+
+    #[test]
+    fn reducer_flushes_an_unclosed_bracket_at_end_of_stream() {
+        let mut reducer = SpeakableReducer::default();
+        assert_eq!(reducer.push("The range [0, 10"), "The range");
+        assert_eq!(reducer.finish(), "0, 10");
+    }
+
+    #[test]
+    fn an_unmatched_bracket_never_reaches_across_a_code_fence() {
+        let mut reducer = SpeakableReducer::default();
+        let mut spoken = reducer.push(
+            "Ranges are half-open [0, n) in Python:\n```python\nx = a[0]\n```\nThat is all. ",
+        );
+        spoken.push(' ');
+        spoken.push_str(&reducer.finish());
+        assert!(
+            spoken.contains("Ranges are half-open 0, n in Python:"),
+            "{spoken}"
+        );
+        assert!(spoken.contains("That is all."), "{spoken}");
+        assert!(!spoken.contains("x = a"), "{spoken}");
+    }
+
+    #[test]
+    fn an_unmatched_bracket_releases_its_line_without_waiting_for_the_stream_to_end() {
+        let mut reducer = SpeakableReducer::default();
+        assert_eq!(reducer.push("See [the list"), "See");
+        let spoken = reducer.push(" below.\nNext line.");
+        assert!(spoken.contains("the list below."), "{spoken}");
     }
 
     #[test]
@@ -576,6 +693,84 @@ mod tests {
         wait_for(|| session.progress() == SessionProgress::Interrupted);
         assert!(sink.stops.load(Ordering::SeqCst) >= 1);
         assert!(sink.spoken.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_burst_of_deltas_behind_a_slow_engine_speaks_every_word() {
+        let sink = Arc::new(FakeSink {
+            speak_delay: Duration::from_millis(30),
+            ..FakeSink::default()
+        });
+        let session = StreamingSpeechSession::start(sink.clone()).unwrap();
+        let words = (0..60).map(|index| format!("w{index}")).collect::<Vec<_>>();
+        for word in &words {
+            session.push_delta(&format!("{word} ")).unwrap();
+        }
+        session.end().unwrap();
+        wait_for(|| session.progress() == SessionProgress::Idle);
+        assert_eq!(sink.spoken.lock().unwrap().join(" "), words.join(" "));
+    }
+
+    #[test]
+    fn interrupt_and_drop_are_prompt_behind_a_long_queue() {
+        let sink = Arc::new(FakeSink::always_speaking());
+        let session = StreamingSpeechSession::start(sink.clone()).unwrap();
+        for _ in 0..200 {
+            session
+                .push_delta("queued words that are never spoken. ")
+                .unwrap();
+        }
+        let started = Instant::now();
+        session.interrupt().unwrap();
+        wait_for(|| session.progress() == SessionProgress::Interrupted);
+        drop(session);
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert!(sink.spoken.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn dropping_a_session_that_is_still_speaking_joins_promptly() {
+        let sink = Arc::new(FakeSink::always_speaking());
+        let session = StreamingSpeechSession::start(sink.clone()).unwrap();
+        session.push_delta("One two three four. ").unwrap();
+        let started = Instant::now();
+        drop(session);
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert!(sink.stops.load(Ordering::SeqCst) >= 1);
+    }
+
+    #[test]
+    fn an_engine_failure_while_a_chunk_plays_fails_the_session() {
+        let sink = Arc::new(FakeSink {
+            fail_while_playing: true,
+            ..FakeSink::default()
+        });
+        let session = StreamingSpeechSession::start(sink).unwrap();
+        session.push_delta("One two three four. ").unwrap();
+        wait_for(|| session.progress() == SessionProgress::Failed);
+    }
+
+    #[test]
+    fn a_reply_over_the_text_cap_finishes_what_it_queued_then_fails() {
+        let sink = Arc::new(FakeSink::default());
+        let session = StreamingSpeechSession::start(sink.clone()).unwrap();
+        // Unspoken code still counts toward the cap, so a large listing crosses it right after the first sentence.
+        session
+            .push_delta("Here is the whole listing you asked for. ```\n")
+            .unwrap();
+        let code = "let value = 1;\n".repeat(256);
+        let mut refused = false;
+        for _ in 0..(MAX_STREAM_TEXT_BYTES / code.len() + 2) {
+            refused |= session.push_delta(&code).is_err();
+        }
+        assert!(refused);
+        wait_for(|| session.progress() == SessionProgress::Failed);
+        // The sentence queued before the cap was still spoken in full, and playback was not cut off.
+        assert_eq!(
+            sink.spoken.lock().unwrap().join(" "),
+            "Here is the whole listing you asked for."
+        );
+        assert_eq!(sink.stops.load(Ordering::SeqCst), 0);
     }
 
     #[test]

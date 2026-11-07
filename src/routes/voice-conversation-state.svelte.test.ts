@@ -137,17 +137,20 @@ describe("voice conversation state", () => {
     expect(state.status.phase).toBe("idle");
   });
 
-  it("fails closed with bounded feedback when a poll is rejected", async () => {
+  it("keeps polling an open session through a rejected poll and clears the error once it recovers", async () => {
     vi.mocked(startVoiceConversation).mockResolvedValue(LISTENING);
-    vi.mocked(getVoiceConversationStatus).mockRejectedValue("not_active");
+    vi.mocked(getVoiceConversationStatus).mockRejectedValueOnce("command_failed").mockResolvedValue(LISTENING);
     const state = new VoiceConversationState();
 
     await state.start();
     await vi.advanceTimersByTimeAsync(200);
+    expect(state.error).toBe("The voice conversation request failed. Try again.");
 
-    expect(state.error).toBe("The voice conversation is no longer active.");
-    await vi.advanceTimersByTimeAsync(600);
-    expect(getVoiceConversationStatus).toHaveBeenCalledOnce();
+    // Native capture is still open, so polling must continue rather than strand it.
+    await vi.advanceTimersByTimeAsync(200);
+    expect(getVoiceConversationStatus).toHaveBeenCalledTimes(2);
+    expect(state.error).toBeNull();
+    expect(state.status.active).toBe(true);
   });
 
   it("refuses to interrupt or resume without an active session", async () => {

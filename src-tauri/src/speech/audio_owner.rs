@@ -1,7 +1,8 @@
 //! Process-lifetime CPAL output ownership for native PCM speech engines.
 //!
-//! One [`AudioOwner`] opens the default output device once and keeps it for as long as the owning engine lives, so an
-//! utterance never pays device startup and never races another engine for the same output. Source PCM is queued in its
+//! One [`AudioOwner`] keeps the default output device open for as long as the owning engine lives, so an utterance never
+//! pays device startup and never races another engine for the same output. It reopens only when the stream failed or
+//! the system default device changed. Source PCM is queued in its
 //! native format and converted to the device's channel layout and sample rate in the audio callback. A failed stream is
 //! reopened on the next request instead of failing the engine permanently.
 
@@ -17,7 +18,7 @@ use std::{
 
 use crate::speech::SpeechErrorCode;
 
-/// Bounded queue depth: two seconds of source audio, matching the previous per-utterance playback bound.
+/// Bounded queue depth: two seconds of source audio bounds memory and the speech a stop has to discard.
 const MAX_QUEUE_SECONDS: u32 = 2;
 /// An output device reporting more buffering than this is treated as stalled rather than waited on.
 const MAX_DEVICE_LATENCY: Duration = Duration::from_secs(2);
@@ -87,7 +88,7 @@ impl AudioOwner {
 
     /// Appends one complete packet of interleaved source samples, or reports that the queue is full.
     ///
-    /// A failed stream is reopened once here; if the device is still unavailable the engine sees `PlaybackFailed`.
+    /// A failed stream is reopened once here; if that reopen fails, its `Unavailable` or `PlaybackFailed` is returned.
     pub(super) fn try_push(&mut self, samples: &[f32]) -> Result<bool, SpeechErrorCode> {
         self.recover_if_failed()?;
         let mut state = lock(&self.shared);
@@ -292,8 +293,13 @@ pub(super) struct PcmQueue {
 }
 
 impl PcmQueue {
-    /// Creates a fixed-capacity queue measured in source samples.
+    /// Creates a fixed-capacity queue measured in source samples. Sources are mono or stereo; `AudioOwner::new`
+    /// validates that before any queue exists.
     pub(super) fn new(capacity_samples: usize, channels: u16, source_rate: u32) -> Self {
+        debug_assert!(
+            (1..=2).contains(&channels),
+            "PCM sources are mono or stereo"
+        );
         Self {
             samples: VecDeque::with_capacity(capacity_samples.min(1 << 20)),
             channels: usize::from(channels.max(1)),
@@ -405,7 +411,8 @@ fn write_frame(source: [f32; 2], source_channels: usize, frame: &mut [f32]) {
     }
 }
 
-/// Builds a typed device stream without allocating in the callback or retaining consumed PCM.
+/// Builds a typed device stream without allocating in the callback; consumed PCM survives only as the bounded mono
+/// reference.
 fn build<T>(
     device: &cpal::Device,
     config: StreamConfig,
@@ -437,7 +444,8 @@ where
                     for value in output.iter_mut().skip(target.len()) {
                         *value = T::from_sample(0.0);
                     }
-                    // One mono reference sample per device frame keeps the AEC timeline contiguous, silence included.
+                    // One mono reference sample per device frame, silence included. A callback that loses the lock race
+                    // above renders silence without recording it, so the reference can fall behind by that buffer.
                     let mono = target.iter().copied().sum::<f32>() / target.len().max(1) as f32;
                     state.reference.push(mono);
                 }

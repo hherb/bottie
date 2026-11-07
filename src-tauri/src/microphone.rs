@@ -225,7 +225,6 @@ impl MicrophoneController {
     }
 
     /// Starts a conversation capture whose turn ends in the native endpoint detector.
-    #[cfg_attr(not(test), allow(dead_code))] // Wired by the phase 0.4 conversation controller.
     pub(crate) fn start_conversation(&self) -> MicrophoneStatus {
         self.start_with_mode(MicrophoneMode::Conversation)
     }
@@ -316,7 +315,7 @@ impl CaptureState {
         self.first_speech_ms = None;
         self.vad_frames_processed = 0;
         if self.mode == MicrophoneMode::Conversation {
-            self.endpointer.armed(now);
+            self.endpointer.arm();
         } else {
             self.endpointer.reset();
         }
@@ -389,14 +388,22 @@ impl CaptureState {
         }
         for activity in frames {
             self.vad_frames_processed = self.vad_frames_processed.saturating_add(1);
-            let at = started_at
-                + Duration::from_millis(
-                    self.vad_frames_processed
-                        .saturating_mul(u64::from(vad::FRAME_DURATION_MS)),
-                );
+            let at = self.frame_clock(started_at);
             let _ = self.endpointer.on_activity(at, activity);
             self.anchor_transcription_to_onset(started_at);
         }
+    }
+
+    /// The audio timeline: capture start plus every processed VAD frame.
+    ///
+    /// The endpointer must see one clock. Wall time runs ahead of this timeline by device startup and callback
+    /// buffering, and that lag would otherwise count as silence and end a turn while the user is still speaking.
+    fn frame_clock(&self, started_at: Instant) -> Instant {
+        started_at
+            + Duration::from_millis(
+                self.vad_frames_processed
+                    .saturating_mul(u64::from(vad::FRAME_DURATION_MS)),
+            )
     }
 
     /// Starts conversation partials a full interval after the first confirmed speech, not after capture start.
@@ -519,9 +526,13 @@ impl CaptureState {
                 if is_final {
                     self.latency.mark_final_transcript(now);
                 }
-                if self.mode == MicrophoneMode::Conversation && !is_final {
+                if self.mode == MicrophoneMode::Conversation
+                    && !is_final
+                    && let Some(started_at) = self.capture_started_at
+                {
                     let text = self.transcript_text();
-                    let _ = self.endpointer.on_transcript(now, &text);
+                    let at = self.frame_clock(started_at);
+                    let _ = self.endpointer.on_transcript(at, &text);
                 }
                 self.transcription_error_code = None;
             }

@@ -28,9 +28,9 @@ export type VoiceCommandErrorCode =
   | "not_active"
   | "capture_active"
   | "speech_active"
+  | "microphone_failed"
   | "speech_unavailable"
   | "speech_playback_failed"
-  | "unavailable"
   | "command_failed";
 
 /** State before any conversation command has been issued. */
@@ -73,7 +73,7 @@ export async function getVoiceConversationStatus(): Promise<VoiceConversationSta
 }
 
 /** Bounded phrases for the native last-latched end-of-turn reasons. */
-const ENDPOINT_PHRASES: Record<string, string> = {
+const ENDPOINT_PHRASES: Record<VoiceEndpointReason, string> = {
   stableTranscript: "the transcript settled",
   terminalPunctuation: "you finished the sentence",
   silenceTimeout: "the pause was long enough",
@@ -84,12 +84,12 @@ const ENDPOINT_PHRASES: Record<string, string> = {
 /** Describes the conversation phase in one calm path-free line. */
 export function voiceConversationFeedback(status: VoiceConversationStatus): string {
   if (!status.active) return "Voice conversation is off · push-to-talk and typed chat are unchanged";
-  if (status.phase === "listening") return "Listening";
+  if (status.phase === "listening") {
+    // The endpoint reason is latched only once this capture ended on its own; a reopened capture clears it.
+    return status.endpointReason === null ? "Listening" : `Turn ended · ${ENDPOINT_PHRASES[status.endpointReason]}`;
+  }
   if (status.phase === "finalizing") {
-    const detail = status.endpointReason === null ? null : ENDPOINT_PHRASES[status.endpointReason];
-    return detail === undefined || detail === null
-      ? "Finishing the transcript"
-      : `Finishing the transcript · ${detail}`;
+    return status.speechProgress === "failed" ? "Finishing the reply · the spoken reply failed" : "Finishing the reply";
   }
   if (status.phase === "thinking") {
     return status.speechProgress === "buffering" ? "Thinking · preparing the spoken reply" : "Thinking";
@@ -117,7 +117,7 @@ export function voiceCaptureActivityFeedback(
 /** Reports why the microphone is not taking a new turn, or null when it is open. */
 export function voiceMicrophoneGateFeedback(status: VoiceConversationStatus): string | null {
   if (!status.active) return null;
-  if (status.phase === "finalizing") return "Microphone closed while the turn finishes.";
+  if (status.phase === "finalizing") return "Microphone closed while the reply finishes.";
   if (status.phase === "thinking") return "Microphone closed while Bottie thinks.";
   if (status.phase === "speaking") return "Microphone muted while Bottie speaks · Interrupt takes the turn back.";
   return null;
@@ -140,12 +140,12 @@ export function voiceCommandErrorCode(error: unknown): VoiceCommandErrorCode {
       return "capture_active";
     case "speech_active":
       return "speech_active";
+    case "microphone_failed":
+      return "microphone_failed";
     case "speech_unavailable":
       return "speech_unavailable";
     case "speech_playback_failed":
       return "speech_playback_failed";
-    case "unavailable":
-      return "unavailable";
     default:
       return "command_failed";
   }
@@ -156,14 +156,14 @@ export function voiceCommandErrorFeedback(code: VoiceCommandErrorCode): string {
   if (code === "not_active") return "The voice conversation is no longer active.";
   if (code === "capture_active") return "Bottie is still finishing the transcript.";
   if (code === "speech_active") return "Bottie is still speaking the previous reply.";
+  if (code === "microphone_failed") return "The microphone could not start listening for the next turn.";
   if (code === "speech_unavailable") return "Local speech is unavailable, so the spoken reply cannot start.";
   if (code === "speech_playback_failed") return "Local speech failed during the spoken reply.";
-  if (code === "unavailable") return "Voice conversation needs the native desktop app.";
   return "The voice conversation request failed. Try again.";
 }
 
 /** One decision the page takes from the latest conversation and capture state. */
-export type VoiceTurnAction = "none" | "submit" | "resume";
+export type VoiceTurnAction = "none" | "submit" | "resume" | "end";
 
 /** Inputs for the pure conversation turn decision. */
 export type VoiceTurnInput = {
@@ -193,16 +193,22 @@ export function voiceTurnTranscript(status: MicrophoneStatus): string | null {
  * Decides the single conversation action for the current state.
  *
  * Submission needs a closed capture with a ready final transcript, because the native reply can only be armed
- * after the turn's capture ends. Resuming needs a drained reply, or a session that lost its turn before a reply
- * was dispatched, and never runs while native input or a generation is still busy.
+ * after the turn's capture ends. Resuming needs a drained reply, a turn that closed without a usable transcript, or
+ * a session that lost its turn before a reply was dispatched, and never runs while native input or a generation is
+ * still busy. A listening session whose capture failed ends, because reopening a failed device would only fail again.
  */
 export function voiceTurnAction(input: VoiceTurnInput): VoiceTurnAction {
   if (!input.active) return "none";
   if (input.busy || input.capturing) return "none";
+  if (input.phase === "listening" && !input.turnSubmitted && input.microphone.phase === "error") return "end";
   if (!input.turnSubmitted && voiceTurnTranscript(input.microphone) !== null) return "submit";
   // Never reopen capture while the reply is still speaking: that would cut the last chunks off and let Bottie speak
   // into its own microphone. The reply drains on its own and the next poll re-evaluates.
   if (!speechSettled(input.speechProgress)) return "none";
+  // Nothing heard, an empty recognition, or a failed one: the capture closed on its own and nothing will reopen it.
+  if (input.phase === "listening" && !input.turnSubmitted && !input.resumeRequested && captureSettled(input.microphone)) {
+    return "resume";
+  }
   if (input.phase === "finalizing" && !input.pendingReply) return "resume";
   // A session can lose its reply before adoption, which leaves it listening with a consumed turn. Recover that
   // once, because the reopened capture is what clears both markers for the next turn.
@@ -210,6 +216,11 @@ export function voiceTurnAction(input: VoiceTurnInput): VoiceTurnAction {
     return "resume";
   }
   return "none";
+}
+
+/** Whether the capture closed and its final recognition finished, successfully or not. */
+function captureSettled(status: MicrophoneStatus): boolean {
+  return status.phase === "captured" && (status.transcriptionPhase === "ready" || status.transcriptionPhase === "error");
 }
 
 /** Whether playback finished (or never started) so capture may reopen. */

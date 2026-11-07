@@ -34,8 +34,10 @@ export class VoiceConversationState {
   private readonly onStatus: (status: VoiceConversationStatus) => void;
   private pollTimer?: ReturnType<typeof setInterval>;
   private pollInFlight = false;
-  /** Bumped by every action and every polling start; a poll result from an older epoch is discarded. */
+  /** Bumped by every action and every applied active status; a poll result from an older epoch is discarded. */
   private pollEpoch = 0;
+  /** The current error came from a failed poll, so the next successful poll clears it. */
+  private pollFailed = false;
   private actionInFlight = false;
 
   /** Creates the controller with one optional status observer for turn orchestration. */
@@ -151,11 +153,16 @@ export class VoiceConversationState {
       const status = await getVoiceConversationStatus();
       // An action or a newer poll since this request began owns the state now.
       if (epoch !== this.pollEpoch) return;
+      if (this.pollFailed) {
+        this.pollFailed = false;
+        this.error = null;
+      }
       this.apply(status);
     } catch (error) {
       if (epoch !== this.pollEpoch) return;
-      this.fail(error);
-      this.stopPolling();
+      // Native capture and endpointing keep running, so keep polling: stopping here would strand an open microphone.
+      this.error = voiceCommandErrorFeedback(voiceCommandErrorCode(error));
+      this.pollFailed = true;
     } finally {
       this.pollInFlight = false;
     }
@@ -187,6 +194,7 @@ export class VoiceConversationState {
 
   private fail(error: unknown): void {
     this.error = voiceCommandErrorFeedback(voiceCommandErrorCode(error));
+    this.pollFailed = false;
     this.stopPolling();
   }
 }

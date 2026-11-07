@@ -140,7 +140,8 @@ async fn actor(
     latency: Arc<Mutex<Option<u32>>>,
 ) {
     let mut process: Option<NanoProcess> = None;
-    // One output owner for the actor's lifetime: an utterance never reopens the device.
+    // One output owner for the actor's lifetime: an utterance reopens the device only after a stream failure or a
+    // default-device change.
     let mut output: Option<AudioOwner> = None;
     loop {
         let request = tokio::select! { biased;

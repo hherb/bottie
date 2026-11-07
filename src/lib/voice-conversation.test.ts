@@ -83,7 +83,10 @@ describe("voice conversation presentation", () => {
       "Voice conversation is off · push-to-talk and typed chat are unchanged",
     );
     expect(voiceConversationFeedback(status())).toBe("Listening");
-    expect(voiceConversationFeedback(status({ phase: "finalizing" }))).toBe("Finishing the transcript");
+    expect(voiceConversationFeedback(status({ phase: "finalizing" }))).toBe("Finishing the reply");
+    expect(voiceConversationFeedback(status({ phase: "finalizing", speechProgress: "failed" }))).toBe(
+      "Finishing the reply · the spoken reply failed",
+    );
     expect(voiceConversationFeedback(status({ phase: "thinking" }))).toBe("Thinking");
     expect(voiceConversationFeedback(status({ phase: "speaking" }))).toBe("Bottie is speaking");
   });
@@ -96,16 +99,13 @@ describe("voice conversation presentation", () => {
     expect(voiceTurnAction(turnInput({ phase: "finalizing", speechProgress: "failed" }))).toBe("resume");
   });
 
-  it("explains the latched end-of-turn reason and falls back for unknown reasons", () => {
-    expect(voiceConversationFeedback(status({ phase: "finalizing", endpointReason: "terminalPunctuation" }))).toBe(
-      "Finishing the transcript · you finished the sentence",
+  it("explains the latched end-of-turn reason once the listening capture ended on its own", () => {
+    expect(voiceConversationFeedback(status({ phase: "listening", endpointReason: "terminalPunctuation" }))).toBe(
+      "Turn ended · you finished the sentence",
     );
-    expect(
-      voiceConversationFeedback({
-        ...status({ phase: "finalizing" }),
-        endpointReason: "unknown_reason" as unknown as VoiceConversationStatus["endpointReason"],
-      }),
-    ).toBe("Finishing the transcript");
+    expect(voiceConversationFeedback(status({ phase: "listening", endpointReason: "noSpeech" }))).toBe(
+      "Turn ended · nothing was heard",
+    );
   });
 
   it("reports live capture only while the conversation is listening", () => {
@@ -145,7 +145,7 @@ describe("voice conversation presentation", () => {
       "Microphone muted while Bottie speaks · Interrupt takes the turn back.",
     );
     expect(voiceMicrophoneGateFeedback(status({ phase: "finalizing" }))).toBe(
-      "Microphone closed while the turn finishes.",
+      "Microphone closed while the reply finishes.",
     );
   });
 });
@@ -156,7 +156,8 @@ describe("voice conversation errors", () => {
     expect(voiceCommandErrorCode("capture_active")).toBe("capture_active");
     expect(voiceCommandErrorCode("speech_unavailable")).toBe("speech_unavailable");
     expect(voiceCommandErrorCode("speech_playback_failed")).toBe("speech_playback_failed");
-    expect(voiceCommandErrorCode("unavailable")).toBe("unavailable");
+    expect(voiceCommandErrorCode("microphone_failed")).toBe("microphone_failed");
+    expect(voiceCommandErrorCode("unavailable")).toBe("command_failed");
     expect(voiceCommandErrorCode({ code: "capture_active" })).toBe("capture_active");
     expect(voiceCommandErrorCode(new Error("not_active"))).toBe("not_active");
     expect(voiceCommandErrorCode("some native detail with a path /tmp/engine")).toBe("command_failed");
@@ -170,7 +171,9 @@ describe("voice conversation errors", () => {
       "Local speech is unavailable, so the spoken reply cannot start.",
     );
     expect(voiceCommandErrorFeedback("speech_playback_failed")).toBe("Local speech failed during the spoken reply.");
-    expect(voiceCommandErrorFeedback("unavailable")).toBe("Voice conversation needs the native desktop app.");
+    expect(voiceCommandErrorFeedback("microphone_failed")).toBe(
+      "The microphone could not start listening for the next turn.",
+    );
     expect(voiceCommandErrorFeedback("command_failed")).toBe("The voice conversation request failed. Try again.");
   });
 });
@@ -211,6 +214,31 @@ describe("voice turn decision", () => {
     expect(voiceTurnAction(turnInput({ phase: "listening", turnSubmitted: true, resumeRequested: true }))).toBe("none");
     // A reopened capture clears the marker, so the next turn can submit normally.
     expect(voiceTurnAction(turnInput({ capturing: true, phase: "listening" }))).toBe("none");
+  });
+
+  it("reopens a capture that closed without a usable transcript, once", () => {
+    const nothingHeard: MicrophoneStatus = { ...CAPTURED_TRANSCRIPT, transcriptSegments: [] };
+    const recognitionFailed: MicrophoneStatus = {
+      ...CAPTURED_TRANSCRIPT,
+      transcriptionPhase: "error",
+      transcriptSegments: [],
+      transcriptionErrorCode: "recognition_failed",
+    };
+    expect(voiceTurnAction(turnInput({ microphone: nothingHeard }))).toBe("resume");
+    expect(voiceTurnAction(turnInput({ microphone: recognitionFailed }))).toBe("resume");
+    expect(voiceTurnAction(turnInput({ microphone: nothingHeard, resumeRequested: true }))).toBe("none");
+    // The final recognition is still running, so the turn is not settled yet.
+    expect(voiceTurnAction(turnInput({ microphone: { ...nothingHeard, transcriptionPhase: "transcribing" } }))).toBe(
+      "none",
+    );
+    // A previous reply that is still speaking keeps the microphone closed.
+    expect(voiceTurnAction(turnInput({ microphone: nothingHeard, speechProgress: "speaking" }))).toBe("none");
+  });
+
+  it("ends a listening session whose capture failed instead of reopening it", () => {
+    const failed: MicrophoneStatus = { ...IDLE_MICROPHONE, phase: "error", errorCode: "permission_denied" };
+    expect(voiceTurnAction(turnInput({ microphone: failed }))).toBe("end");
+    expect(voiceTurnAction(turnInput({ microphone: failed, phase: "speaking", turnSubmitted: true }))).toBe("none");
   });
 
   it("waits while the session is healthy and no turn is pending", () => {

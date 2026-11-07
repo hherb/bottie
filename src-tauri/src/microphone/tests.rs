@@ -557,6 +557,28 @@ fn a_stable_partial_transcript_ends_the_turn_at_the_hangover() {
 }
 
 #[test]
+fn a_partial_that_arrives_late_on_the_wall_clock_does_not_end_the_turn() {
+    let mut state = CaptureState::default();
+    state.mode = MicrophoneMode::Conversation;
+    state.begin_recording(16_000, 1);
+    confirm_speech(&mut state);
+    // Device startup and callback buffering put wall time well ahead of the audio timeline; that lag is not silence.
+    partial_transcript(
+        &mut state,
+        1,
+        "are you there?",
+        Instant::now() + Duration::from_secs(5),
+    );
+    assert_eq!(state.endpoint_finished(), None);
+
+    silence_hangover(&mut state);
+    assert_eq!(
+        state.endpoint_finished(),
+        Some(EndReason::TerminalPunctuation)
+    );
+}
+
+#[test]
 fn push_to_talk_capture_never_ends_itself() {
     let now = Instant::now();
     let mut state = CaptureState::default();

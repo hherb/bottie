@@ -90,6 +90,8 @@ fn checkpoint_error(error: StorageError) -> ProviderError {
 }
 
 /// Feeds one text delta to the active voice turn without ever failing the provider stream.
+///
+/// The session only refuses text past its cap, and it reports itself failed in that case, so the result is not needed.
 fn feed_speech(speech: &Option<Arc<StreamingSpeechSession>>, delta: &str) {
     if let Some(session) = speech {
         let _ = session.push_delta(delta);

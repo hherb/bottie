@@ -28,7 +28,7 @@ use super::{
 
 /// Push-to-talk keeps the original cadence; the text is only used after the user stops capture.
 pub(super) const TRANSCRIPTION_INTERVAL_MS: u64 = 1_500;
-/// Conversation mode wants the stability gates earlier, so a partial arrives about a second after capture starts.
+/// Conversation mode wants the stability gates earlier, so a partial arrives about a second after speech onset.
 pub(super) const CONVERSATION_TRANSCRIPTION_INTERVAL_MS: u64 = 1_000;
 const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
 const MODEL_RUNTIME_THREADS: i32 = 2;
@@ -207,23 +207,24 @@ impl WhisperTranscriber {
     ) -> Result<Vec<RawTranscriptSegment>, TranscriptionErrorCode> {
         let audio = resample_linear(&job.samples, job.sample_rate_hz, TARGET_SAMPLE_RATE_HZ);
         // Silero decides whether this window contains speech at all and where it starts and ends, so a noisy or empty
-        // snapshot becomes an honest empty transcript instead of a Whisper hallucination. Without its asset the whole
-        // snapshot is recognized, which keeps offline push-to-talk working.
-        let window = match self.vad.as_ref() {
-            Some(vad) => {
-                let window = lock_vad(vad).speech_window(&audio);
-                let Some(window) = window else {
-                    return Ok(Vec::new());
-                };
-                window
-            }
-            None => crate::microphone::vad_silero::SpeechWindow {
-                start_ms: 0,
-                end_ms: u64::try_from(audio.len())
-                    .unwrap_or(u64::MAX)
-                    .saturating_mul(1_000)
-                    / u64::from(TARGET_SAMPLE_RATE_HZ),
-            },
+        // snapshot becomes an honest empty transcript instead of a Whisper hallucination. Without its asset, or when its
+        // inference fails, the whole snapshot is recognized: that keeps offline push-to-talk working and never turns a
+        // VAD failure into "nothing was said".
+        let whole_snapshot = crate::microphone::vad_silero::SpeechWindow {
+            start_ms: 0,
+            end_ms: u64::try_from(audio.len())
+                .unwrap_or(u64::MAX)
+                .saturating_mul(1_000)
+                / u64::from(TARGET_SAMPLE_RATE_HZ),
+        };
+        let window = match self
+            .vad
+            .as_ref()
+            .map(|vad| lock_vad(vad).speech_window(&audio))
+        {
+            Some(Ok(Some(window))) => window,
+            Some(Ok(None)) => return Ok(Vec::new()),
+            Some(Err(())) | None => whole_snapshot,
         };
         let Some((start_sample, end_sample)) =
             speech_sample_bounds(audio.len(), TARGET_SAMPLE_RATE_HZ, window)

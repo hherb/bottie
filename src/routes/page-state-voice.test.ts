@@ -173,6 +173,42 @@ describe("PageState voice conversation turns", () => {
     state.dispose();
   });
 
+  it("reopens listening once when a turn closed with nothing heard", async () => {
+    const state = readyPage();
+
+    await state.startVoiceConversation();
+    vi.mocked(getMicrophoneStatus).mockResolvedValue({ ...CAPTURED_TRANSCRIPT, transcriptSegments: [] });
+    await state.voice.refresh();
+
+    await vi.waitFor(() => expect(resumeVoiceListening).toHaveBeenCalledOnce());
+    expect(armVoiceReply).not.toHaveBeenCalled();
+    // The same settled capture must not reopen twice before native input starts again.
+    await state.voice.refresh();
+    expect(resumeVoiceListening).toHaveBeenCalledOnce();
+    expect(state.voice.status.active).toBe(true);
+    state.dispose();
+  });
+
+  it("ends a session whose microphone failed and says why", async () => {
+    const state = readyPage();
+
+    await state.startVoiceConversation();
+    vi.mocked(getMicrophoneStatus).mockResolvedValue({
+      ...IDLE_MICROPHONE,
+      phase: "error",
+      permission: "denied",
+      errorCode: "permission_denied",
+    });
+    await state.voice.refresh();
+
+    await vi.waitFor(() => expect(endVoiceConversation).toHaveBeenCalledOnce());
+    expect(resumeVoiceListening).not.toHaveBeenCalled();
+    expect(state.voiceFeedback).toBe(
+      "Microphone access was denied. Allow Bottie in system privacy settings, then try again.",
+    );
+    state.dispose();
+  });
+
   it("keeps the transcript and ends the session when no model can answer", async () => {
     vi.mocked(startVoiceConversation).mockResolvedValue(LISTENING);
     vi.mocked(endVoiceConversation).mockResolvedValue(INACTIVE);

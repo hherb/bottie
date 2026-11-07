@@ -436,7 +436,12 @@ impl SpeechState {
 /// The streaming session speaks through the same controller the commands use.
 impl streaming::SpeechSink for SpeechController {
     fn is_idle(&self) -> Result<bool, ()> {
-        Ok(matches!(self.status().phase, SpeechPhase::Idle))
+        match self.status().phase {
+            SpeechPhase::Idle => Ok(true),
+            // A failed engine never returns to idle on its own; reporting it lets the session fail instead of wait.
+            SpeechPhase::Error => Err(()),
+            SpeechPhase::Speaking => Ok(false),
+        }
     }
 
     fn speak(&self, text: &str) -> Result<(), ()> {

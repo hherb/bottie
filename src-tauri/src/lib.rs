@@ -685,7 +685,7 @@ async fn start_voice_conversation(
     if state.microphone.failed() {
         state.voice_conversation.ended();
         state.speech.set_microphone_gate(false);
-        return Err(VoiceCommandError::SpeechUnavailable);
+        return Err(VoiceCommandError::MicrophoneFailed);
     }
     Ok(voice_conversation_status(&state))
 }
@@ -713,7 +713,7 @@ async fn resume_voice_listening(
     if state.microphone.failed() {
         state.voice_conversation.ended();
         state.speech.set_microphone_gate(false);
-        return Err(VoiceCommandError::SpeechUnavailable);
+        return Err(VoiceCommandError::MicrophoneFailed);
     }
     state.voice_conversation.listening();
     Ok(voice_conversation_status(&state))
@@ -742,15 +742,20 @@ async fn interrupt_voice_turn(
         return Err(VoiceCommandError::NotActive);
     }
     let _voice_guard = state.voice_interaction.lock().await;
-    state.speech.stop_before_microphone_capture()?;
+    // Cancel the reply before touching the engine, so a failed engine stop cannot leave the reply running.
     cancel_all_chats(&state.runs).await;
     state.voice_conversation.interrupted();
+    if let Err(error) = state.speech.stop_before_microphone_capture() {
+        // Without a stopped engine capture cannot reopen; ending is the only state the page can recover from.
+        state.voice_conversation.ended();
+        return Err(error.into());
+    }
     state.speech.set_microphone_gate(true);
     state.microphone.start_conversation();
     if state.microphone.failed() {
         state.voice_conversation.ended();
         state.speech.set_microphone_gate(false);
-        return Err(VoiceCommandError::SpeechUnavailable);
+        return Err(VoiceCommandError::MicrophoneFailed);
     }
     Ok(voice_conversation_status(&state))
 }
