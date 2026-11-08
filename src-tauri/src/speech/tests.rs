@@ -350,6 +350,15 @@ impl SpeechBackend for RecordingBackend {
         Ok(())
     }
 
+    fn speak_followup(&mut self, text: &str) -> Result<(), SpeechErrorCode> {
+        let mut record = self.record.lock().unwrap();
+        if record.speak_error {
+            return Err(SpeechErrorCode::PlaybackFailed);
+        }
+        record.spoken.push(format!("followup:{text}"));
+        Ok(())
+    }
+
     fn stop(&mut self) -> Result<(), SpeechErrorCode> {
         let mut record = self.record.lock().unwrap();
         if record.stop_error {
@@ -430,4 +439,19 @@ fn status_reports_measured_pcm_output_latency_while_speaking() {
     let status = controller.status();
     assert_eq!(status.phase, SpeechPhase::Speaking);
     assert_eq!(status.latency.output_latency_ms, Some(17));
+}
+
+#[test]
+fn follow_up_chunks_are_queued_through_the_engine_without_restarting() {
+    let backend = RecordingBackend::default();
+    let record = backend.record.clone();
+    let controller = SpeechController::with_backend(Box::new(backend));
+
+    controller.speak("First part.").unwrap();
+    let status = controller.speak_followup("Second part.").unwrap();
+    assert_eq!(status.phase, SpeechPhase::Speaking);
+    assert_eq!(
+        record.lock().unwrap().spoken,
+        vec!["First part.", "followup:Second part."]
+    );
 }

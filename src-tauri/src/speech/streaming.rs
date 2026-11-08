@@ -14,10 +14,16 @@ use std::{
 
 /// Total speakable text one session will accept before failing closed.
 const MAX_STREAM_TEXT_BYTES: usize = 32 * 1_024;
-/// A first chunk is short so playback starts on the first clause rather than the first sentence.
-const FIRST_CHUNK_MAX_WORDS: usize = 4;
+/// A first chunk prefers a complete short sentence, so the voice starts on natural prosody.
+const FIRST_SENTENCE_MAX_WORDS: usize = 12;
+/// Without a sentence end, a first chunk may still take a clause after this many words.
+const FIRST_CLAUSE_MIN_WORDS: usize = 3;
+/// Hard first-chunk bound when neither sentence nor clause boundary appears.
+const FIRST_CHUNK_MAX_WORDS: usize = 8;
 /// Later chunks follow sentence/clause boundaries but stay bounded for cancellation granularity.
 const NEXT_CHUNK_MAX_WORDS: usize = 20;
+/// A later clause split only happens after enough words for a natural pause.
+const NEXT_CLAUSE_MIN_WORDS: usize = 6;
 /// Poll cadence while waiting for one chunk to finish playing.
 const IDLE_POLL_INTERVAL: Duration = Duration::from_millis(20);
 /// A synchronous sink that never becomes idle is treated as failed rather than waited on forever.
@@ -49,6 +55,12 @@ pub(crate) trait SpeechSink: Send + Sync {
     fn is_idle(&self) -> Result<bool, ()>;
     /// Starts one chunk. Must accept the chunk without waiting for playback to finish.
     fn speak(&self, text: &str) -> Result<(), ()>;
+    /// Queues a follow-on chunk behind the current utterance without interrupting it.
+    ///
+    /// Returning `Err` means the engine cannot queue; the session then waits for idle and speaks the chunk normally.
+    fn speak_after_current(&self, _text: &str) -> Result<(), ()> {
+        Err(())
+    }
     /// Interrupts current playback and drops anything the engine still holds.
     fn stop(&self) -> Result<(), ()>;
 }
@@ -226,29 +238,51 @@ impl Chunker {
     }
 
     fn next_chunk(&mut self) -> Option<String> {
-        let limit = if self.emitted_first_chunk {
-            NEXT_CHUNK_MAX_WORDS
-        } else {
-            FIRST_CHUNK_MAX_WORDS
-        };
         let words = self.partial.split_whitespace().collect::<Vec<_>>();
         if words.is_empty() {
             return None;
         }
-        let clause = words
-            .iter()
-            .enumerate()
-            .find(|(index, word)| *index < limit && ends_clause(word))
-            .map(|(index, _)| index + 1);
-        let take = match clause {
-            Some(count) => count,
-            None if words.len() > limit => limit,
-            None => return None,
-        };
+        let take = if self.emitted_first_chunk {
+            sentence_end(&words, NEXT_CHUNK_MAX_WORDS)
+                .or_else(|| clause_after(&words, NEXT_CLAUSE_MIN_WORDS, NEXT_CHUNK_MAX_WORDS))
+                .or_else(|| (words.len() > NEXT_CHUNK_MAX_WORDS).then_some(NEXT_CHUNK_MAX_WORDS))
+        } else {
+            // Speak a complete short sentence when one fits; otherwise wait for a natural clause, and only cut at
+            // the word cap when neither appears, so the first utterance does not end mid-phrase.
+            sentence_end(&words, FIRST_SENTENCE_MAX_WORDS)
+                .or_else(|| clause_after(&words, FIRST_CLAUSE_MIN_WORDS, FIRST_CHUNK_MAX_WORDS))
+                .or_else(|| (words.len() > FIRST_CHUNK_MAX_WORDS).then_some(FIRST_CHUNK_MAX_WORDS))
+        }?;
         let chunk = words[..take].join(" ");
         self.partial = words[take..].join(" ");
         Some(chunk)
     }
+}
+
+/// Index just after the first sentence-ending word within `limit`, if one appears.
+fn sentence_end(words: &[&str], limit: usize) -> Option<usize> {
+    words
+        .iter()
+        .take(limit)
+        .enumerate()
+        .find(|(_, word)| ends_sentence(word))
+        .map(|(index, _)| index + 1)
+}
+
+/// Index just after the first clause boundary at or beyond `minimum`, within `limit`.
+fn clause_after(words: &[&str], minimum: usize, limit: usize) -> Option<usize> {
+    words
+        .iter()
+        .take(limit)
+        .enumerate()
+        .find(|(index, word)| index + 1 >= minimum && ends_clause(word))
+        .map(|(index, _)| index + 1)
+}
+
+fn ends_sentence(word: &str) -> bool {
+    word.chars()
+        .last()
+        .is_some_and(|character| matches!(character, '.' | '!' | '?'))
 }
 
 /// Owns one background worker that plays chunks strictly in order.
@@ -354,6 +388,8 @@ impl Worker {
         let mut queue: VecDeque<String> = VecDeque::new();
         let mut session_progress = SessionProgress::Buffering;
         let mut speaking_since: Option<Instant> = None;
+        // `None` until the first follow-up attempt; `Some(false)` means the engine cannot queue and idle-wait applies.
+        let mut followups_supported: Option<bool> = None;
         let mut ending = false;
         // The reply passed the text cap: what is already queued still plays, then the session reports failure.
         let mut overflowed = false;
@@ -417,6 +453,23 @@ impl Worker {
                 }
             }
 
+            // Queue later chunks behind the utterance that is still playing when the engine supports it: the queue plays
+            // seamlessly instead of stopping, waiting for idle, and restarting between chunks.
+            if speaking_since.is_some() && followups_supported != Some(false) && !queue.is_empty() {
+                let chunk = queue
+                    .front()
+                    .expect("a non-empty queue has a front")
+                    .clone();
+                match sink.speak_after_current(&chunk) {
+                    Ok(()) => {
+                        queue.pop_front();
+                        followups_supported = Some(true);
+                        session_progress = SessionProgress::Speaking;
+                    }
+                    Err(()) => followups_supported = Some(false),
+                }
+            }
+
             if speaking_since.is_none() && !queue.is_empty() {
                 // An engine error left over from an earlier utterance is not playback; `speak` clears it or fails.
                 match sink.is_idle() {
@@ -474,18 +527,27 @@ fn ends_clause(word: &str) -> bool {
 }
 
 fn strip_markup(text: &str) -> String {
+    let characters = text.chars().collect::<Vec<_>>();
     let mut output = String::with_capacity(text.len());
-    for character in text.chars() {
+    for (index, character) in characters.iter().enumerate() {
+        let previous = index.checked_sub(1).and_then(|i| characters.get(i));
+        let next = characters.get(index + 1);
+        let inside_word = previous.is_some_and(|c| c.is_alphanumeric())
+            && next.is_some_and(|c| c.is_alphanumeric());
+        let preceded_by_word = previous.is_some_and(|c| c.is_alphanumeric());
         match character {
-            '*' | '_' | '`' | '#' | '>' | '|' | '[' | ']' | '(' | ')' => {}
+            // Emphasis and code markers never carry meaning in speech; keep them only inside a word (`snake_case`).
+            '*' | '_' if !inside_word => {}
+            // `#` is a heading marker unless it is part of a word such as `C#`.
+            '#' if !preceded_by_word => {}
+            '`' | '>' | '|' | '[' | ']' | '(' | ')' => {}
             '\n' | '\r' | '\t' => output.push(' '),
-            other => output.push(other),
+            other => output.push(*other),
         }
     }
     output
 }
 
-/// Collapses whitespace runs to one space but keeps edge spaces, so fragments emitted by separate deltas never fuse.
 fn normalize_spacing(text: &str) -> String {
     let mut output = String::with_capacity(text.len());
     let mut pending_space = false;
@@ -528,6 +590,11 @@ mod tests {
         speak_delay: Duration,
         /// Simulates an engine that fails while the chunk it accepted is playing.
         fail_while_playing: bool,
+        /// Simulates an engine that queues follow-on chunks behind the current utterance.
+        supports_followups: bool,
+        followup_calls: AtomicUsize,
+        /// Remaining `is_idle` polls that report busy, so the worker reaches its follow-up branch.
+        busy_polls: AtomicUsize,
     }
 
     impl FakeSink {
@@ -541,6 +608,14 @@ mod tests {
 
     impl SpeechSink for FakeSink {
         fn is_idle(&self) -> Result<bool, ()> {
+            if self.busy_polls.load(Ordering::SeqCst) > 0 {
+                self.busy_polls.fetch_sub(1, Ordering::SeqCst);
+                return Ok(false);
+            }
+            // A follow-up-capable engine keeps the first utterance playing until the queued chunk arrives.
+            if self.supports_followups && self.spoken.lock().unwrap().len() == 1 {
+                return Ok(false);
+            }
             if self.fail_while_playing && !self.spoken.lock().unwrap().is_empty() {
                 return Err(());
             }
@@ -549,6 +624,15 @@ mod tests {
             } else {
                 Ok(!self.speaking.load(Ordering::SeqCst))
             }
+        }
+
+        fn speak_after_current(&self, text: &str) -> Result<(), ()> {
+            if !self.supports_followups {
+                return Err(());
+            }
+            self.followup_calls.fetch_add(1, Ordering::SeqCst);
+            self.spoken.lock().unwrap().push(text.to_owned());
+            Ok(())
         }
 
         fn speak(&self, text: &str) -> Result<(), ()> {
@@ -681,17 +765,65 @@ mod tests {
     }
 
     #[test]
-    fn chunker_emits_a_short_first_chunk_then_bounded_chunks() {
+    fn reducer_keeps_word_internal_symbols_readable() {
+        let mut reducer = SpeakableReducer::default();
+        assert_eq!(
+            reducer.push("Try snake_case with C# today."),
+            "Try snake_case with C# today."
+        );
+    }
+
+    #[test]
+    fn reducer_strips_emphasis_and_code_markers() {
+        let mut reducer = SpeakableReducer::default();
+        assert_eq!(
+            reducer.push("This is **important** and `inline` code."),
+            "This is important and inline code."
+        );
+    }
+
+    #[test]
+    fn chunker_prefers_a_complete_short_first_sentence() {
+        let mut chunker = Chunker::default();
+        let mut chunks = VecDeque::new();
+        chunker.push(
+            "The answer is simple. It depends on the details of your setup.",
+            &mut chunks,
+        );
+        assert_eq!(chunks.front().unwrap(), "The answer is simple.");
+        chunker.finish(&mut chunks);
+        assert_eq!(
+            chunks.pop_back().unwrap(),
+            "It depends on the details of your setup."
+        );
+    }
+
+    #[test]
+    fn chunker_does_not_split_an_early_comma_into_a_one_word_utterance() {
+        let mut chunker = Chunker::default();
+        let mut chunks = VecDeque::new();
+        chunker.push("Sure, here is the answer.", &mut chunks);
+        chunker.finish(&mut chunks);
+        assert_eq!(chunks.pop_front().unwrap(), "Sure, here is the answer.");
+    }
+
+    #[test]
+    fn chunker_bounds_a_long_unpunctuated_first_sentence() {
         let mut chunker = Chunker::default();
         let mut chunks = VecDeque::new();
         chunker.push(
             "Sure, here is the quick answer and then a much longer second sentence follows.",
             &mut chunks,
         );
-        assert_eq!(chunks.front().unwrap(), "Sure,");
+        assert_eq!(
+            chunks.front().unwrap(),
+            "Sure, here is the quick answer and then"
+        );
         chunker.finish(&mut chunks);
-        assert!(chunks.len() >= 2);
-        assert!(chunks.iter().all(|chunk| !chunk.starts_with(' ')));
+        assert_eq!(
+            chunks.pop_back().unwrap(),
+            "a much longer second sentence follows."
+        );
     }
 
     #[test]
@@ -719,7 +851,10 @@ mod tests {
         session.end().unwrap();
         wait_for(|| session.progress() == SessionProgress::Idle);
         let spoken = sink.spoken.lock().unwrap().clone();
-        assert_eq!(spoken.first().map(String::as_str), Some("Sure,"));
+        assert_eq!(
+            spoken.first().map(String::as_str),
+            Some("Sure, here is the quick answer.")
+        );
         assert!(spoken.len() >= 2);
     }
 
@@ -812,6 +947,27 @@ mod tests {
             "Here is the whole listing you asked for."
         );
         assert_eq!(sink.stops.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn queued_followups_play_behind_the_playing_chunk_without_an_idle_wait() {
+        let sink = Arc::new(FakeSink {
+            supports_followups: true,
+            ..FakeSink::default()
+        });
+        // Keep the sink reported busy long enough for the worker to reach its follow-up branch.
+        sink.busy_polls.store(3, Ordering::SeqCst);
+        let session = StreamingSpeechSession::start(sink.clone()).unwrap();
+        session
+            .push_delta("First part is here. Second part follows now. ")
+            .unwrap();
+        session.end().unwrap();
+        wait_for(|| session.progress() == SessionProgress::Idle);
+        assert_eq!(sink.followup_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            sink.spoken.lock().unwrap().as_slice(),
+            ["First part is here.", "Second part follows now."]
+        );
     }
 
     #[test]

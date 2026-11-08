@@ -54,6 +54,14 @@ impl SpeechBackend for SystemSpeechBackend {
             .map_err(|_| SpeechErrorCode::PlaybackFailed)
     }
 
+    fn speak_followup(&mut self, text: &str) -> Result<(), SpeechErrorCode> {
+        // `interrupt = false` queues this utterance behind the one playing, keeping the OS voice's prosody continuous.
+        self.engine
+            .speak(text, false)
+            .map(|_| ())
+            .map_err(|_| SpeechErrorCode::PlaybackFailed)
+    }
+
     fn stop(&mut self) -> Result<(), SpeechErrorCode> {
         self.engine
             .stop()

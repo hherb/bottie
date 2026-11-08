@@ -87,6 +87,9 @@ impl SpeechBackend for CombinedSpeechBackend {
     fn speak(&mut self, text: &str) -> Result<(), SpeechErrorCode> {
         self.selected()?.speak(text)
     }
+    fn speak_followup(&mut self, text: &str) -> Result<(), SpeechErrorCode> {
+        self.selected()?.speak_followup(text)
+    }
     fn stop(&mut self) -> Result<(), SpeechErrorCode> {
         // Both are attempted even when one reports an error, so unrelated pending speech cannot survive a switch.
         let neural = self.nano.as_mut().map(|backend| backend.stop()).transpose();
