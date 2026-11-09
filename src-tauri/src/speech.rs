@@ -111,6 +111,10 @@ pub(crate) trait SpeechBackend: Send {
     fn speak(&mut self, text: &str) -> Result<(), SpeechErrorCode>;
     fn stop(&mut self) -> Result<(), SpeechErrorCode>;
     fn is_speaking(&mut self) -> Result<bool, SpeechErrorCode>;
+    /// Queues another chunk behind the current utterance without interrupting it, when the engine supports queueing.
+    fn speak_followup(&mut self, _text: &str) -> Result<(), SpeechErrorCode> {
+        Err(SpeechErrorCode::PlaybackFailed)
+    }
     /// Reports measured output-device latency for the current playback, when the engine owns PCM output.
     fn output_latency_ms(&mut self) -> Option<u32> {
         None
@@ -272,6 +276,22 @@ impl SpeechController {
             Some(crate::microphone::latency::bounded_milliseconds(
                 now().saturating_duration_since(requested_at),
             ));
+        state.phase = SpeechPhase::Speaking;
+        state.error_code = None;
+        Ok(state.status())
+    }
+
+    /// Queues one chunk after the current utterance, for engines that synthesize a queue seamlessly.
+    pub(crate) fn speak_followup(&self, text: &str) -> Result<SpeechStatus, SpeechCommandError> {
+        let text = validated_speech_text(text)?;
+        let mut state = lock(&self.shared);
+        state.ensure_ready()?;
+        let followup = match state.backend.as_mut() {
+            Some(backend) => backend.speak_followup(&text),
+            None => Err(SpeechErrorCode::Unavailable),
+        };
+        followup.map_err(|code| state.fail_command(code))?;
+        state.playback_may_be_active = true;
         state.phase = SpeechPhase::Speaking;
         state.error_code = None;
         Ok(state.status())
@@ -449,6 +469,15 @@ impl streaming::SpeechSink for SpeechController {
             return Err(());
         }
         SpeechController::speak(self, text)
+            .map(|_| ())
+            .map_err(|_| ())
+    }
+
+    fn speak_after_current(&self, text: &str) -> Result<(), ()> {
+        if self.microphone_gate() {
+            return Err(());
+        }
+        SpeechController::speak_followup(self, text)
             .map(|_| ())
             .map_err(|_| ())
     }
