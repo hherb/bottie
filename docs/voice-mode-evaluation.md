@@ -35,6 +35,11 @@ What exists on `feat/voice-mode-phase0`, in the order it was built:
 | Phase 1 | One process-lifetime CPAL output owner with a two-second bounded queue, device-layout/rate conversion, reopen-on-failure, default-device following between utterances, measured `outputLatencyMs` in speech status, and a bounded rendered mono reference with a monotonic sequence for a future echo canceller. Nano playback uses it instead of opening the device per utterance. |
 | Phase 2 | Conversation partials every 1,000 ms anchored to the first confirmed speech; Silero VAD pinned as a verified runtime asset and used to refuse/trim recognizer snapshots (empty transcript instead of a hallucination, whole-snapshot fallback when the asset is unavailable). |
 
+A later speech-quality pass (`8737bd3`) made the spoken replies read naturally: chunks now prefer complete short
+sentences and late clause boundaries instead of the first comma or a four-word cap, and the system voice queues
+follow-on chunks behind the playing utterance instead of stopping and restarting between them. That removed the odd
+mid-sentence pauses and most of the garbling.
+
 Verification at this point: Rust lib **871 passed**, frontend **519 passed** (3 perf skipped), `svelte-check` clean,
 `cargo fmt --check`/Prettier clean, and the runtime-asset contract check passes. A manual five-turn acceptance run on
 macOS passed after the phase-0 fixes: no keypress between turns, replies spoken in full, Interrupt prompt, mic reopened
