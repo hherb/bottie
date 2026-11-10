@@ -644,3 +644,69 @@ fn conversation_partials_are_anchored_to_the_first_confirmed_speech() {
     assert_eq!(push_to_talk.first_speech_ms, None);
     assert_eq!(push_to_talk.next_transcription_ms, 1_500);
 }
+
+#[test]
+fn silero_gate_holds_energy_silence_open_until_its_hold_expires() {
+    use super::vad_gate::VadVerdict;
+    use std::sync::{Arc, Mutex};
+
+    let mut state = CaptureState::default();
+    state.mode = MicrophoneMode::Conversation;
+    state.begin_recording(16_000, 1);
+    let capture_id = state.capture_id;
+    state.vad_verdict = Some(Arc::new(Mutex::new(VadVerdict {
+        capture_id,
+        evaluated_at_ms: 1_000,
+        last_speech_end_ms: Some(950),
+    })));
+
+    assert_eq!(
+        state.gated_activity(VoiceActivity::Silence, 1_000),
+        VoiceActivity::Speech
+    );
+    assert_eq!(
+        state.gated_activity(VoiceActivity::Silence, 1_240),
+        VoiceActivity::Speech
+    );
+    // The Silero segment ended 950 ms; after 300 ms the energy silence stands.
+    assert_eq!(
+        state.gated_activity(VoiceActivity::Silence, 1_250),
+        VoiceActivity::Silence
+    );
+
+    // A stale verdict says nothing.
+    state.vad_verdict = Some(Arc::new(Mutex::new(VadVerdict {
+        capture_id,
+        evaluated_at_ms: 100,
+        last_speech_end_ms: Some(90),
+    })));
+    assert_eq!(
+        state.gated_activity(VoiceActivity::Silence, 1_000),
+        VoiceActivity::Silence
+    );
+
+    // Push-to-talk ignores the gate entirely.
+    let mut push_to_talk = CaptureState::default();
+    push_to_talk.begin_recording(16_000, 1);
+    push_to_talk.vad_verdict = Some(Arc::new(Mutex::new(VadVerdict {
+        capture_id: push_to_talk.capture_id,
+        evaluated_at_ms: 1_000,
+        last_speech_end_ms: Some(950),
+    })));
+    assert_eq!(
+        push_to_talk.gated_activity(VoiceActivity::Silence, 1_000),
+        VoiceActivity::Silence
+    );
+}
+
+#[test]
+fn vad_window_resamples_the_trailing_audio_to_sixteen_kilohertz() {
+    let mut state = CaptureState::default();
+    state.begin_recording(48_000, 1);
+    state.append(&vec![0.5_f32; 48_000]);
+
+    let (samples, window_end_ms) = state.vad_window(1_500).expect("a full second of capture");
+    assert_eq!(window_end_ms, 1_000);
+    assert_eq!(samples.len(), 16_000);
+    assert!(samples.iter().all(|sample| (*sample - 0.5).abs() < 0.001));
+}

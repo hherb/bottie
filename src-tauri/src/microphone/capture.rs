@@ -13,7 +13,7 @@ use cpal::{
 
 use super::{
     CAPTURE_WORKER_POLL, CaptureCommand, CaptureState, MicrophoneErrorCode,
-    devices::CaptureInputSelection, lock,
+    devices::CaptureInputSelection, lock, vad_gate::GateWindow,
 };
 
 /// Owns one operating-system input stream and schedules bounded native transcription snapshots.
@@ -55,6 +55,7 @@ pub(super) fn capture_worker(
     }
     lock(&shared).mark_input_ready();
 
+    let mut gate_tick = 0_u32;
     let discard = loop {
         if lock(&shared).phase == super::MicrophonePhase::Error || lock(&shared).limit_reached() {
             break false;
@@ -64,6 +65,10 @@ pub(super) fn capture_worker(
             break false;
         }
         schedule_transcription(&shared, transcription_wake.as_ref(), false);
+        gate_tick = gate_tick.wrapping_add(1);
+        if gate_tick % 3 == 0 {
+            forward_vad_window(&shared);
+        }
         match receiver.recv_timeout(CAPTURE_WORKER_POLL) {
             Ok(CaptureCommand::Stop) => break false,
             Ok(CaptureCommand::Discard) | Err(RecvTimeoutError::Disconnected) => break true,
@@ -81,6 +86,24 @@ pub(super) fn capture_worker(
     drop(state);
     if scheduled {
         wake(transcription_wake.as_ref());
+    }
+}
+
+/// Offers the trailing speech window to the Silero gate roughly every third poll (~120 ms).
+fn forward_vad_window(shared: &Arc<Mutex<CaptureState>>) {
+    let state = lock(shared);
+    let Some(sender) = state.vad_gate.clone() else {
+        return;
+    };
+    let capture_id = state.capture_id;
+    let window = state.vad_window(1_500);
+    drop(state);
+    if let Some((samples_16k, window_end_ms)) = window {
+        sender.try_window(GateWindow {
+            capture_id,
+            samples_16k,
+            window_end_ms,
+        });
     }
 }
 

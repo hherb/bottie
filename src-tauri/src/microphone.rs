@@ -9,6 +9,7 @@ pub(crate) mod endpointing;
 pub(crate) mod latency;
 mod transcription;
 mod vad;
+mod vad_gate;
 mod vad_silero;
 
 use std::{
@@ -34,10 +35,11 @@ pub(crate) use devices::{MicrophoneDeviceCommandError, MicrophoneInputDeviceList
 use endpointing::{EndPointer, EndReason};
 use latency::{MicrophoneLatency, MicrophoneLatencyTracker};
 use transcription::{
-    RawTranscriptSegment, TranscriptSegment, TranscriptionErrorCode, TranscriptionJob,
-    TranscriptionPhase, TranscriptionWorker,
+    RawTranscriptSegment, TARGET_SAMPLE_RATE_HZ, TranscriptSegment, TranscriptionErrorCode,
+    TranscriptionJob, TranscriptionPhase, TranscriptionWorker,
 };
 use vad::{VoiceActivity, VoiceActivityDetector, VoiceSegment};
+use vad_gate::{VadGate, VadGateSender, VadVerdict, releases_speech};
 
 const MAX_CAPTURE_DURATION: Duration = Duration::from_secs(60);
 const MAX_RETAINED_BYTES: usize = 32 * 1024 * 1024;
@@ -134,6 +136,9 @@ pub(crate) struct MicrophoneController {
     worker: Mutex<Worker>,
     devices: Mutex<MicrophoneDeviceRegistry>,
     transcription: Option<TranscriptionWorker>,
+    model_cache_path: PathBuf,
+    /// Started on the first conversation capture; the worker loads and verifies the VAD asset off the capture path.
+    vad_gate: Mutex<Option<VadGate>>,
 }
 
 #[derive(Default)]
@@ -155,6 +160,10 @@ struct CaptureState {
     capture_started_at: Option<Instant>,
     first_speech_ms: Option<u64>,
     vad_frames_processed: u64,
+    /// Latest off-thread Silero verdict for this capture, when conversation mode has a gate worker.
+    vad_verdict: Option<Arc<Mutex<VadVerdict>>>,
+    /// Window sender for the Silero gate worker.
+    vad_gate: Option<VadGateSender>,
     permission: MicrophonePermission,
     buffer: Option<CaptureBuffer>,
     input_level: f32,
@@ -177,6 +186,8 @@ impl Default for MicrophoneController {
             worker: Mutex::new(Worker::default()),
             devices: Mutex::new(MicrophoneDeviceRegistry::default()),
             transcription: None,
+            model_cache_path: PathBuf::default(),
+            vad_gate: Mutex::new(None),
         }
     }
 }
@@ -185,7 +196,7 @@ impl MicrophoneController {
     /// Starts the process-lifetime local speech worker without loading its model before user capture.
     pub(crate) fn new(model_cache_path: PathBuf, remembered_input_token: Option<String>) -> Self {
         let shared = Arc::new(Mutex::new(CaptureState::default()));
-        let transcription = TranscriptionWorker::start(model_cache_path, shared.clone());
+        let transcription = TranscriptionWorker::start(model_cache_path.clone(), shared.clone());
         Self {
             shared,
             worker: Mutex::new(Worker::default()),
@@ -193,6 +204,8 @@ impl MicrophoneController {
                 remembered_input_token,
             )),
             transcription: Some(transcription),
+            model_cache_path,
+            vad_gate: Mutex::new(None),
         }
     }
 
@@ -239,9 +252,18 @@ impl MicrophoneController {
 
         let devices = lock(&self.devices);
         let input_selection = devices.capture_selection();
+        let gate_handles = if mode == MicrophoneMode::Conversation {
+            let mut gate = lock(&self.vad_gate);
+            let gate = gate.get_or_insert_with(|| VadGate::start(self.model_cache_path.clone()));
+            Some((gate.verdict(), gate.sender()))
+        } else {
+            None
+        };
         {
             let mut state = lock(&self.shared);
             state.mode = mode;
+            state.vad_verdict = gate_handles.as_ref().map(|(verdict, _)| verdict.clone());
+            state.vad_gate = gate_handles.map(|(_, sender)| sender);
             state.begin_starting();
         }
         drop(devices);
@@ -389,6 +411,10 @@ impl CaptureState {
         for activity in frames {
             self.vad_frames_processed = self.vad_frames_processed.saturating_add(1);
             let at = self.frame_clock(started_at);
+            let frame_ms = self
+                .vad_frames_processed
+                .saturating_mul(u64::from(vad::FRAME_DURATION_MS));
+            let activity = self.gated_activity(activity, frame_ms);
             let _ = self.endpointer.on_activity(at, activity);
             self.anchor_transcription_to_onset(started_at);
         }
@@ -404,6 +430,40 @@ impl CaptureState {
                 self.vad_frames_processed
                     .saturating_mul(u64::from(vad::FRAME_DURATION_MS)),
             )
+    }
+
+    /// Delays release while the off-thread Silero gate still reports speech near this frame.
+    fn gated_activity(&self, activity: VoiceActivity, frame_ms: u64) -> VoiceActivity {
+        if self.mode != MicrophoneMode::Conversation || activity == VoiceActivity::Speech {
+            return activity;
+        }
+        let Some(verdict) = self.vad_verdict.as_ref() else {
+            return activity;
+        };
+        if releases_speech(&lock(verdict), self.capture_id, frame_ms) {
+            VoiceActivity::Speech
+        } else {
+            VoiceActivity::Silence
+        }
+    }
+
+    /// Copies the trailing window at 16 kHz for the VAD worker, with its capture-relative end.
+    fn vad_window(&self, window_ms: u64) -> Option<(Vec<f32>, u64)> {
+        let buffer = self.buffer.as_ref()?;
+        let minimum = usize::try_from(u64::from(buffer.sample_rate_hz) / 4).ok()?;
+        if buffer.samples.len() < minimum.max(1) {
+            return None;
+        }
+        let capacity =
+            usize::try_from(u64::from(buffer.sample_rate_hz).saturating_mul(window_ms) / 1_000)
+                .ok()?;
+        let start = buffer.samples.len().saturating_sub(capacity);
+        let samples = transcription::resample_linear(
+            &buffer.samples[start..],
+            buffer.sample_rate_hz,
+            TARGET_SAMPLE_RATE_HZ,
+        );
+        Some((samples, buffer.duration_ms()))
     }
 
     /// Starts conversation partials a full interval after the first confirmed speech, not after capture start.

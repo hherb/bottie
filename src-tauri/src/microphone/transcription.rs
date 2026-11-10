@@ -30,7 +30,7 @@ use super::{
 pub(super) const TRANSCRIPTION_INTERVAL_MS: u64 = 1_500;
 /// Conversation mode wants the stability gates earlier, so a partial arrives about a second after speech onset.
 pub(super) const CONVERSATION_TRANSCRIPTION_INTERVAL_MS: u64 = 1_000;
-const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
+pub(super) const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
 const MODEL_RUNTIME_THREADS: i32 = 2;
 pub(super) const MAX_TRANSCRIPT_SEGMENTS: usize = 32;
 pub(super) const MAX_TRANSCRIPT_TEXT_BYTES: usize = 4_000;
@@ -412,7 +412,11 @@ fn speech_window(activity: &[VoiceSegment]) -> Option<(u64, u64)> {
     Some((first.start_ms, end_ms))
 }
 
-fn resample_linear(samples: &[f32], source_rate_hz: u32, target_rate_hz: u32) -> Vec<f32> {
+pub(super) fn resample_linear(
+    samples: &[f32],
+    source_rate_hz: u32,
+    target_rate_hz: u32,
+) -> Vec<f32> {
     if samples.is_empty() || source_rate_hz == 0 || target_rate_hz == 0 {
         return Vec::new();
     }
