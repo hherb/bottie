@@ -92,6 +92,8 @@ const HASHED_INPUTS = [
   ".github/workflows/windows-distribution-validation.yml",
   ".github/workflows/linux-distribution-validation.yml",
   ".github/workflows/updater-publication.yml",
+  ".github/actions/onnx-runtime/action.yml",
+  ".github/actions/onnx-runtime/install.py",
   "LICENSE",
   "MODEL-NOTICE.txt",
   "THIRD-PARTY-NOTICES.txt",

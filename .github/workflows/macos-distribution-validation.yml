@@ -30,6 +30,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Install the pinned ONNX Runtime prebuilt
+        uses: ./.github/actions/onnx-runtime
+
       - name: Use Node 22
         uses: actions/setup-node@v4
         with:

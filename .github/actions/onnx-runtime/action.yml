@@ -1,0 +1,39 @@
+name: Pinned ONNX Runtime prebuilt
+description: >-
+  Restores the SHA-256-pinned ONNX Runtime archive from the Actions cache (or fetches it once, from this repository's
+  mirror release where one exists), verifies it, and unpacks it where ort-sys looks, so app builds never stream it
+  from the pyke CDN.
+
+runs:
+  using: composite
+  steps:
+    - name: Use Python for the archive check
+      id: python
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+      with:
+        python-version: "3.12"
+        # Later steps keep the runner's own Python; this one is only for install.py.
+        update-environment: false
+
+    - name: Plan the ONNX Runtime archive
+      id: plan
+      shell: bash
+      run: '"${{ steps.python.outputs.python-path }}" "$GITHUB_ACTION_PATH/install.py" plan'
+
+    - name: Restore the ONNX Runtime archive
+      id: restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.plan.outputs.archive-dir }}
+        key: ${{ steps.plan.outputs.key }}
+
+    - name: Verify and unpack the ONNX Runtime archive
+      shell: bash
+      run: '"${{ steps.python.outputs.python-path }}" "$GITHUB_ACTION_PATH/install.py" install'
+
+    - name: Cache the verified ONNX Runtime archive
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.plan.outputs.archive-dir }}
+        key: ${{ steps.plan.outputs.key }}

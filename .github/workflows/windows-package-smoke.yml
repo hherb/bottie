@@ -3,6 +3,8 @@ name: Windows packaging smoke
 on:
   pull_request:
     paths:
+      - ".github/actions/onnx-runtime/**"
+      - "runtime-assets.json"
       - ".github/workflows/windows-package-smoke.yml"
       - "package-lock.json"
       - "package.json"
@@ -33,6 +35,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Install the pinned ONNX Runtime prebuilt
+        uses: ./.github/actions/onnx-runtime
 
       - name: Use Node 22
         uses: actions/setup-node@v4
