@@ -24,6 +24,7 @@ const IDLE_STATUS: MicrophoneStatus = {
   transcriptionPhase: "idle",
   transcriptSegments: [],
   transcriptionErrorCode: null,
+  speechDetectionErrorCode: null,
   errorCode: null,
   latency: { inputReadyMs: null, firstTranscriptMs: null, finalTranscriptMs: null },
 };
@@ -184,6 +185,19 @@ describe("microphone presentation", () => {
         voiceSegments: [{ activity: "silence", startMs: 0, endMs: 800 }],
       }),
     ).toBe("Recording locally · Listening for speech · 0:00 of 1:00");
+  });
+
+  it("says when speech detection could not load, since silence may then be transcribed", () => {
+    expect(
+      microphoneFeedback({
+        ...IDLE_STATUS,
+        phase: "recording",
+        permission: "granted",
+        durationMs: 800,
+        voiceActivity: "silence",
+        speechDetectionErrorCode: "model_integrity",
+      }),
+    ).toBe("Recording locally · Listening for speech · 0:00 of 1:00 · Silence filter unavailable");
   });
 
   it("describes bounded local partial and final transcription state", () => {

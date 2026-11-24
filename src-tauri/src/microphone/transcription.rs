@@ -23,7 +23,7 @@ use whisper_rs::{
 
 use super::{
     CaptureState, VoiceActivity, VoiceSegment, lock,
-    vad_silero::{SileroVad, lock_vad, speech_sample_bounds},
+    vad_silero::{LoadPerCapture, SileroVad, lock_vad, speech_sample_bounds},
 };
 
 /// Push-to-talk keeps the original cadence; the text is only used after the user stops capture.
@@ -185,8 +185,10 @@ impl TranscriptionWorker {
 
 struct WhisperTranscriber {
     context: WhisperContext,
-    /// Silero is an enhancement: when its asset is unavailable, recognition still runs over the whole snapshot.
-    vad: Option<Mutex<SileroVad>>,
+    /// Silero is an enhancement: when its asset is unavailable, recognition still runs over the whole snapshot. It
+    /// loads on the first job and a failed load is retried on the next capture ([`LoadPerCapture`]).
+    vad: Mutex<LoadPerCapture<SileroVad>>,
+    cache_dir: PathBuf,
 }
 
 impl WhisperTranscriber {
@@ -197,8 +199,16 @@ impl WhisperTranscriber {
         let context =
             WhisperContext::new_with_params(model_path, WhisperContextParameters::default())
                 .map_err(|_| TranscriptionErrorCode::RecognitionFailed)?;
-        let vad = SileroVad::load(cache_dir).ok().map(Mutex::new);
-        Ok(Self { context, vad })
+        Ok(Self {
+            context,
+            vad: Mutex::new(LoadPerCapture::default()),
+            cache_dir: cache_dir.clone(),
+        })
+    }
+
+    /// Loads Silero for this capture if it is missing; returns the attempt's result only when one was made.
+    fn prepare_vad(&self, capture_id: u64) -> Option<Result<(), TranscriptionErrorCode>> {
+        lock_vad(&self.vad).ensure(capture_id, || SileroVad::load(&self.cache_dir))
     }
 
     fn transcribe(
@@ -217,10 +227,9 @@ impl WhisperTranscriber {
                 .saturating_mul(1_000)
                 / u64::from(TARGET_SAMPLE_RATE_HZ),
         };
-        let window = match self
-            .vad
-            .as_ref()
-            .map(|vad| lock_vad(vad).speech_window(&audio))
+        let window = match lock_vad(&self.vad)
+            .value()
+            .map(|vad| vad.speech_window(&audio))
         {
             Some(Ok(Some(window))) => window,
             Some(Ok(None)) => return Ok(Vec::new()),
@@ -272,6 +281,9 @@ fn process_job(
     transcriber: &WhisperTranscriber,
     job: TranscriptionJob,
 ) {
+    if let Some(load) = transcriber.prepare_vad(job.capture_id) {
+        lock(shared).recognizer_vad_error = load.err();
+    }
     lock(shared).mark_transcribing(job.capture_id, job.generation);
     let result = transcriber.transcribe(&job);
     lock(shared).apply_transcription(job.capture_id, job.generation, job.is_final, result);
@@ -533,6 +545,11 @@ mod tests {
             offset_ms: 0,
             end_ms: 5_000,
         };
+        assert_eq!(
+            transcriber.prepare_vad(job.capture_id),
+            Some(Ok(())),
+            "the pinned Silero model should load"
+        );
         let result = transcriber
             .transcribe(&job)
             .expect("local inference should complete");

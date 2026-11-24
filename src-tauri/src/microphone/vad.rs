@@ -52,6 +52,8 @@ pub(super) struct VoiceActivityDetector {
     candidate: Option<ActivityCandidate>,
     segments: Vec<SampleSegment>,
     frame_activities: Vec<VoiceActivity>,
+    /// Frames completed while the trace was full; the caller still has to count them on its audio clock.
+    dropped_frame_activities: u64,
     /// Slowly tracked ambient level used to scale the speech and silence thresholds.
     noise_floor_rms: f32,
 }
@@ -89,6 +91,7 @@ impl VoiceActivityDetector {
             candidate: None,
             segments: Vec::new(),
             frame_activities: Vec::new(),
+            dropped_frame_activities: 0,
             noise_floor_rms: MIN_NOISE_FLOOR_RMS,
         }
     }
@@ -132,15 +135,19 @@ impl VoiceActivityDetector {
     ///
     /// One entry is produced per completed frame, in order, so a caller can drive end-of-turn logic at the detector's
     /// own cadence instead of at callback cadence. The trace is bounded and drops the newest frames (never queued
-    /// unboundedly) if a caller stops draining it.
-    pub(super) fn take_frame_activities(&mut self, activities: &mut Vec<VoiceActivity>) {
+    /// unboundedly) when one input callback carries more than it holds. Returns how many frames were dropped, which
+    /// all come after the drained ones, so the caller can keep its frame clock in step with the audio.
+    pub(super) fn take_frame_activities(&mut self, activities: &mut Vec<VoiceActivity>) -> u64 {
         activities.append(&mut self.frame_activities);
+        std::mem::take(&mut self.dropped_frame_activities)
     }
 
     fn classify_frame(&mut self) {
         self.classify_frame_inner();
         if self.frame_activities.len() < MAX_PENDING_FRAME_ACTIVITIES {
             self.frame_activities.push(self.activity);
+        } else {
+            self.dropped_frame_activities = self.dropped_frame_activities.saturating_add(1);
         }
     }
 

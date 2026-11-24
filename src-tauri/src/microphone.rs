@@ -125,6 +125,8 @@ pub(crate) struct MicrophoneStatus {
     transcription_phase: TranscriptionPhase,
     transcript_segments: Vec<TranscriptSegment>,
     transcription_error_code: Option<TranscriptionErrorCode>,
+    /// Silero speech detection failed to load, so silence and noise reach Whisper unfiltered. Recognition still works.
+    speech_detection_error_code: Option<TranscriptionErrorCode>,
     error_code: Option<MicrophoneErrorCode>,
     latency: MicrophoneLatency,
     endpoint_reason: Option<EndReason>,
@@ -174,6 +176,10 @@ struct CaptureState {
     transcription_phase: TranscriptionPhase,
     transcript_segments: Vec<TranscriptSegment>,
     transcription_error_code: Option<TranscriptionErrorCode>,
+    /// Last Silero load failure in the recognizer and in the release gate. Each worker keeps its own, so one worker's
+    /// success cannot hide the other's failure; both outlive a capture until a later load succeeds.
+    recognizer_vad_error: Option<TranscriptionErrorCode>,
+    gate_vad_error: Option<TranscriptionErrorCode>,
     pending_transcription: Option<TranscriptionJob>,
     next_transcription_ms: u64,
     latency: MicrophoneLatencyTracker,
@@ -254,7 +260,12 @@ impl MicrophoneController {
         let input_selection = devices.capture_selection();
         let gate_handles = if mode == MicrophoneMode::Conversation {
             let mut gate = lock(&self.vad_gate);
-            let gate = gate.get_or_insert_with(|| VadGate::start(self.model_cache_path.clone()));
+            let gate = gate.get_or_insert_with(|| {
+                let shared = self.shared.clone();
+                VadGate::start(self.model_cache_path.clone(), move |load| {
+                    lock(&shared).gate_vad_error = load.err();
+                })
+            });
             Some((gate.verdict(), gate.sender()))
         } else {
             None
@@ -397,7 +408,7 @@ impl CaptureState {
         if self.mode != MicrophoneMode::Conversation {
             let mut drained = Vec::new();
             if let Some(buffer) = self.buffer.as_mut() {
-                buffer.voice_detector.take_frame_activities(&mut drained);
+                let _ = buffer.voice_detector.take_frame_activities(&mut drained);
             }
             return;
         }
@@ -405,9 +416,9 @@ impl CaptureState {
             return;
         };
         let mut frames = Vec::new();
-        if let Some(buffer) = self.buffer.as_mut() {
-            buffer.voice_detector.take_frame_activities(&mut frames);
-        }
+        let dropped = self.buffer.as_mut().map_or(0, |buffer| {
+            buffer.voice_detector.take_frame_activities(&mut frames)
+        });
         for activity in frames {
             self.vad_frames_processed = self.vad_frames_processed.saturating_add(1);
             let at = self.frame_clock(started_at);
@@ -418,6 +429,8 @@ impl CaptureState {
             let _ = self.endpointer.on_activity(at, activity);
             self.anchor_transcription_to_onset(started_at);
         }
+        // Dropped frames are audio that happened; skipping them would make every endpointer silence timer run long.
+        self.vad_frames_processed = self.vad_frames_processed.saturating_add(dropped);
     }
 
     /// The audio timeline: capture start plus every processed VAD frame.
@@ -643,6 +656,7 @@ impl CaptureState {
             transcription_phase: self.transcription_phase,
             transcript_segments: self.transcript_segments.clone(),
             transcription_error_code: self.transcription_error_code,
+            speech_detection_error_code: self.gate_vad_error.or(self.recognizer_vad_error),
             error_code: self.error_code,
             latency: self.latency.summary(),
             endpoint_reason: self.endpointer.finished(),

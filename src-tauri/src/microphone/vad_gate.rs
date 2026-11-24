@@ -14,7 +14,10 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use super::vad_silero::{SileroVad, SpeechWindow};
+use super::{
+    transcription::TranscriptionErrorCode,
+    vad_silero::{LoadPerCapture, SileroVad, SpeechWindow},
+};
 
 /// A verdict older than this says nothing about the current frame.
 const GATE_STALENESS_MS: u64 = 600;
@@ -69,13 +72,17 @@ pub(super) struct VadGate {
 
 impl VadGate {
     /// Starts the worker immediately; the model loads and downloads inside it so capture is never blocked.
-    pub(super) fn start(cache_dir: PathBuf) -> Self {
+    /// `report_load` receives each load attempt's result (at most one per capture) so a failure reaches the status.
+    pub(super) fn start(
+        cache_dir: PathBuf,
+        report_load: impl Fn(Result<(), TranscriptionErrorCode>) + Send + 'static,
+    ) -> Self {
         let (commands, receiver) = sync_channel(COMMAND_CAPACITY);
         let verdict = Arc::new(Mutex::new(VadVerdict::default()));
         let shared = verdict.clone();
         let thread = thread::Builder::new()
             .name("bottie-silero-gate".to_owned())
-            .spawn(move || run_worker(receiver, shared, cache_dir))
+            .spawn(move || run_worker(receiver, shared, cache_dir, report_load))
             .expect("the Silero release-gate worker should start");
         Self {
             commands,
@@ -124,14 +131,19 @@ fn run_worker(
     receiver: Receiver<GateCommand>,
     verdict: Arc<Mutex<VadVerdict>>,
     cache_dir: PathBuf,
+    report_load: impl Fn(Result<(), TranscriptionErrorCode>),
 ) {
-    // Loading may download the pinned asset on first use; until then the gate simply reports nothing.
-    let mut vad = SileroVad::load(&cache_dir).ok();
+    // Loading may download the pinned asset on first use; until it succeeds the gate simply reports nothing. A failed
+    // load is retried on the next capture.
+    let mut vad = LoadPerCapture::default();
     while let Ok(command) = receiver.recv() {
         match command {
             GateCommand::Shutdown => break,
             GateCommand::Window(window) => {
-                let Some(vad) = vad.as_mut() else {
+                if let Some(load) = vad.ensure(window.capture_id, || SileroVad::load(&cache_dir)) {
+                    report_load(load);
+                }
+                let Some(vad) = vad.value() else {
                     continue;
                 };
                 let speech = vad.speech_window(&window.samples_16k).ok().flatten();

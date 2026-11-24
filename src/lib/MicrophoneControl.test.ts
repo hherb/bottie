@@ -19,6 +19,7 @@ const IDLE_STATUS: MicrophoneStatus = {
   transcriptionPhase: "idle",
   transcriptSegments: [],
   transcriptionErrorCode: null,
+  speechDetectionErrorCode: null,
   errorCode: null,
   latency: { inputReadyMs: null, firstTranscriptMs: null, finalTranscriptMs: null },
 };

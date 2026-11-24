@@ -238,6 +238,15 @@ off-by-default audio delivery and retention, latency status, and durable input-d
 
 - [ ] acoustic echo cancellation or general system-feedback processing, if later evidence justifies native DSP.
 
+### Hands-free conversation mode
+
+Research and plan: `docs/voice-mode-*` (PR #244, draft). Phase 0 merged in PR #241 (2026-11-07). On `main` since:
+natural speech chunks queued without inter-chunk gaps (8737bd3, 4a7c442) and an off-thread Silero release gate
+(6956041).
+
+- [ ] real-device run, especially Bluetooth input: endpoint timing and word loss under a slow first `speak`;
+- [ ] open follow-ups: #237 (stream recovery reports success; needs a real device), #238, #239, #240.
+
 ### Optional neural speech evaluation — MOSS-TTS-Nano
 
 The owner requested Nano work on 2026-10-17. This is a separate opt-in evaluation after Milestone 7, with the shipped
