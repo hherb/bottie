@@ -1,7 +1,11 @@
 //! The pinned-asset gate for local speech models: Bottie's release manifest names each model's repository, revision,
 //! size and SHA-256, and a model file is only used after its bytes match. Shared by the Whisper recognizer and Silero.
 
-use std::{fs::File, io::Read, path::PathBuf};
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 use hf_hub::{
     Repo, RepoType,
@@ -83,9 +87,24 @@ fn verified_model_path(
     let path = repository
         .get(&expected.path)
         .map_err(|_| TranscriptionErrorCode::ModelUnavailable)?;
-    let file = File::open(&path).map_err(|_| TranscriptionErrorCode::ModelUnavailable)?;
-    verify_model_reader(file, expected.size, &expected.sha256)?;
+    verify_cached_file(&path, expected.size, &expected.sha256)?;
     Ok(path)
+}
+
+/// Verifies a cached model file and removes it when its bytes are wrong. hf-hub serves a cached file without
+/// downloading again, so a corrupt one left in place would fail every later retry on the same bytes.
+fn verify_cached_file(
+    path: &Path,
+    expected_size: u64,
+    expected_sha256: &str,
+) -> Result<(), TranscriptionErrorCode> {
+    let file = File::open(path).map_err(|_| TranscriptionErrorCode::ModelUnavailable)?;
+    let verified = verify_model_reader(file, expected_size, expected_sha256);
+    if verified == Err(TranscriptionErrorCode::ModelIntegrity) {
+        // Removing the snapshot entry makes the next `get` download the pinned revision again.
+        let _ = std::fs::remove_file(path);
+    }
+    verified
 }
 
 fn verify_model_reader(
@@ -132,6 +151,26 @@ mod tests {
         assert_eq!(
             verify_model_reader(&b"abd"[..], 3, digest),
             Err(TranscriptionErrorCode::ModelIntegrity)
+        );
+    }
+
+    #[test]
+    fn a_corrupt_cached_file_is_removed_so_the_retry_downloads_it_again() {
+        let path = std::env::temp_dir().join(format!("bottie-pinned-{}.bin", std::process::id()));
+        std::fs::write(&path, b"abd").unwrap();
+        let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        assert_eq!(
+            verify_cached_file(&path, 3, digest),
+            Err(TranscriptionErrorCode::ModelIntegrity)
+        );
+        assert!(!path.exists());
+        std::fs::write(&path, b"abc").unwrap();
+        assert_eq!(verify_cached_file(&path, 3, digest), Ok(()));
+        assert!(path.exists(), "a verified file stays cached");
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(
+            verify_cached_file(&path, 3, digest),
+            Err(TranscriptionErrorCode::ModelUnavailable)
         );
     }
 }

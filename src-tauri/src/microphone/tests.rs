@@ -733,6 +733,12 @@ fn a_silero_load_failure_in_either_worker_reaches_the_status_and_outlives_the_ca
     state.gate_vad_error = Some(TranscriptionErrorCode::ModelUnavailable);
     assert_eq!(
         state.status().speech_detection_error_code,
+        None,
+        "push-to-talk has no gate, so a gate failure from an earlier conversation must not show"
+    );
+    state.mode = MicrophoneMode::Conversation;
+    assert_eq!(
+        state.status().speech_detection_error_code,
         Some(TranscriptionErrorCode::ModelUnavailable)
     );
 }
@@ -750,4 +756,7 @@ fn frames_dropped_from_an_oversized_callback_still_advance_the_frame_clock() {
     state.append(&vec![0.0_f32; 32_000]);
     // A clock that skipped the dropped frames would run slow and stretch every endpointer silence timer.
     assert_eq!(state.vad_frames_processed, frames);
+    // The drop count is consumed once; a later callback must not add it again.
+    state.append(&vec![0.0_f32; 320]);
+    assert_eq!(state.vad_frames_processed, frames + 1);
 }

@@ -14,8 +14,9 @@ Last verified: 2026-11-25 (branch `fix/issues-238-239-242`).
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #232, #234, #235, and the follow-up audit in `FIX_BOTTIE.md` "Not audited
-   yet". #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
+   Doable here: #240 (voice test gaps), #246 (`CaptureState` split), #247, #232, #234, #235, and the follow-up audit
+   in `FIX_BOTTIE.md` "Not audited yet". #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if
+   it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
    Bluetooth input, to check endpoint timing, word loss under a slow first `speak`, and the new Silero gate. #237
@@ -38,11 +39,15 @@ Last verified: 2026-11-25 (branch `fix/issues-238-239-242`).
 
 - **#238:** `vad_silero::LoadPerCapture` retries a failed Silero load once per new capture, both in the recognizer
   (`WhisperTranscriber::prepare_vad`, lazily on the first job) and in the release gate. Each worker keeps its own last
-  failure. `MicrophoneStatus.speechDetectionErrorCode` reports the gate's failure, or else the recognizer's, and the
-  recording feedback adds "Silence filter unavailable".
+  failure. `MicrophoneStatus.speechDetectionErrorCode` reports the gate's failure (conversation mode only), or else
+  the recognizer's. Push-to-talk recording feedback adds "Silence filter unavailable", and the conversation listening
+  line adds "silence filter unavailable". A cached model that fails its digest is deleted
+  (`pinned_assets::verify_cached_file`), so the retry downloads it again; hf-hub never re-fetches a cached file. A
+  gate inference error keeps the last verdict instead of reading as silence. Not yet reported to the user: inference
+  failures after a successful load, and dropped VAD frames (#247).
 - **#239:** `VoiceActivityDetector` counts the frames it drops from a callback over 64 frames (1.28 s).
   `take_frame_activities` returns that count, and the capture path adds it to the frame clock.
-- The pinned-model gate moved verbatim to `microphone/pinned_assets.rs` (`transcription.rs` went from 553 to 434
+- The pinned-model gate moved verbatim to `microphone/pinned_assets.rs` (`transcription.rs` went from 558 to 434
   lines).
 - #242 (`interpret_output` parking-line forgery) no longer applies: #236 removed that path, and a parked task now
   arrives as the typed `task.awaiting_operator` notification.
@@ -95,13 +100,14 @@ and git history.
 
 ## Validation (2026-11-25)
 
-- Rust: `cargo test` passes 918 library tests (42 ignored) plus the updater, adapter and transport suites. `cargo fmt`
+- Rust: `cargo test` passes 919 library tests (42 ignored) plus the updater, adapter and transport suites. `cargo fmt`
   is clean. `cargo clippy --all-targets` prints 71 `warning:` lines, the same as `main` (style lints, none new).
 - Over 500 lines: 17 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1237),
-  `speech/streaming.rs` (983), `microphone.rs` (708; split `CaptureState` out next) and `microphone/endpointing.rs`
-  (670). Frontend: `page-state.svelte.ts`
-  (1063), `conversation-state.svelte.ts` (575) and `storage.ts` (574). Split each one when you next touch it.
-- Frontend: `npm test` passes 531 tests; `npm run check` is clean.
+  `speech/streaming.rs` (983), `microphone.rs` (713; split `CaptureState` out next, #246) and
+  `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212), `conversation-state.svelte.ts` (575),
+  `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte` (516). Split each one when you next
+  touch it.
+- Frontend: `npm test` passes 532 tests; `npm run check` is clean.
 - Python: `local-image-worker` was not touched (121 tests passed on 2026-10-29).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 

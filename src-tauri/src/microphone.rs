@@ -126,7 +126,8 @@ pub(crate) struct MicrophoneStatus {
     transcription_phase: TranscriptionPhase,
     transcript_segments: Vec<TranscriptSegment>,
     transcription_error_code: Option<TranscriptionErrorCode>,
-    /// Silero speech detection failed to load, so silence and noise reach Whisper unfiltered. Recognition still works.
+    /// Silero failed to load in the recognizer (silence and noise reach Whisper unfiltered) or, in a conversation, in
+    /// the release gate (turns end on loudness alone). Recognition still works; the next capture retries the load.
     speech_detection_error_code: Option<TranscriptionErrorCode>,
     error_code: Option<MicrophoneErrorCode>,
     latency: MicrophoneLatency,
@@ -434,7 +435,7 @@ impl CaptureState {
         self.vad_frames_processed = self.vad_frames_processed.saturating_add(dropped);
     }
 
-    /// The audio timeline: capture start plus every processed VAD frame.
+    /// The audio timeline: capture start plus every completed VAD frame, including ones dropped from the trace.
     ///
     /// The endpointer must see one clock. Wall time runs ahead of this timeline by device startup and callback
     /// buffering, and that lag would otherwise count as silence and end a turn while the user is still speaking.
@@ -657,7 +658,11 @@ impl CaptureState {
             transcription_phase: self.transcription_phase,
             transcript_segments: self.transcript_segments.clone(),
             transcription_error_code: self.transcription_error_code,
-            speech_detection_error_code: self.gate_vad_error.or(self.recognizer_vad_error),
+            // The gate only runs, and so only retries, in a conversation; push-to-talk must not show its stale error.
+            speech_detection_error_code: match self.mode {
+                MicrophoneMode::Conversation => self.gate_vad_error.or(self.recognizer_vad_error),
+                MicrophoneMode::PushToTalk => self.recognizer_vad_error,
+            },
             error_code: self.error_code,
             latency: self.latency.summary(),
             endpoint_reason: self.endpointer.finished(),

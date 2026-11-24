@@ -88,7 +88,10 @@ export type MicrophoneStatus = {
   transcriptionPhase: TranscriptionPhase;
   transcriptSegments: TranscriptSegment[];
   transcriptionErrorCode: TranscriptionErrorCode | null;
-  /** Silero speech detection failed to load (retried on the next capture), so silence may reach the recognizer. */
+  /**
+   * Silero failed to load (retried on the next capture): silence may reach the recognizer, and in a conversation turns
+   * end on loudness alone.
+   */
   speechDetectionErrorCode: TranscriptionErrorCode | null;
   errorCode: MicrophoneErrorCode | null;
   latency: MicrophoneLatency;

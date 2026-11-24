@@ -146,7 +146,10 @@ fn run_worker(
                 let Some(vad) = vad.value() else {
                     continue;
                 };
-                let speech = vad.speech_window(&window.samples_16k).ok().flatten();
+                // A failed inference is not silence: keep the last verdict and let it go stale.
+                let Ok(speech) = vad.speech_window(&window.samples_16k) else {
+                    continue;
+                };
                 let window_ms = sample_window_ms(window.samples_16k.len());
                 let window_start_ms = window.window_end_ms.saturating_sub(window_ms);
                 let last_speech_end_ms = speech

@@ -16,6 +16,7 @@ describe("native microphone runtime contract", () => {
       correction,
       voiceActivity,
       transcription,
+      pinnedAssets,
       capability,
       cargoManifest,
       runtimeAssets,
@@ -27,6 +28,7 @@ describe("native microphone runtime contract", () => {
       readFile(new URL("../src-tauri/src/microphone/correction.rs", import.meta.url), "utf8"),
       readFile(new URL("../src-tauri/src/microphone/vad.rs", import.meta.url), "utf8"),
       readFile(new URL("../src-tauri/src/microphone/transcription.rs", import.meta.url), "utf8"),
+      readFile(new URL("../src-tauri/src/microphone/pinned_assets.rs", import.meta.url), "utf8"),
       readFile(new URL("../src-tauri/capabilities/default.json", import.meta.url), "utf8"),
       readFile(new URL("../src-tauri/Cargo.toml", import.meta.url), "utf8"),
       readFile(new URL("../runtime-assets.json", import.meta.url), "utf8"),
@@ -60,7 +62,7 @@ describe("native microphone runtime contract", () => {
     expect(transcription).toContain("MAX_TRANSCRIPT_TEXT_BYTES");
     expect(transcription).toContain("is_corrected");
     expect(transcription).toContain("WhisperContext");
-    expect(transcription).toContain("verify_model_reader");
+    expect(pinnedAssets).toContain("verify_model_reader");
     expect(transcription).toContain("install_logging_hooks");
     expect(runtimeAssets).toContain('"whisperTinyQ5"');
     expect(runtimeAssets).toContain('"ggml-tiny-q5_1.bin"');

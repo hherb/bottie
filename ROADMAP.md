@@ -4,7 +4,8 @@ This roadmap favors complete vertical slices over building every backend subsyst
 
 ## Current focus (2026-11-25)
 
-- Open PRs: #243 (CI ONNX Runtime mirror, ready to merge), #244 (draft voice-mode docs), and #238/#239 fixes.
+- Open PRs: #243 (CI ONNX Runtime mirror, ready to merge), #244 (draft voice-mode docs), and #245 (#238, #239).
+  Follow-ups: #246 (`CaptureState` split), #247 (unreported Silero inference failures and dropped frames).
 - `FIX_BOTTIE.md` items 9, 10, 14 and 19 need Linux, the DGX or the running app. Doable here: #240, #232, #234,
   #235, then the follow-up audit listed in `FIX_BOTTIE.md`.
 - `mlx_worker.py` changed (audit item 4). The frozen Mac Qwen-Image-2512 worker bundle (8.4) and the Linux clean-runtime
