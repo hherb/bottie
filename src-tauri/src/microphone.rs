@@ -7,6 +7,7 @@ mod correction;
 mod devices;
 pub(crate) mod endpointing;
 pub(crate) mod latency;
+mod pinned_assets;
 mod transcription;
 mod vad;
 mod vad_gate;

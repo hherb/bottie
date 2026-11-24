@@ -11,7 +11,7 @@ use std::{
 
 use whisper_rs::{WhisperVadContext, WhisperVadContextParams, WhisperVadParams};
 
-use super::transcription::{TranscriptionErrorCode, prepare_pinned_vad_model};
+use super::{pinned_assets::prepare_pinned_vad_model, transcription::TranscriptionErrorCode};
 
 const VAD_RUNTIME_THREADS: i32 = 1;
 const VAD_THRESHOLD: f32 = 0.5;
