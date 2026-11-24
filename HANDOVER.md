@@ -5,7 +5,7 @@ Last verified: 2026-11-25 (branch `fix/issues-238-239-242`).
 ## Start here
 
 1. Check the PR list first. As of 2026-11-25: PRs up to #241 are merged. Open: #243 (CI ONNX Runtime mirror, CI
-   green, ready to merge), #244 (draft, voice-mode research docs, never PR'd before), and this session's PR (#238,
+   green, ready to merge), #244 (draft, voice-mode research docs, never PR'd before), and #245 (#238,
    #239). Three commits went straight onto `main` after #241 (natural speech chunks queued without gaps, 8737bd3 and
    4a7c442; Silero release gate, 6956041); land later work through PRs.
 2. **Next items.** None of the four open `FIX_BOTTIE.md` items can be done on this Mac alone:
