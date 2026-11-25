@@ -228,7 +228,8 @@ pub(crate) fn serve_sequence(
 }
 
 /// Answers a fixture server the client may never have reached, so `join` returns at once instead of
-/// waiting out the accept timeout. Does nothing when the server already served its response.
+/// waiting out the accept timeout. When the server already served, this returns once its thread ends.
+/// Only for `serve`: on `serve_sequence` the release request would consume the next response.
 pub(crate) fn release_unused_server(url: &str) {
     let address = url
         .trim_start_matches("http://")
@@ -240,9 +241,9 @@ pub(crate) fn release_unused_server(url: &str) {
         return;
     };
     // Send a whole request and drain the reply, so the server's writes never meet a closed socket.
-    stream
-        .write_all(b"GET / HTTP/1.1\r\n\r\n")
-        .expect("release request should be sent");
+    // Both may fail with a reset when a server that already served drops its listener; `join` reports
+    // any real server failure.
+    let _ = stream.write_all(b"GET / HTTP/1.1\r\n\r\n");
     let _ = stream.read_to_end(&mut Vec::new());
 }
 

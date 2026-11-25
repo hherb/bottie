@@ -12,7 +12,8 @@ Last verified: 2026-11-26 (branch `fix/issues-254-255-256`).
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #247, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
+   Doable here: #259 (an expired complete snapshot is pruned when its check errors), #258, #260, #240 (voice test
+   gaps), #247, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
    #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
@@ -37,10 +38,10 @@ Last verified: 2026-11-26 (branch `fix/issues-254-255-256`).
 - **#255:** a failed automatic backup names its step and cause in diagnostics
   (`StorageError::automatic_backup_during`). Folder creation, folder listing and the rename into place carry the
   `io::ErrorKind`. A failed snapshot write carries the inner (path-free) `StorageError` message. That message is still
-  generic, because `write_verified_backup` maps its SQLite errors away; this is shared with manual backup.
+  generic, because `write_verified_backup` maps its SQLite errors away; this is shared with manual backup (#258).
 - **#254:** when a restore replaces the data but reloading it fails, `ConversationState.restoreReloadFailed` is set and
   the note adds "Relaunch Bottie to check again". `RecoveryState.restore` then sets `recheckFailed`, which locks both
-  restore buttons, as #253 did for a failed re-check.
+  restore buttons, as #253 did for a failed re-check. The normal-mode restore still keeps the stale view (#260).
 - **#256:** the flake was not a missed cancel window. `Transport` comes only from `send()` failing, so the fixture
   server had stopped listening: its 3 s accept timeout ran out during fsync-heavy setup under load. Reproduced with a
   3.2 s setup delay. The accept timeout is now 30 s (a hang guard only). The one test whose client may never connect
@@ -136,7 +137,7 @@ and git history.
 
 ## Validation (2026-11-26)
 
-- Rust: `cargo test` passes 925 library tests (42 ignored; 926 with `--features local-image-runtime-proof`) plus the
+- Rust: `cargo test` passes 926 library tests (42 ignored; 927 with `--features local-image-runtime-proof`) plus the
   updater, adapter and transport suites. `cargo fmt` is clean. `cargo clippy --all-targets` prints 71 `warning:` lines,
   the same as `main` (style lints, none new).
 - Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1226),
@@ -144,7 +145,7 @@ and git history.
   `conversation-state.svelte.ts` (581), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
   (518). Split each one when you next touch it. `conversation-state` was touched for #254 without a split: its
   helpers are already extracted, and splitting the reactive class is its own refactor.
-- Frontend: `npm test` passes 539 tests; `npm run check` is clean.
+- Frontend: `npm test` passes 540 tests; `npm run check` is clean.
 - Python: `local-image-worker` was not touched (121 tests passed on 2026-10-29).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 

@@ -364,7 +364,7 @@ export class ConversationState {
       const reloadError = this.storageError as StorageError | null;
       this.restoreReloadFailed = reloadError !== null;
       const reloadNote = reloadError
-        ? ` · Reloading the restored data failed: ${reloadError.message} Relaunch Bottie to check again.`
+        ? ` · Reloading the restored data failed: ${reloadError.message.replace(/\.$/, "")}. Relaunch Bottie to check again.`
         : "";
       const backupName = outcome.fileName ?? "local data";
       const preservedName = outcome.preservedCopyName ?? "preserved local data";

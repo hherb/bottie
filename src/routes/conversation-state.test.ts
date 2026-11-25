@@ -218,6 +218,24 @@ describe("ConversationState.restoreBackup", () => {
     );
   });
 
+  it("ends a raw reload error with one period before the relaunch hint", async () => {
+    storage.restoreConversationStore.mockResolvedValue({
+      status: "restored",
+      fileName: "backup.sqlite3",
+      preservedCopyName: "preserved.sqlite3",
+      missingFiles: 0,
+      missingFilesUnchecked: false,
+      backgroundWorkStopped: false,
+    });
+    storage.listConversations.mockRejectedValue(new Error("bridge down"));
+    storage.loadLastOpenConversation.mockResolvedValue(null);
+    const state = new ConversationState();
+
+    expect(await state.restoreBackup()).toBeNull();
+
+    expect(state.backupFeedback).toContain("Reloading the restored data failed: bridge down. Relaunch Bottie");
+  });
+
   it("clears the reload-failure flag when a later restore is cancelled before replacing data", async () => {
     storage.restoreConversationStore.mockResolvedValue({ status: "cancelled" });
     const state = new ConversationState();

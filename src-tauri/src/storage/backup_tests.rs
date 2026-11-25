@@ -596,6 +596,38 @@ fn a_failed_automatic_backup_names_the_step_and_its_io_cause() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn a_failed_automatic_snapshot_write_names_its_step_and_leaves_no_staging() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let live_path = tests::test_database_path();
+    let store =
+        ConversationStore::initialize(live_path.clone()).expect("storage should initialize");
+    let folder = live_path.with_file_name("automatic-backups");
+    fs::create_dir_all(&folder).expect("backup folder should be created");
+    // A read-only folder still lists, so only writing the snapshot into it fails.
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o555)).expect("lock folder");
+    if fs::write(folder.join("probe"), b"").is_ok() {
+        // Root ignores directory permissions, so the write cannot be made to fail.
+        return;
+    }
+
+    let error = store
+        .rotate_automatic_backups_at(24 * 60 * 60 * 1_000)
+        .expect_err("rotation cannot write into a read-only folder");
+
+    fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).expect("unlock folder");
+    assert_eq!(
+        error.message,
+        "Bottie could not update its automatic local backups (writing the snapshot: Bottie could not save the local data backup)."
+    );
+    assert_eq!(
+        fs::read_dir(&folder).expect("folder should list").count(),
+        0
+    );
+}
+
 /// Lists only automatic snapshots recognized by Bottie's filename contract.
 fn automatic_backup_paths(live_path: &std::path::Path) -> Vec<std::path::PathBuf> {
     let directory = live_path
