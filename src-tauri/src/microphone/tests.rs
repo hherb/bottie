@@ -1,4 +1,5 @@
 use super::capture::error_code;
+use super::transcription::RawTranscriptSegment;
 use super::vad::MAX_VOICE_SEGMENTS;
 use super::*;
 use cpal::ErrorKind;
