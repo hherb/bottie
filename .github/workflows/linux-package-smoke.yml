@@ -86,6 +86,10 @@ jobs:
           npm test -- scripts/linux-distribution.test.mjs
           npm run package:linux:distribution:test:integration
 
+      # The default build never compiles these feature-gated bins, so they drifted silently once (#249).
+      - name: Check feature-gated local image bins
+        run: cargo check --manifest-path src-tauri/Cargo.toml --locked --all-targets --features local-image-runtime-proof
+
       - name: Build, inspect, and smoke-test unsigned DEB
         run: dbus-run-session -- xvfb-run --auto-servernum npm run package:linux:smoke
 

@@ -43,7 +43,7 @@ pub(crate) fn provider_for_model(id: &str) -> &'static str {
     if is_moss_model(id) {
         PROVIDER_ID
     } else {
-        crate::image_generation::QWEN_IMAGE_PROVIDER_ID
+        super::backend::QWEN_IMAGE_PROVIDER_ID
     }
 }
 

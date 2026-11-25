@@ -1,31 +1,11 @@
-//! Failure-boundary coverage for MOSS identity, layout requests, and bounded private output.
+//! Failure-boundary coverage for MOSS identity and bounded private output.
 use super::*;
 
+// Layout-request validation lives with `ImageGenerationRequest` in `image_generation/tests.rs`,
+// so this tree stays free of crate-root modules the feature-gated bins do not compile (#249).
 #[test]
-fn moss_layout_request_and_provenance_are_model_specific() {
+fn moss_provenance_is_model_specific() {
     let model = "mlx-community/MOSS-Image-SFT-bf16";
-    let text = "layout ".repeat(500);
-    let request = crate::image_generation::ImageGenerationRequest::new_local_for_model(
-        &text, 1792, 1008, 1, model,
-    )
-    .unwrap();
-    assert_eq!(request.prompt(), text.trim());
-    assert!(
-        crate::image_generation::ImageGenerationRequest::new_local_for_model(
-            &text,
-            1792,
-            1008,
-            1,
-            "unknown/model",
-        )
-        .is_err()
-    );
-    assert!(
-        crate::image_generation::ImageGenerationRequest::new_local_for_model(
-            "hello", 2048, 1152, 1, model,
-        )
-        .is_err()
-    );
     assert_eq!(provider_for_model(model), "moss-image");
     assert_eq!(provider_for_model("Qwen/Qwen-Image-2512"), "qwen-image");
 }

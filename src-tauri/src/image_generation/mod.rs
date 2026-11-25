@@ -36,8 +36,9 @@ pub(crate) use download::GeneratedImageDownloader;
 pub(crate) use local::LocalImageGenerator;
 pub(crate) use runs::{IdleImageRuns, ImageGenerationRuns};
 
-/// Stable Bottie provider identity for the hosted Qwen Image route.
-pub(crate) const QWEN_IMAGE_PROVIDER_ID: &str = "qwen-image";
+/// Stable Bottie provider identity for Qwen Image, hosted or local, owned by the worker tree so the
+/// feature-gated worker bins can compile it without this module.
+pub(crate) use crate::local_image_worker::backend::QWEN_IMAGE_PROVIDER_ID;
 /// Pinned exact Qwen-Image-2.0 snapshot used instead of the mutable provider alias.
 pub(crate) const DASHSCOPE_QWEN_IMAGE_MODEL_ID: &str = "qwen-image-2.0-2026-03-03";
 /// Maximum image count documented for one Qwen-Image-2.0 request.
