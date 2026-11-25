@@ -4,17 +4,16 @@ Last verified: 2026-11-25 (branch `refactor/capture-state-split-246`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-11-25, PRs up to #245 are merged and the `CaptureState` split (#246) is in
-   review. Land all work through PRs.
+1. Check the PR list first. As of 2026-11-25, PRs up to #245 and #251 are merged. Open: #248 (`CaptureState`
+   split, #246) and #250 (#232, #234). Land all work through PRs.
 2. **Next items.** None of the four open `FIX_BOTTIE.md` items can be done on this Mac alone:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #247, #232, #234, #235, and the follow-up audit
-   in `FIX_BOTTIE.md` "Not audited yet". #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if
-   it shows up in practice.
+   Doable here: #240 (voice test gaps), #247, #235, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
+   #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
    Bluetooth input, to check endpoint timing, word loss under a slow first `speak`, and the new Silero gate. #237
