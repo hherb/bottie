@@ -7,6 +7,10 @@
     isRestoring: boolean;
     feedback: string | null;
     failed: boolean;
+    /** The restore went through but left something to check, such as missing files; shown in amber. */
+    warning?: boolean;
+    /** The data was replaced but not confirmed, so restore stays off until Bottie relaunches. */
+    locked?: boolean;
     onrestoreautomatic: () => void;
     onrestoremanual: () => void;
   };
@@ -17,6 +21,8 @@
     isRestoring,
     feedback,
     failed,
+    warning = false,
+    locked = false,
     onrestoreautomatic,
     onrestoremanual,
   }: Props = $props();
@@ -47,7 +53,7 @@
             {automaticBackupCount === 1 ? " point" : " points"} available
           </small>
         </span>
-        <button type="button" disabled={isRestoring} onclick={onrestoreautomatic}>
+        <button type="button" disabled={isRestoring || locked} onclick={onrestoreautomatic}>
           {isRestoring ? "Restoring…" : "Restore latest"}
         </button>
       </div>
@@ -61,7 +67,7 @@
       </div>
     {/if}
 
-    <button class="manual-recovery" type="button" disabled={isRestoring} onclick={onrestoremanual}>
+    <button class="manual-recovery" type="button" disabled={isRestoring || locked} onclick={onrestoremanual}>
       Choose a manual backup…
     </button>
 
@@ -73,7 +79,14 @@
       </span>
     </p>
     {#if feedback}
-      <p class:error={failed} class="recovery-feedback" role={failed ? "alert" : "status"}>{feedback}</p>
+      <p
+        class:error={failed}
+        class:warning={warning && !failed}
+        class="recovery-feedback"
+        role={failed ? "alert" : "status"}
+      >
+        {feedback}
+      </p>
     {/if}
   </section>
 </main>

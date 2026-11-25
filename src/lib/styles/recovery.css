@@ -138,6 +138,9 @@
 .recovery-feedback.error {
   color: #d89a91;
 }
+.recovery-feedback.warning {
+  color: #e7b47f;
+}
 
 @media (max-width: 620px) {
   .recovery-screen {

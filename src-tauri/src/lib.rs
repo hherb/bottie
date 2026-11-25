@@ -231,18 +231,7 @@ fn schedule_automatic_backup(conversations: ConversationStore, diagnostics: Diag
             Err(error) => (0, None, Err(error)),
         };
         let (level, event, detail) = match rotation {
-            Ok(Ok(outcome)) if outcome.created => {
-                let (level, detail) = outcome.created_report();
-                (level, "Automatic backup created", detail)
-            }
-            Ok(Ok(outcome)) => (
-                "info",
-                "Automatic backups current",
-                format!(
-                    "{} verified snapshot(s) retained; snapshots run at most once every 24 hours",
-                    outcome.retained
-                ),
-            ),
+            Ok(Ok(outcome)) => outcome.report(),
             Ok(Err(error)) => ("error", "Automatic backup failed", error.message),
             Err(_) => (
                 "error",
