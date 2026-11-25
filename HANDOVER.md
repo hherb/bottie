@@ -1,20 +1,20 @@
 # Bottie handover
 
-Last verified: 2026-11-25 (branch `refactor/capture-state-split-246`).
+Last verified: 2026-11-25 (branch `fix/issues-232-234`, stacked on #248).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-11-25, PRs up to #245 are merged and the `CaptureState` split (#246) is in
-   review. Land all work through PRs.
+1. Check the PR list first. As of 2026-11-25, PRs up to #245 are merged. In review: #248 (`CaptureState` split,
+   #246) and, stacked on it, the #232/#234 PR; merge #248 first. Land all work through PRs.
 2. **Next items.** None of the four open `FIX_BOTTIE.md` items can be done on this Mac alone:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #247, #232, #234, #235, and the follow-up audit
-   in `FIX_BOTTIE.md` "Not audited yet". #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if
-   it shows up in practice.
+   Doable here: #240 (voice test gaps), #247, #235, #249 (feature-gated image bins no longer compile), and the
+   follow-up audit in `FIX_BOTTIE.md` "Not audited yet". #226's last bullet (spawners outside `SPAWN_LOCK`) is only
+   worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
    Bluetooth input, to check endpoint timing, word loss under a slow first `speak`, and the new Silero gate. #237
@@ -32,6 +32,13 @@ Last verified: 2026-11-25 (branch `refactor/capture-state-split-246`).
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-11-25 (#232, #234): the local image execution boundary keeps its causes. `ModelUnavailable`,
+`GenerationFailed` and `ShutdownFailed` carry the cache or transport error, and `InvalidLayout` and `InvalidOutput`
+carry the shutdown failure when the worker then refuses to stop. A cancel that did not end cleanly still reads as
+cancelled, but it is logged at `warn` with its cause (`CancelledAfterFault`). A failed cancel never leaves a live
+worker behind: the transport tears down and the session is replaced. `runtime.shutdown()` no longer reports a
+false `ShutdownFailed` for a worker that already stopped.
 
 2026-11-25 (#246): `CaptureState` and its impl moved verbatim to `microphone/capture_state.rs`, with `pub(super)` on
 its fields and methods. `microphone.rs` went from 713 to 326 lines; the test count is unchanged (919).
@@ -101,7 +108,7 @@ and git history.
 
 ## Validation (2026-11-25)
 
-- Rust: `cargo test` passes 919 library tests (42 ignored) plus the updater, adapter and transport suites. `cargo fmt`
+- Rust: `cargo test` passes 921 library tests (42 ignored) plus the updater, adapter and transport suites. `cargo fmt`
   is clean. `cargo clippy --all-targets` prints 71 `warning:` lines, the same as `main` (style lints, none new).
 - Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1237),
   `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212),
