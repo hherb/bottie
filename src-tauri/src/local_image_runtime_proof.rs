@@ -15,8 +15,14 @@ use image::GenericImageView;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+// Each bin uses only a slice of the shared worker tree, which the library build lints in full.
+#[allow(dead_code, unused_imports)]
 #[path = "local_image_worker.rs"]
 mod local_image_worker;
+// The worker tree starts its workers with the minimal environment (FIX_BOTTIE item 5).
+#[allow(dead_code)]
+#[path = "worker_env.rs"]
+mod worker_env;
 
 use local_image_worker::{
     manager::ManagerEvent,

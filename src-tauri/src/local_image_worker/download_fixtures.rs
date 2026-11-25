@@ -18,9 +18,9 @@ use crate::local_image_worker::{
     model_download::{ModelDownloadLimits, ModelFileSource, ModelSourcePlan},
 };
 
-pub(super) const MODEL_BYTES: &[u8] = b"weights";
+pub(crate) const MODEL_BYTES: &[u8] = b"weights";
 pub(crate) const SOURCE_REVISION: &str = "0123456789abcdef0123456789abcdef01234567";
-pub(super) const SOURCE_ETAG: &str = "\"fixture-weights-v1\"";
+pub(crate) const SOURCE_ETAG: &str = "\"fixture-weights-v1\"";
 const FIXTURE_ACCEPT_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(Clone)]
@@ -36,7 +36,7 @@ fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-pub(super) fn manifest() -> ModelPackageManifest {
+pub(crate) fn manifest() -> ModelPackageManifest {
     ModelPackageManifest {
         model_id: "Qwen/Qwen-Image-2512".into(),
         package_id: "AbstractFramework/qwen-image-2512-4bit".into(),
@@ -53,11 +53,11 @@ pub(super) fn manifest() -> ModelPackageManifest {
     }
 }
 
-pub(super) fn source_plan(root: &str) -> ModelSourcePlan {
+pub(crate) fn source_plan(root: &str) -> ModelSourcePlan {
     source_plan_with_etag(root, SOURCE_ETAG)
 }
 
-pub(super) fn source_plan_with_etag(root: &str, etag: &str) -> ModelSourcePlan {
+pub(crate) fn source_plan_with_etag(root: &str, etag: &str) -> ModelSourcePlan {
     ModelSourcePlan::for_loopback_fixture(
         manifest(),
         root,
@@ -70,7 +70,7 @@ pub(super) fn source_plan_with_etag(root: &str, etag: &str) -> ModelSourcePlan {
     .expect("fixture source plan should be valid")
 }
 
-pub(super) fn hugging_face_source_plan(root: &str) -> ModelSourcePlan {
+pub(crate) fn hugging_face_source_plan(root: &str) -> ModelSourcePlan {
     ModelSourcePlan::for_loopback_hugging_face_fixture(
         manifest(),
         root,
@@ -83,13 +83,13 @@ pub(super) fn hugging_face_source_plan(root: &str) -> ModelSourcePlan {
     .expect("fixture Hugging Face source plan should be valid")
 }
 
-pub(super) fn approved_acquisition() -> ModelAcquisition {
+pub(crate) fn approved_acquisition() -> ModelAcquisition {
     let mut acquisition = ModelAcquisition::new(manifest()).unwrap();
     acquisition.begin_download().unwrap();
     acquisition
 }
 
-pub(super) fn limits(file_timeout: Duration) -> ModelDownloadLimits {
+pub(crate) fn limits(file_timeout: Duration) -> ModelDownloadLimits {
     ModelDownloadLimits::for_fixture(
         Duration::from_secs(1),
         file_timeout,
@@ -109,7 +109,7 @@ pub(crate) fn temp_cache(name: &str) -> PathBuf {
     root
 }
 
-pub(super) fn block_on<T>(future: impl Future<Output = T>) -> T {
+pub(crate) fn block_on<T>(future: impl Future<Output = T>) -> T {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -178,7 +178,7 @@ pub(crate) fn serve(
     (format!("http://{address}/models/"), request_text, server)
 }
 
-pub(super) fn serve_sequence(
+pub(crate) fn serve_sequence(
     responses: Vec<FixtureResponse>,
 ) -> (String, Arc<Mutex<Vec<String>>>, thread::JoinHandle<()>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("fixture listener should bind");

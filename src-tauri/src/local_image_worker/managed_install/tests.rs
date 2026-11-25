@@ -2,7 +2,7 @@
 
 use super::*;
 
-use crate::local_image_worker_model_download_tests::fixtures;
+use crate::local_image_worker::download_fixtures as fixtures;
 
 use crate::local_image_worker::{
     model_acquisition::{ModelFileContract, ModelPackageManifest},

@@ -5,6 +5,9 @@ use super::{
     server::{IMAGE_PACKAGE_ID, LocalImageServer},
 };
 
+/// Stable Bottie provider identity for Qwen Image, hosted or local; `image_generation` re-exports it.
+pub(crate) const QWEN_IMAGE_PROVIDER_ID: &str = "qwen-image";
+
 /// One explicitly verified source for a local generation; paths remain in the worker variant.
 #[derive(Debug)]
 pub(crate) enum VerifiedLocalImageBackend {

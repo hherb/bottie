@@ -438,3 +438,15 @@ fn local_21_sizes_are_model_bound_and_disable_prompt_enhancement() {
             .is_err()
     );
 }
+
+#[test]
+fn moss_layout_requests_are_model_bound() {
+    let model = "mlx-community/MOSS-Image-SFT-bf16";
+    let text = "layout ".repeat(500);
+    let request = ImageGenerationRequest::new_local_for_model(&text, 1792, 1008, 1, model).unwrap();
+    assert_eq!(request.prompt(), text.trim());
+    assert!(
+        ImageGenerationRequest::new_local_for_model(&text, 1792, 1008, 1, "unknown/model").is_err()
+    );
+    assert!(ImageGenerationRequest::new_local_for_model("hello", 2048, 1152, 1, model).is_err());
+}

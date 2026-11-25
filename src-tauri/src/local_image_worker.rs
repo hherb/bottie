@@ -12,6 +12,11 @@ pub(crate) mod availability;
 pub(crate) mod availability_service;
 #[path = "local_image_worker/backend.rs"]
 pub(crate) mod backend;
+// Loopback download fixtures shared by the downloader and managed-install tests.
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "local_image_worker/download_fixtures.rs"]
+pub(crate) mod download_fixtures;
 #[allow(dead_code)]
 #[path = "local_image_worker/execution.rs"]
 pub(crate) mod execution;
