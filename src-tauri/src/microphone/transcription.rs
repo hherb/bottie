@@ -1,8 +1,6 @@
 //! Bounded local streaming speech recognition over session-only native PCM.
 
 use std::{
-    fs::File,
-    io::Read,
     path::PathBuf,
     sync::{
         Arc, Mutex,
@@ -11,19 +9,15 @@ use std::{
     thread,
 };
 
-use hf_hub::{
-    Repo, RepoType,
-    api::sync::{ApiBuilder, ApiRepo},
-};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use serde::Serialize;
 use whisper_rs::{
     FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, install_logging_hooks,
 };
 
 use super::{
     CaptureState, VoiceActivity, VoiceSegment, lock,
-    vad_silero::{SileroVad, lock_vad, speech_sample_bounds},
+    pinned_assets::prepare_pinned_model,
+    vad_silero::{LoadPerCapture, SileroVad, lock_vad, speech_sample_bounds},
 };
 
 /// Push-to-talk keeps the original cadence; the text is only used after the user stops capture.
@@ -34,7 +28,6 @@ pub(super) const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
 const MODEL_RUNTIME_THREADS: i32 = 2;
 pub(super) const MAX_TRANSCRIPT_SEGMENTS: usize = 32;
 pub(super) const MAX_TRANSCRIPT_TEXT_BYTES: usize = 4_000;
-const RUNTIME_ASSET_MANIFEST: &str = include_str!("../../../runtime-assets.json");
 
 /// Path-free lifecycle for local speech recognition.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize)]
@@ -185,8 +178,10 @@ impl TranscriptionWorker {
 
 struct WhisperTranscriber {
     context: WhisperContext,
-    /// Silero is an enhancement: when its asset is unavailable, recognition still runs over the whole snapshot.
-    vad: Option<Mutex<SileroVad>>,
+    /// Silero is an enhancement: when its asset is unavailable, recognition still runs over the whole snapshot. It
+    /// loads on the first job and a failed load is retried on the next capture ([`LoadPerCapture`]).
+    vad: Mutex<LoadPerCapture<SileroVad>>,
+    cache_dir: PathBuf,
 }
 
 impl WhisperTranscriber {
@@ -197,8 +192,16 @@ impl WhisperTranscriber {
         let context =
             WhisperContext::new_with_params(model_path, WhisperContextParameters::default())
                 .map_err(|_| TranscriptionErrorCode::RecognitionFailed)?;
-        let vad = SileroVad::load(cache_dir).ok().map(Mutex::new);
-        Ok(Self { context, vad })
+        Ok(Self {
+            context,
+            vad: Mutex::new(LoadPerCapture::default()),
+            cache_dir: cache_dir.clone(),
+        })
+    }
+
+    /// Loads Silero for this capture if it is missing; returns the attempt's result only when one was made.
+    fn prepare_vad(&self, capture_id: u64) -> Option<Result<(), TranscriptionErrorCode>> {
+        lock_vad(&self.vad).ensure(capture_id, || SileroVad::load(&self.cache_dir))
     }
 
     fn transcribe(
@@ -217,10 +220,9 @@ impl WhisperTranscriber {
                 .saturating_mul(1_000)
                 / u64::from(TARGET_SAMPLE_RATE_HZ),
         };
-        let window = match self
-            .vad
-            .as_ref()
-            .map(|vad| lock_vad(vad).speech_window(&audio))
+        let window = match lock_vad(&self.vad)
+            .value()
+            .map(|vad| vad.speech_window(&audio))
         {
             Some(Ok(Some(window))) => window,
             Some(Ok(None)) => return Ok(Vec::new()),
@@ -272,109 +274,12 @@ fn process_job(
     transcriber: &WhisperTranscriber,
     job: TranscriptionJob,
 ) {
+    if let Some(load) = transcriber.prepare_vad(job.capture_id) {
+        lock(shared).recognizer_vad_error = load.err();
+    }
     lock(shared).mark_transcribing(job.capture_id, job.generation);
     let result = transcriber.transcribe(&job);
     lock(shared).apply_transcription(job.capture_id, job.generation, job.is_final, result);
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RuntimeAssetManifest {
-    schema_version: u8,
-    whisper_tiny_q5: PinnedModelContract,
-    silero_vad_ggml: PinnedModelContract,
-}
-
-#[derive(Deserialize)]
-struct PinnedModelContract {
-    repository: String,
-    revision: String,
-    file: ModelFileContract,
-}
-
-#[derive(Deserialize)]
-struct ModelFileContract {
-    path: String,
-    sha256: String,
-    size: u64,
-}
-
-fn runtime_asset_contract() -> Result<RuntimeAssetManifest, TranscriptionErrorCode> {
-    let contract: RuntimeAssetManifest = serde_json::from_str(RUNTIME_ASSET_MANIFEST)
-        .map_err(|_| TranscriptionErrorCode::ModelIntegrity)?;
-    if contract.schema_version != 1 {
-        return Err(TranscriptionErrorCode::ModelIntegrity);
-    }
-    Ok(contract)
-}
-
-fn prepare_pinned_model(cache_dir: &PathBuf) -> Result<PathBuf, TranscriptionErrorCode> {
-    let contract = runtime_asset_contract()?;
-    prepare_pinned_contract(cache_dir, &contract.whisper_tiny_q5)
-}
-
-/// Returns the verified Silero VAD ggml model path, using the same gate as the recognition model.
-pub(super) fn prepare_pinned_vad_model(
-    cache_dir: &PathBuf,
-) -> Result<PathBuf, TranscriptionErrorCode> {
-    let contract = runtime_asset_contract()?;
-    prepare_pinned_contract(cache_dir, &contract.silero_vad_ggml)
-}
-
-fn prepare_pinned_contract(
-    cache_dir: &PathBuf,
-    contract: &PinnedModelContract,
-) -> Result<PathBuf, TranscriptionErrorCode> {
-    let api = ApiBuilder::new()
-        .with_cache_dir(cache_dir.clone())
-        .with_endpoint("https://huggingface.co".into())
-        .with_progress(false)
-        .build()
-        .map_err(|_| TranscriptionErrorCode::ModelUnavailable)?;
-    let repository = api.repo(Repo::with_revision(
-        contract.repository.clone(),
-        RepoType::Model,
-        contract.revision.clone(),
-    ));
-    verified_model_path(&repository, &contract.file)
-}
-
-fn verified_model_path(
-    repository: &ApiRepo,
-    expected: &ModelFileContract,
-) -> Result<PathBuf, TranscriptionErrorCode> {
-    let path = repository
-        .get(&expected.path)
-        .map_err(|_| TranscriptionErrorCode::ModelUnavailable)?;
-    let file = File::open(&path).map_err(|_| TranscriptionErrorCode::ModelUnavailable)?;
-    verify_model_reader(file, expected.size, &expected.sha256)?;
-    Ok(path)
-}
-
-fn verify_model_reader(
-    mut reader: impl Read,
-    expected_size: u64,
-    expected_sha256: &str,
-) -> Result<(), TranscriptionErrorCode> {
-    let mut hasher = Sha256::new();
-    let mut size = 0_u64;
-    let mut buffer = [0_u8; 64 * 1024];
-    loop {
-        let count = reader
-            .read(&mut buffer)
-            .map_err(|_| TranscriptionErrorCode::ModelUnavailable)?;
-        if count == 0 {
-            break;
-        }
-        size = size
-            .checked_add(count as u64)
-            .ok_or(TranscriptionErrorCode::ModelIntegrity)?;
-        hasher.update(&buffer[..count]);
-    }
-    if size != expected_size || format!("{:x}", hasher.finalize()) != expected_sha256 {
-        return Err(TranscriptionErrorCode::ModelIntegrity);
-    }
-    Ok(())
 }
 
 /// Applies strict text, count, ordering, and timing limits to untrusted recognizer output.
@@ -495,23 +400,6 @@ mod tests {
     }
 
     #[test]
-    fn verifies_model_bytes_and_rejects_size_or_digest_drift() {
-        let manifest: RuntimeAssetManifest = serde_json::from_str(RUNTIME_ASSET_MANIFEST).unwrap();
-        assert_eq!(manifest.schema_version, 1);
-        assert_eq!(manifest.whisper_tiny_q5.file.path, "ggml-tiny-q5_1.bin");
-        let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
-        assert_eq!(verify_model_reader(&b"abc"[..], 3, digest), Ok(()));
-        assert_eq!(
-            verify_model_reader(&b"abc"[..], 4, digest),
-            Err(TranscriptionErrorCode::ModelIntegrity)
-        );
-        assert_eq!(
-            verify_model_reader(&b"abd"[..], 3, digest),
-            Err(TranscriptionErrorCode::ModelIntegrity)
-        );
-    }
-
-    #[test]
     #[ignore = "downloads and executes Bottie's pinned local speech model"]
     fn live_pinned_model_loads_and_runs_a_bounded_native_snapshot() {
         let cache = std::env::temp_dir().join("bottie-live-speech-model");
@@ -533,6 +421,11 @@ mod tests {
             offset_ms: 0,
             end_ms: 5_000,
         };
+        assert_eq!(
+            transcriber.prepare_vad(job.capture_id),
+            Some(Ok(())),
+            "the pinned Silero model should load"
+        );
         let result = transcriber
             .transcribe(&job)
             .expect("local inference should complete");

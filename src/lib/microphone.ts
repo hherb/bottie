@@ -88,6 +88,11 @@ export type MicrophoneStatus = {
   transcriptionPhase: TranscriptionPhase;
   transcriptSegments: TranscriptSegment[];
   transcriptionErrorCode: TranscriptionErrorCode | null;
+  /**
+   * Silero failed to load (retried on the next capture): silence may reach the recognizer, and in a conversation turns
+   * end on loudness alone.
+   */
+  speechDetectionErrorCode: TranscriptionErrorCode | null;
   errorCode: MicrophoneErrorCode | null;
   latency: MicrophoneLatency;
 };
@@ -114,6 +119,7 @@ export const INITIAL_MICROPHONE_STATUS: MicrophoneStatus = {
   transcriptionPhase: "idle",
   transcriptSegments: [],
   transcriptionErrorCode: null,
+  speechDetectionErrorCode: null,
   errorCode: null,
   latency: { inputReadyMs: null, firstTranscriptMs: null, finalTranscriptMs: null },
 };
@@ -221,6 +227,7 @@ export function microphoneFeedback(status: MicrophoneStatus): string {
       "Recording locally",
       activity,
       `${formatMicrophoneDuration(status.durationMs)} of ${formatMicrophoneDuration(status.maxDurationMs)}`,
+      ...(status.speechDetectionErrorCode ? ["Silence filter unavailable"] : []),
     ].join(" · ");
   }
   if (status.phase === "captured") {

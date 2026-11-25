@@ -11,7 +11,7 @@ use std::{
 
 use whisper_rs::{WhisperVadContext, WhisperVadContextParams, WhisperVadParams};
 
-use super::transcription::{TranscriptionErrorCode, prepare_pinned_vad_model};
+use super::{pinned_assets::prepare_pinned_vad_model, transcription::TranscriptionErrorCode};
 
 const VAD_RUNTIME_THREADS: i32 = 1;
 const VAD_THRESHOLD: f32 = 0.5;
@@ -73,9 +73,51 @@ impl SileroVad {
 }
 
 /// Locks the VAD context, recovering from a poisoned lock instead of losing recognition silently.
-pub(super) fn lock_vad(vad: &Mutex<SileroVad>) -> MutexGuard<'_, SileroVad> {
+pub(super) fn lock_vad<T>(vad: &Mutex<T>) -> MutexGuard<'_, T> {
     vad.lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// An optional model whose failed load is retried once per capture instead of never.
+///
+/// Silero is an enhancement, so a failed load (a one-off download error, or a cached file that fails its integrity
+/// check) must not disable it for the whole process. Each new capture gets one more attempt; repeated calls within the
+/// same capture never retry, so a failing download is not hammered from a per-window loop.
+pub(super) struct LoadPerCapture<T> {
+    value: Option<T>,
+    attempted_for: Option<u64>,
+}
+
+impl<T> Default for LoadPerCapture<T> {
+    fn default() -> Self {
+        Self {
+            value: None,
+            attempted_for: None,
+        }
+    }
+}
+
+impl<T> LoadPerCapture<T> {
+    /// Loads the value if it is missing and this capture has not tried yet. Returns the attempt's result only when an
+    /// attempt was made, so the caller can report a failure (or clear an earlier one) exactly once per capture.
+    pub(super) fn ensure(
+        &mut self,
+        capture_id: u64,
+        load: impl FnOnce() -> Result<T, TranscriptionErrorCode>,
+    ) -> Option<Result<(), TranscriptionErrorCode>> {
+        if self.value.is_some() || self.attempted_for == Some(capture_id) {
+            return None;
+        }
+        self.attempted_for = Some(capture_id);
+        Some(load().map(|value| {
+            self.value = Some(value);
+        }))
+    }
+
+    /// The loaded value, if any attempt has succeeded.
+    pub(super) fn value(&mut self) -> Option<&mut T> {
+        self.value.as_mut()
+    }
 }
 
 /// Joins every detected segment into the single span a recognizer should transcribe.
@@ -120,6 +162,31 @@ fn centiseconds_to_milliseconds(value: f64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_load_is_retried_once_per_new_capture() {
+        let mut model = LoadPerCapture::<u8>::default();
+        let mut attempts = 0;
+        let failing = |attempts: &mut i32| {
+            *attempts += 1;
+            Err(TranscriptionErrorCode::ModelIntegrity)
+        };
+        assert_eq!(
+            model.ensure(1, || failing(&mut attempts)),
+            Some(Err(TranscriptionErrorCode::ModelIntegrity))
+        );
+        // The same capture never retries, so a per-window caller cannot hammer a failing download.
+        assert_eq!(model.ensure(1, || failing(&mut attempts)), None);
+        assert_eq!(attempts, 1);
+        assert!(model.value().is_none());
+        // The next capture tries again, and a success is reported once and then kept.
+        assert_eq!(model.ensure(2, || Ok(7)), Some(Ok(())));
+        assert_eq!(model.value(), Some(&mut 7));
+        assert_eq!(
+            model.ensure(3, || panic!("a loaded model is not reloaded")),
+            None
+        );
+    }
 
     #[test]
     fn merges_segments_into_one_contiguous_span() {

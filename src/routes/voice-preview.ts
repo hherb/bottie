@@ -116,6 +116,7 @@ export function applyVoicePreview(state: PageState, search: string): boolean {
       { text: "Then review the compact layout.", startMs: 9_700, endMs: 12_300, isFinal: true, isCorrected: false },
     ],
     transcriptionErrorCode: null,
+    speechDetectionErrorCode: null,
     errorCode: null,
     latency: { inputReadyMs: 18, firstTranscriptMs: 1_725, finalTranscriptMs: 245 },
   };

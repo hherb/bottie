@@ -2,12 +2,12 @@
 
 This roadmap favors complete vertical slices over building every backend subsystem in isolation. Each milestone should leave the desktop application usable and preserve the Rust/WebView security boundary.
 
-## Current focus (2026-10-31)
+## Current focus (2026-11-25)
 
-- `FIX_BOTTIE.md` audit list: all items done except 9 (Linux check), 10 (DGX hash lock), 14 (runtime link check), and
-  19 (low priority). Then run the follow-up audit it lists. PRs up to #229 are merged (fixing #228 and part of #226);
-  PR #233 fixes #230 and #231, with follow-ups #232, #234 and #235 open. #226's last bullet (spawners outside
-  `SPAWN_LOCK`) waits until it is seen in practice.
+- Open PRs: #243 (CI ONNX Runtime mirror, ready to merge), #244 (draft voice-mode docs), and #245 (#238, #239).
+  Follow-ups: #246 (`CaptureState` split), #247 (unreported Silero inference failures and dropped frames).
+- `FIX_BOTTIE.md` items 9, 10, 14 and 19 need Linux, the DGX or the running app. Doable here: #240, #232, #234,
+  #235, then the follow-up audit listed in `FIX_BOTTIE.md`.
 - `mlx_worker.py` changed (audit item 4). The frozen Mac Qwen-Image-2512 worker bundle (8.4) and the Linux clean-runtime
   image and closure evidence (8.4) predate it, so rebuild and re-pin both before relying on them.
 
@@ -237,6 +237,16 @@ transcript correction and text fallback, OS text-to-speech, barge-in through the
 off-by-default audio delivery and retention, latency status, and durable input-device selection.
 
 - [ ] acoustic echo cancellation or general system-feedback processing, if later evidence justifies native DSP.
+
+### Hands-free conversation mode
+
+Research and plan: `docs/voice-mode-*` (PR #244, draft). Phase 0 merged in PR #241 (2026-11-07). On `main` since:
+natural speech chunks queued without inter-chunk gaps (8737bd3, 4a7c442) and an off-thread Silero release gate
+(6956041).
+
+- [ ] real-device run, especially Bluetooth input: endpoint timing and word loss under a slow first `speak`;
+- [x] Silero load failures reported and retried (#238); dropped VAD frames counted on the frame clock (#239);
+- [ ] open follow-ups: #237 (stream recovery reports success; needs a real device), #240 (test gaps).
 
 ### Optional neural speech evaluation — MOSS-TTS-Nano
 

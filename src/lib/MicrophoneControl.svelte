@@ -113,7 +113,11 @@
     voiceStatus.phase === "thinking" || voiceStatus.phase === "speaking" || voiceStatus.phase === "finalizing",
   );
   const conversationGate = $derived(voiceMicrophoneGateFeedback(voiceStatus));
-  const conversationActivity = $derived(voiceCaptureActivityFeedback(voiceStatus, status.voiceActivity));
+  const conversationActivity = $derived.by(() => {
+    const activity = voiceCaptureActivityFeedback(voiceStatus, status.voiceActivity);
+    // Without Silero the turn ends on loudness alone, so say so where the listening state is shown.
+    return activity && status.speechDetectionErrorCode ? `${activity} · silence filter unavailable` : activity;
+  });
   // Exactly one fixed-height detail line keeps the composer card from growing and shrinking while a turn runs.
   const conversationDetail = $derived(
     voiceError !== null

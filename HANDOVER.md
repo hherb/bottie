@@ -1,45 +1,59 @@
 # Bottie handover
 
-Last verified: 2026-11-07 (review fixes on branch `feat/voice-mode-phase0`).
+Last verified: 2026-11-25 (branch `fix/issues-238-239-242`).
 
 ## Start here
 
-0. **2026-11-07 (branch `feat/kastellan-session`): `@kastellan:` requests run through `kastellan-cli session`**, one
-   per request (`src-tauri/src/kastellan/session.rs` pure protocol, `session_run.rs` runner): live progress lines in
-   the waiting response (`KastellanProgress.svelte`, transient), Stop and Correct (`stop_kastellan_task`,
-   `correct_kastellan_task`, by run id). Needs a Kastellan with `session` (kastellan PR #986+; deployed on the DGX
-   2026-11-07; the Mac's install predates it). Live round trip to the DGX passed (task 386). Not yet clicked through in
-   the running app; do that before relying on the UI.
-
-1. Check the PR list first. As of 2026-10-31, PRs up to #229 are merged. PR #233 (`fix/issues-230-231`) fixes #230
-   and #231 plus its review findings. Open follow-ups: #232 and #234 (local image worker causes), #235 (backup and
-   recovery diagnostics).
-2. **Next items:** the four open `FIX_BOTTIE.md` items. Each needs something this Mac session could not provide:
+1. Check the PR list first. As of 2026-11-25: PRs up to #241 are merged. Open: #243 (CI ONNX Runtime mirror, CI
+   green, ready to merge), #244 (draft, voice-mode research docs, never PR'd before), and #245 (#238,
+   #239). Three commits went straight onto `main` after #241 (natural speech chunks queued without gaps, 8737bd3 and
+   4a7c442; Silero release gate, 6956041); land later work through PRs.
+2. **Next items.** None of the four open `FIX_BOTTIE.md` items can be done on this Mac alone:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
-   - #226 remainder: other spawners (Python, Nano, Kastellan) can still inherit pipe ends on macOS (see `SPAWN_LOCK`
-     in `local_image_worker/transport.rs`). Only worth a crate-wide spawn helper if it shows up.
-   Then run the follow-up audit listed under "Not audited yet".
-3. **Hands-free voice conversation mode** (`feat/voice-mode-phase0`): phase 0 is built and its review findings are
-   fixed (see "Audit fixes done", 2026-11-07). Open follow-ups: #237 (output stream recovery reports success), #238
-   (Silero load failure is silent), #239 (frame clock and dropped VAD frames), #240 (test gaps and edge cases). Still
-   owed: a real-device run, especially with Bluetooth input, to check endpoint timing and word loss under a slow
-   first `speak`.
-4. Owed hardware re-checks (cannot run in a normal session):
+
+   Doable here: #240 (voice test gaps), #246 (`CaptureState` split), #247, #232, #234, #235, and the follow-up audit
+   in `FIX_BOTTIE.md` "Not audited yet". #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if
+   it shows up in practice.
+
+3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
+   Bluetooth input, to check endpoint timing, word loss under a slow first `speak`, and the new Silero gate. #237
+   (stream recovery reports success) needs that device too.
+4. **Kastellan:** `@kastellan:` runs through `kastellan-cli session` (#236). It has not been clicked through in the
+   running app yet; do that before relying on the UI.
+5. Owed hardware re-checks (cannot run in a normal session):
    - Re-run the MOSS MLX (Mac) and CUDA (DGX) proofs to confirm item 5's minimal worker environment strips nothing a
      runtime needs (`docs/moss-image-local.md`).
-   - Item 4 changed `mlx_worker.py`, but both shipped forms of it are frozen builds of the old bytes. Until each is
-     rebuilt and re-pinned, the fix reaches no user:
-     - the Mac managed Qwen-Image-2512 worker, a PyInstaller bundle pinned by executable/bundle hash in
-       `model_package.rs` (`docs/local-image-model-package.md`);
+   - Item 4 changed `mlx_worker.py`, but both shipped builds of it are frozen from the old bytes. Until each is rebuilt
+     and re-pinned, the fix reaches no user:
+     - the Mac managed Qwen-Image-2512 worker, a PyInstaller bundle pinned by hash in `model_package.rs`
+       (`docs/local-image-model-package.md`);
      - the Linux clean-runtime image (`sha256:740816cb…`) and its closure record. Their source pins now name the new
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
 
+2026-11-25 (issues #238, #239; #242 closed as already fixed by #236):
+
+- **#238:** `vad_silero::LoadPerCapture` retries a failed Silero load once per new capture, both in the recognizer
+  (`WhisperTranscriber::prepare_vad`, lazily on the first job) and in the release gate. Each worker keeps its own last
+  failure. `MicrophoneStatus.speechDetectionErrorCode` reports the gate's failure (conversation mode only), or else
+  the recognizer's. Push-to-talk recording feedback adds "Silence filter unavailable", and the conversation listening
+  line adds "silence filter unavailable". A cached model that fails its digest is deleted
+  (`pinned_assets::verify_cached_file`), so the retry downloads it again; hf-hub never re-fetches a cached file. A
+  gate inference error keeps the last verdict instead of reading as silence. Not yet reported to the user: inference
+  failures after a successful load, and dropped VAD frames (#247).
+- **#239:** `VoiceActivityDetector` counts the frames it drops from a callback over 64 frames (1.28 s).
+  `take_frame_activities` returns that count, and the capture path adds it to the frame clock.
+- The pinned-model gate moved verbatim to `microphone/pinned_assets.rs` (`transcription.rs` went from 558 to 434
+  lines).
+- #242 (`interpret_output` parking-line forgery) no longer applies: #236 removed that path, and a parked task now
+  arrives as the typed `task.awaiting_operator` notification.
+
 2026-11-07 (review of `feat/voice-mode-phase0`):
+
 - **Streaming speech** (`speech/streaming.rs`): the 4-slot `try_send` queue dropped words, and could lose Interrupt
   and Shutdown and hang `Drop`. It is now an unbounded channel: the sender refuses text past `MAX_STREAM_TEXT_BYTES`.
   After that, speech already queued still plays and the session ends `Failed` rather than going quiet. An
@@ -64,100 +78,9 @@ Last verified: 2026-11-07 (review fixes on branch `feat/voice-mode-phase0`).
   - One failed status poll no longer stops polling.
   - `finalizing` now reads "Finishing the reply"; the endpoint reason is shown as "Turn ended · …" while listening.
 
-2026-10-31, second session (issues #230, #231):
-- **#230:** `RestoreOutcome.missingFilesUnchecked` is true when the post-restore count failed; the toolbar shows it
-  in amber ("Missing attachment or image files could not be checked; see Recent diagnostics in Settings"). Rotation
-  no longer fails when an expired snapshot cannot be removed: `AutomaticBackupRotation.prune_failed` counts it (an
-  already-gone file counts as removed), and the startup diagnostic becomes a `warn` that names it only then
-  (`created_report`). The leftover is retried by the next rotation that creates a snapshot, not the next launch.
-  If reloading after a restore fails, the feedback still names the preserved copy and adds the reload error.
-- **#231:** `LocalImageExecutionError::WorkerUnavailable(TransportError)` and `RuntimeMismatch(Option<TransportError>)`
-  carry the cause (and a failed shutdown of a mismatched worker) into the "Local image generation failed" diagnostic;
-  the stderr line is gone. `FastEmbedder` moved to `semantic_model.rs`, and each load step has its own code
-  (`model_contract`, `model_cache_dir`, `model_download`, `model_cache_read`, `model_integrity`, `model_cache_ref`,
-  `model_runtime`), which the indexer's failure diagnostic now names and Settings labels. Every indexer failure
-  diagnostic now names its storage code, including a failed save of the failed state. FastEmbed returns an untyped
-  error whose text may hold cache paths, so `model_runtime` stays one code; `model_download` also covers hf-hub cache
-  writes, which share its I/O error. Other execution errors now print their variant in the diagnostic. Not done: the other `let _ = transport.shutdown()` sites in `execution.rs`
-  (unsafe/invalid output) still drop a shutdown failure (#232).
-
-2026-10-31 (issues #226, #228):
-- **#228:** a failed missing-file count after a restore logs a `warn` diagnostic naming the error code ("Restored data
-  not fully checked") and still reports zero. `managed_backups` counts entries whose file type it cannot read and
-  flags a listing that stopped early (std ends a unix directory stream at its first error). Startup runs
-  `automatic_backup_folder_warning` on its own, in both normal and recovery launches (rotation is skipped in
-  recovery), and records a `warn` diagnostic; recovery itself still skips those entries. The toolbar now shows backup/restore feedback with missing files or a stopped worker in amber (`backupWarning`), and its
-  `title` shows the full text, which the 150 px ellipsis used to hide.
-- **#226 (bullets 1-2):** `TransportError::SpawnFailed` carries the `io::ErrorKind`, and the local-image execution
-  boundary logs it to stderr (`[bottie] local image worker failed to start`). On-demand embedding now returns the
-  load's own error code (`loaded_embedder`; `model_runtime` remains only for a failed runtime init), and the semantic
-  query path logs it to stderr before falling back to lexical search.
-
-2026-10-30, fourth session (issues #223, #224, #225):
-- **#223:** `generation_run_start::reserve_chat_run` holds `start_chat`'s reserve-then-first-write. A test holds
-  restore's idle guard and checks that no run row is written until the run registers.
-- **#225:** every staging sweep is now its own call, run before the write it serves, so its failures are reported
-  even when that write fails: `sweep_manual_backup_staging`, `ConversationFileExport::sweep_staging` and
-  `sweep_automatic_backup_staging`. The backup and export commands and startup rotation log a `warn` diagnostic
-  whose text comes from the pure `staging_cleanup_warning` ("could not be checked or removed"). The startup restore
-  sweep also covers `.bottie-backup-*` staging, which a killed pre-restore safety copy leaves in app data. Automatic
-  rotation moved to `storage/automatic_backup.rs`, and the backup and restore commands moved to
-  `storage_commands/backup_restore.rs`. Unix tests lock a folder to prove that the manual and export sweeps report
-  what they could not delete.
-- **#224:** `RestoreOutcome.backgroundWorkStopped` is true when the attachment or semantic worker has stopped. The
-  restore feedback then ends with "Restart Bottie to finish processing restored data" (a `conversation-state` test
-  covers both restore sources).
-
-2026-10-30, third session (issues #214, #218, #220, #221):
-- **#214:** on macOS, std sets close-on-exec only after `pipe()`. A worker spawned in that gap held a sibling's pipe
-  ends, so EOF never came and teardown failed. Transport and MOSS spawns now take `SPAWN_LOCK`. 29/29 parallel runs
-  passed (was 3/6 failing).
-- **#221:** `run_cancellation::reserve_then_write` reserves, then runs the first durable write. `start_chat` uses it,
-  and two tests pin the helper's order and unregister-on-failure path (a `start_chat` call-site test is #223).
-- **#220:** new `worker_pause.rs` (moved out of `semantic_indexer.rs`). A dead attachment or semantic worker still
-  counts as paused for restore, but `WorkerHealth` records an error diagnostic once ("… stopped; restart Bottie"),
-  also when a `wake()` finds the worker gone. Reindex refuses to clear vectors when the semantic worker is stopped.
-- **#218:** exports and manual backups sweep their own stale (>1 h) staging in the target folder, but only plain
-  files named `<prefix>-<uuid><suffix>` (`remove_stale_staging_files`), so user files with a similar name survive.
-  When rotation succeeds, it reports staging it could not delete (or inspect) as a `warn` diagnostic; other
-  sweep-failure reporting is #225.
-
-2026-10-30, second session (issues #216, #217):
-- `start_chat` registers its run through `run_cancellation::reserve_run` before the first durable write. Early returns
-  drop the registration. Restore holds both run registries (`lock_idle_generation`) from its last check through
-  the swap, so a run starting in that window waits instead of writing to the old store. A run that voice capture
-  cancels before its task spawns now fails with "Voice capture interrupted this message" instead of a silent
-  Cancelled.
-- Tests added for the gaps #217 listed: per-adapter round-text cap and message truncation, the attachment-processor
-  pause timeout (`pause_within`) and disconnect, and speech poll epochs. OpenAI's inline tests moved to
-  `inference/openai/tests.rs`.
-- Deleting or archiving a conversation discards an in-flight load of that conversation only; a load of another
-  conversation started meanwhile still opens (`close` checks `openingConversationId`).
-
-2026-10-30 (items 6-8, 11-13, 15-18, 20-22; details in `FIX_BOTTIE.md` status lines):
-- Provider streams are bounded by `src-tauri/src/inference/limits.rs` (64 KiB tool arguments, 1 MiB frames, 4 MiB text
-  per round, 64 KiB error bodies, 1 MiB discovery, 300-character provider messages). SSE handles bare CR and strips one
-  space after `data:`.
-- Exports, restore pauses (20 s busy error), staging sweeps (`storage/staging_sweep.rs`; rollback dirs kept on
-  purpose), restore guards (image runs; cancelled runs stay registered until their final write), and private-address
-  refusal for generated-image downloads.
-- Frontend: stale conversation loads and speech polls are discarded; `npm test` excludes `.claude/**`.
-
-2026-10-29 (items 1-5):
-
-- **1. Saved-key leak:** connection tests read the saved credential only when the normalized draft endpoint equals
-  the persisted one (OpenAI/Anthropic/Qwen base URL; Localmail origin + certificate pin). Otherwise the user must
-  type a key.
-- **2. Backup staging:** manual backups build and verify in `.bottie-backup-<uuid>.part` beside the destination, then
-  rename over it. Automatic rotation shares the writer (`write_verified_backup`).
-- **3. Missing blobs:** backups skip catalog files absent from disk and report the count. Rotation diagnostics show it,
-  and a manual backup logs a `warn` diagnostic. Payload validation accepts a verified subset; it still rejects extra rows
-  and wrong bytes. Re-attaching identical bytes restores a missing blob.
-- **4. Late cancel:** the worker drops cancels for no active request, raises the interrupt under the lock, and ignores
-  stray idle interrupts. The Linux source pins were updated; the frozen Mac and Linux builds still need rebuilding
-  (see owed checks).
-- **5. Worker environment:** `src-tauri/src/worker_env.rs` clears the environment for MOSS and Nano workers and
-  re-adds an allowlist (PATH, HOME, temp, locale, `LD_LIBRARY_PATH`, CUDA vars, Windows system root).
+Earlier (2026-10-29 to 10-31): FIX_BOTTIE items 1-8, 11-13, 15-18, 20-22 and issues #214, #216-#218, #220,
+#221, #223-#226 (bullets 1-2), #228, #230, #231. Their details are in `FIX_BOTTIE.md` status lines, the PRs (#213-#233)
+and git history.
 
 ## Current state (summary; details in docs and git history)
 
@@ -175,16 +98,17 @@ Last verified: 2026-11-07 (review fixes on branch `feat/voice-mode-phase0`).
   (`docs/local-image-linux-clean-runtime-closure-review.json`). 66 licence-only blockers remain, and `licenseReviewed`,
   `assemblyEligible`, and `distributionReviewed` are false. No bundle assembly, profile, signing, or release exists.
 
-## Validation (2026-10-31, second session)
+## Validation (2026-11-25)
 
-- Rust: `cargo test` passes 815 library tests (42 ignored) plus the updater, adapter, and transport (11) suites.
-  `cargo fmt` is clean. `cargo clippy --all-targets -D warnings` reports 52 pre-existing style lints (none are bugs;
-  none new).
-- Over 500 lines: 11 Rust non-test files, all older than this work; the largest are `lib.rs` (1100) and
-  `inference/settings.rs` (562). Frontend: `page-state.svelte.ts` (1063), `conversation-state.svelte.ts` (575) and
-  `storage.ts` (574). Split each one when you next touch it (`semantic_indexer.rs` is now 423).
-- Python: `local-image-worker` was not touched this session (121 tests passed on 2026-10-29).
-- Frontend: `npm test` passes 478 tests; `npm run check` is clean.
+- Rust: `cargo test` passes 919 library tests (42 ignored) plus the updater, adapter and transport suites. `cargo fmt`
+  is clean. `cargo clippy --all-targets` prints 71 `warning:` lines, the same as `main` (style lints, none new).
+- Over 500 lines: 17 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1237),
+  `speech/streaming.rs` (983), `microphone.rs` (713; split `CaptureState` out next, #246) and
+  `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212), `conversation-state.svelte.ts` (575),
+  `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte` (516). Split each one when you next
+  touch it.
+- Frontend: `npm test` passes 532 tests; `npm run check` is clean.
+- Python: `local-image-worker` was not touched (121 tests passed on 2026-10-29).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 
 ## Linux runtime next slice (blocked on external input)

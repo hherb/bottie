@@ -19,6 +19,7 @@ const IDLE_STATUS: MicrophoneStatus = {
   transcriptionPhase: "idle",
   transcriptSegments: [],
   transcriptionErrorCode: null,
+  speechDetectionErrorCode: null,
   errorCode: null,
   latency: { inputReadyMs: null, firstTranscriptMs: null, finalTranscriptMs: null },
 };
@@ -409,6 +410,16 @@ describe("MicrophoneControl conversation mode", () => {
     expect(html).toContain("Microphone muted while Bottie speaks");
     expect(html).toContain('aria-label="Interrupt Bottie\'s spoken reply"');
     expect(html).not.toMatch(/aria-label="Interrupt Bottie's spoken reply"[^>]*disabled/);
+  });
+
+  it("says when turns end on loudness alone because Silero failed to load", () => {
+    expect(renderedConversation(RECORDING, ACTIVE_LISTENING)).not.toContain("silence filter unavailable");
+    const html = renderedConversation(
+      { ...RECORDING, speechDetectionErrorCode: "model_unavailable" },
+      ACTIVE_LISTENING,
+    );
+
+    expect(html).toContain("Microphone open · waiting for your voice · silence filter unavailable");
   });
 
   it("disables Interrupt while only listening", () => {

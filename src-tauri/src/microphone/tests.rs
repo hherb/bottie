@@ -181,6 +181,7 @@ fn downmixes_pcm_and_reports_only_bounded_metadata() {
             "phase",
             "retainedByteSize",
             "sampleRateHz",
+            "speechDetectionErrorCode",
             "transcriptSegments",
             "transcriptionErrorCode",
             "transcriptionPhase",
@@ -709,4 +710,53 @@ fn vad_window_resamples_the_trailing_audio_to_sixteen_kilohertz() {
     assert_eq!(window_end_ms, 1_000);
     assert_eq!(samples.len(), 16_000);
     assert!(samples.iter().all(|sample| (*sample - 0.5).abs() < 0.001));
+}
+
+#[test]
+fn a_silero_load_failure_in_either_worker_reaches_the_status_and_outlives_the_capture() {
+    let mut state = CaptureState::default();
+    assert_eq!(state.status().speech_detection_error_code, None);
+    state.recognizer_vad_error = Some(TranscriptionErrorCode::ModelIntegrity);
+    // The gate loading fine must not hide the recognizer's failure, or the reverse.
+    state.gate_vad_error = None;
+    assert_eq!(
+        state.status().speech_detection_error_code,
+        Some(TranscriptionErrorCode::ModelIntegrity)
+    );
+    state.begin_starting();
+    assert_eq!(
+        state.status().speech_detection_error_code,
+        Some(TranscriptionErrorCode::ModelIntegrity),
+        "a new capture keeps the failure until a retried load succeeds"
+    );
+    state.recognizer_vad_error = None;
+    state.gate_vad_error = Some(TranscriptionErrorCode::ModelUnavailable);
+    assert_eq!(
+        state.status().speech_detection_error_code,
+        None,
+        "push-to-talk has no gate, so a gate failure from an earlier conversation must not show"
+    );
+    state.mode = MicrophoneMode::Conversation;
+    assert_eq!(
+        state.status().speech_detection_error_code,
+        Some(TranscriptionErrorCode::ModelUnavailable)
+    );
+}
+
+#[test]
+fn frames_dropped_from_an_oversized_callback_still_advance_the_frame_clock() {
+    let mut state = CaptureState {
+        mode: MicrophoneMode::Conversation,
+        ..CaptureState::default()
+    };
+    state.begin_recording(16_000, 1);
+    // One stalled-device callback delivering 2 s at once: 100 VAD frames, more than the pending trace keeps.
+    let frames = 2_000 / u64::from(vad::FRAME_DURATION_MS);
+    assert!(frames > vad::MAX_PENDING_FRAME_ACTIVITIES as u64);
+    state.append(&vec![0.0_f32; 32_000]);
+    // A clock that skipped the dropped frames would run slow and stretch every endpointer silence timer.
+    assert_eq!(state.vad_frames_processed, frames);
+    // The drop count is consumed once; a later callback must not add it again.
+    state.append(&vec![0.0_f32; 320]);
+    assert_eq!(state.vad_frames_processed, frames + 1);
 }
