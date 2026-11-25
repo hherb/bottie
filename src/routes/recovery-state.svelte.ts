@@ -11,7 +11,10 @@ export class RecoveryState {
   status = $state<StorageRecoveryStatus | null>(
     isTauri() ? null : { state: "ready", automaticBackupCount: 0, latestAutomaticBackupAtMs: null },
   );
-  /** A restore replaced the data but its re-check failed; restoring again would overwrite it, so wait for relaunch. */
+  /**
+   * A restore replaced the data but reloading or re-checking it failed (#235, #254). Restoring again would overwrite
+   * the recovered data, so the screen disables restore until relaunch.
+   */
   recheckFailed = $state(false);
 
   /** Loads path-redacted native integrity state and reports whether normal startup may continue. */
@@ -34,7 +37,11 @@ export class RecoveryState {
     source: "manual" | "automatic",
   ): Promise<Awaited<ReturnType<ConversationState["restoreBackup"]>>> {
     const messages = await history.restoreBackup(source);
-    if (messages === null) return null;
+    if (messages === null) {
+      // Only ever set: once restore is locked, only a relaunch may unlock it.
+      if (history.restoreReloadFailed) this.recheckFailed = true;
+      return null;
+    }
     try {
       this.status = await getStorageRecoveryStatus();
     } catch (error) {

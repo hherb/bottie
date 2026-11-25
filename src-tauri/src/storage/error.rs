@@ -102,6 +102,17 @@ impl StorageError {
         }
     }
 
+    /// Automatic-backup failure that names the failed step and its cause, so diagnostics can tell a
+    /// full disk from a read-only or locked folder (#255). Neither part may contain a path.
+    pub(crate) fn automatic_backup_during(step: &str, cause: impl std::fmt::Display) -> Self {
+        Self {
+            code: "internal",
+            message: format!(
+                "Bottie could not update its automatic local backups ({step}: {cause})."
+            ),
+        }
+    }
+
     /// Creates a validation failure for a selected database that is not a supported Bottie backup.
     pub(crate) fn invalid_backup() -> Self {
         Self {

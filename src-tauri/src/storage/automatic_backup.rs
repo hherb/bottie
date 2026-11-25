@@ -137,7 +137,9 @@ impl ConversationStore {
         remove: impl FnMut(&Path) -> std::io::Result<()>,
     ) -> Result<AutomaticBackupRotation, StorageError> {
         let directory = automatic_backup_directory(&self.path)?;
-        fs::create_dir_all(&directory).map_err(|_| StorageError::automatic_backup())?;
+        fs::create_dir_all(&directory).map_err(|error| {
+            StorageError::automatic_backup_during("creating the backup folder", error.kind())
+        })?;
         let mut backups = managed_backups(&directory)?.backups;
         let freshness_threshold = timestamp_ms.saturating_sub(AUTOMATIC_BACKUP_INTERVAL_MS);
         let created = !backups
@@ -150,13 +152,24 @@ impl ConversationStore {
             let destination = directory.join(format!(
                 "{AUTOMATIC_BACKUP_FILE_PREFIX}-{timestamp_ms}-{id}.sqlite3"
             ));
-            let Ok(skipped) = self.write_verified_backup(&staging) else {
-                remove_database_files(&staging);
-                return Err(StorageError::automatic_backup());
+            let skipped = match self.write_verified_backup(&staging) {
+                Ok(skipped) => skipped,
+                Err(error) => {
+                    remove_database_files(&staging);
+                    // The inner message is already path-free; only its trailing period is dropped.
+                    let cause = error.message.trim_end_matches('.').to_owned();
+                    return Err(StorageError::automatic_backup_during(
+                        "writing the snapshot",
+                        cause,
+                    ));
+                }
             };
-            if fs::rename(&staging, &destination).is_err() {
+            if let Err(error) = fs::rename(&staging, &destination) {
                 remove_database_files(&staging);
-                return Err(StorageError::automatic_backup());
+                return Err(StorageError::automatic_backup_during(
+                    "moving the snapshot into place",
+                    error.kind(),
+                ));
             }
             skipped_files = skipped;
             backups.push(ManagedBackup {
@@ -209,7 +222,10 @@ pub(super) fn managed_backups(directory: &Path) -> Result<ManagedBackupListing, 
         unreadable: 0,
         incomplete: false,
     };
-    for entry in fs::read_dir(directory).map_err(|_| StorageError::automatic_backup())? {
+    let entries = fs::read_dir(directory).map_err(|error| {
+        StorageError::automatic_backup_during("reading the backup folder", error.kind())
+    })?;
+    for entry in entries {
         // std ends a unix directory stream after its first read error, so this is not one skipped item.
         let Ok(entry) = entry else {
             listing.incomplete = true;
