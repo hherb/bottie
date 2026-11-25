@@ -300,11 +300,7 @@
         onexportjson={() => void state.history.exportJson()}
         onexportbatchjson={() => void state.history.exportBatchJson()}
         onbackup={() => void state.history.backup()}
-        onrestore={() => {
-          void state.history.restoreBackup().then((messages) => {
-            if (messages) state.messages = messages;
-          });
-        }}
+        onrestore={() => void state.restoreBackup()}
       />
 
       <ConversationView

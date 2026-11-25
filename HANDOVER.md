@@ -1,19 +1,19 @@
 # Bottie handover
 
-Last verified: 2026-11-26 (branch `fix/issues-254-255-256`).
+Last verified: 2026-11-26 (branch `fix/issues-258-259-260`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-11-26, PRs up to #253 are merged; the #254/#255/#256 fixes are in review.
-   Land all work through PRs.
+1. Check the PR list first. As of 2026-11-26, PRs up to #257 are merged; the #258/#259/#260 fixes are in review
+   (#262). Land all work through PRs.
 2. **Next items.** None of the four open `FIX_BOTTIE.md` items can be done on this Mac alone:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #259 (an expired complete snapshot is pruned when its check errors), #258, #260, #240 (voice test
-   gaps), #247, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
+   Doable here: #240 (voice test gaps), #247, #261 (split `page-state`/`conversation-state`), and the follow-up
+   audit in `FIX_BOTTIE.md` "Not audited yet".
    #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
@@ -32,6 +32,20 @@ Last verified: 2026-11-26 (branch `fix/issues-254-255-256`).
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-11-26 (#258, #259, #260):
+
+- **#259:** while no retained automatic snapshot is complete, an expired snapshot whose completeness check fails is
+  kept, not pruned. `hold_back_from_expiry` keeps the newest complete one plus every newer unreadable one.
+  `AutomaticBackupRotation.check_failed` counts them and raises the report to `warn`. The inline unit tests moved
+  verbatim to `storage/automatic_backup/tests.rs`.
+- **#258:** backup failures keep a path-free cause. `StorageError::backup_sqlite` keeps only SQLite's code text
+  ("Error code 13: database or disk is full") and drops its free text, which can hold a path. `backup_because`
+  carries an `io::ErrorKind`. Covered: the snapshot copy, payload embedding, verification, reading a file into the
+  payload, the manual rename and the rotation's clock read.
+- **#260:** a Settings restore whose reload fails clears the stale view (`PageState.restoreBackup`). The pre-restore
+  conversation, branch, attachments and list are dropped, so nothing acts on a conversation the restored data may
+  lack.
 
 2026-11-26 (#254, #255, #256):
 
@@ -89,31 +103,9 @@ its fields and methods. `microphone.rs` went from 713 to 326 lines; the test cou
 - #242 (`interpret_output` parking-line forgery) no longer applies: #236 removed that path, and a parked task now
   arrives as the typed `task.awaiting_operator` notification.
 
-2026-11-07 (review of `feat/voice-mode-phase0`):
-
-- **Streaming speech** (`speech/streaming.rs`): the 4-slot `try_send` queue dropped words, and could lose Interrupt
-  and Shutdown and hang `Drop`. It is now an unbounded channel: the sender refuses text past `MAX_STREAM_TEXT_BYTES`.
-  After that, speech already queued still plays and the session ends `Failed` rather than going quiet. An
-  `AtomicBool` flag carries the interrupt, and the worker checks it every iteration. A bare `[label]` is spoken, and
-  a bracket never reaches across a line or code fence, so text after it is no longer lost. A chunk
-  still playing after 60 s, or an engine in `SpeechPhase::Error` (now `Err` from `is_idle`), fails the session; it
-  no longer stays "speaking" forever.
-- **Conversation state** (`voice/`):
-  - `adopt_reply` holds the state lock and adopts only from `Thinking`, so End or Interrupt cannot be overwritten.
-  - `finish_run` returns whether the run was the spoken turn, and only then does `finish_reply` set `Finalizing`.
-  - A reply that could not be spoken, or failed while draining, stays visible as `speechProgress: "failed"` until
-    the next turn.
-  - Microphone start failures return `microphone_failed`.
-  - Interrupt cancels generation before stopping the engine, and ends the session if that stop fails.
-- **Capture:** both endpointer inputs use the audio frame clock (`CaptureState::frame_clock`); wall-clock lag used
-  to end turns early. A Silero inference error recognizes the whole snapshot rather than returning "no speech".
-- **Frontend:**
-  - A listening turn that closed with no usable transcript reopens listening once.
-  - A failed microphone ends the session and shows the microphone's own error.
-  - Recovery keeps the reason the session ended.
-  - `speech_active` on resume is retried instead of ending the session.
-  - One failed status poll no longer stops polling.
-  - `finalizing` now reads "Finishing the reply"; the endpoint reason is shown as "Turn ended · …" while listening.
+2026-11-07 (review of `feat/voice-mode-phase0`, merged as #241): streaming speech no longer drops words or hangs,
+conversation state cannot be overwritten by a late reply, both endpointer inputs use the audio frame clock, and the
+frontend recovers from failed polls and microphones. Details are in #241 and `docs/voice-mode-*`; open items are #240.
 
 Earlier (2026-10-29 to 10-31): FIX_BOTTIE items 1-8, 11-13, 15-18, 20-22 and issues #214, #216-#218, #220,
 #221, #223-#226 (bullets 1-2), #228, #230, #231. Their details are in `FIX_BOTTIE.md` status lines, the PRs (#213-#233)
@@ -137,15 +129,14 @@ and git history.
 
 ## Validation (2026-11-26)
 
-- Rust: `cargo test` passes 926 library tests (42 ignored; 927 with `--features local-image-runtime-proof`) plus the
+- Rust: `cargo test` passes 928 library tests (42 ignored; the feature build was not rerun) plus the
   updater, adapter and transport suites. `cargo fmt` is clean. `cargo clippy --all-targets` prints 71 `warning:` lines,
   the same as `main` (style lints, none new).
 - Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1226),
-  `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212),
-  `conversation-state.svelte.ts` (581), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
-  (518). Split each one when you next touch it. `conversation-state` was touched for #254 without a split: its
-  helpers are already extracted, and splitting the reactive class is its own refactor.
-- Frontend: `npm test` passes 540 tests; `npm run check` is clean.
+  `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1222),
+  `conversation-state.svelte.ts` (589), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
+  (514). Split each one when you next touch it. The two state classes are #261.
+- Frontend: `npm test` passes 543 tests; `npm run check` is clean.
 - Python: `local-image-worker` was not touched (121 tests passed on 2026-10-29).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 

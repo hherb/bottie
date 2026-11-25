@@ -363,6 +363,14 @@ export class ConversationState {
       // The native restore already replaced the data, so a failed reload must not hide the preserved copy's name.
       const reloadError = this.storageError as StorageError | null;
       this.restoreReloadFailed = reloadError !== null;
+      if (reloadError) {
+        // The pre-restore conversation may not exist in the restored data, so nothing may act on it (#260).
+        this.conversations = [];
+        this.activeConversationId = null;
+        this.branches = [];
+        this.currentBranchId = null;
+        this.conversationAttachments = [];
+      }
       const reloadNote = reloadError
         ? ` · Reloading the restored data failed: ${reloadError.message.replace(/\.$/, "")}. Relaunch Bottie to check again.`
         : "";

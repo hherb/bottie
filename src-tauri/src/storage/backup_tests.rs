@@ -620,11 +620,30 @@ fn a_failed_automatic_snapshot_write_names_its_step_and_leaves_no_staging() {
     fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).expect("unlock folder");
     assert_eq!(
         error.message,
-        "Bottie could not update its automatic local backups (writing the snapshot: Bottie could not save the local data backup)."
+        "Bottie could not update its automatic local backups (writing the snapshot: Bottie could not save the local data backup (Error code 14: unable to open database file))."
     );
     assert_eq!(
         fs::read_dir(&folder).expect("folder should list").count(),
         0
+    );
+}
+
+#[test]
+fn a_sqlite_backup_failure_keeps_its_code_but_never_sqlites_free_text() {
+    // SQLite's own message can name the database file, so only the code and its fixed text survive (#258).
+    let full = rusqlite::Error::SqliteFailure(
+        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_FULL),
+        Some("disk full writing /Users/someone/private.sqlite3".to_owned()),
+    );
+    let error = StorageError::backup_sqlite(full);
+    assert_eq!(
+        error.message,
+        "Bottie could not save the local data backup (Error code 13: database or disk is full)."
+    );
+    // A non-SQLite error has no safe code, so it keeps the generic message.
+    assert_eq!(
+        StorageError::backup_sqlite(rusqlite::Error::InvalidQuery),
+        StorageError::backup()
     );
 }
 

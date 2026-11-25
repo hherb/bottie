@@ -27,16 +27,16 @@ pub(super) fn embed_portable_payload(
     attachment_root: &Path,
     generated_asset_root: &Path,
 ) -> Result<usize, StorageError> {
-    let mut connection = Connection::open(database).map_err(|_| StorageError::backup())?;
+    let mut connection = Connection::open(database).map_err(StorageError::backup_sqlite)?;
     connection
         .pragma_update(None, "journal_mode", "DELETE")
-        .map_err(|_| StorageError::backup())?;
+        .map_err(StorageError::backup_sqlite)?;
     let attachments = attachment_rows(&connection).map_err(|_| StorageError::backup())?;
     let derivatives = derivative_rows(&connection).map_err(|_| StorageError::backup())?;
     let generated_assets = generated_asset_rows(&connection).map_err(|_| StorageError::backup())?;
     let transaction = connection
         .transaction()
-        .map_err(|_| StorageError::backup())?;
+        .map_err(StorageError::backup_sqlite)?;
     transaction
         .execute_batch(&format!(
             "DROP TABLE IF EXISTS {MANIFEST_TABLE};
@@ -64,16 +64,17 @@ pub(super) fn embed_portable_payload(
                  content BLOB NOT NULL
              ) STRICT;"
         ))
-        .map_err(|_| StorageError::backup())?;
+        .map_err(StorageError::backup_sqlite)?;
     transaction
         .execute(
             &format!("INSERT INTO {MANIFEST_TABLE} (format, version) VALUES (?1, ?2)"),
             params![PORTABLE_BACKUP_FORMAT, PORTABLE_BACKUP_VERSION],
         )
-        .map_err(|_| StorageError::backup())?;
+        .map_err(StorageError::backup_sqlite)?;
     let mut skipped = 0;
     for (sha256, byte_size) in attachments {
-        let path = content_path(attachment_root, BLOB_DIRECTORY, &sha256, None)?;
+        let path = content_path(attachment_root, BLOB_DIRECTORY, &sha256, None)
+            .map_err(|_| StorageError::backup())?;
         let Some(bytes) = verified_file(&path, &sha256, byte_size)? else {
             skipped += 1;
             continue;
@@ -85,7 +86,7 @@ pub(super) fn embed_portable_payload(
                 ),
                 params![sha256, byte_size, bytes],
             )
-            .map_err(|_| StorageError::backup())?;
+            .map_err(StorageError::backup_sqlite)?;
     }
     for (sha256, format, byte_size) in derivatives {
         let path = content_path(
@@ -93,7 +94,8 @@ pub(super) fn embed_portable_payload(
             NORMALIZED_DIRECTORY,
             &sha256,
             Some(&format),
-        )?;
+        )
+        .map_err(|_| StorageError::backup())?;
         let Some(bytes) = verified_file(&path, &sha256, byte_size)? else {
             skipped += 1;
             continue;
@@ -106,10 +108,11 @@ pub(super) fn embed_portable_payload(
                 ),
                 params![sha256, format, byte_size, bytes],
             )
-            .map_err(|_| StorageError::backup())?;
+            .map_err(StorageError::backup_sqlite)?;
     }
     for (sha256, byte_size) in generated_assets {
-        let path = generated_content_path(generated_asset_root, &sha256)?;
+        let path = generated_content_path(generated_asset_root, &sha256)
+            .map_err(|_| StorageError::backup())?;
         let Some(bytes) = verified_file(&path, &sha256, byte_size)? else {
             skipped += 1;
             continue;
@@ -122,9 +125,9 @@ pub(super) fn embed_portable_payload(
                 ),
                 params![sha256, byte_size, bytes],
             )
-            .map_err(|_| StorageError::backup())?;
+            .map_err(StorageError::backup_sqlite)?;
     }
-    transaction.commit().map_err(|_| StorageError::backup())?;
+    transaction.commit().map_err(StorageError::backup_sqlite)?;
     validate_portable_payload(&connection)
         .map(|_| skipped)
         .map_err(|_| StorageError::backup())
@@ -489,7 +492,7 @@ fn verified_file(
     let bytes = match fs::read(path) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(_) => return Err(StorageError::backup()),
+        Err(error) => return Err(StorageError::backup_because(error.kind())),
     };
     verify_bytes(&bytes, sha256, byte_size).map_err(|_| StorageError::backup())?;
     Ok(Some(bytes))

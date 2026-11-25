@@ -206,9 +206,17 @@ describe("ConversationState.restoreBackup", () => {
     storage.listConversations.mockRejectedValue({ code: "storage_unavailable", message: "Storage is unavailable." });
     storage.loadLastOpenConversation.mockResolvedValue(null);
     const state = new ConversationState();
+    // The pre-restore conversation may not exist in the restored data, so none of it may stay selected (#260).
+    state.activeConversationId = "pre-restore";
+    state.currentBranchId = "pre-restore-branch";
 
     expect(await state.restoreBackup()).toBeNull();
 
+    expect(state.activeConversationId).toBeNull();
+    expect(state.currentBranchId).toBeNull();
+    expect(state.branches).toEqual([]);
+    expect(state.conversations).toEqual([]);
+    expect(state.conversationAttachments).toEqual([]);
     expect(state.backupFailed).toBe(false);
     expect(state.backupWarning).toBe(true);
     expect(state.storageError).not.toBeNull();

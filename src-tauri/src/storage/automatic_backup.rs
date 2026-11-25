@@ -30,15 +30,18 @@ pub(crate) struct AutomaticBackupRotation {
     pub(crate) prune_failed: usize,
     /// The first failed removal's error kind, so a permission problem and a busy file read differently.
     pub(crate) prune_error: Option<std::io::ErrorKind>,
+    /// Expired snapshots kept because their completeness check failed, so the only copy of a missing
+    /// file's bytes is never pruned unseen (#259). The next launch checks them again.
+    pub(crate) check_failed: usize,
     /// Catalog files left out of the new snapshot because they were missing from disk.
     pub(crate) skipped_files: usize,
 }
 
 impl AutomaticBackupRotation {
-    /// Diagnostic level, event and detail for this rotation. Skipped files or a failed prune raise the
-    /// level to `warn`.
+    /// Diagnostic level, event and detail for this rotation. Skipped files, a failed prune or a failed
+    /// completeness check raise the level to `warn`.
     pub(crate) fn report(&self) -> (&'static str, &'static str, String) {
-        let level = if self.skipped_files > 0 || self.prune_failed > 0 {
+        let level = if self.skipped_files > 0 || self.prune_failed > 0 || self.check_failed > 0 {
             "warn"
         } else {
             "info"
@@ -61,6 +64,13 @@ impl AutomaticBackupRotation {
             parts.push(format!(
                 "{} expired snapshot(s) could not be removed{kind}; the next launch retries them",
                 self.prune_failed
+            ));
+        }
+        if self.check_failed > 0 {
+            parts.push(format!(
+                "{} expired snapshot(s) kept because they could not be checked for missing files; \
+                 the next launch checks them again",
+                self.check_failed
             ));
         }
         if self.created {
@@ -118,7 +128,10 @@ impl ConversationStore {
     /// Creates a verified snapshot when the newest automatic backup is at least 24 hours old, and prunes
     /// expired snapshots on every call, retrying ones an earlier launch failed to remove (#235).
     pub(crate) fn rotate_automatic_backups(&self) -> Result<AutomaticBackupRotation, StorageError> {
-        let timestamp_ms = now_ms().map_err(|_| StorageError::automatic_backup())?;
+        let timestamp_ms = now_ms().map_err(|error| {
+            let cause = error.message.trim_end_matches('.').to_owned();
+            StorageError::automatic_backup_during("reading the clock", cause)
+        })?;
         self.rotate_automatic_backups_at(timestamp_ms)
     }
 
@@ -187,12 +200,15 @@ impl ConversationStore {
         // A skipped file's bytes survive only in older snapshots, so keep the newest complete one. Only a
         // rotation with something to expire checks, so a launch with nothing to prune opens no snapshot;
         // while a rescued snapshot is held back, every launch checks again, since that one always expires.
-        let is_complete = |backup: &ManagedBackup| omitted_file_count(&backup.path) == Ok(0);
+        let mut check_failed = 0;
         if !expired.is_empty()
-            && !backups.iter().any(is_complete)
-            && let Some(index) = expired.iter().position(is_complete)
+            && !backups
+                .iter()
+                .any(|backup| omitted_file_count(&backup.path) == Ok(0))
         {
-            backups.push(expired.remove(index));
+            let (kept, failed) = hold_back_from_expiry(&mut expired, omitted_file_count);
+            backups.extend(kept);
+            check_failed = failed;
         }
         // Any new snapshot is already in place, so a failed removal is a retention problem, not a failed
         // backup. Pruning on every rotation retries a snapshot an earlier launch failed to remove (#235).
@@ -203,9 +219,37 @@ impl ConversationStore {
             pruned: expired.len() - prune_failed,
             prune_failed,
             prune_error,
+            check_failed,
             skipped_files,
         })
     }
+}
+
+/// Picks out of `expired` (newest first) the snapshots that must survive while no retained snapshot is
+/// complete. That is the newest complete one, plus every newer one whose check failed, since a snapshot
+/// that could not be read might be that complete one (#259). `omitted` counts a snapshot's left-out
+/// files. Returns the snapshots to keep and how many checks failed.
+fn hold_back_from_expiry<E>(
+    expired: &mut Vec<ManagedBackup>,
+    mut omitted: impl FnMut(&Path) -> Result<usize, E>,
+) -> (Vec<ManagedBackup>, usize) {
+    let mut kept = Vec::new();
+    let mut check_failed = 0;
+    let mut index = 0;
+    while index < expired.len() {
+        match omitted(&expired[index].path) {
+            Ok(0) => {
+                kept.push(expired.remove(index));
+                break;
+            }
+            Ok(_) => index += 1,
+            Err(_) => {
+                check_failed += 1;
+                kept.push(expired.remove(index));
+            }
+        }
+    }
+    (kept, check_failed)
 }
 
 /// Resolves the app-private rotation directory beside the live database.
@@ -296,115 +340,4 @@ fn automatic_backup_timestamp(name: &std::ffi::OsStr) -> Option<i64> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn report_warns_and_names_failed_prunes_only_when_there_are_any() {
-        let clean = AutomaticBackupRotation {
-            created: true,
-            retained: 7,
-            pruned: 1,
-            prune_failed: 0,
-            prune_error: None,
-            skipped_files: 0,
-        };
-        assert_eq!(
-            clean.report(),
-            (
-                "info",
-                "Automatic backup created",
-                "7 verified snapshot(s) retained; 1 expired snapshot(s) removed; \
-                 0 missing attachment or image file(s) left out"
-                    .to_owned()
-            )
-        );
-        let stuck = AutomaticBackupRotation {
-            pruned: 0,
-            prune_failed: 1,
-            prune_error: Some(std::io::ErrorKind::PermissionDenied),
-            ..clean
-        };
-        let (level, _, detail) = stuck.report();
-        assert_eq!(level, "warn");
-        assert!(detail.contains(
-            "1 expired snapshot(s) could not be removed (permission denied); the next launch retries them"
-        ));
-    }
-
-    #[test]
-    fn a_current_rotation_reports_info_unless_a_stuck_prune_remains() {
-        let current = AutomaticBackupRotation {
-            created: false,
-            retained: 7,
-            pruned: 0,
-            prune_failed: 0,
-            prune_error: None,
-            skipped_files: 0,
-        };
-        assert_eq!(
-            current.report(),
-            (
-                "info",
-                "Automatic backups current",
-                "7 verified snapshot(s) retained; snapshots run at most once every 24 hours"
-                    .to_owned()
-            )
-        );
-        let stuck = AutomaticBackupRotation {
-            prune_failed: 1,
-            prune_error: Some(std::io::ErrorKind::ResourceBusy),
-            ..current
-        };
-        let (level, event, detail) = stuck.report();
-        assert_eq!((level, event), ("warn", "Automatic backups current"));
-        assert!(detail.ends_with(
-            "1 expired snapshot(s) could not be removed (resource busy); the next launch retries them"
-        ));
-    }
-
-    #[test]
-    fn a_failed_prune_is_counted_and_the_rest_are_still_removed() {
-        let expired = ["a", "b", "c", "gone"].map(|name| ManagedBackup {
-            timestamp_ms: 0,
-            path: PathBuf::from(name),
-        });
-        let mut attempted = Vec::new();
-
-        let (failed, first_error) = remove_expired(&expired, |path| {
-            attempted.push(path.to_owned());
-            if path == Path::new("b") {
-                Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
-            } else if path == Path::new("c") {
-                Err(std::io::Error::from(std::io::ErrorKind::ResourceBusy))
-            } else if path == Path::new("gone") {
-                Err(std::io::Error::from(std::io::ErrorKind::NotFound))
-            } else {
-                Ok(())
-            }
-        });
-
-        assert_eq!(failed, 2);
-        assert_eq!(first_error, Some(std::io::ErrorKind::PermissionDenied));
-        assert_eq!(attempted.len(), 4);
-    }
-
-    #[test]
-    fn folder_warning_names_unreadable_items_or_an_incomplete_listing() {
-        assert_eq!(backup_folder_warning(0, false), None);
-        assert_eq!(
-            backup_folder_warning(1, false).as_deref(),
-            Some(
-                "1 item(s) in the automatic-backup folder could not be read, so retention and \
-                 recovery skip them; later launches check again"
-            )
-        );
-        assert_eq!(
-            backup_folder_warning(1, true).as_deref(),
-            Some(
-                "The automatic-backup folder could not be read in full, so retention and recovery \
-                 may miss snapshots; later launches check again"
-            )
-        );
-    }
-}
+mod tests;
