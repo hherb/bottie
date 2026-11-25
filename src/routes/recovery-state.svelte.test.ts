@@ -34,10 +34,11 @@ describe("RecoveryState.restore", () => {
 
     await expect(recovery.restore(history(), "automatic")).resolves.toEqual([]);
     expect(recovery.status?.state).toBe("ready");
+    expect(recovery.recheckFailed).toBe(false);
   });
 
   it("keeps the screen and warns when the post-restore check fails, instead of rejecting (#235)", async () => {
-    storage.getStorageRecoveryStatus.mockRejectedValue(new Error("bridge down"));
+    storage.getStorageRecoveryStatus.mockRejectedValue(new Error("bridge down."));
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const recovery = new RecoveryState();
     const conversations = history();
@@ -45,6 +46,7 @@ describe("RecoveryState.restore", () => {
     await expect(recovery.restore(conversations, "manual")).resolves.toBeNull();
     expect(conversations.backupWarning).toBe(true);
     expect(conversations.backupFeedback).toContain("Restored backup.sqlite3");
-    expect(conversations.backupFeedback).toContain("Checking the restored data failed");
+    expect(conversations.backupFeedback).toContain("Checking the restored data failed: bridge down. Relaunch");
+    expect(recovery.recheckFailed).toBe(true);
   });
 });

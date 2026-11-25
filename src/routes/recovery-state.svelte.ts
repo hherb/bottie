@@ -11,6 +11,8 @@ export class RecoveryState {
   status = $state<StorageRecoveryStatus | null>(
     isTauri() ? null : { state: "ready", automaticBackupCount: 0, latestAutomaticBackupAtMs: null },
   );
+  /** A restore replaced the data but its re-check failed; restoring again would overwrite it, so wait for relaunch. */
+  recheckFailed = $state(false);
 
   /** Loads path-redacted native integrity state and reports whether normal startup may continue. */
   async initialize(): Promise<boolean> {
@@ -38,9 +40,11 @@ export class RecoveryState {
     } catch (error) {
       // The data was already replaced, so keep the restore message and add why the screen stayed.
       console.warn("Could not re-check local data after restore", error);
-      const reason = storageErrorFromUnknown(error).message;
-      history.backupFeedback = `${history.backupFeedback ?? "Restored local data"} · Checking the restored data failed: ${reason}. Relaunch Bottie to check again.`;
+      const reason = storageErrorFromUnknown(error).message.replace(/\.$/, "");
+      const restored = history.backupFeedback ?? "Restored local data";
+      history.backupFeedback = `${restored} · Checking the restored data failed: ${reason}. Relaunch Bottie to check again.`;
       history.backupWarning = true;
+      this.recheckFailed = true;
       return null;
     }
     return this.status.state === "ready" ? messages : null;

@@ -1,6 +1,6 @@
 # Bottie handover
 
-Last verified: 2026-11-25 (branch `fix/issue-249-feature-bins`).
+Last verified: 2026-11-26 (branch `fix/issue-235-backup-diagnostics`).
 
 ## Start here
 
@@ -12,7 +12,7 @@ Last verified: 2026-11-25 (branch `fix/issue-249-feature-bins`).
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #247, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
+   Doable here: #240 (voice test gaps), #247, #254, #255, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
    #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
@@ -35,8 +35,10 @@ Last verified: 2026-11-25 (branch `fix/issue-249-feature-bins`).
 2026-11-25 (#235): every automatic-backup rotation now prunes expired snapshots, not only one that creates a
 snapshot, so a snapshot an earlier launch failed to remove is retried and reported (`warn`) at the next launch. The
 report names the first failure's `io::ErrorKind` (`AutomaticBackupRotation::report`). On the recovery screen, a failed
-status re-read after a restore no longer rejects unhandled: it keeps the screen and adds an amber note, and
-`StorageRecovery` takes the `warning` prop.
+status re-read after a restore no longer rejects unhandled: it keeps the screen, adds an amber note, and turns restore
+off until relaunch (`RecoveryState.recheckFailed` → `StorageRecovery` `locked`). `StorageRecovery` takes the `warning`
+prop. Follow-ups: #254 (the same lock for a failed reload after restore) and #255 (snapshot-creation errors drop their
+`io::ErrorKind`).
 
 2026-11-25 (#249): the feature-gated `bottie-local-image-model-fetch` and `-runtime-proof` bins compile again. The
 `local_image_worker` tree they include by `#[path]` no longer reaches crate-root modules the bins lack:
@@ -118,16 +120,16 @@ and git history.
   (`docs/local-image-linux-clean-runtime-closure-review.json`). 66 licence-only blockers remain, and `licenseReviewed`,
   `assemblyEligible`, and `distributionReviewed` are false. No bundle assembly, profile, signing, or release exists.
 
-## Validation (2026-11-25)
+## Validation (2026-11-26)
 
 - Rust: `cargo test` passes 924 library tests (42 ignored; 925 with `--features local-image-runtime-proof`) plus the
   updater, adapter and transport suites. `cargo fmt` is clean. `cargo clippy --all-targets` prints 71 `warning:` lines,
   the same as `main` (style lints, none new).
-- Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1237),
+- Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1226),
   `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212),
   `conversation-state.svelte.ts` (575), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
-  (517). Split each one when you next touch it.
-- Frontend: `npm test` passes 535 tests; `npm run check` is clean.
+  (518). Split each one when you next touch it.
+- Frontend: `npm test` passes 536 tests; `npm run check` is clean.
 - Python: `local-image-worker` was not touched (121 tests passed on 2026-10-29).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 

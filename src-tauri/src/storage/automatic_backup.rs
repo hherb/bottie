@@ -115,7 +115,8 @@ impl ConversationStore {
         }
     }
 
-    /// Creates a verified snapshot when the newest automatic backup is at least 24 hours old.
+    /// Creates a verified snapshot when the newest automatic backup is at least 24 hours old, and prunes
+    /// expired snapshots on every call, retrying ones an earlier launch failed to remove (#235).
     pub(crate) fn rotate_automatic_backups(&self) -> Result<AutomaticBackupRotation, StorageError> {
         let timestamp_ms = now_ms().map_err(|_| StorageError::automatic_backup())?;
         self.rotate_automatic_backups_at(timestamp_ms)
@@ -171,7 +172,8 @@ impl ConversationStore {
         });
         let mut expired = backups.split_off(backups.len().min(AUTOMATIC_BACKUP_RETENTION_COUNT));
         // A skipped file's bytes survive only in older snapshots, so keep the newest complete one. Only a
-        // rotation with something to expire checks, so a launch with nothing to prune opens no snapshot.
+        // rotation with something to expire checks, so a launch with nothing to prune opens no snapshot;
+        // while a rescued snapshot is held back, every launch checks again, since that one always expires.
         let is_complete = |backup: &ManagedBackup| omitted_file_count(&backup.path) == Ok(0);
         if !expired.is_empty()
             && !backups.iter().any(is_complete)

@@ -47,7 +47,25 @@ describe("StorageRecovery", () => {
       },
     }).body;
 
-    expect(warned).toMatch(/class="recovery-feedback warning"/);
+    expect(warned).toMatch(/class="[^"]*\bwarning\b[^"]*"/);
     expect(warned).toContain('role="status"');
+  });
+
+  it("turns restore off once a restore replaced the data but could not confirm it (#235)", () => {
+    const locked = render(StorageRecovery, {
+      props: {
+        automaticBackupCount: 1,
+        latestAutomaticBackupAtMs: 1_777_000_000_000,
+        isRestoring: false,
+        feedback: "Restored backup · Checking the restored data failed",
+        failed: false,
+        warning: true,
+        locked: true,
+        onrestoreautomatic: vi.fn(),
+        onrestoremanual: vi.fn(),
+      },
+    }).body;
+
+    expect(locked.match(/<button[^>]*disabled/g)).toHaveLength(2);
   });
 });

@@ -560,6 +560,12 @@ fn a_rotation_that_creates_nothing_still_retries_and_reports_a_stuck_prune() {
     assert_eq!(cleared.pruned, 1);
     assert_eq!(cleared.prune_failed, 0);
     assert_eq!(automatic_backup_paths(&live_path).len(), 7);
+    let (level, event, detail) = cleared.report();
+    assert_eq!((level, event), ("info", "Automatic backups current"));
+    assert!(
+        detail.ends_with("; 1 expired snapshot(s) removed"),
+        "{detail}"
+    );
 }
 
 /// Lists only automatic snapshots recognized by Bottie's filename contract.

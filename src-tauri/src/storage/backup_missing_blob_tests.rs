@@ -104,6 +104,12 @@ fn rotation_keeps_the_newest_complete_snapshot_while_files_are_missing() {
             .rotate_automatic_backups_at(day * DAY_MS)
             .expect("rotation with a missing blob should succeed");
     }
+    // A same-day relaunch creates nothing but still prunes, so it must keep the rescued snapshot too (#235).
+    let relaunch = store
+        .rotate_automatic_backups_at(15 * DAY_MS + 1)
+        .expect("a same-day relaunch should succeed");
+    assert!(!relaunch.created);
+    assert_eq!((relaunch.retained, relaunch.pruned), (8, 0));
 
     let snapshots: Vec<_> = fs::read_dir(store.path.with_file_name("automatic-backups"))
         .expect("automatic backup directory should list")
