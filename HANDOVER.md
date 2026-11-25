@@ -1,22 +1,19 @@
 # Bottie handover
 
-Last verified: 2026-11-25 (branch `fix/issues-238-239-242`).
+Last verified: 2026-11-25 (branch `refactor/capture-state-split-246`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-11-25: PRs up to #241 are merged. Open: #243 (CI ONNX Runtime mirror, CI
-   green, ready to merge), #244 (draft, voice-mode research docs, never PR'd before), and #245 (#238,
-   #239). Three commits went straight onto `main` after #241 (natural speech chunks queued without gaps, 8737bd3 and
-   4a7c442; Silero release gate, 6956041); land later work through PRs.
+1. Check the PR list first. As of 2026-11-25, PRs up to #245 and #251 are merged. Open: #248 (`CaptureState`
+   split, #246) and #250 (#232, #234). Land all work through PRs.
 2. **Next items.** None of the four open `FIX_BOTTIE.md` items can be done on this Mac alone:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #246 (`CaptureState` split), #247, #232, #234, #235, and the follow-up audit
-   in `FIX_BOTTIE.md` "Not audited yet". #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if
-   it shows up in practice.
+   Doable here: #240 (voice test gaps), #247, #235, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
+   #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
    Bluetooth input, to check endpoint timing, word loss under a slow first `speak`, and the new Silero gate. #237
@@ -34,6 +31,9 @@ Last verified: 2026-11-25 (branch `fix/issues-238-239-242`).
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-11-25 (#246): `CaptureState` and its impl moved verbatim to `microphone/capture_state.rs`, with `pub(super)` on
+its fields and methods. `microphone.rs` went from 713 to 326 lines; the test count is unchanged (919).
 
 2026-11-25 (issues #238, #239; #242 closed as already fixed by #236):
 
@@ -102,11 +102,10 @@ and git history.
 
 - Rust: `cargo test` passes 919 library tests (42 ignored) plus the updater, adapter and transport suites. `cargo fmt`
   is clean. `cargo clippy --all-targets` prints 71 `warning:` lines, the same as `main` (style lints, none new).
-- Over 500 lines: 17 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1237),
-  `speech/streaming.rs` (983), `microphone.rs` (713; split `CaptureState` out next, #246) and
-  `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212), `conversation-state.svelte.ts` (575),
-  `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte` (516). Split each one when you next
-  touch it.
+- Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1237),
+  `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212),
+  `conversation-state.svelte.ts` (575), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
+  (516). Split each one when you next touch it.
 - Frontend: `npm test` passes 532 tests; `npm run check` is clean.
 - Python: `local-image-worker` was not touched (121 tests passed on 2026-10-29).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
