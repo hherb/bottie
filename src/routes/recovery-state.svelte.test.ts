@@ -16,6 +16,7 @@ function history(): ConversationState {
     restoreBackup: vi.fn().mockResolvedValue([]),
     backupFeedback: "Restored backup.sqlite3 · preserved current data as copy.sqlite3",
     backupWarning: false,
+    restoreReloadFailed: false,
   } as unknown as ConversationState;
 }
 
@@ -48,5 +49,27 @@ describe("RecoveryState.restore", () => {
     expect(conversations.backupFeedback).toContain("Restored backup.sqlite3");
     expect(conversations.backupFeedback).toContain("Checking the restored data failed: bridge down. Relaunch");
     expect(recovery.recheckFailed).toBe(true);
+  });
+
+  it("locks restore when the data was replaced but reloading it failed (#254)", async () => {
+    const conversations = history();
+    vi.mocked(conversations.restoreBackup).mockImplementation(async () => {
+      conversations.restoreReloadFailed = true;
+      return null;
+    });
+    const recovery = new RecoveryState();
+
+    await expect(recovery.restore(conversations, "manual")).resolves.toBeNull();
+    expect(recovery.recheckFailed).toBe(true);
+    expect(storage.getStorageRecoveryStatus).not.toHaveBeenCalled();
+  });
+
+  it("leaves restore enabled when the restore stopped before replacing data", async () => {
+    const conversations = history();
+    vi.mocked(conversations.restoreBackup).mockResolvedValue(null);
+    const recovery = new RecoveryState();
+
+    await expect(recovery.restore(conversations, "manual")).resolves.toBeNull();
+    expect(recovery.recheckFailed).toBe(false);
   });
 });

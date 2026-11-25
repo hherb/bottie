@@ -4,7 +4,7 @@ use std::{
     fs,
     future::Future,
     io::{self, Read, Write},
-    net::TcpListener,
+    net::{TcpListener, TcpStream},
     path::PathBuf,
     sync::{Arc, Mutex},
     thread,
@@ -21,7 +21,11 @@ use crate::local_image_worker::{
 pub(crate) const MODEL_BYTES: &[u8] = b"weights";
 pub(crate) const SOURCE_REVISION: &str = "0123456789abcdef0123456789abcdef01234567";
 pub(crate) const SOURCE_ETAG: &str = "\"fixture-weights-v1\"";
-const FIXTURE_ACCEPT_TIMEOUT: Duration = Duration::from_secs(3);
+/// Guards a test whose client never connects from hanging its `join`. It must outlast the slowest
+/// test setup under full-suite load (fsync-heavy cache writes): a server that stops listening first
+/// turns the download into a false `Transport` failure (#256). A test that may finish without
+/// connecting calls `release_unused_server` instead of waiting this out.
+const FIXTURE_ACCEPT_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Clone)]
 pub(crate) struct FixtureResponse {
@@ -223,7 +227,26 @@ pub(crate) fn serve_sequence(
     (format!("http://{address}/models/"), request_texts, server)
 }
 
-fn read_request(stream: &mut std::net::TcpStream) -> String {
+/// Answers a fixture server the client may never have reached, so `join` returns at once instead of
+/// waiting out the accept timeout. Does nothing when the server already served its response.
+pub(crate) fn release_unused_server(url: &str) {
+    let address = url
+        .trim_start_matches("http://")
+        .split('/')
+        .next()
+        .expect("fixture URL should name an address");
+    // A refused connection means the server already served and stopped listening.
+    let Ok(mut stream) = TcpStream::connect(address) else {
+        return;
+    };
+    // Send a whole request and drain the reply, so the server's writes never meet a closed socket.
+    stream
+        .write_all(b"GET / HTTP/1.1\r\n\r\n")
+        .expect("release request should be sent");
+    let _ = stream.read_to_end(&mut Vec::new());
+}
+
+fn read_request(stream: &mut TcpStream) -> String {
     const MAX_REQUEST_BYTES: usize = 4_096;
     const READ_BYTES: usize = 512;
 

@@ -1,18 +1,18 @@
 # Bottie handover
 
-Last verified: 2026-11-26 (branch `fix/issue-235-backup-diagnostics`).
+Last verified: 2026-11-26 (branch `fix/issues-254-255-256`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-11-25, PRs up to #252 are merged; the #235 fix is in review. Land all work
-   through PRs.
+1. Check the PR list first. As of 2026-11-26, PRs up to #253 are merged; the #254/#255/#256 fixes are in review.
+   Land all work through PRs.
 2. **Next items.** None of the four open `FIX_BOTTIE.md` items can be done on this Mac alone:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #247, #254, #255, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
+   Doable here: #240 (voice test gaps), #247, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
    #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
@@ -31,6 +31,20 @@ Last verified: 2026-11-26 (branch `fix/issue-235-backup-diagnostics`).
        bytes, so rerun both DGX rebuilds and closures before relying on that evidence.
 
 ## Audit fixes done
+
+2026-11-26 (#254, #255, #256):
+
+- **#255:** a failed automatic backup names its step and cause in diagnostics
+  (`StorageError::automatic_backup_during`). Folder creation, folder listing and the rename into place carry the
+  `io::ErrorKind`. A failed snapshot write carries the inner (path-free) `StorageError` message. That message is still
+  generic, because `write_verified_backup` maps its SQLite errors away; this is shared with manual backup.
+- **#254:** when a restore replaces the data but reloading it fails, `ConversationState.restoreReloadFailed` is set and
+  the note adds "Relaunch Bottie to check again". `RecoveryState.restore` then sets `recheckFailed`, which locks both
+  restore buttons, as #253 did for a failed re-check.
+- **#256:** the flake was not a missed cancel window. `Transport` comes only from `send()` failing, so the fixture
+  server had stopped listening: its 3 s accept timeout ran out during fsync-heavy setup under load. Reproduced with a
+  3.2 s setup delay. The accept timeout is now 30 s (a hang guard only). The one test whose client may never connect
+  calls `download_fixtures::release_unused_server`, and the `local_image_worker` tests went from 3.8 s to 1.4 s.
 
 2026-11-25 (#235): every automatic-backup rotation now prunes expired snapshots, not only one that creates a
 snapshot, so a snapshot an earlier launch failed to remove is retried and reported (`warn`) at the next launch. The
@@ -122,14 +136,15 @@ and git history.
 
 ## Validation (2026-11-26)
 
-- Rust: `cargo test` passes 924 library tests (42 ignored; 925 with `--features local-image-runtime-proof`) plus the
+- Rust: `cargo test` passes 925 library tests (42 ignored; 926 with `--features local-image-runtime-proof`) plus the
   updater, adapter and transport suites. `cargo fmt` is clean. `cargo clippy --all-targets` prints 71 `warning:` lines,
   the same as `main` (style lints, none new).
 - Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1226),
   `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212),
-  `conversation-state.svelte.ts` (575), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
-  (518). Split each one when you next touch it.
-- Frontend: `npm test` passes 536 tests; `npm run check` is clean.
+  `conversation-state.svelte.ts` (581), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
+  (518). Split each one when you next touch it. `conversation-state` was touched for #254 without a split: its
+  helpers are already extracted, and splitting the reactive class is its own refactor.
+- Frontend: `npm test` passes 539 tests; `npm run check` is clean.
 - Python: `local-image-worker` was not touched (121 tests passed on 2026-10-29).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 

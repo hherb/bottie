@@ -79,6 +79,8 @@ export class ConversationState {
   backupFailed = $state(false);
   /** The backup or restore succeeded but left something for the user to act on (missing files, restart). */
   backupWarning = $state(false);
+  /** The last restore replaced the data but reloading it failed, so restoring again would overwrite it (#254). */
+  restoreReloadFailed = false;
 
   private searchSequence = 0;
   /** Bumped by every conversation load so a slower, superseded load cannot replace a newer selection. */
@@ -346,6 +348,7 @@ export class ConversationState {
     this.backupFeedback = null;
     this.backupFailed = false;
     this.backupWarning = false;
+    this.restoreReloadFailed = false;
     this.exportFeedback = null;
     this.exportFailed = false;
     try {
@@ -359,7 +362,10 @@ export class ConversationState {
       const messages = await this.initialize();
       // The native restore already replaced the data, so a failed reload must not hide the preserved copy's name.
       const reloadError = this.storageError as StorageError | null;
-      const reloadNote = reloadError ? ` · Reloading the restored data failed: ${reloadError.message}` : "";
+      this.restoreReloadFailed = reloadError !== null;
+      const reloadNote = reloadError
+        ? ` · Reloading the restored data failed: ${reloadError.message} Relaunch Bottie to check again.`
+        : "";
       const backupName = outcome.fileName ?? "local data";
       const preservedName = outcome.preservedCopyName ?? "preserved local data";
       this.backupFeedback = `Restored ${backupName} · preserved current data as ${preservedName}${missingFilesNote(outcome.missingFiles)}${missingFilesUncheckedNote(outcome.missingFilesUnchecked)}${backgroundWorkNote(outcome.backgroundWorkStopped)}${reloadNote}`;

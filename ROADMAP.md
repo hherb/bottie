@@ -2,11 +2,11 @@
 
 This roadmap favors complete vertical slices over building every backend subsystem in isolation. Each milestone should leave the desktop application usable and preserve the Rust/WebView security boundary.
 
-## Current focus (2026-11-25)
+## Current focus (2026-11-26)
 
-- PRs up to #252 are merged; #235 (backup and recovery diagnostics) is fixed in review.
-- `FIX_BOTTIE.md` items 9, 10, 14 and 19 need Linux, the DGX or the running app. Doable here: #240, #247, #254,
-  #255, then the follow-up audit listed in `FIX_BOTTIE.md`.
+- PRs up to #253 are merged; #254, #255 and #256 are fixed in review.
+- `FIX_BOTTIE.md` items 9, 10, 14 and 19 need Linux, the DGX or the running app. Doable here: #240, #247, then the
+  follow-up audit listed in `FIX_BOTTIE.md`.
 - `mlx_worker.py` changed (audit item 4). The frozen Mac Qwen-Image-2512 worker bundle (8.4) and the Linux clean-runtime
   image and closure evidence (8.4) predate it, so rebuild and re-pin both before relying on them.
 

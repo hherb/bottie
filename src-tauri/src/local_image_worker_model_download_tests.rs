@@ -349,6 +349,8 @@ fn propagates_cancellation_and_timeout_after_syncing_received_bytes() {
         if let Some(cancellation_thread) = cancellation_thread {
             cancellation_thread.join().unwrap();
         }
+        // Cancel and timeout can both land before the client connects, leaving the server waiting.
+        fixtures::release_unused_server(&root_url);
         server.join().unwrap();
         assert_eq!(error, expected);
         let reopened = ModelCacheTransaction::open(&cache, manifest()).unwrap();

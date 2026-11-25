@@ -568,6 +568,34 @@ fn a_rotation_that_creates_nothing_still_retries_and_reports_a_stuck_prune() {
     );
 }
 
+#[test]
+fn a_failed_automatic_backup_names_the_step_and_its_io_cause() {
+    let live_path = tests::test_database_path();
+    let store =
+        ConversationStore::initialize(live_path.clone()).expect("storage should initialize");
+    // A regular file where the backup folder belongs makes creating the folder fail.
+    let folder = live_path
+        .parent()
+        .expect("test database should have a parent")
+        .join("automatic-backups");
+    fs::write(&folder, b"not a folder").expect("blocking file should be written");
+
+    let error = store
+        .rotate_automatic_backups_at(24 * 60 * 60 * 1_000)
+        .expect_err("rotation cannot create its folder");
+
+    // Diagnostics must tell a full disk from a blocked folder (#255), so the step and io kind appear.
+    let expected_kind = fs::create_dir_all(&folder)
+        .expect_err("the folder is a file")
+        .kind();
+    assert_eq!(
+        error.message,
+        format!(
+            "Bottie could not update its automatic local backups (creating the backup folder: {expected_kind})."
+        )
+    );
+}
+
 /// Lists only automatic snapshots recognized by Bottie's filename contract.
 fn automatic_backup_paths(live_path: &std::path::Path) -> Vec<std::path::PathBuf> {
     let directory = live_path

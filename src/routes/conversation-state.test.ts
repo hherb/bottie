@@ -212,9 +212,20 @@ describe("ConversationState.restoreBackup", () => {
     expect(state.backupFailed).toBe(false);
     expect(state.backupWarning).toBe(true);
     expect(state.storageError).not.toBeNull();
+    expect(state.restoreReloadFailed).toBe(true);
     expect(state.backupFeedback).toBe(
-      `Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Reloading the restored data failed: Storage is unavailable.`,
+      `Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Reloading the restored data failed: Storage is unavailable. Relaunch Bottie to check again.`,
     );
+  });
+
+  it("clears the reload-failure flag when a later restore is cancelled before replacing data", async () => {
+    storage.restoreConversationStore.mockResolvedValue({ status: "cancelled" });
+    const state = new ConversationState();
+    state.restoreReloadFailed = true;
+
+    expect(await state.restoreBackup()).toBeNull();
+
+    expect(state.restoreReloadFailed).toBe(false);
   });
 });
 
