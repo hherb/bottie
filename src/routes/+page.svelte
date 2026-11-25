@@ -221,6 +221,7 @@
     isRestoring={state.history.isRestoring}
     feedback={state.history.backupFeedback}
     failed={state.history.backupFailed}
+    warning={state.history.backupWarning}
     onrestoreautomatic={() => void recoverStorage("automatic")}
     onrestoremanual={() => void recoverStorage("manual")}
   />

@@ -517,6 +517,49 @@ fn a_failed_prune_still_reports_the_new_snapshot_as_created() {
         path.to_string_lossy()
             .contains(&format!("-{}-", 8 * DAY_MS))
     }));
+    assert_eq!(
+        outcome.prune_error,
+        Some(std::io::ErrorKind::PermissionDenied)
+    );
+}
+
+#[test]
+fn a_rotation_that_creates_nothing_still_retries_and_reports_a_stuck_prune() {
+    const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
+    let live_path = tests::test_database_path();
+    let store =
+        ConversationStore::initialize(live_path.clone()).expect("storage should initialize");
+    for day in 1..=7 {
+        store
+            .rotate_automatic_backups_at(day * DAY_MS)
+            .expect("automatic rotation should complete");
+    }
+    let deny =
+        |_: &std::path::Path| Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+    store
+        .rotate_automatic_backups_with(8 * DAY_MS, deny)
+        .expect("a failed prune must not fail the rotation");
+
+    // A launch an hour later finds a fresh snapshot: it creates nothing but still sees the stuck one (#235).
+    let still_stuck = store
+        .rotate_automatic_backups_with(8 * DAY_MS + 1, deny)
+        .expect("a current rotation should complete");
+    assert!(!still_stuck.created);
+    assert_eq!(still_stuck.retained, 7);
+    assert_eq!(still_stuck.prune_failed, 1);
+    assert_eq!(
+        still_stuck.prune_error,
+        Some(std::io::ErrorKind::PermissionDenied)
+    );
+    assert_eq!(automatic_backup_paths(&live_path).len(), 8);
+
+    let cleared = store
+        .rotate_automatic_backups_at(8 * DAY_MS + 2)
+        .expect("a current rotation should complete");
+    assert!(!cleared.created);
+    assert_eq!(cleared.pruned, 1);
+    assert_eq!(cleared.prune_failed, 0);
+    assert_eq!(automatic_backup_paths(&live_path).len(), 7);
 }
 
 /// Lists only automatic snapshots recognized by Bottie's filename contract.

@@ -7,6 +7,8 @@
     isRestoring: boolean;
     feedback: string | null;
     failed: boolean;
+    /** The restore went through but left something to check, such as missing files; shown in amber. */
+    warning?: boolean;
     onrestoreautomatic: () => void;
     onrestoremanual: () => void;
   };
@@ -17,6 +19,7 @@
     isRestoring,
     feedback,
     failed,
+    warning = false,
     onrestoreautomatic,
     onrestoremanual,
   }: Props = $props();
@@ -73,7 +76,14 @@
       </span>
     </p>
     {#if feedback}
-      <p class:error={failed} class="recovery-feedback" role={failed ? "alert" : "status"}>{feedback}</p>
+      <p
+        class:error={failed}
+        class:warning={warning && !failed}
+        class="recovery-feedback"
+        role={failed ? "alert" : "status"}
+      >
+        {feedback}
+      </p>
     {/if}
   </section>
 </main>

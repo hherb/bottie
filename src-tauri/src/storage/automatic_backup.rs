@@ -25,36 +25,51 @@ pub(crate) struct AutomaticBackupRotation {
     pub(crate) retained: usize,
     /// Number of expired managed snapshots removed by this rotation.
     pub(crate) pruned: usize,
-    /// Expired snapshots that could not be removed; the new snapshot still exists, and the next rotation
-    /// that creates a snapshot retries them (#230).
+    /// Expired snapshots that could not be removed. Every rotation retries them, so the next launch
+    /// tries again even when it creates no snapshot (#230, #235).
     pub(crate) prune_failed: usize,
+    /// The first failed removal's error kind, so a permission problem and a busy file read differently.
+    pub(crate) prune_error: Option<std::io::ErrorKind>,
     /// Catalog files left out of the new snapshot because they were missing from disk.
     pub(crate) skipped_files: usize,
 }
 
 impl AutomaticBackupRotation {
-    /// Diagnostic level and detail for a rotation that created a snapshot; skipped files or a failed
-    /// prune raise it to `warn`.
-    pub(crate) fn created_report(&self) -> (&'static str, String) {
+    /// Diagnostic level, event and detail for this rotation. Skipped files or a failed prune raise the
+    /// level to `warn`.
+    pub(crate) fn report(&self) -> (&'static str, &'static str, String) {
         let level = if self.skipped_files > 0 || self.prune_failed > 0 {
             "warn"
         } else {
             "info"
         };
-        let prune_failed = if self.prune_failed > 0 {
-            format!(
-                " {} expired snapshot(s) could not be removed and are retried by the next new snapshot;",
-                self.prune_failed
-            )
+        let mut parts = vec![format!("{} verified snapshot(s) retained", self.retained)];
+        let event = if self.created {
+            parts.push(format!("{} expired snapshot(s) removed", self.pruned));
+            "Automatic backup created"
         } else {
-            String::new()
+            parts.push("snapshots run at most once every 24 hours".to_owned());
+            if self.pruned > 0 {
+                parts.push(format!("{} expired snapshot(s) removed", self.pruned));
+            }
+            "Automatic backups current"
         };
-        let detail = format!(
-            "{} verified snapshot(s) retained; {} expired snapshot(s) removed;{prune_failed} \
-             {} missing attachment or image file(s) left out",
-            self.retained, self.pruned, self.skipped_files
-        );
-        (level, detail)
+        if self.prune_failed > 0 {
+            let kind = self
+                .prune_error
+                .map_or_else(String::new, |kind| format!(" ({kind})"));
+            parts.push(format!(
+                "{} expired snapshot(s) could not be removed{kind}; the next launch retries them",
+                self.prune_failed
+            ));
+        }
+        if self.created {
+            parts.push(format!(
+                "{} missing attachment or image file(s) left out",
+                self.skipped_files
+            ));
+        }
+        (level, event, parts.join("; "))
     }
 }
 
@@ -124,36 +139,30 @@ impl ConversationStore {
         fs::create_dir_all(&directory).map_err(|_| StorageError::automatic_backup())?;
         let mut backups = managed_backups(&directory)?.backups;
         let freshness_threshold = timestamp_ms.saturating_sub(AUTOMATIC_BACKUP_INTERVAL_MS);
-        if backups
+        let created = !backups
             .iter()
-            .any(|backup| backup.timestamp_ms > freshness_threshold)
-        {
-            return Ok(AutomaticBackupRotation {
-                created: false,
-                retained: backups.len(),
-                pruned: 0,
-                prune_failed: 0,
-                skipped_files: 0,
+            .any(|backup| backup.timestamp_ms > freshness_threshold);
+        let mut skipped_files = 0;
+        if created {
+            let id = uuid::Uuid::new_v4();
+            let staging = directory.join(format!("{AUTOMATIC_BACKUP_STAGING_PREFIX}-{id}.sqlite3"));
+            let destination = directory.join(format!(
+                "{AUTOMATIC_BACKUP_FILE_PREFIX}-{timestamp_ms}-{id}.sqlite3"
+            ));
+            let Ok(skipped) = self.write_verified_backup(&staging) else {
+                remove_database_files(&staging);
+                return Err(StorageError::automatic_backup());
+            };
+            if fs::rename(&staging, &destination).is_err() {
+                remove_database_files(&staging);
+                return Err(StorageError::automatic_backup());
+            }
+            skipped_files = skipped;
+            backups.push(ManagedBackup {
+                timestamp_ms,
+                path: destination,
             });
         }
-
-        let id = uuid::Uuid::new_v4();
-        let staging = directory.join(format!("{AUTOMATIC_BACKUP_STAGING_PREFIX}-{id}.sqlite3"));
-        let destination = directory.join(format!(
-            "{AUTOMATIC_BACKUP_FILE_PREFIX}-{timestamp_ms}-{id}.sqlite3"
-        ));
-        let Ok(skipped_files) = self.write_verified_backup(&staging) else {
-            remove_database_files(&staging);
-            return Err(StorageError::automatic_backup());
-        };
-        if fs::rename(&staging, &destination).is_err() {
-            remove_database_files(&staging);
-            return Err(StorageError::automatic_backup());
-        }
-        backups.push(ManagedBackup {
-            timestamp_ms,
-            path: destination,
-        });
         backups.sort_by(|left, right| {
             right
                 .timestamp_ms
@@ -161,21 +170,24 @@ impl ConversationStore {
                 .then_with(|| right.path.cmp(&left.path))
         });
         let mut expired = backups.split_off(backups.len().min(AUTOMATIC_BACKUP_RETENTION_COUNT));
-        // A skipped file's bytes survive only in older snapshots, so keep the newest complete one.
+        // A skipped file's bytes survive only in older snapshots, so keep the newest complete one. Only a
+        // rotation with something to expire checks, so a launch with nothing to prune opens no snapshot.
         let is_complete = |backup: &ManagedBackup| omitted_file_count(&backup.path) == Ok(0);
-        if skipped_files > 0
+        if !expired.is_empty()
             && !backups.iter().any(is_complete)
             && let Some(index) = expired.iter().position(is_complete)
         {
             backups.push(expired.remove(index));
         }
-        // The new snapshot is already in place, so a failed removal is a retention problem, not a failed backup.
-        let prune_failed = remove_expired(&expired, remove);
+        // Any new snapshot is already in place, so a failed removal is a retention problem, not a failed
+        // backup. Pruning on every rotation retries a snapshot an earlier launch failed to remove (#235).
+        let (prune_failed, prune_error) = remove_expired(&expired, remove);
         Ok(AutomaticBackupRotation {
-            created: true,
+            created,
             retained: backups.len(),
             pruned: expired.len() - prune_failed,
             prune_failed,
+            prune_error,
             skipped_files,
         })
     }
@@ -218,18 +230,23 @@ pub(super) fn managed_backups(directory: &Path) -> Result<ManagedBackupListing, 
     Ok(listing)
 }
 
-/// Tries to remove every expired snapshot with `remove`, returning how many removals failed.
-/// A snapshot already gone (deleted by the user, say) counts as removed, not as a failure.
+/// Tries to remove every expired snapshot with `remove`, returning how many removals failed and the
+/// first failure's error kind. A snapshot already gone (deleted by the user, say) counts as removed.
 fn remove_expired(
     expired: &[ManagedBackup],
     mut remove: impl FnMut(&Path) -> std::io::Result<()>,
-) -> usize {
-    expired
-        .iter()
-        .filter(|backup| {
-            remove(&backup.path).is_err_and(|error| error.kind() != std::io::ErrorKind::NotFound)
-        })
-        .count()
+) -> (usize, Option<std::io::ErrorKind>) {
+    let mut failed = 0;
+    let mut first_error = None;
+    for backup in expired {
+        if let Err(error) = remove(&backup.path)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            failed += 1;
+            first_error.get_or_insert(error.kind());
+        }
+    }
+    (failed, first_error)
 }
 
 /// Diagnostic text for a backup folder that could not be fully read, or `None` when every entry was read.
@@ -265,18 +282,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn created_report_warns_and_names_failed_prunes_only_when_there_are_any() {
+    fn report_warns_and_names_failed_prunes_only_when_there_are_any() {
         let clean = AutomaticBackupRotation {
             created: true,
             retained: 7,
             pruned: 1,
             prune_failed: 0,
+            prune_error: None,
             skipped_files: 0,
         };
         assert_eq!(
-            clean.created_report(),
+            clean.report(),
             (
                 "info",
+                "Automatic backup created",
                 "7 verified snapshot(s) retained; 1 expired snapshot(s) removed; \
                  0 missing attachment or image file(s) left out"
                     .to_owned()
@@ -285,12 +304,44 @@ mod tests {
         let stuck = AutomaticBackupRotation {
             pruned: 0,
             prune_failed: 1,
+            prune_error: Some(std::io::ErrorKind::PermissionDenied),
             ..clean
         };
-        let (level, detail) = stuck.created_report();
+        let (level, _, detail) = stuck.report();
         assert_eq!(level, "warn");
         assert!(detail.contains(
-            "1 expired snapshot(s) could not be removed and are retried by the next new snapshot;"
+            "1 expired snapshot(s) could not be removed (permission denied); the next launch retries them"
+        ));
+    }
+
+    #[test]
+    fn a_current_rotation_reports_info_unless_a_stuck_prune_remains() {
+        let current = AutomaticBackupRotation {
+            created: false,
+            retained: 7,
+            pruned: 0,
+            prune_failed: 0,
+            prune_error: None,
+            skipped_files: 0,
+        };
+        assert_eq!(
+            current.report(),
+            (
+                "info",
+                "Automatic backups current",
+                "7 verified snapshot(s) retained; snapshots run at most once every 24 hours"
+                    .to_owned()
+            )
+        );
+        let stuck = AutomaticBackupRotation {
+            prune_failed: 1,
+            prune_error: Some(std::io::ErrorKind::ResourceBusy),
+            ..current
+        };
+        let (level, event, detail) = stuck.report();
+        assert_eq!((level, event), ("warn", "Automatic backups current"));
+        assert!(detail.ends_with(
+            "1 expired snapshot(s) could not be removed (resource busy); the next launch retries them"
         ));
     }
 
@@ -302,10 +353,12 @@ mod tests {
         });
         let mut attempted = Vec::new();
 
-        let failed = remove_expired(&expired, |path| {
+        let (failed, first_error) = remove_expired(&expired, |path| {
             attempted.push(path.to_owned());
             if path == Path::new("b") {
                 Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+            } else if path == Path::new("c") {
+                Err(std::io::Error::from(std::io::ErrorKind::ResourceBusy))
             } else if path == Path::new("gone") {
                 Err(std::io::Error::from(std::io::ErrorKind::NotFound))
             } else {
@@ -313,7 +366,8 @@ mod tests {
             }
         });
 
-        assert_eq!(failed, 1);
+        assert_eq!(failed, 2);
+        assert_eq!(first_error, Some(std::io::ErrorKind::PermissionDenied));
         assert_eq!(attempted.len(), 4);
     }
 

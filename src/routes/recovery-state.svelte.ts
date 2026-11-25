@@ -2,7 +2,7 @@
 
 import { isTauri } from "@tauri-apps/api/core";
 
-import { getStorageRecoveryStatus, type StorageRecoveryStatus } from "$lib/storage";
+import { getStorageRecoveryStatus, storageErrorFromUnknown, type StorageRecoveryStatus } from "$lib/storage";
 
 import type { ConversationState } from "./conversation-state.svelte";
 
@@ -23,14 +23,26 @@ export class RecoveryState {
     }
   }
 
-  /** Restores one guided recovery point and confirms that native conversation access resumed. */
+  /**
+   * Restores one guided recovery point and confirms that native conversation access resumed. Never rejects:
+   * the caller runs it with `void`, so a failed status check is shown on the recovery screen instead (#235).
+   */
   async restore(
     history: ConversationState,
     source: "manual" | "automatic",
   ): Promise<Awaited<ReturnType<ConversationState["restoreBackup"]>>> {
     const messages = await history.restoreBackup(source);
     if (messages === null) return null;
-    this.status = await getStorageRecoveryStatus();
+    try {
+      this.status = await getStorageRecoveryStatus();
+    } catch (error) {
+      // The data was already replaced, so keep the restore message and add why the screen stayed.
+      console.warn("Could not re-check local data after restore", error);
+      const reason = storageErrorFromUnknown(error).message;
+      history.backupFeedback = `${history.backupFeedback ?? "Restored local data"} · Checking the restored data failed: ${reason}. Relaunch Bottie to check again.`;
+      history.backupWarning = true;
+      return null;
+    }
     return this.status.state === "ready" ? messages : null;
   }
 }
