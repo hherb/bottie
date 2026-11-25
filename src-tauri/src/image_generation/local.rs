@@ -10,7 +10,10 @@ use crate::{
         LocalGeneratedOutput, LocalGenerationRequest, LocalImageExecutionError,
         LocalImageWorkerRuntime,
     },
-    local_image_worker::{backend::VerifiedLocalImageBackend, server::LocalImageServerError},
+    local_image_worker::{
+        backend::VerifiedLocalImageBackend, server::LocalImageServerError,
+        transport::TransportError,
+    },
     storage::{ConversationStore, PreparedGeneratedImage, normalize_generated_png},
 };
 
@@ -20,6 +23,9 @@ use super::ImageGenerationRequest;
 pub(crate) enum LocalImageGenerationError {
     /// The private worker cooperatively cancelled or was forcibly reaped inside its grace.
     Cancelled,
+    /// The run was cancelled, but the worker did not stop cleanly; carries the path-free transport cause so the
+    /// cancellation diagnostic can warn about it (#234). The user still sees a cancelled run.
+    CancelledAfterFault(String),
     /// A path-free validation, runtime, or storage failure ended the request.
     Failed(ProviderError),
 }
@@ -115,10 +121,7 @@ impl LocalImageGenerator {
                 on_progress,
             )
             .await
-            .map_err(|error| match error {
-                LocalImageExecutionError::Cancelled => LocalImageGenerationError::Cancelled,
-                other => LocalImageGenerationError::Failed(map_execution_error(other)),
-            })?;
+            .map_err(map_runtime_error)?;
         if *cancellation.borrow_and_update() {
             return Err(LocalImageGenerationError::Cancelled);
         }
@@ -159,17 +162,54 @@ pub(super) fn normalize_local_outputs(
         .collect()
 }
 
-fn map_execution_error(error: LocalImageExecutionError) -> ProviderError {
+/// Keeps a worker-run cancellation a cancellation, with its fault when the cancel did not end cleanly.
+fn map_runtime_error(error: LocalImageExecutionError) -> LocalImageGenerationError {
     match error {
-        LocalImageExecutionError::InvalidOutput => ProviderError::malformed(
+        LocalImageExecutionError::Cancelled(None) => LocalImageGenerationError::Cancelled,
+        LocalImageExecutionError::Cancelled(Some(fault)) => {
+            LocalImageGenerationError::CancelledAfterFault(format!("{fault:?}"))
+        }
+        other => LocalImageGenerationError::Failed(map_execution_error(other)),
+    }
+}
+
+fn map_execution_error(error: LocalImageExecutionError) -> ProviderError {
+    // Every cause below is a path-free enum, so its Debug form is safe for diagnostics.
+    let also_failed_to_stop = |prefix: &str, stuck: Option<TransportError>| -> Option<String> {
+        stuck.map(|cause| format!("{prefix}; the worker also failed to stop ({cause:?})"))
+    };
+    match error {
+        LocalImageExecutionError::InvalidOutput(stuck) => ProviderError::malformed(
             "The local image worker returned an invalid PNG image.",
-            None,
+            also_failed_to_stop("Invalid local image output", stuck),
         ),
-        LocalImageExecutionError::GenerationFailed => ProviderError::unavailable(
+        LocalImageExecutionError::GenerationFailed(cause) => ProviderError::unavailable(
             "The local image worker could not generate this image.",
-            None,
+            cause.map(|cause| format!("Local image generation failed: {cause:?}")),
         ),
-        LocalImageExecutionError::Cancelled => {
+        LocalImageExecutionError::ModelUnavailable(cause) => ProviderError::unavailable(
+            RUNTIME_UNAVAILABLE,
+            Some(match cause {
+                Some(cause) => {
+                    format!("Local image execution failed (ModelUnavailable): {cause:?}")
+                }
+                None => "Local image execution failed (ModelUnavailable)".to_owned(),
+            }),
+        ),
+        LocalImageExecutionError::ShutdownFailed(cause) => ProviderError::unavailable(
+            RUNTIME_UNAVAILABLE,
+            Some(format!(
+                "Local image execution failed (ShutdownFailed): {cause:?}"
+            )),
+        ),
+        LocalImageExecutionError::InvalidLayout(stuck) => ProviderError::unavailable(
+            RUNTIME_UNAVAILABLE,
+            Some(
+                also_failed_to_stop("Local image execution failed (InvalidLayout)", stuck)
+                    .unwrap_or_else(|| "Local image execution failed (InvalidLayout)".to_owned()),
+            ),
+        ),
+        LocalImageExecutionError::Cancelled(_) => {
             ProviderError::unavailable("The local image generation was cancelled.", None)
         }
         LocalImageExecutionError::WorkerUnavailable(cause) => ProviderError::unavailable(
@@ -288,7 +328,7 @@ mod execution_error_tests {
             TransportError::TeardownFailed,
         )));
         let mismatch = map_execution_error(LocalImageExecutionError::RuntimeMismatch(None));
-        let model = map_execution_error(LocalImageExecutionError::ModelUnavailable);
+        let model = map_execution_error(LocalImageExecutionError::ModelUnavailable(None));
 
         assert_eq!(
             unavailable.diagnostic.as_deref(),
@@ -313,5 +353,70 @@ mod execution_error_tests {
             unavailable.message,
             "The verified local image runtime is unavailable."
         );
+    }
+
+    /// #232 and #234: every transport cause the execution boundary keeps must reach the diagnostic.
+    #[test]
+    fn load_generation_shutdown_and_output_causes_reach_the_diagnostic() {
+        use crate::local_image_worker::model_cache::CachedModelLoadError;
+        let detail = |error| map_execution_error(error).diagnostic;
+
+        assert_eq!(
+            detail(LocalImageExecutionError::ModelUnavailable(Some(
+                CachedModelLoadError::Transport(TransportError::WriteTimeout)
+            ))),
+            Some("Local image execution failed (ModelUnavailable): Transport(WriteTimeout)".into())
+        );
+        assert_eq!(
+            detail(LocalImageExecutionError::GenerationFailed(Some(
+                TransportError::WriteFailed
+            ))),
+            Some("Local image generation failed: WriteFailed".into())
+        );
+        assert_eq!(
+            detail(LocalImageExecutionError::GenerationFailed(None)),
+            None
+        );
+        assert_eq!(
+            detail(LocalImageExecutionError::ShutdownFailed(
+                TransportError::ShutdownTimeout
+            )),
+            Some("Local image execution failed (ShutdownFailed): ShutdownTimeout".into())
+        );
+        assert_eq!(
+            detail(LocalImageExecutionError::InvalidOutput(Some(
+                TransportError::TeardownFailed
+            ))),
+            Some(
+                "Invalid local image output; the worker also failed to stop (TeardownFailed)"
+                    .into()
+            )
+        );
+        assert_eq!(detail(LocalImageExecutionError::InvalidOutput(None)), None);
+        assert_eq!(
+            detail(LocalImageExecutionError::InvalidLayout(Some(
+                TransportError::TeardownFailed
+            ))),
+            Some(
+                "Local image execution failed (InvalidLayout); the worker also failed to stop \
+                 (TeardownFailed)"
+                    .into()
+            )
+        );
+    }
+
+    /// #234: a cancel that faulted still reads as cancelled to the user, but keeps its cause for a warning.
+    #[test]
+    fn faulted_cancellation_stays_cancelled_and_keeps_its_cause() {
+        assert!(matches!(
+            map_runtime_error(LocalImageExecutionError::Cancelled(None)),
+            LocalImageGenerationError::Cancelled
+        ));
+        let LocalImageGenerationError::CancelledAfterFault(fault) = map_runtime_error(
+            LocalImageExecutionError::Cancelled(Some(TransportError::TeardownFailed)),
+        ) else {
+            panic!("a faulted cancel must stay a cancellation")
+        };
+        assert_eq!(fault, "TeardownFailed");
     }
 }
