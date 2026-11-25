@@ -4,10 +4,10 @@ This roadmap favors complete vertical slices over building every backend subsyst
 
 ## Current focus (2026-11-25)
 
-- PRs up to #245 and #251 are merged. Open: #248 (`CaptureState` split, #246) and #250 (#232, #234). Follow-up:
-  #247 (unreported Silero inference failures and dropped frames).
-- `FIX_BOTTIE.md` items 9, 10, 14 and 19 need Linux, the DGX or the running app. Doable here: #240, #235, then the
-  follow-up audit listed in `FIX_BOTTIE.md`.
+- PRs up to #245 are merged. In review: #248 (`CaptureState` split, #246) and the #232/#234 PR stacked on it.
+  Follow-up: #247 (unreported Silero inference failures and dropped frames).
+- `FIX_BOTTIE.md` items 9, 10, 14 and 19 need Linux, the DGX or the running app. Doable here: #240, #235, #249, then
+  the follow-up audit listed in `FIX_BOTTIE.md`.
 - `mlx_worker.py` changed (audit item 4). The frozen Mac Qwen-Image-2512 worker bundle (8.4) and the Linux clean-runtime
   image and closure evidence (8.4) predate it, so rebuild and re-pin both before relying on them.
 

@@ -66,9 +66,9 @@ pub(super) fn validate_outputs(
         .map(|output| output.output_name.as_str())
         .collect::<HashSet<_>>();
     let entries = fs::read_dir(output_directory)
-        .map_err(|_| LocalImageExecutionError::InvalidOutput)?
+        .map_err(|_| LocalImageExecutionError::InvalidOutput(None))?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| LocalImageExecutionError::InvalidOutput)?;
+        .map_err(|_| LocalImageExecutionError::InvalidOutput(None))?;
     if entries.len() != outputs.len()
         || entries.iter().any(|entry| {
             !entry
@@ -77,27 +77,29 @@ pub(super) fn validate_outputs(
                 .is_some_and(|name| expected_names.contains(name))
         })
     {
-        return Err(LocalImageExecutionError::InvalidOutput);
+        return Err(LocalImageExecutionError::InvalidOutput(None));
     }
     outputs
         .into_iter()
         .map(|output| {
             let path = output_directory.join(&output.output_name);
-            let metadata =
-                fs::symlink_metadata(&path).map_err(|_| LocalImageExecutionError::InvalidOutput)?;
+            let metadata = fs::symlink_metadata(&path)
+                .map_err(|_| LocalImageExecutionError::InvalidOutput(None))?;
             if !metadata.file_type().is_file()
                 || metadata.file_type().is_symlink()
                 || metadata.len() == 0
                 || metadata.len() > MAX_LOCAL_OUTPUT_BYTES
                 || file_has_multiple_links(&metadata)
             {
-                return Err(LocalImageExecutionError::InvalidOutput);
+                return Err(LocalImageExecutionError::InvalidOutput(None));
             }
             Ok(LocalGeneratedOutput {
                 path,
                 width: output.width,
                 height: output.height,
-                seed: output.seed.ok_or(LocalImageExecutionError::InvalidOutput)?,
+                seed: output
+                    .seed
+                    .ok_or(LocalImageExecutionError::InvalidOutput(None))?,
             })
         })
         .collect()
@@ -114,30 +116,30 @@ fn file_has_multiple_links(_metadata: &fs::Metadata) -> bool {
 }
 
 pub(super) fn create_output_directory(parent: &Path) -> Result<PathBuf, LocalImageExecutionError> {
-    fs::create_dir_all(parent).map_err(|_| LocalImageExecutionError::InvalidLayout)?;
+    fs::create_dir_all(parent).map_err(|_| LocalImageExecutionError::InvalidLayout(None))?;
     let metadata =
-        fs::symlink_metadata(parent).map_err(|_| LocalImageExecutionError::InvalidLayout)?;
+        fs::symlink_metadata(parent).map_err(|_| LocalImageExecutionError::InvalidLayout(None))?;
     if !metadata.file_type().is_dir() || metadata.file_type().is_symlink() {
-        return Err(LocalImageExecutionError::InvalidLayout);
+        return Err(LocalImageExecutionError::InvalidLayout(None));
     }
     let output = parent.join(format!("local-worker-{}", uuid::Uuid::new_v4()));
-    fs::create_dir(&output).map_err(|_| LocalImageExecutionError::InvalidLayout)?;
+    fs::create_dir(&output).map_err(|_| LocalImageExecutionError::InvalidLayout(None))?;
     Ok(output)
 }
 
 pub(super) fn prepare_empty_output_directory(path: &Path) -> Result<(), LocalImageExecutionError> {
     let metadata =
-        fs::symlink_metadata(path).map_err(|_| LocalImageExecutionError::InvalidLayout)?;
+        fs::symlink_metadata(path).map_err(|_| LocalImageExecutionError::InvalidLayout(None))?;
     if !metadata.file_type().is_dir() || metadata.file_type().is_symlink() {
-        return Err(LocalImageExecutionError::InvalidLayout);
+        return Err(LocalImageExecutionError::InvalidLayout(None));
     }
     cleanup_output_directory(path);
     if fs::read_dir(path)
-        .map_err(|_| LocalImageExecutionError::InvalidLayout)?
+        .map_err(|_| LocalImageExecutionError::InvalidLayout(None))?
         .next()
         .is_some()
     {
-        return Err(LocalImageExecutionError::InvalidLayout);
+        return Err(LocalImageExecutionError::InvalidLayout(None));
     }
     Ok(())
 }
@@ -160,7 +162,7 @@ pub(super) fn validate_absolute_path(path: &Path) -> Result<(), LocalImageExecut
             .components()
             .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
     {
-        Err(LocalImageExecutionError::InvalidLayout)
+        Err(LocalImageExecutionError::InvalidLayout(None))
     } else {
         Ok(())
     }
@@ -204,7 +206,7 @@ mod tests {
 
             assert_eq!(
                 validate_outputs(&output_directory, vec![worker_output("output.png")]),
-                Err(LocalImageExecutionError::InvalidOutput)
+                Err(LocalImageExecutionError::InvalidOutput(None))
             );
             assert!(output_directory.exists());
             fs::remove_dir_all(root).unwrap();
@@ -227,7 +229,7 @@ mod tests {
 
             assert_eq!(
                 validate_outputs(&output_directory, vec![worker_output("output.png")]),
-                Err(LocalImageExecutionError::InvalidOutput)
+                Err(LocalImageExecutionError::InvalidOutput(None))
             );
             assert_eq!(fs::read(&anchor).unwrap(), b"outside worker output");
             fs::remove_dir_all(root).unwrap();

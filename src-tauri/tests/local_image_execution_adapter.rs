@@ -64,6 +64,42 @@ async fn verified_cache_runs_twice_through_one_private_worker_and_returns_native
     fs::remove_dir_all(fixture.root).unwrap();
 }
 
+/// #234: a worker that ignores Cancel is torn down after the grace period. The run still reads as
+/// cancelled, keeps the transport cause, and leaves no live worker in the session to be reused.
+#[tokio::test]
+async fn ignored_cancellation_keeps_its_cause_and_retires_the_worker() {
+    let fixture = prepared_fixture("ignored-cancel");
+    let runtime = LocalImageWorkerRuntime::for_fixture(
+        fixture.output_parent.clone(),
+        fixture.worker.clone(),
+        "ignore-cancel",
+    )
+    .unwrap();
+    let (cancel, cancellation) = watch::channel(false);
+
+    // Cancel on the first progress event, so the request is in flight when Cancel is sent.
+    let result = runtime
+        .generate(
+            fixture.installation(),
+            request("Ignore the cancel"),
+            cancellation,
+            move || {
+                let _ = cancel.send(true);
+            },
+        )
+        .await;
+
+    assert_eq!(
+        result,
+        Err(LocalImageExecutionError::Cancelled(Some(
+            transport::TransportError::CancellationTimeout
+        )))
+    );
+    assert!(!runtime.has_loaded_worker_for_test().await);
+    runtime.shutdown().await.unwrap();
+    fs::remove_dir_all(fixture.root).unwrap();
+}
+
 #[tokio::test]
 async fn cancellation_is_cooperative_and_keeps_the_loaded_worker_reusable() {
     let fixture = prepared_fixture("cancel");
@@ -94,7 +130,7 @@ async fn cancellation_is_cooperative_and_keeps_the_loaded_worker_reusable() {
 
     assert_eq!(
         task.await.unwrap(),
-        Err(LocalImageExecutionError::Cancelled)
+        Err(LocalImageExecutionError::Cancelled(None))
     );
     assert!(runtime.has_loaded_worker_for_test().await);
     runtime.shutdown().await.unwrap();
@@ -108,7 +144,10 @@ async fn runtime_identity_and_missing_output_bytes_fail_closed_without_native_de
             "wrong-runtime",
             LocalImageExecutionError::RuntimeMismatch(None),
         ),
-        ("missing-output", LocalImageExecutionError::InvalidOutput),
+        (
+            "missing-output",
+            LocalImageExecutionError::InvalidOutput(None),
+        ),
     ] {
         let fixture = prepared_fixture(mode);
         let runtime = LocalImageWorkerRuntime::for_fixture(

@@ -95,6 +95,19 @@ pub(super) fn spawn_local_image_run(
                     &on_event,
                     &task_run_id,
                     &message_id,
+                    None,
+                )
+                .await;
+            }
+            Err(LocalImageGenerationError::CancelledAfterFault(fault)) => {
+                finish_cancellation(
+                    &conversations,
+                    &diagnostics,
+                    provider_id,
+                    &on_event,
+                    &task_run_id,
+                    &message_id,
+                    Some(&fault),
                 )
                 .await;
             }
@@ -123,6 +136,9 @@ fn send_progress(on_event: &Channel<ImageGenerationEvent>, run_id: &str, output_
     });
 }
 
+/// Records a cancelled run. `fault` is the path-free cause when the worker did not stop cleanly; the user still
+/// sees a cancelled run, but the diagnostic is a warning that names the cause (#234).
+#[allow(clippy::too_many_arguments)]
 async fn finish_cancellation(
     conversations: &ConversationStore,
     diagnostics: &Diagnostics,
@@ -130,6 +146,7 @@ async fn finish_cancellation(
     on_event: &Channel<ImageGenerationEvent>,
     run_id: &str,
     message_id: &str,
+    fault: Option<&str>,
 ) {
     match conversations.fail_generated_image_message(
         message_id,
@@ -150,12 +167,21 @@ async fn finish_cancellation(
             });
         }
     }
+    const DISCARDED: &str =
+        "Private worker outputs and uncommitted normalized bytes were discarded";
+    let (level, detail) = match fault {
+        None => ("info", DISCARDED.to_owned()),
+        Some(fault) => (
+            "warn",
+            format!("{DISCARDED}; the worker did not stop cleanly ({fault})"),
+        ),
+    };
     record_diagnostic(
         diagnostics,
-        "info",
+        level,
         "Local image generation cancelled",
         Some(provider_id),
-        Some("Private worker outputs and uncommitted normalized bytes were discarded"),
+        Some(&detail),
     )
     .await;
 }

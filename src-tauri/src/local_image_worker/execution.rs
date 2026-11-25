@@ -22,7 +22,7 @@ use output::{
 use super::{
     manager::{ManagerEvent, WorkerReadiness},
     model_acquisition::ModelPackageManifest,
-    model_cache::begin_cached_model_load,
+    model_cache::{CachedModelLoadError, begin_cached_model_load},
     transport::{TransportError, TransportTimeouts, WorkerProcessSpec, WorkerTransport},
 };
 
@@ -41,8 +41,9 @@ const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 /// Stable path-free failures from the verified local execution boundary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum LocalImageExecutionError {
-    /// An application-owned native directory was relative, traversing, or unsafe.
-    InvalidLayout,
+    /// An application-owned native directory was relative, traversing, or unsafe; carries the shutdown failure
+    /// when the warm worker then could not be stopped (#232).
+    InvalidLayout(Option<TransportError>),
     /// This build target cannot apply the accepted runtime's operating-system sandbox.
     UnsupportedPlatform,
     /// The exact worker could not start, negotiate, or answer the private protocol; carries the path-free cause.
@@ -50,16 +51,31 @@ pub(crate) enum LocalImageExecutionError {
     /// The worker's negotiated runtime identity differed from the verified package; carries the shutdown
     /// failure when the mismatched worker also could not be stopped (#231).
     RuntimeMismatch(Option<TransportError>),
-    /// The promoted model changed or could not be loaded at the worker boundary.
-    ModelUnavailable,
-    /// The worker rejected or failed one bounded generation.
-    GenerationFailed,
-    /// The operation cooperatively cancelled or its forced teardown completed.
-    Cancelled,
-    /// Worker-declared output bytes or filesystem shape failed closed.
-    InvalidOutput,
+    /// The promoted model changed or could not be loaded at the worker boundary; carries the cache or transport
+    /// cause when the load request itself failed, and `None` when the worker answered with a failure (#234).
+    ModelUnavailable(Option<CachedModelLoadError>),
+    /// The worker rejected or failed one bounded generation; carries the transport cause when the request could
+    /// not be sent, and `None` for a rejected request or a worker-reported failure (#234).
+    GenerationFailed(Option<TransportError>),
+    /// The operation cooperatively cancelled or its forced teardown completed. Carries the transport error when
+    /// the cancel did not end cleanly (the worker ignored it, crashed, or could not be reaped) (#234).
+    Cancelled(Option<TransportError>),
+    /// Worker-declared output bytes or filesystem shape failed closed; carries the shutdown failure when the warm
+    /// worker then could not be stopped (#232).
+    InvalidOutput(Option<TransportError>),
     /// A formerly warm worker could not complete bounded shutdown.
-    ShutdownFailed,
+    ShutdownFailed(TransportError),
+}
+
+impl LocalImageExecutionError {
+    /// Attaches the failed teardown that followed an output-boundary failure (#232); other errors pass unchanged.
+    fn with_stop_failure(self, stuck: Option<TransportError>) -> Self {
+        match self {
+            Self::InvalidLayout(None) => Self::InvalidLayout(stuck),
+            Self::InvalidOutput(None) => Self::InvalidOutput(stuck),
+            other => other,
+        }
+    }
 }
 
 /// Fresh native capability produced only after the availability service re-verifies every gate.
@@ -139,7 +155,7 @@ impl LocalGenerationRequest {
             || (width, height) != LOCAL_GENERATION_DIMENSIONS
             || count != LOCAL_GENERATION_OUTPUT_COUNT
         {
-            return Err(LocalImageExecutionError::GenerationFailed);
+            return Err(LocalImageExecutionError::GenerationFailed(None));
         }
         Ok(Self {
             prompt,
@@ -224,7 +240,7 @@ impl LocalImageWorkerRuntime {
         mut on_progress: impl FnMut(),
     ) -> Result<Vec<LocalGeneratedOutput>, LocalImageExecutionError> {
         if *cancellation.borrow() {
-            return Err(LocalImageExecutionError::Cancelled);
+            return Err(LocalImageExecutionError::Cancelled(None));
         }
         let key = installation.key();
         let mut owned = self.session.lock().await;
@@ -239,8 +255,8 @@ impl LocalImageWorkerRuntime {
             .clone();
         if let Err(error) = prepare_empty_output_directory(&output_directory) {
             let failed = owned.take().expect("unsafe output has an owned session");
-            let _ = failed.transport.shutdown().await;
-            return Err(error);
+            let stuck = failed.transport.shutdown().await.err();
+            return Err(error.with_stop_failure(stuck));
         }
         let session = owned.as_mut().expect("session was started");
         if session.transport.readiness() != WorkerReadiness::Loaded {
@@ -252,17 +268,17 @@ impl LocalImageWorkerRuntime {
                 installation.manifest.clone(),
             )
             .await
-            .map_err(|_| LocalImageExecutionError::ModelUnavailable)?;
+            .map_err(|cause| LocalImageExecutionError::ModelUnavailable(Some(cause)))?;
             match wait_for_terminal(&mut session.transport, &mut cancellation, &mut on_progress)
                 .await?
             {
                 ManagerEvent::ModelLoaded => {}
-                ManagerEvent::Cancelled => return Err(LocalImageExecutionError::Cancelled),
-                _ => return Err(LocalImageExecutionError::ModelUnavailable),
+                ManagerEvent::Cancelled => return Err(LocalImageExecutionError::Cancelled(None)),
+                _ => return Err(LocalImageExecutionError::ModelUnavailable(None)),
             }
         }
         if *cancellation.borrow() {
-            return Err(LocalImageExecutionError::Cancelled);
+            return Err(LocalImageExecutionError::Cancelled(None));
         }
         session
             .transport
@@ -275,14 +291,14 @@ impl LocalImageWorkerRuntime {
                 Some(request.seed),
             )
             .await
-            .map_err(|_| LocalImageExecutionError::GenerationFailed)?;
+            .map_err(|cause| LocalImageExecutionError::GenerationFailed(Some(cause)))?;
         let terminal =
             wait_for_terminal(&mut session.transport, &mut cancellation, &mut on_progress).await?;
         let ManagerEvent::Generated(outputs) = terminal else {
             cleanup_output_directory(&session.output_directory);
             return match terminal {
-                ManagerEvent::Cancelled => Err(LocalImageExecutionError::Cancelled),
-                _ => Err(LocalImageExecutionError::GenerationFailed),
+                ManagerEvent::Cancelled => Err(LocalImageExecutionError::Cancelled(None)),
+                _ => Err(LocalImageExecutionError::GenerationFailed(None)),
             };
         };
         match validate_outputs(&session.output_directory, outputs) {
@@ -290,8 +306,8 @@ impl LocalImageWorkerRuntime {
             Err(error) => {
                 cleanup_output_directory(&session.output_directory);
                 let failed = owned.take().expect("invalid output has an owned session");
-                let _ = failed.transport.shutdown().await;
-                Err(error)
+                let stuck = failed.transport.shutdown().await.err();
+                Err(error.with_stop_failure(stuck))
             }
         }
     }
@@ -303,11 +319,16 @@ impl LocalImageWorkerRuntime {
             return Ok(());
         };
         let output_directory = session.output_directory.clone();
-        let result = session
-            .transport
-            .shutdown()
-            .await
-            .map_err(|_| LocalImageExecutionError::ShutdownFailed);
+        // A transport that already tore itself down (for example after an ignored cancel) has nothing left to stop.
+        let result = if session.transport.readiness() == WorkerReadiness::Stopped {
+            Ok(())
+        } else {
+            session
+                .transport
+                .shutdown()
+                .await
+                .map_err(LocalImageExecutionError::ShutdownFailed)
+        };
         cleanup_output_directory(&output_directory);
         let _ = fs::remove_dir(&output_directory);
         result
@@ -349,7 +370,7 @@ impl LocalImageWorkerRuntime {
                 .transport
                 .shutdown()
                 .await
-                .map_err(|_| LocalImageExecutionError::ShutdownFailed)?;
+                .map_err(LocalImageExecutionError::ShutdownFailed)?;
         }
         cleanup_output_directory(&output_directory);
         let _ = fs::remove_dir(output_directory);
@@ -423,14 +444,14 @@ async fn wait_for_terminal(
             transport
                 .cancel_active()
                 .await
-                .map_err(|_| LocalImageExecutionError::Cancelled)?;
+                .map_err(|cause| LocalImageExecutionError::Cancelled(Some(cause)))?;
             cancellation_sent = true;
         }
         tokio::select! {
             event = transport.next_event() => {
                 let event = event.map_err(|error| {
                     if cancellation_sent {
-                        LocalImageExecutionError::Cancelled
+                        LocalImageExecutionError::Cancelled(Some(error))
                     } else {
                         LocalImageExecutionError::WorkerUnavailable(error)
                     }
