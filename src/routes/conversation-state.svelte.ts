@@ -342,13 +342,14 @@ export class ConversationState {
 
   /** Restores one confirmed native recovery point, refreshes durable state, and reports preserved local data. */
   async restoreBackup(source: "manual" | "automatic" = "manual"): Promise<Message[] | null> {
+    // Reset before the guard: PageState reads it after every call, so an earlier failure must not clear a live view.
+    this.restoreReloadFailed = false;
     if (this.isManaging) return null;
     this.isManaging = true;
     this.isRestoring = true;
     this.backupFeedback = null;
     this.backupFailed = false;
     this.backupWarning = false;
-    this.restoreReloadFailed = false;
     this.exportFeedback = null;
     this.exportFailed = false;
     try {

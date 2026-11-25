@@ -31,7 +31,8 @@ pub(crate) struct AutomaticBackupRotation {
     /// The first failed removal's error kind, so a permission problem and a busy file read differently.
     pub(crate) prune_error: Option<std::io::ErrorKind>,
     /// Expired snapshots kept because their completeness check failed, so the only copy of a missing
-    /// file's bytes is never pruned unseen (#259). The next launch checks them again.
+    /// file's bytes is never pruned unseen (#259). Later launches check them again until a retained
+    /// snapshot is complete.
     pub(crate) check_failed: usize,
     /// Catalog files left out of the new snapshot because they were missing from disk.
     pub(crate) skipped_files: usize,
@@ -46,7 +47,8 @@ impl AutomaticBackupRotation {
         } else {
             "info"
         };
-        let mut parts = vec![format!("{} verified snapshot(s) retained", self.retained)];
+        // Not "verified": the count includes snapshots kept because their check failed.
+        let mut parts = vec![format!("{} snapshot(s) retained", self.retained)];
         let event = if self.created {
             parts.push(format!("{} expired snapshot(s) removed", self.pruned));
             "Automatic backup created"
@@ -69,7 +71,7 @@ impl AutomaticBackupRotation {
         if self.check_failed > 0 {
             parts.push(format!(
                 "{} expired snapshot(s) kept because they could not be checked for missing files; \
-                 the next launch checks them again",
+                 later launches check them again until a retained snapshot is complete",
                 self.check_failed
             ));
         }
@@ -128,9 +130,12 @@ impl ConversationStore {
     /// Creates a verified snapshot when the newest automatic backup is at least 24 hours old, and prunes
     /// expired snapshots on every call, retrying ones an earlier launch failed to remove (#235).
     pub(crate) fn rotate_automatic_backups(&self) -> Result<AutomaticBackupRotation, StorageError> {
-        let timestamp_ms = now_ms().map_err(|error| {
-            let cause = error.message.trim_end_matches('.').to_owned();
-            StorageError::automatic_backup_during("reading the clock", cause)
+        // now_ms's own message names the conversation store, so give the clock's real cause instead.
+        let timestamp_ms = now_ms().map_err(|_| {
+            StorageError::automatic_backup_during(
+                "reading the clock",
+                "the system clock is before 1970 or out of range",
+            )
         })?;
         self.rotate_automatic_backups_at(timestamp_ms)
     }
@@ -197,9 +202,10 @@ impl ConversationStore {
                 .then_with(|| right.path.cmp(&left.path))
         });
         let mut expired = backups.split_off(backups.len().min(AUTOMATIC_BACKUP_RETENTION_COUNT));
-        // A skipped file's bytes survive only in older snapshots, so keep the newest complete one. Only a
-        // rotation with something to expire checks, so a launch with nothing to prune opens no snapshot;
-        // while a rescued snapshot is held back, every launch checks again, since that one always expires.
+        // A skipped file's bytes survive only in older snapshots, so keep the newest complete one, plus
+        // any newer one that could not be checked (#259). Only a rotation with something to expire checks,
+        // so a launch with nothing to prune opens no snapshot; while a rescued snapshot is held back, every
+        // launch checks again, since that one always expires.
         let mut check_failed = 0;
         if !expired.is_empty()
             && !backups
@@ -226,9 +232,10 @@ impl ConversationStore {
 }
 
 /// Picks out of `expired` (newest first) the snapshots that must survive while no retained snapshot is
-/// complete. That is the newest complete one, plus every newer one whose check failed, since a snapshot
-/// that could not be read might be that complete one (#259). `omitted` counts a snapshot's left-out
-/// files. Returns the snapshots to keep and how many checks failed.
+/// complete. That is the newest complete one, plus every newer one whose check failed (all of them when
+/// none is complete), since a snapshot that could not be read might be that complete one (#259).
+/// `omitted` counts a snapshot's left-out files. Returns the snapshots to keep and how many checks
+/// failed.
 fn hold_back_from_expiry<E>(
     expired: &mut Vec<ManagedBackup>,
     mut omitted: impl FnMut(&Path) -> Result<usize, E>,

@@ -12,8 +12,8 @@ Last verified: 2026-11-26 (branch `fix/issues-258-259-260`).
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #247, #261 (split `page-state`/`conversation-state`), and the follow-up
-   audit in `FIX_BOTTIE.md` "Not audited yet".
+   Doable here: #240 (voice test gaps), #247, #261 (split `page-state`/`conversation-state`), the backup
+   follow-ups #263, #264 and #265, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
    #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
@@ -41,11 +41,15 @@ Last verified: 2026-11-26 (branch `fix/issues-258-259-260`).
   verbatim to `storage/automatic_backup/tests.rs`.
 - **#258:** backup failures keep a path-free cause. `StorageError::backup_sqlite` keeps only SQLite's code text
   ("Error code 13: database or disk is full") and drops its free text, which can hold a path. `backup_because`
-  carries an `io::ErrorKind`. Covered: the snapshot copy, payload embedding, verification, reading a file into the
-  payload, the manual rename and the rotation's clock read.
+  takes any path-free cause, such as an `io::ErrorKind`. Covered: the snapshot copy, the payload's SQLite inserts,
+  opening and `quick_check` in verification, reading a file into the payload (its `io::ErrorKind`, or "a stored
+  file failed its checksum"), the manual rename and the rotation's clock read. Still generic: the catalog row reads,
+  payload validation and the omitted-count check (#263). A failed snapshot check's cause is dropped (#264), and one
+  checksum-failing file still blocks every backup (#265).
 - **#260:** a Settings restore whose reload fails clears the stale view (`PageState.restoreBackup`). The pre-restore
   conversation, branch, attachments and list are dropped, so nothing acts on a conversation the restored data may
-  lack.
+  lack. `restoreReloadFailed` now resets before the `isManaging` guard, so a refused restore never clears a live
+  view.
 
 2026-11-26 (#254, #255, #256):
 
@@ -129,14 +133,14 @@ and git history.
 
 ## Validation (2026-11-26)
 
-- Rust: `cargo test` passes 928 library tests (42 ignored; the feature build was not rerun) plus the
+- Rust: `cargo test` passes 931 library tests (42 ignored; the feature build was not rerun) plus the
   updater, adapter and transport suites. `cargo fmt` is clean. `cargo clippy --all-targets` prints 71 `warning:` lines,
   the same as `main` (style lints, none new).
 - Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1226),
   `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1222),
-  `conversation-state.svelte.ts` (589), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
+  `conversation-state.svelte.ts` (590), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
   (514). Split each one when you next touch it. The two state classes are #261.
-- Frontend: `npm test` passes 543 tests; `npm run check` is clean.
+- Frontend: `npm test` passes 544 tests; `npm run check` is clean.
 - Python: `local-image-worker` was not touched (121 tests passed on 2026-10-29).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
 

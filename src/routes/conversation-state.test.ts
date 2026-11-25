@@ -209,6 +209,10 @@ describe("ConversationState.restoreBackup", () => {
     // The pre-restore conversation may not exist in the restored data, so none of it may stay selected (#260).
     state.activeConversationId = "pre-restore";
     state.currentBranchId = "pre-restore-branch";
+    // Seeded so the assertions below fail if the fix stops clearing them; a failed reload never sets them.
+    state.conversations = [{ id: "pre-restore" } as never];
+    state.branches = [{ id: "pre-restore-branch" } as never];
+    state.conversationAttachments = [{ id: "pre-restore-attachment" } as never];
 
     expect(await state.restoreBackup()).toBeNull();
 
@@ -224,6 +228,17 @@ describe("ConversationState.restoreBackup", () => {
     expect(state.backupFeedback).toBe(
       `Restored backup.sqlite3 · preserved current data as preserved.sqlite3 · Reloading the restored data failed: Storage is unavailable. Relaunch Bottie to check again.`,
     );
+  });
+
+  it("does not carry an earlier failed reload into a restore that never ran", async () => {
+    const state = new ConversationState();
+    state.restoreReloadFailed = true;
+    state.isManaging = true;
+
+    expect(await state.restoreBackup()).toBeNull();
+
+    // PageState clears the view whenever this flag is set, so a stale true would wipe a live conversation.
+    expect(state.restoreReloadFailed).toBe(false);
   });
 
   it("ends a raw reload error with one period before the relaunch hint", async () => {

@@ -18,7 +18,7 @@ fn report_warns_and_names_failed_prunes_only_when_there_are_any() {
         (
             "info",
             "Automatic backup created",
-            "7 verified snapshot(s) retained; 1 expired snapshot(s) removed; \
+            "7 snapshot(s) retained; 1 expired snapshot(s) removed; \
              0 missing attachment or image file(s) left out"
                 .to_owned()
         )
@@ -52,7 +52,7 @@ fn a_current_rotation_reports_info_unless_a_stuck_prune_remains() {
         (
             "info",
             "Automatic backups current",
-            "7 verified snapshot(s) retained; snapshots run at most once every 24 hours".to_owned()
+            "7 snapshot(s) retained; snapshots run at most once every 24 hours".to_owned()
         )
     );
     let stuck = AutomaticBackupRotation {
@@ -114,7 +114,7 @@ fn an_expired_snapshot_whose_check_fails_is_kept_and_counted() {
     assert_eq!(report.0, "warn");
     assert!(report.2.ends_with(
         "1 expired snapshot(s) kept because they could not be checked for missing files; \
-         the next launch checks them again"
+         later launches check them again until a retained snapshot is complete"
     ));
 }
 

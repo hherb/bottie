@@ -494,7 +494,8 @@ fn verified_file(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(StorageError::backup_because(error.kind())),
     };
-    verify_bytes(&bytes, sha256, byte_size).map_err(|_| StorageError::backup())?;
+    verify_bytes(&bytes, sha256, byte_size)
+        .map_err(|_| StorageError::backup_because("a stored file failed its checksum"))?;
     Ok(Some(bytes))
 }
 
