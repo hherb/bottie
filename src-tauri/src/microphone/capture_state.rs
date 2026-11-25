@@ -1,7 +1,9 @@
-//! Shared capture state: the one record the capture thread, the transcription worker and the WebView status read.
+//! Shared capture state: the one record the capture thread, the transcription worker, the Silero gate and the
+//! controller share.
 //!
-//! The capture thread appends samples and feeds the endpointer, the transcription worker applies results, and
-//! `MicrophoneController` reads a path-free `MicrophoneStatus` snapshot. All of them hold the same mutex.
+//! The capture thread appends samples and feeds the endpointer, the transcription worker applies results, the Silero
+//! gate worker reports load failures, and `MicrophoneController` starts captures and reads a path-free
+//! `MicrophoneStatus` snapshot. All of them hold the same mutex.
 
 use std::{
     sync::{Arc, Mutex},
@@ -172,7 +174,7 @@ impl CaptureState {
     ///
     /// The endpointer must see one clock. Wall time runs ahead of this timeline by device startup and callback
     /// buffering, and that lag would otherwise count as silence and end a turn while the user is still speaking.
-    pub(super) fn frame_clock(&self, started_at: Instant) -> Instant {
+    fn frame_clock(&self, started_at: Instant) -> Instant {
         started_at
             + Duration::from_millis(
                 self.vad_frames_processed
@@ -215,7 +217,7 @@ impl CaptureState {
     }
 
     /// Starts conversation partials a full interval after the first confirmed speech, not after capture start.
-    pub(super) fn anchor_transcription_to_onset(&mut self, started_at: Instant) {
+    fn anchor_transcription_to_onset(&mut self, started_at: Instant) {
         if self.mode != MicrophoneMode::Conversation || self.first_speech_ms.is_some() {
             return;
         }
@@ -234,7 +236,7 @@ impl CaptureState {
     }
 
     /// Joins the bounded transcript segments into the text an end-of-turn gate evaluates.
-    pub(super) fn transcript_text(&self) -> String {
+    fn transcript_text(&self) -> String {
         self.transcript_segments
             .iter()
             .map(|segment| segment.text.as_str())
@@ -243,7 +245,7 @@ impl CaptureState {
     }
 
     /// Conversation capture asks for earlier partials than push-to-talk.
-    pub(super) fn transcription_interval_ms(&self) -> u64 {
+    fn transcription_interval_ms(&self) -> u64 {
         match self.mode {
             MicrophoneMode::Conversation => transcription::CONVERSATION_TRANSCRIPTION_INTERVAL_MS,
             MicrophoneMode::PushToTalk => transcription::TRANSCRIPTION_INTERVAL_MS,
@@ -351,7 +353,7 @@ impl CaptureState {
         }
     }
 
-    pub(super) fn clear_transcription(&mut self, phase: TranscriptionPhase) {
+    fn clear_transcription(&mut self, phase: TranscriptionPhase) {
         self.transcription_generation = 0;
         self.applied_transcription_generation = 0;
         self.transcription_phase = phase;
