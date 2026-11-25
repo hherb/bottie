@@ -104,9 +104,9 @@ and git history.
 - Rust: `cargo test` passes 919 library tests (42 ignored) plus the updater, adapter and transport suites. `cargo fmt`
   is clean. `cargo clippy --all-targets` prints 71 `warning:` lines, the same as `main` (style lints, none new).
 - Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1237),
-  `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212), `conversation-state.svelte.ts` (575),
-  `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte` (516). Split each one when you next
-  touch it.
+  `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1212),
+  `conversation-state.svelte.ts` (575), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
+  (516). Split each one when you next touch it.
 - Frontend: `npm test` passes 532 tests; `npm run check` is clean.
 - Python: `local-image-worker` was not touched (121 tests passed on 2026-10-29).
 - Prettier reports pre-existing unformatted files (docs JSON, website config, `FIX_BOTTIE.md`).
