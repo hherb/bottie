@@ -4,7 +4,7 @@ Last verified: 2026-11-26 (branch `fix/issues-263-264-265`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-11-26, PRs up to #262 are merged; the #263/#264/#265 fixes are in review
+1. Check the PR list first. As of 2026-11-26, PRs up to #262 are merged; the #263/#264/#265 fixes are in review (#266)
    on `fix/issues-263-264-265`. Land all work through PRs.
 2. **Next items.** None of the four open `FIX_BOTTIE.md` items can be done on this Mac alone:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
