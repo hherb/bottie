@@ -4,9 +4,10 @@ This roadmap favors complete vertical slices over building every backend subsyst
 
 ## Current focus (2026-11-26)
 
-- PRs up to #262 are merged; the backup follow-ups #263, #264 and #265 are fixed in review (#266).
-- `FIX_BOTTIE.md` items 9, 10, 14 and 19 need Linux, the DGX or the running app. Doable here: #267, #240, #247, #261,
-  then the follow-up audit listed in `FIX_BOTTIE.md`.
+- PRs up to #266 are merged; #267 (damaged backup files reported apart from missing ones) is in review on
+  `fix/issue-267-damaged-files`.
+- `FIX_BOTTIE.md` items 9, 10, 14 and 19 need Linux, the DGX or the running app. Doable here: #240, #247, #261, then
+  the follow-up audit listed in `FIX_BOTTIE.md`.
 - `mlx_worker.py` changed (audit item 4). The frozen Mac Qwen-Image-2512 worker bundle (8.4) and the Linux clean-runtime
   image and closure evidence (8.4) predate it, so rebuild and re-pin both before relying on them.
 

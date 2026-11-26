@@ -272,15 +272,41 @@ describe("ConversationState.restoreBackup", () => {
 
 describe("ConversationState.backup", () => {
   it.each([
-    [2, true],
-    [0, false],
-  ])("marks a backup with %i missing file(s) as warning=%s, never failed", async (missingFiles, warning) => {
-    storage.backupConversationStore.mockResolvedValue({ status: "saved", fileName: "backup.sqlite3", missingFiles });
+    [2, 0, true],
+    [0, 1, true],
+    [0, 0, false],
+  ])(
+    "marks a backup with %i missing and %i damaged file(s) as warning=%s, never failed",
+    async (missingFiles, damagedFiles, warning) => {
+      storage.backupConversationStore.mockResolvedValue({
+        status: "saved",
+        fileName: "backup.sqlite3",
+        missingFiles,
+        damagedFiles,
+      });
+      const state = new ConversationState();
+
+      await state.backup();
+
+      expect(state.backupFailed).toBe(false);
+      expect(state.backupWarning).toBe(warning);
+    },
+  );
+
+  it("names damaged files apart from missing ones in the backup note", async () => {
+    storage.backupConversationStore.mockResolvedValue({
+      status: "saved",
+      fileName: "backup.sqlite3",
+      missingFiles: 1,
+      damagedFiles: 2,
+    });
     const state = new ConversationState();
 
     await state.backup();
 
-    expect(state.backupFailed).toBe(false);
-    expect(state.backupWarning).toBe(warning);
+    expect(state.backupFeedback).toBe(
+      "Backed up backup.sqlite3 · 1 missing attachment or image file not included" +
+        " · 2 damaged attachment or image files not included; see Recent diagnostics in Settings",
+    );
   });
 });

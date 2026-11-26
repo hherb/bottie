@@ -13,8 +13,10 @@ export type ConversationExportFormat = "markdown" | "json" | "batch-json";
 export type BackupOutcome = {
   status: "saved" | "cancelled";
   fileName: string | null;
-  /** Catalogued attachment or image files left out because they were missing or failed their checksum. */
+  /** Catalogued attachment or image files left out because they were absent from disk. */
   missingFiles: number;
+  /** Catalogued attachment or image files left out because they failed their checksum (possible disk damage). */
+  damagedFiles: number;
 };
 
 /** Native restore result that returns leaf filenames but never filesystem paths. */
@@ -30,10 +32,17 @@ export type RestoreOutcome = {
   backgroundWorkStopped: boolean;
 };
 
-/** Appends a missing-file warning to backup or restore feedback when any file was left out. */
-export function missingFilesNote(missingFiles: number): string {
-  if (missingFiles === 0) return "";
-  return ` · ${missingFiles} missing or damaged attachment or image file${missingFiles === 1 ? "" : "s"} not included`;
+/**
+ * Appends missing- and damaged-file warnings to backup or restore feedback when any file was left out.
+ * Damage is named apart, since it can mean a failing disk; diagnostics carry the details (#267).
+ */
+export function missingFilesNote(missingFiles: number, damagedFiles = 0): string {
+  const leftOut = (count: number, kind: string) =>
+    ` · ${count} ${kind} attachment or image file${count === 1 ? "" : "s"} not included`;
+  let note = "";
+  if (missingFiles > 0) note += leftOut(missingFiles, "missing");
+  if (damagedFiles > 0) note += `${leftOut(damagedFiles, "damaged")}; see Recent diagnostics in Settings`;
+  return note;
 }
 
 /** Appends a warning to restore feedback when the restored data's missing files could not be counted. */
