@@ -68,7 +68,8 @@ impl ConversationStore {
         ));
         let result = self.write_verified_backup(&staging).and_then(|skipped| {
             remove_database_sidecars(destination);
-            fs::rename(&staging, destination).map_err(|_| StorageError::backup())?;
+            fs::rename(&staging, destination)
+                .map_err(|error| StorageError::backup_because(error.kind()))?;
             Ok(skipped)
         });
         remove_database_files(&staging);
@@ -83,10 +84,9 @@ impl ConversationStore {
         let source = self.open()?;
         source
             .backup(MAIN_DB, path, None)
-            .map_err(|_| StorageError::backup())?;
+            .map_err(StorageError::backup_sqlite)?;
         let skipped =
-            embed_portable_payload(path, &self.attachment_root(), &self.generated_asset_root())
-                .map_err(|_| StorageError::backup())?;
+            embed_portable_payload(path, &self.attachment_root(), &self.generated_asset_root())?;
         verify_backup(path)?;
         // Every row the snapshot lacks must be a file this backup actually found missing.
         if omitted_file_count(path).map_err(|_| StorageError::backup())? != skipped {
@@ -240,12 +240,12 @@ fn paths_refer_to_same_file(source: &Path, destination: &Path) -> bool {
 
 /// Reopens the completed snapshot and rejects output that fails SQLite's quick integrity check.
 fn verify_backup(path: &Path) -> Result<(), StorageError> {
-    let connection = Connection::open(path).map_err(|_| StorageError::backup())?;
+    let connection = Connection::open(path).map_err(StorageError::backup_sqlite)?;
     let integrity: String = connection
         .pragma_query_value(None, "quick_check", |row| row.get(0))
-        .map_err(|_| StorageError::backup())?;
+        .map_err(StorageError::backup_sqlite)?;
     if integrity != "ok" {
-        Err(StorageError::backup())
+        Err(StorageError::backup_because("the integrity check failed"))
     } else {
         validate_portable_payload(&connection)
             .map(|_| ())

@@ -342,13 +342,14 @@ export class ConversationState {
 
   /** Restores one confirmed native recovery point, refreshes durable state, and reports preserved local data. */
   async restoreBackup(source: "manual" | "automatic" = "manual"): Promise<Message[] | null> {
+    // Reset before the guard: PageState reads it after every call, so an earlier failure must not clear a live view.
+    this.restoreReloadFailed = false;
     if (this.isManaging) return null;
     this.isManaging = true;
     this.isRestoring = true;
     this.backupFeedback = null;
     this.backupFailed = false;
     this.backupWarning = false;
-    this.restoreReloadFailed = false;
     this.exportFeedback = null;
     this.exportFailed = false;
     try {
@@ -363,6 +364,14 @@ export class ConversationState {
       // The native restore already replaced the data, so a failed reload must not hide the preserved copy's name.
       const reloadError = this.storageError as StorageError | null;
       this.restoreReloadFailed = reloadError !== null;
+      if (reloadError) {
+        // The pre-restore conversation may not exist in the restored data, so nothing may act on it (#260).
+        this.conversations = [];
+        this.activeConversationId = null;
+        this.branches = [];
+        this.currentBranchId = null;
+        this.conversationAttachments = [];
+      }
       const reloadNote = reloadError
         ? ` · Reloading the restored data failed: ${reloadError.message.replace(/\.$/, "")}. Relaunch Bottie to check again.`
         : "";

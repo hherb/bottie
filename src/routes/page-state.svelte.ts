@@ -1187,6 +1187,16 @@ export class PageState {
   handleComposerKeydown(event: KeyboardEvent): void {
     this.interaction.handleKeydown(event, () => this.handleSendButton());
   }
+  /**
+   * Restores a backup chosen in Settings. If the data was replaced but reloading it failed, the
+   * pre-restore conversation is cleared from view: it may not exist in the restored data, and showing
+   * it would pass it off as the restored state (#260). A cancelled restore keeps the current view.
+   */
+  async restoreBackup(): Promise<void> {
+    const messages = await this.history.restoreBackup();
+    if (messages) this.messages = messages;
+    else if (this.history.restoreReloadFailed) this.messages = [];
+  }
   /** Clears the active thread; its first submitted prompt creates durable storage. */
   async startNewChat(): Promise<void> {
     if (this.activeRunId) {

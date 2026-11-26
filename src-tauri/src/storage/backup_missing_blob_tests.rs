@@ -1,4 +1,4 @@
-//! Backups and re-ingestion when an attachment blob has gone missing from disk.
+//! Backups and re-ingestion when an attachment blob has gone missing from disk or cannot be used.
 //!
 //! Blobs can disappear outside Bottie's control (antivirus quarantine, a legacy restore that kept
 //! database rows but not files). One missing file must not block every backup, and attaching the
@@ -126,6 +126,107 @@ fn rotation_keeps_the_newest_complete_snapshot_while_files_are_missing() {
         .filter(|path| omitted_file_count(path) == Ok(0))
         .count();
     assert_eq!(complete, 1);
+}
+
+#[test]
+fn rotation_keeps_and_reports_an_expired_snapshot_it_cannot_check() {
+    const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    let missing = ingest(&store, "missing.txt", b"bytes only old snapshots hold");
+    for day in 1..=7 {
+        store
+            .rotate_automatic_backups_at(day * DAY_MS)
+            .expect("complete rotation should succeed");
+    }
+    fs::remove_file(store.attachment_blob_path(&missing.sha256)).expect("blob should delete");
+    for day in 8..=14 {
+        store
+            .rotate_automatic_backups_at(day * DAY_MS)
+            .expect("rotation with a missing blob should succeed");
+    }
+    // Day 15 expires day 8 (incomplete) and day 7 (complete); an unreadable day 8 might be complete.
+    let directory = store.path.with_file_name("automatic-backups");
+    let day_eight = fs::read_dir(&directory)
+        .expect("automatic backup directory should list")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with(&format!("bottie-auto-{}-", 8 * DAY_MS)))
+        })
+        .expect("the day-8 snapshot should exist");
+    fs::write(&day_eight, b"not a sqlite database").expect("snapshot should be overwritten");
+
+    let rotation = store
+        .rotate_automatic_backups_at(15 * DAY_MS)
+        .expect("rotation with an unreadable snapshot should succeed");
+
+    assert_eq!(
+        (rotation.retained, rotation.pruned, rotation.check_failed),
+        (9, 0, 1)
+    );
+    assert_eq!(rotation.report().0, "warn");
+    assert!(
+        day_eight.exists(),
+        "an unchecked snapshot must not be pruned"
+    );
+}
+
+#[test]
+fn a_blob_that_fails_its_checksum_names_that_cause() {
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    let tampered = ingest(&store, "tampered.txt", b"original bytes");
+    fs::write(
+        store.attachment_blob_path(&tampered.sha256),
+        b"other bytes!!!",
+    )
+    .expect("blob should be overwritten");
+
+    let error = store
+        .backup_to(&store.path.with_file_name("bottie-checksum.sqlite3"))
+        .expect_err("a blob with the wrong bytes must fail the backup");
+
+    assert_eq!(
+        error.message,
+        "Bottie could not save the local data backup (a stored file failed its checksum)."
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn an_unreadable_blob_names_its_io_cause_and_leaves_no_staging() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    let locked = ingest(&store, "locked.txt", b"bytes behind a lock");
+    let blob = store.attachment_blob_path(&locked.sha256);
+    fs::set_permissions(&blob, fs::Permissions::from_mode(0o000)).expect("lock blob");
+    if fs::read(&blob).is_ok() {
+        // Root ignores file permissions, so the read cannot be made to fail.
+        return;
+    }
+    let destination = store.path.with_file_name("bottie-locked.sqlite3");
+
+    let error = store
+        .backup_to(&destination)
+        .expect_err("an unreadable blob must fail the backup");
+
+    fs::set_permissions(&blob, fs::Permissions::from_mode(0o644)).expect("unlock blob");
+    assert_eq!(
+        error.message,
+        "Bottie could not save the local data backup (permission denied)."
+    );
+    assert!(!destination.exists());
+    let leftovers = fs::read_dir(destination.parent().expect("backup directory"))
+        .expect("backup directory should list")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_name().to_string_lossy().ends_with(".part"))
+        .count();
+    assert_eq!(leftovers, 0, "a failed backup must not leave staging files");
 }
 
 #[test]

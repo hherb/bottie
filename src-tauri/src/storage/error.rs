@@ -94,6 +94,24 @@ impl StorageError {
         }
     }
 
+    /// Backup failure that names its cause, such as an `io::ErrorKind`, so diagnostics can tell a full
+    /// disk from a locked folder (#258). The cause must never contain a path.
+    pub(crate) fn backup_because(cause: impl std::fmt::Display) -> Self {
+        Self {
+            code: "internal",
+            message: format!("Bottie could not save the local data backup ({cause})."),
+        }
+    }
+
+    /// Backup failure from SQLite that keeps only SQLite's code and its fixed text (for example
+    /// "Error code 13: database or disk is full"). SQLite's free-text message is
+    /// dropped because it can name a file path (#258).
+    pub(crate) fn backup_sqlite(error: rusqlite::Error) -> Self {
+        error
+            .sqlite_error()
+            .map_or_else(Self::backup, Self::backup_because)
+    }
+
     /// Creates a path-redacted automatic-backup rotation failure.
     pub(crate) fn automatic_backup() -> Self {
         Self {

@@ -586,3 +586,41 @@ describe("PageState new chat", () => {
     await started;
   });
 });
+
+describe("PageState backup restore", () => {
+  const stale = [{ id: 1, role: "user", content: "From before the restore" }] satisfies PageState["messages"];
+  const restored = [{ id: 2, role: "user", content: "From the backup" }] satisfies PageState["messages"];
+
+  it("shows the restored conversation after a successful restore", async () => {
+    const state = new PageState();
+    state.messages = stale;
+    vi.spyOn(state.history, "restoreBackup").mockResolvedValue(restored);
+
+    await state.restoreBackup();
+
+    expect(state.messages).toEqual(restored);
+  });
+
+  it("clears the pre-restore view when reloading the restored data fails (#260)", async () => {
+    const state = new PageState();
+    state.messages = stale;
+    vi.spyOn(state.history, "restoreBackup").mockImplementation(async () => {
+      state.history.restoreReloadFailed = true;
+      return null;
+    });
+
+    await state.restoreBackup();
+
+    expect(state.messages).toEqual([]);
+  });
+
+  it("keeps the current view when the restore is cancelled or fails before replacing data", async () => {
+    const state = new PageState();
+    state.messages = stale;
+    vi.spyOn(state.history, "restoreBackup").mockResolvedValue(null);
+
+    await state.restoreBackup();
+
+    expect(state.messages).toEqual(stale);
+  });
+});
