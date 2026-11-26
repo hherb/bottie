@@ -224,6 +224,10 @@ mod tests {
             skipped_files_detail(skipped(2, 0)).as_deref(),
             Some("2 missing attachment or image file(s) left out")
         );
+        let damaged_only =
+            skipped_files_detail(skipped(0, 1)).expect("damage alone should be reported");
+        assert!(damaged_only.starts_with("1 damaged attachment or image file(s) left out"));
+        assert!(damaged_only.contains("failing disk"));
         let both = skipped_files_detail(skipped(1, 3)).expect("damage should be reported");
         assert!(both.starts_with("1 missing attachment or image file(s) left out; 3 damaged"));
         assert!(both.contains("failing disk"));

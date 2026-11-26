@@ -12,8 +12,8 @@ Last verified: 2026-11-26 (branch `fix/issue-267-damaged-files`).
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #247, #261 (split `page-state`/`conversation-state`) and the follow-up audit
-   in `FIX_BOTTIE.md` "Not audited yet".
+   Doable here: #240 (voice test gaps), #247, #261 (split `page-state`/`conversation-state`), #269 (restore safety
+   copy drops its skipped-file count) and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
    #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
@@ -35,7 +35,7 @@ Last verified: 2026-11-26 (branch `fix/issue-267-damaged-files`).
 
 2026-11-26 (#267): a backup counts its left-out files as `SkippedFiles { missing, damaged }` (in
 `storage/portable_backup.rs`). `BackupOutcome` adds `damagedFiles`; the UI note names damaged files apart and points
-to Recent diagnostics, whose detail (and the rotation report, raised to `warn`) adds a failing-disk hint.
+to Recent diagnostics, whose detail, like the rotation report's (already `warn`), adds a failing-disk hint.
 `write_verified_backup` checks the omitted count through the pure `SkippedFiles::check_omitted`, now unit-tested.
 
 2026-11-26 (#263, #264, #265):

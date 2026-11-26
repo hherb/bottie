@@ -233,7 +233,7 @@ fn folder_warning_names_unreadable_items_or_an_incomplete_listing() {
 
 #[test]
 fn a_damaged_file_warns_and_hints_at_disk_health() {
-    let rotation = AutomaticBackupRotation {
+    let mut rotation = AutomaticBackupRotation {
         created: true,
         retained: 7,
         pruned: 0,
@@ -254,5 +254,17 @@ fn a_damaged_file_warns_and_hints_at_disk_health() {
         "1 missing attachment or image file(s) left out; \
          2 damaged attachment or image file(s) left out because they failed their checksum, \
          which can mean a failing disk; older snapshots may still hold their bytes"
+    ));
+
+    // Damage alone must still warn, not only when a file is also missing.
+    rotation.skipped_files = SkippedFiles {
+        missing: 0,
+        damaged: 1,
+    };
+    let (level, _, detail) = rotation.report();
+    assert_eq!(level, "warn");
+    assert!(detail.contains(
+        "0 missing attachment or image file(s) left out; \
+         1 damaged attachment or image file(s) left out because they failed their checksum"
     ));
 }
