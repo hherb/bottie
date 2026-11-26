@@ -88,7 +88,6 @@ fn reattaching_identical_bytes_restores_a_missing_blob() {
 
 #[test]
 fn rotation_keeps_the_newest_complete_snapshot_while_files_are_missing() {
-    const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
     let store = ConversationStore::initialize(tests::test_database_path())
         .expect("storage should initialize");
     let missing = ingest(&store, "missing.txt", b"bytes only old snapshots hold");
@@ -128,9 +127,11 @@ fn rotation_keeps_the_newest_complete_snapshot_while_files_are_missing() {
     assert_eq!(complete, 1);
 }
 
-#[test]
-fn rotation_keeps_and_reports_an_expired_snapshot_it_cannot_check() {
-    const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
+const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
+
+/// Builds seven complete daily snapshots, then seven that leave out a missing file, and returns the
+/// store and the day-8 snapshot. Day 15 expires day 8 (incomplete) and day 7 (the newest complete).
+fn store_whose_day_eight_snapshot_expires_next() -> (ConversationStore, std::path::PathBuf) {
     let store = ConversationStore::initialize(tests::test_database_path())
         .expect("storage should initialize");
     let missing = ingest(&store, "missing.txt", b"bytes only old snapshots hold");
@@ -145,9 +146,7 @@ fn rotation_keeps_and_reports_an_expired_snapshot_it_cannot_check() {
             .rotate_automatic_backups_at(day * DAY_MS)
             .expect("rotation with a missing blob should succeed");
     }
-    // Day 15 expires day 8 (incomplete) and day 7 (complete); an unreadable day 8 might be complete.
-    let directory = store.path.with_file_name("automatic-backups");
-    let day_eight = fs::read_dir(&directory)
+    let day_eight = fs::read_dir(store.path.with_file_name("automatic-backups"))
         .expect("automatic backup directory should list")
         .filter_map(Result::ok)
         .map(|entry| entry.path())
@@ -157,15 +156,34 @@ fn rotation_keeps_and_reports_an_expired_snapshot_it_cannot_check() {
                 .is_some_and(|name| name.starts_with(&format!("bottie-auto-{}-", 8 * DAY_MS)))
         })
         .expect("the day-8 snapshot should exist");
-    fs::write(&day_eight, b"not a sqlite database").expect("snapshot should be overwritten");
+    (store, day_eight)
+}
+
+#[cfg(unix)]
+#[test]
+fn rotation_keeps_and_names_an_expired_snapshot_it_cannot_open() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (store, day_eight) = store_whose_day_eight_snapshot_expires_next();
+    fs::set_permissions(&day_eight, fs::Permissions::from_mode(0o000)).expect("lock snapshot");
+    if fs::read(&day_eight).is_ok() {
+        // Root ignores file permissions, so the open cannot be made to fail.
+        return;
+    }
 
     let rotation = store
         .rotate_automatic_backups_at(15 * DAY_MS)
-        .expect("rotation with an unreadable snapshot should succeed");
+        .expect("rotation with an unopenable snapshot should succeed");
 
+    fs::set_permissions(&day_eight, fs::Permissions::from_mode(0o644)).expect("unlock snapshot");
+    // A snapshot that cannot be opened now might open later and be the complete one (#259).
     assert_eq!(
         (rotation.retained, rotation.pruned, rotation.check_failed),
         (9, 0, 1)
+    );
+    assert_eq!(
+        rotation.check_error.as_deref(),
+        Some("Error code 14: unable to open database file")
     );
     assert_eq!(rotation.report().0, "warn");
     assert!(
@@ -175,24 +193,106 @@ fn rotation_keeps_and_reports_an_expired_snapshot_it_cannot_check() {
 }
 
 #[test]
-fn a_blob_that_fails_its_checksum_names_that_cause() {
+fn rotation_prunes_an_expired_snapshot_that_is_not_a_database() {
+    let (store, day_eight) = store_whose_day_eight_snapshot_expires_next();
+    fs::write(&day_eight, b"not a sqlite database").expect("snapshot should be overwritten");
+
+    let rotation = store
+        .rotate_automatic_backups_at(15 * DAY_MS)
+        .expect("rotation with an unreadable snapshot should succeed");
+
+    // No check can ever read it, and restore would reject it, so it expires, but is named (#264).
+    assert_eq!(
+        (rotation.retained, rotation.pruned, rotation.check_failed),
+        (8, 1, 0)
+    );
+    assert_eq!(rotation.unreadable_expired, 1);
+    assert_eq!(
+        rotation.unreadable_error.as_deref(),
+        Some("Error code 26: file is not a database")
+    );
+    let (level, _, detail) = rotation.report();
+    assert_eq!(level, "warn");
+    assert!(!detail.contains("could not be checked"));
+    assert!(detail.contains("1 expired snapshot(s) could not be read"));
+    assert!(!day_eight.exists());
+}
+
+#[test]
+fn rotation_checks_a_version_one_snapshot_older_than_the_generated_image_catalog() {
+    let (store, day_eight) = store_whose_day_eight_snapshot_expires_next();
+    // A snapshot from before 2026-09-13 has neither generated-image catalog table (#264).
+    Connection::open(&day_eight)
+        .expect("snapshot should open")
+        .execute_batch(
+            "UPDATE bottie_portable_manifest SET version = 1;
+             DROP TABLE bottie_portable_generated_asset_blobs;
+             DROP TABLE generated_asset_sources;
+             DROP TABLE generated_assets;",
+        )
+        .expect("snapshot should be converted to the old schema");
+
+    let rotation = store
+        .rotate_automatic_backups_at(15 * DAY_MS)
+        .expect("rotation with an old snapshot should succeed");
+
+    // Its catalog still lists the missing file, so it is incomplete and expires: an answer, not a failed check.
+    assert_eq!(
+        (rotation.retained, rotation.pruned, rotation.check_failed),
+        (8, 1, 0)
+    );
+    assert!(!day_eight.exists());
+}
+
+#[test]
+fn an_empty_or_foreign_database_never_counts_as_a_complete_snapshot() {
     let store = ConversationStore::initialize(tests::test_database_path())
         .expect("storage should initialize");
-    let tampered = ingest(&store, "tampered.txt", b"original bytes");
+    let empty = store.path.with_file_name("bottie-auto-empty.sqlite3");
+    fs::write(&empty, b"").expect("empty snapshot should be written");
+    let foreign = store.path.with_file_name("bottie-auto-foreign.sqlite3");
+    Connection::open(&foreign)
+        .expect("foreign database should open")
+        .execute_batch("CREATE TABLE notes (body TEXT);")
+        .expect("foreign table should be created");
+
+    // With no catalog tables they list no files, but restore rejects them, so they are never "complete".
+    for path in [empty, foreign] {
+        let fault = omitted_file_count(&path).expect_err("a non-Bottie database must not pass");
+        assert!(fault.is_permanent());
+        assert_eq!(fault.cause(), "not a Bottie database");
+    }
+}
+
+#[test]
+fn a_blob_that_fails_its_checksum_is_left_out_and_counted() {
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    let damaged = ingest(&store, "damaged.txt", b"original bytes");
+    let kept = ingest(&store, "kept.txt", b"bytes still intact");
+    // Same length, different bytes: only the hash check notices the damage.
     fs::write(
-        store.attachment_blob_path(&tampered.sha256),
-        b"other bytes!!!",
+        store.attachment_blob_path(&damaged.sha256),
+        b"ORIGINAL BYTES",
     )
     .expect("blob should be overwritten");
+    let destination = store.path.with_file_name("bottie-checksum.sqlite3");
 
-    let error = store
-        .backup_to(&store.path.with_file_name("bottie-checksum.sqlite3"))
-        .expect_err("a blob with the wrong bytes must fail the backup");
-
+    // One damaged file must not block every backup (#265).
     assert_eq!(
-        error.message,
-        "Bottie could not save the local data backup (a stored file failed its checksum)."
+        store.backup_to(&destination).expect("backup should save"),
+        1
     );
+    let embedded: Vec<String> = Connection::open(&destination)
+        .expect("backup should open")
+        .prepare("SELECT sha256 FROM bottie_portable_attachment_blobs")
+        .expect("payload should query")
+        .query_map([], |row| row.get(0))
+        .expect("payload rows should read")
+        .collect::<Result<_, _>>()
+        .expect("payload rows should decode");
+    assert_eq!(embedded, vec![kept.sha256]);
+    assert_eq!(omitted_file_count(&destination), Ok(1));
 }
 
 #[cfg(unix)]

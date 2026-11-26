@@ -1,19 +1,19 @@
 # Bottie handover
 
-Last verified: 2026-11-26 (branch `fix/issues-258-259-260`).
+Last verified: 2026-11-26 (branch `fix/issues-263-264-265`).
 
 ## Start here
 
-1. Check the PR list first. As of 2026-11-26, PRs up to #257 are merged; the #258/#259/#260 fixes are in review
-   (#262). Land all work through PRs.
+1. Check the PR list first. As of 2026-11-26, PRs up to #262 are merged; the #263/#264/#265 fixes are in review (#266)
+   on `fix/issues-263-264-265`. Land all work through PRs.
 2. **Next items.** None of the four open `FIX_BOTTIE.md` items can be done on this Mac alone:
    - **9** (Linux `main.py` left in /tmp): confirm on Linux first, then let the parent own and delete the workspace.
    - **10** (MOSS CUDA hash lock): generate `--require-hashes` requirements on the DGX and prove the install there.
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #247, #261 (split `page-state`/`conversation-state`), the backup
-   follow-ups #263, #264 and #265, and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
+   Doable here: #267 (report damaged backup files apart from missing ones), #240 (voice test gaps), #247, #261 (split
+   `page-state`/`conversation-state`) and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
    #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
@@ -33,6 +33,24 @@ Last verified: 2026-11-26 (branch `fix/issues-258-259-260`).
 
 ## Audit fixes done
 
+2026-11-26 (#263, #264, #265):
+
+- **#263:** payload reads and checks return `PayloadFault` (`Sqlite(rusqlite::Error)`, `Invalid` or `NotBottie`), now
+  in `storage/portable_backup/validation.rs` (moved, with errors switched to `PayloadFault`; `portable_backup.rs` went
+  from 547 to 437 lines). Backup sites name SQLite's code (`PayloadFault::backup_error`); restore still turns every
+  fault into "Choose a valid Bottie backup." The catalog row reads, both payload validations and the omitted-count
+  check all keep it now.
+- **#264:** rotation carries the first failed check's cause (`AutomaticBackupRotation.check_error`) and names it in
+  the warning. A snapshot SQLite calls corrupt or not a database expires like an incomplete one, since nothing can
+  read or restore it (`PayloadFault::is_permanent`; agreed with the user). So does a file without Bottie's core tables
+  (`PayloadFault::NotBottie`), so an empty file never reads as complete. These expiries are counted and named
+  (`unreadable_expired`/`unreadable_error`, a `warn`), since a damaged backup can mean a failing disk. Busy, I/O and
+  can't-open faults are still held back. Every catalog table postdates rotation, so a missing payload or catalog table
+  (pre-portable, version 1, or older than `generated_assets`/`generated_asset_sources`) reads as "no files there"
+  instead of failing the check. The same readers serve restore validation.
+- **#265:** a stored file that fails its checksum is left out and counted like a missing one, so it no longer
+  blocks every backup. The UI note and diagnostics say "missing or damaged". Reporting damage separately is #267.
+
 2026-11-26 (#258, #259, #260):
 
 - **#259:** while no retained automatic snapshot is complete, an expired snapshot whose completeness check fails is
@@ -40,12 +58,11 @@ Last verified: 2026-11-26 (branch `fix/issues-258-259-260`).
   `AutomaticBackupRotation.check_failed` counts them and raises the report to `warn`. The inline unit tests moved
   verbatim to `storage/automatic_backup/tests.rs`.
 - **#258:** backup failures keep a path-free cause. `StorageError::backup_sqlite` keeps only SQLite's code text
-  ("Error code 13: database or disk is full") and drops its free text, which can hold a path. `backup_because`
-  takes any path-free cause, such as an `io::ErrorKind`. Covered: the snapshot copy, the payload's SQLite inserts,
-  opening and `quick_check` in verification, reading a file into the payload (its `io::ErrorKind`, or "a stored
-  file failed its checksum"), the manual rename and the rotation's clock read. Still generic: the catalog row reads,
-  payload validation and the omitted-count check (#263). A failed snapshot check's cause is dropped (#264), and one
-  checksum-failing file still blocks every backup (#265).
+  ("Error code 13: database or disk is full") and drops its free text, which can hold a path. `backup_because` takes
+  any path-free cause, such as an `io::ErrorKind`. Covered: the snapshot copy, the payload's SQLite inserts, opening
+  and `quick_check` in verification, reading a file into the payload (its `io::ErrorKind`; the checksum message was
+  dropped when #265 began skipping such files), the manual rename and the rotation's clock read. Follow-ups #263-#265
+  are fixed above.
 - **#260:** a Settings restore whose reload fails clears the stale view (`PageState.restoreBackup`). The pre-restore
   conversation, branch, attachments and list are dropped, so nothing acts on a conversation the restored data may
   lack. `restoreReloadFailed` now resets before the `isManaging` guard, so a refused restore never clears a live
@@ -133,10 +150,10 @@ and git history.
 
 ## Validation (2026-11-26)
 
-- Rust: `cargo test` passes 931 library tests (42 ignored; the feature build was not rerun) plus the
+- Rust: `cargo test` passes 936 library tests (42 ignored; the feature build was not rerun) plus the
   updater, adapter and transport suites. `cargo fmt` is clean. `cargo clippy --all-targets` prints 71 `warning:` lines,
   the same as `main` (style lints, none new).
-- Over 500 lines: 16 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1226),
+- Over 500 lines: 15 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1226),
   `speech/streaming.rs` (983) and `microphone/endpointing.rs` (670). Frontend: `page-state.svelte.ts` (1222),
   `conversation-state.svelte.ts` (590), `storage.ts` (574), `ProviderSettingsDialog.svelte` (539) and `+page.svelte`
   (514). Split each one when you next touch it. The two state classes are #261.

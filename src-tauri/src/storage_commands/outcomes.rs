@@ -12,7 +12,7 @@ pub(crate) struct BackupOutcome {
     status: BackupStatus,
     /// Saved leaf filename, absent when the dialog was cancelled.
     file_name: Option<String>,
-    /// Catalogued attachment or image files left out because they were missing from disk.
+    /// Catalogued attachment or image files left out because they were missing or failed their checksum.
     missing_files: usize,
 }
 
