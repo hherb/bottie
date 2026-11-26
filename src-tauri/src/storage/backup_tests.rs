@@ -679,15 +679,14 @@ fn failed_manual_backup_keeps_the_previous_backup_byte_identical() {
         .expect("first backup should complete");
     let previous = fs::read(&backup_path).expect("previous backup should be readable");
 
-    // Corrupting the blob makes the portable-payload embed step fail its hash check.
-    fs::write(
-        store.attachment_blob_path(&attachment.sha256),
-        b"tampered!!!!!!!!!!!!!",
-    )
-    .expect("blob should be overwritten");
+    // A directory where the blob should be cannot be read, so the embed step fails. (A damaged
+    // blob no longer fails the backup; it is left out and counted, #265.)
+    let blob = store.attachment_blob_path(&attachment.sha256);
+    fs::remove_file(&blob).expect("blob should delete");
+    fs::create_dir(&blob).expect("a directory should replace the blob");
     store
         .backup_to(&backup_path)
-        .expect_err("a backup with an unverifiable blob must fail");
+        .expect_err("a backup with an unreadable blob must fail");
 
     assert_eq!(
         fs::read(&backup_path).expect("previous backup should survive"),

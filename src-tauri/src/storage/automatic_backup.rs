@@ -6,7 +6,7 @@ use std::{
 };
 
 use super::backup::remove_database_files;
-use super::portable_backup::omitted_file_count;
+use super::portable_backup::{PayloadFault, omitted_file_count};
 use super::staging_sweep::{StagingSweep, remove_stale_staging, stale_staging_cutoff};
 use super::{ConversationStore, StorageError, now_ms};
 
@@ -34,6 +34,8 @@ pub(crate) struct AutomaticBackupRotation {
     /// file's bytes is never pruned unseen (#259). Later launches check them again until a retained
     /// snapshot is complete.
     pub(crate) check_failed: usize,
+    /// The first failed check's path-free cause, such as SQLite's "Error code 5: database is locked" (#264).
+    pub(crate) check_error: Option<String>,
     /// Catalog files left out of the new snapshot because they were missing from disk.
     pub(crate) skipped_files: usize,
 }
@@ -69,15 +71,19 @@ impl AutomaticBackupRotation {
             ));
         }
         if self.check_failed > 0 {
+            let cause = self
+                .check_error
+                .as_ref()
+                .map_or_else(String::new, |cause| format!(" ({cause})"));
             parts.push(format!(
-                "{} expired snapshot(s) kept because they could not be checked for missing files; \
+                "{} expired snapshot(s) kept because they could not be checked for missing files{cause}; \
                  later launches check them again until a retained snapshot is complete",
                 self.check_failed
             ));
         }
         if self.created {
             parts.push(format!(
-                "{} missing attachment or image file(s) left out",
+                "{} missing or damaged attachment or image file(s) left out",
                 self.skipped_files
             ));
         }
@@ -206,15 +212,15 @@ impl ConversationStore {
         // any newer one that could not be checked (#259). Only a rotation with something to expire checks,
         // so a launch with nothing to prune opens no snapshot; while a rescued snapshot is held back, every
         // launch checks again, since that one always expires.
-        let mut check_failed = 0;
+        let (mut check_failed, mut check_error) = (0, None);
         if !expired.is_empty()
             && !backups
                 .iter()
-                .any(|backup| omitted_file_count(&backup.path) == Ok(0))
+                .any(|backup| matches!(omitted_file_count(&backup.path), Ok(0)))
         {
-            let (kept, failed) = hold_back_from_expiry(&mut expired, omitted_file_count);
+            let (kept, failed, error) = hold_back_from_expiry(&mut expired, omitted_file_count);
             backups.extend(kept);
-            check_failed = failed;
+            (check_failed, check_error) = (failed, error);
         }
         // Any new snapshot is already in place, so a failed removal is a retention problem, not a failed
         // backup. Pruning on every rotation retries a snapshot an earlier launch failed to remove (#235).
@@ -226,6 +232,7 @@ impl ConversationStore {
             prune_failed,
             prune_error,
             check_failed,
+            check_error,
             skipped_files,
         })
     }
@@ -234,14 +241,16 @@ impl ConversationStore {
 /// Picks out of `expired` (newest first) the snapshots that must survive while no retained snapshot is
 /// complete. That is the newest complete one, plus every newer one whose check failed (all of them when
 /// none is complete), since a snapshot that could not be read might be that complete one (#259).
-/// `omitted` counts a snapshot's left-out files. Returns the snapshots to keep and how many checks
-/// failed.
-fn hold_back_from_expiry<E>(
+/// A snapshot SQLite calls corrupt or not a database can never be read or restored, so it expires
+/// like an incomplete one (#264). `omitted` counts a snapshot's left-out files. Returns the snapshots
+/// to keep, how many checks failed, and the first failure's path-free cause.
+fn hold_back_from_expiry(
     expired: &mut Vec<ManagedBackup>,
-    mut omitted: impl FnMut(&Path) -> Result<usize, E>,
-) -> (Vec<ManagedBackup>, usize) {
+    mut omitted: impl FnMut(&Path) -> Result<usize, PayloadFault>,
+) -> (Vec<ManagedBackup>, usize, Option<String>) {
     let mut kept = Vec::new();
     let mut check_failed = 0;
+    let mut first_error = None;
     let mut index = 0;
     while index < expired.len() {
         match omitted(&expired[index].path) {
@@ -250,13 +259,15 @@ fn hold_back_from_expiry<E>(
                 break;
             }
             Ok(_) => index += 1,
-            Err(_) => {
+            Err(fault) if fault.is_permanent() => index += 1,
+            Err(fault) => {
                 check_failed += 1;
+                first_error.get_or_insert_with(|| fault.cause());
                 kept.push(expired.remove(index));
             }
         }
     }
-    (kept, check_failed)
+    (kept, check_failed, first_error)
 }
 
 /// Resolves the app-private rotation directory beside the live database.

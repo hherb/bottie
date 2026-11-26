@@ -89,8 +89,10 @@ impl ConversationStore {
             embed_portable_payload(path, &self.attachment_root(), &self.generated_asset_root())?;
         verify_backup(path)?;
         // Every row the snapshot lacks must be a file this backup actually found missing.
-        if omitted_file_count(path).map_err(|_| StorageError::backup())? != skipped {
-            return Err(StorageError::backup());
+        if omitted_file_count(path).map_err(|fault| fault.backup_error())? != skipped {
+            return Err(StorageError::backup_because(
+                "the snapshot left out files the backup did not skip",
+            ));
         }
         Ok(skipped)
     }
@@ -249,7 +251,7 @@ fn verify_backup(path: &Path) -> Result<(), StorageError> {
     } else {
         validate_portable_payload(&connection)
             .map(|_| ())
-            .map_err(|_| StorageError::backup())
+            .map_err(|fault| fault.backup_error())
     }
 }
 
@@ -286,7 +288,8 @@ pub(super) fn validate_restore_source(path: &Path) -> Result<(), StorageError> {
         )
         .map_err(|_| StorageError::invalid_backup())?;
     if has_local_profile {
-        validate_portable_payload(&connection).map(|_| ())
+        validate_portable_payload(&connection)?;
+        Ok(())
     } else {
         Err(StorageError::invalid_backup())
     }

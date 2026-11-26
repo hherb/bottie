@@ -61,11 +61,11 @@ pub(crate) async fn backup_conversation_store(
     }
     let skipped = backup?;
     if skipped > 0 {
-        let detail = format!("{skipped} missing attachment or image file(s) left out");
+        let detail = format!("{skipped} missing or damaged attachment or image file(s) left out");
         record_diagnostic(
             &state.diagnostics,
             "warn",
-            "Backup saved without missing files",
+            "Backup saved without missing or damaged files",
             None,
             Some(&detail),
         )

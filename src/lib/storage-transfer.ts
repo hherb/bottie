@@ -13,7 +13,7 @@ export type ConversationExportFormat = "markdown" | "json" | "batch-json";
 export type BackupOutcome = {
   status: "saved" | "cancelled";
   fileName: string | null;
-  /** Catalogued attachment or image files left out because they were missing from disk. */
+  /** Catalogued attachment or image files left out because they were missing or failed their checksum. */
   missingFiles: number;
 };
 
@@ -33,7 +33,7 @@ export type RestoreOutcome = {
 /** Appends a missing-file warning to backup or restore feedback when any file was left out. */
 export function missingFilesNote(missingFiles: number): string {
   if (missingFiles === 0) return "";
-  return ` · ${missingFiles} missing attachment or image file${missingFiles === 1 ? "" : "s"} not included`;
+  return ` · ${missingFiles} missing or damaged attachment or image file${missingFiles === 1 ? "" : "s"} not included`;
 }
 
 /** Appends a warning to restore feedback when the restored data's missing files could not be counted. */

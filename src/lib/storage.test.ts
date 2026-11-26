@@ -89,8 +89,8 @@ describe("conversation storage presentation helpers", () => {
 
   it("warns about missing files only when a backup or restore left some out", () => {
     expect(missingFilesNote(0)).toBe("");
-    expect(missingFilesNote(1)).toBe(" · 1 missing attachment or image file not included");
-    expect(missingFilesNote(3)).toBe(" · 3 missing attachment or image files not included");
+    expect(missingFilesNote(1)).toBe(" · 1 missing or damaged attachment or image file not included");
+    expect(missingFilesNote(3)).toBe(" · 3 missing or damaged attachment or image files not included");
   });
 
   it("asks for a restart only when restore found a background worker stopped", () => {
