@@ -12,8 +12,8 @@ Last verified: 2026-11-26 (branch `fix/issues-263-264-265`).
    - **14** (answer links): click a link in the running app first; if dead, add a scoped opener.
    - **19** (batch export memory): low priority; stream conversations into the ZIP writer.
 
-   Doable here: #240 (voice test gaps), #247, #261 (split `page-state`/`conversation-state`) and the follow-up
-   audit in `FIX_BOTTIE.md` "Not audited yet".
+   Doable here: #267 (report damaged backup files apart from missing ones), #240 (voice test gaps), #247, #261 (split
+   `page-state`/`conversation-state`) and the follow-up audit in `FIX_BOTTIE.md` "Not audited yet".
    #226's last bullet (spawners outside `SPAWN_LOCK`) is only worth doing if it shows up in practice.
 
 3. **Hands-free voice conversation mode:** phase 0 is merged (#241). Still owed: a real-device run, especially with
@@ -58,10 +58,11 @@ Last verified: 2026-11-26 (branch `fix/issues-263-264-265`).
   `AutomaticBackupRotation.check_failed` counts them and raises the report to `warn`. The inline unit tests moved
   verbatim to `storage/automatic_backup/tests.rs`.
 - **#258:** backup failures keep a path-free cause. `StorageError::backup_sqlite` keeps only SQLite's code text
-  ("Error code 13: database or disk is full") and drops its free text, which can hold a path. `backup_because`
-  takes any path-free cause, such as an `io::ErrorKind`. Covered: the snapshot copy, the payload's SQLite inserts,
-  opening and `quick_check` in verification, reading a file into the payload (its `io::ErrorKind`; the checksum
-  message was dropped when #265 began skipping such files), the manual rename and the rotation's clock read. Follow-ups #263-#265 are fixed above.
+  ("Error code 13: database or disk is full") and drops its free text, which can hold a path. `backup_because` takes
+  any path-free cause, such as an `io::ErrorKind`. Covered: the snapshot copy, the payload's SQLite inserts, opening
+  and `quick_check` in verification, reading a file into the payload (its `io::ErrorKind`; the checksum message was
+  dropped when #265 began skipping such files), the manual rename and the rotation's clock read. Follow-ups #263-#265
+  are fixed above.
 - **#260:** a Settings restore whose reload fails clears the stale view (`PageState.restoreBackup`). The pre-restore
   conversation, branch, attachments and list are dropped, so nothing acts on a conversation the restored data may
   lack. `restoreReloadFailed` now resets before the `isManaging` guard, so a refused restore never clears a live
