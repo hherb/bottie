@@ -35,17 +35,21 @@ Last verified: 2026-11-26 (branch `fix/issues-263-264-265`).
 
 2026-11-26 (#263, #264, #265):
 
-- **#263:** payload reads and checks return `PayloadFault` (`Sqlite(rusqlite::Error)` or `Invalid`), now in
-  `storage/portable_backup/validation.rs` (moved verbatim; `portable_backup.rs` went from 547 to 409 lines). Backup
-  sites name SQLite's code (`PayloadFault::backup_error`); restore still turns every fault into "Choose a valid
-  Bottie backup." The catalog row reads, both payload validations and the omitted-count check all keep it now.
+- **#263:** payload reads and checks return `PayloadFault` (`Sqlite(rusqlite::Error)`, `Invalid` or `NotBottie`), now
+  in `storage/portable_backup/validation.rs` (moved, with errors switched to `PayloadFault`; `portable_backup.rs` went
+  from 547 to 437 lines). Backup sites name SQLite's code (`PayloadFault::backup_error`); restore still turns every
+  fault into "Choose a valid Bottie backup." The catalog row reads, both payload validations and the omitted-count
+  check all keep it now.
 - **#264:** rotation carries the first failed check's cause (`AutomaticBackupRotation.check_error`) and names it in
   the warning. A snapshot SQLite calls corrupt or not a database expires like an incomplete one, since nothing can
-  read or restore it (`PayloadFault::is_permanent`; agreed with the user). Busy, I/O and can't-open faults are still
-  held back. A snapshot with no payload table (pre-portable, or version 1 with no generated-image table) answers
-  "embeds nothing there" instead of failing the check.
+  read or restore it (`PayloadFault::is_permanent`; agreed with the user). So does a file without Bottie's core tables
+  (`PayloadFault::NotBottie`), so an empty file never reads as complete. These expiries are counted and named
+  (`unreadable_expired`/`unreadable_error`, a `warn`), since a damaged backup can mean a failing disk. Busy, I/O and
+  can't-open faults are still held back. Every catalog table postdates rotation, so a missing payload or catalog table
+  (pre-portable, version 1, or older than `generated_assets`/`generated_asset_sources`) reads as "no files there"
+  instead of failing the check. The same readers serve restore validation.
 - **#265:** a stored file that fails its checksum is left out and counted like a missing one, so it no longer
-  blocks every backup. The UI note and diagnostics say "missing or damaged".
+  blocks every backup. The UI note and diagnostics say "missing or damaged". Reporting damage separately is #267.
 
 2026-11-26 (#258, #259, #260):
 
@@ -56,8 +60,8 @@ Last verified: 2026-11-26 (branch `fix/issues-263-264-265`).
 - **#258:** backup failures keep a path-free cause. `StorageError::backup_sqlite` keeps only SQLite's code text
   ("Error code 13: database or disk is full") and drops its free text, which can hold a path. `backup_because`
   takes any path-free cause, such as an `io::ErrorKind`. Covered: the snapshot copy, the payload's SQLite inserts,
-  opening and `quick_check` in verification, reading a file into the payload (its `io::ErrorKind`, or "a stored
-  file failed its checksum"), the manual rename and the rotation's clock read. Follow-ups #263-#265 are fixed above.
+  opening and `quick_check` in verification, reading a file into the payload (its `io::ErrorKind`; the checksum
+  message was dropped when #265 began skipping such files), the manual rename and the rotation's clock read. Follow-ups #263-#265 are fixed above.
 - **#260:** a Settings restore whose reload fails clears the stale view (`PageState.restoreBackup`). The pre-restore
   conversation, branch, attachments and list are dropped, so nothing acts on a conversation the restored data may
   lack. `restoreReloadFailed` now resets before the `isManaging` guard, so a refused restore never clears a live
@@ -145,7 +149,7 @@ and git history.
 
 ## Validation (2026-11-26)
 
-- Rust: `cargo test` passes 933 library tests (42 ignored; the feature build was not rerun) plus the
+- Rust: `cargo test` passes 936 library tests (42 ignored; the feature build was not rerun) plus the
   updater, adapter and transport suites. `cargo fmt` is clean. `cargo clippy --all-targets` prints 71 `warning:` lines,
   the same as `main` (style lints, none new).
 - Over 500 lines: 15 Rust non-test files, all over the cap before this work. The largest are `lib.rs` (1226),

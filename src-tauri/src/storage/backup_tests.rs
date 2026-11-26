@@ -328,6 +328,32 @@ fn rejects_a_backup_with_tampered_portable_bytes_without_changing_live_state() {
 }
 
 #[test]
+fn backup_verification_names_a_payload_fault_instead_of_a_generic_failure() {
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    ingest_backup_fixture(&store, "verified.txt", b"bytes the payload check covers");
+    let backup_path = store.path.with_file_name("verified-backup.sqlite3");
+    store
+        .backup_to(&backup_path)
+        .expect("portable backup should complete");
+    Connection::open(&backup_path)
+        .expect("portable backup should open")
+        .execute(
+            "UPDATE bottie_portable_attachment_blobs SET content = X'00'",
+            [],
+        )
+        .expect("portable payload should be tampered");
+
+    // #263: the backup path keeps the payload check's cause rather than a bare "could not save".
+    assert_eq!(
+        super::backup::verify_backup(&backup_path)
+            .expect_err("tampered bytes must fail verification")
+            .message,
+        "Bottie could not save the local data backup (the embedded files failed validation)."
+    );
+}
+
+#[test]
 fn restores_legacy_version_one_portable_attachment_backups() {
     let live_path = tests::test_database_path();
     let backup_path = live_path.with_file_name("legacy-portable-backup.sqlite3");

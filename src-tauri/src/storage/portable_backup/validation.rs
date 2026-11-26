@@ -14,10 +14,13 @@ use super::{
 /// reads differently from bad content (#263, #264).
 #[derive(Debug, PartialEq)]
 pub(in crate::storage) enum PayloadFault {
-    /// SQLite could not run a read: busy, I/O, out of memory, corrupt, not a database, ...
+    /// SQLite could not run a read (busy, I/O, corrupt, not a database, ...), or returned a value of the
+    /// wrong type, which `cause` reports as "an unexpected database error".
     Sqlite(rusqlite::Error),
     /// The data was read but breaks the payload contract: wrong hash, size, manifest or extra rows.
     Invalid,
+    /// The file lacks Bottie's core tables (empty, or another app's database), so restore rejects it.
+    NotBottie,
 }
 
 impl From<rusqlite::Error> for PayloadFault {
@@ -41,6 +44,7 @@ impl PayloadFault {
                 ToString::to_string,
             ),
             Self::Invalid => "the embedded files failed validation".to_owned(),
+            Self::NotBottie => "not a Bottie database".to_owned(),
         }
     }
 
@@ -49,13 +53,14 @@ impl PayloadFault {
         StorageError::backup_because(self.cause())
     }
 
-    /// Whether SQLite reports the file as corrupt or not a database, so no later check can pass and
-    /// restore would reject it too. Every other fault (busy, I/O, ...) may pass next time.
+    /// Whether the file is not a Bottie database, or SQLite reports it corrupt or not a database, so
+    /// no later check can pass and restore would reject it too. Every other fault is treated as one that may pass next time.
     pub(in crate::storage) fn is_permanent(&self) -> bool {
-        matches!(self, Self::Sqlite(error) if matches!(
-            error.sqlite_error_code(),
-            Some(ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase)
-        ))
+        matches!(self, Self::NotBottie)
+            || matches!(self, Self::Sqlite(error) if matches!(
+                error.sqlite_error_code(),
+                Some(ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase)
+            ))
     }
 }
 

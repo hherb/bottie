@@ -12,6 +12,8 @@ fn report_warns_and_names_failed_prunes_only_when_there_are_any() {
         prune_error: None,
         check_failed: 0,
         check_error: None,
+        unreadable_expired: 0,
+        unreadable_error: None,
         skipped_files: 0,
     };
     assert_eq!(
@@ -47,6 +49,8 @@ fn a_current_rotation_reports_info_unless_a_stuck_prune_remains() {
         prune_error: None,
         check_failed: 0,
         check_error: None,
+        unreadable_expired: 0,
+        unreadable_error: None,
         skipped_files: 0,
     };
     assert_eq!(
@@ -98,15 +102,14 @@ fn an_expired_snapshot_whose_check_fails_is_kept_counted_and_named() {
         }),
     );
 
-    let (kept, check_failed, check_error) =
-        hold_back_from_expiry(&mut expired, |path| match path.to_str() {
-            Some("partial") => Ok(2),
-            Some("complete" | "oldest") => Ok(0),
-            Some("corrupt") => Err(sqlite_fault(rusqlite::ffi::SQLITE_CORRUPT)),
-            Some("not-a-database") => Err(sqlite_fault(rusqlite::ffi::SQLITE_NOTADB)),
-            Some("cannot-open") => Err(sqlite_fault(rusqlite::ffi::SQLITE_CANTOPEN)),
-            _ => Err(sqlite_fault(rusqlite::ffi::SQLITE_BUSY)),
-        });
+    let check = hold_back_from_expiry(&mut expired, |path| match path.to_str() {
+        Some("partial") => Ok(2),
+        Some("complete" | "oldest") => Ok(0),
+        Some("corrupt") => Err(sqlite_fault(rusqlite::ffi::SQLITE_CORRUPT)),
+        Some("not-a-database") => Err(sqlite_fault(rusqlite::ffi::SQLITE_NOTADB)),
+        Some("cannot-open") => Err(sqlite_fault(rusqlite::ffi::SQLITE_CANTOPEN)),
+        _ => Err(sqlite_fault(rusqlite::ffi::SQLITE_BUSY)),
+    });
 
     let names = |backups: &[ManagedBackup]| -> Vec<String> {
         backups
@@ -114,12 +117,17 @@ fn an_expired_snapshot_whose_check_fails_is_kept_counted_and_named() {
             .map(|backup| backup.path.display().to_string())
             .collect()
     };
-    // Corrupt and not-a-database snapshots can never be read or restored, so they expire (#264).
-    assert_eq!(names(&kept), ["busy", "cannot-open", "complete"]);
-    assert_eq!(check_failed, 2);
+    // Corrupt and not-a-database snapshots can never be read or restored, so they expire, counted (#264).
+    assert_eq!(names(&check.kept), ["busy", "cannot-open", "complete"]);
+    assert_eq!(check.failed, 2);
     assert_eq!(
-        check_error.as_deref(),
+        check.failed_cause.as_deref(),
         Some("Error code 5: database is locked")
+    );
+    assert_eq!(check.unreadable, 2);
+    assert_eq!(
+        check.unreadable_cause.as_deref(),
+        Some("Error code 11: database disk image is malformed")
     );
     assert_eq!(
         names(&expired),
@@ -138,8 +146,10 @@ fn an_expired_snapshot_whose_check_fails_is_kept_counted_and_named() {
         pruned: 3,
         prune_failed: 0,
         prune_error: None,
-        check_failed,
-        check_error,
+        check_failed: check.failed,
+        check_error: check.failed_cause,
+        unreadable_expired: check.unreadable,
+        unreadable_error: check.unreadable_cause,
         skipped_files: 0,
     }
     .report();
@@ -147,7 +157,8 @@ fn an_expired_snapshot_whose_check_fails_is_kept_counted_and_named() {
     assert!(report.2.ends_with(
         "2 expired snapshot(s) kept because they could not be checked for missing files \
          (Error code 5: database is locked); later launches check them again until a retained \
-         snapshot is complete"
+         snapshot is complete; 2 expired snapshot(s) could not be read (Error code 11: database \
+         disk image is malformed), so they expired unchecked; a damaged backup can mean a failing disk"
     ));
 }
 

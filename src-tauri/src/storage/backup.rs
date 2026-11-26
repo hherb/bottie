@@ -19,7 +19,7 @@ pub(super) const RESTORE_STAGING_FILE_PREFIX: &str = ".bottie-restore-staging";
 pub(super) const ATTACHMENT_RESTORE_STAGING_PREFIX: &str = ".bottie-attachment-restore";
 pub(super) const GENERATED_ASSET_RESTORE_STAGING_PREFIX: &str = ".bottie-generated-asset-restore";
 pub(super) const MANUAL_BACKUP_STAGING_PREFIX: &str = ".bottie-backup";
-const REQUIRED_BACKUP_TABLES: &[&str] = &[
+pub(super) const REQUIRED_BACKUP_TABLES: &[&str] = &[
     "schema_migrations",
     "profiles",
     "conversations",
@@ -53,7 +53,7 @@ fn backup_directory(destination: &Path) -> &Path {
 impl ConversationStore {
     /// Copies every committed page to an independently readable database through SQLite's online backup API.
     ///
-    /// Returns how many attachment or image files were left out because they were missing.
+    /// Returns how many attachment or image files were left out because they were missing or damaged.
     pub(crate) fn backup_to(&self, destination: &Path) -> Result<usize, StorageError> {
         if paths_refer_to_same_file(&self.path, destination) {
             return Err(StorageError::invalid(
@@ -88,7 +88,7 @@ impl ConversationStore {
         let skipped =
             embed_portable_payload(path, &self.attachment_root(), &self.generated_asset_root())?;
         verify_backup(path)?;
-        // Every row the snapshot lacks must be a file this backup actually found missing.
+        // Every row the snapshot lacks must be a file this backup actually skipped as missing or damaged.
         if omitted_file_count(path).map_err(|fault| fault.backup_error())? != skipped {
             return Err(StorageError::backup_because(
                 "the snapshot left out files the backup did not skip",
@@ -241,7 +241,7 @@ fn paths_refer_to_same_file(source: &Path, destination: &Path) -> bool {
 }
 
 /// Reopens the completed snapshot and rejects output that fails SQLite's quick integrity check.
-fn verify_backup(path: &Path) -> Result<(), StorageError> {
+pub(super) fn verify_backup(path: &Path) -> Result<(), StorageError> {
     let connection = Connection::open(path).map_err(StorageError::backup_sqlite)?;
     let integrity: String = connection
         .pragma_query_value(None, "quick_check", |row| row.get(0))

@@ -144,13 +144,19 @@ pub(super) fn embed_portable_payload(
 /// Validation already rejects embedded rows without a catalog row, so the difference is exact.
 pub(super) fn omitted_file_count(database: &Path) -> Result<usize, PayloadFault> {
     let connection = Connection::open_with_flags(database, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    // The catalog readers treat a missing table as "no files", so an empty file must not read as complete.
+    for table in super::backup::REQUIRED_BACKUP_TABLES {
+        if !table_exists(&connection, table)? {
+            return Err(PayloadFault::NotBottie);
+        }
+    }
     let expected = attachment_rows(&connection)?.len()
         + derivative_rows(&connection)?.len()
         + generated_asset_rows(&connection)?.len();
     let mut embedded = 0;
     for table in [ATTACHMENT_TABLE, DERIVATIVE_TABLE, GENERATED_ASSET_TABLE] {
         // A pre-portable snapshot has no payload tables, and a version-1 one no generated-image
-        // table, so they embed nothing there: an answer, not a failed check (#264).
+        // table, so they embed nothing there. Old catalogs are handled by the row readers (#264).
         if !table_exists(&connection, table)? {
             continue;
         }
@@ -257,8 +263,14 @@ pub(super) fn strip_portable_payload_from_connection(
     Ok(())
 }
 
+// Every catalog table postdates automatic rotation, so a snapshot's schema may lack one. A missing
+// table lists no files: an answer for rotation and restore, not a failed check (#264).
+
 /// Loads every retained source identity and exact byte size from the copied schema.
 fn attachment_rows(connection: &Connection) -> rusqlite::Result<Vec<(String, i64)>> {
+    if !table_exists(connection, "attachments")? {
+        return Ok(Vec::new());
+    }
     connection
         .prepare("SELECT sha256, byte_size FROM attachments ORDER BY sha256")?
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
@@ -267,23 +279,39 @@ fn attachment_rows(connection: &Connection) -> rusqlite::Result<Vec<(String, i64
 
 /// Loads every ready normalized derivative identity, format, and byte size.
 fn derivative_rows(connection: &Connection) -> rusqlite::Result<Vec<(String, String, i64)>> {
-    connection
-        .prepare(
+    let mut sources = Vec::new();
+    if table_exists(connection, "attachment_image_normalizations")? {
+        sources.push(
             "SELECT normalized_sha256, format, byte_size
-             FROM attachment_image_normalizations WHERE state = 'ready'
-             UNION
-             SELECT sha256,
+             FROM attachment_image_normalizations WHERE state = 'ready'",
+        );
+    }
+    if table_exists(connection, "generated_asset_sources")? {
+        sources.push(
+            "SELECT sha256,
                     CASE media_type WHEN 'image/jpeg' THEN 'jpeg' ELSE 'png' END,
                     byte_size
-             FROM generated_asset_sources WHERE source_type = 'attachment'
-             ORDER BY 1",
-        )?
+             FROM generated_asset_sources WHERE source_type = 'attachment'",
+        );
+    }
+    if sources.is_empty() {
+        return Ok(Vec::new());
+    }
+    // DISTINCT keeps UNION's de-duplication when only one source exists.
+    connection
+        .prepare(&format!(
+            "SELECT DISTINCT * FROM ({}) ORDER BY 1",
+            sources.join(" UNION ")
+        ))?
         .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
         .collect()
 }
 
 /// Loads every completed generated PNG identity and exact byte size.
 fn generated_asset_rows(connection: &Connection) -> rusqlite::Result<Vec<(String, i64)>> {
+    if !table_exists(connection, "generated_assets")? {
+        return Ok(Vec::new());
+    }
     connection
         .prepare(
             "SELECT DISTINCT sha256, byte_size FROM generated_assets

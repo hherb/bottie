@@ -201,13 +201,67 @@ fn rotation_prunes_an_expired_snapshot_that_is_not_a_database() {
         .rotate_automatic_backups_at(15 * DAY_MS)
         .expect("rotation with an unreadable snapshot should succeed");
 
-    // No check can ever read it, and restore would reject it, so it expires without a check warning (#264).
+    // No check can ever read it, and restore would reject it, so it expires, but is named (#264).
     assert_eq!(
         (rotation.retained, rotation.pruned, rotation.check_failed),
         (8, 1, 0)
     );
-    assert!(!rotation.report().2.contains("could not be checked"));
+    assert_eq!(rotation.unreadable_expired, 1);
+    assert_eq!(
+        rotation.unreadable_error.as_deref(),
+        Some("Error code 26: file is not a database")
+    );
+    let (level, _, detail) = rotation.report();
+    assert_eq!(level, "warn");
+    assert!(!detail.contains("could not be checked"));
+    assert!(detail.contains("1 expired snapshot(s) could not be read"));
     assert!(!day_eight.exists());
+}
+
+#[test]
+fn rotation_checks_a_version_one_snapshot_older_than_the_generated_image_catalog() {
+    let (store, day_eight) = store_whose_day_eight_snapshot_expires_next();
+    // A snapshot from before 2026-09-13 has neither generated-image catalog table (#264).
+    Connection::open(&day_eight)
+        .expect("snapshot should open")
+        .execute_batch(
+            "UPDATE bottie_portable_manifest SET version = 1;
+             DROP TABLE bottie_portable_generated_asset_blobs;
+             DROP TABLE generated_asset_sources;
+             DROP TABLE generated_assets;",
+        )
+        .expect("snapshot should be converted to the old schema");
+
+    let rotation = store
+        .rotate_automatic_backups_at(15 * DAY_MS)
+        .expect("rotation with an old snapshot should succeed");
+
+    // Its catalog still lists the missing file, so it is incomplete and expires: an answer, not a failed check.
+    assert_eq!(
+        (rotation.retained, rotation.pruned, rotation.check_failed),
+        (8, 1, 0)
+    );
+    assert!(!day_eight.exists());
+}
+
+#[test]
+fn an_empty_or_foreign_database_never_counts_as_a_complete_snapshot() {
+    let store = ConversationStore::initialize(tests::test_database_path())
+        .expect("storage should initialize");
+    let empty = store.path.with_file_name("bottie-auto-empty.sqlite3");
+    fs::write(&empty, b"").expect("empty snapshot should be written");
+    let foreign = store.path.with_file_name("bottie-auto-foreign.sqlite3");
+    Connection::open(&foreign)
+        .expect("foreign database should open")
+        .execute_batch("CREATE TABLE notes (body TEXT);")
+        .expect("foreign table should be created");
+
+    // With no catalog tables they list no files, but restore rejects them, so they are never "complete".
+    for path in [empty, foreign] {
+        let fault = omitted_file_count(&path).expect_err("a non-Bottie database must not pass");
+        assert!(fault.is_permanent());
+        assert_eq!(fault.cause(), "not a Bottie database");
+    }
 }
 
 #[test]
