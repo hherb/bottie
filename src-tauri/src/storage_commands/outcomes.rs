@@ -4,6 +4,8 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use crate::storage::SkippedFiles;
+
 /// Result of one native backup Save-dialog interaction without exposing a filesystem path.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,8 +14,10 @@ pub(crate) struct BackupOutcome {
     status: BackupStatus,
     /// Saved leaf filename, absent when the dialog was cancelled.
     file_name: Option<String>,
-    /// Catalogued attachment or image files left out because they were missing or failed their checksum.
+    /// Catalogued attachment or image files left out because they were absent from disk.
     missing_files: usize,
+    /// Catalogued attachment or image files left out because they failed their checksum (#267).
+    damaged_files: usize,
 }
 
 /// Stable native backup outcomes returned to the presentation layer.
@@ -60,16 +64,37 @@ pub(super) fn cancelled_backup() -> BackupOutcome {
         status: BackupStatus::Cancelled,
         file_name: None,
         missing_files: 0,
+        damaged_files: 0,
     }
 }
 
 /// Builds a saved-backup outcome from only the selected leaf filename.
-pub(super) fn saved_backup(path: &Path, fallback: &str, missing_files: usize) -> BackupOutcome {
+pub(super) fn saved_backup(path: &Path, fallback: &str, skipped: SkippedFiles) -> BackupOutcome {
     BackupOutcome {
         status: BackupStatus::Saved,
         file_name: Some(leaf_name(path, fallback)),
-        missing_files,
+        missing_files: skipped.missing,
+        damaged_files: skipped.damaged,
     }
+}
+
+/// Path-free diagnostic detail for a manual backup that left files out, or `None` when it left none.
+pub(super) fn skipped_files_detail(skipped: SkippedFiles) -> Option<String> {
+    let mut parts = Vec::new();
+    if skipped.missing > 0 {
+        parts.push(format!(
+            "{} missing attachment or image file(s) left out",
+            skipped.missing
+        ));
+    }
+    if skipped.damaged > 0 {
+        parts.push(format!(
+            "{} damaged attachment or image file(s) left out because they failed their checksum, \
+             which can mean a failing disk; automatic backups may still hold their bytes",
+            skipped.damaged
+        ));
+    }
+    (!parts.is_empty()).then(|| parts.join("; "))
 }
 
 /// Builds the neutral outcome shared by restore picker and confirmation cancellation.
@@ -126,7 +151,10 @@ mod tests {
         let backup = saved_backup(
             Path::new("/Users/alice/Documents/private/bottie backup.sqlite3"),
             "bottie-backup.sqlite3",
-            2,
+            SkippedFiles {
+                missing: 2,
+                damaged: 1,
+            },
         );
         let restore = restored(
             "selected backup.sqlite3".into(),
@@ -145,7 +173,12 @@ mod tests {
 
         assert_eq!(
             serde_json::to_value(backup).expect("backup outcome should serialize"),
-            json!({"status": "saved", "fileName": "bottie backup.sqlite3", "missingFiles": 2})
+            json!({
+                "status": "saved",
+                "fileName": "bottie backup.sqlite3",
+                "missingFiles": 2,
+                "damagedFiles": 1
+            })
         );
         assert_eq!(
             serde_json::to_value(restore).expect("restore outcome should serialize"),
@@ -167,7 +200,7 @@ mod tests {
     fn cancelled_file_workflows_return_no_filename_or_path() {
         assert_eq!(
             serde_json::to_value(cancelled_backup()).expect("backup cancellation should serialize"),
-            json!({"status": "cancelled", "fileName": null, "missingFiles": 0})
+            json!({"status": "cancelled", "fileName": null, "missingFiles": 0, "damagedFiles": 0})
         );
         assert_eq!(
             serde_json::to_value(cancelled_restore())
@@ -181,6 +214,23 @@ mod tests {
                 "backgroundWorkStopped": false
             })
         );
+    }
+
+    #[test]
+    fn skipped_files_detail_names_missing_and_damaged_files_apart() {
+        let skipped = |missing, damaged| SkippedFiles { missing, damaged };
+        assert_eq!(skipped_files_detail(skipped(0, 0)), None);
+        assert_eq!(
+            skipped_files_detail(skipped(2, 0)).as_deref(),
+            Some("2 missing attachment or image file(s) left out")
+        );
+        let damaged_only =
+            skipped_files_detail(skipped(0, 1)).expect("damage alone should be reported");
+        assert!(damaged_only.starts_with("1 damaged attachment or image file(s) left out"));
+        assert!(damaged_only.contains("failing disk"));
+        let both = skipped_files_detail(skipped(1, 3)).expect("damage should be reported");
+        assert!(both.starts_with("1 missing attachment or image file(s) left out; 3 damaged"));
+        assert!(both.contains("failing disk"));
     }
 
     #[test]

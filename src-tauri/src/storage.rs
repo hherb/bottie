@@ -22,6 +22,7 @@ mod audio_attachments;
 mod automatic_backup;
 mod backup;
 pub(crate) use backup::sweep_manual_backup_staging;
+pub(crate) use portable_backup::SkippedFiles;
 mod branching;
 mod clock;
 mod conversation_attachments;

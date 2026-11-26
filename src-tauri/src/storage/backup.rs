@@ -8,8 +8,9 @@ use std::{
 use rusqlite::{Connection, MAIN_DB, OpenFlags};
 
 use super::portable_backup::{
-    embed_portable_payload, extract_portable_payload, missing_content_count, omitted_file_count,
-    strip_portable_payload, strip_portable_payload_from_connection, validate_portable_payload,
+    SkippedFiles, embed_portable_payload, extract_portable_payload, missing_content_count,
+    omitted_file_count, strip_portable_payload, strip_portable_payload_from_connection,
+    validate_portable_payload,
 };
 use super::staging_sweep::{StagingSweep, remove_stale_staging_files, stale_staging_cutoff};
 use super::{CURRENT_SCHEMA_VERSION, ConversationStore, StorageError, now_ms};
@@ -53,8 +54,8 @@ fn backup_directory(destination: &Path) -> &Path {
 impl ConversationStore {
     /// Copies every committed page to an independently readable database through SQLite's online backup API.
     ///
-    /// Returns how many attachment or image files were left out because they were missing or damaged.
-    pub(crate) fn backup_to(&self, destination: &Path) -> Result<usize, StorageError> {
+    /// Returns how many attachment or image files were left out, split into missing and damaged.
+    pub(crate) fn backup_to(&self, destination: &Path) -> Result<SkippedFiles, StorageError> {
         if paths_refer_to_same_file(&self.path, destination) {
             return Err(StorageError::invalid(
                 "Choose a different location for the Bottie backup.",
@@ -79,7 +80,7 @@ impl ConversationStore {
     /// Writes a complete snapshot with its portable payload to `path` and verifies it.
     ///
     /// On failure `path` may hold partial bytes; callers write to a staging path and clean up.
-    pub(super) fn write_verified_backup(&self, path: &Path) -> Result<usize, StorageError> {
+    pub(super) fn write_verified_backup(&self, path: &Path) -> Result<SkippedFiles, StorageError> {
         remove_database_sidecars(path);
         let source = self.open()?;
         source
@@ -89,11 +90,7 @@ impl ConversationStore {
             embed_portable_payload(path, &self.attachment_root(), &self.generated_asset_root())?;
         verify_backup(path)?;
         // Every row the snapshot lacks must be a file this backup actually skipped as missing or damaged.
-        if omitted_file_count(path).map_err(|fault| fault.backup_error())? != skipped {
-            return Err(StorageError::backup_because(
-                "the snapshot left out files the backup did not skip",
-            ));
-        }
+        skipped.check_omitted(omitted_file_count(path).map_err(|fault| fault.backup_error())?)?;
         Ok(skipped)
     }
 

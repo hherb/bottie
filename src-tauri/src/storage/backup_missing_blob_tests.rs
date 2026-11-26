@@ -8,7 +8,10 @@ use std::fs;
 
 use rusqlite::Connection;
 
-use super::{portable_backup::omitted_file_count, *};
+use super::{
+    portable_backup::{SkippedFiles, omitted_file_count},
+    *,
+};
 
 /// Writes and ingests one attachment beside an isolated store.
 fn ingest(store: &ConversationStore, name: &str, bytes: &[u8]) -> IngestedAttachment {
@@ -33,7 +36,13 @@ fn automatic_backup_skips_a_missing_blob_and_reports_it() {
         .expect("a missing blob must not block the automatic backup");
 
     assert!(rotation.created);
-    assert_eq!(rotation.skipped_files, 1);
+    assert_eq!(
+        rotation.skipped_files,
+        SkippedFiles {
+            missing: 1,
+            damaged: 0
+        }
+    );
     let backup_path = fs::read_dir(store.path.with_file_name("automatic-backups"))
         .expect("automatic backup directory should list")
         .filter_map(Result::ok)
@@ -62,7 +71,13 @@ fn manual_backup_reports_skipped_blobs() {
         .backup_to(&store.path.with_file_name("manual.sqlite3"))
         .expect("a missing blob must not block a manual backup");
 
-    assert_eq!(skipped, 1);
+    assert_eq!(
+        skipped,
+        SkippedFiles {
+            missing: 1,
+            damaged: 0
+        }
+    );
 }
 
 #[test]
@@ -278,10 +293,13 @@ fn a_blob_that_fails_its_checksum_is_left_out_and_counted() {
     .expect("blob should be overwritten");
     let destination = store.path.with_file_name("bottie-checksum.sqlite3");
 
-    // One damaged file must not block every backup (#265).
+    // One damaged file must not block every backup (#265), and it is counted apart from missing ones (#267).
     assert_eq!(
         store.backup_to(&destination).expect("backup should save"),
-        1
+        SkippedFiles {
+            missing: 0,
+            damaged: 1
+        }
     );
     let embedded: Vec<String> = Connection::open(&destination)
         .expect("backup should open")
@@ -345,7 +363,10 @@ fn restoring_a_backup_that_left_out_a_file_succeeds_and_counts_it() {
     let backup_path = source.path.with_file_name("partial.sqlite3");
     assert_eq!(
         source.backup_to(&backup_path).expect("backup should save"),
-        1
+        SkippedFiles {
+            missing: 1,
+            damaged: 0
+        }
     );
 
     let live = ConversationStore::initialize(tests::test_database_path())
@@ -405,4 +426,24 @@ fn reattaching_repairs_a_damaged_blob_and_requeues_its_failed_extraction() {
 
     let processed = tests::completed_ingestion(&store, again);
     assert_eq!(processed.extraction.state, AttachmentExtractionState::Ready);
+}
+
+#[test]
+fn a_snapshot_must_omit_exactly_the_files_the_backup_skipped() {
+    let skipped = SkippedFiles {
+        missing: 1,
+        damaged: 2,
+    };
+    assert!(skipped.check_omitted(3).is_ok());
+    // A row lost in the payload copy, or a skip the snapshot did not reflect, fails the backup.
+    for omitted in [2, 4] {
+        let error = skipped
+            .check_omitted(omitted)
+            .expect_err("a count mismatch must fail the backup");
+        assert!(
+            error
+                .message
+                .contains("the snapshot left out files the backup did not skip")
+        );
+    }
 }

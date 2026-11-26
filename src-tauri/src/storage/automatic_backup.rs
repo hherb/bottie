@@ -6,7 +6,7 @@ use std::{
 };
 
 use super::backup::remove_database_files;
-use super::portable_backup::{PayloadFault, omitted_file_count};
+use super::portable_backup::{PayloadFault, SkippedFiles, omitted_file_count};
 use super::staging_sweep::{StagingSweep, remove_stale_staging, stale_staging_cutoff};
 use super::{ConversationStore, StorageError, now_ms};
 
@@ -41,15 +41,15 @@ pub(crate) struct AutomaticBackupRotation {
     pub(crate) unreadable_expired: usize,
     /// The first unreadable snapshot's path-free cause, such as "Error code 11: database disk image is malformed".
     pub(crate) unreadable_error: Option<String>,
-    /// Catalog files left out of the new snapshot because they were missing from disk or failed their checksum.
-    pub(crate) skipped_files: usize,
+    /// Catalog files left out of the new snapshot, split into missing from disk and failed checksum (#267).
+    pub(crate) skipped_files: SkippedFiles,
 }
 
 impl AutomaticBackupRotation {
-    /// Diagnostic level, event and detail for this rotation. Skipped files, a failed prune, a failed
-    /// completeness check or an unreadable snapshot raise the level to `warn`.
+    /// Diagnostic level, event and detail for this rotation. Skipped (missing or damaged) files, a failed
+    /// prune, a failed completeness check or an unreadable snapshot raise the level to `warn`.
     pub(crate) fn report(&self) -> (&'static str, &'static str, String) {
-        let level = if self.skipped_files > 0
+        let level = if self.skipped_files.total() > 0
             || self.prune_failed > 0
             || self.check_failed > 0
             || self.unreadable_expired > 0
@@ -103,9 +103,18 @@ impl AutomaticBackupRotation {
         }
         if self.created {
             parts.push(format!(
-                "{} missing or damaged attachment or image file(s) left out",
-                self.skipped_files
+                "{} missing attachment or image file(s) left out",
+                self.skipped_files.missing
             ));
+            // Damage is named on its own, since bit-rot needs a disk check and a restore from an older
+            // snapshot, not a re-attach (#267).
+            if self.skipped_files.damaged > 0 {
+                parts.push(format!(
+                    "{} damaged attachment or image file(s) left out because they failed their checksum, \
+                     which can mean a failing disk; older snapshots may still hold their bytes",
+                    self.skipped_files.damaged
+                ));
+            }
         }
         (level, event, parts.join("; "))
     }
@@ -189,7 +198,7 @@ impl ConversationStore {
         let created = !backups
             .iter()
             .any(|backup| backup.timestamp_ms > freshness_threshold);
-        let mut skipped_files = 0;
+        let mut skipped_files = SkippedFiles::default();
         if created {
             let id = uuid::Uuid::new_v4();
             let staging = directory.join(format!("{AUTOMATIC_BACKUP_STAGING_PREFIX}-{id}.sqlite3"));

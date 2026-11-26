@@ -14,7 +14,7 @@ fn report_warns_and_names_failed_prunes_only_when_there_are_any() {
         check_error: None,
         unreadable_expired: 0,
         unreadable_error: None,
-        skipped_files: 0,
+        skipped_files: SkippedFiles::default(),
     };
     assert_eq!(
         clean.report(),
@@ -22,7 +22,7 @@ fn report_warns_and_names_failed_prunes_only_when_there_are_any() {
             "info",
             "Automatic backup created",
             "7 snapshot(s) retained; 1 expired snapshot(s) removed; \
-             0 missing or damaged attachment or image file(s) left out"
+             0 missing attachment or image file(s) left out"
                 .to_owned()
         )
     );
@@ -51,7 +51,7 @@ fn a_current_rotation_reports_info_unless_a_stuck_prune_remains() {
         check_error: None,
         unreadable_expired: 0,
         unreadable_error: None,
-        skipped_files: 0,
+        skipped_files: SkippedFiles::default(),
     };
     assert_eq!(
         current.report(),
@@ -150,7 +150,7 @@ fn an_expired_snapshot_whose_check_fails_is_kept_counted_and_named() {
         check_error: check.failed_cause,
         unreadable_expired: check.unreadable,
         unreadable_error: check.unreadable_cause,
-        skipped_files: 0,
+        skipped_files: SkippedFiles::default(),
     }
     .report();
     assert_eq!(report.0, "warn");
@@ -229,4 +229,42 @@ fn folder_warning_names_unreadable_items_or_an_incomplete_listing() {
              may miss snapshots; later launches check again"
         )
     );
+}
+
+#[test]
+fn a_damaged_file_warns_and_hints_at_disk_health() {
+    let mut rotation = AutomaticBackupRotation {
+        created: true,
+        retained: 7,
+        pruned: 0,
+        prune_failed: 0,
+        prune_error: None,
+        check_failed: 0,
+        check_error: None,
+        unreadable_expired: 0,
+        unreadable_error: None,
+        skipped_files: SkippedFiles {
+            missing: 1,
+            damaged: 2,
+        },
+    };
+    let (level, _, detail) = rotation.report();
+    assert_eq!(level, "warn");
+    assert!(detail.ends_with(
+        "1 missing attachment or image file(s) left out; \
+         2 damaged attachment or image file(s) left out because they failed their checksum, \
+         which can mean a failing disk; older snapshots may still hold their bytes"
+    ));
+
+    // Damage alone must still warn, not only when a file is also missing.
+    rotation.skipped_files = SkippedFiles {
+        missing: 0,
+        damaged: 1,
+    };
+    let (level, _, detail) = rotation.report();
+    assert_eq!(level, "warn");
+    assert!(detail.contains(
+        "0 missing attachment or image file(s) left out; \
+         1 damaged attachment or image file(s) left out because they failed their checksum"
+    ));
 }

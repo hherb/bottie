@@ -326,8 +326,8 @@ export class ConversationState {
     try {
       const outcome = await backupConversationStore();
       if (outcome.status === "saved") {
-        this.backupFeedback = `Backed up ${outcome.fileName ?? "local data"}${missingFilesNote(outcome.missingFiles)}`;
-        this.backupWarning = outcome.missingFiles > 0;
+        this.backupFeedback = `Backed up ${outcome.fileName ?? "local data"}${missingFilesNote(outcome.missingFiles, outcome.damagedFiles)}`;
+        this.backupWarning = outcome.missingFiles > 0 || outcome.damagedFiles > 0;
       }
       this.storageError = null;
     } catch (error) {

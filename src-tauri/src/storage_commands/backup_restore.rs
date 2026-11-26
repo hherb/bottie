@@ -5,7 +5,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 use super::outcomes::{
     BackupOutcome, RestoreOutcome, cancelled_backup, cancelled_restore, leaf_name, restored,
-    saved_backup,
+    saved_backup, skipped_files_detail,
 };
 use crate::{
     AppState,
@@ -60,8 +60,7 @@ pub(crate) async fn backup_conversation_store(
         .await;
     }
     let skipped = backup?;
-    if skipped > 0 {
-        let detail = format!("{skipped} missing or damaged attachment or image file(s) left out");
+    if let Some(detail) = skipped_files_detail(skipped) {
         record_diagnostic(
             &state.diagnostics,
             "warn",
