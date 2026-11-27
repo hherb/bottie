@@ -35,7 +35,7 @@ function updaterEvidence(target, bytes, signature) {
 async function writeFixture(repositoryRoot) {
   const artifactDirectory = join(repositoryRoot, "package", "updater-artifacts");
   await writeFile(join(repositoryRoot, "package.json"), JSON.stringify({ version: VERSION }));
-  await writeFile(join(repositoryRoot, "RELEASE-NOTES.md"), "Bottie 0.9.0 beta tester release.");
+  await writeFile(join(repositoryRoot, "RELEASE-NOTES.md"), "Bottie 0.10.0 beta tester release.");
   await writeFile(join(repositoryRoot, "updater.pub"), PUBLIC_KEY);
   await mkdir(artifactDirectory, { recursive: true });
   const evidence = {};
@@ -57,7 +57,7 @@ describe("protected updater publication", () => {
       const publication = await buildUpdatePublication({
         artifactDirectory: join(repositoryRoot, "package", "updater-artifacts"),
         distributionEvidence: evidence,
-        notes: "Bottie 0.9.0 beta tester release.",
+        notes: "Bottie 0.10.0 beta tester release.",
         publicKey: PUBLIC_KEY,
         publishedAt: "2026-09-02T01:02:03Z",
         version: VERSION,
@@ -86,7 +86,7 @@ describe("protected updater publication", () => {
         buildUpdatePublication({
           artifactDirectory: join(repositoryRoot, "package", "updater-artifacts"),
           distributionEvidence: evidence,
-          notes: "Bottie 0.9.0 beta tester release.",
+          notes: "Bottie 0.10.0 beta tester release.",
           publicKey: PUBLIC_KEY,
           publishedAt: "2026-09-02T01:02:03Z",
           version: VERSION,
@@ -156,7 +156,7 @@ describe("protected updater publication", () => {
 
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("environment: updater-publication");
-    expect(workflow).toContain('"publish Bottie 0.9.0 beta as the latest full GitHub release"');
+    expect(workflow).toContain('"publish Bottie 0.10.0 beta as the latest full GitHub release"');
     expect(workflow).toContain('current_main="$(gh api');
     expect(workflow).toContain('current_main" != "$GITHUB_SHA');
     expect(workflow).toContain("npm run release:candidate");

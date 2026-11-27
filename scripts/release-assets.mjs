@@ -36,7 +36,7 @@ Gemma Prohibited Use Policy. Bottie's MIT licence does not replace or modify the
 `;
 
 export const GEMMA_TERMS_ACKNOWLEDGEMENT =
-  "I have read and accept the Gemma Terms of Use dated 2026-04-01 for Bottie 0.9.0 release review";
+  "I have read and accept the Gemma Terms of Use dated 2026-04-01 for Bottie 0.10.0 release review";
 
 const EMBEDDING_GEMMA_FILES = [
   ["config.json", 1765, "6e1f06404b7163e0325ed2ea3e6781cde50f4a50b31780a95ad0d30e8404d77b"],

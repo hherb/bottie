@@ -20,7 +20,7 @@ import {
 import { acceptsModelTerms, acceptsRuntimeAssets } from "./release-candidate-runtime.mjs";
 
 const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const RELEASE_VERSION = "0.9.0";
+const RELEASE_VERSION = "0.10.0";
 const RELEASE_NOTES_PATH = `RELEASES/${RELEASE_VERSION}.md`;
 const DEPENDENCY_INVENTORY_PATH = "dependency-inventory.json";
 const RUNTIME_ASSETS_PATH = "runtime-assets.json";

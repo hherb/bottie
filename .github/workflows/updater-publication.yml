@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publication_confirmation:
-        description: Type "publish Bottie 0.9.0 beta as the latest full GitHub release"
+        description: Type "publish Bottie 0.10.0 beta as the latest full GitHub release"
         required: true
         type: string
       gemma_terms_acknowledgement:
@@ -43,7 +43,7 @@ jobs:
             exit 1
           fi
           if [[ "$BOTTIE_PUBLICATION_CONFIRMATION" != \
-                "publish Bottie 0.9.0 beta as the latest full GitHub release" ]]; then
+                "publish Bottie 0.10.0 beta as the latest full GitHub release" ]]; then
             echo "The exact latest-full-release confirmation is required." >&2
             exit 1
           fi

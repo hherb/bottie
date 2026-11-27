@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> Bottie 0.9.0 is being prepared as a tester-facing beta. It is not yet distributed as a signed end-user release.
+> Bottie 0.10.0 is being prepared as a tester-facing beta. It is not yet distributed as a signed end-user release.
 
 ## Why Bottie?
 
@@ -615,7 +615,7 @@ npm run package:windows:store
 The repository-owned wrapper performs one locked executable-only Tauri build, constructs the reviewed full-trust x64
 layout, invokes Microsoft `MakeAppx.exe`, independently unpacks the result, and checks the exact manifest, executable,
 Store artwork, project licence, model notice, third-party notices, SHA2-256 block map, architecture, and unsigned state.
-Bottie `0.9.0` maps monotonically to Store package version `1.9.0.0` because Microsoft requires a non-zero first
+Bottie `0.10.0` maps monotonically to Store package version `1.10.0.0` because Microsoft requires a non-zero first
 component and reserves the fourth component.
 
 The manual `Windows Store MSIX validation` workflow accepts the same three public identity inputs, runs the Windows App
@@ -734,9 +734,9 @@ passphrase, private-key bytes, trust-root path, or raw signing output. The manua
 seven days and exact updater release bytes for one day, then removes both signing material and runner package bytes
 even after failure. Its presence is a protected contract, not proof that a current Linux distribution has been signed.
 
-## 0.9.0 beta release candidate
+## 0.10.0 beta release candidate
 
-[`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) is the versioned tester-facing source for Bottie's first desktop beta. After
+[`RELEASES/0.10.0.md`](RELEASES/0.10.0.md) is the versioned tester-facing source for Bottie's first desktop beta. After
 the platform workflows have produced their evidence files, verify the deterministic licence/runtime sources and run
 the offline release gate:
 
@@ -774,7 +774,7 @@ evidence. If and only if they accept the reviewed 1 April 2026 terms for this re
 
 ```sh
 node scripts/release-assets.mjs \
-  '--accept-gemma-terms=I have read and accept the Gemma Terms of Use dated 2026-04-01 for Bottie 0.9.0 release review'
+  '--accept-gemma-terms=I have read and accept the Gemma Terms of Use dated 2026-04-01 for Bottie 0.10.0 release review'
 ```
 
 That deliberate command writes ignored `package/model-terms-evidence.json`, containing only the accepted boolean,
@@ -796,7 +796,7 @@ latest completed slice.
   dependency terms
 - [`MODEL-NOTICE.txt`](MODEL-NOTICE.txt) and [`runtime-assets.json`](runtime-assets.json) — reviewed Gemma terms notice
   plus immutable EmbeddingGemma, Whisper, and ONNX Runtime identities
-- [`RELEASES/0.9.0.md`](RELEASES/0.9.0.md) — tester-facing 0.9.0 beta notes and distribution cautions
+- [`RELEASES/0.10.0.md`](RELEASES/0.10.0.md) — tester-facing 0.10.0 beta notes and distribution cautions
 - [`MIGRATION-ROLLBACK.md`](MIGRATION-ROLLBACK.md) — forward-only migration and recovery contract
 - [`docs/moss-nano-evaluation.md`](docs/moss-nano-evaluation.md) — original CPU trial, measurements, and owner audition
 - [`docs/moss-nano-integration.md`](docs/moss-nano-integration.md) — optional native speech setup, playback, and validation

@@ -156,7 +156,7 @@ export function verifiedLinuxDistributionEvidence(evidence, signedPackage) {
   const installer = evidence?.bundle?.installer;
   if (
     evidence?.schemaVersion !== 1 ||
-    evidence.version !== "0.9.0" ||
+    evidence.version !== "0.10.0" ||
     installer?.metadata?.package !== "bottie" ||
     installer.signature?.classification !== "unsigned" ||
     installer.signature?.verifies !== false
