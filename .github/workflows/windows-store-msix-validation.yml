@@ -27,7 +27,7 @@ jobs:
     env:
       BOTTIE_WINDOWS_STORE_EVIDENCE_PATH: package/windows-store/windows-store-evidence.json
       BOTTIE_WINDOWS_STORE_IDENTITY_NAME: ${{ inputs.identity_name }}
-      BOTTIE_WINDOWS_STORE_MSIX_PATH: package/windows-store/bottie-0.9.0-x64.msix
+      BOTTIE_WINDOWS_STORE_MSIX_PATH: package/windows-store/bottie-0.10.0-x64.msix
       BOTTIE_WINDOWS_STORE_PUBLISHER: ${{ inputs.publisher }}
       BOTTIE_WINDOWS_STORE_PUBLISHER_DISPLAY_NAME: ${{ inputs.publisher_display_name }}
 
@@ -75,7 +75,7 @@ jobs:
         run: |
           & $env:BOTTIE_WINDOWS_APPCERT_PATH reset
           if ($LASTEXITCODE -ne 0) { throw "Windows App Certification Kit reset failed." }
-          $packagePath = Resolve-Path "package/windows-store/bottie-0.9.0-x64.msix"
+          $packagePath = Resolve-Path "package/windows-store/bottie-0.10.0-x64.msix"
           $reportPath = Join-Path $PWD "package/windows-store/wack-report.xml"
           & $env:BOTTIE_WINDOWS_APPCERT_PATH test `
             -appxpackagepath $packagePath `
@@ -88,7 +88,7 @@ jobs:
         with:
           name: bottie-windows-store-msix
           path: |
-            package/windows-store/bottie-0.9.0-x64.msix
+            package/windows-store/bottie-0.10.0-x64.msix
             package/windows-store/windows-store-evidence.json
             package/windows-store/wack-report.xml
           if-no-files-found: error

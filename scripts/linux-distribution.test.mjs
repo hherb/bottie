@@ -23,7 +23,7 @@ import {
 
 const KEY_ID = "0123456789ABCDEF";
 const PUBLISHED_FINGERPRINT = "5C1D104ACE472474CE21070B065CFE6D5D9FD8A4";
-const DEB_PATH = "/tmp/bottie_0.9.0_amd64.deb";
+const DEB_PATH = "/tmp/bottie_0.10.0_amd64.deb";
 const POLICIES_DIRECTORY = "/runner-temp/policies";
 const KEYRINGS_DIRECTORY = "/runner-temp/keyrings";
 const EMBEDDED_SIGNATURE_PATH = "/runner-temp/embedded-origin-signature";
@@ -60,10 +60,10 @@ describe("Linux distribution integration contract", () => {
 function unsignedEvidence() {
   return {
     schemaVersion: 1,
-    version: "0.9.0",
+    version: "0.10.0",
     bundle: {
       installer: {
-        metadata: { architecture: "amd64", package: "bottie", version: "0.9.0" },
+        metadata: { architecture: "amd64", package: "bottie", version: "0.10.0" },
         sha256: "a".repeat(64),
         signature: { classification: "unsigned", verifies: false },
         size: 10,
@@ -437,6 +437,6 @@ describe("Linux distribution signing", () => {
     expect(policy).not.toContain('File="bottie.pgp"');
     expect(verificationGuide.replaceAll(" ", "")).toContain(PUBLISHED_FINGERPRINT);
     expect(verificationGuide).toContain("24 August 2028");
-    expect(verificationGuide).toContain("debsig-verify ./bottie_0.9.0_amd64.deb");
+    expect(verificationGuide).toContain("debsig-verify ./bottie_0.10.0_amd64.deb");
   });
 });

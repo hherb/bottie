@@ -34,7 +34,7 @@ rm -r "$keyring_staging_directory"
 Verify a downloaded package before installing it:
 
 ```sh
-debsig-verify ./bottie_0.9.0_amd64.deb
+debsig-verify ./bottie_0.10.0_amd64.deb
 ```
 
 Successful verification proves that the package's `debian-binary`, control archive, and data archive were signed by

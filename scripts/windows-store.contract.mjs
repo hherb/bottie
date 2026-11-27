@@ -144,7 +144,7 @@ describe("Windows Store MSIX", () => {
     assert.ok(workflow.includes("publisher_display_name:"));
     assert.ok(workflow.includes("package:windows:store"));
     assert.ok(workflow.includes("appcert.exe"));
-    assert.ok(workflow.includes("package/windows-store/bottie-0.9.0-x64.msix"));
+    assert.ok(workflow.includes("package/windows-store/bottie-0.10.0-x64.msix"));
     assert.doesNotMatch(workflow, /pull_request:|push:|release:|secrets\./);
     assert.doesNotMatch(workflow, /winget|Partner Center|store submission/i);
     assert.equal(

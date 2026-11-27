@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/** Builds, Authenticode-signs, verifies, and inspects Bottie's Windows 0.9.0 distribution package. */
+/** Builds, Authenticode-signs, verifies, and inspects Bottie's Windows 0.10.0 distribution package. */
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
